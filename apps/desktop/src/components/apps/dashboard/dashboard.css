@@ -100,3 +100,14 @@
 .sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-actions {
   pointer-events: auto;
 }
+
+/* Keep widget scroll content clear of the scrollbar so it never sits on top of
+   content (e.g. right-aligned timestamps in widget lists). A right padding is
+   correct on every platform without doubling up: classic scrollbars (Windows /
+   Linux) sit outside the padding, and macOS overlay scrollbars float over the
+   padding instead of the content. Scoped to the dashboard so full plugin views
+   that reuse these primitives are untouched. */
+.sero-dashboard [data-slot="widget-content"].overflow-auto,
+.sero-dashboard [data-slot="stack"].overflow-auto {
+  padding-inline-end: 0.5rem;
+}

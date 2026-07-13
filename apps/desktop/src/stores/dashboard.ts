@@ -41,8 +41,8 @@ function createDefaultLayout(
     h: manifest.defaultSize.h,
     minW: manifest.minSize?.w,
     minH: manifest.minSize?.h,
-    maxW: manifest.maxSize?.w,
-    maxH: manifest.maxSize?.h,
+    // No maxW/maxH: widgets resize freely up to the grid width. The manifest
+    // maxSize is treated as advisory (initial ceiling), never a hard resize cap.
   };
 }
 
@@ -119,7 +119,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         ...widget,
         source: widget.source ?? 'manifest',
       })),
-      layouts: state.layouts ?? [],
+      // Drop any persisted maxW/maxH so widgets placed before the cap was
+      // removed also become freely resizable.
+      layouts: (state.layouts ?? []).map(({ maxW: _maxW, maxH: _maxH, ...item }) => item),
     });
   },
 }));

@@ -9,6 +9,8 @@
 export { createDebouncedFn } from './debounce';
 export type { DebouncedFn } from './debounce';
 
+export { relativeTime } from './time';
+
 export {
   SERO_HOST_CAPABILITIES,
 } from './plugins';

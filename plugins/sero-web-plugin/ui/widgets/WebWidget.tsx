@@ -1,115 +1,185 @@
 // widgets/WebWidget.tsx, Dashboard widget for recent web activity.
 //
-// Presentation is composed from @sero-ai/ui dashboard components. The
-// provider-brand badge stays plugin-local (it encodes domain-specific colours).
+// A tabbed view over the plugin's data: recent Activity, saved Bookmarks and
+// Downloads. Each tab's trigger carries its count; bookmark and download rows
+// open their URL in the browser on click. Presentation is composed from
+// @sero-ai/ui — the provider badge stays plugin-local (brand colours).
 
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import {
   ActivityList,
   ActivityListItem,
+  DataBoundary,
   EmptyState,
-  Icon,
   Inline,
   Stack,
-  Status,
-  Text,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   WidgetContent,
+  type Tone,
 } from '@sero-ai/ui';
-import { Globe, Search, FileText, Bookmark, Download } from 'lucide-react';
-import type { WebAccessState, WebEntry } from '../../shared/types';
+import { Globe, FileText, Bookmark as BookmarkIcon, Download } from 'lucide-react';
+import type { WebAccessState, WebEntry, WebDownload } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { relativeTime, truncate } from '../lib/format';
 import { isVisibleDownload } from '../lib/downloads';
 import { ProviderBadge } from '../components/ProviderBadge';
 import '../styles.css';
 
-/** Compact label for an entry. */
+/** How many rows each tab peeks before "+N more". */
+const SHOWN = 5;
+
+type TabKey = 'activity' | 'bookmarks' | 'downloads';
+
+/** Compact label for an activity entry. */
 function entryLabel(entry: WebEntry): string {
   if (entry.type === 'search' && entry.queries?.length) {
     const q = entry.queries;
-    if (q.length === 1) return q[0].query;
-    return `${q.length} queries`;
+    return q.length === 1 ? q[0].query : `${q.length} queries`;
   }
   if (entry.urls?.length) {
     const u = entry.urls;
-    if (u.length === 1) return u[0].title || u[0].url;
-    return `${u.length} URLs`;
+    return u.length === 1 ? u[0].title || u[0].url : `${u.length} URLs`;
   }
   return 'Unknown';
 }
 
-function Stat({ icon, value }: { icon: typeof Search; value: number }) {
+/** Row-filling external link — the whole row becomes the click target. */
+function OpenLink({ url, children }: { url: string; children: React.ReactNode }) {
   return (
-    <Inline gap="xs" align="center">
-      <Icon icon={icon} size="sm" />
-      <Text variant="numeric">{value}</Text>
-    </Inline>
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={url}
+      className="truncate after:absolute after:inset-0 hover:underline"
+    >
+      {children}
+    </a>
   );
 }
 
 export function WebWidget() {
   const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
+  const [tab, setTab] = useState<TabKey>('activity');
 
-  const searches = useMemo(
-    () => state.entries.filter((e) => e.type === 'search').length,
-    [state.entries],
-  );
-  const fetches = useMemo(
-    () => state.entries.filter((e) => e.type === 'fetch').length,
-    [state.entries],
-  );
-
-  const recent = state.entries.slice(0, 4);
+  const entries = state.entries;
+  const bookmarks = [...(state.bookmarks ?? [])].sort((a, b) => b.createdAt - a.createdAt);
+  const downloads = (state.downloads ?? [])
+    .filter(isVisibleDownload)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
     <WidgetContent>
-      <Stack gap="sm" fill>
-        <Inline gap="md" align="center" wrap>
-          <Stat icon={Search} value={searches} />
-          <Stat icon={FileText} value={fetches} />
-          <Stat icon={Bookmark} value={state.bookmarks?.length ?? 0} />
-          <Stat
-            icon={Download}
-            value={(state.downloads ?? []).filter(isVisibleDownload).length}
-          />
-          <Inline gap="xs" align="center" className="ml-auto">
-            {(['exa', 'perplexity', 'gemini'] as const).map((p) => (
-              <Status
-                key={p}
-                tone={state.providers[p] ? 'success' : 'neutral'}
-                title={`${p}: ${state.providers[p] ? 'available' : 'unavailable'}`}
-              />
-            ))}
-          </Inline>
-        </Inline>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as TabKey)}
+        className="min-h-0 flex-1"
+      >
+        <TabsList variant="line" className="w-full">
+          <TabTrigger value="activity" label="Activity" count={entries.length} />
+          <TabTrigger value="bookmarks" label="Bookmarks" count={bookmarks.length} />
+          <TabTrigger value="downloads" label="Downloads" count={downloads.length} />
+        </TabsList>
 
-        {recent.length === 0 ? (
-          <EmptyState icon={Globe} title="No activity yet" />
-        ) : (
+        <TabsContent value="activity" className="flex min-h-0 flex-col">
           <Stack gap="none" scroll>
-            <ActivityList overflowCount={Math.max(0, state.entries.length - 4)}>
-              {recent.map((entry) => (
-                <ActivityListItem
-                  key={entry.id}
-                  icon={entry.type === 'search' ? Globe : FileText}
-                  label={truncate(entryLabel(entry), 40)}
-                  timestamp={
-                    <Inline gap="xs" align="center">
-                      {entry.type === 'search' && entry.queries?.[0]?.provider && (
-                        <ProviderBadge provider={entry.queries[0].provider} />
-                      )}
-                      <span>{relativeTime(entry.timestamp)}</span>
-                    </Inline>
-                  }
-                />
-              ))}
-            </ActivityList>
+            <DataBoundary
+              state={entries.length === 0 ? 'empty' : 'ready'}
+              empty={<EmptyState icon={Globe} title="No activity yet" />}
+            >
+              <ActivityList overflowCount={Math.max(0, entries.length - SHOWN)}>
+                {entries.slice(0, SHOWN).map((entry) => (
+                  <ActivityListItem
+                    key={entry.id}
+                    icon={entry.type === 'search' ? Globe : FileText}
+                    label={truncate(entryLabel(entry), 40)}
+                    timestamp={
+                      <Inline gap="xs" align="center">
+                        {entry.type === 'search' && entry.queries?.[0]?.provider && (
+                          <ProviderBadge provider={entry.queries[0].provider} />
+                        )}
+                        <span>{relativeTime(entry.timestamp)}</span>
+                      </Inline>
+                    }
+                  />
+                ))}
+              </ActivityList>
+            </DataBoundary>
           </Stack>
-        )}
-      </Stack>
+        </TabsContent>
+
+        <TabsContent value="bookmarks" className="flex min-h-0 flex-col">
+          <Stack gap="none" scroll>
+            <DataBoundary
+              state={bookmarks.length === 0 ? 'empty' : 'ready'}
+              empty={<EmptyState icon={BookmarkIcon} title="No bookmarks" />}
+            >
+              <ActivityList overflowCount={Math.max(0, bookmarks.length - SHOWN)}>
+                {bookmarks.slice(0, SHOWN).map((b) => (
+                  <ActivityListItem
+                    key={b.id}
+                    className="relative"
+                    icon={BookmarkIcon}
+                    tone="success"
+                    label={<OpenLink url={b.url}>{b.title || b.url}</OpenLink>}
+                    timestamp={relativeTime(b.createdAt)}
+                  />
+                ))}
+              </ActivityList>
+            </DataBoundary>
+          </Stack>
+        </TabsContent>
+
+        <TabsContent value="downloads" className="flex min-h-0 flex-col">
+          <Stack gap="none" scroll>
+            <DataBoundary
+              state={downloads.length === 0 ? 'empty' : 'ready'}
+              empty={<EmptyState icon={Download} title="No downloads" />}
+            >
+              <ActivityList overflowCount={Math.max(0, downloads.length - SHOWN)}>
+                {downloads.slice(0, SHOWN).map((d) => (
+                  <ActivityListItem
+                    key={d.id}
+                    className="relative"
+                    icon={Download}
+                    tone={downloadTone(d.status)}
+                    label={<OpenLink url={d.sourceUrl}>{d.title || d.sourceUrl}</OpenLink>}
+                    timestamp={relativeTime(d.updatedAt)}
+                  />
+                ))}
+              </ActivityList>
+            </DataBoundary>
+          </Stack>
+        </TabsContent>
+      </Tabs>
     </WidgetContent>
   );
+}
+
+/** A tab trigger with a trailing count. */
+function TabTrigger({ value, label, count }: { value: TabKey; label: string; count: number }) {
+  return (
+    <TabsTrigger value={value}>
+      <span className="truncate">{label}</span>
+      <span className="text-[10px] tabular-nums opacity-60">{count}</span>
+    </TabsTrigger>
+  );
+}
+
+/** Tone for a download's leading icon, encoding its status by colour. */
+function downloadTone(status: WebDownload['status']): Tone {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'error':
+      return 'error';
+    default:
+      return 'info';
+  }
 }
 
 export default WebWidget;

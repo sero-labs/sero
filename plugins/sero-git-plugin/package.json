@@ -25,7 +25,27 @@
       "stateFile": ".sero/apps/git/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GitApp",
-      "devPort": 5194
+      "devPort": 5194,
+      "widgets": [
+        {
+          "id": "status",
+          "name": "Repo Status",
+          "component": "GitStatusWidget",
+          "description": "Current branch, sync state and working tree changes",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 4, "h": 3 }
+        },
+        {
+          "id": "commits",
+          "name": "Recent Commits",
+          "component": "GitCommitsWidget",
+          "description": "Latest commits on the current branch",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
     },
     "plugin": {
       "category": "developer-tools",
@@ -56,6 +76,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
