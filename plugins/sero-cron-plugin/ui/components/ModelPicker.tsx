@@ -6,7 +6,7 @@
  * as a "provider/modelId" string matching the `pi --model` flag format.
  */
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, useId } from 'react';
 import { Check, Settings2, Sparkles, X } from 'lucide-react';
 import {
   useAvailableModels,
@@ -71,6 +71,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
   const [filter, setFilter] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxId = useId();
 
   // Resolve current selection
   const resolved = useMemo(() => findModel(groups, value), [groups, value]);
@@ -122,55 +123,62 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
+      <div
         className={cn(
-          'flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground transition-colors',
-          'hover:bg-secondary/50 focus:outline-none focus:ring-1 focus:ring-ring',
+          'flex w-full items-center rounded-md border border-input bg-background text-base text-foreground transition-colors',
+          'hover:bg-secondary/50 focus-within:ring-1 focus-within:ring-ring',
           open && 'ring-1 ring-ring',
         )}
       >
-        {resolved ? (
-          <>
-            <img
-              src={resolved.group.logo}
-              alt={resolved.group.displayName}
-              className="size-4 rounded-sm dark:invert"
-            />
-            <span className="flex-1 truncate text-left font-medium">
-              {resolved.model.name}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listboxId : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 focus:outline-none"
+        >
+          {resolved ? (
+            <>
+              <img
+                src={resolved.group.logo}
+                alt={resolved.group.displayName}
+                className="size-4 rounded-sm dark:invert"
+              />
+              <span className="flex-1 truncate text-left font-medium">
+                {resolved.model.name}
+              </span>
+              {resolved.model.reasoning && (
+                <Sparkles className="size-3 text-amber-500" />
+              )}
+            </>
+          ) : value ? (
+            <span className="flex-1 truncate text-left font-mono text-muted-foreground">
+              {value}
             </span>
-            {resolved.model.reasoning && (
-              <Sparkles className="size-3 text-amber-500" />
-            )}
-          </>
-        ) : value ? (
-          <span className="flex-1 truncate text-left font-mono text-muted-foreground">
-            {value}
-          </span>
-        ) : (
-          <span className="flex-1 text-left text-muted-foreground">
-            Default model
-          </span>
-        )}
-
-        {/* Clear / chevron */}
+          ) : (
+            <span className="flex-1 text-left text-muted-foreground">
+              Default model
+            </span>
+          )}
+          {!value && (
+            <svg className="size-3 text-muted-foreground" viewBox="0 0 12 12" fill="none">
+              <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
         {value ? (
           <button
             type="button"
             onClick={handleClear}
-            className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground"
+            className="mr-2 rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
             title="Reset to default"
+            aria-label="Reset to default"
           >
             <X className="size-3" />
           </button>
-        ) : (
-          <svg className="size-3 text-muted-foreground" viewBox="0 0 12 12" fill="none">
-            <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </button>
+        ) : null}
+      </div>
 
       {/* Dropdown, opens upward to avoid overflowing the dialog */}
       {open && (
@@ -186,7 +194,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
           />
 
           {/* Model list */}
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div id={listboxId} role="listbox" className="max-h-[240px] overflow-y-auto py-1">
             {loading ? (
               <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                 Loading models…
@@ -265,7 +273,7 @@ function ProviderGroup({
           {group.displayName}
         </span>
       </div>
-      <div className="px-1">
+      <div role="group" aria-label={group.displayName} className="px-1">
         {group.models.map((model) => {
           const modelStr = toModelString(model);
           const isSelected = selectedValue === modelStr || selectedValue === model.modelId;
@@ -273,6 +281,8 @@ function ProviderGroup({
             <button
               key={modelStr}
               type="button"
+              role="option"
+              aria-selected={isSelected}
               onClick={() => onSelect(model)}
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',

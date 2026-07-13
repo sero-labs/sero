@@ -58,9 +58,10 @@ async function doRefresh(force: boolean): Promise<RefreshSummary> {
 
   const sessionsDir = resolveSessionsDir();
   const cachePath = resolveScanCachePath();
-  const cache = await loadScanCache(cachePath);
-
-  const sessionFiles = await collectSessionFiles(sessionsDir);
+  const [cache, sessionFiles] = await Promise.all([
+    loadScanCache(cachePath),
+    collectSessionFiles(sessionsDir),
+  ]);
   const scan = await scanWithCache(sessionFiles, cache);
   await saveScanCache(cachePath, scan.cache);
 

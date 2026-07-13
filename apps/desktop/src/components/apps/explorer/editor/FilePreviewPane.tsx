@@ -80,16 +80,6 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setBlobUrl(null);
-    setFileSize(null);
-    setDimensions(null);
-
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
 
     (async () => {
       try {
@@ -249,6 +239,7 @@ export function FilePreviewPane({ workspaceId, filePath, content, spec }: Props)
 
   return (
     <BinaryFilePreview
+      key={`${workspaceId}\0${filePath}\0${spec.kind}\0${spec.mimeType}`}
       workspaceId={workspaceId}
       filePath={filePath}
       spec={spec}

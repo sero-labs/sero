@@ -10,9 +10,8 @@
  * on a live widget.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, useEffect, useState, useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
-import { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -25,8 +24,14 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { registerCustomEditorThemes, resolveMonacoThemeName } from './monaco-themes';
+import { EditorSuspense } from './EditorSuspense';
 import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
+
+const DiffEditor = lazy(async () => {
+  const { DiffEditor: MonacoDiffEditor } = await import('@monaco-editor/react');
+  return { default: MonacoDiffEditor };
+});
 
 export interface DiffTabState {
   type: 'diff';
@@ -229,26 +234,28 @@ function DiffFileView({
   }
 
   return (
-    <DiffEditor
-      original={left}
-      modified={right}
-      language={language}
-      theme={theme}
-      beforeMount={registerCustomEditorThemes}
-      onMount={handleDiffMount}
-      keepCurrentOriginalModel
-      keepCurrentModifiedModel
-      options={{
-        readOnly: true,
-        renderSideBySide: sideBySide,
-        minimap: { enabled: true },
-        scrollBeyondLastLine: false,
-        fontSize: 12,
-        lineNumbers: 'on',
-        renderOverviewRuler: true,
-        diffWordWrap: 'on',
-      }}
-    />
+    <EditorSuspense>
+      <DiffEditor
+        original={left}
+        modified={right}
+        language={language}
+        theme={theme}
+        beforeMount={registerCustomEditorThemes}
+        onMount={handleDiffMount}
+        keepCurrentOriginalModel
+        keepCurrentModifiedModel
+        options={{
+          readOnly: true,
+          renderSideBySide: sideBySide,
+          minimap: { enabled: true },
+          scrollBeyondLastLine: false,
+          fontSize: 12,
+          lineNumbers: 'on',
+          renderOverviewRuler: true,
+          diffWordWrap: 'on',
+        }}
+      />
+    </EditorSuspense>
   );
 }
 
