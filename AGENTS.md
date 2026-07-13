@@ -118,7 +118,6 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
 - Ensure good type safety in source files when conducting PR reviews
-- Don't push to remote git branch automatically unless asked specifically or asked to create a PR
 - Avoid duplicating types that already exist in Pi SDK libraries. Import the canonical Pi types instead so upstream changes fail at typecheck time rather than becoming runtime mismatches.
 - Do not delete relevant comments
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns
