@@ -138,6 +138,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/extension-runtime':
+        specifier: workspace:*
+        version: link:../../packages/extension-runtime
       ansi-styles:
         specifier: 4.3.0
         version: 4.3.0
