@@ -9,6 +9,7 @@ const STOP_EFFECTS_GRACE_MS = 5_000;
 
 interface StopPluginDevSessionOptions {
   sessionId: string;
+  record: PluginDevSessionRecord;
   pendingTask?: Promise<unknown>;
   sessions: Map<string, PluginDevSessionRecord>;
   activeManifests: Map<string, SeroAppManifest>;
@@ -38,15 +39,14 @@ export async function stopPluginDevSession(options: StopPluginDevSessionOptions)
     }
   }
 
-  const record = options.sessions.get(options.sessionId);
-  if (!record) return;
+  if (options.sessions.get(options.sessionId) !== options.record) return;
 
   const activeManifest = options.activeManifests.get(options.sessionId) ?? null;
   options.sessions.delete(options.sessionId);
   options.activeManifests.delete(options.sessionId);
   options.unwatch(options.sessionId);
   options.persistSessions();
-  await stopPluginDevServer(record.sourcePath);
+  await stopPluginDevServer(options.record.sourcePath);
 
   if (!activeManifest) return;
 

@@ -145,15 +145,21 @@ export class PluginDevSessionManager {
   async stop(sessionId: string): Promise<void> {
     await this.initialize();
     this.clearBootstrapProbe(sessionId);
+    const record = this.getSessionOrThrow(sessionId);
     this.stoppedSessionIds.add(sessionId);
-    await stopPluginDevSession({
-      sessionId,
-      pendingTask: this.sessionTasks.get(sessionId),
-      sessions: this.sessions,
-      activeManifests: this.activeManifests,
-      unwatch: (id) => this.watcher.unwatch(id),
-      persistSessions: () => this.persistSessions(),
-    });
+    try {
+      await stopPluginDevSession({
+        sessionId,
+        record,
+        pendingTask: this.sessionTasks.get(sessionId),
+        sessions: this.sessions,
+        activeManifests: this.activeManifests,
+        unwatch: (id) => this.watcher.unwatch(id),
+        persistSessions: () => this.persistSessions(),
+      });
+    } finally {
+      this.stoppedSessionIds.delete(sessionId);
+    }
   }
 
   async refresh(
@@ -390,6 +396,7 @@ export class PluginDevSessionManager {
   }
 
   private persistSession(record: PluginDevSessionRecord): void {
+    this.stoppedSessionIds.delete(record.sessionId);
     this.sessions.set(record.sessionId, record);
     this.syncWatcher(record);
     this.persistSessions();
