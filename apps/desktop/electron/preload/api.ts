@@ -18,7 +18,6 @@ import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
 import { subagentContextBridge } from './agent/subagent-context';
 import { localModelsBridge } from './agent/local-models';
-import { imagegenBridge } from './integrations/imagegen';
 import { modelConfigBridge, onboardingBridge } from './onboarding';
 import {
   appStateBridge,
@@ -69,7 +68,6 @@ export const seroPreloadApi = {
   localModels: localModelsBridge,
   modelConfig: modelConfigBridge,
   onboarding: onboardingBridge,
-  imagegen: imagegenBridge,
   pluginConfig: pluginConfigBridge,
   voice: voiceBridge,
   auth: authBridge,
