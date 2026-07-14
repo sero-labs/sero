@@ -236,11 +236,13 @@
 }
 
 @theme inline {
-  --text-xs: 0.7857rem;              /* 11px / 14px */
-  --text-xs--line-height: 1rem;       /* 14px / 14px */
+  --text-xs: 0.8rem;
+  --text-xs--line-height: 1rem;
   
-  --text-sm: 0.8571rem;              /* 12px / 14px */
-  --text-sm--line-height: 1.1429rem; /* 16px / 14px */
+  --text-sm: 0.9rem;
+  --text-sm--line-height: 1.2rem;
+
+  --text-base--line-height: 1.4rem;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
