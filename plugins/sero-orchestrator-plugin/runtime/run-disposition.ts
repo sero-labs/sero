@@ -10,7 +10,7 @@ export function migrateLegacyRunDisposition(loop: Loop): Loop {
   const last = loop.runs[loop.runs.length - 1];
   if (!reason || !isPreflightWaitingRun(last)) return loop;
 
-  const snoozed = Boolean(loop.runtime.snoozedUntil) || reason.startsWith('Snoozed until ');
+  const snoozed = Boolean(loop.runtime.snoozedUntil);
   const migratedRun: LoopRun = {
     ...last,
     status: snoozed ? 'snoozed' : 'skipped',
