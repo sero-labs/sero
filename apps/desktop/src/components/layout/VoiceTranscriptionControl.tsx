@@ -379,7 +379,7 @@ export function VoiceTranscriptionControl({
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">{input.label}</span>
-                    {selected && <Check className="size-3.5 shrink-0 text-status-success" />}
+                    {selected && <Check className="size-3.5 shrink-0 text-[var(--brand-primary)]" />}
                   </button>
                 );
               })}

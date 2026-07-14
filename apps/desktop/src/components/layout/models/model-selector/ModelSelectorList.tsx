@@ -26,7 +26,7 @@ const ModelItem = memo(function ModelItem({
     >
       <div className="flex size-4 shrink-0 items-center justify-center">
         {isSelected ? (
-          <Check className="size-3.5 scale-100 text-status-success transition-transform duration-150" />
+          <Check className="size-3.5 scale-100 text-[var(--brand-primary)] transition-transform duration-150" />
         ) : isFavourite ? (
           <Star className="size-3 text-amber-400" fill="currentColor" />
         ) : (
@@ -36,7 +36,7 @@ const ModelItem = memo(function ModelItem({
       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <span className="truncate text-sm font-medium">{model.name}</span>
         {model.reasoning ? (
-          <Sparkles className="size-3 shrink-0 text-status-warning/60" />
+          <Sparkles className="size-3 shrink-0 text-[var(--accent-primary)]/60" />
         ) : null}
       </div>
     </button>

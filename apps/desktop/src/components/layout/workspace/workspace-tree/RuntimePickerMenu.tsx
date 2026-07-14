@@ -175,10 +175,10 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                   aria-current={selected ? 'true' : undefined}
                   className={cn(
                     'group flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all duration-150',
-                    'border-transparent hover:border-[var(--accent-primary)] hover:bg-status-info-faint hover:shadow-sm',
+                    'border-transparent hover:border-[var(--accent-primary)] hover:bg-[var(--brand-primary-faint)] hover:shadow-sm',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]',
                     'disabled:cursor-not-allowed disabled:opacity-60',
-                    selected && 'border-[var(--accent-primary)] bg-status-info-faint',
+                    selected && 'border-[var(--accent-primary)] bg-[var(--brand-primary-faint)]',
                     pending && 'border-status-info bg-status-info-muted',
                   )}
                 >
@@ -198,7 +198,7 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                         </span>
                       ) : null}
                       {option.recommended ? (
-                        <span className="rounded bg-status-success-faint px-1 py-0.5 text-sm uppercase tracking-wide text-[var(--brand-primary)]">
+                        <span className="rounded bg-[var(--brand-primary-faint)] px-1 py-0.5 text-sm uppercase tracking-wide text-[var(--brand-primary)]">
                           Default
                         </span>
                       ) : null}

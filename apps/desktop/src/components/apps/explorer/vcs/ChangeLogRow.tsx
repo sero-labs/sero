@@ -21,7 +21,7 @@ interface Props {
 
 function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
   if (entry.isWorkingCopy) {
-    return <span className="text-sm font-bold text-status-info">@</span>;
+    return <span className="text-sm font-bold text-[var(--brand-primary)]">@</span>;
   }
   if (entry.immutable) {
     return <CheckCircle2 className="size-3 text-status-success" />;
@@ -61,7 +61,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
         className={cn(
           'shrink-0 font-mono text-sm',
           entry.isWorkingCopy
-            ? 'text-status-info/80'
+            ? 'text-[var(--brand-primary)]/80'
             : 'text-[var(--text-muted)]/50',
         )}
       >
@@ -95,8 +95,8 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
               key={bm}
               className={cn(
                 'rounded-sm px-1 py-px text-xs font-medium leading-tight',
-                'bg-status-info-muted text-status-info',
-                'border border-status-info-subtle',
+                'bg-[var(--brand-primary-muted)] text-[var(--brand-primary)]',
+                'border border-[var(--brand-primary-subtle)]',
               )}
             >
               {truncate(bm, 18)}

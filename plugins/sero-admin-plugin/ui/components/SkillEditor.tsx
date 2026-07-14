@@ -117,7 +117,6 @@ export function SkillEditor({
             disabled={lockedHidden}
             onCheckedChange={onVisibilityChange}
             aria-label={`Toggle model visibility for ${data.name}`}
-            className="data-[state=checked]:bg-status-success"
           />
         </div>
       )}
