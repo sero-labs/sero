@@ -36,7 +36,7 @@ export const DEFAULT_LIBRARY_INDEX: LibraryIndex = {
 export const DEFAULT_WORKSPACE_SETTINGS: LoopWorkspaceSettings = {
   useManagedWorktree: true,
   reuseExistingWorktree: true,
-  dirtyWorkspacePromptTimeoutMs: 30_000,
+  dirtyWorkspacePromptTimeoutMs: 60_000,
   dirtyWorkspaceDefaultAction: 'create-managed-worktree',
   allowDirtyWorkspaceRoot: false,
 };

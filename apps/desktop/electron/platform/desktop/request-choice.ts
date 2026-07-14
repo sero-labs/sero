@@ -42,11 +42,21 @@ export async function requestChoice(
         id: 'q0',
         label: options.title,
         prompt: options.body,
-        options: options.choices.map((choice) => ({ value: choice.id, label: choice.label })),
+        options: options.choices.map((choice) => ({
+          value: choice.id,
+          label: choice.label,
+          description: choice.description,
+          menu: choice.menu,
+          emphasis: choice.emphasis,
+        })),
         allowOther: false,
       },
     ],
     timestamp: new Date().toISOString(),
+    context: options.context,
+    openTarget: options.openTarget,
+    expiresAt: new Date(Date.now() + options.timeoutMs).toISOString(),
+    fallbackLabel: options.fallbackLabel,
   };
 
   return new Promise<AppRuntimeNotificationChoiceResult>((resolve) => {

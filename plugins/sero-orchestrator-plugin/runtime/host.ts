@@ -11,6 +11,7 @@
 
 import type {
   AppRuntimeCommandResult,
+  AppRuntimeNotificationChoiceOptions,
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
   ContextAgentInfo,
@@ -124,12 +125,7 @@ export interface WorkspaceStatus {
   summary: string;
 }
 
-export interface ChoiceRequest {
-  title: string;
-  body: string;
-  choices: { id: string; label: string }[];
-  timeoutMs: number;
-}
+export type ChoiceRequest = AppRuntimeNotificationChoiceOptions;
 
 export interface ChoiceResult {
   choiceId: string | null;

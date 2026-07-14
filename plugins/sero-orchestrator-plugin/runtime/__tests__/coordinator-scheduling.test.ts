@@ -36,6 +36,29 @@ describe('Coordinator scheduling (Phase 7)', () => {
     await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).tick();
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
     expect(host.state.loops[0].triggers[0].fireCount).toBe(1); // collapsed to one fire
+    expect(host.state.loops[0].runs[0].triggerId).toBe('c');
+  });
+
+  it('holds a snoozed scheduled run and retries it once the snooze expires', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const seeded = seedActiveLoop(host, oneStepPlan().plan);
+    const loop = addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', nextFireAt: '2026-06-22T12:00:00.000Z', fireCount: 0 });
+    host.state = {
+      ...host.state,
+      loops: [{ ...loop, runtime: { ...seeded.runtime, snoozedUntil: '2026-06-22T11:00:00.000Z', pendingTriggerId: 'c' } }],
+    };
+    const executor = fakeExecutor({ 'step-1': SUCCESS });
+    const c = coordinator(host, { executor });
+
+    await c.tick();
+    expect(executor.calls).toEqual([]);
+
+    host.frozenNow = '2026-06-22T11:01:00.000Z';
+    await c.tick();
+    expect(executor.calls).toEqual(['step-1']);
+    expect(host.state.loops[0].runtime.snoozedUntil).toBeUndefined();
+    expect(host.state.loops[0].runs[0].triggerId).toBe('c');
   });
 
   it('a recurring cron loop re-arms and runs the plan again on the next fire', async () => {

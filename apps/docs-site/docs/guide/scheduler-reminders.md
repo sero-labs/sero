@@ -69,14 +69,20 @@ explicit. Review these fields carefully before enabling a job.
 ## Scheduled Orchestrator loops
 
 The **Loops** tab lists the active workspace's Orchestrator loops that run on a
-schedule. Loops are created and managed in the Orchestrator app — this tab is a
-window into them:
+schedule, plus loops with a pending snoozed retry. Loops are created and managed
+in the Orchestrator app — this tab is a window into them:
 
 - **Edit schedule** changes the loop's cron schedule (evaluated in UTC).
 - **Pause / Resume** stops or re-arms only the schedule. A loop that also runs
   on events (shown with an **Events** badge) keeps firing on those events while
   its schedule is paused.
 - **Open in Orchestrator** jumps to the loop's details.
+
+A loop delayed from an uncommitted-changes confirmation shows a **Snoozed**
+badge and the retry time. Snoozing delays the pending Orchestrator run; it does
+not change the loop's cron schedule. A manually snoozed event-only loop also
+appears here as a one-off retry without schedule-edit controls. Manage the loop
+itself in Orchestrator.
 
 A schedule that has reached its run limit shows **Run limit reached** and can no
 longer be edited or resumed — restart the loop in Orchestrator to run it again.

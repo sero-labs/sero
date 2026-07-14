@@ -127,6 +127,20 @@ describe('run-split helpers', () => {
     expect(index.runs[0].steps[0]).toMatchObject({ stepId: 's', outcomeStatus: 'succeeded' });
   });
 
+  it('keeps skipped and snoozed disposition details in the run index', () => {
+    const snoozed = {
+      ...run('r1'),
+      status: 'snoozed' as const,
+      statusReason: 'User snoozed the run.',
+      retryAt: '2026-07-14T09:00:00.000Z',
+    };
+    expect(buildRunIndex([snoozed]).runs[0]).toMatchObject({
+      status: 'snoozed',
+      statusReason: 'User snoozed the run.',
+      retryAt: '2026-07-14T09:00:00.000Z',
+    });
+  });
+
   it('rolls each run\'s attempt usage up into the summary (and omits it when none reported)', () => {
     const withUsage = run('r1');
     withUsage.stepAttempts[0].usage = { inputTokens: 100, outputTokens: 20, totalTokens: 120, durationMs: 900 };

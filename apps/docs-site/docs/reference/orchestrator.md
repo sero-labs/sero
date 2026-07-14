@@ -95,6 +95,36 @@ default, type to replace it, or clear it to drop the default entirely. The
 orchestrator's per-step result rules always apply on top. Tools are set per step
 in the plan, not here.
 
+## Workspace placement and uncommitted changes
+
+Managed-worktree loops run in a separate checkout and do not prompt about
+changes in the workspace root. Workspace-root loops check for uncommitted
+changes before background filesystem work starts.
+
+The confirmation identifies the loop, workspace, and trigger type. It links to
+the loop detail and offers these actions:
+
+- **Run isolated** — create a managed worktree. This is also the 60-second
+  timeout fallback.
+- **Run here once** — work in the workspace root without stashing.
+- **Always run here for this loop** — persist the loop-level dirty-workspace
+  override.
+- **Stash changes and run here** — create a Git stash, then use the workspace
+  root.
+- **Skip this run** — start no steps and wait for the next normal trigger.
+- **Snooze** — for scheduled or manually started runs, retry after 15 minutes,
+  1 hour, 4 hours, or at 9:00 AM the next day. Event-fired runs do not offer
+  snooze because the retry must not lose the event payload.
+
+Snooze state is durable. Scheduled fires that occur while snoozed collapse into
+one retry, queued events wait, and the dirty-workspace check runs again when the
+snooze expires.
+
+Attempt history records these outcomes explicitly. A skipped pass has status
+**Skipped** and its reason; a delayed pass has status **Snoozed** and keeps its
+retry time even after the loop resumes. **Waiting** remains reserved for runs
+parked on input or with no runnable step.
+
 ## Delivery
 
 Every loop has a **delivery destination** — where its results ship. You choose
@@ -200,6 +230,10 @@ every scheduled loop in the workspace and can edit or pause the schedule
 directly (the `set_schedule` action). Only the schedule is editable there — the
 loop itself is still managed in Orchestrator. Pausing a hybrid loop's schedule
 stops only its scheduled runs; it keeps firing on its events.
+
+The Loops tab also lists pending snoozed retries. An event-only loop snoozed
+from a manual run appears without cron editing controls and disappears after
+the retry starts.
 
 ### Event sources
 

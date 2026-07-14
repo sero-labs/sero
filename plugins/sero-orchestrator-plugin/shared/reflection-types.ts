@@ -34,6 +34,8 @@ export interface RunDigestStep {
 export interface RunDigest {
   runNumber: number;
   status: LoopRunStatus;
+  statusReason?: string;
+  retryAt?: string;
   completion?: 'complete' | 'blocked';
   startedAt: string;
   endedAt?: string;

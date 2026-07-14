@@ -8,8 +8,28 @@ export interface UserFeedbackQuestionOption {
   value: string;
   label: string;
   description?: string;
+  /** Groups related choices under a compact dropdown instead of a flat list. */
+  menu?: string;
+  /** Gives the safest direct choice primary visual weight. */
+  emphasis?: 'primary';
   exclusive?: boolean;
   subQuestion?: UserFeedbackQuestionItem;
+}
+
+export interface UserFeedbackQuestionContext {
+  /** Human-readable origin, for example "Sero Orchestrator". */
+  source?: string;
+  /** Workspace resolved to its display name by the shell. */
+  workspaceId?: string;
+  /** Short reason the question appeared, for example "Scheduled loop". */
+  trigger?: string;
+}
+
+export interface UserFeedbackOpenTarget {
+  appId: string;
+  workspaceId?: string;
+  params?: Record<string, unknown>;
+  label?: string;
 }
 
 export interface UserFeedbackQuestionItem {
@@ -28,6 +48,12 @@ export interface UserFeedbackPendingQuestion {
   toolCallId: string;
   questions: UserFeedbackQuestionItem[];
   timestamp: string;
+  context?: UserFeedbackQuestionContext;
+  openTarget?: UserFeedbackOpenTarget;
+  /** Choice timeout shown by the renderer. */
+  expiresAt?: string;
+  /** Describes what happens when the timeout expires. */
+  fallbackLabel?: string;
 }
 
 export interface UserFeedbackAnswer {

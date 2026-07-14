@@ -90,12 +90,6 @@ export type {
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeDevServersApi,
-  AppRuntimeNotificationType,
-  AppRuntimeNotificationOptions,
-  AppRuntimeNotificationChoice,
-  AppRuntimeNotificationChoiceResult,
-  AppRuntimeNotificationChoiceOptions,
-  AppRuntimeNotificationsApi,
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
   AppRuntimeToolchainsApi,
@@ -109,6 +103,15 @@ export type {
   AppRuntime,
   AppRuntimeModule,
 } from './app-runtime-background';
+
+export type {
+  AppRuntimeNotificationType,
+  AppRuntimeNotificationOptions,
+  AppRuntimeNotificationChoice,
+  AppRuntimeNotificationChoiceResult,
+  AppRuntimeNotificationChoiceOptions,
+  AppRuntimeNotificationsApi,
+} from './app-runtime-notifications';
 
 export type {
   ContextToolInfo,
@@ -185,6 +188,8 @@ export {
 export type {
   UserFeedbackQuestionType,
   UserFeedbackQuestionOption,
+  UserFeedbackQuestionContext,
+  UserFeedbackOpenTarget,
   UserFeedbackQuestionItem,
   UserFeedbackPendingQuestion,
   UserFeedbackAnswer,

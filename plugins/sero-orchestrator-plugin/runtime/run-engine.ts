@@ -115,6 +115,7 @@ export class RunEngine {
       id: this.host.newId('run'),
       runNumber: runSeq,
       status: 'running',
+      triggerId: initial.runtime.pendingTriggerId,
       firedBy: event ? toEventFiredBy(event) : undefined,
       startedStepIds: [],
       stepAttempts: [],
@@ -132,6 +133,7 @@ export class RunEngine {
         activeRunId: run.id,
         lastRunAt: now,
         runSeq,
+        pendingTriggerId: undefined,
         pendingEvents: remainingEvents?.length ? remainingEvents : undefined,
       },
     };
@@ -141,7 +143,6 @@ export class RunEngine {
     loop = await this.commit(await reconcileDeliveryWarning(this.host, loop));
 
     let stop = false;
-    let deferred: string | undefined;
     while (!stop) {
       // A `disable` may have aborted this run and turned the loop off mid-flight.
       if (signal?.aborted || loop.status === 'disabled') {
@@ -191,8 +192,12 @@ export class RunEngine {
         }
         loop = await this.commit(resolution.loop);
         if (resolution.deferred) {
-          run = { ...run, status: 'waiting' };
-          deferred = resolution.deferred;
+          run = {
+            ...run,
+            status: resolution.deferred.status,
+            statusReason: resolution.deferred.reason,
+            retryAt: resolution.deferred.retryAt,
+          };
           break;
         }
       }
@@ -202,7 +207,7 @@ export class RunEngine {
       run = result.run;
       stop = result.stop;
     }
-    return await this.finalize(loop, run, deferred);
+    return await this.finalize(loop, run);
   }
 
   /**
@@ -393,7 +398,7 @@ export class RunEngine {
     };
   }
 
-  private async finalize(loop: Loop, run: LoopRun, deferredReason?: string): Promise<LoopRun> {
+  private async finalize(loop: Loop, run: LoopRun): Promise<LoopRun> {
     const now = this.host.now();
     this.consumedEvents.delete(loop.id);
     const finishedRun: LoopRun = { ...run, endedAt: now };
@@ -402,7 +407,6 @@ export class RunEngine {
     await appendDigest(this.host, loop.id, buildRunDigest(loop, finishedRun), loop.logPolicy.retainDigests ?? DEFAULT_RETAIN_DIGESTS)
       .catch((error) => this.host.log(`digest write failed for ${loop.id}: ${error}`));
     const runs = pruneRuns(replaceRun(loop.runs, finishedRun), loop.logPolicy.retainRuns);
-    const workspace = deferredReason ? { ...loop.runtime.workspace, deferredReason } : loop.runtime.workspace;
     // A cancelled run (e.g. a `disable` mid-batch) committed its batch's steps as
     // `running` before aborting. Reset those to `pending` so the loop is runnable
     // again when re-enabled — otherwise readiness never restarts them (it only
@@ -414,7 +418,7 @@ export class RunEngine {
     const cleared: Loop = {
       ...loop,
       runs,
-      runtime: { ...loop.runtime, activeRunId: undefined, workspace, stepStates },
+      runtime: { ...loop.runtime, activeRunId: undefined, stepStates },
       updatedAt: now,
     };
     await this.commit(cleared);
@@ -493,4 +497,3 @@ export class RunEngine {
     return result;
   }
 }
-

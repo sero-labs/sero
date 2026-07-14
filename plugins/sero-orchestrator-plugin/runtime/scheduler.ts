@@ -32,18 +32,20 @@ function fire(trigger: LoopTrigger, nowMs: number, nextFireAt?: string): LoopTri
 }
 
 /** Marks cron/hybrid triggers due when their nextFireAt has passed. Collapses missed fires. */
-export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; due: boolean } {
+export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; due: boolean; triggerId?: string } {
   let due = false;
+  let triggerId: string | undefined;
   const triggers = loop.triggers.map((trigger) => {
     if (trigger.disabled || trigger.scheduleDisabled) return trigger;
     if (trigger.type !== 'cron' && trigger.type !== 'hybrid') return trigger;
     if (!trigger.schedule || !trigger.nextFireAt) return trigger;
     if (Date.parse(trigger.nextFireAt) > nowMs) return trigger;
     due = true;
+    triggerId ??= trigger.id;
     const next = nextFireAfter(trigger.schedule, nowMs);
     return fire(trigger, nowMs, next !== null ? new Date(next).toISOString() : undefined);
   });
-  return { loop: { ...loop, triggers }, due };
+  return { loop: { ...loop, triggers }, due, triggerId };
 }
 
 /**
@@ -91,6 +93,8 @@ export function rearmLoop(loop: Loop, now: string): Loop {
       block: undefined,
       activeRunId: undefined,
       dueAgain: false,
+      snoozedUntil: undefined,
+      pendingTriggerId: undefined,
       workspace: {},
     },
     updatedAt: now,

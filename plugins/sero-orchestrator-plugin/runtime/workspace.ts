@@ -10,7 +10,7 @@
  * Resolution runs only when background-agent filesystem work is about to start.
  */
 
-import type { DirtyWorkspaceDecision, Loop, LoopRun, ResolvedWorkspaceContext } from '../shared/types';
+import type { DeferredRunResult, DirtyWorkspaceDecision, Loop, LoopRun, ResolvedWorkspaceContext } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { WorkspaceResolver } from './engine-types';
 
@@ -30,18 +30,25 @@ export function worktreeKeyFor(loop: Loop): string {
   return `${loop.id}-r${loop.runtime.runSeq ?? loop.runs.length}`;
 }
 
-const DIRTY_CHOICES = [
-  { id: 'run-in-workspace-root', label: 'Run here, keep my changes' },
-  { id: 'run-in-workspace-root-always', label: "Run here, and don't ask again for this loop" },
-  { id: 'stash-current-changes', label: 'Stash current changes and run in the workspace root' },
-  { id: 'create-managed-worktree', label: 'Create an isolated worktree and run there' },
-  { id: 'defer-workflow', label: 'Defer — do not start steps now' },
+const RUN_CHOICES = [
+  { id: 'create-managed-worktree', label: 'Run isolated', description: 'Uses a separate worktree and leaves your current changes alone.', emphasis: 'primary' as const },
+  { id: 'defer-workflow', label: 'Skip this run', description: 'Keeps the loop scheduled for its next normal run.' },
+  { id: 'run-in-workspace-root', label: 'Run here once', description: 'Works alongside the current uncommitted changes.', menu: 'Run here' },
+  { id: 'run-in-workspace-root-always', label: 'Always run here for this loop', description: 'Stops asking when this loop finds uncommitted changes.', menu: 'Run here' },
+  { id: 'stash-current-changes', label: 'Stash changes and run here', description: 'Moves the current changes into a Git stash before starting.', menu: 'Run here' },
+];
+
+const SNOOZE_CHOICES = [
+  { id: 'snooze-15m', label: '15 minutes', menu: 'Snooze' },
+  { id: 'snooze-1h', label: '1 hour', menu: 'Snooze' },
+  { id: 'snooze-4h', label: '4 hours', menu: 'Snooze' },
+  { id: 'snooze-tomorrow-9', label: 'Tomorrow at 9:00 AM', menu: 'Snooze' },
 ];
 
 export interface ResolveResult {
   loop: Loop;
   workspace?: ResolvedWorkspaceContext;
-  deferred?: string;
+  deferred?: DeferredRunResult;
   /** Hard stop with a visible reason (event-pr branch unresolvable, FR-P1). */
   blocked?: string;
 }
@@ -195,19 +202,53 @@ export async function resolve(host: OrchestratorHost, loop: Loop, run?: LoopRun)
     const resolved = workspaceRootContext(host, 'clean-workspace');
     return { loop: withResolved(loop, resolved), workspace: resolved };
   }
-  return resolveDirty(host, loop, status.summary);
+  return resolveDirty(host, loop, status.summary, run);
 }
 
-async function resolveDirty(host: OrchestratorHost, loop: Loop, summary: string): Promise<ResolveResult> {
+async function resolveDirty(host: OrchestratorHost, loop: Loop, summary: string, run?: LoopRun): Promise<ResolveResult> {
+  const scheduled = Boolean(run?.triggerId);
+  const canSnooze = !run?.firedBy;
   const choice = await host.requestChoice({
-    title: 'Workspace has uncommitted changes',
-    body: `The workspace root has uncommitted changes (${summary}). Choose how this loop should run.`,
-    choices: DIRTY_CHOICES,
+    title: `${loop.title} wants to run`,
+    body: `This workspace has uncommitted changes (${summary}). Choose where this run should work.`,
+    choices: canSnooze ? [...RUN_CHOICES, ...SNOOZE_CHOICES] : RUN_CHOICES,
     timeoutMs: loop.workspace.dirtyWorkspacePromptTimeoutMs,
+    fallbackLabel: 'run isolated',
+    context: {
+      source: 'Sero Orchestrator',
+      workspaceId: host.workspaceId,
+      trigger: run?.firedBy ? 'Event-triggered loop' : scheduled ? 'Scheduled loop' : 'Loop',
+    },
+    openTarget: {
+      appId: 'orchestrator',
+      workspaceId: host.workspaceId,
+      params: { loopId: loop.id },
+      label: 'Open loop',
+    },
   });
 
   const now = host.now();
   const action = choice.timedOut ? 'create-managed-worktree' : choice.choiceId;
+
+  const snoozedUntil = canSnooze ? snoozeUntil(action, now) : undefined;
+  if (snoozedUntil) {
+    const deferred: DeferredRunResult = {
+      status: 'snoozed',
+      reason: 'User snoozed the run because the workspace has uncommitted changes.',
+      retryAt: snoozedUntil,
+    };
+    return {
+      loop: {
+        ...loop,
+        runtime: {
+          ...loop.runtime,
+          snoozedUntil,
+          pendingTriggerId: run?.triggerId,
+        },
+      },
+      deferred,
+    };
+  }
 
   if (action === 'create-managed-worktree') {
     const resolvedBy = choice.timedOut ? 'dirty-workspace-timeout' : 'dirty-workspace-choice';
@@ -234,10 +275,26 @@ async function resolveDirty(host: OrchestratorHost, loop: Loop, summary: string)
     return { loop: withResolved(loop, resolved, decision), workspace: resolved };
   }
 
-  // defer-workflow (or an unknown choice): leave the loop waiting without steps.
-  const deferred = 'User deferred the workflow on a dirty workspace root.';
+  // defer-workflow (or closing the prompt): record a skipped run without steps.
+  const deferred: DeferredRunResult = {
+    status: 'skipped',
+    reason: 'User skipped the run because the workspace has uncommitted changes.',
+  };
   return {
-    loop: { ...loop, runtime: { ...loop.runtime, workspace: { ...loop.runtime.workspace, deferredReason: deferred } } },
+    loop,
     deferred,
   };
+}
+
+function snoozeUntil(action: string | null, now: string): string | undefined {
+  const date = new Date(now);
+  if (Number.isNaN(date.getTime())) return undefined;
+  if (action === 'snooze-15m') date.setMinutes(date.getMinutes() + 15);
+  else if (action === 'snooze-1h') date.setHours(date.getHours() + 1);
+  else if (action === 'snooze-4h') date.setHours(date.getHours() + 4);
+  else if (action === 'snooze-tomorrow-9') {
+    date.setDate(date.getDate() + 1);
+    date.setHours(9, 0, 0, 0);
+  } else return undefined;
+  return date.toISOString();
 }

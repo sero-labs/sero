@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { consumeAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
+import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
@@ -55,6 +55,12 @@ export function OrchestratorApp() {
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
   const libraryIndex = useWatchedJson<LibraryIndex>(libraryDir ? `${libraryDir}/index.json` : null, DEFAULT_LIBRARY_INDEX);
+
+  // A notification can deep-link while Orchestrator is already mounted. Mount
+  // params handle cross-app launches; this listener handles same-app launches.
+  useEffect(() => onAppLaunchParams<OrchestratorLaunchParams>('orchestrator', (params) => {
+    if (typeof params.loopId === 'string') setView({ mode: 'detail', loopId: params.loopId });
+  }), []);
 
   // Resolve the profile-global library dir once (the renderer can't derive it).
   useEffect(() => {

@@ -5,6 +5,7 @@
  */
 
 import type {
+  DeferredRunResult,
   Loop,
   LoopRun,
   LoopStepDefinition,
@@ -61,7 +62,7 @@ export interface WorkspaceResolver {
     host: OrchestratorHost,
     loop: Loop,
     run?: LoopRun,
-  ): Promise<{ loop: Loop; workspace?: ResolvedWorkspaceContext; deferred?: string; blocked?: string }>;
+  ): Promise<{ loop: Loop; workspace?: ResolvedWorkspaceContext; deferred?: DeferredRunResult; blocked?: string }>;
 }
 
 /**

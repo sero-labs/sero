@@ -22,6 +22,20 @@ const RUN_STATUS_CLASS: Record<LoopRunStatus, string> = {
   failed: 'border-rose-500/40 bg-rose-500/10 text-rose-400',
   cancelled: 'border-border text-muted-foreground',
   orphaned: 'border-border text-muted-foreground',
+  skipped: 'border-border bg-muted/30 text-muted-foreground',
+  snoozed: 'border-blue-500/40 bg-blue-500/10 text-blue-400',
+};
+
+const RUN_STATUS_LABEL: Record<LoopRunStatus, string> = {
+  running: 'Running',
+  waiting: 'Waiting',
+  completed: 'Completed',
+  blocked: 'Blocked',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+  orphaned: 'Orphaned',
+  skipped: 'Skipped',
+  snoozed: 'Snoozed',
 };
 
 // Shared stat column widths so the header labels line up with each row's values.
@@ -50,7 +64,7 @@ function RunRow({ run }: { run: LoopRunSummary }) {
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">Run #{run.runNumber}</span>
-          <Badge variant="outline" className={RUN_STATUS_CLASS[run.status]}>{run.status}</Badge>
+          <Badge variant="outline" className={RUN_STATUS_CLASS[run.status]}>{RUN_STATUS_LABEL[run.status]}</Badge>
           {firedBy && (
             <Badge
               variant="outline"

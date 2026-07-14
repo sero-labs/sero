@@ -44,6 +44,8 @@ export interface OrchestratorScheduledLoopView {
   status: OrchestratorLoopStatus;
   /** Present only when the loop has cron/hybrid triggers carrying a schedule. */
   schedules?: OrchestratorScheduleSummary[];
+  /** A user-delayed run will retry at this durable timestamp. */
+  snoozedUntil?: string;
   updatedAt: string;
 }
 

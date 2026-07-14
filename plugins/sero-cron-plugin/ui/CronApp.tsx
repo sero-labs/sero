@@ -32,7 +32,7 @@ import { ReminderList } from './components/ReminderList';
 import { RunHistory } from './components/RunHistory';
 import { SchedulerBar } from './components/SchedulerBar';
 import { openOrchestrator, setLoopSchedule } from './lib/orchestrator-bridge';
-import { orchestratorIndexPath, scheduledLoopRows, type ScheduledLoopRow } from './lib/orchestrator-loops';
+import { orchestratorIndexPath, scheduledLoopRows, type ScheduledTriggerRow } from './lib/orchestrator-loops';
 import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
@@ -49,7 +49,7 @@ export function CronApp() {
   const [editingJob, setEditingJob] = useState<CronJob | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-  const [editingLoopRow, setEditingLoopRow] = useState<ScheduledLoopRow | null>(null);
+  const [editingLoopRow, setEditingLoopRow] = useState<ScheduledTriggerRow | null>(null);
   const [loopError, setLoopError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('reminders');
 
@@ -200,13 +200,13 @@ export function CronApp() {
   // ── Scheduled loops (Orchestrator) ───────────────────────
 
   const handleSaveLoopSchedule = useCallback(
-    (row: ScheduledLoopRow, schedule: string) =>
+    (row: ScheduledTriggerRow, schedule: string) =>
       setLoopSchedule(workspaceId, { loopId: row.loopId, triggerId: row.triggerId, schedule }),
     [workspaceId],
   );
 
   const handleToggleLoopPaused = useCallback(
-    async (row: ScheduledLoopRow) => {
+    async (row: ScheduledTriggerRow) => {
       setLoopError(null);
       const error = await setLoopSchedule(workspaceId, {
         loopId: row.loopId,

@@ -29,6 +29,7 @@ import type {
 } from '../shared/types';
 import { buildIndex, buildRunIndex, composeState, diffRuns, diffState, stripLoopForPersist } from './store';
 import { migrateLegacyPendingEvent } from './event-queue';
+import { migrateLoopState } from './loop-migrations';
 
 export interface LoopStore {
   readState(): Promise<OrchestratorState>;
@@ -96,12 +97,16 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
         if (run) runs.push(run);
       }
       const revisions = (await readJson<PlanRevision[]>(revisionsFile(loop.id))) ?? [];
-      return { ...loop, runs, revisions };
+      const full = { ...loop, runs, revisions };
+      const migrated = migrateLoopState(full);
+      if (migrated !== full) await persistLoopFull(migrated);
+      return migrated;
     }
     // Legacy loop.json that still inlines runs/revisions → migrate to split files.
     const full: Loop = { ...loop, runs: loop.runs ?? [], revisions: loop.revisions ?? [] };
-    await persistLoopFull(full);
-    return full;
+    const migrated = migrateLoopState(full);
+    await persistLoopFull(migrated);
+    return migrated;
   }
 
   async function load(): Promise<OrchestratorState> {
@@ -117,7 +122,7 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
     // Migrate a legacy single state.json into the split layout (keep a backup).
     const legacy = await readJson<OrchestratorState>(ctx.stateFilePath);
     if (legacy?.loops?.length) {
-      const migrated = composeState(legacy.loops);
+      const migrated = composeState(legacy.loops.map(migrateLoopState));
       await persistAll(migrated);
       await rename(ctx.stateFilePath, legacyBackup).catch(() => undefined);
       return migrated;

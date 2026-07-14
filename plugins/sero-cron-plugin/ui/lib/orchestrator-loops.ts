@@ -1,5 +1,5 @@
 /**
- * Scheduled Orchestrator loops shown in the Scheduler app.
+ * Scheduled and one-off snoozed Orchestrator loops shown in Scheduler.
  *
  * The Orchestrator (workspace-scoped) maintains a watched loop index whose
  * entries carry a compact schedule summary; this module maps that index into
@@ -12,12 +12,17 @@ import type {
 } from '@sero-ai/common';
 import { ORCHESTRATOR_INDEX_FILE } from '@sero-ai/common';
 
-/** One cron/hybrid trigger of one loop, flattened for display. */
-export interface ScheduledLoopRow {
+interface LoopRowBase {
   loopId: string;
-  triggerId: string;
   title: string;
   status: OrchestratorLoopStatus;
+  snoozedUntil?: string;
+}
+
+/** One cron/hybrid trigger of one loop, flattened for display. */
+export interface ScheduledTriggerRow extends LoopRowBase {
+  kind: 'schedule';
+  triggerId: string;
   /** 5-field cron expression, evaluated in UTC. */
   schedule: string;
   /** True for hybrid triggers, which also fire on events. */
@@ -30,6 +35,14 @@ export interface ScheduledLoopRow {
   exhausted: boolean;
 }
 
+/** A one-off retry with no cron/hybrid schedule of its own. */
+export interface SnoozedLoopRow extends LoopRowBase {
+  kind: 'snooze';
+  snoozedUntil: string;
+}
+
+export type ScheduledLoopRow = ScheduledTriggerRow | SnoozedLoopRow;
+
 /** Absolute path of the Orchestrator's loop index, or null without a workspace. */
 export function orchestratorIndexPath(workspacePath: string): string | null {
   return workspacePath ? `${workspacePath}/${ORCHESTRATOR_INDEX_FILE}` : null;
@@ -38,20 +51,36 @@ export function orchestratorIndexPath(workspacePath: string): string | null {
 /** Flattens the watched loop index into one row per scheduled trigger. */
 export function scheduledLoopRows(index: OrchestratorIndexView | null): ScheduledLoopRow[] {
   if (!index?.loops) return [];
-  return index.loops.flatMap((loop) =>
-    (loop.schedules ?? []).map((schedule) => ({
-      loopId: loop.id,
-      triggerId: schedule.triggerId,
-      title: loop.title,
-      status: loop.status,
-      schedule: schedule.schedule,
-      firesOnEvents: schedule.type === 'hybrid',
-      nextFireAt: schedule.nextFireAt,
-      lastFireAt: schedule.lastFireAt,
-      scheduleDisabled: schedule.paused === true,
-      exhausted: schedule.exhausted === true,
-    })),
-  );
+  const rows: ScheduledLoopRow[] = [];
+  for (const loop of index.loops) {
+    const schedules = loop.schedules ?? [];
+    for (const schedule of schedules) {
+      rows.push({
+        kind: 'schedule',
+        loopId: loop.id,
+        triggerId: schedule.triggerId,
+        title: loop.title,
+        status: loop.status,
+        schedule: schedule.schedule,
+        firesOnEvents: schedule.type === 'hybrid',
+        nextFireAt: schedule.nextFireAt,
+        lastFireAt: schedule.lastFireAt,
+        snoozedUntil: loop.snoozedUntil,
+        scheduleDisabled: schedule.paused === true,
+        exhausted: schedule.exhausted === true,
+      });
+    }
+    if (schedules.length === 0 && loop.snoozedUntil) {
+      rows.push({
+        kind: 'snooze',
+        loopId: loop.id,
+        title: loop.title,
+        status: loop.status,
+        snoozedUntil: loop.snoozedUntil,
+      });
+    }
+  }
+  return rows;
 }
 
 /** Formats an ISO timestamp as a short local date-time for the next/last fire. */

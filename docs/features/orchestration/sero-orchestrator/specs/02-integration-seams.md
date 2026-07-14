@@ -313,10 +313,15 @@ Choices:
   equivalent — modeled as a choice because the shared prompt has no checkbox);
 - `stash-current-changes`: stash current changes and run in the workspace root;
 - `create-managed-worktree`: create an isolated worktree and run there;
-- `defer-workflow`: leave the loop waiting without starting steps.
+- `defer-workflow`: skip this run without starting steps;
+- `snooze-15m`, `snooze-1h`, `snooze-4h`, `snooze-tomorrow-9`: delay a
+  scheduled or manually started run durably, then retry it after the chosen
+  time. Event-fired runs omit these choices so their payload is not lost.
 
-The timeout is 30 seconds. On timeout, Orchestrator treats the result as
-`create-managed-worktree`.
+The timeout is 60 seconds. On timeout, Orchestrator treats the result as
+`create-managed-worktree`. The notification also carries generic source,
+workspace, and open-target metadata so the shell can deep-link to the correct
+workspace and loop without Orchestrator-specific IPC.
 
 ### Model Decisions
 

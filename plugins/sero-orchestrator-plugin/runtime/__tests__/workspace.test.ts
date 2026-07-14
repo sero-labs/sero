@@ -65,6 +65,13 @@ describe('workspace resolution', () => {
     expect(host.choiceRequests).toHaveLength(1);
     expect(result.workspace?.type).toBe('managed-worktree');
     expect(result.workspace?.resolvedBy).toBe('dirty-workspace-timeout');
+    expect(host.choiceRequests[0].context).toEqual({
+      source: 'Sero Orchestrator',
+      workspaceId: 'ws-1',
+      trigger: 'Loop',
+    });
+    expect(host.choiceRequests[0].openTarget?.params).toEqual({ loopId: loop.id });
+    expect(host.choiceRequests[0].choices.some((choice) => choice.menu === 'Snooze')).toBe(true);
   });
 
   it('dirty workspace-root stash choice stashes and runs in the root', async () => {
@@ -121,15 +128,68 @@ describe('workspace resolution', () => {
     expect(result.loop.workspace.allowDirtyWorkspaceRoot).toBe(true);
   });
 
-  it('dirty workspace-root defer leaves the loop waiting without resolving', async () => {
+  it('dirty workspace-root skip records a skipped disposition without resolving', async () => {
     const host = createFakeHost();
     host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
     host.choiceResult = { choiceId: 'defer-workflow', timedOut: false };
     const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
     const result = await resolve(host, loop);
-    expect(result.deferred).toBeTruthy();
+    expect(result.deferred).toEqual({
+      status: 'skipped',
+      reason: 'User skipped the run because the workspace has uncommitted changes.',
+    });
     expect(result.workspace).toBeUndefined();
     expect(host.worktreesCreated).toHaveLength(0);
+    expect(result.loop.runtime.workspace.deferredReason).toBeUndefined();
+  });
+
+  it('scheduled dirty-workspace runs can be snoozed durably', async () => {
+    const host = createFakeHost();
+    host.frozenNow = '2026-06-22T10:00:00.000Z';
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: '2 changes' };
+    host.choiceResult = { choiceId: 'snooze-1h', timedOut: false };
+    const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const run = stubRuns(1)[0];
+    const result = await resolve(host, loop, { ...run, status: 'running', triggerId: 'cron-1' });
+
+    expect(result.loop.runtime.snoozedUntil).toBe('2026-06-22T11:00:00.000Z');
+    expect(result.loop.runtime.pendingTriggerId).toBe('cron-1');
+    expect(result.deferred).toEqual({
+      status: 'snoozed',
+      reason: 'User snoozed the run because the workspace has uncommitted changes.',
+      retryAt: '2026-06-22T11:00:00.000Z',
+    });
+    expect(result.loop.runtime.workspace.deferredReason).toBeUndefined();
+    expect(host.choiceRequests[0].context?.trigger).toBe('Scheduled loop');
+    expect(host.choiceRequests[0].choices.some((choice) => choice.menu === 'Snooze')).toBe(true);
+  });
+
+  it('manually forced dirty-workspace runs can be snoozed', async () => {
+    const host = createFakeHost();
+    host.frozenNow = '2026-06-22T10:00:00.000Z';
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    host.choiceResult = { choiceId: 'snooze-15m', timedOut: false };
+    const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
+
+    const result = await resolve(host, loop, stubRuns(1)[0]);
+
+    expect(result.deferred).toMatchObject({ status: 'snoozed', retryAt: '2026-06-22T10:15:00.000Z' });
+    expect(result.loop.runtime.pendingTriggerId).toBeUndefined();
+  });
+
+  it('does not offer snooze when retrying would lose an event payload', async () => {
+    const host = createFakeHost();
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const run: LoopRun = {
+      ...stubRuns(1)[0],
+      status: 'running',
+      firedBy: { source: 'github:main-updated', occurredAt: 't', summary: 'main updated' },
+    };
+
+    await resolve(host, loop, run);
+
+    expect(host.choiceRequests[0].choices.some((choice) => choice.menu === 'Snooze')).toBe(false);
   });
 });
 
