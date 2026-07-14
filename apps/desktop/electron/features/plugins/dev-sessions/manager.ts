@@ -10,6 +10,7 @@ import { applyPluginDevSessionManifestRemoteEntry } from './remote-entry';
 import { compareSessions, cloneSession, createSessionSeed, isActiveSession, normalizeSourcePath } from './record-helpers';
 import { applyPluginDevSessionRefreshEffects, createBrokenPluginDevSessionRecord, createSoftFailurePluginDevSessionRecord, createValidatedPluginDevSessionRecord, refreshPluginDevSession, type RefreshPluginDevSessionOptions, type RefreshPluginDevSessionResult } from './refresh';
 import { readPluginDevSessionRecords, writePluginDevSessionRecords } from './settings';
+import { stopPluginDevSession } from './stop';
 import type { PluginDevSessionRecord } from './types';
 import { createPluginDevSessionUiRefreshState } from './ui-refresh';
 import { PluginDevSessionWatcher } from './watcher';
@@ -30,6 +31,7 @@ export class PluginDevSessionManager {
     },
   );
   private readonly sessionTasks = new Map<string, Promise<unknown>>();
+  private readonly stoppedSessionIds = new Set<string>();
   private readonly bootstrapTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private initialized = false;
   private initializationTask: Promise<void> | null = null;
@@ -143,31 +145,14 @@ export class PluginDevSessionManager {
   async stop(sessionId: string): Promise<void> {
     await this.initialize();
     this.clearBootstrapProbe(sessionId);
-    await this.enqueueSessionTask(sessionId, async () => {
-      const record = this.getSessionOrThrow(sessionId);
-      const activeManifest = this.activeManifests.get(sessionId) ?? null;
-
-      if (activeManifest) {
-        const nextActiveManifests = new Map(this.activeManifests);
-        nextActiveManifests.delete(sessionId);
-
-        await applyPluginDevSessionRefreshEffects({
-          activeManifests: [...nextActiveManifests.values()],
-          appId: activeManifest.id,
-          event: {
-            type: 'changed',
-            pluginId: activeManifest.id,
-            reason: 'dev-session-stopped',
-          },
-        });
-
-        this.replaceActiveManifests(nextActiveManifests);
-      }
-
-      this.sessions.delete(sessionId);
-      this.watcher.unwatch(sessionId);
-      this.persistSessions();
-      this.stopPluginDevServerBestEffort(record.sourcePath);
+    this.stoppedSessionIds.add(sessionId);
+    await stopPluginDevSession({
+      sessionId,
+      pendingTask: this.sessionTasks.get(sessionId),
+      sessions: this.sessions,
+      activeManifests: this.activeManifests,
+      unwatch: (id) => this.watcher.unwatch(id),
+      persistSessions: () => this.persistSessions(),
     });
   }
 
@@ -194,6 +179,7 @@ export class PluginDevSessionManager {
     this.sessions.clear();
     this.activeManifests.clear();
     this.sessionTasks.clear();
+    this.stoppedSessionIds.clear();
     this.initialized = false;
     this.initializationTask = null;
     await stopAllPluginDevServers();
@@ -240,7 +226,7 @@ export class PluginDevSessionManager {
     const nextState = await refreshPluginDevSession(current, options);
     const latest = this.sessions.get(sessionId);
 
-    if (this.disposed || latest !== current) {
+    if (this.disposed || this.stoppedSessionIds.has(sessionId) || latest !== current) {
       this.stopPluginDevServerBestEffort(current.sourcePath);
       return cloneSession(current);
     }
@@ -257,10 +243,15 @@ export class PluginDevSessionManager {
         await applyPluginDevSessionRefreshEffects({
           activeManifests: [...nextActiveManifests.values()],
           appId: nextState.appId,
-          event: nextState.event,
+          event: null,
         });
+        if (this.stoppedSessionIds.has(sessionId) || this.sessions.get(sessionId) !== current) {
+          return cloneSession(current);
+        }
         this.replaceActiveManifests(nextActiveManifests);
+        if (nextState.event) broadcastPluginEvent(nextState.event);
       } catch (error) {
+        if (this.stoppedSessionIds.has(sessionId)) return cloneSession(current);
         console.warn(`[plugin-dev] Failed to apply refresh effects for ${sessionId}:`, error);
         try {
           await reconcileActiveDevSessionProjection([...this.activeManifests.values()]);
@@ -332,7 +323,7 @@ export class PluginDevSessionManager {
     const nextState = await refreshPluginDevSession(current, { reason: 'manual' });
     const latest = this.sessions.get(sessionId);
 
-    if (this.disposed || latest !== current) {
+    if (this.disposed || this.stoppedSessionIds.has(sessionId) || latest !== current) {
       this.stopPluginDevServerBestEffort(current.sourcePath);
       return;
     }
@@ -358,10 +349,14 @@ export class PluginDevSessionManager {
         await applyPluginDevSessionRefreshEffects({
           activeManifests: [...nextActiveManifests.values()],
           appId: nextState.appId,
-          event: nextState.event ?? buildBootstrapSessionEvent(current, nextState.record, nextManifest),
+          event: null,
         });
+        if (this.stoppedSessionIds.has(sessionId) || !this.sessions.has(sessionId)) return;
         this.replaceActiveManifests(nextActiveManifests);
+        const event = nextState.event ?? buildBootstrapSessionEvent(current, nextState.record, nextManifest);
+        if (event) broadcastPluginEvent(event);
       } catch (error) {
+        if (this.stoppedSessionIds.has(sessionId)) return;
         console.warn(`[plugin-dev] Failed to apply bootstrap probe effects for ${sessionId}:`, error);
         this.persistSession(current);
         try {
