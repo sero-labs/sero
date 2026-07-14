@@ -33,7 +33,6 @@ import { registerContextPresetsHandlers } from './workspace/context-presets';
 import { registerVcsHandlers } from './integrations/vcs';
 import { registerGitHubHandlers } from './integrations/github';
 import { registerFeedbackHandlers } from './platform/ui/feedback';
-import { registerImagegenHandlers } from './agent/handlers/imagegen';
 import { registerNetHandlers } from './platform/system/net';
 import { registerSafeStorageHandlers } from './platform/auth/safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './platform/ui/user-feedback-questions';
@@ -80,7 +79,6 @@ export function registerAllIpcHandlers(): void {
   registerVcsHandlers();
   registerGitHubHandlers();
   registerFeedbackHandlers();
-  registerImagegenHandlers();
   registerNetHandlers();
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();

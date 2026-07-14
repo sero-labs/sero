@@ -143,14 +143,6 @@ export const IpcChannels = {
     getState: 'sero:onboarding:get-state',
   },
   localModels: localModelsIpcChannels,
-  imagegen: {
-    /** Generate images via Gemini Nano Banana. Returns generation metadata. */
-    generate: 'sero:imagegen:generate',
-    /** Read a saved image file as a data URI. */
-    readImage: 'sero:imagegen:read-image',
-    /** Delete an image set by ID — removes from state and deletes files from disk. */
-    deleteImage: 'sero:imagegen:delete-image',
-  },
   voice: {
     /** Check whether voice transcription is available (requires OPENAI_API_KEY). */
     status: 'sero:voice:status',

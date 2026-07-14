@@ -16,8 +16,6 @@ vi.mock('electron', () => ({
 import { agentBridge, workspaceBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
 import { lspBridge } from '@electron/preload/editor/debug-lsp';
-import type { ImageGenParams } from '@electron/features/agent/assistants/image-agent';
-import { imagegenBridge } from '@electron/preload/integrations/imagegen';
 import { pluginsBridge } from '@electron/preload/integrations/plugins';
 
 describe('preload event bridge subscriptions', () => {
@@ -196,20 +194,4 @@ describe('preload event bridge subscriptions', () => {
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.plugins.stopDevSession, 'dev_1');
   });
 
-  it('invokes the surviving imagegen bridge through the imagegen IPC surface', async () => {
-    const params: ImageGenParams = {
-      prompt: 'Generate a skyline at sunset',
-      model: 'gemini-2.5-flash-image',
-      variations: 1,
-      aspectRatio: '1:1',
-    };
-
-    await imagegenBridge.generate('ws-1', params);
-
-    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(
-      IpcChannels.imagegen.generate,
-      'ws-1',
-      params,
-    );
-  });
 });

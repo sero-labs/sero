@@ -110,6 +110,7 @@ vi.mock('@electron/features/plugins/dev-sessions/watcher', () => ({
 }));
 
 import { PluginDevSessionManager } from '@electron/features/plugins/dev-sessions/manager';
+import { STOP_PENDING_TASK_GRACE_MS } from '@electron/features/plugins/dev-sessions/stop';
 
 function createManifest(id = 'plugin-one'): SeroAppManifest {
   return {
@@ -243,6 +244,112 @@ describe('PluginDevSessionManager sequencing', () => {
     await expect(manager.list()).resolves.toEqual([]);
     expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([]);
     expect(mocks.watcher.unwatch).toHaveBeenCalledWith(started.sessionId);
+  });
+
+  it('forces a stop when an in-flight refresh does not settle', async () => {
+    vi.useFakeTimers();
+    try {
+      const manifest = createManifest();
+      mocks.validatePluginDevSourceManifest.mockResolvedValue(createValidationResult(manifest));
+
+      const manager = new PluginDevSessionManager();
+      const started = await manager.start('/tmp/plugin-one');
+      const refreshEffects = createDeferred<void>();
+      mocks.refreshPluginDevSession.mockResolvedValue({
+        effect: 'updated',
+        record: { ...started, updatedAt: '2026-04-20T00:15:00.000Z' },
+        activeManifest: manifest,
+        appId: manifest.id,
+        event: {
+          type: 'changed',
+          pluginId: manifest.id,
+          manifest,
+          reason: 'dev-session-refreshed',
+        },
+      });
+      mocks.applyPluginDevSessionRefreshEffects.mockReset();
+      mocks.applyPluginDevSessionRefreshEffects
+        .mockImplementationOnce(() => refreshEffects.promise)
+        .mockResolvedValueOnce();
+
+      const refreshPromise = manager.refresh(started.sessionId);
+      await vi.waitFor(() => {
+        expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenCalledTimes(1);
+      });
+
+      const stopPromise = manager.stop(started.sessionId);
+      await vi.advanceTimersByTimeAsync(STOP_PENDING_TASK_GRACE_MS);
+      await stopPromise;
+
+      await expect(manager.list()).resolves.toEqual([]);
+      expect(mocks.stopPluginDevServer).toHaveBeenCalledWith('/tmp/plugin-one');
+
+      refreshEffects.resolve();
+      await refreshPromise;
+      await expect(manager.list()).resolves.toEqual([]);
+      expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not tear down a session restarted during the stop grace window', async () => {
+    vi.useFakeTimers();
+    try {
+      const manifest = createManifest();
+      mocks.validatePluginDevSourceManifest.mockResolvedValue(createValidationResult(manifest));
+
+      const manager = new PluginDevSessionManager();
+      const started = await manager.start('/tmp/plugin-one');
+      const refreshEffects = createDeferred<void>();
+      mocks.refreshPluginDevSession.mockResolvedValue({
+        effect: 'updated',
+        record: { ...started, updatedAt: '2026-04-20T00:15:00.000Z' },
+        activeManifest: manifest,
+        appId: manifest.id,
+        event: {
+          type: 'changed',
+          pluginId: manifest.id,
+          manifest,
+          reason: 'dev-session-refreshed',
+        },
+      });
+      mocks.applyPluginDevSessionRefreshEffects.mockReset();
+      mocks.applyPluginDevSessionRefreshEffects
+        .mockImplementationOnce(() => refreshEffects.promise)
+        .mockResolvedValue();
+
+      const staleRefreshPromise = manager.refresh(started.sessionId);
+      await vi.waitFor(() => {
+        expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenCalledTimes(1);
+      });
+
+      const stopPromise = manager.stop(started.sessionId);
+      const restarted = await manager.start('/tmp/plugin-one');
+      expect(restarted.sessionId).toBe(started.sessionId);
+
+      await vi.advanceTimersByTimeAsync(STOP_PENDING_TASK_GRACE_MS);
+      await stopPromise;
+      await expect(manager.list()).resolves.toEqual([
+        expect.objectContaining({ sessionId: restarted.sessionId, status: 'active' }),
+      ]);
+
+      refreshEffects.resolve();
+      await staleRefreshPromise;
+
+      const refreshedAgain = { ...restarted, updatedAt: '2026-04-20T00:25:00.000Z' };
+      mocks.refreshPluginDevSession.mockResolvedValue({
+        effect: 'none',
+        record: refreshedAgain,
+        activeManifest: manifest,
+        appId: manifest.id,
+        event: null,
+      });
+      await expect(manager.refresh(restarted.sessionId)).resolves.toEqual(refreshedAgain);
+      await expect(manager.list()).resolves.toEqual([refreshedAgain]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('serializes concurrent starts for the same source path so only one session record survives', async () => {
