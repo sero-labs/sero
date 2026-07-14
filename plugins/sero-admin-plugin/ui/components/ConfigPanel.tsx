@@ -325,7 +325,7 @@ function ConfigEditor({
       )}
 
       {/* Editor */}
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:!block">
         {content === null ? (
           <div className="flex h-full items-center justify-center py-16">
             <p className="text-xs text-muted-foreground/50">File not found</p>

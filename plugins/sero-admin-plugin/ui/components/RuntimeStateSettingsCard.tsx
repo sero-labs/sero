@@ -3,66 +3,127 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@sero-ai/ui/components/ui/table';
+import {
   getSero,
   type OnboardingContainerRuntimeIPC,
   type WorkspaceInfoIPC,
   type WorkspaceRuntimeDiagnosticsIPC,
 } from '../hooks/host';
-import { RuntimeCapabilityList } from './runtime/RuntimeCapabilityList';
 import { RuntimeInstallControls } from './runtime/RuntimeInstallControls';
 
 interface RuntimeStateSettingsCardProps {
   disabled?: boolean;
 }
 
-function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
-  desired: 'container' | 'host';
-  actual: 'container' | 'host';
+interface CapabilityStatus {
+  label: string;
+  ready: boolean;
+}
+
+function getWorkspaceRuntimeState(row: WorkspaceRuntimeDiagnosticsIPC): {
+  label: string;
   tone: 'default' | 'secondary' | 'outline';
-  detail: string;
+  detail?: string;
+  configured?: string;
 } {
   if (row.desiredRuntime === 'host') {
     return {
-      desired: 'host',
-      actual: 'host',
+      label: 'Host',
       tone: 'secondary',
-      detail: 'Host is the recommended runtime for this workspace. Sero uses verified system tools or managed core tools when needed.',
     };
   }
 
   if (row.fallbackCode === 'container_unavailable') {
     return {
-      desired: 'container',
-      actual: 'container',
+      label: 'Container unavailable',
       tone: 'outline',
       detail: row.fallbackReason ?? 'Container runtime is selected, but it is unavailable.',
+      configured: 'Container',
     };
   }
 
   if (row.fallbackCode === 'backend-unsupported-on-platform') {
     return {
-      desired: 'container',
-      actual: row.actualRuntime,
+      label: row.actualRuntime === 'host' ? 'Host fallback' : 'Container',
       tone: 'outline',
       detail: row.fallbackReason ?? 'Configured runtime is unsupported on this platform; Sero selected a supported runtime.',
+      configured: 'Container',
     };
   }
 
   if (row.actualRuntime === 'container') {
     return {
-      desired: 'container',
-      actual: 'container',
+      label: 'Container',
       tone: 'default',
-      detail: 'Container runtime is active as an optional upgrade for isolation, Linux parity, browser automation, or native build fallback.',
     };
   }
 
   return {
-    desired: 'container',
-    actual: 'host',
+    label: 'Host fallback',
     tone: 'outline',
     detail: row.fallbackReason ?? 'Container runtime is selected, but this workspace is currently running on the host.',
+    configured: 'Container',
   };
+}
+
+function getCapabilityStatuses(row: WorkspaceRuntimeDiagnosticsIPC): {
+  coreTools: CapabilityStatus;
+  browserAutomation: CapabilityStatus;
+  nativeBuildTools: CapabilityStatus;
+} {
+  const { installState } = row.capabilityState;
+  const coreReady = installState.coreTools === 'ready' && row.capabilityState.available.exec;
+  const browserReady = installState.browserAutomation === 'ready'
+    && row.capabilityState.available.browserAutomation;
+
+  return {
+    coreTools: {
+      label: coreReady
+        ? 'Ready'
+        : {
+            installing: 'Installing',
+            missing: 'On demand',
+            failed: 'Needs repair',
+            ready: 'Not ready',
+          }[installState.coreTools],
+      ready: coreReady,
+    },
+    browserAutomation: {
+      label: browserReady
+        ? 'Ready'
+        : {
+            installable: 'Not installed',
+            installing: 'Installing',
+            missing: 'Unavailable',
+            failed: 'Needs repair',
+            ready: 'Not ready',
+          }[installState.browserAutomation],
+      ready: browserReady,
+    },
+    nativeBuildTools: {
+      label: {
+        available: 'Available',
+        missing: 'Not installed',
+        unknown: 'Not verified',
+      }[installState.nativeBuildTools],
+      ready: installState.nativeBuildTools === 'available',
+    },
+  };
+}
+
+function CapabilityStatusCell({ status }: { status: CapabilityStatus }) {
+  return (
+    <span className={status.ready ? 'text-foreground/80' : 'font-medium text-muted-foreground'}>
+      {status.label}
+    </span>
+  );
 }
 
 export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSettingsCardProps) {
@@ -107,7 +168,7 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
   }, []);
 
   const sortedRows = useMemo(
-    () => [...rows].sort((left, right) => left.workspaceId.localeCompare(right.workspaceId)),
+    () => rows.toSorted((left, right) => left.workspaceId.localeCompare(right.workspaceId)),
     [rows],
   );
 
@@ -145,76 +206,101 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
           </div>
         ) : null}
 
-        <RuntimeInstallControls disabled={disabled} onChanged={() => void load(true)} />
-
-        {runtime ? (
-          <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-sm text-muted-foreground/80">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-foreground/85">Machine runtime</span>
-              <Badge variant="default">Host recommended</Badge>
-              <Badge variant={runtime.status === 'available' ? 'secondary' : 'outline'}>
-                {runtime.status === 'available' ? 'containers optional' : 'containers not configured'}
-              </Badge>
-            </div>
-            <p className="mt-2">
-              Sero runs workspaces on the host by default with managed core tooling when diagnostics allow it.
-              Containers remain optional for sandboxing, preinstalled browser automation, and native build fallback.
-            </p>
-            <p className="mt-1">{runtime.message}</p>
-            {runtime.docsUrl ? (
-              <Button
-                variant="link"
-                size="sm"
-                className="mt-1 h-auto px-0 text-sm"
-                onClick={() => void getSero().shell.openExternal?.(runtime.docsUrl!)}
-              >
-                Open container setup guide
-              </Button>
+        {!loading ? (
+          <div className="overflow-hidden rounded-lg border border-border/40">
+            {runtime ? (
+              <div className="grid divide-y divide-border/40 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <span className="text-sm font-medium text-foreground/85">Host runtime</span>
+                  <Badge variant="secondary">Recommended</Badge>
+                </div>
+                <div className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground/85">Containers</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={runtime.status === 'available' ? 'secondary' : 'outline'}>
+                        {runtime.status === 'available' ? 'Available' : 'Not configured'}
+                      </Badge>
+                      {runtime.docsUrl ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-sm"
+                          onClick={() => void getSero().shell.openExternal?.(runtime.docsUrl!)}
+                        >
+                          Setup guide
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {runtime.status !== 'available' ? (
+                    <p className="mt-1 text-sm text-muted-foreground/70">{runtime.message}</p>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
+            <RuntimeInstallControls disabled={disabled} onChanged={() => void load(true)} />
           </div>
         ) : null}
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground/60">
-              Workspace runtime state
-            </p>
-            <p className="text-sm text-muted-foreground/60">Configured → active</p>
+        {!loading && !error && sortedRows.length === 0 ? (
+          <div className="rounded-lg border border-border/40 px-3 py-2.5 text-sm text-muted-foreground/70">
+            No workspaces registered.
           </div>
+        ) : null}
 
-          {sortedRows.length === 0 ? (
-            <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-sm text-muted-foreground/75">
-              No workspaces registered.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedRows.map((row) => {
-                const state = getWorkspaceRuntimeLabel(row);
-                return (
-                  <div
-                    key={row.workspaceId}
-                    className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-foreground/85">
-                        {workspaceNames[row.workspaceId] ?? row.workspaceId}
-                      </span>
-                      <Badge variant={state.tone}>
-                        {state.desired === 'host' ? 'Host (recommended)' : 'Container optional'}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground/60">→</span>
-                      <Badge variant={state.actual === 'container' ? 'default' : 'secondary'}>
-                        {state.actual === 'host' ? 'Host' : 'Container'}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground/75">{state.detail}</p>
-                    <RuntimeCapabilityList row={row} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {!loading && sortedRows.length > 0 ? (
+          <div className="overflow-hidden rounded-lg border border-border/40">
+            <Table aria-label="Workspace runtime diagnostics" className="min-w-[760px] text-sm">
+              <TableHeader className="bg-secondary/15">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead scope="col" className="h-9 w-[34%] px-3 text-xs text-muted-foreground">Workspace</TableHead>
+                  <TableHead scope="col" className="h-9 px-3 text-xs text-muted-foreground">Runtime</TableHead>
+                  <TableHead scope="col" className="h-9 px-3 text-xs text-muted-foreground">Core tools</TableHead>
+                  <TableHead scope="col" className="h-9 px-3 text-xs text-muted-foreground">Browser automation</TableHead>
+                  <TableHead scope="col" className="h-9 px-3 text-xs text-muted-foreground">Native builds</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedRows.map((row) => {
+                  const runtimeState = getWorkspaceRuntimeState(row);
+                  const capabilities = getCapabilityStatuses(row);
+                  return (
+                    <TableRow key={row.workspaceId}>
+                      <TableCell className="px-3 py-2.5 whitespace-normal">
+                        <p className="font-medium text-foreground/90">
+                          {workspaceNames[row.workspaceId] ?? row.workspaceId}
+                        </p>
+                        {runtimeState.detail ? (
+                          <p className="mt-0.5 max-w-xl text-xs text-muted-foreground/70">
+                            {runtimeState.detail}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="px-3 py-2.5 align-top">
+                        <Badge variant={runtimeState.tone}>{runtimeState.label}</Badge>
+                        {runtimeState.configured ? (
+                          <span className="mt-1 block text-xs text-muted-foreground/60">
+                            {runtimeState.configured} selected
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="px-3 py-2.5 align-top">
+                        <CapabilityStatusCell status={capabilities.coreTools} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2.5 align-top">
+                        <CapabilityStatusCell status={capabilities.browserAutomation} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2.5 align-top">
+                        <CapabilityStatusCell status={capabilities.nativeBuildTools} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

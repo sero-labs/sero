@@ -16,6 +16,18 @@ interface RuntimeInstallControlsProps {
 
 type BusyAction = 'core' | 'browser' | 'uninstall-browser' | null;
 
+function statusLabel(state: ToolchainStatusIPC['state'] | BrowserPackStatusIPC['state'] | undefined): string {
+  if (!state) return 'Checking';
+  return {
+    ready: 'Ready',
+    missing: 'Unavailable',
+    installing: 'Installing',
+    incompatible: 'Incompatible',
+    failed: 'Needs repair',
+    installable: 'Not installed',
+  }[state];
+}
+
 export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeInstallControlsProps) {
   const [coreStatus, setCoreStatus] = useState<ToolchainStatusIPC | null>(null);
   const [browserStatus, setBrowserStatus] = useState<BrowserPackStatusIPC | null>(null);
@@ -98,38 +110,43 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
     && (browserStatus.state !== 'failed' || browserRetryable);
 
   return (
-    <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-foreground/85">Managed host installs</span>
-          <Badge variant={coreStatus?.state === 'ready' ? 'secondary' : 'outline'}>
-            Core tools {coreStatus?.state ?? 'unknown'}
-          </Badge>
-          <Badge variant={browserStatus?.state === 'ready' ? 'secondary' : 'outline'}>
-            Browser pack {browserStatus?.state ?? 'unknown'}
-          </Badge>
+    <div className="border-t border-border/40 text-sm">
+      <div className="grid divide-y divide-border/40 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+          <span className="font-medium text-foreground/85">Core tools</span>
+          <div className="flex items-center gap-2">
+            <Badge variant={coreStatus?.state === 'ready' ? 'secondary' : 'outline'}>
+              {statusLabel(coreStatus?.state)}
+            </Badge>
+            {showCoreInstall ? (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installCore}>
+                {busy === 'core' ? 'Installing…' : coreStatus.state === 'failed' ? 'Retry core tools' : 'Install core tools'}
+              </Button>
+            ) : null}
+            {coreStatus?.state === 'installing' ? (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled>
+                Installing…
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {showCoreInstall ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installCore}>
-              {busy === 'core' ? 'Installing…' : coreStatus.state === 'failed' ? 'Retry core tools' : 'Install core tools'}
-            </Button>
-          ) : null}
-          {coreStatus?.state === 'installing' ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled>
-              Installing…
-            </Button>
-          ) : null}
-          {showBrowserInstall ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installBrowser}>
-              {busy === 'browser' ? 'Installing…' : browserStatus.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
-            </Button>
-          ) : null}
-          {browserStatus?.state === 'ready' ? (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={uninstallBrowser}>
-              {busy === 'uninstall-browser' ? 'Uninstalling…' : 'Uninstall browser pack'}
-            </Button>
-          ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+          <span className="font-medium text-foreground/85">Browser automation</span>
+          <div className="flex items-center gap-2">
+            <Badge variant={browserStatus?.state === 'ready' ? 'secondary' : 'outline'}>
+              {statusLabel(browserStatus?.state)}
+            </Badge>
+            {showBrowserInstall ? (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installBrowser}>
+                {busy === 'browser' ? 'Installing…' : browserStatus.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
+              </Button>
+            ) : null}
+            {browserStatus?.state === 'ready' ? (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={uninstallBrowser}>
+                {busy === 'uninstall-browser' ? 'Uninstalling…' : 'Uninstall browser pack'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
       <InstallDetail
@@ -155,29 +172,24 @@ function InstallDetail(props: {
   const progress = props.browserProgress ?? props.coreProgress;
   const failure = browserFailure ?? coreFailure;
 
-  if (props.error) return <p className="mt-2 text-destructive">{props.error}</p>;
+  if (props.error) return <p className="border-t border-border/40 px-3 py-2 text-destructive">{props.error}</p>;
   if (props.browserStatus?.state === 'missing') {
     return (
-      <p className="mt-2 text-muted-foreground/75">
-        {browserFailure?.message ?? 'Browser pack artifacts are not available for this machine yet.'} Use a container runtime for browser automation.
+      <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
+        {browserFailure?.message ?? 'Browser automation is unavailable on this machine.'} Use a container for browser tasks.
       </p>
     );
   }
   if (failure) {
     return (
-      <p className="mt-2 text-destructive">
-        {failure.message} {failure.retryable && failure.installable ? 'Retry is available.' : 'Manual setup may be required.'}{' '}
-        {failure.retryable && failure.installable ? 'Use the retry button to attach to the existing install or start a new attempt.' : 'Container fallback may be a better option.'}
+      <p className="border-t border-border/40 px-3 py-2 text-destructive">
+        {failure.message} {failure.retryable && failure.installable ? 'Retry is available.' : 'Manual setup may be required.'}
       </p>
     );
   }
   if (progress && progress.phase !== 'ready') {
     const bytes = progress.bytesTotal ? ` (${progress.bytesReceived ?? 0}/${progress.bytesTotal} bytes)` : '';
-    return <p className="mt-2 text-muted-foreground/75">Install progress: {progress.phase}{bytes}</p>;
+    return <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">Install progress: {progress.phase}{bytes}</p>;
   }
-  return (
-    <p className="mt-2 text-muted-foreground/75">
-      Core tools install on demand. Browser automation is a large optional host pack; containers remain available as fallback.
-    </p>
-  );
+  return null;
 }

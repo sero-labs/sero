@@ -1,7 +1,5 @@
 import { memo } from 'react';
-import { PlugZap } from 'lucide-react';
 import { useAppInfo } from '@sero-ai/app-runtime';
-import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { PluginSafetyDisclaimer } from '@sero-ai/ui/components/ui/plugin-safety-disclaimer';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { useAttachedFolders } from '../hooks/useAttachedFolders';
@@ -11,55 +9,37 @@ import { AttachedFoldersSection } from './plugins/AttachedFoldersSection';
 import { InstalledPluginsSection } from './plugins/InstalledPluginsSection';
 import { LocalPluginDevelopmentSection } from './plugins/LocalPluginDevelopmentSection';
 
+function plural(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
 export const PluginsPanel = memo(function PluginsPanel() {
   const { workspaceId } = useAppInfo();
   const installed = usePlugins();
   const devSessions = usePluginDevSessions();
   const attached = useAttachedFolders(workspaceId);
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">
-              <PlugZap className="size-4" />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">Plugins</h2>
-              <p className="max-w-3xl text-sm leading-5 text-[var(--text-muted)]">
-                Manage packaged plugin installs, local plugin development sessions for this profile,
-                and Attached folders when you want local source trees visible in Explorer without
-                changing plugin activation.
-              </p>
-            </div>
-          </div>
+  const summary = [
+    `${installed.plugins.length} installed`,
+    plural(devSessions.sessions.length, 'local session'),
+    plural(attached.attachedFolders.length, 'attached folder'),
+  ].join(' · ');
 
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant="outline"
-              className="border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-sm text-[var(--banner-primary)]"
-            >
-              {installed.plugins.length} installed
-            </Badge>
-            <Badge
-              variant="outline"
-              className="border-status-info-border bg-status-info-muted text-sm text-status-info"
-            >
-              {devSessions.sessions.length} local sessions
-            </Badge>
-            <Badge
-              variant="outline"
-              className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-sm text-[var(--collab-primary)]"
-            >
-              {attached.attachedFolders.length} attached folders
-            </Badge>
-          </div>
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/30 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-foreground">Plugins</h2>
+          <p className="mt-1 max-w-2xl text-xs text-muted-foreground/70">
+            Manage packaged installs, local development sessions, and folders attached for Explorer
+            visibility.
+          </p>
         </div>
+        <span className="mt-1 shrink-0 text-xs text-muted-foreground/70">{summary}</span>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-4 p-4">
+      <ScrollArea className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:!block">
+        <div className="@container flex min-w-0 flex-col gap-4 p-4">
           <InstalledPluginsSection
             plugins={installed.plugins}
             loading={installed.loading}

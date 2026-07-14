@@ -89,12 +89,10 @@ describe('plugin management sections', () => {
 
     expect(html).toContain('Installed Plugins');
     expect(html).toContain('Install plugin');
-    expect(html).toContain('Managed plugin installs for this profile.');
     expect(html).toContain('Weather Pro');
 
     expect(html).toContain('Local Plugin Development');
     expect(html).toContain('Start local development');
-    expect(html).toContain('Profile scoped');
     expect(html).toContain('Dev sessions do not');
     expect(html).toContain('/Users/example/Code/sero-weather-plugin');
 
