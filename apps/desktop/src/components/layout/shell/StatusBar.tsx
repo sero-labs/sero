@@ -22,7 +22,7 @@ export function StatusBar() {
   const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
   return (
-    <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-base text-[var(--text-muted)]">
+    <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-xs text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (
@@ -33,7 +33,7 @@ export function StatusBar() {
         )}
         {activeWorkspace && (
           <button type="button"
-            className="max-w-[300px] truncate text-xs hover:text-[var(--text-primary)] transition-colors"
+            className="max-w-[500px] truncate hover:text-[var(--text-primary)] transition-colors"
             onClick={() => window.sero.shell.showItemInFolder(activeWorkspace.path)}
             title="Reveal in file explorer"
           >
@@ -101,7 +101,7 @@ function ActivePushBranchPicker({
         className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
       >
         <GitBranch className="size-3" />
-        <span className="rounded-sm border border-[var(--brand-primary-border)] bg-[var(--brand-primary-muted)] px-1 py-px font-mono text-xs text-[var(--brand-primary)]">
+        <span className="rounded-sm border border-[var(--brand-primary-border)] bg-[var(--brand-primary-muted)] px-1 py-px font-mono text-[var(--brand-primary)]">
           {activePushBookmark ?? 'auto'}
         </span>
       </button>
@@ -113,7 +113,7 @@ function ActivePushBranchPicker({
               setActivePushBookmark(workspaceId, null);
               setOpen(false);
             }}
-            className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
+            className="flex w-full items-center justify-between rounded px-2 py-1 text-left hover:bg-[var(--bg-muted)]"
           >
             <span>Auto (main/first)</span>
             {!activePushBookmark && <span className="text-[var(--brand-primary)]">active</span>}
@@ -125,7 +125,7 @@ function ActivePushBranchPicker({
                 setActivePushBookmark(workspaceId, bm.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
+              className="flex w-full items-center justify-between rounded px-2 py-1 text-left hover:bg-[var(--bg-muted)]"
             >
               <span className="truncate">{bm.name}</span>
               {activePushBookmark === bm.name && <span className="text-[var(--brand-primary)]">active</span>}
@@ -159,7 +159,7 @@ function ZoomControl() {
       <button type="button"
         onClick={resetZoom}
         title="Reset zoom (⌘0)"
-        className="min-w-[42px] rounded px-1 text-center text-xs tabular-nums hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors"
+        className="min-w-[42px] rounded px-1 text-center tabular-nums hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors"
       >
         {Math.round(factor * 100)}%
       </button>
@@ -213,7 +213,7 @@ function DebugLogToggle() {
       }`}
     >
       <Bug className="size-3" />
-      {enabled && <span className="text-xs">logging</span>}
+      {enabled && <span>logging</span>}
     </button>
   );
 }
