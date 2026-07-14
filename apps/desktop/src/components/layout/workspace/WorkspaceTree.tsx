@@ -73,7 +73,7 @@ export function WorkspaceTree() {
       ) : null}
 
       <div className="flex items-center justify-between px-2 pb-1">
-        <span className="text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
           Workspaces
         </span>
         <div className="flex items-center gap-0.5">

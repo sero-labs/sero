@@ -1,7 +1,7 @@
 /**
  * Pure state helpers and tiny JSX primitives for tool call display.
  */
-import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { ChatToolCallMessage } from '@/types/ipc';
 import { getToolProgressHeaderText } from './ToolCallProgress';
 
@@ -45,7 +45,9 @@ export function groupStatusIcon(status: GroupStatus) {
     case 'completed':
       return <CheckCircle2 className="size-3.5 text-status-success" />;
     case 'error':
-      return <XCircle className="size-3.5 text-status-error" />;
+      // The group finished even if an individual attempt failed. Keep failures
+      // visible on their tool rows without making the whole turn look broken.
+      return <CheckCircle2 className="size-3.5 text-[var(--text-muted)]" />;
     case 'cancelled':
       return <AlertCircle className="size-3.5 text-status-warning" />;
   }

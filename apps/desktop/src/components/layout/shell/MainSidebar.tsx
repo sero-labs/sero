@@ -43,7 +43,7 @@ export function MainSidebar() {
         {/* ── Apps ──────────────────────────────────────────────── */}
         <div className="flex flex-col gap-0.5 p-2">
           <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Apps
             </span>
             <Button

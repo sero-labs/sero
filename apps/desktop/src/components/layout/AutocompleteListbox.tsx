@@ -133,7 +133,7 @@ export function AutocompleteListboxHeader({
   return (
     <div
       className={cn(
-        'sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]',
+        'sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]',
         className,
       )}
       {...props}

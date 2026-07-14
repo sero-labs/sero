@@ -182,6 +182,32 @@ describe('ToolCallGroup image previews', () => {
     expect(container.textContent).toContain('visible-2');
     expect(container.textContent).toContain('visible-11');
   });
+
+  it('uses a neutral completion indicator when one action failed', async () => {
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({
+              id: 'tool-a',
+              toolCallId: 'call-a',
+              state: 'error',
+              isError: true,
+              output: 'Command failed',
+            }),
+            makeTool({ id: 'tool-b', toolCallId: 'call-b' }),
+          ]}
+          workspaceId="ws-1"
+          isFinalized
+        />,
+      );
+    });
+
+    const summaryButton = container.querySelector('button');
+    const statusIcon = Array.from(summaryButton?.querySelectorAll('svg') ?? []).at(-1);
+    expect(summaryButton?.querySelector('.text-status-error')).toBeNull();
+    expect(statusIcon?.getAttribute('class')).toContain('text-[var(--text-muted)]');
+  });
 });
 
 describe('groupMessages', () => {

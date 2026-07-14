@@ -249,7 +249,7 @@ export function ChatPanel() {
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--border-default)] px-3">
         <Bot className="size-3.5 text-[var(--text-muted)]" />
-        <span className="text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
           Agent
         </span>
         {sessionLabel && (
