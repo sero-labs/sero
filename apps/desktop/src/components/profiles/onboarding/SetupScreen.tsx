@@ -186,7 +186,7 @@ export function OnboardingSetupScreen({
       <div className="space-y-5">
         <div className="space-y-3">
           <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
-            <Sparkles className="size-5 text-status-success" />
+            <Sparkles className="size-5 text-[var(--brand-primary)]" />
           </div>
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{GITHUB_STEP_CONFIG.title}</DialogTitle>
@@ -230,7 +230,7 @@ export function OnboardingSetupScreen({
     <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
-          <Sparkles className="size-5 text-status-success" />
+          <Sparkles className="size-5 text-[var(--brand-primary)]" />
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Choose your defaults</DialogTitle>

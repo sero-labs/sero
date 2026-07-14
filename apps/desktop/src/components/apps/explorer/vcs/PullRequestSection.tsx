@@ -307,8 +307,8 @@ export function PullRequestSection({
             disabled={!canCreate}
             className={cn(
               'flex h-7 items-center gap-1 rounded px-2.5 text-sm font-semibold',
-              'bg-status-info-border text-status-info ring-1 ring-status-info-subtle',
-              'hover:bg-status-info-subtle hover:text-status-info',
+              'bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)] ring-1 ring-[var(--brand-primary-border)]',
+              'hover:bg-[var(--brand-primary-hover)] hover:text-[var(--brand-primary-foreground)]',
               'transition-colors disabled:opacity-40',
             )}
           >

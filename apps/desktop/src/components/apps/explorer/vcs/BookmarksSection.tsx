@@ -251,7 +251,7 @@ function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-status-warning transition-colors">
+          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors">
             <Star className="size-3" />
           </button>
         )}

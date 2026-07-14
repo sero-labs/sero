@@ -69,12 +69,12 @@ export function ActivityBar({
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-status-success',
+                  isActive && 'text-[var(--brand-primary)]',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-status-success" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--brand-primary)]" />
                 )}
                 {showBadge && (
                   <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-status-info text-xs font-bold text-white">
@@ -106,12 +106,12 @@ export function ActivityBar({
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-status-success',
+                  isActive && 'text-[var(--brand-primary)]',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-status-success" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--brand-primary)]" />
                 )}
               </Button>
             </TooltipTrigger>

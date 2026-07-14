@@ -133,7 +133,7 @@ export function SessionNode({
             }}
             onBlur={commitRename}
             onClick={(e) => e.stopPropagation()}
-            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-status-success"
+            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)]"
           />
         ) : (
           <span className={cn('truncate text-sm font-medium', isActive ? 'text-[var(--brand-primary)]' : 'text-[var(--text-primary)]')}>
