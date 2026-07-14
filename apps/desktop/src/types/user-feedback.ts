@@ -27,6 +27,8 @@ export interface ResponseFeedbackState {
 
 export type {
   UserFeedbackQuestionOption,
+  UserFeedbackQuestionContext,
+  UserFeedbackOpenTarget,
   UserFeedbackQuestionItem,
   UserFeedbackPendingQuestion,
   UserFeedbackAnswer,

@@ -80,7 +80,7 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     expect(host.modelCalls[0].cwd).toBe(host.workspacePath);
   });
 
-  it('defer choice leaves the loop waiting without starting steps', async () => {
+  it('skip choice records an explicit skipped run without starting steps', async () => {
     const host = createFakeHost();
     host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
     host.choiceResult = { choiceId: 'defer-workflow', timedOut: false };
@@ -88,8 +88,32 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     workspaceRoot(host);
     const result = await engineFor(host).run('loop-1');
     expect(host.modelCalls).toHaveLength(0);
-    expect(result.run?.status).toBe('waiting');
+    expect(result.run).toMatchObject({
+      status: 'skipped',
+      statusReason: 'User skipped the run because the workspace has uncommitted changes.',
+    });
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('pending');
+    expect(host.state.loops[0].runtime.workspace.deferredReason).toBeUndefined();
+  });
+
+  it('a manually forced run can record a snoozed run and durable retry time', async () => {
+    const host = createFakeHost();
+    host.frozenNow = '2026-06-22T10:00:00.000Z';
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    host.choiceResult = { choiceId: 'snooze-1h', timedOut: false };
+    seedActiveLoop(host, oneStepPlan().plan);
+    workspaceRoot(host);
+
+    const result = await engineFor(host).run('loop-1');
+
+    expect(host.modelCalls).toHaveLength(0);
+    expect(result.run).toMatchObject({
+      status: 'snoozed',
+      statusReason: 'User snoozed the run because the workspace has uncommitted changes.',
+      retryAt: '2026-06-22T11:00:00.000Z',
+    });
+    expect(host.state.loops[0].runtime.snoozedUntil).toBe('2026-06-22T11:00:00.000Z');
+    expect(host.state.loops[0].runtime.pendingTriggerId).toBeUndefined();
   });
 
   it('runs a parallel plan to completion', async () => {

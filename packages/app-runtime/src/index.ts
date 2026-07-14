@@ -16,7 +16,7 @@ export { useSubagentContext, type UseSubagentContextResult } from './use-subagen
 export { useContextPresets, type UseContextPresetsResult } from './use-context-presets';
 export { useTheme, type UseThemeResult } from './use-theme';
 export { getSeroApi } from './sero-bridge';
-export { openSeroApp, consumeAppLaunchParams } from './app-launch';
+export { openSeroApp, consumeAppLaunchParams, onAppLaunchParams } from './app-launch';
 export type { AppModelInfo, AppModelGroup } from './sero-bridge';
 export type { AppToolContentBlock, AppToolImageContent, AppToolResult, AppToolTextContent } from '@sero-ai/common';
 export { registerWidget, getRuntimeWidgets, onWidgetRegistryChange } from './widget-registry';

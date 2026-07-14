@@ -143,15 +143,22 @@ The root's uncommitted changes are not touched.
 
 If the user chose workspace-root execution, Orchestrator checks whether the
 registered workspace root has uncommitted changes before starting background
-filesystem work. If it does, Orchestrator shows a visible notification for 30
-seconds with these choices:
+filesystem work. If it does, Orchestrator shows a visible notification naming
+the loop and workspace. It links to the loop detail and, for scheduled or
+manually started runs, offers a durable snooze. The run choices are:
 
-- stash current changes and run in the workspace root;
 - create an isolated managed worktree and run there;
-- defer the workflow.
+- run in the workspace root once or always for this loop;
+- stash current changes and run in the workspace root;
+- skip this run;
+- snooze a scheduled or manually started run for 15 minutes, 1 hour, 4 hours,
+  or until 9:00 AM the next day. Event-fired runs omit snooze so the firing
+  payload is never lost.
 
-If the user does not choose in time, Orchestrator automatically creates a
-managed worktree and proceeds there.
+The 60-second notification shows its fallback. If the user does not choose in
+time, Orchestrator automatically creates a managed worktree and proceeds there.
+A snooze survives restart, holds later scheduled fires, and retries one pass
+after it expires. The dirty-workspace check runs again before that pass starts.
 
 Managed worktrees are workflow placement, not workflow logic. Creating a
 worktree does not change what the agent is allowed to do; it only changes where
@@ -340,7 +347,7 @@ active session's workspace-root context.
 Dirty-workspace prompting applies only when the user chose workspace-root
 execution and background filesystem work is about to start. Managed-worktree
 loops do not prompt because the root's uncommitted changes are left untouched.
-After 30 seconds without a choice in workspace-root mode, Orchestrator creates a
+After 60 seconds without a choice in workspace-root mode, Orchestrator creates a
 managed worktree and continues there.
 
 Managed-worktree loops that mix background-agent and active-session dependencies

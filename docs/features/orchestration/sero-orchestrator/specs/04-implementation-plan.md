@@ -213,8 +213,8 @@ management limits.
 - [x] Dirty-workspace timeout creates a managed worktree and proceeds there.
 - [x] Dirty-workspace stash choice stashes current changes and runs in the
   workspace root.
-- [x] Dirty-workspace defer choice leaves the loop waiting without starting
-  steps.
+- [x] Dirty-workspace skip and snooze choices record explicit `skipped` or
+  `snoozed` runs, with no started steps and a persisted reason/retry time.
 - [x] Active-session steps keep using the live session's workspace root even
   when background-agent steps use a managed worktree.
 - [x] A generated parallel plan starts multiple ready steps up to

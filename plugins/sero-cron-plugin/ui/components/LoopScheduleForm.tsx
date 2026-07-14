@@ -18,14 +18,14 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { CRON_PRESETS } from '../lib/cron-utils';
-import type { ScheduledLoopRow } from '../lib/orchestrator-loops';
+import type { ScheduledTriggerRow } from '../lib/orchestrator-loops';
 
 interface LoopScheduleFormProps {
   /** The row being edited, or null when the dialog is closed. */
-  row: ScheduledLoopRow | null;
+  row: ScheduledTriggerRow | null;
   onClose: () => void;
   /** Persists the new schedule; resolves to null on success, an error message otherwise. */
-  onSave: (row: ScheduledLoopRow, schedule: string) => Promise<string | null>;
+  onSave: (row: ScheduledTriggerRow, schedule: string) => Promise<string | null>;
 }
 
 export function LoopScheduleForm({ row, onClose, onSave }: LoopScheduleFormProps) {

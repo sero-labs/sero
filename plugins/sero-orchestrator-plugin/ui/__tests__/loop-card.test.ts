@@ -26,6 +26,11 @@ describe('loopCardStatus', () => {
       .toEqual({ kind: 'text', text: 'Complete', tone: 'muted', showRelativeTime: true });
   });
 
+  it('shows when a scheduled loop is snoozed', () => {
+    expect(loopCardStatus(summary({ snoozedUntil: '2026-07-01T10:00:00.000Z' })))
+      .toMatchObject({ kind: 'text', tone: 'muted', text: expect.stringContaining('Snoozed until') });
+  });
+
   it('distinguishes a blocked loop that needs input from a plain block', () => {
     expect(loopCardStatus(summary({ status: 'blocked', pendingInput: 1 })))
       .toEqual({ kind: 'text', text: 'Blocked — needs input', tone: 'blocked' });

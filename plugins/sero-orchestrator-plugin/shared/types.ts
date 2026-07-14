@@ -17,6 +17,8 @@ import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceCont
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
 import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-types';
 import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepCompletion } from './recovery-types';
+import type { Observation } from './observation-types';
+import type { LoopRunStatus } from './run-status-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 
@@ -286,6 +288,10 @@ export interface LoopRuntimeState {
   workspace: LoopWorkspaceRuntime;
   activeRunId?: string;
   dueAgain?: boolean;
+  /** A dirty-workspace run delayed by the user. Blocks runs until this durable timestamp. */
+  snoozedUntil?: string;
+  /** Cron/hybrid trigger being consumed by the next run; cleared when the run starts. */
+  pendingTriggerId?: string;
   /**
    * Monotonic count of runs ever started for this loop. Unlike `runs.length`
    * (capped by run-history pruning), it never repeats, so it yields a unique
@@ -369,19 +375,16 @@ export interface LoopLimits {
 
 // ── Run, attempt, outcome ───────────────────────────────────
 
-export type LoopRunStatus =
-  | 'running'
-  | 'waiting'
-  | 'completed'
-  | 'blocked'
-  | 'failed'
-  | 'cancelled'
-  | 'orphaned';
+export type { DeferredRunResult, LoopRunStatus } from './run-status-types';
 
 export interface LoopRun {
   id: string;
   runNumber: number;
   status: LoopRunStatus;
+  /** Why a preflight ended this run without starting steps. */
+  statusReason?: string;
+  /** Durable retry time for a snoozed run. */
+  retryAt?: string;
   triggerId?: string;
   /** Set when this run was started by an event fire (Living Loops). */
   firedBy?: EventFiredBy;
@@ -455,22 +458,7 @@ export type {
   StepCompletion,
 } from './recovery-types';
 
-// ── Observation ─────────────────────────────────────────────
-
-export interface Observation {
-  id: string;
-  source:
-    | 'model'
-    | 'background-agent'
-    | 'active-session'
-    | 'manual'
-    | 'event'
-    | 'system';
-  summary: string;
-  data?: Record<string, unknown>;
-  artifactPath?: string;
-  createdAt: string;
-}
+export type { Observation } from './observation-types';
 
 // ── Plan revision ───────────────────────────────────────────
 

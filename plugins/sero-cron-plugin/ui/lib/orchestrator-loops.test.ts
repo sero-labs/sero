@@ -9,6 +9,7 @@ const index: OrchestratorIndexView = {
       title: 'Daily digest',
       status: 'active',
       updatedAt: '2026-07-01T09:00:00.000Z',
+      snoozedUntil: '2026-07-01T10:00:00.000Z',
       schedules: [
         {
           triggerId: 'trig-1',
@@ -44,6 +45,13 @@ const index: OrchestratorIndexView = {
         { triggerId: 'trig-4', type: 'cron', schedule: '0 6 * * *', exhausted: true },
       ],
     },
+    {
+      id: 'loop-5',
+      title: 'Proof moment miner',
+      status: 'active',
+      updatedAt: '2026-07-01T09:00:00.000Z',
+      snoozedUntil: '2026-07-01T11:00:00.000Z',
+    },
   ],
 };
 
@@ -60,8 +68,9 @@ describe('orchestratorIndexPath', () => {
 describe('scheduledLoopRows', () => {
   it('flattens only loops that carry schedules', () => {
     const rows = scheduledLoopRows(index);
-    expect(rows.map((r) => r.loopId)).toEqual(['loop-1', 'loop-3', 'loop-4']);
+    expect(rows.map((r) => r.loopId)).toEqual(['loop-1', 'loop-3', 'loop-4', 'loop-5']);
     expect(rows[0]).toMatchObject({
+      kind: 'schedule',
       triggerId: 'trig-1',
       title: 'Daily digest',
       schedule: '0 9 * * *',
@@ -69,6 +78,7 @@ describe('scheduledLoopRows', () => {
       scheduleDisabled: false,
       exhausted: false,
       nextFireAt: '2026-07-02T09:00:00.000Z',
+      snoozedUntil: '2026-07-01T10:00:00.000Z',
     });
   });
 
@@ -80,6 +90,16 @@ describe('scheduledLoopRows', () => {
   it('carries the exhausted state for triggers past their run limit', () => {
     const row = scheduledLoopRows(index)[2];
     expect(row).toMatchObject({ triggerId: 'trig-4', exhausted: true, scheduleDisabled: false });
+  });
+
+  it('includes a snoozed event-only loop without inventing a cron schedule', () => {
+    expect(scheduledLoopRows(index)[3]).toEqual({
+      kind: 'snooze',
+      loopId: 'loop-5',
+      title: 'Proof moment miner',
+      status: 'active',
+      snoozedUntil: '2026-07-01T11:00:00.000Z',
+    });
   });
 
   it('is empty for a missing index', () => {

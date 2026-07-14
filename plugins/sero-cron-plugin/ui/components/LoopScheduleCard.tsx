@@ -1,5 +1,5 @@
 /**
- * LoopScheduleCard, one scheduled Orchestrator loop with schedule actions.
+ * LoopScheduleCard, one scheduled trigger or one-off snoozed Orchestrator run.
  * The loop itself is managed in the Orchestrator app; from here you can edit
  * or pause its schedule and jump to the loop's details.
  */
@@ -10,12 +10,12 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { cronToHuman } from '../../shared/cron';
-import { formatFireTime, type ScheduledLoopRow } from '../lib/orchestrator-loops';
+import { formatFireTime, type ScheduledLoopRow, type ScheduledTriggerRow } from '../lib/orchestrator-loops';
 
 interface LoopScheduleCardProps {
   row: ScheduledLoopRow;
-  onEditSchedule: (row: ScheduledLoopRow) => void;
-  onTogglePaused: (row: ScheduledLoopRow) => void;
+  onEditSchedule: (row: ScheduledTriggerRow) => void;
+  onTogglePaused: (row: ScheduledTriggerRow) => void;
   onOpenLoop: (loopId: string) => void;
 }
 
@@ -31,10 +31,10 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
   const status = STATUS_BADGE[row.status];
   // A schedule can only be edited/paused while it can still fire: not exhausted,
   // and on a loop that is still running (complete/disabled loops restart in Orchestrator).
-  const canManage = !row.exhausted && row.status !== 'complete' && row.status !== 'disabled';
+  const canManage = row.kind === 'schedule' && !row.exhausted && row.status !== 'complete' && row.status !== 'disabled';
 
   return (
-    <Card className={cn('gap-0 py-0 shadow-none transition-colors', (row.scheduleDisabled || row.exhausted) && 'opacity-50')}>
+    <Card className={cn('gap-0 py-0 shadow-none transition-colors', row.kind === 'schedule' && (row.scheduleDisabled || row.exhausted) && 'opacity-50')}>
       <div className="px-4 py-3">
         {/* Header row: title + badges */}
         <div className="mb-2 flex items-center gap-2">
@@ -42,7 +42,7 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
           <Badge variant="outline" className={cn('text-sm', status.className)}>
             {status.label}
           </Badge>
-          {row.exhausted ? (
+          {row.kind === 'schedule' && (row.exhausted ? (
             <Badge variant="secondary" className="text-sm" title="This schedule reached its run limit and won't fire again">
               Run limit reached
             </Badge>
@@ -52,33 +52,42 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
                 Schedule paused
               </Badge>
             )
-          )}
-          {row.firesOnEvents && (
+          ))}
+          {row.kind === 'schedule' && row.firesOnEvents && (
             <Badge variant="outline" className="border-primary/30 text-sm text-primary" title="This loop also runs when its events fire">
               Events
+            </Badge>
+          )}
+          {row.snoozedUntil && (
+            <Badge variant="secondary" className="text-sm">
+              Snoozed
             </Badge>
           )}
         </div>
 
         {/* Schedule */}
-        <div className="mb-1.5 flex items-center gap-2">
-          <code className="rounded bg-secondary px-2 py-0.5 text-xs text-foreground">{row.schedule}</code>
-          <span className="text-xs text-muted-foreground">{cronToHuman(row.schedule)} (UTC)</span>
-        </div>
+        {row.kind === 'schedule' && (
+          <div className="mb-1.5 flex items-center gap-2">
+            <code className="rounded bg-secondary px-2 py-0.5 text-xs text-foreground">{row.schedule}</code>
+            <span className="text-xs text-muted-foreground">{cronToHuman(row.schedule)} (UTC)</span>
+          </div>
+        )}
 
         {/* Next / last fire */}
         <p className="mb-3 text-xs text-muted-foreground">
-          {row.exhausted
+          {row.snoozedUntil
+            ? `Snoozed until ${formatFireTime(row.snoozedUntil)}`
+            : row.kind === 'schedule' && row.exhausted
             ? 'Reached its run limit'
-            : row.nextFireAt
+            : row.kind === 'schedule' && row.nextFireAt
               ? `Next run ${formatFireTime(row.nextFireAt)}`
               : 'No run scheduled'}
-          {row.lastFireAt ? ` · Last run ${formatFireTime(row.lastFireAt)}` : ''}
+          {row.kind === 'schedule' && row.lastFireAt ? ` · Last run ${formatFireTime(row.lastFireAt)}` : ''}
         </p>
 
         {/* Actions — a spent schedule (exhausted, or a complete/disabled loop) can't be edited or resumed; restart the loop in Orchestrator */}
         <div className="flex items-center gap-1.5">
-          {canManage && (
+          {canManage && row.kind === 'schedule' && (
             <>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onEditSchedule(row)}>
                 Edit schedule

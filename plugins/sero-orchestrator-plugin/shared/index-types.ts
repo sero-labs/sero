@@ -90,6 +90,8 @@ export interface LoopRunSummary {
   id: string;
   runNumber: number;
   status: LoopRunStatus;
+  statusReason?: string;
+  retryAt?: string;
   startedAt: string;
   endedAt?: string;
   completionStatus?: CompletionSignal['status'];

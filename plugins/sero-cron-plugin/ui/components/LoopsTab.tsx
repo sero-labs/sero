@@ -1,5 +1,5 @@
 /**
- * LoopsTab, scheduled Orchestrator loops for the active workspace.
+ * LoopsTab, scheduled and temporarily snoozed Orchestrator loops.
  * Read-only except for the schedule: edit/pause it here, everything else in
  * the Orchestrator app.
  */
@@ -7,7 +7,7 @@
 import { ExternalLink, Infinity as InfinityIcon } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 
-import type { ScheduledLoopRow } from '../lib/orchestrator-loops';
+import type { ScheduledLoopRow, ScheduledTriggerRow } from '../lib/orchestrator-loops';
 import { LoopScheduleCard } from './LoopScheduleCard';
 
 interface LoopsTabProps {
@@ -16,8 +16,8 @@ interface LoopsTabProps {
   hasWorkspace: boolean;
   error: string | null;
   onDismissError: () => void;
-  onEditSchedule: (row: ScheduledLoopRow) => void;
-  onTogglePaused: (row: ScheduledLoopRow) => void;
+  onEditSchedule: (row: ScheduledTriggerRow) => void;
+  onTogglePaused: (row: ScheduledTriggerRow) => void;
   onOpenLoop: (loopId: string) => void;
   onOpenOrchestrator: () => void;
 }
@@ -36,10 +36,10 @@ export function LoopsTab({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center animate-cron-fade-in">
         <InfinityIcon className="mb-4 size-10 text-muted-foreground" />
-        <h2 className="text-base font-medium text-foreground">No scheduled loops</h2>
+        <h2 className="text-base font-medium text-foreground">No scheduled or snoozed loops</h2>
         <p className="mt-1.5 max-w-[260px] text-xs leading-relaxed text-muted-foreground">
           {hasWorkspace
-            ? 'Orchestrator loops with a schedule show up here.'
+            ? 'Orchestrator loops with a schedule or pending snooze show up here.'
             : 'Open a workspace to see its scheduled loops.'}
         </p>
         {hasWorkspace && (
@@ -64,7 +64,7 @@ export function LoopsTab({
       )}
       {rows.map((row) => (
         <LoopScheduleCard
-          key={`${row.loopId}:${row.triggerId}`}
+          key={`${row.loopId}:${row.kind === 'schedule' ? row.triggerId : 'snooze'}`}
           row={row}
           onEditSchedule={onEditSchedule}
           onTogglePaused={onTogglePaused}

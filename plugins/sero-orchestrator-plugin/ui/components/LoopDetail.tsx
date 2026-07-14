@@ -82,6 +82,12 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
 
       <LiveActivityStrip loop={loop} runIndex={runIndex} />
 
+      {runtime.snoozedUntil && (
+        <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
+          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the loop runs.
+        </Card>
+      )}
+
       <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
       <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 

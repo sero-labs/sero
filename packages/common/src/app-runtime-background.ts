@@ -11,6 +11,7 @@ import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session
 import type { SharedAvailableModelGroup } from './model-selection/types';
 import type { ContextAgentInfo, ContextToolInfo } from './context-editor';
 import type { AppRuntimeGitApi } from './app-runtime-git';
+import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
@@ -346,44 +347,6 @@ export interface AppRuntimeDevServersApi {
   stop(serverId: string): Promise<boolean>;
   restart(serverId: string): Promise<boolean>;
   unregister(serverId: string): boolean;
-}
-
-export type AppRuntimeNotificationType = 'info' | 'warning' | 'error';
-
-export interface AppRuntimeNotificationOptions {
-  message: string;
-  type?: AppRuntimeNotificationType;
-  source?: string;
-  sound?: string | boolean;
-  subtitle?: string;
-}
-
-export interface AppRuntimeNotificationChoice {
-  id: string;
-  label: string;
-}
-
-export interface AppRuntimeNotificationChoiceResult {
-  choiceId: string | null;
-  timedOut: boolean;
-}
-
-export interface AppRuntimeNotificationChoiceOptions {
-  title: string;
-  body: string;
-  choices: AppRuntimeNotificationChoice[];
-  timeoutMs: number;
-}
-
-export interface AppRuntimeNotificationsApi {
-  notify(options: AppRuntimeNotificationOptions): void;
-  /**
-   * Shows a visible choice notification and resolves with the chosen id, or
-   * `timedOut: true` when the user does not choose within `timeoutMs`.
-   */
-  requestChoice(
-    options: AppRuntimeNotificationChoiceOptions,
-  ): Promise<AppRuntimeNotificationChoiceResult>;
 }
 
 export interface AppRuntimeProviderApiKey {

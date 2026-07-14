@@ -65,18 +65,28 @@ export class Coordinator {
   async tick(): Promise<void> {
     const nowMs = Date.parse(this.host.now());
     const state = await this.readState();
-    const dueLoopIds: string[] = [];
+    const dueLoops = new Map<string, string | undefined>();
+    const stateUpdates: Promise<void>[] = [];
     for (const loop of state.loops) {
       if (loop.status !== 'active') continue;
       // Don't overlap: skip a loop whose previous iteration is still running.
       if (loop.runtime.activeRunId) continue;
       // Parked on a human question: hold off scheduled fires until it's answered.
       if (loop.runtime.pendingInput) continue;
-      const { loop: updated, due } = evaluateCronTriggers(loop, nowMs);
-      if (updated !== loop) await this.replaceLoop(updated);
-      if (due) dueLoopIds.push(loop.id);
+      const { loop: evaluated, due, triggerId } = evaluateCronTriggers(loop, nowMs);
+      const snoozedUntil = evaluated.runtime.snoozedUntil;
+      if (snoozedUntil && Date.parse(snoozedUntil) > nowMs) {
+        if (evaluated !== loop) stateUpdates.push(this.replaceLoop(evaluated));
+        continue;
+      }
+      const updated = snoozedUntil
+        ? { ...evaluated, runtime: { ...evaluated.runtime, snoozedUntil: undefined } }
+        : evaluated;
+      if (updated !== loop) stateUpdates.push(this.replaceLoop(updated));
+      if (due || snoozedUntil) dueLoops.set(loop.id, triggerId ?? updated.runtime.pendingTriggerId);
     }
-    for (const loopId of dueLoopIds) await this.fireScheduled(loopId);
+    await Promise.all(stateUpdates);
+    for (const [loopId, triggerId] of dueLoops) await this.fireScheduled(loopId, triggerId);
     // Restart safety: an event stashed while the loop was busy (or while the
     // app was quitting) still owes the loop a fresh iteration — consume it.
     for (const loop of state.loops) {
@@ -85,10 +95,10 @@ export class Coordinator {
   }
 
   /** Runs one scheduled iteration as a fresh pass. */
-  private async fireScheduled(loopId: string): Promise<void> {
+  private async fireScheduled(loopId: string, triggerId?: string): Promise<void> {
     const loop = await this.findLoop(loopId);
     if (!loop || loop.status !== 'active') return;
-    await this.runFreshPass(loop);
+    await this.runFreshPass(loop, triggerId);
   }
 
   /**
@@ -97,12 +107,15 @@ export class Coordinator {
    * cleared), then runs it. Shared by scheduled fires and a manual "Run next"
    * on a loop whose previous pass already finished.
    */
-  private async runFreshPass(loop: Loop): Promise<OrchestratorActionResult> {
+  private async runFreshPass(loop: Loop, triggerId?: string): Promise<OrchestratorActionResult> {
     const prior = loop.runtime.workspace.resolved;
     if (prior?.type === 'managed-worktree') {
       await this.host.removeWorktree(prior.worktreeKey ?? loop.id, { force: true });
     }
-    const rearmed = rearmLoop(loop, this.host.now());
+    const base = rearmLoop(loop, this.host.now());
+    const rearmed = triggerId
+      ? { ...base, runtime: { ...base.runtime, pendingTriggerId: triggerId } }
+      : base;
     await this.replaceLoop(rearmed);
     return this.runNext(loop.id, rearmed);
   }

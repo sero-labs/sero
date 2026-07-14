@@ -8,13 +8,21 @@
  * Styled to match ToolCallGroup's visual language.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, Pencil, X, Send, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Pencil, X, Send, ShieldAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { openSeroApp } from '@sero-ai/app-runtime';
 import { IconAction } from '@/components/ui/IconAction';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
+import { useWorkspaceStore } from '@/stores/workspace';
 import type { UserFeedbackPendingQuestion, UserFeedbackAnswer } from '@/types/ipc';
 
 export function PendingQuestionCard() {
@@ -142,6 +150,11 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
 
   const q = question.questions[0];
   const qId = q?.id;
+  const workspaceName = useWorkspaceStore((state) =>
+    state.workspaces.find((workspace) => workspace.id === question.context?.workspaceId)?.name,
+  );
+  const workspaceLabel = workspaceName ?? question.context?.workspaceId;
+  const remainingSeconds = useRemainingSeconds(question.expiresAt);
 
   const handleSelect = useCallback(
     (opt: { value: string; label: string }, index: number) => {
@@ -175,6 +188,13 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
     cancel(question.id);
   }, [question.id, cancel]);
 
+  const handleOpen = useCallback(() => {
+    const target = question.openTarget;
+    if (!target) return;
+    if (target.workspaceId) useWorkspaceStore.getState().setActiveWorkspace(target.workspaceId);
+    void openSeroApp(target.appId, target.params);
+  }, [question.openTarget]);
+
   if (!q) return null;
 
   return (
@@ -189,8 +209,9 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       <div className="flex items-center gap-2.5 px-3 py-2">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
-        <span className="flex-1 text-xs font-medium text-[var(--text-secondary)]">
-          question
+        <span className="flex-1 truncate text-xs font-medium text-[var(--text-secondary)]">
+          {question.context?.source ?? 'question'}
+          {question.context?.trigger ? ` · ${question.context.trigger}` : ''}
         </span>
         <IconAction
           onClick={handleCancel}
@@ -204,31 +225,39 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
 
       {/* Question content */}
       <div className="border-t border-[var(--border-subtle)] px-3 pt-2.5 pb-1">
+        <div className="mb-1 flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-base font-semibold text-[var(--text-primary)]">{q.label}</p>
+          {workspaceLabel && (
+            <span className="max-w-[45%] truncate rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-sm text-[var(--text-muted)]">
+              {workspaceLabel}
+            </span>
+          )}
+        </div>
         <p className="text-base text-[var(--text-primary)]">{q.prompt}</p>
       </div>
 
       {/* Options */}
       <div className="space-y-0.5 p-2">
-        {q.options.map((opt, i) => (
-          <button type="button"
-            key={opt.value}
-            onClick={() => handleSelect(opt, i)}
-            className={cn(
-              'flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
-              'hover:bg-[var(--bg-elevated)]/80',
-            )}
-          >
-            <span className="mt-px text-sm font-medium text-[var(--text-muted)]">
-              {i + 1}.
-            </span>
-            <div className="min-w-0 flex-1">
-              <span className="text-base text-[var(--text-primary)]">{opt.label}</span>
-              {opt.description && (
-                <p className="mt-0.5 text-sm text-[var(--text-muted)]">{opt.description}</p>
+        {isContextualChoice(question) ? (
+          <ContextualChoiceActions question={question} onSelect={handleSelect} onOpen={handleOpen} />
+        ) : (
+          q.options.map((opt, i) => (
+            <button type="button"
+              key={opt.value}
+              onClick={() => handleSelect(opt, i)}
+              className={cn(
+                'flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
+                'hover:bg-[var(--bg-elevated)]/80',
               )}
-            </div>
-          </button>
-        ))}
+            >
+              <span className="mt-px text-sm font-medium text-[var(--text-muted)]">{i + 1}.</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-base text-[var(--text-primary)]">{opt.label}</span>
+                {opt.description && <p className="mt-0.5 text-sm text-[var(--text-muted)]">{opt.description}</p>}
+              </div>
+            </button>
+          ))
+        )}
 
         {/* "Type something" option */}
         {q.allowOther && !customMode && (
@@ -280,7 +309,112 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
             </Button>
           </div>
         )}
+
+        {(question.fallbackLabel || remainingSeconds !== null) && (
+          <p className="px-2 pt-1 text-sm text-[var(--text-muted)]">
+            No response: {question.fallbackLabel ?? 'continues automatically'}
+            {remainingSeconds !== null ? ` in ${formatCountdown(remainingSeconds)}` : ''}
+          </p>
+        )}
       </div>
     </motion.div>
   );
+}
+
+function isContextualChoice(question: UserFeedbackPendingQuestion): boolean {
+  const options = question.questions[0]?.options ?? [];
+  return Boolean(question.context || question.openTarget || options.some((option) => option.menu || option.emphasis));
+}
+
+function ContextualChoiceActions({
+  question,
+  onSelect,
+  onOpen,
+}: {
+  question: UserFeedbackPendingQuestion;
+  onSelect: (option: { value: string; label: string }, index: number) => void;
+  onOpen: () => void;
+}) {
+  const options = question.questions[0]?.options ?? [];
+  const direct: typeof options = [];
+  const grouped = new Map<string, typeof options>();
+  for (const option of options) {
+    if (!option.menu) {
+      direct.push(option);
+      continue;
+    }
+    const group = grouped.get(option.menu) ?? [];
+    group.push(option);
+    grouped.set(option.menu, group);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-1 py-1">
+      {direct.map((option) => {
+        const index = options.indexOf(option);
+        return (
+          <Button
+            key={option.value}
+            size="sm"
+            variant={option.emphasis === 'primary' ? 'default' : 'outline'}
+            onClick={() => onSelect(option, index)}
+            title={option.description}
+            className="h-7 text-xs"
+          >
+            {option.label}
+          </Button>
+        );
+      })}
+      {Array.from(grouped.entries()).map(([menu, menuOptions]) => (
+        <DropdownMenu key={menu}>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs">
+              {menu} <ChevronDown className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-w-72">
+            {menuOptions.map((option) => {
+              const index = options.indexOf(option);
+              return (
+                <DropdownMenuItem key={option.value} onSelect={() => onSelect(option, index)} className="flex flex-col items-start">
+                  <span>{option.label}</span>
+                  {option.description && <span className="text-sm text-muted-foreground">{option.description}</span>}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ))}
+      {question.openTarget && (
+        <Button size="sm" variant="ghost" className="ml-auto h-7 gap-1 text-xs" onClick={onOpen}>
+          {question.openTarget.label ?? 'Open'} <ExternalLink className="size-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function useRemainingSeconds(expiresAt?: string): number | null {
+  const [remaining, setRemaining] = useState<number | null>(() => secondsUntil(expiresAt));
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => setRemaining(secondsUntil(expiresAt));
+    update();
+    const timer = window.setInterval(update, 1_000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt]);
+  return remaining;
+}
+
+function secondsUntil(expiresAt?: string): number | null {
+  if (!expiresAt) return null;
+  const expires = Date.parse(expiresAt);
+  if (Number.isNaN(expires)) return null;
+  return Math.max(0, Math.ceil((expires - Date.now()) / 1_000));
+}
+
+function formatCountdown(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }

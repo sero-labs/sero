@@ -104,7 +104,7 @@ Defaults for a new loop:
 
 - `useManagedWorktree: true`;
 - `reuseExistingWorktree: true`;
-- `dirtyWorkspacePromptTimeoutMs: 30_000`;
+- `dirtyWorkspacePromptTimeoutMs: 60_000`;
 - `dirtyWorkspaceDefaultAction: "create-managed-worktree"`;
 - `allowDirtyWorkspaceRoot: false`.
 
@@ -324,6 +324,11 @@ interface LoopRuntimeState {
   workspace: LoopWorkspaceRuntime;
   activeRunId?: string;
   dueAgain?: boolean;
+  // A scheduled dirty-workspace run delayed by the user. The coordinator holds
+  // scheduled and event execution until this durable timestamp expires.
+  snoozedUntil?: string;
+  // The scheduled trigger attached to the next run, including a snoozed retry.
+  pendingTriggerId?: string;
   completion?: CompletionSignal;
   block?: LoopBlock;
   // A durable question the loop is waiting on. While set, the loop is parked: no
@@ -421,6 +426,8 @@ interface LoopRun {
   id: string;
   runNumber: number;
   status: LoopRunStatus;
+  statusReason?: string;
+  retryAt?: string;
   triggerId?: string;
   startedStepIds: string[];
   stepAttempts: StepAttempt[];
@@ -440,11 +447,19 @@ type LoopRunStatus =
   | "blocked"
   | "failed"
   | "cancelled"
-  | "orphaned";
+  | "orphaned"
+  | "skipped"
+  | "snoozed";
 ```
 
 `waiting` means the LLM or plan left no runnable step until a future trigger,
 manual action, or revision.
+
+`skipped` and `snoozed` are explicit preflight outcomes recorded before any
+steps start. `statusReason` explains the choice; a snoozed run also records its
+`retryAt` timestamp. The loop-level `runtime.snoozedUntil` is the live scheduler
+gate and is cleared when the retry starts, while the historical run keeps
+`retryAt` permanently.
 
 ## Step Attempt
 

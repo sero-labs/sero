@@ -16,6 +16,7 @@ import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
   ActiveSessionInfo,
+  ChoiceRequest,
   ChoiceResult,
   ModelRunParams,
   ModelRunResult,
@@ -62,7 +63,7 @@ export interface FakeHost extends OrchestratorHost {
   /** Full removeWorktree calls, including the options passed. */
   worktreeRemovals: { loopId: string; deleteBranch?: boolean; force?: boolean }[];
   notifications: { message: string; type?: string }[];
-  choiceRequests: { title: string; body: string }[];
+  choiceRequests: ChoiceRequest[];
   stashes: string[];
   /** Open PRs returned by listPullRequests (empty by default). */
   pullRequests: AppRuntimePullRequestSummary[];
@@ -193,7 +194,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.notifications.push({ message, type });
     },
     async requestChoice(request) {
-      this.choiceRequests.push({ title: request.title, body: request.body });
+      this.choiceRequests.push(request);
       return this.choiceResult;
     },
     session: {

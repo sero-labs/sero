@@ -10,6 +10,12 @@ import type { LoopRunSummary } from '../../shared/types';
 const OUTCOME_LABEL: Record<string, string> = { succeeded: 'done', 'needs-revision': 'recovering' };
 
 export function summarizeRun(run: LoopRunSummary): string {
+  if (run.statusReason) {
+    if (run.status === 'snoozed' && run.retryAt) {
+      return `${run.statusReason} Retry at ${new Date(run.retryAt).toLocaleString()}`;
+    }
+    return run.statusReason;
+  }
   const parts: string[] = [];
   if (run.steps.length > 0) {
     const counts = new Map<string, number>();

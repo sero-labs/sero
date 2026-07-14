@@ -10,7 +10,7 @@
 ## 1. The problem, and the fix we chose
 
 A loop set to **run in the workspace root** (not a managed worktree) does a **dirty preflight**
-before each background step: if the workspace has uncommitted changes it shows a 30s choice prompt
+before each background step: if the workspace has uncommitted changes it shows a 60s choice prompt
 (stash / make a worktree / defer) and, on timeout, makes a worktree.
 
 That check **can't tell the loop's own leftover changes from the user's unrelated work** — both look
@@ -45,7 +45,7 @@ primitives. (A real checkbox can be added later if the exact UX is wanted — ou
 ## 2. Hard constraints (do not violate)
 
 - **Safe default unchanged.** The new flag defaults **off**. With it off, today's behavior (prompt,
-  30s → worktree) is byte-for-byte the same.
+  60s → worktree) is byte-for-byte the same.
 - **No new heuristics.** This is a user setting, not an inferred decision. We do not compute "is this
   the loop's own change?" — the user owns the call.
 - **No mandatory commit.** Nothing in this change makes a loop commit. Running in place leaves the

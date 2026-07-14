@@ -31,4 +31,14 @@ describe('summarizeRun', () => {
   it('reads "no steps run" for an empty run', () => {
     expect(summarizeRun(run({}))).toBe('no steps run');
   });
+
+  it('explains explicit skipped and snoozed run states', () => {
+    expect(summarizeRun(run({ status: 'skipped', statusReason: 'Skipped because the workspace was dirty.' })))
+      .toBe('Skipped because the workspace was dirty.');
+    expect(summarizeRun(run({
+      status: 'snoozed',
+      statusReason: 'Snoozed because the workspace was dirty.',
+      retryAt: '2026-07-14T09:00:00.000Z',
+    }))).toContain('Retry at');
+  });
 });

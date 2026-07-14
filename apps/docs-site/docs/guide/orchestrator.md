@@ -85,6 +85,27 @@ every step shows as finished. The **Attempt history** below records this run.
 That's a complete loop, start to finish. Everything below is about loops that do
 more.
 
+## When a loop finds uncommitted changes
+
+A loop set to work directly in the workspace checks for uncommitted changes
+before it edits files. If it finds any, the confirmation names the loop and
+workspace and shows what will happen if you do not answer.
+
+**Run isolated** is the safe default: the loop uses a separate worktree and
+leaves your changes alone. Use **Run here** to work alongside the changes, allow
+that behavior for this loop, or stash the changes first. **Skip this run** waits
+for the loop's next normal trigger.
+
+For a scheduled or manually started run, **Snooze** can retry in 15 minutes, 1
+hour, 4 hours, or at 9:00 AM the next day. The snooze survives a Sero restart,
+and Sero checks the workspace again before starting. Event-fired runs do not
+offer snooze because their event payload cannot be discarded. **Open loop**
+takes you to the correct workspace and loop without answering the confirmation.
+
+The loop's **Attempt history** records the result as **Skipped** or **Snoozed**,
+including the reason and retry time. These are separate from **Waiting**, which
+means a run is parked on input or has no runnable step.
+
 ## Walkthrough 2 — a loop that thinks for itself
 
 Now a loop that has to make choices. We'll point it at the demo project's

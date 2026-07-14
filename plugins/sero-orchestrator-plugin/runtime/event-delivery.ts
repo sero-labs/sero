@@ -80,7 +80,7 @@ export async function drainPendingEvent(
 ): Promise<void> {
   const loop = await seam.findLoop(loopId);
   if (!loop || loop.status !== 'active' || !loop.runtime.pendingEvents?.length) return;
-  if (loop.runtime.activeRunId || seam.isRunning(loopId) || loop.runtime.pendingInput) return;
+  if (loop.runtime.activeRunId || seam.isRunning(loopId) || loop.runtime.pendingInput || isSnoozed(loop, host.now())) return;
   await runEventPass(host, seam, loopId);
 }
 
@@ -147,7 +147,10 @@ async function deliverEventFire(
       .filter((t) => wanted.has(t.id) && codeMatchEventTrigger(t, event, nowMs) === 'match')
       .map((t) => t.id);
     if (firing.length === 0) return state;
-    busy = Boolean(current.runtime.activeRunId) || seam.isRunning(loopId) || Boolean(current.runtime.pendingInput);
+    busy = Boolean(current.runtime.activeRunId)
+      || seam.isRunning(loopId)
+      || Boolean(current.runtime.pendingInput)
+      || isSnoozed(current, host.now());
     const next = enqueuePendingEvent(host, applyEventFires(current, firing, nowMs), event);
     fired = true;
     const loops = [...state.loops];
@@ -156,6 +159,10 @@ async function deliverEventFire(
   });
   if (!fired || busy) return;
   await runEventPass(host, seam, loopId);
+}
+
+function isSnoozed(loop: Loop, now: string): boolean {
+  return Boolean(loop.runtime.snoozedUntil && Date.parse(loop.runtime.snoozedUntil) > Date.parse(now));
 }
 
 /**

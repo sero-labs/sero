@@ -17,6 +17,10 @@ export function loopCardStatus(loop: LoopSummary): LoopCardStatus {
   if (p?.running && p.total > 0) {
     return { kind: 'progress', done: p.done, total: p.total, current: Math.min(p.done + 1, p.total) };
   }
+  if (loop.snoozedUntil) {
+    const until = new Date(loop.snoozedUntil).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return { kind: 'text', text: `Snoozed until ${until}`, tone: 'muted' };
+  }
   if (loop.status === 'complete') return { kind: 'text', text: 'Complete', tone: 'muted', showRelativeTime: true };
   if (loop.status === 'blocked') {
     return { kind: 'text', text: loop.pendingInput ? 'Blocked — needs input' : 'Blocked', tone: 'blocked' };

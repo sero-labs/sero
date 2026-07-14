@@ -54,6 +54,8 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
   return {
     runNumber: run.runNumber,
     status: run.status,
+    statusReason: run.statusReason,
+    retryAt: run.retryAt,
     completion: run.completionSignal?.status,
     startedAt: run.startedAt,
     endedAt: run.endedAt,
