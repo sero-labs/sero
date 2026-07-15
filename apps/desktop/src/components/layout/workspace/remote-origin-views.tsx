@@ -24,7 +24,6 @@ import { IconAction } from '@/components/ui/IconAction';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useGitHubAuthStore } from '@/stores/github-auth';
 import {
-  connectOrigin,
   createGitHubOrigin,
   defaultRepoName,
   displayOriginUrl,
@@ -84,7 +83,7 @@ export function ChooseView({
         </div>
         <div className="flex flex-col">
           <span className="text-base font-medium text-[var(--text-primary)]">Connect existing repository</span>
-          <span className="text-xs text-[var(--text-muted)]">Import files when the workspace is empty</span>
+          <span className="text-xs text-[var(--text-muted)]">Link a repo and pull its files in</span>
         </div>
       </button>
     </div>
@@ -300,83 +299,6 @@ export function CreateGitHubView({
   );
 }
 
-// ── Connect existing repo ────────────────────────────────────
-
-export function ConnectExistingView({
-  workspace,
-  onBack,
-  onConnected,
-}: {
-  workspace: WorkspaceInfo;
-  onBack: () => void;
-  onConnected: (url: string, warning?: string) => void;
-}) {
-  const [url, setUrl] = useState('');
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleConnect = async () => {
-    const trimmed = url.trim();
-    if (!trimmed || isConnecting) return;
-
-    setIsConnecting(true);
-    setError(null);
-    try {
-      const result = await connectOrigin({ workspaceId: workspace.id, url: trimmed, importIfEmpty: true });
-      if (result.ok) {
-        onConnected(result.url, result.warning);
-        return;
-      }
-
-      setError(result.message);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isConnecting && url.trim()) {
-      e.preventDefault();
-      handleConnect();
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-4 pt-1" onKeyDown={handleKeyDown}>
-      <BackButton onClick={onBack} />
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="remote-url" className="text-base font-medium text-[var(--text-secondary)]">
-          Remote URL
-        </Label>
-        <Input
-          id="remote-url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://github.com/user/repo.git"
-          disabled={isConnecting}
-        />
-        <span className="text-xs text-[var(--text-muted)]">
-          Empty workspaces are fetched and checked out automatically
-        </span>
-      </div>
-
-      {error && <ErrorBanner message={error} />}
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onBack} disabled={isConnecting}>Cancel</Button>
-        <Button onClick={handleConnect} disabled={isConnecting || !url.trim()}>
-          {isConnecting ? (
-            <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Importing…</>
-          ) : (
-            'Connect Repository'
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ── Connected: show current origin ───────────────────────────
 
 export function ConnectedView({
@@ -434,7 +356,7 @@ export function ConnectedView({
 
 // ── Shared subcomponents ─────────────────────────────────────
 
-function BackButton({ onClick }: { onClick: () => void }) {
+export function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <button type="button"
       onClick={onClick}
@@ -446,7 +368,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ErrorBanner({ message }: { message: string }) {
+export function ErrorBanner({ message }: { message: string }) {
   return (
     <p className="rounded-md bg-status-error-muted p-2 text-xs text-status-error">
       {message}

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
+import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
+import { useGitHubAuthStore } from '@/stores/github-auth';
 import {
   Popover,
   PopoverContent,
@@ -9,12 +11,23 @@ import {
 } from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
-import { PickView, CreateView } from './AddWorkspaceViews';
+import { PickView, CreateView, CloneView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
-type AddView = 'pick' | 'create';
+type AddView = 'pick' | 'create' | 'clone';
+
+/** Errors that mean "you need GitHub credentials", as opposed to a bad URL. */
+function looksLikeAuthError(message: string): boolean {
+  return /authentication|authenticate|permission denied|access denied|403|terminal prompts disabled|could not read username|repository not found/i.test(
+    message,
+  );
+}
+
+function isGitHubUrl(url: string): boolean {
+  return url.includes('github.com');
+}
 
 export function AddWorkspaceMenu() {
   const [open, setOpen] = useState(false);
@@ -23,14 +36,37 @@ export function AddWorkspaceMenu() {
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
+
+  // Clone view state
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneName, setCloneName] = useState('');
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [cloneAuthHint, setCloneAuthHint] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
+  const cloneInputRef = useRef<HTMLInputElement>(null);
+  const cloneNameEditedRef = useRef(false);
   // Guards against Radix auto-closing the popover when a native dialog steals focus
   const pickingFolderRef = useRef(false);
+  const authInFlightRef = useRef(false);
+
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
+  const cloneWorkspace = useWorkspaceStore((s) => s.cloneWorkspace);
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
+  const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
 
-  const reset = () => { setView('pick'); setNewName(''); setParentPath(null); };
+  const reset = () => {
+    setView('pick');
+    setNewName('');
+    setParentPath(null);
+    setCloneUrl('');
+    setCloneName('');
+    cloneNameEditedRef.current = false;
+    setCloneError(null);
+    setCloneAuthHint(false);
+  };
 
   const handleImportExisting = async () => {
     setOpen(false);
@@ -74,10 +110,47 @@ export function AddWorkspaceMenu() {
     }
   };
 
+  const handleUrlChange = (value: string) => {
+    setCloneUrl(value);
+    // Keep the name in sync with the URL until the user edits it themselves.
+    if (!cloneNameEditedRef.current) setCloneName(deriveRepoNameFromGitUrl(value) ?? '');
+  };
+
+  const handleClone = async () => {
+    const trimmedUrl = cloneUrl.trim();
+    if (!trimmedUrl || isCloning) return;
+    setIsCloning(true);
+    setCloneError(null);
+    setCloneAuthHint(false);
+    try {
+      await cloneWorkspace(trimmedUrl, cloneName.trim() || undefined, parentPath ?? undefined);
+      await loadSessions();
+      setOpen(false);
+      reset();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to clone repository';
+      setCloneError(message);
+      setCloneAuthHint(looksLikeAuthError(message) && isGitHubUrl(trimmedUrl));
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const handleSignInAndRetry = async () => {
+    authInFlightRef.current = true;
+    try {
+      const result = await openGitHubAuthDialog({ source: 'remote-origin' });
+      if (result.outcome === 'success') await handleClone();
+    } finally {
+      authInFlightRef.current = false;
+    }
+  };
+
   return (
     <>
     <Popover open={open} onOpenChange={(o) => {
-      if (!o && pickingFolderRef.current) return; // Native dialog stole focus, don't close
+      // Native folder dialog or GitHub auth dialog stole focus, don't close
+      if (!o && (pickingFolderRef.current || authInFlightRef.current)) return;
       setOpen(o);
       if (!o) reset();
     }}>
@@ -95,16 +168,20 @@ export function AddWorkspaceMenu() {
         className="w-64 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {view === 'pick' ? (
+        {view === 'pick' && (
           <PickView
             onCreateNew={() => {
               setView('create');
-              // Focus the input after the view transition renders
               requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+            onCloneRepo={() => {
+              setView('clone');
+              requestAnimationFrame(() => cloneInputRef.current?.focus());
             }}
             onImportExisting={handleImportExisting}
           />
-        ) : (
+        )}
+        {view === 'create' && (
           <CreateView
             inputRef={inputRef}
             name={newName}
@@ -115,6 +192,23 @@ export function AddWorkspaceMenu() {
             onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
             onCreate={handleCreate}
             isCreating={isCreating}
+          />
+        )}
+        {view === 'clone' && (
+          <CloneView
+            inputRef={cloneInputRef}
+            url={cloneUrl}
+            onUrlChange={handleUrlChange}
+            name={cloneName}
+            onNameChange={(v) => { cloneNameEditedRef.current = true; setCloneName(v); }}
+            parentPath={parentPath}
+            onPickLocation={handlePickLocation}
+            onClearLocation={() => setParentPath(null)}
+            onBack={() => { setView('pick'); reset(); }}
+            onClone={handleClone}
+            isCloning={isCloning}
+            error={cloneError}
+            onSignIn={cloneAuthHint ? handleSignInAndRetry : undefined}
           />
         )}
       </PopoverContent>

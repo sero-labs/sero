@@ -42,3 +42,22 @@ export function toGitHubWebUrl(url: string): string | undefined {
   if (!parsed) return undefined;
   return `https://github.com/${parsed.owner}/${parsed.repo}`;
 }
+
+/**
+ * Derive a workspace-friendly repository name from any git remote URL.
+ *
+ * Handles https/ssh/scp/self-hosted forms, e.g.
+ *   https://github.com/octocat/Hello-World.git → "Hello-World"
+ *   git@gitlab.com:group/sub/app.git           → "app"
+ *   ssh://git@host:2222/team/repo              → "repo"
+ * Returns undefined when no meaningful segment can be extracted.
+ */
+export function deriveRepoNameFromGitUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+
+  const cleaned = url.trim().replace(/[?#].*$/, '').replace(/\/+$/, '');
+  // A repo name never contains '/' or ':', so the last such segment is the name.
+  const lastSegment = cleaned.split(/[/:]/).filter(Boolean).pop();
+  const name = lastSegment?.replace(/\.git$/i, '').trim();
+  return name || undefined;
+}

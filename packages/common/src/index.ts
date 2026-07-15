@@ -234,6 +234,7 @@ export {
   extractGitHubRepoName,
   extractGitHubUrl,
   toGitHubWebUrl,
+  deriveRepoNameFromGitUrl,
 } from './github-url';
 
 export type {

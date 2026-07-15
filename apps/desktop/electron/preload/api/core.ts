@@ -16,6 +16,7 @@ import type {
   SessionModelState,
   SessionUsageStats,
   WorkspaceConfig,
+  WorkspaceCreateOptions,
   WorkspaceInfo,
   WorkspaceRoot,
 } from '@/types/ipc';
@@ -69,8 +70,8 @@ export const profilesBridge = {
 
 export const workspaceBridge = {
   list: (): Promise<WorkspaceInfo[]> => ipcRenderer.invoke(IpcChannels.workspace.list),
-  create: (name: string, parentPath?: string): Promise<WorkspaceInfo> =>
-    ipcRenderer.invoke(IpcChannels.workspace.create, name, parentPath),
+  create: (name: string, parentPath?: string, options?: WorkspaceCreateOptions): Promise<WorkspaceInfo> =>
+    ipcRenderer.invoke(IpcChannels.workspace.create, name, parentPath, options),
   remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.workspace.remove, id),
   getConfig: (id: string): Promise<WorkspaceConfig | null> =>
     ipcRenderer.invoke(IpcChannels.workspace.getConfig, id),

@@ -24,9 +24,9 @@ import {
   LoadingView,
   ChooseView,
   CreateGitHubView,
-  ConnectExistingView,
   ConnectedView,
 } from './remote-origin-views';
+import { ConnectExistingView } from './ConnectExistingView';
 import { fetchOriginInfo, toOriginInfo, type GitRemoteOriginInfo } from '../git-remote/workflow';
 
 // ── Types ────────────────────────────────────────────────────
@@ -89,11 +89,11 @@ export function RemoteOriginManager({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Remote Origin</DialogTitle>
+          <DialogTitle>Git Repository</DialogTitle>
           <DialogDescription>
             {view === 'connected'
-              ? `Remote origin for "${workspace.name}".`
-              : `Set up the remote origin for "${workspace.name}".`}
+              ? `The Git repository linked to "${workspace.name}".`
+              : `Link "${workspace.name}" to a Git repository.`}
           </DialogDescription>
         </DialogHeader>
 

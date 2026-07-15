@@ -153,7 +153,7 @@ describe('workspace IPC runtime reconcile', () => {
     await removeHandler?.({}, 'ws-1');
     await closeHandler?.({}, 'ws-1');
 
-    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('Workspace 1', '/parent');
+    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('Workspace 1', '/parent', undefined);
     expect(mocks.workspaceManager.addFolder).toHaveBeenCalledWith('/repo-1', 'Workspace 1');
     expect(mocks.workspaceManager.remove).toHaveBeenCalledWith('ws-1');
     expect(mocks.workspaceManager.close).toHaveBeenCalledWith('ws-1');

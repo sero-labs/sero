@@ -70,6 +70,11 @@ export interface WorkspaceInfo {
   missing?: boolean; // Registry path is currently unavailable (e.g. removable media).
 }
 
+export interface WorkspaceCreateOptions {
+  /** Use a new or empty destination instead of reusing a non-empty directory. */
+  requireEmpty?: boolean;
+}
+
 /**
  * Root surfaced to the editor IPC. Each entry has the virtual prefix
  * (e.g. `/workspace`, `/sero-source`) the renderer should use when

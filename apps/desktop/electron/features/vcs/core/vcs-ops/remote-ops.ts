@@ -82,6 +82,61 @@ async function resolveRemoteBranch(
   return names.find((name) => name === 'main') ?? names.find((name) => name === 'master') ?? names[0] ?? null;
 }
 
+function parseNullDelimitedPaths(output: string): string[] {
+  return output
+    .split('\0')
+    .map((filePath) => filePath.replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+function pathsOverlap(left: string, right: string): boolean {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+async function findUnsafeCheckoutReason(
+  runner: GitRunner,
+  workspaceId: string,
+  remoteRef: string,
+): Promise<string | null> {
+  const head = await runner.run(workspaceId, ['rev-parse', '--verify', 'HEAD'], 10_000);
+  if (head.exitCode === 0) {
+    return 'The workspace already has Git commits. Link the repository without importing to preserve its history.';
+  }
+
+  const tracked = await runner.run(workspaceId, ['ls-files', '-z'], 10_000);
+  if (tracked.exitCode !== 0) return tracked.stderr || 'Failed to inspect tracked workspace files';
+  if (parseNullDelimitedPaths(tracked.stdout).length > 0) {
+    return 'The workspace already has tracked Git files. Link the repository without importing to preserve them.';
+  }
+
+  const remoteFiles = await runner.run(workspaceId, ['ls-tree', '-r', '--name-only', '-z', remoteRef], 30_000);
+  if (remoteFiles.exitCode !== 0) {
+    return remoteFiles.stderr || `Failed to inspect ${remoteRef}`;
+  }
+
+  const untracked = await runner.run(
+    workspaceId,
+    ['ls-files', '--others', '--exclude-standard', '-z'],
+    10_000,
+  );
+  if (untracked.exitCode !== 0) return untracked.stderr || 'Failed to inspect workspace files';
+
+  const ignored = await runner.run(
+    workspaceId,
+    ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
+    10_000,
+  );
+  if (ignored.exitCode !== 0) return ignored.stderr || 'Failed to inspect ignored workspace files';
+
+  const existingPaths = [untracked.stdout, ignored.stdout].flatMap(parseNullDelimitedPaths);
+  const conflictingPath = parseNullDelimitedPaths(remoteFiles.stdout).find((remotePath) =>
+    existingPaths.some((existingPath) => pathsOverlap(remotePath, existingPath)),
+  );
+  return conflictingPath
+    ? `Import would overwrite an existing workspace path: ${conflictingPath}`
+    : null;
+}
+
 export async function checkoutRemote(
   runner: GitRunner,
   workspaceId: string,
@@ -100,6 +155,9 @@ export async function checkoutRemote(
   }
 
   const remoteRef = `${remote}/${branch}`;
+  const unsafeReason = await findUnsafeCheckoutReason(runner, workspaceId, remoteRef);
+  if (unsafeReason) return { success: false, message: unsafeReason };
+
   const checkout = await runner.run(workspaceId, ['checkout', '-B', branch, remoteRef], 120_000);
   if (checkout.exitCode !== 0) {
     return { success: false, message: checkout.stderr || `Failed to check out ${remoteRef}` };

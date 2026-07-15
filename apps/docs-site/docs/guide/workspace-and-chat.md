@@ -131,6 +131,31 @@ and it is restored when you relaunch Sero with that profile.
 
 ![Workspace sessions](../assets/images/workspace-sessions.jpg)
 
+### Adding a workspace
+
+The **+** button next to the workspace list offers three ways to start:
+
+- **Create New** — makes an empty workspace. After it is created, Sero offers to
+  link it to a Git repository (create a new one on GitHub, or connect an
+  existing one).
+- **Clone Repository** — paste a Git URL and Sero creates a workspace and pulls
+  the repository's files into it in one step. The workspace name is filled in
+  from the URL and can be edited. Private repositories need GitHub sign-in; if a
+  clone fails for that reason, Sero offers to sign in and retry.
+- **Import Existing** — register a folder that already exists on your machine.
+
+### Linking a repository to an existing workspace
+
+Open a workspace's Git action (the branch icon on hover) to link it to a
+repository:
+
+- If the workspace is **empty**, its files are fetched and checked out
+  automatically.
+- If the workspace **already has files**, Sero does not overwrite them silently.
+  It tells you nothing was imported and offers a choice: **Import files**
+  (Sero proceeds only when it can preserve existing files and Git history) or
+  **Just link** (record the remote only).
+
 ## Global chat mental model
 
 The chat panel is global to the shell, not tied to one app view. You can switch
