@@ -351,7 +351,24 @@ describe('RemoteOriginManager', () => {
     });
   });
 
-  it('shows a non-blocking warning when origin connects but import fails', async () => {
+  it('imports files and shows the connected repo for an empty workspace', async () => {
+    await renderManager();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Connect existing repository');
+    });
+
+    await clickButton('Connect existing repository');
+    await setInputValue('remote-url', 'https://github.com/octocat/workspace-1.git');
+    await clickButton('Connect Repository');
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('octocat/workspace-1');
+    });
+    expect(seroBridge.vcs.checkoutRemote).toHaveBeenCalledWith('workspace-1', 'origin');
+  });
+
+  it('offers a reconcile choice when the import fails, keeping the remote linked', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: false, message: 'checkout failed' });
 
@@ -365,9 +382,18 @@ describe('RemoteOriginManager', () => {
     await setInputValue('remote-url', 'https://github.com/octocat/workspace-1.git');
     await clickButton('Connect Repository');
 
+    // Import failed → user is offered a choice rather than a silent success.
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("couldn't be imported: checkout failed");
+      expect(document.body.textContent).toContain('Import anyway');
+      expect(document.body.textContent).toContain('Just link');
+    });
+
+    // "Just link" keeps the remote and surfaces the warning on the connected view.
+    await clickButton('Just link');
     await vi.waitFor(() => {
       expect(document.body.textContent).toContain('octocat/workspace-1');
-      expect(document.body.textContent).toContain("Connected, but Sero couldn't import files: checkout failed");
+      expect(document.body.textContent).toContain("couldn't be imported: checkout failed");
     });
 
     warn.mockRestore();

@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import type { WorkspaceInfo } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
+import { connectOrigin } from '@/components/layout/git-remote/workflow';
 
 // ── Store ──────────────────────────────────────────────────────
 
@@ -45,6 +47,12 @@ interface WorkspaceState {
   createWorkspace: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;
   /** Register an existing folder as a workspace (VSCode "Add Folder"). */
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
+  /**
+   * Create a workspace from a git remote and import its contents (clone).
+   * Rolls the empty workspace back out of the registry if the import fails.
+   * @param url Any git remote URL (https/ssh). Name is derived from it when omitted.
+   */
+  cloneWorkspace: (url: string, name?: string, parentPath?: string) => Promise<WorkspaceInfo>;
   /** Set provider-aware runtime backend for a workspace. */
   setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend) => Promise<void>;
   /**
@@ -146,6 +154,37 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       await useSessionStore.getState().createSession(workspace.id);
     } catch (err) {
       console.warn('Failed to auto-create session for new workspace:', err);
+    }
+    return workspace;
+  },
+
+  cloneWorkspace: async (url, name, parentPath) => {
+    const repoName = name?.trim() || deriveRepoNameFromGitUrl(url) || 'repository';
+    const workspace = await window.sero.workspace.create(repoName, parentPath);
+    set((s) => ({
+      workspaces: [...s.workspaces, workspace],
+      activeWorkspaceId: workspace.id,
+    }));
+
+    const result = await connectOrigin({ workspaceId: workspace.id, url, importMode: 'auto' });
+    // A fresh workspace is always empty, so auto import either lands the files or fails outright.
+    const failure = !result.ok
+      ? result.message
+      : !result.import.imported && result.import.reason === 'import-failed'
+        ? result.import.message ?? 'Failed to import repository'
+        : null;
+
+    if (failure) {
+      // Don't leave a stray empty workspace behind for a clone that didn't land.
+      await get().closeWorkspace(workspace.id);
+      throw new Error(failure);
+    }
+
+    // Auto-create and select a default session in the cloned workspace.
+    try {
+      await useSessionStore.getState().createSession(workspace.id);
+    } catch (err) {
+      console.warn('Failed to auto-create session for cloned workspace:', err);
     }
     return workspace;
   },

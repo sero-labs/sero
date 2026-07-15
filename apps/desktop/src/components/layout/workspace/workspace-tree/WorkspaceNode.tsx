@@ -233,7 +233,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                       setRemoteManagerOpen(true);
                     }
                   }}
-                  title="Remote origin"
+                  title="Git repository"
                 >
                   <GitBranch className="size-3" />
                 </IconAction>

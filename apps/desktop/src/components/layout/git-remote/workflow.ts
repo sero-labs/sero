@@ -29,13 +29,37 @@ export type CreateGitHubOriginResult =
       url?: string;
     };
 
+/**
+ * How much to import when connecting a remote:
+ * - `never`  — record the remote only, touch no files (default).
+ * - `auto`   — fetch + check out only when the workspace is empty (safe default for new workspaces).
+ * - `force`  — always attempt to fetch + check out. Git still refuses to overwrite
+ *              conflicting local files, so this is safe: it either overlays cleanly
+ *              or fails with a conflict message.
+ */
+export type ImportMode = 'never' | 'auto' | 'force';
+
+/** What actually happened to the working tree when a remote was connected. */
+export type ImportOutcome =
+  | { imported: true }
+  | {
+      imported: false;
+      /**
+       * - `link-only`         — no import was requested.
+       * - `workspace-not-empty` — auto import skipped because the workspace already has files.
+       * - `import-failed`     — fetch/checkout ran but failed (e.g. path conflict, auth).
+       */
+      reason: 'link-only' | 'workspace-not-empty' | 'import-failed';
+      message?: string;
+    };
+
 export type ConnectOriginResult =
   | {
       ok: true;
       url: string;
       webUrl?: string;
       updatedExisting: boolean;
-      warning?: string;
+      import: ImportOutcome;
     }
   | {
       ok: false;
@@ -152,16 +176,16 @@ export async function createGitHubOrigin({
 export async function connectOrigin({
   workspaceId,
   url,
-  importIfEmpty,
+  importMode = 'never',
 }: {
   workspaceId: string;
   url: string;
-  importIfEmpty?: boolean;
+  importMode?: ImportMode;
 }): Promise<ConnectOriginResult> {
-  let connected: Extract<ConnectOriginResult, { ok: true }>;
+  let base: { url: string; webUrl?: string; updatedExisting: boolean };
   try {
     await window.sero.vcs.addRemote(workspaceId, 'origin', url);
-    connected = { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: false };
+    base = { url, webUrl: toGitHubWebUrl(url), updatedExisting: false };
   } catch (error) {
     const message = toErrorMessage(error, 'Failed to connect remote');
     if (!message.includes('already exists')) {
@@ -169,18 +193,44 @@ export async function connectOrigin({
     }
     try {
       await window.sero.vcs.setRemoteUrl(workspaceId, 'origin', url);
-      connected = { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: true };
+      base = { url, webUrl: toGitHubWebUrl(url), updatedExisting: true };
     } catch (setError) {
       return { ok: false, message: toErrorMessage(setError, 'Failed to update remote URL') };
     }
   }
 
-  if (!importIfEmpty || await hasVisibleWorkspaceFiles(workspaceId)) return connected;
+  const outcome = await importRemote(workspaceId, importMode);
+  return { ok: true, ...base, import: outcome };
+}
+
+/**
+ * Human-readable summary of what happened to the working tree, or `null` when
+ * there is nothing worth telling the user (a clean import or a plain link).
+ */
+export function describeImportOutcome(outcome: ImportOutcome): string | null {
+  if (outcome.imported) return null;
+  switch (outcome.reason) {
+    case 'link-only':
+      return null;
+    case 'workspace-not-empty':
+      return 'Remote linked. The workspace already has files, so nothing was imported.';
+    case 'import-failed':
+      return `Remote linked, but the files couldn't be imported: ${outcome.message ?? 'unknown error'}`;
+  }
+}
+
+async function importRemote(workspaceId: string, importMode: ImportMode): Promise<ImportOutcome> {
+  if (importMode === 'never') return { imported: false, reason: 'link-only' };
+
+  if (importMode === 'auto' && (await hasVisibleWorkspaceFiles(workspaceId))) {
+    return { imported: false, reason: 'workspace-not-empty' };
+  }
 
   const checkout = await window.sero.vcs.checkoutRemote(workspaceId, 'origin');
-  if (checkout.success) return connected;
+  if (checkout.success) return { imported: true };
+
   console.warn('[git-remote] Remote connected, but import failed:', checkout.message);
-  return { ...connected, warning: `Connected, but Sero couldn't import files: ${checkout.message}` };
+  return { imported: false, reason: 'import-failed', message: checkout.message };
 }
 
 async function hasVisibleWorkspaceFiles(workspaceId: string): Promise<boolean> {

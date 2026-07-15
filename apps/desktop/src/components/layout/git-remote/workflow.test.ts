@@ -5,8 +5,10 @@ import {
   connectOrigin,
   createGitHubOrigin,
   defaultRepoName,
+  describeImportOutcome,
   fetchOriginInfo,
 } from './workflow';
+import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 
 const seroBridge = {
   github: {
@@ -107,12 +109,15 @@ describe('git remote workflow', () => {
       url: 'git@github.com:octocat/my-workspace.git',
       webUrl: 'https://github.com/octocat/my-workspace',
       updatedExisting: true,
+      import: { imported: false, reason: 'link-only' },
     });
     expect(seroBridge.vcs.addRemote).toHaveBeenCalledWith('workspace-1', 'origin', 'git@github.com:octocat/my-workspace.git');
     expect(seroBridge.vcs.setRemoteUrl).toHaveBeenCalledWith('workspace-1', 'origin', 'git@github.com:octocat/my-workspace.git');
+    // No import requested → checkout is never attempted.
+    expect(seroBridge.vcs.checkoutRemote).not.toHaveBeenCalled();
   });
 
-  it('imports repository files for an empty workspace when requested', async () => {
+  it('imports repository files for an empty workspace with auto import', async () => {
     seroBridge.editor.listFiles.mockResolvedValue([
       { name: '.sero-workspace.json', type: 'file', size: 32 },
     ]);
@@ -120,7 +125,7 @@ describe('git remote workflow', () => {
     const result = await connectOrigin({
       workspaceId: 'workspace-1',
       url: 'https://github.com/octocat/my-workspace.git',
-      importIfEmpty: true,
+      importMode: 'auto',
     });
 
     expect(result).toEqual({
@@ -128,11 +133,12 @@ describe('git remote workflow', () => {
       url: 'https://github.com/octocat/my-workspace.git',
       webUrl: 'https://github.com/octocat/my-workspace',
       updatedExisting: false,
+      import: { imported: true },
     });
     expect(seroBridge.vcs.checkoutRemote).toHaveBeenCalledWith('workspace-1', 'origin');
   });
 
-  it('leaves non-empty workspaces unchanged when connecting origin', async () => {
+  it('reports a skipped import for non-empty workspaces under auto mode', async () => {
     seroBridge.editor.listFiles.mockResolvedValue([
       { name: 'package.json', type: 'file', size: 128 },
     ]);
@@ -140,7 +146,7 @@ describe('git remote workflow', () => {
     const result = await connectOrigin({
       workspaceId: 'workspace-1',
       url: 'https://github.com/octocat/my-workspace.git',
-      importIfEmpty: true,
+      importMode: 'auto',
     });
 
     expect(result).toEqual({
@@ -148,11 +154,35 @@ describe('git remote workflow', () => {
       url: 'https://github.com/octocat/my-workspace.git',
       webUrl: 'https://github.com/octocat/my-workspace',
       updatedExisting: false,
+      import: { imported: false, reason: 'workspace-not-empty' },
     });
     expect(seroBridge.vcs.checkoutRemote).not.toHaveBeenCalled();
   });
 
-  it('keeps the origin connected when checkout import fails', async () => {
+  it('imports into a non-empty workspace when import is forced', async () => {
+    seroBridge.editor.listFiles.mockResolvedValue([
+      { name: 'notes.md', type: 'file', size: 12 },
+    ]);
+
+    const result = await connectOrigin({
+      workspaceId: 'workspace-1',
+      url: 'https://github.com/octocat/my-workspace.git',
+      importMode: 'force',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      url: 'https://github.com/octocat/my-workspace.git',
+      webUrl: 'https://github.com/octocat/my-workspace',
+      updatedExisting: false,
+      import: { imported: true },
+    });
+    // Forced import skips the emptiness probe entirely.
+    expect(seroBridge.editor.listFiles).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.checkoutRemote).toHaveBeenCalledWith('workspace-1', 'origin');
+  });
+
+  it('reports an import failure while keeping the remote linked', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     seroBridge.editor.listFiles.mockResolvedValue([]);
     seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: false, message: 'checkout failed' });
@@ -160,7 +190,7 @@ describe('git remote workflow', () => {
     const result = await connectOrigin({
       workspaceId: 'workspace-1',
       url: 'https://github.com/octocat/my-workspace.git',
-      importIfEmpty: true,
+      importMode: 'auto',
     });
 
     expect(result).toEqual({
@@ -168,7 +198,7 @@ describe('git remote workflow', () => {
       url: 'https://github.com/octocat/my-workspace.git',
       webUrl: 'https://github.com/octocat/my-workspace',
       updatedExisting: false,
-      warning: "Connected, but Sero couldn't import files: checkout failed",
+      import: { imported: false, reason: 'import-failed', message: 'checkout failed' },
     });
     expect(warn).toHaveBeenCalledWith(
       '[git-remote] Remote connected, but import failed:',
@@ -200,5 +230,34 @@ describe('git remote workflow', () => {
       ok: false,
       message: 'jj remotes unavailable',
     });
+  });
+
+  it('describes import outcomes for the user only when there is something to say', () => {
+    expect(describeImportOutcome({ imported: true })).toBeNull();
+    expect(describeImportOutcome({ imported: false, reason: 'link-only' })).toBeNull();
+    expect(describeImportOutcome({ imported: false, reason: 'workspace-not-empty' })).toMatch(
+      /nothing was imported/i,
+    );
+    expect(
+      describeImportOutcome({ imported: false, reason: 'import-failed', message: 'boom' }),
+    ).toMatch(/boom/);
+  });
+});
+
+describe('deriveRepoNameFromGitUrl', () => {
+  it.each([
+    ['https://github.com/octocat/Hello-World.git', 'Hello-World'],
+    ['https://github.com/octocat/Hello-World', 'Hello-World'],
+    ['git@github.com:octocat/my-workspace.git', 'my-workspace'],
+    ['git@gitlab.com:group/sub/app.git', 'app'],
+    ['ssh://git@host:2222/team/repo', 'repo'],
+    ['https://example.com/scm/repo.git/', 'repo'],
+  ])('derives %s → %s', (url, expected) => {
+    expect(deriveRepoNameFromGitUrl(url)).toBe(expected);
+  });
+
+  it('returns undefined for empty input', () => {
+    expect(deriveRepoNameFromGitUrl('')).toBeUndefined();
+    expect(deriveRepoNameFromGitUrl(null)).toBeUndefined();
   });
 });
