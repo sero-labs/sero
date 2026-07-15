@@ -33,9 +33,8 @@ export type CreateGitHubOriginResult =
  * How much to import when connecting a remote:
  * - `never`  — record the remote only, touch no files (default).
  * - `auto`   — fetch + check out only when the workspace is empty (safe default for new workspaces).
- * - `force`  — always attempt to fetch + check out. Git still refuses to overwrite
- *              conflicting local files, so this is safe: it either overlays cleanly
- *              or fails with a conflict message.
+ * - `force`  — attempt to fetch + check out even when files are present. The VCS
+ *              layer refuses tracked history and path conflicts before checkout.
  */
 export type ImportMode = 'never' | 'auto' | 'force';
 

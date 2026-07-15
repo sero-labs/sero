@@ -2,8 +2,8 @@
  * ConnectExistingView — paste a git remote URL and (optionally) import its files.
  *
  * Empty workspaces import automatically. When the workspace already has files,
- * import is skipped and the user is shown an honest choice: overlay the repo
- * anyway (git refuses to overwrite conflicting files) or just record the remote.
+ * import is skipped and the user can request a guarded import or just record
+ * the remote. The VCS layer refuses imports that could overwrite local data.
  */
 
 import { useState } from 'react';
@@ -74,15 +74,14 @@ export function ConnectExistingView({
         <BackButton onClick={onBack} />
         <p className="rounded-md bg-status-warning-muted p-2 text-xs text-status-warning">{phase.message}</p>
         <p className="text-xs text-[var(--text-muted)]">
-          Import will overlay the repository onto this workspace. Files already in the workspace are kept;
-          Sero won't overwrite anything that clashes with the repository.
+          Sero will import only when it can preserve the workspace's existing files and Git history.
         </p>
         {error && <ErrorBanner message={error} />}
         <div className="flex justify-between gap-2 pt-1">
           <Button variant="ghost" onClick={() => onConnected(trimmedUrl, phase.message)}>
             Just link
           </Button>
-          <Button onClick={() => { void run('force'); }}>Import anyway</Button>
+          <Button onClick={() => { void run('force'); }}>Import files</Button>
         </div>
       </div>
     );

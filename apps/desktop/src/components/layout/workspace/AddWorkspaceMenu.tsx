@@ -40,13 +40,13 @@ export function AddWorkspaceMenu() {
   // Clone view state
   const [cloneUrl, setCloneUrl] = useState('');
   const [cloneName, setCloneName] = useState('');
-  const [cloneNameEdited, setCloneNameEdited] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
   const [cloneAuthHint, setCloneAuthHint] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const cloneInputRef = useRef<HTMLInputElement>(null);
+  const cloneNameEditedRef = useRef(false);
   // Guards against Radix auto-closing the popover when a native dialog steals focus
   const pickingFolderRef = useRef(false);
   const authInFlightRef = useRef(false);
@@ -63,7 +63,7 @@ export function AddWorkspaceMenu() {
     setParentPath(null);
     setCloneUrl('');
     setCloneName('');
-    setCloneNameEdited(false);
+    cloneNameEditedRef.current = false;
     setCloneError(null);
     setCloneAuthHint(false);
   };
@@ -113,7 +113,7 @@ export function AddWorkspaceMenu() {
   const handleUrlChange = (value: string) => {
     setCloneUrl(value);
     // Keep the name in sync with the URL until the user edits it themselves.
-    if (!cloneNameEdited) setCloneName(deriveRepoNameFromGitUrl(value) ?? '');
+    if (!cloneNameEditedRef.current) setCloneName(deriveRepoNameFromGitUrl(value) ?? '');
   };
 
   const handleClone = async () => {
@@ -200,7 +200,7 @@ export function AddWorkspaceMenu() {
             url={cloneUrl}
             onUrlChange={handleUrlChange}
             name={cloneName}
-            onNameChange={(v) => { setCloneNameEdited(true); setCloneName(v); }}
+            onNameChange={(v) => { cloneNameEditedRef.current = true; setCloneName(v); }}
             parentPath={parentPath}
             onPickLocation={handlePickLocation}
             onClearLocation={() => setParentPath(null)}

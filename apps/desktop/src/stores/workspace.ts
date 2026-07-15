@@ -160,24 +160,28 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   cloneWorkspace: async (url, name, parentPath) => {
     const repoName = name?.trim() || deriveRepoNameFromGitUrl(url) || 'repository';
-    const workspace = await window.sero.workspace.create(repoName, parentPath);
+    const previousActiveWorkspaceId = get().activeWorkspaceId;
+    const workspace = await window.sero.workspace.create(repoName, parentPath, { requireEmpty: true });
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
       activeWorkspaceId: workspace.id,
     }));
 
-    const result = await connectOrigin({ workspaceId: workspace.id, url, importMode: 'auto' });
-    // A fresh workspace is always empty, so auto import either lands the files or fails outright.
-    const failure = !result.ok
-      ? result.message
-      : !result.import.imported && result.import.reason === 'import-failed'
-        ? result.import.message ?? 'Failed to import repository'
-        : null;
-
-    if (failure) {
-      // Don't leave a stray empty workspace behind for a clone that didn't land.
+    try {
+      const result = await connectOrigin({ workspaceId: workspace.id, url, importMode: 'auto' });
+      if (!result.ok) throw new Error(result.message);
+      if (!result.import.imported) {
+        throw new Error(
+          result.import.reason === 'workspace-not-empty'
+            ? 'Clone destination is not empty'
+            : result.import.message ?? 'Failed to import repository',
+        );
+      }
+    } catch (error) {
+      const restorePreviousSelection = get().activeWorkspaceId === workspace.id;
       await get().closeWorkspace(workspace.id);
-      throw new Error(failure);
+      if (restorePreviousSelection) set({ activeWorkspaceId: previousActiveWorkspaceId });
+      throw error;
     }
 
     // Auto-create and select a default session in the cloned workspace.

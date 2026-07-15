@@ -385,7 +385,7 @@ describe('RemoteOriginManager', () => {
     // Import failed → user is offered a choice rather than a silent success.
     await vi.waitFor(() => {
       expect(document.body.textContent).toContain("couldn't be imported: checkout failed");
-      expect(document.body.textContent).toContain('Import anyway');
+      expect(document.body.textContent).toContain('Import files');
       expect(document.body.textContent).toContain('Just link');
     });
 

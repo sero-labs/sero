@@ -7,7 +7,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceConfig, WorkspaceCreateOptions, WorkspaceRoot } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import type { BrowserPackStatusIPC, ToolchainStatusIPC, WorkspaceAccessRootsResult, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
@@ -68,8 +68,8 @@ export function registerWorkspaceHandlers(): void {
   // ── Create a new workspace ──────────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.create,
-    async (_event, name: string, parentPath?: string): Promise<WorkspaceInfo> => {
-      const workspace = await workspaceManager.create(name, parentPath);
+    async (_event, name: string, parentPath?: string, options?: WorkspaceCreateOptions): Promise<WorkspaceInfo> => {
+      const workspace = await workspaceManager.create(name, parentPath, options);
       await reconcileAppRuntimes('workspace create');
       notifyWorkspaceChanged();
       return workspace;

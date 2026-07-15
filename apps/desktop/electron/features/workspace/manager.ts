@@ -12,6 +12,7 @@ import path from 'path';
 import type {
   WorkspaceRegistryEntry,
   WorkspaceConfig,
+  WorkspaceCreateOptions,
   WorkspaceInfo,
 } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
@@ -31,6 +32,7 @@ import {
 } from './runtime/config';
 import { getDefaultContainerRuntimeBackend } from './runtime/platform-default';
 import { discoverManagedWorkspaceEntries, pathExists } from './registry-recovery';
+import { resolveWorkspaceCreateDestination } from './create-destination';
 
 export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
@@ -271,7 +273,11 @@ export class WorkspaceManager {
    * If `parentPath` is provided, the workspace directory is created there
    * (e.g. /Users/me/projects/my-app). Otherwise falls back to ~/.sero-ui/workspaces/.
    */
-  async create(name: string, parentPath?: string): Promise<WorkspaceInfo> {
+  async create(
+    name: string,
+    parentPath?: string,
+    options?: WorkspaceCreateOptions,
+  ): Promise<WorkspaceInfo> {
     if (parentPath) {
       const resolved = path.resolve(parentPath);
       const home = os.homedir();
@@ -280,11 +286,15 @@ export class WorkspaceManager {
       }
     }
 
-    const id = slugify(name);
-    const uniqueId = this.ensureUniqueId(id);
-    const wsPath = parentPath
-      ? path.join(path.resolve(parentPath), uniqueId)
-      : path.join(this.workspacesDir, uniqueId);
+    const destination = await resolveWorkspaceCreateDestination({
+      baseId: slugify(name),
+      parentPath,
+      workspacesDir: this.workspacesDir,
+      registeredIds: new Set(this.registry.workspaces.map((workspace) => workspace.id)),
+      requireEmpty: options?.requireEmpty === true,
+    });
+    const uniqueId = destination.id;
+    const wsPath = destination.path;
 
     await fs.mkdir(wsPath, { recursive: true });
 

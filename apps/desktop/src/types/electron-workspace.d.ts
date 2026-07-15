@@ -4,7 +4,7 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
-import type { EditorRoot, WorkspaceConfig, WorkspaceInfo, WorkspaceRoot } from './ipc';
+import type { EditorRoot, WorkspaceConfig, WorkspaceCreateOptions, WorkspaceInfo, WorkspaceRoot } from './ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from './workspace-runtime';
 import type {
   BrowserPackProgressIPC,
@@ -38,7 +38,7 @@ export interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
   list(): Promise<WorkspaceInfo[]>;
   /** Create a new workspace. Optionally specify a parent directory for the workspace folder. */
-  create(name: string, parentPath?: string): Promise<WorkspaceInfo>;
+  create(name: string, parentPath?: string, options?: WorkspaceCreateOptions): Promise<WorkspaceInfo>;
   /** Unregister a workspace (does not delete files). */
   remove(id: string): Promise<void>;
   /** Get full config for a workspace (.sero-workspace.json). */

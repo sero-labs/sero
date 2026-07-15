@@ -152,9 +152,9 @@ repository:
 - If the workspace is **empty**, its files are fetched and checked out
   automatically.
 - If the workspace **already has files**, Sero does not overwrite them silently.
-  It tells you nothing was imported and offers a choice: **Import anyway**
-  (overlays the repository onto the workspace — Git still refuses to overwrite
-  any file that clashes) or **Just link** (record the remote only).
+  It tells you nothing was imported and offers a choice: **Import files**
+  (Sero proceeds only when it can preserve existing files and Git history) or
+  **Just link** (record the remote only).
 
 ## Global chat mental model
 
