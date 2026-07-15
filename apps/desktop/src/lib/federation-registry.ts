@@ -374,6 +374,28 @@ export function invalidateRemote(appId: string): void {
   clearAppCache(appId);
 }
 
+/**
+ * Keep the active app's utility stylesheet last in the cascade.
+ *
+ * Federated apps build their own Tailwind bundle. Those bundles intentionally
+ * reuse utility names, so a later-loaded inactive app can otherwise override
+ * responsive variants in the app currently on screen.
+ */
+export function prioritizeFederatedStyles(appId: string): void {
+  if (typeof document === 'undefined') return;
+
+  const entry = registeredEntries.get(appId);
+  if (!entry || !URL.canParse(entry)) return;
+
+  const baseUrl = new URL('.', entry).toString();
+
+  const stylesheets = document.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]');
+  for (const stylesheet of stylesheets) {
+    if (stylesheet.href.startsWith(baseUrl)) {
+      document.head.append(stylesheet);
+    }
+  }
+}
 
 /**
  * Eagerly load a federated module at startup.

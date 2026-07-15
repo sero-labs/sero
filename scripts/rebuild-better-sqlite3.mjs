@@ -19,8 +19,9 @@
  */
 
 import { execFileSync, execSync, spawnSync } from 'child_process';
-import { existsSync, readdirSync, realpathSync } from 'fs';
+import { existsSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -129,6 +130,32 @@ function installElectronBinary(electronDir) {
   return findElectronBinary(electronDir);
 }
 
+function reinstallElectronBinary(electronDir) {
+  console.log('[better-sqlite3] Electron runtime is incomplete; reinstalling it...');
+  rmSync(resolve(electronDir, 'dist'), { recursive: true, force: true });
+  const electronBin = installElectronBinary(electronDir);
+
+  // Electron's installer can leave a partial macOS app bundle when extracting
+  // from its cache. macOS includes `unzip`, which reliably restores framework
+  // symlinks that Electron needs to start.
+  if (process.platform === 'darwin') {
+    const electronVersion = findElectronVersion(electronDir);
+    const cacheDir = process.env.electron_config_cache
+      ?? resolve(homedir(), 'Library', 'Caches', 'electron');
+    const archive = electronVersion && existsSync(cacheDir)
+      ? readdirSync(cacheDir).find(file => (
+        file.startsWith(`electron-v${electronVersion}-darwin-`) && file.endsWith('.zip')
+      ))
+      : null;
+    if (archive) {
+      execFileSync('unzip', ['-oq', resolve(cacheDir, archive), '-d', resolve(electronDir, 'dist')]);
+      writeFileSync(resolve(electronDir, 'path.txt'), getElectronExecutablePath());
+    }
+  }
+
+  return findElectronBinary(electronDir) ?? electronBin;
+}
+
 function findElectronVersion(electronDir) {
   const pkgJson = resolve(electronDir, 'package.json');
   if (!existsSync(pkgJson)) return null;
@@ -217,7 +244,7 @@ function main() {
     process.exit(1);
   }
 
-  const electronBin = findElectronBinary(electronDir) ?? installElectronBinary(electronDir);
+  let electronBin = findElectronBinary(electronDir) ?? installElectronBinary(electronDir);
   if (!electronBin) {
     console.error('[better-sqlite3] Electron binary not found. Run `pnpm rebuild electron` or set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
     process.exit(1);
@@ -236,7 +263,11 @@ function main() {
 
   console.log(`\x1b[33m[better-sqlite3] ✗ Binary does not work with Electron ${electronVersion}.\x1b[0m`);
 
-  const electronAbi = getElectronModulesAbi(electronBin);
+  let electronAbi = getElectronModulesAbi(electronBin);
+  if (!electronAbi) {
+    electronBin = reinstallElectronBinary(electronDir);
+    electronAbi = electronBin ? getElectronModulesAbi(electronBin) : null;
+  }
   if (!electronAbi) {
     console.log('[better-sqlite3] Could not determine Electron module ABI — skipping.');
     process.exit(1);

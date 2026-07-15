@@ -6,12 +6,14 @@ import { useWorkspaceStore } from '@/stores/workspace';
 
 const federationMocks = vi.hoisted(() => ({
   getFederatedComponent: vi.fn(),
+  prioritizeFederatedStyles: vi.fn<(appId: string) => void>(),
   refreshTransientRemote: vi.fn<(appId: string) => void>(),
   hasTransientRemote: vi.fn<(appId: string) => boolean>(),
 }));
 
 vi.mock('@/lib/federation-registry', () => ({
   getFederatedComponent: federationMocks.getFederatedComponent,
+  prioritizeFederatedStyles: federationMocks.prioritizeFederatedStyles,
   refreshTransientRemote: federationMocks.refreshTransientRemote,
   hasTransientRemote: federationMocks.hasTransientRemote,
 }));

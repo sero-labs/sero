@@ -17,6 +17,10 @@
 #
 cd "$(dirname "$0")/.."
 
+# This test-only Electron setting makes `electron .` run as plain Node.js.
+# A normal Sero dev launch must always start Electron's browser process.
+unset ELECTRON_RUN_AS_NODE
+
 PACKAGES_DIR="$(cd ../../packages && pwd)"
 PLUGINS_DIR="$(cd ../../plugins && pwd)"
 SERO_DEV_PLUGINS="${SERO_DEV_PLUGINS:-}"

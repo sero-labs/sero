@@ -98,6 +98,10 @@ export async function launchSeroApp(
   }
 
   Object.assign(env, options.env);
+  // This variable is only for invoking Electron's embedded Node runtime.
+  // Playwright launches the actual Electron application and passes Chromium
+  // arguments, so inheriting it makes Electron reject the launch entirely.
+  delete env.ELECTRON_RUN_AS_NODE;
   restoreWindowsProfileEnv(env);
 
   let app: ElectronApplication;

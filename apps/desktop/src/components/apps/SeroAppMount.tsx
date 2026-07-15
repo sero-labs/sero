@@ -6,10 +6,16 @@
  * Wraps in AppProvider with workspace context + agent prompt bridge.
  */
 
-import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
+import {
+  Component,
+  Suspense,
+  useInsertionEffect,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { AppProvider } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
-import { getFederatedComponent } from '@/lib/federation-registry';
+import { getFederatedComponent, prioritizeFederatedStyles } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
 import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
 
@@ -19,6 +25,10 @@ interface SeroAppMountProps {
 
 export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
+
+  useInsertionEffect(() => {
+    prioritizeFederatedStyles(manifest.id);
+  }, [manifest.id]);
 
   if (status === 'loading-workspace') {
     return <AppLoading name={manifest.name} />;
