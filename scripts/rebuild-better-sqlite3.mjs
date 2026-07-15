@@ -148,8 +148,14 @@ function reinstallElectronBinary(electronDir) {
       ))
       : null;
     if (archive) {
-      execFileSync('unzip', ['-oq', resolve(cacheDir, archive), '-d', resolve(electronDir, 'dist')]);
-      writeFileSync(resolve(electronDir, 'path.txt'), getElectronExecutablePath());
+      // A partial or corrupt cache archive must not abort the whole install —
+      // fall through to whatever installElectronBinary already produced.
+      try {
+        execFileSync('unzip', ['-oq', resolve(cacheDir, archive), '-d', resolve(electronDir, 'dist')]);
+        writeFileSync(resolve(electronDir, 'path.txt'), getElectronExecutablePath());
+      } catch (error) {
+        console.warn(`[better-sqlite3] Could not restore Electron from cache: ${error.message}`);
+      }
     }
   }
 
