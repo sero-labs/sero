@@ -11,9 +11,9 @@
  */
 
 import { execSync, execFileSync, spawnSync } from 'child_process';
-import { existsSync, readdirSync, realpathSync } from 'fs';
+import { existsSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
-import { tmpdir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -94,6 +94,38 @@ function installElectronBinary(electronDir) {
   }
 
   return findElectronBinary(electronDir);
+}
+
+function reinstallElectronBinary(electronDir) {
+  console.log('[node-pty] Electron runtime is incomplete; reinstalling it...');
+  rmSync(resolve(electronDir, 'dist'), { recursive: true, force: true });
+  const electronBin = installElectronBinary(electronDir);
+
+  // Electron's installer can leave a partial macOS app bundle when extracting
+  // from its cache. macOS includes `unzip`, which reliably restores framework
+  // symlinks that Electron needs to start.
+  if (process.platform === 'darwin') {
+    const electronVersion = findElectronVersion(electronDir);
+    const cacheDir = process.env.electron_config_cache
+      ?? resolve(homedir(), 'Library', 'Caches', 'electron');
+    const archive = electronVersion && existsSync(cacheDir)
+      ? readdirSync(cacheDir).find(file => (
+        file.startsWith(`electron-v${electronVersion}-darwin-`) && file.endsWith('.zip')
+      ))
+      : null;
+    if (archive) {
+      // A partial or corrupt cache archive must not abort the whole install —
+      // fall through to whatever installElectronBinary already produced.
+      try {
+        execFileSync('unzip', ['-oq', resolve(cacheDir, archive), '-d', resolve(electronDir, 'dist')]);
+        writeFileSync(resolve(electronDir, 'path.txt'), getElectronExecutablePath());
+      } catch (error) {
+        console.warn(`[node-pty] Could not restore Electron from cache: ${error.message}`);
+      }
+    }
+  }
+
+  return findElectronBinary(electronDir) ?? electronBin;
 }
 
 function findElectronVersion(electronDir) {
@@ -191,7 +223,7 @@ function main() {
     process.exit(1);
   }
 
-  const electronBin = findElectronBinary(electronDir) ?? installElectronBinary(electronDir);
+  let electronBin = findElectronBinary(electronDir) ?? installElectronBinary(electronDir);
   if (!electronBin) {
     console.error('[node-pty] Electron binary not found. Run `pnpm rebuild electron` or set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
     process.exit(1);
@@ -203,7 +235,11 @@ function main() {
     process.exit(1);
   }
 
-  const electronAbi = getElectronModulesAbi(electronBin);
+  let electronAbi = getElectronModulesAbi(electronBin);
+  if (!electronAbi) {
+    electronBin = reinstallElectronBinary(electronDir);
+    electronAbi = electronBin ? getElectronModulesAbi(electronBin) : null;
+  }
   if (!electronAbi) {
     console.error('[node-pty] Could not determine Electron module ABI.');
     process.exit(1);

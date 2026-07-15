@@ -96,7 +96,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
                 className="h-9 flex-1 text-sm @xl:flex-none"
               >
                 <FolderOpen className="size-3.5" />
-                {pickingLocalInstall ? 'Browsing…' : 'Browse local'}
+                {pickingLocalInstall ? 'Browsing…' : 'Browse'}
               </Button>
               <Button
                 type="submit"
@@ -178,9 +178,15 @@ function InstalledPluginRow({
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <Button variant="outline" size="sm" className="h-8 text-sm" onClick={onReveal}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Reveal in Finder"
+          title="Reveal in Finder"
+          className="size-8"
+          onClick={onReveal}
+        >
           <FolderOpen className="size-3.5" />
-          Reveal in Finder
         </Button>
         <Button
           variant="outline"

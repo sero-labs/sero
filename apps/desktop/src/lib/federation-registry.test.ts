@@ -41,6 +41,7 @@ import {
   getFederatedComponent,
   invalidateRemote,
   preloadFederatedModule,
+  prioritizeFederatedStyles,
   refreshTransientRemote,
 } from './federation-registry';
 
@@ -74,6 +75,7 @@ describe('federation registry remote retry behaviour', () => {
     }
     root = null;
     container.remove();
+    document.head.querySelectorAll('[data-federation-test]').forEach((element) => element.remove());
     invalidateRemote('todo');
     vi.unstubAllGlobals();
     consoleErrorSpy.mockRestore();
@@ -120,6 +122,28 @@ describe('federation registry remote retry behaviour', () => {
       }],
       { force: true },
     );
+  });
+
+  it('moves the active remote stylesheet after other plugin styles', async () => {
+    await preloadFederatedModule('todo', 'TodoApp', undefined);
+
+    const todoStyle = document.createElement('link');
+    todoStyle.rel = 'stylesheet';
+    todoStyle.href = 'sero-ext://todo/assets/TodoApp.css';
+    todoStyle.dataset.federationTest = 'todo';
+
+    const cronStyle = document.createElement('link');
+    cronStyle.rel = 'stylesheet';
+    cronStyle.href = 'sero-ext://cron/assets/CronApp.css';
+    cronStyle.dataset.federationTest = 'cron';
+
+    document.head.append(todoStyle, cronStyle);
+    prioritizeFederatedStyles('todo');
+
+    expect(Array.from(document.head.querySelectorAll('[data-federation-test]'))).toEqual([
+      cronStyle,
+      todoStyle,
+    ]);
   });
 
   it('prefers remoteEntryOverride over legacy devPort candidates in development', async () => {

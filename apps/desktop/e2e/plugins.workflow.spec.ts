@@ -68,4 +68,33 @@ test.describe('Built-in plugin UI workflow smoke', () => {
       }
     });
   }
+
+  test('keeps the active pre-built admin layout after another plugin loads', async () => {
+    await page.locator(layout.sidebarToggle).click();
+    await page.locator(layout.chatToggle).click();
+    await expect.poll(async () => {
+      const sidebar = await page.locator(layout.sidebarPanel).first().boundingBox();
+      const chat = await page.locator(layout.chatPanel).first().boundingBox();
+      return Math.max(sidebar?.width ?? 0, chat?.width ?? 0);
+    }).toBeLessThan(5);
+
+    const openedCron = await page.evaluate(() => Boolean(window.__appControl?.openApp('cron')));
+    expect(openedCron).toBe(true);
+    await expect(page.locator('[data-app="cron"]').first()).toBeVisible({ timeout: 20_000 });
+
+    const opened = await page.evaluate(() => Boolean(window.__appControl?.openApp('admin')));
+    expect(opened).toBe(true);
+
+    const admin = page.locator('[data-app="admin"]').first();
+    await expect(admin).toBeVisible({ timeout: 20_000 });
+    await admin.getByRole('button', { name: 'Plugins', exact: true }).click();
+
+    const installSource = admin.locator('#plugin-install-source');
+    await expect(installSource).toBeVisible();
+    const installControls = installSource.locator('xpath=../..');
+
+    await expect.poll(() => installControls.evaluate((element) => (
+      getComputedStyle(element).flexDirection
+    ))).toBe('row');
+  });
 });
