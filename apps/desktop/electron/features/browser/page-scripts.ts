@@ -1,3 +1,9 @@
+// This template literal is serialized to a string before the page parses and
+// runs it, so any escape sequence inside it is expanded one hop early. A bare
+// `\n` in a quoted string below would become a real newline in the emitted
+// script — an unterminated string literal that makes executeJavaScript reject —
+// so newlines are written as `\\n` to reach the page as `\n`. The same trap
+// applies inside `//` comments here: keep them free of escapes and stray quotes.
 export function buildExtractPageScript(): string {
   return `(() => {
     try {
@@ -13,10 +19,10 @@ export function buildExtractPageScript(): string {
       // can report an empty innerText even after the DOM has loaded.
       const raw = body.innerText || body.textContent || '';
       const text = raw
-        .split('\n')
+        .split('\\n')
         .map((l) => l.trim())
         .filter((l, i, a) => !(l === '' && a[i - 1] === ''))
-        .join('\n')
+        .join('\\n')
         .trim();
       return { title, url, text };
     } catch (err) {
