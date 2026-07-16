@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-mcp",
   "version": "0.1.0",
   "description": "Built-in MCP control center for Sero",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],

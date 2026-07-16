@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-admin",
   "version": "0.1.0",
   "description": "Sero Admin - config editor, log viewer, and session browser",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],

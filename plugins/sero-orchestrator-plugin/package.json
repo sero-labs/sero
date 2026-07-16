@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-orchestrator",
   "version": "0.1.0",
   "description": "Sero Orchestrator — durable runner for LLM-authored step plans (loops)",
+  "type": "module",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",

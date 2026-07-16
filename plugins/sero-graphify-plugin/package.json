@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-graphify",
   "version": "0.1.0",
   "description": "Profile-wide knowledge graphs via Graphify — index every workspace, search across all of them",
+  "type": "module",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",

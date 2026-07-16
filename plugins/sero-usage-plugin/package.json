@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-usage",
   "version": "0.1.0",
   "description": "AI usage and cost analytics for Sero - aggregated per profile from local session data",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],

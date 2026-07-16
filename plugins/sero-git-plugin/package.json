@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-git",
   "version": "0.1.0",
   "description": "Git workspace manager for Sero - visual commit graph, branching, staging, and diffs",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],

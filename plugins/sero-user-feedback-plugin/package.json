@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-user-feedback",
   "version": "0.1.0",
   "description": "User feedback tools for Sero - question and questionnaire",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],

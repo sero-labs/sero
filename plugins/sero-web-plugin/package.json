@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-web",
   "version": "0.1.0",
   "description": "Web search, content fetching, and video understanding for Sero",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],
