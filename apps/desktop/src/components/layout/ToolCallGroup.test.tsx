@@ -211,6 +211,45 @@ describe('ToolCallGroup image previews', () => {
 });
 
 describe('groupMessages', () => {
+  it('hides session title tool calls from the chat', () => {
+    const items = groupMessages([
+      makeTool({
+        id: 'title-tool',
+        toolCallId: 'title-call',
+        input: { command: 'sero set-title --if-unnamed "Fix session titles"' },
+      }),
+      makeAssistant({ id: 'assistant-response', text: 'Done.' }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: 'message',
+      message: { id: 'assistant-response' },
+    });
+  });
+
+  it('still shows sero-cli calls that batch title and other actions', () => {
+    const items = groupMessages([
+      makeTool({
+        input: { command: 'sero set-title "Session title"\nsero workspace info' },
+      }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.kind).toBe('tool-group');
+  });
+
+  it('still shows an explicit user-requested rename', () => {
+    const items = groupMessages([
+      makeTool({
+        input: { command: 'sero set-title "Renamed by user"' },
+      }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.kind).toBe('tool-group');
+  });
+
   it('merges tool calls across finalized thinking-only assistant messages', () => {
     const items = groupMessages([
       makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),

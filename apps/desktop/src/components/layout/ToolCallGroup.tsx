@@ -29,6 +29,24 @@ function isStreamingThinkingOnlyAssistantMessage(message: ChatMessage): boolean 
   );
 }
 
+function isSessionTitleToolCall(tool: ChatToolCallMessage): boolean {
+  if (tool.toolName === 'set_session_title') return true;
+  if (tool.toolName !== 'sero-cli' || typeof tool.input.command !== 'string') return false;
+
+  const commands = tool.input.command
+    .split('\n')
+    .map((command) => command.trim())
+    .filter(Boolean);
+  if (commands.length !== 1) return false;
+
+  const command = commands[0];
+  if (!/^(?:sero\s+)?set-title(?:\s|$)/.test(command)) return false;
+
+  // Only the automatic first-turn title carries --if-unnamed. An explicit
+  // user-requested rename omits it and stays visible so the user sees it land.
+  return /(?:^|\s)--if-unnamed(?:\s|$)/.test(command);
+}
+
 // ── Grouping utility ────────────────────────────────────────────
 
 /**
@@ -64,6 +82,8 @@ export function groupMessages(
     const msg = messages[i];
 
     if (msg.type === 'tool') {
+      // Session titles are background chat metadata, not meaningful agent work.
+      if (isSessionTitleToolCall(msg)) continue;
       toolBuffer.push(msg);
       continue;
     }

@@ -266,6 +266,7 @@ export function bridgeExtensionTools(
 export function buildCliPromptBlock(
   reg: CliRegistry = getCliRegistry(),
   scope?: { workspaceId?: string; sessionId?: string | null },
+  options?: { includeSessionTitleInstruction?: boolean },
 ): string {
   const commands = reg.list(scope).filter((c) => !c.hidden && c.name !== 'help');
 
@@ -287,6 +288,16 @@ export function buildCliPromptBlock(
       return `${group}:\n${lines.join('\n')}`;
     });
 
+  // Only primary user sessions get a title — subagents and extensions run in
+  // their own ephemeral sessions that are never shown, so titling them just
+  // wastes a turn.
+  const sessionTitleBlock = options?.includeSessionTitleInstruction
+    ? `
+On the first turn of a session, set its title once with \`sero set-title --if-unnamed "<title>"\` as its own separate command (never combined with other actions, or it will show in the chat).
+Summarize the user's goal in 2-6 words and at most 48 characters. Never use the full prompt or a sentence. Do not change the title later unless the user asks.
+`
+    : '';
+
   return `
 
 ## Sero CLI
@@ -297,7 +308,7 @@ ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
-
+${sessionTitleBlock}
 For \`sero app\`, skip help for common flows.
 - Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
 - Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.

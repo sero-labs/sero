@@ -4,6 +4,8 @@ import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok } from '@electron/cli/lib/utils';
 
+const MAX_SESSION_TITLE_LENGTH = 48;
+
 async function handleSession(args: string[], ctx: CliCommandContext) {
   const [action = 'info'] = args;
   if (action !== 'info') return fail('Usage: sero session info');
@@ -39,13 +41,26 @@ async function handleSession(args: string[], ctx: CliCommandContext) {
 }
 
 async function handleSetTitle(args: string[], ctx: CliCommandContext) {
-  const title = args.join(' ').trim();
-  if (!title) return fail('Usage: sero set-title <text>');
+  const ifUnnamed = args.includes('--if-unnamed');
+  const rawTitle = args.filter((arg) => arg !== '--if-unnamed').join(' ').trim();
+  if (!rawTitle) return fail('Usage: sero set-title [--if-unnamed] <text>');
+  // Truncate rather than reject: an over-length title is hidden from the chat,
+  // so failing here would leave the session silently untitled.
+  const title =
+    rawTitle.length > MAX_SESSION_TITLE_LENGTH
+      ? rawTitle.slice(0, MAX_SESSION_TITLE_LENGTH).trimEnd()
+      : rawTitle;
+
   const sessionId = ctx.invocation.sessionId;
   if (!sessionId) return fail('set-title requires an active agent session');
 
   try {
-    getCliSessionBridge().setSessionTitle(sessionId, title);
+    const bridge = getCliSessionBridge();
+    if (ifUnnamed && bridge.getSessionEntry(sessionId)?.session.sessionName) {
+      return ok('Session already has a title');
+    }
+
+    bridge.setSessionTitle(sessionId, title);
     return ok(`Session titled: ${title}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to set title';
@@ -65,8 +80,8 @@ export function registerSessionCliCommands(registry: CliRegistry): void {
 
   registry.register({
     name: 'set-title',
-    summary: 'Set the current session title',
-    help: 'set-title — Set session title\n\nUsage: sero set-title <text>\n',
+    summary: 'Set a short session title',
+    help: 'set-title — Set a short session title (maximum 48 characters)\n\nUsage: sero set-title [--if-unnamed] <text>\n',
     source: 'builtin',
     group: 'Builtin',
     execute: handleSetTitle,
