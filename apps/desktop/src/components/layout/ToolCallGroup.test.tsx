@@ -239,6 +239,17 @@ describe('groupMessages', () => {
     expect(items[0]?.kind).toBe('tool-group');
   });
 
+  it('still shows an explicit user-requested rename', () => {
+    const items = groupMessages([
+      makeTool({
+        input: { command: 'sero set-title "Renamed by user"' },
+      }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.kind).toBe('tool-group');
+  });
+
   it('merges tool calls across finalized thinking-only assistant messages', () => {
     const items = groupMessages([
       makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),

@@ -57,10 +57,14 @@ export function createSeroExtensionFactory(
 
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
-      systemPrompt += buildCliPromptBlock(undefined, {
-        workspaceId: currentWorkspaceId,
-        sessionId: _sessionId,
-      });
+      systemPrompt += buildCliPromptBlock(
+        undefined,
+        {
+          workspaceId: currentWorkspaceId,
+          sessionId: _sessionId,
+        },
+        { includeSessionTitleInstruction: true },
+      );
 
       // Inject container environment context if workspace is containerised
       if (containerState) {

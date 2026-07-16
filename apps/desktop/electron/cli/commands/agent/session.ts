@@ -41,12 +41,15 @@ async function handleSession(args: string[], ctx: CliCommandContext) {
 }
 
 async function handleSetTitle(args: string[], ctx: CliCommandContext) {
-  const ifUnnamed = args[0] === '--if-unnamed';
-  const title = (ifUnnamed ? args.slice(1) : args).join(' ').trim();
-  if (!title) return fail('Usage: sero set-title [--if-unnamed] <text>');
-  if (title.length > MAX_SESSION_TITLE_LENGTH) {
-    return fail(`Session titles must be ${MAX_SESSION_TITLE_LENGTH} characters or fewer`);
-  }
+  const ifUnnamed = args.includes('--if-unnamed');
+  const rawTitle = args.filter((arg) => arg !== '--if-unnamed').join(' ').trim();
+  if (!rawTitle) return fail('Usage: sero set-title [--if-unnamed] <text>');
+  // Truncate rather than reject: an over-length title is hidden from the chat,
+  // so failing here would leave the session silently untitled.
+  const title =
+    rawTitle.length > MAX_SESSION_TITLE_LENGTH
+      ? rawTitle.slice(0, MAX_SESSION_TITLE_LENGTH).trimEnd()
+      : rawTitle;
 
   const sessionId = ctx.invocation.sessionId;
   if (!sessionId) return fail('set-title requires an active agent session');

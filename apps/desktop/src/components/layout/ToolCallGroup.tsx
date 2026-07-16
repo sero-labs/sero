@@ -39,7 +39,12 @@ function isSessionTitleToolCall(tool: ChatToolCallMessage): boolean {
     .filter(Boolean);
   if (commands.length !== 1) return false;
 
-  return /^(?:sero\s+)?set-title(?:\s|$)/.test(commands[0]);
+  const command = commands[0];
+  if (!/^(?:sero\s+)?set-title(?:\s|$)/.test(command)) return false;
+
+  // Only the automatic first-turn title carries --if-unnamed. An explicit
+  // user-requested rename omits it and stays visible so the user sees it land.
+  return /(?:^|\s)--if-unnamed(?:\s|$)/.test(command);
 }
 
 // ── Grouping utility ────────────────────────────────────────────

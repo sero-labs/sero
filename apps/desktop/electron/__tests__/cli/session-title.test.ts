@@ -54,11 +54,25 @@ describe('set-title CLI command', () => {
     expect(setSessionTitle).not.toHaveBeenCalled();
   });
 
-  it('rejects titles longer than 48 characters', async () => {
-    const result = await runSetTitle('x'.repeat(49));
+  it('truncates titles longer than 48 characters', async () => {
+    const result = await runSetTitle('x'.repeat(60));
 
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('48 characters or fewer');
+    expect(result.exitCode).toBe(0);
+    expect(setSessionTitle).toHaveBeenCalledWith('session-1', 'x'.repeat(48));
+  });
+
+  it('accepts --if-unnamed after the title text', async () => {
+    const result = await runSetTitle('Fix', 'session', 'titles', '--if-unnamed');
+
+    expect(result.exitCode).toBe(0);
+    expect(setSessionTitle).toHaveBeenCalledWith('session-1', 'Fix session titles');
+  });
+
+  it('honours --if-unnamed after the title when a title exists', async () => {
+    sessionName = 'Existing title';
+    const result = await runSetTitle('Replacement', '--if-unnamed');
+
+    expect(result.output).toBe('Session already has a title');
     expect(setSessionTitle).not.toHaveBeenCalled();
   });
 });
