@@ -143,7 +143,7 @@ Tabs are workspace-owned and loaded lazily through the browser panel. Explicit t
 | Command | Output / side effects |
 |---|---|
 | `sero session info` | Workspace, session id/name, model/provider, thinking level, tokens, cost, request count, streaming state, active turn. |
-| `sero set-title <text>` | Sets the current agent session title. |
+| `sero set-title [--if-unnamed] <text>` | Sets a session title of up to 48 characters. `--if-unnamed` keeps an existing title. |
 
 ## `appstate`
 

@@ -80,6 +80,16 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('app click');
   });
 
+  it('instructs the agent to create a concise title once', () => {
+    const registry = new CliRegistry();
+    const prompt = buildCliPromptBlock(registry);
+
+    expect(prompt).toContain('sero set-title --if-unnamed');
+    expect(prompt).toContain('2-6 words');
+    expect(prompt).toContain('at most 48 characters');
+    expect(prompt).toContain('Never use the full prompt or a sentence');
+  });
+
   it('excludes hidden commands and help from the listing', () => {
     const registry = new CliRegistry();
     const execute = async () => ({ output: 'ok', exitCode: 0 });

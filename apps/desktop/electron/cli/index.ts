@@ -298,6 +298,9 @@ ${sections.join('\n')}
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
+On the first turn of a session, set its title once with \`sero set-title --if-unnamed "<title>"\`.
+Summarize the user's goal in 2-6 words and at most 48 characters. Never use the full prompt or a sentence. Do not change the title later unless the user asks.
+
 For \`sero app\`, skip help for common flows.
 - Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
 - Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
