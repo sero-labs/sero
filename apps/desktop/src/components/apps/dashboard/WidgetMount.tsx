@@ -6,12 +6,13 @@
  * useAppState, useAgentPrompt, and other app-runtime hooks.
  */
 
-import { memo, Suspense } from 'react';
+import { memo, Suspense, useId } from 'react';
 import { AppProvider } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import type { AvailableWidget, DashboardWidgetInstance } from '@/types/dashboard';
 import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
+import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
 
 interface WidgetMountProps {
@@ -27,6 +28,7 @@ interface WidgetMountProps {
  */
 export const WidgetMount = memo(function WidgetMount({ widget, manifest, widgetMeta }: WidgetMountProps) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
+  const surfaceId = useId();
 
   if (status === 'loading-workspace') {
     return <WidgetLoading />;
@@ -65,9 +67,13 @@ export const WidgetMount = memo(function WidgetMount({ widget, manifest, widgetM
 
   return (
     <AppProvider value={contextValue}>
-      <Suspense fallback={<WidgetLoading />}>
-        <LazyComponent />
-      </Suspense>
+      <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
+        <div data-sero-plugin={manifest.id} className="contents">
+          <Suspense fallback={<WidgetLoading />}>
+            <LazyComponent />
+          </Suspense>
+        </div>
+      </PluginStyleScope>
     </AppProvider>
   );
 });

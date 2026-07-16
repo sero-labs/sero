@@ -471,9 +471,19 @@ Your Vite config **must** use a relative `base` in production so that
 // vite.config.ts
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
+  plugins: [
+    react(),
+    tailwindcss(),
+    seroPluginCssScope({ pluginId: 'my-app' }),
+  ],
   // ...
 });
 ```
+
+UI plugins must also declare `"styleIsolation": "scope"` beside
+`sero.app.id`. The plugin ID passed to `seroPluginCssScope` must match that
+manifest ID exactly. Import `@sero-ai/ui/styles/plugin.css` from the plugin's
+stylesheet; document resets and theme variables remain owned by the host.
 
 ## Publishing
 

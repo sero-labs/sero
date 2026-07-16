@@ -2,12 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { seroPluginCssScope } from '@sero-ai/plugin-vite';
 
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     react(),
     tailwindcss(),
+    seroPluginCssScope({ pluginId: 'userfeedback', allowGlobalSelectors: true }),
     federation({
       name: 'sero_userfeedback',
       filename: 'remoteEntry.js',

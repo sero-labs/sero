@@ -149,6 +149,7 @@ provider-specific auth and model UI without hardcoded app-level logic:
   "sero": {
     "app": {
       "id": "todo",
+      "styleIsolation": "scope",
       "name": "Todo",
       "icon": "check-square",
       "stateFile": ".sero/apps/todo/state.json",
@@ -182,6 +183,21 @@ provider-specific auth and model UI without hardcoded app-level logic:
   }
 }
 ```
+
+UI plugins use `@sero-ai/plugin-vite` after Tailwind:
+
+```ts
+plugins: [
+  react(),
+  tailwindcss(),
+  seroPluginCssScope({ pluginId: 'todo' }),
+]
+```
+
+The helper wraps both development and production CSS in a bounded native
+`@scope`. Sero gives each app and widget its own `data-sero-plugin` root and
+routes shared UI portals to a matching body-level root. Plugins without the
+manifest capability remain on the legacy stylesheet-ordering path.
 
 ### `sero.plugin` Fields
 

@@ -7,6 +7,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { seroPluginCssScope } from '@sero-ai/plugin-vite';
 
 // Unit tests do not exercise module-federation wiring, and the MF plugin
 // interferes with direct TSX imports under Vitest.
@@ -17,6 +18,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    seroPluginCssScope({ pluginId: 'orchestrator', allowGlobalSelectors: true }),
     ...(isTest ? [] : [
       federation({
         name: 'sero_orchestrator',

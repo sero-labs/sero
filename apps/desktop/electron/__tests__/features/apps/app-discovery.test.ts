@@ -326,4 +326,41 @@ describe('app discovery devPort handling', () => {
     }
   });
 
+  it('preserves scoped style isolation and defaults older plugins to legacy behavior', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-style-scope-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const scopedDir = path.join(tempRoot, 'scoped-plugin');
+      const legacyDir = path.join(tempRoot, 'legacy-plugin');
+      await writeManifestPackage(scopedDir, 'scoped-plugin', 'Scoped', undefined, {
+        styleIsolation: 'scope',
+      });
+      await writeManifestPackage(legacyDir, 'legacy-plugin', 'Legacy');
+
+      const { readAppManifestFromPackagePath } = await importAppDiscovery();
+      expect((await readAppManifestFromPackagePath(scopedDir))?.styleIsolation).toBe('scope');
+      expect((await readAppManifestFromPackagePath(legacyDir))?.styleIsolation).toBeNull();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects invalid style isolation metadata', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-invalid-style-'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await writeManifestPackage(tempRoot, 'invalid-style', 'Invalid', undefined, {
+        styleIsolation: 'shadow',
+      });
+      const { readAppManifestFromPackagePath } = await importAppDiscovery();
+      expect(await readAppManifestFromPackagePath(tempRoot)).toBeNull();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('styleIsolation'));
+    } finally {
+      errorSpy.mockRestore();
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
 });

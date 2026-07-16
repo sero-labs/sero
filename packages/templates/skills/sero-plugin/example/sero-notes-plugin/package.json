@@ -14,6 +14,7 @@
   "sero": {
     "app": {
       "id": "notes",
+      "styleIsolation": "scope",
       "name": "Notes",
       "icon": "sticky-note",
       "stateFile": ".sero/apps/notes/state.json",
@@ -55,6 +56,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:*",
     "@sero-ai/common": "workspace:*",

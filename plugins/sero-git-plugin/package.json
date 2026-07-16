@@ -20,6 +20,7 @@
   "sero": {
     "app": {
       "id": "git",
+      "styleIsolation": "scope",
       "name": "Git",
       "icon": "git-branch",
       "stateFile": ".sero/apps/git/state.json",
@@ -67,6 +68,7 @@
     "@earendil-works/pi-tui": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",

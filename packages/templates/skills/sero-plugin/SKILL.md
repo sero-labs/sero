@@ -211,6 +211,7 @@ Required:
 - Import `./styles.css` from **every** exposed MF entry (main app, widgets, etc.)
 - Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
 - `ui/styles.css` should import `@sero-ai/ui/styles/plugin.css` and scan plugin-local files with `@source "./**/*.{ts,tsx}"`
+- UI plugins must set `sero.app.styleIsolation` to `"scope"` and add `seroPluginCssScope({ pluginId: '<app-id>' })` after Tailwind in `vite.config.ts`.
 - Do not alias `@sero-ai/app-runtime`
 - Scope keyboard listeners to the container (`tabIndex={0}`), never `window`
 - Use `ResizeObserver` for dynamic sizing

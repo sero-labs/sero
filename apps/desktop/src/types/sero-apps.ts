@@ -17,6 +17,8 @@ export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
 export interface SeroAppManifest {
   /** Unique app identifier (e.g. "todo"). */
   id: string;
+  /** Plugin stylesheet isolation contract. Missing means legacy global CSS. */
+  styleIsolation?: 'scope' | null;
   /** Display name. */
   name: string;
   /** Package description from package.json. */

@@ -475,6 +475,24 @@ importers:
         specifier: 'catalog:'
         version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@22.19.15)(jsdom@26.1.0)(msw@2.12.10(@types/node@22.19.15)(typescript@5.9.3))(vite@7.3.3(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
+  packages/plugin-vite:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.15
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.40(@swc/helpers@0.5.21))(jiti@2.7.0)(postcss@8.5.15)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@22.19.15)(jsdom@26.1.0)(msw@2.12.10(@types/node@22.19.15)(typescript@5.9.3))(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+
   packages/ui:
     dependencies:
       '@base-ui/react':
@@ -662,6 +680,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -729,6 +750,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -793,6 +817,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -863,6 +890,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -936,6 +966,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1049,6 +1082,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1113,6 +1149,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:*
         version: link:../../packages/app-runtime
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1180,6 +1219,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1268,6 +1310,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@sero-ai/plugin-vite':
+        specifier: workspace:*
+        version: link:../../packages/plugin-vite
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -28711,7 +28756,7 @@ snapshots:
       '@vitest/snapshot': 4.1.7
       '@vitest/spy': 4.1.7
       '@vitest/utils': 4.1.7
-      es-module-lexer: 2.1.0
+      es-module-lexer: 2.3.0
       expect-type: 1.3.0
       magic-string: 0.30.21
       obug: 2.1.1
@@ -28740,7 +28785,7 @@ snapshots:
       '@vitest/snapshot': 4.1.7
       '@vitest/spy': 4.1.7
       '@vitest/utils': 4.1.7
-      es-module-lexer: 2.1.0
+      es-module-lexer: 2.3.0
       expect-type: 1.3.0
       magic-string: 0.30.21
       obug: 2.1.1
@@ -28769,7 +28814,7 @@ snapshots:
       '@vitest/snapshot': 4.1.7
       '@vitest/spy': 4.1.7
       '@vitest/utils': 4.1.7
-      es-module-lexer: 2.1.0
+      es-module-lexer: 2.3.0
       expect-type: 1.3.0
       magic-string: 0.30.21
       obug: 2.1.1
@@ -28798,7 +28843,7 @@ snapshots:
       '@vitest/snapshot': 4.1.7
       '@vitest/spy': 4.1.7
       '@vitest/utils': 4.1.7
-      es-module-lexer: 2.1.0
+      es-module-lexer: 2.3.0
       expect-type: 1.3.0
       magic-string: 0.30.21
       obug: 2.1.1

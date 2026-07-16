@@ -22,6 +22,7 @@
   "sero": {
     "app": {
       "id": "mcp",
+      "styleIsolation": "scope",
       "name": "MCP",
       "icon": "plug",
       "scope": "global",
@@ -62,6 +63,7 @@
     "@earendil-works/pi-tui": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",
