@@ -1,0 +1,16 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    { "id": "app-1::src_tip", "label": "tip.js", "type": "code", "repo": "app-1", "source_file": "src/tip.js", "description": "Tip calculator" },
+    { "id": "app-1::src_tip_split", "label": "splitBill()", "type": "code", "repo": "app-1", "source_file": "src/tip.js", "description": "Splits a bill" },
+    { "id": "app-1::readme", "label": "README.md", "type": "document", "repo": "app-1", "source_file": "README.md", "description": "Docs" },
+    { "id": "app-1::concept_rounding", "label": "Rounding", "type": "concept", "repo": "app-1", "description": "Rounding rules" }
+  ],
+  "links": [
+    { "source": "app-1::src_tip", "target": "app-1::src_tip_split", "relation": "contains" },
+    { "source": "app-1::src_tip", "target": "app-1::readme", "relation": "references" },
+    { "source": "app-1::readme", "target": "app-1::concept_rounding", "relation": "references" }
+  ]
+}

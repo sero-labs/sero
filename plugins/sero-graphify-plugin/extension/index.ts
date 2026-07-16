@@ -13,7 +13,7 @@ import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
 import { readStateFile, appendIndexRequest } from '../shared/state-io';
-import { loadGraph, queryGraph, findPath, explainNode } from '../shared/query-engine';
+import { loadGraph, queryGraph, searchGraph, findPath, explainNode } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -44,7 +44,10 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     async execute(_toolCallId, params) {
       const graph = await loadGraph(paths.profileGraph);
       if (!graph) return text(NOT_BUILT);
-      return text(queryGraph(graph, params.question, { mode: params.mode, budget: params.budget }));
+      const { text: answer, files } = searchGraph(graph, params.question, { mode: params.mode, budget: params.budget });
+      // `files` rides on `details` (UI-only) so the search panel can open them;
+      // the agent still sees the identical text in `content`.
+      return { content: [{ type: 'text', text: answer }], details: { files } };
     },
   });
 

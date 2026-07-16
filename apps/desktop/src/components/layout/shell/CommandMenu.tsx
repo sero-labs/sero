@@ -104,23 +104,6 @@ export function CommandMenu() {
         <CommandInput placeholder="Search apps..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          {searchApps.length > 0 && (
-            <CommandGroup heading="Search">
-              {searchApps.map((app) => (
-                <CommandItem
-                  key={`search-${app.id}`}
-                  value={`Search ${app.label} global search`}
-                  onSelect={() => {
-                    setOpen(false);
-                    openSearch(app.id);
-                  }}
-                >
-                  <TextSearch className="size-4 shrink-0" />
-                  <span>Search {app.label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
           <CommandGroup heading="Apps">
             {apps.map((app) => {
               const Icon = getAppIcon(app.icon);
@@ -153,6 +136,20 @@ export function CommandMenu() {
               </span>
             </CommandItem>
           </CommandGroup>
+          {searchApps.length > 0 && (
+            <CommandGroup heading="Search">
+              <CommandItem
+                value="Global Search"
+                onSelect={() => {
+                  setOpen(false);
+                  openSearch();
+                }}
+              >
+                <TextSearch className="size-4 shrink-0" />
+                <span>Global Search</span>
+              </CommandItem>
+            </CommandGroup>
+          )}
           <CommandGroup heading="Diagnostics">
             <CommandItem value="Environment Doctor Diagnostics" onSelect={handleOpenDoctor}>
               <Stethoscope className="size-4 shrink-0" />

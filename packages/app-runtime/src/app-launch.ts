@@ -39,6 +39,30 @@ export async function openSeroApp(appId: string, params?: Record<string, unknown
 }
 
 /**
+ * Open a workspace file in the shell's explorer editor. Resolves false when the
+ * shell doesn't expose file opening. Used by search panels to make results
+ * clickable — `workspaceId` + `filePath` come straight from graph node tags.
+ * Opening a file does NOT close the search overlay; the panel decides that via
+ * `closeSeroSearch` so it can keep the overlay open for opening several files.
+ */
+export async function openSeroFile(workspaceId: string, filePath: string): Promise<boolean> {
+  return (await getSeroApi().appControl?.openFile(workspaceId, filePath)) ?? false;
+}
+
+/** Event the shell's global-search overlay listens for to dismiss itself. */
+export const SERO_GLOBAL_SEARCH_CLOSE_EVENT = 'sero:global-search:close';
+
+/**
+ * Ask the shell to close the global-search overlay a search panel is mounted in.
+ * Uses a window event (same renderer as the host, like `openSeroApp`'s launch
+ * events) so panels stay decoupled from the host's store. No-op outside a window.
+ */
+export function closeSeroSearch(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SERO_GLOBAL_SEARCH_CLOSE_EVENT));
+}
+
+/**
  * Take (and clear) the launch params another app handed to `openSeroApp`.
  * Call from a mount-time state initializer; returns undefined when the app
  * was opened without params.

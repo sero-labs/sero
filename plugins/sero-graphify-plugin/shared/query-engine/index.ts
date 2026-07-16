@@ -24,15 +24,30 @@ export interface QueryOptions {
   budget?: number;
 }
 
-/**
- * Answer a question with a relevant subgraph rendered as text.
- * bfs = broad context (depth 2 wide), dfs = trace (depth 4 narrow).
- * Output shape mirrors `graphify query`: traversal header, NODE lines, edges.
- */
-export function queryGraph(graph: KnowledgeGraph, question: string, options: QueryOptions = {}): string {
+/** A file the search touched, resolvable back to a workspace file the UI can open. */
+export interface SearchFileHit {
+  /** Node display name, e.g. "CHANGELOG.md" or "splitBill()". */
+  label: string;
+  /** Node kind (code / document / concept …). */
+  type?: string;
+  /** Workspace id the file belongs to (profile graphs tag this as `repo`). */
+  workspaceId: string;
+  /** File path within the workspace, relative to its root. */
+  path: string;
+}
+
+export interface GraphSearchResult {
+  /** The same text `queryGraph` returns — the agent-facing subgraph rendering. */
+  text: string;
+  /** Distinct, openable files surfaced by the traversal, in relevance order. */
+  files: SearchFileHit[];
+}
+
+/** Run the traversal shared by `queryGraph` and `searchGraph`. */
+function traverse(graph: KnowledgeGraph, question: string, options: QueryOptions) {
   const { mode = 'bfs', budget = 1200 } = options;
   const seeds = findSeeds(graph, question);
-  if (seeds.length === 0) return 'No matching concepts found in the graph.';
+  if (seeds.length === 0) return null;
 
   const depth = mode === 'dfs' ? 4 : 2;
   const hits = mode === 'dfs'
@@ -49,7 +64,44 @@ export function queryGraph(graph: KnowledgeGraph, question: string, options: Que
   for (const hit of hits) {
     lines.push(`  ${'  '.repeat(hit.depth - 1)}↳ ${nodeLine(hit.node)}${hit.via ? `  [via ${edgeLine(hit.via, name)}]` : ''}`);
   }
-  return withinBudget(lines, budget);
+  return { seeds, hits, text: withinBudget(lines, budget) };
+}
+
+/**
+ * Answer a question with a relevant subgraph rendered as text.
+ * bfs = broad context (depth 2 wide), dfs = trace (depth 4 narrow).
+ * Output shape mirrors `graphify query`: traversal header, NODE lines, edges.
+ */
+export function queryGraph(graph: KnowledgeGraph, question: string, options: QueryOptions = {}): string {
+  return traverse(graph, question, options)?.text ?? 'No matching concepts found in the graph.';
+}
+
+/**
+ * Like `queryGraph`, but also returns the distinct files the traversal touched
+ * so a UI can offer to open them. A file is openable only when the node carries
+ * both a workspace tag (`repo`) and a `source_file` path; concept-only nodes are
+ * skipped. Files are deduped by workspace + path, seeds first, in relevance order.
+ */
+export function searchGraph(graph: KnowledgeGraph, question: string, options: QueryOptions = {}): GraphSearchResult {
+  const result = traverse(graph, question, options);
+  if (!result) return { text: 'No matching concepts found in the graph.', files: [] };
+
+  const files: SearchFileHit[] = [];
+  const seen = new Set<string>();
+  const nodes = [...result.seeds, ...result.hits.map((h) => h.node)];
+  for (const node of nodes) {
+    if (!node.repo || !node.source_file) continue;
+    const key = `${node.repo}\0${node.source_file}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    files.push({
+      label: displayName(node, node.id),
+      type: node.type ?? node.file_type,
+      workspaceId: node.repo,
+      path: node.source_file,
+    });
+  }
+  return { text: result.text, files };
 }
 
 export function findPath(graph: KnowledgeGraph, from: string, to: string, budget = 800): string {
