@@ -9,7 +9,8 @@
 
 /* Federated Sero plugins should import this file, then add plugin-local
    @source directives. The seroPluginCssScope Vite helper rewrites this file's
-   :root/:host theme blocks to :scope, so a plugin's default Tailwind theme is
-   self-contained on its own scope root. Sero design tokens (--background,
-   --brand-*, …) are still owned by the host: plugin-theme.css references them
-   via @theme inline, so they inherit from the host document root. */
+   document-level selectors (:root/:host theme blocks, html/body preflight) to
+   :scope, so a plugin's default Tailwind theme and resets are self-contained on
+   its own scope root. Sero design tokens (--background, --brand-*, …) are still
+   owned by the host: plugin-theme.css references them via @theme inline, so
+   they inherit from the host document root. */

@@ -5,7 +5,7 @@ import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 import { Button } from "./button"
 import {
   InputGroup,

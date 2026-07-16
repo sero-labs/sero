@@ -5,7 +5,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 import { Button } from "./button"
 
 function Dialog({

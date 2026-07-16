@@ -5,7 +5,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 
 function Select({
   ...props

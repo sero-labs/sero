@@ -1,44 +1,27 @@
+import postcss, { type Rule } from 'postcss';
+import selectorParser from 'postcss-selector-parser';
 import type { Plugin } from 'vite';
 
 const PLUGIN_ID_PATTERN = /^[a-z][a-z0-9-]*$/;
-const SCOPE_MARKER = '/* sero-plugin-css-scope */';
-
-// `:root` / `:host` inside an `@scope` block match nothing — both are
-// ancestors of (never descendants of) the scope root — so any variables a
-// plugin's own Tailwind emits there would silently vanish. Rewrite them to
-// `:scope` (the scope root itself) so a plugin's default theme is
-// self-contained. The negative lookaheads avoid `:root-…`, `:host(…)`, and
-// `:host-context` forms.
-const ROOT_SELECTOR_PATTERN = /:root(?![\w-])/g;
-const HOST_SELECTOR_PATTERN = /:host(?![\w(-])/g;
-
-// `@charset` / `@import` are only valid before any style rule, so they cannot
-// live inside the `@scope` wrapper. Match leading ones (the only legal place)
-// and hoist them out. Best-effort: a `;` inside a url() string would end the
-// match early, but real font imports (`@import url("https://…");`) have none.
-const LEADING_AT_RULE_PATTERN = /^\s*(@(?:charset|import)\b[^;]*;)/i;
+const SCOPE_MARKER = 'sero-plugin-css-scope';
 
 export interface SeroPluginCssScopeOptions {
   pluginId: string;
   /**
-   * @deprecated No longer used. Document-level selectors (`:root`/`:host`) are
-   * now rewritten to `:scope` automatically, so plugins never need an escape
-   * hatch. Kept only so existing configs keep type-checking.
+   * @deprecated No longer used. Document-level selectors (`:root`/`:host`/
+   * `html`/`body`) are rewritten to `:scope` automatically, so plugins never
+   * need an escape hatch. Kept only so existing configs keep type-checking.
    */
   allowGlobalSelectors?: boolean;
 }
 
+/**
+ * Wraps plugin CSS in a bounded native `@scope` and rewrites document-level
+ * selectors to `:scope`. Returns the scoped CSS as a string (no source map);
+ * the Vite plugin uses the map-producing path internally.
+ */
 export function scopePluginCss(css: string, options: SeroPluginCssScopeOptions): string {
-  validatePluginId(options.pluginId);
-  if (css.includes(SCOPE_MARKER)) return css;
-
-  const { hoisted, rest } = hoistLeadingAtRules(css);
-  const scopedBody = scopeDocumentSelectors(rest);
-  const pluginId = cssString(options.pluginId);
-  // Hoisted `@charset`/`@import` must precede everything, including the marker
-  // comment, so `@charset` stays at byte 0 when present.
-  const prefix = hoisted ? `${hoisted}\n` : '';
-  return `${prefix}${SCOPE_MARKER}\n@scope ([data-sero-plugin="${pluginId}"]) to ([data-sero-plugin]) {\n${scopedBody}\n}\n`;
+  return runScope(css, options).code;
 }
 
 /**
@@ -52,8 +35,8 @@ export function seroPluginCssScope(options: SeroPluginCssScopeOptions): Plugin {
     transform(code, id) {
       const cleanId = id.split('?', 1)[0];
       if (!cleanId.endsWith('.css')) return null;
-      const scoped = scopePluginCss(code, options);
-      return { code: scoped, map: null };
+      const { code: scoped, map } = runScope(code, options, id);
+      return { code: scoped, map: map ?? undefined };
     },
     generateBundle(_, bundle) {
       for (const asset of Object.values(bundle)) {
@@ -61,8 +44,7 @@ export function seroPluginCssScope(options: SeroPluginCssScopeOptions): Plugin {
         const source = typeof asset.source === 'string'
           ? asset.source
           : new TextDecoder().decode(asset.source);
-        const expectedScope = `@scope ([data-sero-plugin="${cssString(options.pluginId)}"])`;
-        if (!source.includes(expectedScope)) {
+        if (!source.includes(`@scope ([data-sero-plugin="${cssString(options.pluginId)}"])`)) {
           this.error(`[sero-plugin-css] Emitted CSS asset ${asset.fileName} is not scoped.`);
         }
       }
@@ -70,20 +52,75 @@ export function seroPluginCssScope(options: SeroPluginCssScopeOptions): Plugin {
   };
 }
 
-function scopeDocumentSelectors(css: string): string {
-  return css.replace(ROOT_SELECTOR_PATTERN, ':scope').replace(HOST_SELECTOR_PATTERN, ':scope');
+interface ScopeResult {
+  code: string;
+  /** JSON source map string, or null when no map was requested. */
+  map: string | null;
 }
 
-function hoistLeadingAtRules(css: string): { hoisted: string; rest: string } {
-  const leading: string[] = [];
-  let rest = css;
-  let match = rest.match(LEADING_AT_RULE_PATTERN);
-  while (match) {
-    leading.push(match[1]);
-    rest = rest.slice(match[0].length);
-    match = rest.match(LEADING_AT_RULE_PATTERN);
-  }
-  return { hoisted: leading.join('\n'), rest };
+/**
+ * Parses the CSS once so every rewrite only ever touches selectors and
+ * at-rules — never declaration values, url()s, strings, or comments — and
+ * produces a source map when a module id is supplied.
+ */
+function runScope(css: string, options: SeroPluginCssScopeOptions, from?: string): ScopeResult {
+  validatePluginId(options.pluginId);
+  if (css.includes(SCOPE_MARKER)) return { code: css, map: null };
+
+  const result = postcss([scopeTransform(options)]).process(css, {
+    from,
+    map: from ? { inline: false, annotation: false } : false,
+  });
+  return { code: result.css, map: from ? result.map.toString() : null };
+}
+
+function scopeTransform(options: SeroPluginCssScopeOptions): postcss.Plugin {
+  const params = `([data-sero-plugin="${cssString(options.pluginId)}"]) to ([data-sero-plugin])`;
+  return {
+    postcssPlugin: 'sero-plugin-css-scope',
+    Once(root) {
+      root.walkAtRules('import', (rule) => {
+        throw rule.error(
+          `[sero-plugin-css] ${options.pluginId} uses a runtime "@import" (${rule.params}). ` +
+          'Native @scope cannot contain it without leaking styles to the shell — ' +
+          'bundle the stylesheet or load fonts via a <link> tag instead.',
+        );
+      });
+
+      root.walkRules((rule) => {
+        if (isKeyframeSelector(rule)) return;
+        rule.selector = rewriteSelector(rule.selector);
+      });
+
+      const scope = postcss.atRule({ name: 'scope', params });
+      scope.append(root.nodes);
+      root.removeAll();
+      root.append(postcss.comment({ text: SCOPE_MARKER }));
+      root.append(scope);
+    },
+  };
+}
+
+/**
+ * `:root`/`:host` (theme-variable carriers) and `html`/`body` (preflight)
+ * never match inside `@scope`, so rewrite them to `:scope` — the scope root —
+ * keeping the plugin's default theme and resets self-contained.
+ */
+function rewriteSelector(selector: string): string {
+  return selectorParser((selectors) => {
+    selectors.walk((node) => {
+      const isDocumentPseudo = node.type === 'pseudo' && (node.value === ':root' || node.value === ':host');
+      const isDocumentTag = node.type === 'tag' && (node.value === 'html' || node.value === 'body');
+      if (isDocumentPseudo || isDocumentTag) {
+        node.replaceWith(selectorParser.pseudo({ value: ':scope' }));
+      }
+    });
+  }).processSync(selector);
+}
+
+function isKeyframeSelector(rule: Rule): boolean {
+  const parent = rule.parent;
+  return parent?.type === 'atrule' && /keyframes$/i.test((parent as postcss.AtRule).name);
 }
 
 function validatePluginId(pluginId: string): void {

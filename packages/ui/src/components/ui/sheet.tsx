@@ -5,7 +5,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />

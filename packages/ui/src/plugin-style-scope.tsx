@@ -1,25 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useInsertionEffect,
-  useMemo,
-  type Context,
-  type ReactNode,
-} from 'react';
-
-interface PluginStyleScopeValue {
-  pluginId: string;
-  portalContainer: HTMLDivElement | null;
-}
-
-declare global {
-  var __sero_plugin_style_scope_context__: Context<PluginStyleScopeValue | null> | undefined;
-}
-
-const PluginStyleScopeContext = globalThis.__sero_plugin_style_scope_context__
-  ?? createContext<PluginStyleScopeValue | null>(null);
-
-globalThis.__sero_plugin_style_scope_context__ = PluginStyleScopeContext;
+import { useInsertionEffect, useMemo, type ReactNode } from 'react';
+import { PluginStyleScopeContext } from './plugin-style-scope-context';
 
 export interface PluginStyleScopeProps {
   children: ReactNode;
@@ -52,8 +32,4 @@ export function PluginStyleScope({ children, pluginId, surfaceId }: PluginStyleS
       {children}
     </PluginStyleScopeContext.Provider>
   );
-}
-
-export function usePluginPortalContainer(): HTMLElement | undefined {
-  return useContext(PluginStyleScopeContext)?.portalContainer ?? undefined;
 }

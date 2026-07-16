@@ -142,8 +142,5 @@ export type { DashboardComponentCatalogEntry } from "./components/dashboard/cata
 export * from "./components/model-selection/available-model-picker";
 export * from "./components/model-selection/model-warning-list";
 export * from "./components/model-selection/thinking-level-picker";
-export {
-  PluginStyleScope,
-  usePluginPortalContainer,
-  type PluginStyleScopeProps,
-} from './plugin-style-scope';
+export { PluginStyleScope, type PluginStyleScopeProps } from './plugin-style-scope';
+export { usePluginPortalContainer } from './plugin-style-scope-context';

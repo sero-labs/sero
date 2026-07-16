@@ -2,7 +2,7 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 
 function Drawer({
   ...props

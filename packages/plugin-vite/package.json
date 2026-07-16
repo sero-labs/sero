@@ -27,6 +27,10 @@
   "peerDependencies": {
     "vite": ">=6.0.0"
   },
+  "dependencies": {
+    "postcss": "^8.5.0",
+    "postcss-selector-parser": "^7.0.0"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsup": "^8.5.1",

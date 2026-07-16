@@ -199,13 +199,16 @@ The helper wraps both development and production CSS in a bounded native
 routes shared UI portals to a matching body-level root. Plugins without the
 manifest capability remain on the legacy stylesheet-ordering path.
 
-The helper also rewrites `:root`/`:host` selectors to `:scope`, so a plugin's
-default Tailwind theme lives on its own scope root and never depends on which
-utilities the host happens to emit. Two limitations follow from native
-`@scope`: a leading `@import url(...)` is hoisted out of the scope and therefore
-applies globally (bundle or `<link>` fonts instead of importing them at
-runtime), and Sero design tokens (`--background`, `--brand-*`) must be
-referenced with `var()` — not redefined — so they keep inheriting from the host.
+The helper parses the CSS and rewrites document-level selectors
+(`:root`/`:host`/`html`/`body`) to `:scope`, so a plugin's default Tailwind
+theme and preflight resets live on its own scope root and never depend on which
+utilities the host happens to emit. Because it works on the parsed tree, only
+selectors are touched — declaration values, `url()`s and strings are left
+alone. Two rules follow from native `@scope`: a runtime `@import url(...)`
+is rejected at build time (it cannot be scoped without leaking to the shell, so
+bundle the stylesheet or `<link>` fonts instead), and Sero design tokens
+(`--background`, `--brand-*`) must be referenced with `var()` — not redefined —
+so they keep inheriting from the host.
 
 ### `sero.plugin` Fields
 

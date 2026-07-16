@@ -5,7 +5,7 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 import { cn } from "../../lib/utils"
-import { usePluginPortalContainer } from "../../plugin-style-scope"
+import { usePluginPortalContainer } from "../../plugin-style-scope-context"
 
 function ContextMenu({
   ...props
