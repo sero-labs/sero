@@ -7,8 +7,9 @@
  * app-runtime hooks — the search logic itself stays inside the plugin.
  */
 
-import { Suspense } from 'react';
+import { Suspense, useId } from 'react';
 import { AppProvider } from '@sero-ai/app-runtime';
+import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import type { SeroAppManifest } from '@/types/ipc';
 import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
@@ -16,6 +17,7 @@ import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
 
 export function SearchContributionMount({ manifest }: { manifest: SeroAppManifest }) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
+  const surfaceId = useId();
 
   if (status === 'loading-workspace') {
     return <SearchPanelLoading />;
@@ -39,9 +41,13 @@ export function SearchContributionMount({ manifest }: { manifest: SeroAppManifes
 
   return (
     <AppProvider value={contextValue}>
-      <Suspense fallback={<SearchPanelLoading />}>
-        <LazyComponent />
-      </Suspense>
+      <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
+        <div data-sero-plugin={manifest.id} className="contents">
+          <Suspense fallback={<SearchPanelLoading />}>
+            <LazyComponent />
+          </Suspense>
+        </div>
+      </PluginStyleScope>
     </AppProvider>
   );
 }

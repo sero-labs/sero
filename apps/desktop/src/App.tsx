@@ -32,6 +32,14 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { GlobalQuestionPrompt } from '@/components/layout/shell/GlobalQuestionPrompt';
 
+function persistMainSidebarSize(pct: number): void {
+  useAppStore.getState().setMainSidebarSizePct(Math.round(pct * 10) / 10);
+}
+
+function persistChatPanelSize(pct: number): void {
+  useAppStore.getState().setChatPanelSizePct(Math.round(pct * 10) / 10);
+}
+
 /**
  * App shell.
  *
@@ -148,15 +156,8 @@ export function App() {
     });
   }, []);
 
-  const persistMainSidebarSize = useDebouncedCallback(
-    (pct: number) => useAppStore.getState().setMainSidebarSizePct(Math.round(pct * 10) / 10),
-    300,
-  );
-
-  const persistChatPanelSize = useDebouncedCallback(
-    (pct: number) => useAppStore.getState().setChatPanelSizePct(Math.round(pct * 10) / 10),
-    300,
-  );
+  const persistMainSidebarSizeDebounced = useDebouncedCallback(persistMainSidebarSize, 300);
+  const persistChatPanelSizeDebounced = useDebouncedCallback(persistChatPanelSize, 300);
 
   const handleMainSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
@@ -169,9 +170,9 @@ export function App() {
       }
 
       mainSidebarLastExpandedPctRef.current = asPercentage;
-      persistMainSidebarSize(asPercentage);
+      persistMainSidebarSizeDebounced(asPercentage);
     },
-    [appsReady, layoutReady, setMainSidebarOpen, persistMainSidebarSize],
+    [appsReady, layoutReady, setMainSidebarOpen, persistMainSidebarSizeDebounced],
   );
 
   const handleChatPanelResize = useCallback(
@@ -185,9 +186,9 @@ export function App() {
       }
 
       chatPanelLastExpandedPctRef.current = asPercentage;
-      persistChatPanelSize(asPercentage);
+      persistChatPanelSizeDebounced(asPercentage);
     },
-    [appsReady, layoutReady, setChatPanelOpen, persistChatPanelSize],
+    [appsReady, layoutReady, setChatPanelOpen, persistChatPanelSizeDebounced],
   );
 
   // ── Panel sync effects ──────────────────────────────────────

@@ -89,7 +89,11 @@ export function GraphifySearch() {
           onKeyDown={(e) => e.key === 'Enter' && void search()}
           placeholder="Search across all indexed workspaces…"
         />
-        <Button onClick={() => void search()} disabled={searching || !question.trim()}>
+        <Button
+          aria-label="Search"
+          onClick={() => void search()}
+          disabled={searching || !question.trim()}
+        >
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </div>

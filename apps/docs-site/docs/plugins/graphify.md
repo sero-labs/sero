@@ -35,7 +35,7 @@ You don't need to invoke these manually — the agent picks them up when relevan
 You can search the profile-wide graph yourself, from anywhere in Sero:
 
 - Click the search icon next to the session search field in the main sidebar, or
-- Press **⌘K** and choose **Search Graphify**.
+- Press **⌘K** and choose **Global Search**.
 
 Type a question and press Enter — results come from every indexed workspace.
 
