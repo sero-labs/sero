@@ -34,9 +34,24 @@ describe('scopePluginCss', () => {
     expect(out).toContain('.x:is(.dark *) { color: red }');
   });
 
-  it('rejects runtime @import rather than leaking it outside the scope', () => {
+  it('rejects compound/functional document selectors instead of corrupting them', () => {
+    expect(() => scopePluginCss('html.dark .x { color: red }', { pluginId: 'admin' }))
+      .toThrow(/document selector/);
+    expect(() => scopePluginCss(':host(.compact) .x { color: red }', { pluginId: 'admin' }))
+      .toThrow(/document selector/);
+  });
+
+  it('rejects runtime @import in any letter case', () => {
     expect(() => scopePluginCss('@import url("https://fonts.example/f.css");\n.x {}', { pluginId: 'admin' }))
       .toThrow(/@import/);
+    expect(() => scopePluginCss('@IMPORT url("https://fonts.example/f.css");\n.x {}', { pluginId: 'admin' }))
+      .toThrow(/@import/);
+  });
+
+  it('drops @charset rather than moving it inside the scope', () => {
+    const out = scopePluginCss('@charset "utf-8";\n.x { color: red }', { pluginId: 'admin' });
+    expect(out).not.toMatch(/@charset/i);
+    expect(out).toContain('.x { color: red }');
   });
 
   it('rejects invalid plugin IDs', () => {

@@ -79,17 +79,23 @@ function scopeTransform(options: SeroPluginCssScopeOptions): postcss.Plugin {
   return {
     postcssPlugin: 'sero-plugin-css-scope',
     Once(root) {
-      root.walkAtRules('import', (rule) => {
-        throw rule.error(
-          `[sero-plugin-css] ${options.pluginId} uses a runtime "@import" (${rule.params}). ` +
-          'Native @scope cannot contain it without leaking styles to the shell — ' +
-          'bundle the stylesheet or load fonts via a <link> tag instead.',
-        );
+      // At-rule keywords are ASCII case-insensitive, so compare lowercased.
+      root.walkAtRules((rule) => {
+        const name = rule.name.toLowerCase();
+        if (name === 'import') {
+          throw rule.error(
+            `[sero-plugin-css] ${options.pluginId} uses a runtime "@import" (${rule.params}). ` +
+            'Native @scope cannot contain it without leaking styles to the shell — ' +
+            'bundle the stylesheet or load fonts via a <link> tag instead.',
+          );
+        }
+        // @charset is invalid inside @scope; drop it (Vite/Tailwind emit UTF-8).
+        if (name === 'charset') rule.remove();
       });
 
       root.walkRules((rule) => {
         if (isKeyframeSelector(rule)) return;
-        rule.selector = rewriteSelector(rule.selector);
+        rule.selector = rewriteSelector(rule.selector, rule, options.pluginId);
       });
 
       const scope = postcss.atRule({ name: 'scope', params });
@@ -103,19 +109,39 @@ function scopeTransform(options: SeroPluginCssScopeOptions): postcss.Plugin {
 
 /**
  * `:root`/`:host` (theme-variable carriers) and `html`/`body` (preflight)
- * never match inside `@scope`, so rewrite them to `:scope` — the scope root —
- * keeping the plugin's default theme and resets self-contained.
+ * never match inside `@scope`, so rewrite a *bare* one to `:scope` — the scope
+ * root — keeping the plugin's default theme and resets self-contained. A
+ * compound or functional form (`html.dark`, `:host(.compact)`) would silently
+ * lose its condition or match nothing, so reject it with an actionable error
+ * rather than corrupt the selector.
  */
-function rewriteSelector(selector: string): string {
+function rewriteSelector(selector: string, rule: Rule, pluginId: string): string {
   return selectorParser((selectors) => {
     selectors.walk((node) => {
-      const isDocumentPseudo = node.type === 'pseudo' && (node.value === ':root' || node.value === ':host');
+      const isRoot = node.type === 'pseudo' && node.value === ':root';
+      const isHost = node.type === 'pseudo' && node.value === ':host';
       const isDocumentTag = node.type === 'tag' && (node.value === 'html' || node.value === 'body');
-      if (isDocumentPseudo || isDocumentTag) {
-        node.replaceWith(selectorParser.pseudo({ value: ':scope' }));
+      if (!isRoot && !isHost && !isDocumentTag) return;
+
+      const isFunctional = isHost && ((node as selectorParser.Pseudo).nodes?.length ?? 0) > 0;
+      if (isFunctional || !isBareInCompound(node)) {
+        throw rule.error(
+          `[sero-plugin-css] ${pluginId} cannot scope the document selector ` +
+          `"${rule.selector.trim()}". Combining html/body/:root/:host with classes, ` +
+          "attributes, or arguments can't be expressed relative to the plugin scope — " +
+          "use a scope-relative selector or Tailwind's dark: variant instead.",
+        );
       }
+      node.replaceWith(selectorParser.pseudo({ value: ':scope' }));
     });
   }).processSync(selector);
+}
+
+/** True when nothing else shares the node's compound (no attached class/attr/pseudo). */
+function isBareInCompound(node: selectorParser.Node): boolean {
+  const attached = (sibling: selectorParser.Node | undefined) =>
+    Boolean(sibling) && sibling!.type !== 'combinator';
+  return !attached(node.prev()) && !attached(node.next());
 }
 
 function isKeyframeSelector(rule: Rule): boolean {

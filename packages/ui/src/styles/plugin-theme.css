@@ -1,7 +1,7 @@
 @theme inline {
   --text-xs: 0.8rem;
   --text-xs--line-height: 1rem;
-  
+
   --text-sm: 0.9rem;
   --text-sm--line-height: 1.2rem;
 
@@ -78,4 +78,3 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
-
