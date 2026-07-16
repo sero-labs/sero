@@ -451,6 +451,38 @@ describe('AppRuntimeManager', () => {
     expect(initialCalendarRuntime.dispose).not.toHaveBeenCalled();
   });
 
+  it('disposeWorkspace tears down only the target workspace runtimes and their watchers', async () => {
+    const manifests = [createManifest('notes')];
+    const workspaces = [
+      { id: 'ws-1', path: '/repo-1' },
+      { id: 'ws-2', path: '/repo-2' },
+    ];
+    const runtimesByWorkspace = new Map<string, { dispose: ReturnType<typeof vi.fn> }>();
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => manifests,
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule: async (): Promise<AppRuntimeModule> => ({
+        createAppRuntime: async (ctx) => {
+          const runtime = { start: vi.fn(async () => {}), handleStateChange: vi.fn(async () => {}), dispose: vi.fn(async () => {}) };
+          runtimesByWorkspace.set(ctx.workspaceId, runtime);
+          return runtime;
+        },
+      }),
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    await manager.initialize();
+    await manager.disposeWorkspace('ws-1');
+
+    expect(runtimesByWorkspace.get('ws-1')!.dispose).toHaveBeenCalledTimes(1);
+    expect(runtimesByWorkspace.get('ws-2')!.dispose).not.toHaveBeenCalled();
+    expect(unwatch).toHaveBeenCalledWith(path.join('/repo-1', '.sero/apps/notes/state.json'));
+    expect(unwatch).not.toHaveBeenCalledWith(path.join('/repo-2', '.sero/apps/notes/state.json'));
+  });
+
   it('disposes stale runtimes during reconcile', async () => {
     const runtime = {
       start: vi.fn(async () => {}),

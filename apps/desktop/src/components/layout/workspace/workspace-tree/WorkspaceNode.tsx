@@ -4,7 +4,6 @@ import {
   ChevronRight,
   FolderOpen,
   GitBranch,
-  Minus,
   Plus,
   Trash2,
   X,
@@ -21,6 +20,7 @@ import { useSessionStore } from '@/stores/sessions';
 import { type ContainerStatus, useWorkspaceContainer } from '@/stores/container';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { WorkspaceBulkDeleteDialog } from './WorkspaceBulkDeleteDialog';
+import { WorkspaceCloseMenu } from './WorkspaceCloseMenu';
 
 function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: string; containerEnabled: boolean }) {
   const container = useWorkspaceContainer(workspaceId);
@@ -67,6 +67,7 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
   );
   const setActiveWorkspace = useWorkspaceStore((state) => state.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
+  const deleteWorkspace = useWorkspaceStore((state) => state.deleteWorkspace);
   const createSession = useSessionStore((state) => state.createSession);
   const deleteSelectedSessions = useSessionStore((state) => state.deleteSelectedSessions);
   const clearSelection = useSessionStore((state) => state.clearSelection);
@@ -92,9 +93,12 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
     setActiveWorkspace(workspace.id);
   };
 
-  const handleClose = (event: React.MouseEvent | React.KeyboardEvent) => {
-    event.stopPropagation();
+  const handleClose = () => {
     void closeWorkspace(workspace.id);
+  };
+
+  const handleDelete = () => {
+    void deleteWorkspace(workspace.id);
   };
 
   const handleBulkDelete = async () => {
@@ -243,20 +247,12 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
                   <GitBranch className="size-3" />
                 </IconAction>
                 {!isDefault && (
-                  <IconAction
-                    as="span"
-                    role="button"
-                    tabIndex={-1}
-                    onClick={handleClose}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        handleClose(event);
-                      }
-                    }}
-                    title="Close workspace"
-                  >
-                    <Minus className="size-3" />
-                  </IconAction>
+                  <WorkspaceCloseMenu
+                    workspaceName={workspace.name}
+                    workspacePath={workspace.path}
+                    onClose={handleClose}
+                    onDelete={handleDelete}
+                  />
                 )}
               </motion.span>
             </AnimatePresence>

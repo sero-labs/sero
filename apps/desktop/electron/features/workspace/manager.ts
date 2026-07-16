@@ -20,7 +20,8 @@ import type { SetContainerEnabledResult, WorkspaceManagerOptions, WorkspaceRegis
 export type { SetContainerEnabledResult, WorkspaceManagerOptions } from './manager-types';
 
 import { inferWorkspaceFromMessage } from './inference';
-import { slugify, ensureUniqueId, prettifyName, isSafeWorkspaceId } from './utils';
+import { slugify, ensureUniqueId, prettifyName, isSafeWorkspaceId, assertSafeToDelete } from './utils';
+import { readWorkspaceConfig, writeWorkspaceConfig, cleanupEditorState } from './workspace-io';
 import { AGENT_DIR, DEFAULT_GLOBAL_CONFIG, EDITOR_STATE_DIR, REGISTRY_PATH, WORKSPACES_DIR } from './defaults';
 import * as mounts from './mounts';
 import * as roots from './roots';
@@ -118,7 +119,7 @@ export class WorkspaceManager {
     if (!this.findEntry('global')) {
       const globalPath = path.join(this.workspacesDir, 'global');
       await fs.mkdir(globalPath, { recursive: true });
-      await this.writeConfig(globalPath, DEFAULT_GLOBAL_CONFIG);
+      await writeWorkspaceConfig(globalPath, DEFAULT_GLOBAL_CONFIG);
       this.registry.workspaces.push({
         id: 'global',
         path: globalPath,
@@ -146,38 +147,14 @@ export class WorkspaceManager {
       const runtimeBackend = config?.runtime?.backend as WorkspaceRuntimeBackendInput | undefined;
       // Deprecated compatibility input; normalize to host on write.
       if (!config || (runtimeBackend && runtimeBackend !== 'mac-host' && config.container === undefined)) return;
-      await this.writeConfig(entry.path, config);
+      await writeWorkspaceConfig(entry.path, config);
       this.configCache.delete(entry.id);
     }));
   }
 
   /** Read .sero-workspace.json from a workspace directory. */
   async readConfig(workspacePath: string): Promise<WorkspaceConfig | null> {
-    const configPath = path.join(workspacePath, '.sero-workspace.json');
-    try {
-      const raw = await fs.readFile(configPath, 'utf8');
-      return JSON.parse(raw) as WorkspaceConfig;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Write .sero-workspace.json to a workspace directory. */
-  private async writeConfig(workspacePath: string, config: WorkspaceConfig): Promise<void> {
-    const configPath = path.join(workspacePath, '.sero-workspace.json');
-    const json = JSON.stringify(normalizeWorkspaceConfigForWrite(config), null, 2) + '\n';
-    await fs.writeFile(configPath, json, 'utf8');
-  }
-
-  private async cleanupEditorState(id: string): Promise<void> {
-    const editorStateFile = path.join(this.editorStateDir, `${id}.json`);
-    try {
-      await fs.rm(editorStateFile, { force: true });
-    } catch (error: unknown) {
-      const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') return;
-      console.warn(`[workspace] Failed to remove editor state for ${id}:`, error);
-    }
+    return readWorkspaceConfig(workspacePath);
   }
 
   /** List all registered workspaces with merged config data. */
@@ -241,13 +218,13 @@ export class WorkspaceManager {
         id: uniqueId,
         name: name || prettifyName(path.basename(absPath)),
       };
-      await this.writeConfig(absPath, config);
+      await writeWorkspaceConfig(absPath, config);
     } else {
       const configuredId = isSafeWorkspaceId(config.id) ? config.id : uniqueId;
       const safeUniqueId = this.ensureUniqueId(configuredId);
       if (config.id !== safeUniqueId) {
         config = { ...config, id: safeUniqueId };
-        await this.writeConfig(absPath, config);
+        await writeWorkspaceConfig(absPath, config);
       }
     }
 
@@ -302,7 +279,7 @@ export class WorkspaceManager {
       id: uniqueId,
       name,
     };
-    await this.writeConfig(wsPath, config);
+    await writeWorkspaceConfig(wsPath, config);
 
     const entry: WorkspaceRegistryEntry = {
       id: uniqueId,
@@ -330,7 +307,7 @@ export class WorkspaceManager {
     this.configCache.delete(id);
     await this.saveRegistry();
 
-    await this.cleanupEditorState(id);
+    await cleanupEditorState(this.editorStateDir, id);
   }
 
   // ── Open / Close ────────────────────────────────────────────
@@ -357,7 +334,29 @@ export class WorkspaceManager {
     this.configCache.delete(id);
     await this.saveRegistry();
 
-    await this.cleanupEditorState(id);
+    await cleanupEditorState(this.editorStateDir, id);
+  }
+
+  /**
+   * Delete a workspace: unregister it AND permanently erase its folder. The
+   * registry is updated FIRST so a slow or partially-failing removal never
+   * leaves a half-deleted ghost in the sidebar. `fs.rm` retries ride out the
+   * transient EBUSY/ENOTEMPTY large trees (node_modules) throw; a final failure
+   * surfaces rather than being swallowed. Caller tears down the runtime first.
+   */
+  async delete(id: string): Promise<void> {
+    if (id === 'global') throw new Error('Cannot delete the default workspace');
+    const entry = this.findEntry(id);
+    if (!entry) return; // Already gone — nothing to do.
+
+    assertSafeToDelete(entry.path, path.dirname(AGENT_DIR));
+
+    this.registry.workspaces = this.registry.workspaces.filter((w) => w.id !== id);
+    this.configCache.delete(id);
+    await this.saveRegistry();
+    await cleanupEditorState(this.editorStateDir, id);
+
+    await fs.rm(entry.path, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 });
   }
 
   /** Set expanded/collapsed state for a workspace tree node. */
