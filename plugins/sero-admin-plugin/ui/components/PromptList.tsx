@@ -4,6 +4,7 @@
  * Selection is keyed by filePath (unique across the prompts tree).
  */
 
+import { memo } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { PromptTemplateSummary } from './types';
 
@@ -15,7 +16,7 @@ interface PromptListProps {
   onSelect: (filePath: string) => void;
 }
 
-export function PromptList({ prompts, selected, onSelect }: PromptListProps) {
+export const PromptList = memo(function PromptList({ prompts, selected, onSelect }: PromptListProps) {
   if (prompts.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
@@ -56,4 +57,4 @@ export function PromptList({ prompts, selected, onSelect }: PromptListProps) {
       ))}
     </div>
   );
-}
+});

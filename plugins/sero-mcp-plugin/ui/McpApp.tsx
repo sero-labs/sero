@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -15,6 +15,11 @@ import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
 import './styles.css';
+
+// These panels own independent local workflows. Bootstrap, diagnostics, raw
+// config, and search state should not redraw the full server manager.
+const MemoizedMcpSearchWorkbenchPanel = memo(McpSearchWorkbenchPanel);
+const MemoizedMcpServerCrudPanel = memo(McpServerCrudPanel);
 
 export function McpApp() {
   const initialState = useMemo(() => createDefaultMcpState(), []);
@@ -110,13 +115,13 @@ export function McpApp() {
         <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
         {searchOpen && state.servers.length > 0 && (
-          <McpSearchWorkbenchPanel
+          <MemoizedMcpSearchWorkbenchPanel
             servers={state.servers}
             selectedServerName={resolvedSelectedServerName}
             onSelectServer={setSelectedServerName}
           />
         )}
-        <McpServerCrudPanel
+        <MemoizedMcpServerCrudPanel
           servers={state.servers}
           selectedServerName={resolvedSelectedServerName}
           onSelectServerName={setSelectedServerName}

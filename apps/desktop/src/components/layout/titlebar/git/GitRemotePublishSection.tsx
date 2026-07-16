@@ -46,7 +46,7 @@ export function GitRemotePublishSection({
     })),
   );
   const [mode, setMode] = useState<'github' | 'existing'>('github');
-  const [name, setName] = useState(defaultRepoName(workspaceName, workspaceId));
+  const [name, setName] = useState(() => defaultRepoName(workspaceName, workspaceId));
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [remoteUrl, setRemoteUrl] = useState('');
   const [action, setAction] = useState<'github' | 'existing' | null>(null);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -58,22 +58,27 @@ interface WorkspaceNodeProps {
   sessions: SeroSessionInfo[];
 }
 
-export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
+export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
   const [remoteManagerOpen, setRemoteManagerOpen] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const toggleCollapsed = useWorkspaceStore((state) => state.toggleCollapsed);
-  const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+  const isActive = useWorkspaceStore(
+    (state) => state.activeWorkspaceId === workspace.id,
+  );
   const setActiveWorkspace = useWorkspaceStore((state) => state.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const createSession = useSessionStore((state) => state.createSession);
   const deleteSelectedSessions = useSessionStore((state) => state.deleteSelectedSessions);
   const clearSelection = useSessionStore((state) => state.clearSelection);
-  const selectedSessionIds = useSessionStore((state) => state.selectedSessionIds);
+  const selectedInWorkspace = useSessionStore((state) => (
+    sessions.reduce(
+      (count, session) => count + (state.selectedSessionIds.has(session.id) ? 1 : 0),
+      0,
+    )
+  ));
 
-  const selectedInWorkspace = sessions.filter((session) => selectedSessionIds.has(session.id)).length;
   const mountCount = workspace.references.length + workspace.mounts.length;
   const expanded = workspace.open;
-  const isActive = activeWorkspaceId === workspace.id;
   const isDefault = workspace.id === 'global';
 
   const handleHeaderClick = () => {
@@ -288,4 +293,4 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
       />
     </div>
   );
-}
+});

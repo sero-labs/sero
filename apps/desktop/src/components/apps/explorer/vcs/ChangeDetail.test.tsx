@@ -12,6 +12,7 @@ import { ChangeDetail } from './ChangeDetail';
 
 const vcsStoreMocks = vi.hoisted(() => {
   const store = {
+    byWorkspace: { 'ws-1': { activePushBookmark: null } },
     describe: vi.fn(async () => {}),
     push: vi.fn(async () => ({ success: true, message: 'ok' })),
     moveBookmark: vi.fn(async () => {}),
@@ -28,7 +29,9 @@ const vcsStoreMocks = vi.hoisted(() => {
 });
 
 vi.mock('@/stores/vcs', () => ({
-  useVcsStore: Object.assign(vi.fn(() => vcsStoreMocks.store), {
+  useVcsStore: Object.assign(vi.fn((selector: (store: typeof vcsStoreMocks.store) => unknown) => (
+    selector(vcsStoreMocks.store)
+  )), {
     getState: vcsStoreMocks.getState,
   }),
   useWorkspaceVcs: vcsStoreMocks.useWorkspaceVcs,

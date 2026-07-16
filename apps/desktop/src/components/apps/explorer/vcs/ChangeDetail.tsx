@@ -18,7 +18,7 @@ import {
   GitBranch,
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { useVcsStore, useWorkspaceVcs } from '@/stores/vcs';
+import { useVcsStore } from '@/stores/vcs';
 import type { ChangeEntry, FileDiffEntry } from '@sero-ai/common';
 import { useTransientValue } from '../useTransientUiState';
 import { statusCode, statusColor } from './vcs-utils';
@@ -30,8 +30,15 @@ interface Props {
 }
 
 export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
-  const store = useVcsStore();
-  const ws = useWorkspaceVcs(workspaceId);
+  const abandon = useVcsStore((state) => state.abandon);
+  const createBookmark = useVcsStore((state) => state.createBookmark);
+  const describe = useVcsStore((state) => state.describe);
+  const moveBookmark = useVcsStore((state) => state.moveBookmark);
+  const push = useVcsStore((state) => state.push);
+  const restoreCheckpoint = useVcsStore((state) => state.restoreCheckpoint);
+  const activePushBookmark = useVcsStore(
+    (state) => state.byWorkspace[workspaceId]?.activePushBookmark ?? null,
+  );
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [fileLoadError, setFileLoadError] = useState<string | null>(null);
@@ -71,15 +78,15 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
 
   const handleSaveDesc = useCallback(async () => {
     if (descDraft.trim() && descDraft !== entry.description) {
-      await store.describe(workspaceId, entry.changeId, descDraft.trim());
+      await describe(workspaceId, entry.changeId, descDraft.trim());
     }
     setEditing(false);
-  }, [workspaceId, entry.changeId, descDraft, entry.description, store]);
+  }, [describe, descDraft, entry.changeId, entry.description, workspaceId]);
 
   const handlePush = useCallback(async () => {
     setPushing(true);
     try {
-      const r = await store.push(workspaceId, ws?.activePushBookmark ?? undefined, entry.changeId);
+      const r = await push(workspaceId, activePushBookmark ?? undefined, entry.changeId);
       showPushNotice({
         message: r.message || (r.success ? 'Push complete' : 'Push failed'),
         error: !r.success,
@@ -92,7 +99,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     } finally {
       setPushing(false);
     }
-  }, [workspaceId, entry.changeId, ws?.activePushBookmark, store, showPushNotice]);
+  }, [activePushBookmark, entry.changeId, push, showPushNotice, workspaceId]);
 
   const handlePushAs = useCallback(async () => {
     const branch = pushBranch.trim().replace(/\s+/g, '-');
@@ -104,12 +111,12 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       const freshWs = useVcsStore.getState().byWorkspace[workspaceId];
       const existing = freshWs?.bookmarks.find((b) => b.name === branch);
       if (existing) {
-        await store.moveBookmark(workspaceId, branch, entry.changeId);
+        await moveBookmark(workspaceId, branch, entry.changeId);
       } else {
-        await store.createBookmark(workspaceId, branch, entry.changeId);
+        await createBookmark(workspaceId, branch, entry.changeId);
       }
 
-      const r = await store.push(workspaceId, branch, entry.changeId);
+      const r = await push(workspaceId, branch, entry.changeId);
       showPushNotice({
         message: r.message || (r.success ? 'Push complete' : 'Push failed'),
         error: !r.success,
@@ -126,7 +133,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     } finally {
       setPushing(false);
     }
-  }, [pushBranch, workspaceId, entry.changeId, store, showPushNotice]);
+  }, [createBookmark, entry.changeId, moveBookmark, push, pushBranch, showPushNotice, workspaceId]);
 
   return (
     <div className="border-t border-[var(--border-subtle)]/30 bg-[var(--bg-elevated)]/20 px-3 py-2">
@@ -230,17 +237,17 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
             <DetailAction
               icon={<RotateCcw className="size-3" />}
               label="Restore checkpoint"
-              onClick={() => void store.restoreCheckpoint(workspaceId, entry.changeId)}
+              onClick={() => void restoreCheckpoint(workspaceId, entry.changeId)}
             />
             <DetailAction
               icon={<ArrowDownToLine className="size-3" />}
               label="Squash"
-              onClick={() => void store.abandon(workspaceId, entry.changeId)}
+              onClick={() => void abandon(workspaceId, entry.changeId)}
             />
             <DetailAction
               icon={<Trash2 className="size-3" />}
               label="Abandon"
-              onClick={() => void store.abandon(workspaceId, entry.changeId)}
+              onClick={() => void abandon(workspaceId, entry.changeId)}
               danger
             />
             <DetailAction

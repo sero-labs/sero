@@ -15,10 +15,10 @@ import {
 } from '@sero-ai/ui/components/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
 import {
-  useFocusedAgent,
   useFocusedCollaborationMode,
   useFocusedCollaborationStrategy,
   useFocusedDebateConfig,
+  useFocusedModelState,
 } from '@/stores/agent-selectors';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -59,12 +59,12 @@ export function ContextEditorMenuItem({
 // ── Thinking blocks toggle ─────────────────────────────────────
 
 export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
-  const focused = useFocusedAgent();
+  const modelState = useFocusedModelState();
   const showThinking = useAgentStore((s) => s.showThinkingBlocks);
   const toggle = useAgentStore((s) => s.toggleThinkingBlocks);
 
-  const isReasoning = focused?.modelState?.model.reasoning ?? false;
-  const thinkingLevel = focused?.modelState?.thinkingLevel ?? 'off';
+  const isReasoning = modelState?.model.reasoning ?? false;
+  const thinkingLevel = modelState?.thinkingLevel ?? 'off';
   const isActive = isReasoning && thinkingLevel !== 'off';
 
   return (

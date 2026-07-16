@@ -15,7 +15,6 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { generateId } from '../../shared/reminder-utils';
-import { normalizeReminderChannel } from '../../shared/reminder-mutations';
 import type { Reminder, ReminderType } from '../../shared/types';
 
 interface ReminderFormProps {
@@ -45,12 +44,10 @@ export function ReminderForm({
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
-  const [channel, setChannel] = useState<'notification'>('notification');
   const [type, setType] = useState<ReminderType>('once');
   const [fireAt, setFireAt] = useState('');
   const [schedule, setSchedule] = useState('');
   const [recoverIfMissed, setRecoverIfMissed] = useState(false);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Reset form when opening
   useEffect(() => {
@@ -58,7 +55,6 @@ export function ReminderForm({
     if (editingReminder) {
       setTitle(editingReminder.title);
       setNotes(editingReminder.notes ?? '');
-      setChannel(normalizeReminderChannel(editingReminder.channel));
       setType(editingReminder.type);
       setFireAt(editingReminder.fireAt ? toLocalDatetime(editingReminder.fireAt) : '');
       setSchedule(editingReminder.schedule ?? '');
@@ -66,23 +62,16 @@ export function ReminderForm({
     } else {
       setTitle('');
       setNotes('');
-      setChannel('notification');
       setType('once');
       setFireAt(defaultFireAt());
       setSchedule('');
       setRecoverIfMissed(false);
     }
-    setScheduleError(null);
   }, [open, editingReminder]);
 
-  // Validate cron
-  useEffect(() => {
-    if (type !== 'recurring' || !schedule.trim()) {
-      setScheduleError(null);
-      return;
-    }
-    setScheduleError(validateCron(schedule.trim()));
-  }, [schedule, type]);
+  const scheduleError = type === 'recurring' && schedule.trim()
+    ? validateCron(schedule.trim())
+    : null;
 
   const canSave = (() => {
     if (!title.trim()) return false;
@@ -98,7 +87,7 @@ export function ReminderForm({
       id: editingReminder?.id ?? generateId(),
       title: title.trim(),
       notes: notes.trim() || undefined,
-      channel,
+      channel: 'notification',
       type,
       status: editingReminder?.status ?? 'active',
       createdAt: editingReminder?.createdAt ?? new Date().toISOString(),
@@ -121,7 +110,7 @@ export function ReminderForm({
 
     onSave(reminder);
     onClose();
-  }, [canSave, title, notes, channel, type, fireAt, schedule, recoverIfMissed, editingReminder, onSave, onClose]);
+  }, [canSave, title, notes, type, fireAt, schedule, recoverIfMissed, editingReminder, onSave, onClose]);
 
   const inputCls =
     'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';

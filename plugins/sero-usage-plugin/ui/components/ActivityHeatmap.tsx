@@ -3,7 +3,7 @@
  * day, weeks as columns (Mon-Sun rows), today in the rightmost column.
  */
 
-import { useMemo, type CSSProperties } from 'react';
+import { memo, useMemo, type CSSProperties } from 'react';
 import { Inline, Text } from '@sero-ai/ui';
 
 import { dateKey } from '../../shared/period';
@@ -83,7 +83,7 @@ function cellStyle(level: number): CSSProperties | undefined {
   return { backgroundColor: `color-mix(in oklab, var(--chart-2) ${LEVEL_MIX[level]}%, transparent)` };
 }
 
-export function ActivityHeatmap({ daily, metric }: { daily: DailyBucket[]; metric: TrendMetric }) {
+export const ActivityHeatmap = memo(function ActivityHeatmap({ daily, metric }: { daily: DailyBucket[]; metric: TrendMetric }) {
   const model = useMemo(() => buildModel(daily, metric), [daily, metric]);
 
   return (
@@ -140,4 +140,4 @@ export function ActivityHeatmap({ daily, metric }: { daily: DailyBucket[]; metri
       </Inline>
     </div>
   );
-}
+});

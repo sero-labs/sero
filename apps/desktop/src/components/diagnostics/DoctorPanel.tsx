@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { DoctorCategory, DoctorResult } from '@/types/ipc';
 import { DoctorCategorySection } from './DoctorCategorySection';
 import { useDoctor } from './useDoctor';
@@ -34,13 +34,13 @@ export function DoctorPanel({ safeMode = false }: Props) {
     return map;
   }, [report]);
 
-  const onCopyFix = async (text: string) => {
+  const onCopyFix = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
       /* ignore, clipboard may be unavailable in tests */
     }
-  };
+  }, []);
 
   return (
     <div className="p-4 max-w-3xl mx-auto">

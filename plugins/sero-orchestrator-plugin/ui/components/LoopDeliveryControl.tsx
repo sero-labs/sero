@@ -35,7 +35,7 @@ export function LoopDeliveryControl({
   const [open, setOpen] = useState(false);
   const current = effectiveDelivery(loop);
   const [destination, setDestination] = useState<DeliveryDestinationId>(current.destination);
-  const [params, setParams] = useState<Record<string, string>>(
+  const [params, setParams] = useState<Record<string, string>>(() =>
     Object.fromEntries(Object.entries(current.params ?? {}).map(([k, v]) => [k, String(v)])),
   );
 

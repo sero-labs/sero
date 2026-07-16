@@ -55,6 +55,9 @@ export function AdminApp() {
   const refreshAgents = agentCrud.refresh;
   const refreshSkills = skillCrud.refresh;
   const refreshPrompts = promptCrud.refresh;
+  const selectAgent = agentCrud.select;
+  const selectSkill = skillCrud.select;
+  const selectPrompt = promptCrud.select;
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
@@ -124,22 +127,22 @@ export function AdminApp() {
   }, [updateState]);
 
   const handleAgentSelect = useCallback(async (name: string) => {
-    await agentCrud.select(name);
+    await selectAgent(name);
     restoredAgentRef.current = name;
     updateState((prev) => ({ ...prev, lastAgent: name }));
-  }, [agentCrud, updateState]);
+  }, [selectAgent, updateState]);
 
   const handleSkillSelect = useCallback(async (filePath: string) => {
-    await skillCrud.select(filePath);
+    await selectSkill(filePath);
     restoredSkillRef.current = filePath;
     updateState((prev) => ({ ...prev, lastSkill: filePath }));
-  }, [skillCrud, updateState]);
+  }, [selectSkill, updateState]);
 
   const handlePromptSelect = useCallback(async (filePath: string) => {
-    await promptCrud.select(filePath);
+    await selectPrompt(filePath);
     restoredPromptRef.current = filePath;
     updateState((prev) => ({ ...prev, lastPrompt: filePath }));
-  }, [promptCrud, updateState]);
+  }, [selectPrompt, updateState]);
 
   const getSkillVisibility = useCallback((skillName: string) => {
     const row = skillVisibility.skills.find((skill) => skill.name === skillName);

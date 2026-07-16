@@ -6,7 +6,7 @@
  * from @sero-ai/app-runtime for file-backed reactive state.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
 import type { GitActionResult } from '@sero-ai/common';
@@ -31,6 +31,16 @@ interface GitActionNoticeState {
   title: string;
   message: string;
 }
+
+// Git state refreshes and transient app UI (notices, open diffs, selections)
+// update independently. Keep the large, otherwise unchanged renderer sections
+// out of those unrelated commits.
+const MemoizedHeader = memo(Header);
+const MemoizedBranchPanel = memo(BranchPanel);
+const MemoizedCommitGraph = memo(CommitGraph);
+const MemoizedCommitDetail = memo(CommitDetail);
+const MemoizedDiffViewer = memo(DiffViewer);
+const MemoizedStagingArea = memo(StagingArea);
 
 export function GitApp() {
   const initialState = useMemo(() => createDefaultGitState(), []);
@@ -154,7 +164,7 @@ export function GitApp() {
     <>
       <style>{GIT_STYLES}</style>
       <div className="git-root relative flex size-full flex-col overflow-hidden">
-        <Header state={state} onAction={runAction} />
+        <MemoizedHeader state={state} onAction={runAction} />
 
         {notice && (
           <div className="pointer-events-none absolute right-4 top-14 z-30 flex w-[min(30rem,calc(100%-2rem))] justify-end">
@@ -169,7 +179,7 @@ export function GitApp() {
         ) : (
           <>
             <div className="flex flex-1 overflow-hidden">
-              <BranchPanel
+              <MemoizedBranchPanel
                 branches={state.branches}
                 remoteBranches={state.remoteBranches}
                 remotes={state.remotes}
@@ -180,7 +190,7 @@ export function GitApp() {
               />
 
               <div className="flex flex-1 overflow-hidden">
-                <CommitGraph
+                <MemoizedCommitGraph
                   commits={state.commits}
                   selectedHash={selectedCommit?.hash}
                   onSelectCommit={handleSelectCommit}
@@ -189,7 +199,7 @@ export function GitApp() {
                 {showDiffPanel && (
                   <div className="w-[45%] shrink-0 overflow-y-auto border-l border-[var(--g-border)] p-3 git-scrollbar">
                     {viewDiff ? (
-                      <DiffViewer diff={viewDiff} onClose={handleCloseDiff} />
+                      <MemoizedDiffViewer diff={viewDiff} onClose={handleCloseDiff} />
                     ) : (
                       <DiffPlaceholder onClose={handleCloseDiff} resolved={diffRequestResolved} />
                     )}
@@ -198,7 +208,7 @@ export function GitApp() {
               </div>
             </div>
 
-            <CommitDetail
+            <MemoizedCommitDetail
               key={selectedCommit?.hash ?? 'none'}
               commit={selectedCommit}
               diffs={commitDiffs}
@@ -208,7 +218,7 @@ export function GitApp() {
               onAction={runAction}
             />
 
-            <StagingArea
+            <MemoizedStagingArea
               fileChanges={state.fileChanges}
               onAction={runAction}
               onSelectFile={handleSelectStagingFile}

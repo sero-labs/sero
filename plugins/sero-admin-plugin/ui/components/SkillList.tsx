@@ -5,6 +5,7 @@
  * across nested skill directories).
  */
 
+import { memo } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { SkillSummary } from './types';
 
@@ -16,7 +17,7 @@ interface SkillListProps {
   onSelect: (filePath: string) => void;
 }
 
-export function SkillList({ skills, selected, onSelect }: SkillListProps) {
+export const SkillList = memo(function SkillList({ skills, selected, onSelect }: SkillListProps) {
   if (skills.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
@@ -57,4 +58,4 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
       ))}
     </div>
   );
-}
+});

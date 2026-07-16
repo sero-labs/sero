@@ -50,7 +50,7 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
                 entry={entry}
                 index={i}
                 isExpanded={expandedId === entry.changeId}
-                onToggle={() => handleToggle(entry.changeId)}
+                onToggle={handleToggle}
               />
               <AnimatePresence>
                 {expandedId === entry.changeId && (

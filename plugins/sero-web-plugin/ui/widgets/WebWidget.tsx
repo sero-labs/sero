@@ -5,7 +5,7 @@
 // open their URL in the browser on click. Presentation is composed from
 // @sero-ai/ui — the provider badge stays plugin-local (brand colours).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import {
   ActivityList,
@@ -67,10 +67,16 @@ export function WebWidget() {
   const [tab, setTab] = useState<TabKey>('activity');
 
   const entries = state.entries;
-  const bookmarks = [...(state.bookmarks ?? [])].sort((a, b) => b.createdAt - a.createdAt);
-  const downloads = (state.downloads ?? [])
-    .filter(isVisibleDownload)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const bookmarks = useMemo(
+    () => (state.bookmarks ?? []).toSorted((a, b) => b.createdAt - a.createdAt),
+    [state.bookmarks],
+  );
+  const downloads = useMemo(
+    () => (state.downloads ?? [])
+      .filter(isVisibleDownload)
+      .toSorted((a, b) => b.updatedAt - a.updatedAt),
+    [state.downloads],
+  );
 
   return (
     <WidgetContent>

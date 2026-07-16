@@ -12,9 +12,10 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Users, XCircle } from 'lucide-react';
 import {
-  useFocusedAgent,
   useFocusedCollaborationStatus,
   useFocusedCollaborationStrategy,
+  useFocusedSessionId,
+  useFocusedWorkspaceId,
 } from '@/stores/agent-selectors';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { CollaborationRole } from '@/types/collaboration';
@@ -32,14 +33,15 @@ import {
 } from './CollaborationFeedItems';
 
 export function CollaborationActivityPanel() {
-  const focused = useFocusedAgent();
+  const sessionId = useFocusedSessionId();
+  const workspaceId = useFocusedWorkspaceId();
   const status = useFocusedCollaborationStatus();
   const strategy = useFocusedCollaborationStrategy();
   const feed = useChatFeed();
   const scrollRef = useAutoScroll(feed.length);
   const { latestEntryByRole } = useCollaborationSubagentEntries(
-    focused?.sessionId ?? null,
-    focused?.workspaceId ?? null,
+    sessionId,
+    workspaceId,
   );
 
   const activeRoles = useMemo(() => {

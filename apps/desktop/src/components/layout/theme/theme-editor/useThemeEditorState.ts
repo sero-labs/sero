@@ -148,19 +148,16 @@ export function useThemeEditorState({
 
   const updateDraft = useCallback(
     (updater: (previous: ThemeEditorDraft) => ThemeEditorDraft) => {
-      setDraft((previous) => {
-        if (!previous) {
-          return previous;
-        }
+      const previous = draftRef.current;
+      if (!previous) return;
 
-        const next = updater(previous);
-        draftRef.current = next;
-        applyDraftPreview(next, effectiveMode);
-        if (autoSave) {
-          scheduleAutoSave(next);
-        }
-        return next;
-      });
+      const next = updater(previous);
+      draftRef.current = next;
+      applyDraftPreview(next, effectiveMode);
+      if (autoSave) {
+        scheduleAutoSave(next);
+      }
+      setDraft(next);
     },
     [autoSave, effectiveMode, scheduleAutoSave],
   );
@@ -173,33 +170,27 @@ export function useThemeEditorState({
   }, []);
 
   const handleDraftNameChange = useCallback((value: string) => {
-    setDraft((previous) => {
-      if (!previous) {
-        return previous;
-      }
+    const previous = draftRef.current;
+    if (!previous) return;
 
-      const next = { ...previous, name: value };
-      draftRef.current = next;
-      if (autoSave) {
-        scheduleAutoSave(next);
-      }
-      return next;
-    });
+    const next = { ...previous, name: value };
+    draftRef.current = next;
+    if (autoSave) {
+      scheduleAutoSave(next);
+    }
+    setDraft(next);
   }, [autoSave, scheduleAutoSave]);
 
   const handleDraftDescriptionChange = useCallback((value: string) => {
-    setDraft((previous) => {
-      if (!previous) {
-        return previous;
-      }
+    const previous = draftRef.current;
+    if (!previous) return;
 
-      const next = { ...previous, description: value };
-      draftRef.current = next;
-      if (autoSave) {
-        scheduleAutoSave(next);
-      }
-      return next;
-    });
+    const next = { ...previous, description: value };
+    draftRef.current = next;
+    if (autoSave) {
+      scheduleAutoSave(next);
+    }
+    setDraft(next);
   }, [autoSave, scheduleAutoSave]);
 
   const handleColorChange = useCallback(
@@ -249,15 +240,16 @@ export function useThemeEditorState({
   );
 
   const handleSave = useCallback(async () => {
-    if (!draft || !draft.name.trim()) {
+    const latestDraft = draftRef.current;
+    if (!latestDraft || !latestDraft.name.trim()) {
       return;
     }
 
-    await flushAutoSave(draft);
+    await flushAutoSave(latestDraft);
     draftRef.current = null;
     setDraft(null);
     onOpenChange(false);
-  }, [draft, flushAutoSave, onOpenChange]);
+  }, [flushAutoSave, onOpenChange]);
 
   const handleReset = useCallback(async () => {
     if (!editPresetId || editPresetId === '__new__') {

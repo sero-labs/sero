@@ -100,13 +100,13 @@ export function ThemeEditorSheet({
         {draft && (
           <>
             <ThemeEditorDetailsSection
-              draft={draft}
+              name={draft.name}
+              description={draft.description}
               onNameChange={handleDraftNameChange}
               onDescriptionChange={handleDraftDescriptionChange}
             />
             <ThemeEditorTabs
               currentColors={currentColors}
-              draft={draft}
               effectiveMode={effectiveMode}
               mode={mode}
               onColorChange={handleColorChange}
@@ -115,7 +115,10 @@ export function ThemeEditorSheet({
               onSpacingChange={handleSpacingChange}
               onTabChange={setTab}
               onTypographyChange={handleTypographyChange}
+              radius={draft.radius}
+              spacing={draft.spacing}
               tab={tab}
+              typography={draft.typography}
             />
             <ThemeEditorFooter
               canReset={Boolean(activeEditPresetId && activeEditPresetId !== '__new__')}

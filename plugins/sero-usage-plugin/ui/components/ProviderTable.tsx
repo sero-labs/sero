@@ -3,7 +3,7 @@
  * aggregate values, with per-model rows beneath (default expanded).
  */
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -49,7 +49,7 @@ function NumericCells({ stats, dimAll }: { stats: ProviderStats | ModelStats; di
   );
 }
 
-export function ProviderTable({ providers }: { providers: ProviderStats[] }) {
+export const ProviderTable = memo(function ProviderTable({ providers }: { providers: ProviderStats[] }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   const toggle = (provider: string) => {
@@ -113,4 +113,4 @@ export function ProviderTable({ providers }: { providers: ProviderStats[] }) {
       </Table>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
@@ -21,6 +21,8 @@ type View = { mode: 'home' } | { mode: 'detail'; loopId: string | null } | { mod
 interface OrchestratorLaunchParams extends Record<string, unknown> {
   loopId?: string;
 }
+
+const MemoizedLoopList = memo(LoopList);
 
 /** Initial view: a loop deep-link from another app lands on that loop's detail. */
 function initialView(): View {
@@ -102,14 +104,14 @@ export function OrchestratorApp() {
     [dispatch],
   );
 
-  const onAction = async (action: OrchestratorAction) => {
+  const onAction = useCallback(async (action: OrchestratorAction) => {
     if (action.kind === 'create' || action.kind === 'list') return;
     const res = await dispatch(actionToParams(action));
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;
       if (details?.ok !== false) setView({ mode: 'home' });
     }
-  };
+  }, [dispatch]);
 
   const openLibrary = async () => {
     if (libraryDir === null) {
@@ -151,7 +153,8 @@ export function OrchestratorApp() {
     if (summary) setReflectSummary(`Reflected ${summary.reflected} loop(s) · ${summary.suggestionCount} suggestion(s) to review.`);
   };
 
-  const openLoop = (loopId: string) => setView({ mode: 'detail', loopId });
+  const openLoop = useCallback((loopId: string) => setView({ mode: 'detail', loopId }), []);
+  const openCreate = useCallback(() => setView({ mode: 'create' }), []);
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
@@ -190,7 +193,7 @@ export function OrchestratorApp() {
 
       <div className="flex min-h-0 flex-1">
         {view.mode === 'home' && (
-          <HomeView loops={index.loops} busy={busy} onAction={onAction} onOpenLoop={openLoop} onNew={() => setView({ mode: 'create' })} />
+          <HomeView loops={index.loops} busy={busy} onAction={onAction} onOpenLoop={openLoop} onNew={openCreate} />
         )}
         {view.mode === 'create' && (
           <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => setView({ mode: 'home' })} />
@@ -208,7 +211,7 @@ export function OrchestratorApp() {
         )}
         {view.mode === 'detail' && (
           <>
-            <LoopList loops={index.loops} libraryIndex={libraryIndex} selectedId={selectedId} onSelect={openLoop} onNew={() => setView({ mode: 'create' })} />
+            <MemoizedLoopList loops={index.loops} libraryIndex={libraryIndex} selectedId={selectedId} onSelect={openLoop} onNew={openCreate} />
             {selected ? (
               <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
             ) : (

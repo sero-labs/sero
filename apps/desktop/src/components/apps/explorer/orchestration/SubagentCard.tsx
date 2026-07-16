@@ -5,7 +5,7 @@
  * Matches the rounded-border card style from ToolCallGroup.
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -157,7 +157,7 @@ function LiveOutputPreview({ text }: { text: string }) {
 /** Threshold (ms) after which a running card shows a "may be stalled" hint. */
 const STALL_HINT_MS = 90_000;
 
-export function SubagentCard({ entry }: SubagentCardProps) {
+export const SubagentCard = memo(function SubagentCard({ entry }: SubagentCardProps) {
   const isRunning = entry.status === 'running' || entry.status === 'queued';
   const isFailed = entry.status === 'failed' || entry.status === 'timed_out';
   const isAborted = entry.status === 'aborted';
@@ -312,4 +312,4 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       )}
     </div>
   );
-}
+});

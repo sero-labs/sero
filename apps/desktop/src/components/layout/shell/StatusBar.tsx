@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FolderOpen, Bug, Sun, Moon, Monitor, GitBranch, Palette } from 'lucide-react';
-import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { MAX_ZOOM, MIN_ZOOM, useZoomStore } from '@/stores/zoom';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
-import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
+import { useVcsStore } from '@/stores/vcs';
 import type { Bookmark } from '@sero-ai/common';
+
+const EMPTY_BOOKMARKS: Bookmark[] = [];
 
 /**
  * StatusBar, bottom bar showing workspace info (à la VSCode).
@@ -15,11 +16,20 @@ import type { Bookmark } from '@sero-ai/common';
  * Right side: debug toggle, active agent count, zoom, version, theme.
  */
 export function StatusBar() {
-  const theme = useAppStore((s) => s.theme);
   const themeMode = useThemeStore((s) => s.mode);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activeWorkspace = useActiveWorkspace();
-  const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
+  const activeWorkspaceId = activeWorkspace?.id ?? null;
+  const activePushBookmark = useVcsStore((state) => (
+    activeWorkspaceId
+      ? (state.byWorkspace[activeWorkspaceId]?.activePushBookmark ?? null)
+      : null
+  ));
+  const bookmarks = useVcsStore((state) => (
+    activeWorkspaceId
+      ? (state.byWorkspace[activeWorkspaceId]?.bookmarks ?? EMPTY_BOOKMARKS)
+      : EMPTY_BOOKMARKS
+  ));
 
   return (
     <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-xs text-[var(--text-muted)]">
@@ -47,9 +57,9 @@ export function StatusBar() {
         <DebugLogToggle />
         <DevServerIndicator />
         <ActivePushBranchPicker
-          workspaceId={activeWorkspace?.id ?? null}
-          activePushBookmark={vcsState?.activePushBookmark ?? null}
-          bookmarks={vcsState?.bookmarks ?? []}
+          workspaceId={activeWorkspaceId}
+          activePushBookmark={activePushBookmark}
+          bookmarks={bookmarks}
         />
         <ZoomControl />
         <span>Sero v0.1.0</span>

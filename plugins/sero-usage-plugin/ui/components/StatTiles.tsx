@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { Metric, MetricGroup } from '@sero-ai/ui';
 
 import { formatCost, formatCount, formatTokens } from '../../shared/format';
 import type { PeriodStats } from '../../shared/types';
 
-export function StatTiles({ totals }: { totals: PeriodStats['totals'] }) {
+export const StatTiles = memo(function StatTiles({ totals }: { totals: PeriodStats['totals'] }) {
   const tokens = totals.tokens;
   return (
     <MetricGroup minColumnWidth={110}>
@@ -15,4 +16,4 @@ export function StatTiles({ totals }: { totals: PeriodStats['totals'] }) {
       <Metric label="Messages" value={formatCount(totals.messages)} />
     </MetricGroup>
   );
-}
+});

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useAppState, useAppTools } from '@sero-ai/app-runtime';
+import { useCallback, useEffect, useState } from 'react';
+import { useAppState, useAppTools, type AppTools } from '@sero-ai/app-runtime';
 import { Badge, Button, Card, Input, Switch } from '@sero-ai/ui';
 import { Loader2, RefreshCw, Search, Waypoints } from 'lucide-react';
 import { DEFAULT_STATE, type GraphifyState, type WorkspaceIndexEntry } from '../shared/types';
@@ -19,13 +19,11 @@ function statusBadge(entry: WorkspaceIndexEntry) {
 export function GraphifyApp() {
   const [state] = useAppState<GraphifyState>(DEFAULT_STATE);
   const { run } = useAppTools();
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
 
   const workspaces = Object.values(state.workspaces);
-  const index = (action: string, workspaceId?: string) =>
+  const index = useCallback((action: string, workspaceId?: string) => {
     void run('graphify_index', { action, workspace: workspaceId });
+  }, [run]);
 
   // Push-based discovery: opening the panel asks the runtime to re-read the
   // profile workspace list, so newly created workspaces appear immediately.
@@ -33,17 +31,6 @@ export function GraphifyApp() {
     void run('graphify_index', { action: 'sync' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const search = async () => {
-    if (!question.trim()) return;
-    setSearching(true);
-    try {
-      const result = await run('graphify_search', { question });
-      setAnswer(result.text || JSON.stringify(result));
-    } finally {
-      setSearching(false);
-    }
-  };
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto bg-background p-4 text-foreground">
@@ -60,24 +47,7 @@ export function GraphifyApp() {
         <Card className="border-destructive p-3 text-base">{state.provisioning.error}</Card>
       )}
 
-      <Card className="p-3">
-        <div className="flex gap-2">
-          <Input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void search()}
-            placeholder="Search across all indexed workspaces…"
-          />
-          <Button onClick={() => void search()} disabled={searching}>
-            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-        </div>
-        {answer !== null && <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{answer}</pre>}
-        <p className="mt-2 text-xs text-muted-foreground">
-          Profile graph: {state.profileGraph.status}
-          {state.profileGraph.nodes ? ` — ${state.profileGraph.nodes} nodes, ${state.profileGraph.edges} edges` : ''}
-        </p>
-      </Card>
+      <GraphSearch run={run} profileGraph={state.profileGraph} />
 
       <div className="flex flex-col gap-2">
         {workspaces.length === 0 && (
@@ -112,6 +82,49 @@ export function GraphifyApp() {
         ))}
       </div>
     </div>
+  );
+}
+
+interface GraphSearchProps {
+  run: AppTools['run'];
+  profileGraph: GraphifyState['profileGraph'];
+}
+
+function GraphSearch({ run, profileGraph }: GraphSearchProps) {
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const search = async () => {
+    if (!question.trim()) return;
+    setSearching(true);
+    try {
+      const result = await run('graphify_search', { question });
+      setAnswer(result.text || JSON.stringify(result));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <Card className="p-3">
+      <div className="flex gap-2">
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void search()}
+          placeholder="Search across all indexed workspaces…"
+        />
+        <Button onClick={() => void search()} disabled={searching}>
+          {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+        </Button>
+      </div>
+      {answer !== null && <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{answer}</pre>}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Profile graph: {profileGraph.status}
+        {profileGraph.nodes ? ` — ${profileGraph.nodes} nodes, ${profileGraph.edges} edges` : ''}
+      </p>
+    </Card>
   );
 }
 

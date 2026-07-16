@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/
 import { Star } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { MAX_CHROME_SHORTCUTS, isChromeShortcutsFull } from '@/stores/app/shared';
-import { useActiveWorkspace } from '@/stores/workspace';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { getAppIcon } from '@/lib/app-icons';
 
 /** Active app · workspace breadcrumb with a star to pin the app as a shortcut. */
@@ -13,7 +13,9 @@ export function TitleBarBreadcrumb() {
   const pinned = useAppStore((s) => s.isChromeShortcut(s.activeApp));
   const atCap = useAppStore((s) => isChromeShortcutsFull(s.chromeShortcuts, s.apps));
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
-  const activeWorkspace = useActiveWorkspace();
+  const activeWorkspaceName = useWorkspaceStore(
+    (state) => state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId)?.name,
+  );
 
   const entry = apps.find((app) => app.id === activeApp);
   const Icon = getAppIcon(entry?.icon);
@@ -29,8 +31,8 @@ export function TitleBarBreadcrumb() {
       <Icon className="size-3.5 shrink-0 text-[var(--brand-primary)]" />
       <span className="truncate text-sm font-medium text-[var(--text-secondary)]" style={{ maxWidth: '30vw' }}>
         {appLabel}
-        {activeWorkspace?.name && (
-          <span className="text-[var(--text-muted)]"> · {activeWorkspace.name}</span>
+        {activeWorkspaceName && (
+          <span className="text-[var(--text-muted)]"> · {activeWorkspaceName}</span>
         )}
       </span>
       <Tooltip>

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { PanelLeft, PanelRight } from 'lucide-react';
@@ -29,7 +30,7 @@ const MACOS_TRAFFIC_LIGHT_WIDTH = 78;
 /** Width of the native Windows overlay buttons (3 × 46px). */
 const WINDOWS_OVERLAY_WIDTH = 138;
 
-export function TitleBar() {
+export const TitleBar = memo(function TitleBar() {
   const toggleSidebar = useAppStore((s) => s.toggleMainSidebar);
   const toggleChat = useAppStore((s) => s.toggleChatPanel);
   const platform = window.sero.platform;
@@ -120,4 +121,4 @@ export function TitleBar() {
       {platform === 'linux' && <WindowControls />}
     </header>
   );
-}
+});
