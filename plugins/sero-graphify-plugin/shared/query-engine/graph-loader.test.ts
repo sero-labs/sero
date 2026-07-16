@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import path from 'node:path';
-import { loadGraph } from './graph-loader';
+import { loadGraph, loadGraphResult } from './graph-loader';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'small-graph.json');
 
@@ -18,5 +18,17 @@ describe('loadGraph', () => {
   it('returns null for missing, oversized, or malformed files', async () => {
     expect(await loadGraph('/nonexistent/graph.json')).toBeNull();
     expect(await loadGraph(FIXTURE, 10)).toBeNull(); // 10-byte cap
+  });
+});
+
+describe('loadGraphResult', () => {
+  it('reports the real failure reason instead of a bare null', async () => {
+    expect(await loadGraphResult('/nonexistent/graph.json')).toEqual({ failure: 'absent' });
+
+    const tooLarge = await loadGraphResult(FIXTURE, 10);
+    expect(tooLarge).toMatchObject({ failure: 'too-large' });
+
+    const ok = await loadGraphResult(FIXTURE);
+    expect('graph' in ok && ok.graph.nodes.size).toBe(6);
   });
 });

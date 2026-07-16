@@ -32,6 +32,18 @@ function notifyWorkspaceChanged(): void {
   broadcastToWindows(IpcChannels.workspace.changed);
 }
 
+/** Cap on best-effort runtime teardown so a stuck container/runtime can't hang a workspace delete. */
+const RUNTIME_TEARDOWN_TIMEOUT_MS = 15_000;
+
+/** Resolve the promise, or reject once `ms` elapses — whichever comes first. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 let runtimeInstallProgressRegistered = false;
 
 function registerRuntimeInstallProgressBroadcasts(): void {
@@ -121,6 +133,36 @@ export function registerWorkspaceHandlers(): void {
       await workspaceManager.close(id);
       await reconcileAppRuntimes('workspace close');
       notifyWorkspaceChanged();
+    },
+  );
+
+  // ── Delete workspace (unregister + erase files from disk) ──
+  ipcMain.handle(
+    IpcChannels.workspace.delete,
+    async (_event, id: string): Promise<void> => {
+      // Release everything holding the workspace directory BEFORE erasing it:
+      //  1. terminals + container backend (runtimeManager)
+      //  2. plugin app-runtimes (orchestrator, cron, …) — these keep a cwd/state
+      //     watcher inside the workspace, and a live one blocks removal of
+      //     node_modules (ENOTEMPTY). Missed by runtimeManager.destroy.
+      // Both are bounded + best-effort so a stuck runtime can never hang the delete.
+      const teardown = Promise.all([
+        runtimeManager.destroy(id),
+        appRuntimeManager.disposeWorkspace(id),
+      ]);
+      teardown.catch(() => undefined); // Avoid an unhandled rejection if it settles after the timeout.
+      await withTimeout(teardown, RUNTIME_TEARDOWN_TIMEOUT_MS, `runtime teardown for ${id}`).catch((err) => {
+        console.error(`[workspace:delete] runtime teardown failed/slow for ${id}:`, err);
+      });
+
+      await workspaceManager.delete(id);
+      notifyWorkspaceChanged(); // Sidebar clears as soon as the files are gone — don't wait on reconcile.
+
+      // App-runtime reconciliation is a queued, potentially-blocking operation;
+      // awaiting it inline held the delete response open and showed an infinite
+      // "Deleting…" spinner. The workspace is already unregistered, so reconcile
+      // in the background.
+      void reconcileAppRuntimes('workspace delete');
     },
   );
 

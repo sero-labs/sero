@@ -26,7 +26,21 @@ export interface KnowledgeGraph {
   edgeCount: number;
 }
 
-export const MAX_GRAPH_BYTES = 64 * 1024 * 1024;
+/**
+ * Upper bound on a graph.json we will read into memory. Merged profile graphs
+ * grow with every indexed workspace, so this must comfortably exceed a
+ * multi-workspace merge — 64 MB was hit in practice by three monorepo-sized
+ * workspaces. Reducing the number of indexed workspaces is the real lever;
+ * this cap only guards against loading something pathologically large.
+ */
+export const MAX_GRAPH_BYTES = 256 * 1024 * 1024;
+
+/** Why a graph could not be loaded — lets callers explain the real reason. */
+export type GraphLoadFailure = 'absent' | 'too-large' | 'invalid';
+
+export type GraphLoadResult =
+  | { graph: KnowledgeGraph }
+  | { failure: GraphLoadFailure; detail?: string };
 
 function endpointId(value: unknown): string | null {
   if (typeof value === 'string') return value;
@@ -37,26 +51,34 @@ function endpointId(value: unknown): string | null {
   return null;
 }
 
-/** Load a graphify graph.json (networkx node-link). Returns null on any problem — callers treat that as "no graph". */
-export async function loadGraph(filePath: string, maxBytes = MAX_GRAPH_BYTES): Promise<KnowledgeGraph | null> {
+const MB = 1024 * 1024;
+
+/**
+ * Load a graphify graph.json (networkx node-link), reporting *why* it could not
+ * be loaded so callers can distinguish "never built" from "built but too large
+ * / corrupt" — the difference between a useful message and a misleading one.
+ */
+export async function loadGraphResult(filePath: string, maxBytes = MAX_GRAPH_BYTES): Promise<GraphLoadResult> {
   let raw: string;
   try {
     const info = await stat(filePath);
-    if (info.size > maxBytes) return null;
+    if (info.size > maxBytes) {
+      return { failure: 'too-large', detail: `${Math.round(info.size / MB)} MB exceeds the ${Math.round(maxBytes / MB)} MB load limit` };
+    }
     raw = await readFile(filePath, 'utf8');
   } catch {
-    return null;
+    return { failure: 'absent' };
   }
 
   let data: { nodes?: unknown; links?: unknown; edges?: unknown };
   try {
     data = JSON.parse(raw);
   } catch {
-    return null;
+    return { failure: 'invalid', detail: 'file is not valid JSON' };
   }
 
   const rawLinks = Array.isArray(data?.links) ? data.links : Array.isArray(data?.edges) ? data.edges : null;
-  if (!Array.isArray(data?.nodes) || !rawLinks) return null;
+  if (!Array.isArray(data?.nodes) || !rawLinks) return { failure: 'invalid', detail: 'missing nodes/links arrays' };
 
   const graph: KnowledgeGraph = { nodes: new Map(), out: new Map(), in: new Map(), edgeCount: 0 };
 
@@ -79,5 +101,11 @@ export async function loadGraph(filePath: string, maxBytes = MAX_GRAPH_BYTES): P
     graph.edgeCount += 1;
   }
 
-  return graph;
+  return { graph };
+}
+
+/** Convenience wrapper: the loaded graph, or null on any problem. */
+export async function loadGraph(filePath: string, maxBytes = MAX_GRAPH_BYTES): Promise<KnowledgeGraph | null> {
+  const result = await loadGraphResult(filePath, maxBytes);
+  return 'graph' in result ? result.graph : null;
 }

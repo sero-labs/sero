@@ -49,6 +49,8 @@ export interface SeroWorkspaceAPI {
   open(id: string): Promise<void>;
   /** Remove workspace from registry. Re-add via addFolder to restore. */
   close(id: string): Promise<void>;
+  /** Delete a workspace: unregister AND permanently erase its folder from disk. Destructive. */
+  delete(id: string): Promise<void>;
   /** Open native folder picker. Returns selected path or null. */
   pickFolder(): Promise<string | null>;
   /** Infer best workspace for a message. Returns workspace ID. */

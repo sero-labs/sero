@@ -4,6 +4,9 @@
  * Extracted from WorkspaceManager to keep file sizes manageable.
  */
 
+import os from 'os';
+import path from 'path';
+
 // Workspace IDs are interpolated into dev-server IDs as the first colon-separated segment
 // (see runtime-manager `workspaceIdFromServerId`), so they must not themselves contain colons.
 // Slugify enforces this by construction; the regex below is the runtime guard for any path
@@ -49,4 +52,19 @@ export function prettifyName(slug: string): string {
   return slug
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Defence-in-depth against a malformed registry pointing a workspace at a
+ * dangerous path. Deletion is only ever allowed for a real, absolute, nested
+ * directory — never the filesystem root, the user's home, or the Sero home.
+ */
+export function assertSafeToDelete(targetPath: string, seroHome: string): void {
+  const resolved = path.resolve(targetPath);
+  const forbidden = new Set([path.parse(resolved).root, os.homedir(), path.resolve(seroHome)]);
+  // Guard the *raw* input: path.resolve() always yields an absolute path, so a
+  // relative registry entry would otherwise be silently joined to the cwd.
+  if (!path.isAbsolute(targetPath) || forbidden.has(resolved)) {
+    throw new Error(`Refusing to delete unsafe workspace path: ${resolved}`);
+  }
 }

@@ -8,6 +8,8 @@ export const workspaceIpcChannels = {
   open: 'sero:workspace:open',
   /** Close workspace in sidebar (persisted). */
   close: 'sero:workspace:close',
+  /** Delete workspace: unregister AND permanently remove its folder from disk. Destructive. */
+  delete: 'sero:workspace:delete',
   /** Open native folder picker dialog. Returns path or null. */
   pickFolder: 'sero:workspace:pick-folder',
   /** Infer best workspace for a given message. Returns workspace ID. */

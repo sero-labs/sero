@@ -230,6 +230,24 @@ export class AppRuntimeManager {
     }
   }
 
+  /**
+   * Dispose every app-runtime bound to a workspace, releasing the file handles
+   * and state-file watchers they hold inside it. MUST run before a workspace's
+   * files are deleted — otherwise a live runtime keeps its cwd/handles open and
+   * the directory can't be fully removed (ENOTEMPTY on node_modules). Per-instance
+   * errors are swallowed so one stuck runtime can't block the others.
+   */
+  async disposeWorkspace(workspaceId: string): Promise<void> {
+    const instances = [...this.instances.values()].filter((instance) => instance.workspaceId === workspaceId);
+    await Promise.all(instances.map(async (instance) => {
+      try {
+        await this.disposeInstance(instance.key);
+      } catch (error) {
+        console.error(`[app-runtime] Failed to dispose runtime ${instance.key} for workspace ${workspaceId}:`, error);
+      }
+    }));
+  }
+
   private async disposeInstance(key: string): Promise<void> {
     const instance = this.instances.get(key);
     if (!instance) return;

@@ -37,6 +37,8 @@ interface WorkspaceState {
   loadWorkspaces: () => Promise<void>;
   /** Close a workspace — removes it from the registry entirely. */
   closeWorkspace: (id: string) => Promise<void>;
+  /** Permanently delete a workspace and erase its folder from disk. Destructive. */
+  deleteWorkspace: (id: string) => Promise<void>;
   /** Toggle expanded/collapsed state of a workspace tree node. */
   toggleCollapsed: (id: string) => void;
   /** Collapse all workspace tree nodes. */
@@ -112,6 +114,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: s.workspaces.filter((w) => w.id !== id),
       activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
     }));
+  },
+
+  deleteWorkspace: async (id) => {
+    if (id === 'global') return; // Can't delete global
+
+    // Remove from the sidebar immediately. The backend unregisters the workspace
+    // before the (potentially slow) file removal, so a deleted workspace must
+    // never linger in the tree as a hung entry — the erase finishes in the
+    // background.
+    set((s) => ({
+      workspaces: s.workspaces.filter((w) => w.id !== id),
+      activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
+    }));
+
+    try {
+      await window.sero.workspace.delete(id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete workspace';
+      console.error('[workspace] deleteWorkspace failed:', err);
+      // Reconcile with the true registry — this re-adds the workspace only if it
+      // was never actually unregistered — then surface the error.
+      await get().loadWorkspaces();
+      set({ error: message });
+    }
   },
 
   toggleCollapsed: (id) => {

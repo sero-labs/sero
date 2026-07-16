@@ -79,6 +79,7 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.addFolder, folderPath, name),
   open: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.workspace.open, id),
   close: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.workspace.close, id),
+  delete: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.workspace.delete, id),
   pickFolder: (): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.workspace.pickFolder),
   infer: (message: string): Promise<string> =>

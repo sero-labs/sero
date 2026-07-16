@@ -16,6 +16,10 @@ export interface IndexerHost {
   buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
   updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
   mergeProfileGraph(workspaceIds: string[]): Promise<{ nodes: number; edges: number }>;
+  /** Delete a workspace's on-disk graph artifacts (idempotent — no-op if absent). */
+  removeWorkspaceArtifacts(workspaceId: string): Promise<void>;
+  /** Ids of every workspace that has graph artifacts on disk. */
+  listArtifactWorkspaceIds(): Promise<string[]>;
   log(message: string): void;
 }
 
@@ -44,6 +48,9 @@ export class GraphifyIndexer {
     // the catch-up decisions need.
     const before = await this.host.readState();
     await this.syncWorkspaces({ normalizeStatuses: true });
+    // Reclaim disk left by workspaces deleted while Sero was closed (or by
+    // older builds that never cleaned up after themselves).
+    await this.sweepOrphanArtifacts();
 
     // Boot catch-up: interrupted full builds restart full; everything else
     // enabled gets one cheap AST-only update to absorb changes made while
@@ -102,9 +109,8 @@ export class GraphifyIndexer {
       });
     if (unchanged) return;
 
-    const removedIndexed = Object.values(current).some(
-      (entry) => entry.enabled && entry.lastBuiltAt && !workspaces.some((ws) => ws.id === entry.workspaceId),
-    );
+    const removedIds = Object.keys(current).filter((id) => !workspaces.some((ws) => ws.id === id));
+    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
 
     await this.host.updateState((raw) => {
       const state = raw ?? structuredClone(DEFAULT_STATE);
@@ -120,9 +126,29 @@ export class GraphifyIndexer {
       }
       return next;
     });
+    // A removed workspace's per-workspace graph is now an orphan — delete it so
+    // disk tracks the live workspace list (disable keeps artifacts; removal does not).
+    // Removals are independent, so run them together.
+    await Promise.all(removedIds.map((id) => this.host.removeWorkspaceArtifacts(id)));
     // A deleted workspace that was part of the profile graph leaves stale
     // nodes behind until the next merge — re-merge promptly.
     if (removedIndexed) await this.merge();
+  }
+
+  /**
+   * Delete graph artifacts whose workspace no longer exists in the profile.
+   * Reactive removal (above) handles workspaces that vanish while running;
+   * this catches artifacts already orphaned on disk at boot. Disabled-but-present
+   * workspaces are safe: listWorkspaces() still returns them, so they are never
+   * mistaken for orphans.
+   */
+  private async sweepOrphanArtifacts(): Promise<void> {
+    const live = new Set((await this.host.listWorkspaces()).map((ws) => ws.id));
+    const orphans = (await this.host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
+    await Promise.all(orphans.map((id) => {
+      this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
+      return this.host.removeWorkspaceArtifacts(id);
+    }));
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {

@@ -64,6 +64,7 @@ Both behaviours are on by default and can be turned off in Graphify's settings.
 - Your code is read **once** during the initial build, using your own provider credentials — nothing is sent to Sero.
 - Routine updates (file structure and AST changes) run with no LLM calls.
 - Graph files are stored locally at `~/.sero/apps/graphify/` and never inside your repos.
+- Turning a workspace **off** keeps its graph so re-enabling is instant. **Deleting** the workspace removes its graph automatically — no manual cleanup, no leftover files.
 - Container sessions only need read access to the graph directory — your code stays inside its container.
 
 If something goes wrong: check workspace toggle state in the Graphify panel, confirm your provider credentials are set, then restart Sero. Collect redacted logs only — do not include API keys, workspace paths, or private code content in support reports.
