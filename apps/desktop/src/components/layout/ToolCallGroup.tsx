@@ -29,6 +29,19 @@ function isStreamingThinkingOnlyAssistantMessage(message: ChatMessage): boolean 
   );
 }
 
+function isSessionTitleToolCall(tool: ChatToolCallMessage): boolean {
+  if (tool.toolName === 'set_session_title') return true;
+  if (tool.toolName !== 'sero-cli' || typeof tool.input.command !== 'string') return false;
+
+  const commands = tool.input.command
+    .split('\n')
+    .map((command) => command.trim())
+    .filter(Boolean);
+  if (commands.length !== 1) return false;
+
+  return /^(?:sero\s+)?set-title(?:\s|$)/.test(commands[0]);
+}
+
 // ── Grouping utility ────────────────────────────────────────────
 
 /**
@@ -64,6 +77,8 @@ export function groupMessages(
     const msg = messages[i];
 
     if (msg.type === 'tool') {
+      // Session titles are background chat metadata, not meaningful agent work.
+      if (isSessionTitleToolCall(msg)) continue;
       toolBuffer.push(msg);
       continue;
     }
