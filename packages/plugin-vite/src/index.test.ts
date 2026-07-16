@@ -41,6 +41,20 @@ describe('scopePluginCss', () => {
       .toThrow(/document selector/);
   });
 
+  it('rejects nested or multi-document selectors, not just immediate compounds', () => {
+    // Nested in a functional pseudo, and combined across combinators.
+    expect(() => scopePluginCss(':not(:root) .x { color: red }', { pluginId: 'admin' }))
+      .toThrow(/document selector/);
+    expect(() => scopePluginCss('html > body .x { color: red }', { pluginId: 'admin' }))
+      .toThrow(/document selector/);
+  });
+
+  it('rewrites document selectors case-insensitively', () => {
+    const out = scopePluginCss(':ROOT { --x: 1 } HTML, BODY { margin: 0 }', { pluginId: 'admin' });
+    expect(out).toContain(':scope { --x: 1 }');
+    expect(out).toContain(':scope,:scope { margin: 0 }');
+  });
+
   it('rejects runtime @import in any letter case', () => {
     expect(() => scopePluginCss('@import url("https://fonts.example/f.css");\n.x {}', { pluginId: 'admin' }))
       .toThrow(/@import/);

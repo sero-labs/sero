@@ -109,27 +109,31 @@ function scopeTransform(options: SeroPluginCssScopeOptions): postcss.Plugin {
 
 /**
  * `:root`/`:host` (theme-variable carriers) and `html`/`body` (preflight)
- * never match inside `@scope`, so rewrite a *bare* one to `:scope` — the scope
- * root — keeping the plugin's default theme and resets self-contained. A
- * compound or functional form (`html.dark`, `:host(.compact)`) would silently
+ * never match inside `@scope`, so rewrite a *standalone* one to `:scope` — the
+ * scope root — keeping the plugin's default theme and resets self-contained.
+ * Anything else (a compound like `html.dark`, a functional `:host(.compact)`,
+ * a multi-document `html > body`, or a nested `:not(:root)`) would silently
  * lose its condition or match nothing, so reject it with an actionable error
- * rather than corrupt the selector.
+ * rather than corrupt the selector. Names are compared case-insensitively.
  */
 function rewriteSelector(selector: string, rule: Rule, pluginId: string): string {
   return selectorParser((selectors) => {
     selectors.walk((node) => {
-      const isRoot = node.type === 'pseudo' && node.value === ':root';
-      const isHost = node.type === 'pseudo' && node.value === ':host';
-      const isDocumentTag = node.type === 'tag' && (node.value === 'html' || node.value === 'body');
+      const value = typeof node.value === 'string' ? node.value.toLowerCase() : '';
+      const isRoot = node.type === 'pseudo' && value === ':root';
+      const isHost = node.type === 'pseudo' && value === ':host';
+      const isDocumentTag = node.type === 'tag' && (value === 'html' || value === 'body');
       if (!isRoot && !isHost && !isDocumentTag) return;
 
       const isFunctional = isHost && ((node as selectorParser.Pseudo).nodes?.length ?? 0) > 0;
-      if (isFunctional || !isBareInCompound(node)) {
+      if (isFunctional || !isStandaloneEntry(node)) {
         throw rule.error(
           `[sero-plugin-css] ${pluginId} cannot scope the document selector ` +
-          `"${rule.selector.trim()}". Combining html/body/:root/:host with classes, ` +
-          "attributes, or arguments can't be expressed relative to the plugin scope — " +
-          "use a scope-relative selector or Tailwind's dark: variant instead.",
+          `"${rule.selector.trim()}". Only a standalone html/body/:root/:host can be ` +
+          'rewritten to the plugin scope root; combining it with other selectors, ' +
+          'arguments, or nesting it in a functional pseudo (:not, :is, …) has no ' +
+          "scope-relative equivalent — use a scope-relative selector or Tailwind's " +
+          'dark: variant instead.',
         );
       }
       node.replaceWith(selectorParser.pseudo({ value: ':scope' }));
@@ -137,11 +141,13 @@ function rewriteSelector(selector: string, rule: Rule, pluginId: string): string
   }).processSync(selector);
 }
 
-/** True when nothing else shares the node's compound (no attached class/attr/pseudo). */
-function isBareInCompound(node: selectorParser.Node): boolean {
-  const attached = (sibling: selectorParser.Node | undefined) =>
-    Boolean(sibling) && sibling!.type !== 'combinator';
-  return !attached(node.prev()) && !attached(node.next());
+/** True when the node is the only selector in a top-level (non-nested) list entry. */
+function isStandaloneEntry(node: selectorParser.Node): boolean {
+  const entry = node.parent;
+  return Boolean(entry)
+    && entry!.type === 'selector'
+    && entry!.parent?.type === 'root'
+    && entry!.nodes.length === 1;
 }
 
 function isKeyframeSelector(rule: Rule): boolean {
