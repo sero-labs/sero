@@ -4,7 +4,7 @@
  * file manager bridge.
  */
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   IconButton,
   Table,
@@ -39,7 +39,7 @@ function workspaceName(cwd: string): string {
   return cwd.split('/').filter(Boolean).at(-1) ?? cwd;
 }
 
-export function SessionsTable({ sessions }: { sessions: SessionStats[] }) {
+export const SessionsTable = memo(function SessionsTable({ sessions }: { sessions: SessionStats[] }) {
   const [sortKey, setSortKey] = useState<SortKey>('cost');
   const canReveal = canRevealInFolder();
 
@@ -112,4 +112,4 @@ export function SessionsTable({ sessions }: { sessions: SessionStats[] }) {
       )}
     </div>
   );
-}
+});

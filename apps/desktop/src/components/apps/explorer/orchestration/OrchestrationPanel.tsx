@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useCallback } from 'react';
 import { Network, X } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSubagentStore } from '@/stores/subagent';
 import { TERMINAL_STATUSES } from '@/stores/subagent-constants';
 import { SubagentList } from './SubagentList';
@@ -40,15 +41,17 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   const hydrated = useSubagentStore((s) => s.hydrated);
   const initListeners = useSubagentStore((s) => s.initListeners);
   const clearCompleted = useSubagentStore((s) => s.clearCompleted);
-  const entries = useSubagentStore((s) => s.entries);
+  const workspaceEntries = useSubagentStore(
+    useShallow((state) => (
+      Object.values(state.entries).filter((entry) => entry.workspaceId === workspaceId)
+    )),
+  );
 
   // Derive filtered + sorted entries, stable unless `entries` record changes
   const filtered = useMemo(
     () =>
-      sortEntries(
-        Object.values(entries).filter((e) => e.workspaceId === workspaceId),
-      ),
-    [entries, workspaceId],
+      sortEntries([...workspaceEntries]),
+    [workspaceEntries],
   );
 
   const hasCompleted = useMemo(

@@ -301,7 +301,7 @@ export function useOpenWorkspaces(): WorkspaceInfo[] {
 
 /** The currently active/focused workspace. */
 export function useActiveWorkspace(): WorkspaceInfo | null {
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const activeId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  return workspaces.find((w) => w.id === activeId) ?? null;
+  return useWorkspaceStore(
+    (state) => state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) ?? null,
+  );
 }

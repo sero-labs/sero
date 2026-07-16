@@ -6,7 +6,7 @@
  * Emerald-green Sero styling throughout.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -64,7 +64,7 @@ export function InterviewForm({ question, onSubmit, onCancel }: Props) {
             question={q}
             index={i}
             value={answers.get(q.id) ?? ''}
-            onChange={(text) => setAnswer(q.id, text)}
+            onChange={setAnswer}
             inputRef={i === 0 ? firstRef : undefined}
           />
         ))}
@@ -90,7 +90,7 @@ export function InterviewForm({ question, onSubmit, onCancel }: Props) {
 
 // ── Question row ───────────────────────────────────────────────
 
-function QuestionRow({
+const QuestionRow = memo(function QuestionRow({
   question,
   index,
   value,
@@ -100,7 +100,7 @@ function QuestionRow({
   question: UserFeedbackQuestionItem;
   index: number;
   value: string;
-  onChange: (text: string) => void;
+  onChange: (questionId: string, text: string) => void;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   const localRef = useRef<HTMLTextAreaElement>(null);
@@ -109,12 +109,12 @@ function QuestionRow({
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onChange(e.target.value);
+      onChange(question.id, e.target.value);
       const el = e.target;
       el.style.height = 'auto';
       el.style.height = `${Math.max(el.scrollHeight, 36)}px`;
     },
-    [onChange],
+    [onChange, question.id],
   );
 
   return (
@@ -151,4 +151,4 @@ function QuestionRow({
       </div>
     </div>
   );
-}
+});

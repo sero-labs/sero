@@ -2,6 +2,7 @@
  * AgentList, scrollable list of agent cards in the left panel.
  */
 
+import { memo } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import type { AgentModelConfig, AgentSummary } from './types';
@@ -30,7 +31,7 @@ function modelShort(model?: AgentModelConfig): string {
   return value.replace(/^claude-/, '').replace(/^[^/]+\//, '');
 }
 
-export function AgentList({ agents, selected, onSelect }: AgentListProps) {
+export const AgentList = memo(function AgentList({ agents, selected, onSelect }: AgentListProps) {
   if (agents.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
@@ -80,4 +81,4 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
       ))}
     </div>
   );
-}
+});

@@ -19,7 +19,7 @@ export interface UsageRefresh {
   error: string | null;
 }
 
-export function useAutoRefresh(state: UsageState): UsageRefresh {
+export function useAutoRefresh(state: UsageState, trackStatus = true): UsageRefresh {
   const { run } = useAppTools();
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,22 +32,26 @@ export function useAutoRefresh(state: UsageState): UsageRefresh {
     async (force: boolean) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
-      setRefreshing(true);
+      if (trackStatus) setRefreshing(true);
       try {
         const result = await run('usage', { action: 'refresh', force });
-        if (result.isError || result.text.startsWith('Error:')) {
-          setError(result.text || 'Refresh failed');
-        } else {
-          setError(null);
+        if (trackStatus) {
+          if (result.isError || result.text.startsWith('Error:')) {
+            setError(result.text || 'Refresh failed');
+          } else {
+            setError(null);
+          }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Refresh failed');
+        if (trackStatus) {
+          setError(err instanceof Error ? err.message : 'Refresh failed');
+        }
       } finally {
         inFlightRef.current = false;
-        setRefreshing(false);
+        if (trackStatus) setRefreshing(false);
       }
     },
-    [run],
+    [run, trackStatus],
   );
 
   const refresh = useCallback(() => {

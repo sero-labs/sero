@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { ChevronDown, Sparkles } from 'lucide-react';
 
 import { useAppStore } from '@/stores/app';
-import { useActiveWorkspace } from '@/stores/workspace';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { GitShipPanel } from './GitShipPanel';
 import {
   EMPTY_GIT_TITLE_STATE,
@@ -15,15 +16,21 @@ import {
 
 export function GitTitleBarControls() {
   const activeApp = useAppStore((state) => state.activeApp);
-  const workspace = useActiveWorkspace();
+  const workspace = useWorkspaceStore(
+    useShallow((state) => {
+      const active = state.workspaces.find((entry) => entry.id === state.activeWorkspaceId);
+      return active ? { id: active.id, name: active.name, path: active.path } : null;
+    }),
+  );
   const [open, setOpen] = useState(false);
   const [gitState, setGitState] = useState(EMPTY_GIT_TITLE_STATE);
 
-  const shouldRender = activeApp === 'git' && Boolean(workspace?.path);
-  const stateFilePath = shouldRender && workspace ? getGitStateFilePath(workspace.path) : null;
+  const workspacePath = workspace?.path ?? '';
+  const shouldRender = activeApp === 'git' && Boolean(workspacePath);
+  const stateFilePath = shouldRender ? getGitStateFilePath(workspacePath) : null;
 
   useEffect(() => {
-    if (!shouldRender || !workspace || !stateFilePath) {
+    if (!shouldRender || !stateFilePath) {
       setOpen(false);
       setGitState(EMPTY_GIT_TITLE_STATE);
       return;
@@ -32,18 +39,18 @@ export function GitTitleBarControls() {
     let active = true;
     setGitState({
       ...EMPTY_GIT_TITLE_STATE,
-      repoPath: workspace.path,
+      repoPath: workspacePath,
       loading: true,
     });
 
     const unsubscribe = window.sero.appState.onChange((filePath: string, data: unknown) => {
       if (!active || filePath !== stateFilePath || data == null) return;
-      setGitState(normalizeGitTitleState(data, workspace.path));
+      setGitState(normalizeGitTitleState(data, workspacePath));
     });
 
     void window.sero.appState.watch(stateFilePath).then((current: unknown) => {
       if (!active || current == null) return;
-      setGitState(normalizeGitTitleState(current, workspace.path));
+      setGitState(normalizeGitTitleState(current, workspacePath));
     });
 
     return () => {
@@ -51,7 +58,7 @@ export function GitTitleBarControls() {
       unsubscribe();
       void window.sero.appState.unwatch(stateFilePath);
     };
-  }, [shouldRender, stateFilePath, workspace]);
+  }, [shouldRender, stateFilePath, workspacePath]);
 
   useEffect(() => {
     setOpen(false);
@@ -71,7 +78,7 @@ export function GitTitleBarControls() {
   );
   const aheadCount = currentBranch?.ahead ?? 0;
   const behindCount = currentBranch?.behind ?? 0;
-  const isCurrentWorkspace = workspace ? gitState.repoPath === workspace.path : false;
+  const isCurrentWorkspace = workspace ? gitState.repoPath === workspacePath : false;
   const disabled = !workspace || !isCurrentWorkspace || gitState.error === 'Not a git repository';
 
   if (!shouldRender || !workspace) {

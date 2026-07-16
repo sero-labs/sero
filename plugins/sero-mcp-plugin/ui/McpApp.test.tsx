@@ -10,6 +10,7 @@ import { McpApp } from './McpApp';
 const useAppStateMock = vi.fn();
 const useAppToolsMock = vi.fn();
 const runMock = vi.fn();
+const serverCrudRenderMock = vi.fn();
 
 vi.mock('@sero-ai/app-runtime', () => ({
   useAppState: (initialState: McpAppState) => useAppStateMock(initialState),
@@ -29,7 +30,10 @@ vi.mock('./components/search/McpSearchWorkbenchPanel', () => ({
 }));
 
 vi.mock('./components/servers/McpServerCrudPanel', () => ({
-  McpServerCrudPanel: () => <div>server-crud-panel</div>,
+  McpServerCrudPanel: () => {
+    serverCrudRenderMock();
+    return <div>server-crud-panel</div>;
+  },
 }));
 
 describe('McpApp', () => {
@@ -44,6 +48,7 @@ describe('McpApp', () => {
     runMock.mockReset();
     runMock.mockResolvedValue({ text: '', content: [], details: null, isError: false });
     useAppToolsMock.mockReturnValue({ run: runMock });
+    serverCrudRenderMock.mockReset();
   });
 
   afterEach(async () => {
@@ -71,6 +76,7 @@ describe('McpApp', () => {
     expect(runMock).toHaveBeenCalledWith('mcp_manager', { action: 'bootstrap' });
     expect(container.textContent).toContain('server-crud-panel');
     expect(container.textContent).not.toContain('search-workbench');
+    expect(serverCrudRenderMock).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to a periodic background refresh while mounted', async () => {

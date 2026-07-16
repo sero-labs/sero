@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { DoctorCategory, DoctorResult } from '@/types/ipc';
 import { DoctorResultRow } from './DoctorResultRow';
 
@@ -18,7 +19,7 @@ interface Props {
   onCopyFix?: (fix: string) => void;
 }
 
-export function DoctorCategorySection({ category, results, onCopyFix }: Props) {
+export const DoctorCategorySection = memo(function DoctorCategorySection({ category, results, onCopyFix }: Props) {
   if (results.length === 0) return null;
   return (
     <section className="mb-4">
@@ -34,4 +35,4 @@ export function DoctorCategorySection({ category, results, onCopyFix }: Props) {
       </ul>
     </section>
   );
-}
+});

@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSubagentStore } from '@/stores/subagent';
 
 interface SubagentSummaryProps {
@@ -27,7 +28,11 @@ function formatCost(cost: number): string {
 }
 
 export function SubagentSummary({ workspaceId }: SubagentSummaryProps) {
-  const entries = useSubagentStore((s) => s.entries);
+  const entries = useSubagentStore(
+    useShallow((state) => (
+      Object.values(state.entries).filter((entry) => entry.workspaceId === workspaceId)
+    )),
+  );
 
   const summary = useMemo(() => {
     let count = 0;
@@ -35,8 +40,7 @@ export function SubagentSummary({ workspaceId }: SubagentSummaryProps) {
     let totalTokens = 0;
     let totalDurationMs = 0;
 
-    for (const e of Object.values(entries)) {
-      if (e.workspaceId !== workspaceId) continue;
+    for (const e of entries) {
       count++;
       totalCost += e.usage.cost;
       totalTokens += e.usage.totalTokens;
@@ -44,7 +48,7 @@ export function SubagentSummary({ workspaceId }: SubagentSummaryProps) {
     }
 
     return { count, totalCost, totalTokens, totalDurationMs };
-  }, [entries, workspaceId]);
+  }, [entries]);
 
   if (summary.count === 0) return null;
 

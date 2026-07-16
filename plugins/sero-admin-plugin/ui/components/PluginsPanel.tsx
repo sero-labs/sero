@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import { useAppInfo } from '@sero-ai/app-runtime';
 import { PluginSafetyDisclaimer } from '@sero-ai/ui/components/ui/plugin-safety-disclaimer';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
@@ -18,6 +18,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
   const installed = usePlugins();
   const devSessions = usePluginDevSessions();
   const attached = useAttachedFolders(workspaceId);
+  const handleStartDevSession = useCallback(() => devSessions.startDevSession(), [devSessions.startDevSession]);
 
   const summary = [
     `${installed.plugins.length} installed`,
@@ -58,7 +59,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
             starting={devSessions.starting}
             refreshingIds={devSessions.refreshingIds}
             stoppingIds={devSessions.stoppingIds}
-            onStart={() => devSessions.startDevSession()}
+            onStart={handleStartDevSession}
             onRefresh={devSessions.refreshDevSession}
             onStop={devSessions.stopDevSession}
             onReveal={devSessions.revealInFinder}

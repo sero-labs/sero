@@ -11,6 +11,7 @@ import { GitApp } from './GitApp';
 const getSeroApiMock = vi.fn();
 const useAppInfoMock = vi.fn();
 const useAppStateMock = vi.fn();
+const commitGraphRenderMock = vi.fn();
 
 vi.mock('@sero-ai/app-runtime', () => ({
   getSeroApi: () => getSeroApiMock(),
@@ -26,7 +27,12 @@ vi.mock('./components/Header', () => ({
 
 vi.mock('./components/BranchPanel', () => ({ BranchPanel: () => null }));
 vi.mock('./components/CommitDetail', () => ({ CommitDetail: () => null }));
-vi.mock('./components/CommitGraph', () => ({ CommitGraph: () => null }));
+vi.mock('./components/CommitGraph', () => ({
+  CommitGraph: () => {
+    commitGraphRenderMock();
+    return null;
+  },
+}));
 vi.mock('./components/DiffViewer', () => ({ DiffViewer: () => null }));
 vi.mock('./components/StagingArea', () => ({ StagingArea: () => null }));
 vi.mock('./styles', () => ({ GIT_STYLES: '' }));
@@ -62,6 +68,7 @@ describe('GitApp', () => {
 
     useAppInfoMock.mockReturnValue({ workspaceId: 'ws-1', workspacePath: '/workspace/repo' });
     useAppStateMock.mockReturnValue([state, vi.fn()]);
+    commitGraphRenderMock.mockReset();
   });
 
   afterEach(async () => {
@@ -84,6 +91,7 @@ describe('GitApp', () => {
     await act(async () => {
       root?.render(<GitApp />);
     });
+    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       clickButton(container, 'Trigger fetch');
@@ -91,6 +99,7 @@ describe('GitApp', () => {
 
     expect(container.textContent).toContain('Git bridge unavailable');
     expect(container.textContent).toContain('Reload Sero or reopen this workspace');
+    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       clickButton(container, 'Dismiss git action notice');

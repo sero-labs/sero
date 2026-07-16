@@ -16,7 +16,9 @@ interface Props {
 }
 
 export function RemotesSection({ workspaceId, remotes }: Props) {
-  const store = useVcsStore();
+  const addRemote = useVcsStore((state) => state.addRemote);
+  const removeRemote = useVcsStore((state) => state.removeRemote);
+  const setError = useVcsStore((state) => state.setError);
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('origin');
   const [url, setUrl] = useState('');
@@ -24,14 +26,14 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
   const handleAdd = useCallback(async () => {
     if (!name.trim() || !url.trim()) return;
     try {
-      await store.addRemote(workspaceId, name.trim(), url.trim());
+      await addRemote(workspaceId, name.trim(), url.trim());
       setName('origin');
       setUrl('');
       setShowAdd(false);
     } catch (err) {
-      store.setError(workspaceId, err instanceof Error ? err.message : 'Failed to add remote');
+      setError(workspaceId, err instanceof Error ? err.message : 'Failed to add remote');
     }
-  }, [workspaceId, name, url, store]);
+  }, [addRemote, name, setError, url, workspaceId]);
 
   return (
     <VcsSection
@@ -140,7 +142,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                 {remote.url}
               </span>
               <button type="button"
-                onClick={() => void store.removeRemote(workspaceId, remote.name)}
+                onClick={() => void removeRemote(workspaceId, remote.name)}
                 title="Remove remote"
                 className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 text-[var(--text-muted)] hover:text-status-error"
               >

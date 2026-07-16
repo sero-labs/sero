@@ -1,4 +1,4 @@
-
+import { memo } from 'react';
 import { Dashboard } from '@/components/apps/dashboard/Dashboard';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore } from '@/stores/app';
@@ -12,7 +12,7 @@ interface ActiveAppPanelProps {
  * Renders the currently visible app. The store keeps `activeApp` pinned to
  * the previous value while a new federated module preloads in the background.
  */
-export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
+export const ActiveAppPanel = memo(function ActiveAppPanel({ app }: ActiveAppPanelProps) {
   const pendingApp = useAppStore((s) => s.pendingApp);
   const apps = useAppStore((s) => s.apps);
   const entry = apps.find((candidate) => candidate.id === app);
@@ -49,4 +49,4 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
       {content}
     </div>
   );
-}
+});

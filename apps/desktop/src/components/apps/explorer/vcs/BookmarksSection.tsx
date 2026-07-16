@@ -2,7 +2,7 @@
  * BookmarksSection, Git branch list with remote tracking indicators.
  */
 
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   GitBranch,
@@ -35,7 +35,11 @@ export function BookmarksSection({
   remotes,
   activePushBookmark,
 }: Props) {
-  const store = useVcsStore();
+  const createBookmark = useVcsStore((state) => state.createBookmark);
+  const deleteBookmark = useVcsStore((state) => state.deleteBookmark);
+  const fetchRemote = useVcsStore((state) => state.fetch);
+  const push = useVcsStore((state) => state.push);
+  const setActivePushBookmark = useVcsStore((state) => state.setActivePushBookmark);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -48,38 +52,42 @@ export function BookmarksSection({
     const sanitized = newName.trim().replace(/\s+/g, '-');
     if (!sanitized) return;
     try {
-      await store.createBookmark(workspaceId, sanitized);
+      await createBookmark(workspaceId, sanitized);
       setNewName('');
       setShowCreate(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to create branch');
     }
-  }, [workspaceId, newName, store, showToast]);
+  }, [createBookmark, workspaceId, newName, showToast]);
 
   const handleFetch = useCallback(async () => {
     setFetching(true);
     try {
-      const r = await store.fetch(workspaceId);
+      const r = await fetchRemote(workspaceId);
       showToast(r.message);
     } finally {
       setFetching(false);
     }
-  }, [workspaceId, store, showToast]);
+  }, [fetchRemote, workspaceId, showToast]);
 
   const handlePush = useCallback(async (bm: string) => {
     setPushing(true);
     try {
-      const r = await store.push(workspaceId, bm);
+      const r = await push(workspaceId, bm);
       showToast(r.message);
     } finally {
       setPushing(false);
     }
-  }, [workspaceId, store, showToast]);
+  }, [push, workspaceId, showToast]);
 
   const handleSetActive = useCallback((name: string) => {
-    store.setActivePushBookmark(workspaceId, name);
+    setActivePushBookmark(workspaceId, name);
     showToast(`Active push branch: ${name}`);
-  }, [workspaceId, store, showToast]);
+  }, [setActivePushBookmark, workspaceId, showToast]);
+
+  const handleDelete = useCallback((name: string) => {
+    void deleteBookmark(workspaceId, name);
+  }, [deleteBookmark, workspaceId]);
 
   return (
     <VcsSection
@@ -167,9 +175,9 @@ export function BookmarksSection({
               index={i}
               hasRemotes={hasRemotes}
               isActive={activePushBookmark === bm.name}
-              onPush={() => void handlePush(bm.name)}
-              onSetActive={() => handleSetActive(bm.name)}
-              onDelete={() => void store.deleteBookmark(workspaceId, bm.name)}
+              onPush={handlePush}
+              onSetActive={handleSetActive}
+              onDelete={handleDelete}
             />
           ))
         )}
@@ -194,7 +202,7 @@ export function BookmarksSection({
 
 // ── Branch row ───────────────────────────────────────────────
 
-function BookmarkRow({
+const BookmarkRow = memo(function BookmarkRow({
   bookmark,
   index,
   hasRemotes,
@@ -207,9 +215,9 @@ function BookmarkRow({
   index: number;
   hasRemotes: boolean;
   isActive: boolean;
-  onPush: () => void;
-  onSetActive: () => void;
-  onDelete: () => void;
+  onPush: (name: string) => void;
+  onSetActive: (name: string) => void;
+  onDelete: (name: string) => void;
 }) {
   const synced = bookmark.remoteStatuses.every((r) => r.synced);
   const hasRemote = bookmark.remoteStatuses.length > 0;
@@ -251,22 +259,22 @@ function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors">
+          <button type="button" onClick={() => onSetActive(bookmark.name)} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors">
             <Star className="size-3" />
           </button>
         )}
         {hasRemotes && !synced && (
-          <button type="button" onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-status-info transition-colors">
+          <button type="button" onClick={() => void onPush(bookmark.name)} title="Push" className="text-[var(--text-muted)] hover:text-status-info transition-colors">
             <CloudUpload className="size-3" />
           </button>
         )}
-        <button type="button" onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-status-error transition-colors">
+        <button type="button" onClick={() => onDelete(bookmark.name)} title="Delete" className="text-[var(--text-muted)] hover:text-status-error transition-colors">
           <Trash2 className="size-2.5" />
         </button>
       </div>
     </motion.div>
   );
-}
+});
 
 // ── Section action button ────────────────────────────────────
 

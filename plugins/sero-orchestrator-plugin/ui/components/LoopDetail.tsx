@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@sero-ai/ui';
 import { AlertTriangle } from 'lucide-react';
 import type {
@@ -28,6 +29,7 @@ import { SuggestionsInbox } from './SuggestionsInbox';
 import { InputRequestCard } from './InputRequestCard';
 
 const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disabled', 'blocked']);
+const MemoizedPlanView = memo(PlanView);
 
 interface LoopDetailProps {
   loop: Loop;
@@ -118,7 +120,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       )}
 
       <CollapsibleSection title="Plan" hint={`${loop.plan.steps.length} step(s)`} defaultOpen>
-        <PlanView loop={loop} onAction={onAction} />
+        <MemoizedPlanView loop={loop} onAction={onAction} />
         {REFINABLE.has(loop.status) && (
           <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}

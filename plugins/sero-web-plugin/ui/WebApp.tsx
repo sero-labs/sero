@@ -76,8 +76,8 @@ export function WebApp() {
       {/* Tab content */}
       <div className="flex min-h-0 flex-1 flex-col">
         {activeTab === 'history' && <SearchHistory entries={state.entries} />}
-        {activeTab === 'bookmarks' && <BookmarkList />}
-        {activeTab === 'downloads' && <DownloadsList />}
+        {activeTab === 'bookmarks' && <BookmarkList bookmarks={state.bookmarks ?? []} />}
+        {activeTab === 'downloads' && <DownloadsList downloads={state.downloads ?? []} />}
       </div>
     </div>
   );

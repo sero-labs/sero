@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAppInfo, useAppState } from '@sero-ai/app-runtime';
+import { useAppInfo } from '@sero-ai/app-runtime';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -12,17 +12,19 @@ import {
   Trash2,
   AlertCircle,
 } from 'lucide-react';
-import type { WebAccessState, WebDownload } from '../../shared/types';
-import { DEFAULT_STATE } from '../../shared/types';
+import type { WebDownload } from '../../shared/types';
 import { relativeTime, truncate } from '../lib/format';
 import { isVisibleDownload } from '../lib/downloads';
 import { deleteDownload as deleteDownloadAction } from '../lib/web-actions';
 import { openWorkspaceFile, revealInFinder } from '../lib/host';
 
-export function DownloadsList() {
+interface DownloadsListProps {
+  downloads: WebDownload[];
+}
+
+export function DownloadsList({ downloads: stateDownloads }: DownloadsListProps) {
   const { workspaceId } = useAppInfo();
-  const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
-  const downloads = [...(state.downloads ?? [])]
+  const downloads = [...stateDownloads]
     .filter(isVisibleDownload)
     .sort((a, b) => b.updatedAt - a.updatedAt);
 

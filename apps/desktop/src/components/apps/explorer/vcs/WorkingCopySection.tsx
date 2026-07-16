@@ -2,7 +2,7 @@
  * WorkingCopySection, shows modified/added/deleted files in the working copy.
  */
 
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { motion } from 'motion/react';
 import { PlusCircle } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -51,33 +51,11 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
       <div className="px-2 pb-2">
         {/* File list */}
         {hasChanges ? (
-          <div className="mb-2 space-y-px">
-            {status!.files.map((f, i) => (
-              <motion.button
-                key={f.path}
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.12, delay: i * 0.02 }}
-                onClick={() => {
-                  if (currentChangeId && onOpenDiff) {
-                    onOpenDiff(currentChangeId + '-', currentChangeId, f.path);
-                  }
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded px-2 py-0.5 text-left',
-                  'transition-colors duration-100',
-                  'hover:bg-[var(--bg-elevated)]/80',
-                )}
-              >
-                <span className={cn('w-3 shrink-0 text-center text-sm font-bold', statusColor(f.status))}>
-                  {statusCode(f.status)}
-                </span>
-                <span className="min-w-0 truncate text-sm text-[var(--text-secondary)]">
-                  {f.path}
-                </span>
-              </motion.button>
-            ))}
-          </div>
+          <WorkingCopyFileList
+            status={status!}
+            currentChangeId={currentChangeId}
+            onOpenDiff={onOpenDiff}
+          />
         ) : (
           <div className="px-2 py-1.5 text-sm text-[var(--text-muted)]/60">
             No working copy changes
@@ -122,3 +100,43 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
     </VcsSection>
   );
 }
+
+const WorkingCopyFileList = memo(function WorkingCopyFileList({
+  status,
+  currentChangeId,
+  onOpenDiff,
+}: {
+  status: WorkingCopyStatus;
+  currentChangeId: string | null;
+  onOpenDiff?: (from: string, to: string, path?: string) => void;
+}) {
+  return (
+    <div className="mb-2 space-y-px">
+      {status.files.map((file, index) => (
+        <motion.button
+          key={file.path}
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.12, delay: index * 0.02 }}
+          onClick={() => {
+            if (currentChangeId && onOpenDiff) {
+              onOpenDiff(currentChangeId + '-', currentChangeId, file.path);
+            }
+          }}
+          className={cn(
+            'flex w-full items-center gap-2 rounded px-2 py-0.5 text-left',
+            'transition-colors duration-100',
+            'hover:bg-[var(--bg-elevated)]/80',
+          )}
+        >
+          <span className={cn('w-3 shrink-0 text-center text-sm font-bold', statusColor(file.status))}>
+            {statusCode(file.status)}
+          </span>
+          <span className="min-w-0 truncate text-sm text-[var(--text-secondary)]">
+            {file.path}
+          </span>
+        </motion.button>
+      ))}
+    </div>
+  );
+});

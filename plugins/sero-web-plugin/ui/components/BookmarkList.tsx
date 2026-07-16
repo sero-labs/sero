@@ -1,44 +1,26 @@
 // components/BookmarkList.tsx, Bookmark list with add form and delete.
 
 import { useState, useCallback } from 'react';
-import { useAppInfo, useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
+import { useAppInfo, useAgentPrompt } from '@sero-ai/app-runtime';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import {
   Bookmark as BookmarkIcon, Plus, Trash2, Tag, ArrowRight, ExternalLink,
 } from 'lucide-react';
-import type { WebAccessState, Bookmark } from '../../shared/types';
-import { DEFAULT_STATE } from '../../shared/types';
+import type { Bookmark } from '../../shared/types';
 import { relativeTime } from '../lib/format';
 import {
   addBookmark as addBookmarkAction,
   removeBookmark as removeBookmarkAction,
 } from '../lib/web-actions';
 
-export function BookmarkList() {
-  const { workspaceId } = useAppInfo();
-  const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
-  const [showAdd, setShowAdd] = useState(false);
-  const [url, setUrl] = useState('');
-  const [title, setTitle] = useState('');
-  const [tags, setTags] = useState('');
+interface BookmarkListProps {
+  bookmarks: Bookmark[];
+}
 
-  const addDirectly = useCallback(async () => {
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) return;
-    const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
-    await addBookmarkAction(workspaceId, {
-      action: 'add-bookmark',
-      url: trimmedUrl,
-      title: title.trim() || trimmedUrl,
-      tags: tagList,
-    });
-    setUrl('');
-    setTitle('');
-    setTags('');
-    setShowAdd(false);
-  }, [url, title, tags, workspaceId]);
+export function BookmarkList({ bookmarks }: BookmarkListProps) {
+  const { workspaceId } = useAppInfo();
 
   const removeBookmark = useCallback(
     async (id: string) => {
@@ -49,34 +31,10 @@ export function BookmarkList() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Add button / form */}
-      <div className="shrink-0 border-b border-border px-3 py-2">
-        {!showAdd ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => setShowAdd(true)}
-          >
-            <Plus className="size-3.5" />
-            Add bookmark
-          </Button>
-        ) : (
-          <AddBookmarkForm
-            url={url}
-            title={title}
-            tags={tags}
-            onUrlChange={setUrl}
-            onTitleChange={setTitle}
-            onTagsChange={setTags}
-            onSubmit={addDirectly}
-            onCancel={() => setShowAdd(false)}
-          />
-        )}
-      </div>
+      <AddBookmarkSection workspaceId={workspaceId} />
 
       {/* Bookmark list */}
-      {(state.bookmarks?.length ?? 0) === 0 ? (
+      {bookmarks.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16">
           <BookmarkIcon className="mb-2 size-5 text-muted-foreground/40" />
           <p className="text-base text-muted-foreground">No bookmarks yet</p>
@@ -87,7 +45,7 @@ export function BookmarkList() {
       ) : (
         <ScrollArea className="flex-1">
           <div className="flex flex-col">
-            {(state.bookmarks ?? []).map((bm) => (
+            {bookmarks.map((bm) => (
               <BookmarkRow key={bm.id} bookmark={bm} onRemove={removeBookmark} />
             ))}
           </div>
@@ -98,6 +56,56 @@ export function BookmarkList() {
 }
 
 // ── Add form ────────────────────────────────────────────────
+
+function AddBookmarkSection({ workspaceId }: { workspaceId: string }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [url, setUrl] = useState('');
+  const [title, setTitle] = useState('');
+  const [tags, setTags] = useState('');
+
+  const addDirectly = useCallback(async () => {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return;
+    const tagList = tags.split(',').map((tag) => tag.trim()).filter(Boolean);
+    await addBookmarkAction(workspaceId, {
+      action: 'add-bookmark',
+      url: trimmedUrl,
+      title: title.trim() || trimmedUrl,
+      tags: tagList,
+    });
+    setUrl('');
+    setTitle('');
+    setTags('');
+    setShowAdd(false);
+  }, [tags, title, url, workspaceId]);
+
+  return (
+    <div className="shrink-0 border-b border-border px-3 py-2">
+      {!showAdd ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground"
+          onClick={() => setShowAdd(true)}
+        >
+          <Plus className="size-3.5" />
+          Add bookmark
+        </Button>
+      ) : (
+        <AddBookmarkForm
+          url={url}
+          title={title}
+          tags={tags}
+          onUrlChange={setUrl}
+          onTitleChange={setTitle}
+          onTagsChange={setTags}
+          onSubmit={addDirectly}
+          onCancel={() => setShowAdd(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 interface AddBookmarkFormProps {
   url: string;

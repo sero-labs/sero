@@ -16,7 +16,7 @@ interface Props {
   entry: ChangeEntry;
   index: number;
   isExpanded: boolean;
-  onToggle: () => void;
+  onToggle: (changeId: string) => void;
 }
 
 function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
@@ -43,7 +43,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.1, delay: Math.min(index * 0.015, 0.3) }}
-      onClick={onToggle}
+      onClick={() => onToggle(entry.changeId)}
       className={cn(
         'group flex w-full items-center gap-1.5 px-3 py-[3px] text-left',
         'transition-colors duration-75',

@@ -8,6 +8,7 @@
 
 import {
   Component,
+  memo,
   Suspense,
   useInsertionEffect,
   useId,
@@ -25,7 +26,7 @@ interface SeroAppMountProps {
   manifest: SeroAppManifest;
 }
 
-export function SeroAppMount({ manifest }: SeroAppMountProps) {
+export const SeroAppMount = memo(function SeroAppMount({ manifest }: SeroAppMountProps) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
   const surfaceId = useId();
 
@@ -69,7 +70,7 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
       </AppErrorBoundary>
     </AppProvider>
   );
-}
+});
 
 interface AppErrorBoundaryProps {
   children: ReactNode;

@@ -4,7 +4,7 @@
  * (docs/specs/sero-usage-plugin-spec.md §4.1 item 4).
  */
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   ChartContainer,
   ChartLegend,
@@ -95,7 +95,7 @@ function buildRows(
   return { rows, providers: hasOther ? [...top, OTHER_KEY] : top };
 }
 
-export function TrendChart({ period, daily, hourly, metric }: TrendChartProps) {
+export const TrendChart = memo(function TrendChart({ period, daily, hourly, metric }: TrendChartProps) {
   const { rows, providers } = useMemo(
     () => buildRows(period, daily, hourly, metric),
     [period, daily, hourly, metric],
@@ -133,4 +133,4 @@ export function TrendChart({ period, daily, hourly, metric }: TrendChartProps) {
       </BarChart>
     </ChartContainer>
   );
-}
+});

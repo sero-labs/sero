@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
 
@@ -11,7 +12,7 @@ interface ThemeEditorFooterProps {
   onSave: () => Promise<void>;
 }
 
-export function ThemeEditorFooter({
+export const ThemeEditorFooter = memo(function ThemeEditorFooter({
   autoSave,
   canReset,
   canSave,
@@ -54,4 +55,4 @@ export function ThemeEditorFooter({
       </div>
     </div>
   );
-}
+});

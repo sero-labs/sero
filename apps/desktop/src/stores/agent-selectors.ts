@@ -81,6 +81,13 @@ export function useFocusedSessionId(): string | null {
   return useAgentStore((s) => s.focusedSessionId);
 }
 
+export function useFocusedWorkspaceId(): string | null {
+  return useAgentStore((s) => {
+    const focusedId = s.focusedSessionId;
+    return focusedId ? (s.agents[focusedId]?.workspaceId ?? null) : null;
+  });
+}
+
 export function useFocusedModelState(): SessionModelState | null {
   return useAgentStore((s) => {
     const focusedId = s.focusedSessionId;

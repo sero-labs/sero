@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
-import { useStreamingSessionIds } from '@/stores/agent-selectors';
+import { useAgentStore } from '@/stores/agent';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Popover,
@@ -27,11 +27,13 @@ export function SessionNode({
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const isActive = useSessionStore((state) => state.activeSessionId === session.id);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const renameSession = useSessionStore((s) => s.renameSession);
-  const streamingIds = useStreamingSessionIds();
+  const isStreaming = useAgentStore(
+    (state) => state.agents[session.id]?.isStreaming ?? false,
+  );
 
   // Multi-select
   const isSelected = useSessionStore((s) => s.selectedSessionIds.has(session.id));
@@ -39,9 +41,6 @@ export function SessionNode({
   const toggleSelectSession = useSessionStore((s) => s.toggleSelectSession);
   const selectSessionRange = useSessionStore((s) => s.selectSessionRange);
   const clearSelection = useSessionStore((s) => s.clearSelection);
-
-  const isActive = activeSessionId === session.id;
-  const isStreaming = streamingIds.includes(session.id);
 
   const title = session.name || session.firstMessage || 'New chat';
   const modified = formatRelativeDate(session.modified);

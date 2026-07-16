@@ -38,7 +38,7 @@ export function ScreenshotOverlay({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -64,11 +64,11 @@ export function ScreenshotOverlay({
     const pt = localCoords(e);
     startRef.current = pt;
     setRect({ x: pt.x, y: pt.y, w: 0, h: 0 });
-    setDragging(true);
+    draggingRef.current = true;
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (!dragging || !startRef.current) return;
+    if (!draggingRef.current || !startRef.current) return;
     const pt = localCoords(e);
     const s = startRef.current;
     setRect({
@@ -80,7 +80,7 @@ export function ScreenshotOverlay({
   };
 
   const handleMouseUp = () => {
-    setDragging(false);
+    draggingRef.current = false;
   };
 
   const confirm = useCallback(async () => {

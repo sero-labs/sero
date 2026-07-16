@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type {
   RadiusTokens,
   SpacingTokens,
@@ -13,7 +14,6 @@ import { ModeToggle } from '../theme-panel/ModeToggle';
 
 interface ThemeEditorTabsProps {
   currentColors: ThemeEditorDraft['colors']['light'];
-  draft: ThemeEditorDraft;
   effectiveMode: 'light' | 'dark';
   mode: ThemeMode;
   onColorChange: (key: string, value: string) => void;
@@ -22,12 +22,14 @@ interface ThemeEditorTabsProps {
   onSpacingChange: (key: keyof SpacingTokens, value: string) => void;
   onTabChange: (tab: EditorTab) => void;
   onTypographyChange: (key: keyof TypographyTokens, value: string) => void;
+  radius: Required<RadiusTokens>;
+  spacing: Required<SpacingTokens>;
   tab: EditorTab;
+  typography: Required<TypographyTokens>;
 }
 
-export function ThemeEditorTabs({
+export const ThemeEditorTabs = memo(function ThemeEditorTabs({
   currentColors,
-  draft,
   effectiveMode,
   mode,
   onColorChange,
@@ -36,7 +38,10 @@ export function ThemeEditorTabs({
   onSpacingChange,
   onTabChange,
   onTypographyChange,
+  radius,
+  spacing,
   tab,
+  typography,
 }: ThemeEditorTabsProps) {
   return (
     <>
@@ -71,14 +76,14 @@ export function ThemeEditorTabs({
         )}
         {tab === 'typography' && (
           <TypographyTab
-            typography={draft.typography}
+            typography={typography}
             onChange={onTypographyChange}
           />
         )}
         {tab === 'layout' && (
           <LayoutTab
-            spacing={draft.spacing}
-            radius={draft.radius}
+            spacing={spacing}
+            radius={radius}
             onSpacingChange={onSpacingChange}
             onRadiusChange={onRadiusChange}
           />
@@ -86,4 +91,4 @@ export function ThemeEditorTabs({
       </div>
     </>
   );
-}
+});

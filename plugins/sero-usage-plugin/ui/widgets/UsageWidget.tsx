@@ -116,7 +116,7 @@ function ProviderShare({ providers }: { providers: ProviderStats[] }) {
 export function UsageWidget() {
   const [rawState] = useAppState<UsageState>(DEFAULT_STATE);
   const state = useMemo(() => normalizeUsageState(rawState), [rawState]);
-  useAutoRefresh(state);
+  useAutoRefresh(state, false);
 
   const today = state.periods.today.totals;
   const week = state.periods.thisWeek.totals;

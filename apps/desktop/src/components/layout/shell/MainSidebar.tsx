@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Grid2x2Plus, Search, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -23,7 +23,7 @@ import { IconAction } from '@/components/ui/IconAction';
  * Top section: sidebar-visible apps (built-ins + favourited discovered apps)
  * Bottom section: workspace → session tree loaded from Pi SDK
  */
-export function MainSidebar() {
+export const MainSidebar = memo(function MainSidebar() {
   const [appStoreOpen, setAppStoreOpen] = useState(false);
   const open = useAppStore((s) => s.mainSidebarOpen);
   const apps = useAppStore((s) => s.apps);
@@ -89,7 +89,7 @@ export function MainSidebar() {
       />
     </>
   );
-}
+});
 
 // ── Search bar ─────────────────────────────────────────────────
 
