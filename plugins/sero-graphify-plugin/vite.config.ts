@@ -18,7 +18,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'graphify', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'graphify' }),
     ...(isTest ? [] : [
       federation({
         name: 'sero_graphify',

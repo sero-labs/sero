@@ -18,7 +18,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'orchestrator', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'orchestrator' }),
     ...(isTest ? [] : [
       federation({
         name: 'sero_orchestrator',

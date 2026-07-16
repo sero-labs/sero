@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'mcp', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'mcp' }),
     federation({
       name: 'sero_mcp',
       filename: 'remoteEntry.js',

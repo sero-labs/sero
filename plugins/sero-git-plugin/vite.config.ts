@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'git', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'git' }),
     federation({
       name: 'sero_git',
       filename: 'remoteEntry.js',

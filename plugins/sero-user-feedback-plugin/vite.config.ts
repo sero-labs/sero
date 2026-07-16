@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'userfeedback', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'userfeedback' }),
     federation({
       name: 'sero_userfeedback',
       filename: 'remoteEntry.js',

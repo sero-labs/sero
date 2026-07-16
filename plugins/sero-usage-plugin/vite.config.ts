@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'usage', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'usage' }),
     federation({
       name: 'sero_usage',
       filename: 'remoteEntry.js',

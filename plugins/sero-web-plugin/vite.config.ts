@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'web', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'web' }),
     federation({
       name: 'sero_web',
       filename: 'remoteEntry.js',

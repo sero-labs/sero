@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'notes', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'notes' }),
     federation({
       // MF remote name convention: sero_<appId>. Must be a valid JS identifier.
       name: 'sero_notes',

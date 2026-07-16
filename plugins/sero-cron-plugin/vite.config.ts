@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'cron', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'cron' }),
     federation({
       name: 'sero_cron',
       filename: 'remoteEntry.js',

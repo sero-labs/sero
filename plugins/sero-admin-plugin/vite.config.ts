@@ -18,7 +18,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    seroPluginCssScope({ pluginId: 'admin', allowGlobalSelectors: true }),
+    seroPluginCssScope({ pluginId: 'admin' }),
     ...(isTest ? [] : [
       federation({
         name: 'sero_admin',
