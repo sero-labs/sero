@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Monitor, Palette, Pencil, Smartphone, Star, Stethoscope } from 'lucide-react';
+import { Monitor, Palette, Pencil, Smartphone, Star, Stethoscope, TextSearch } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { useAppStore } from '@/stores/app';
+import { getSearchContributionApps, useAppStore } from '@/stores/app';
 import { isChromeShortcutsFull } from '@/stores/app/shared';
+import { useGlobalSearchStore } from '@/stores/global-search';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
@@ -45,6 +46,8 @@ export function CommandMenu() {
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
+  const openSearch = useGlobalSearchStore((s) => s.openSearch);
+  const searchApps = getSearchContributionApps(apps);
 
   // Listen for ⌘K / Ctrl+K
   useEffect(() => {
@@ -133,6 +136,20 @@ export function CommandMenu() {
               </span>
             </CommandItem>
           </CommandGroup>
+          {searchApps.length > 0 && (
+            <CommandGroup heading="Search">
+              <CommandItem
+                value="Global Search"
+                onSelect={() => {
+                  setOpen(false);
+                  openSearch();
+                }}
+              >
+                <TextSearch className="size-4 shrink-0" />
+                <span>Global Search</span>
+              </CommandItem>
+            </CommandGroup>
+          )}
           <CommandGroup heading="Diagnostics">
             <CommandItem value="Environment Doctor Diagnostics" onSelect={handleOpenDoctor}>
               <Stethoscope className="size-4 shrink-0" />

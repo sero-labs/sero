@@ -155,6 +155,7 @@ provider-specific auth and model UI without hardcoded app-level logic:
       "stateFile": ".sero/apps/todo/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "TodoApp",
+      "search": { "component": "TodoSearch", "description": "Search todos" },
       "devPort": 5174
     },
     "plugin": {

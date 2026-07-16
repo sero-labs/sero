@@ -40,6 +40,10 @@ The profile graph re-merges after every change. The toolchain (`uv` + pinned
 
 All tools are CLI-bridged (`sero graphify_search ...`).
 
+The plugin also contributes a global-search panel to the shell
+(`sero.app.search` → `GraphifySearch`), reachable from the main sidebar and
+the ⌘K menu, so the profile graph can be searched without opening the app.
+
 Auto-context (ported from pi-graphify) adds a one-time session orientation from
 the workspace's `GRAPH_REPORT.md` + profile-graph stats, and appends bounded
 graph-query hints to broad search results. Hard per-session budgets, dedup

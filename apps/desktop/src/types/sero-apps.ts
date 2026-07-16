@@ -3,6 +3,7 @@ import type {
   PluginCompatibilityStatus,
   PluginMeta,
 } from '@sero-ai/common';
+import type { SearchManifest } from './search-manifest';
 import type { WidgetManifest } from './widget-manifest';
 
 /**
@@ -12,6 +13,7 @@ import type { WidgetManifest } from './widget-manifest';
 export type SettingsPackageSource = PackageSource;
 
 export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
+export type { SearchManifest as SeroSearchManifest } from './search-manifest';
 
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {
@@ -64,4 +66,6 @@ export interface SeroAppManifest {
   hostCompatibility?: PluginCompatibilityStatus | null;
   /** Widget definitions declared in the app manifest. */
   widgets: WidgetManifest[];
+  /** Global-search panel contribution declared in the app manifest. */
+  search?: SearchManifest | null;
 }

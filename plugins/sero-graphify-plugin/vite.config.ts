@@ -27,6 +27,7 @@ export default defineConfig({
         manifest: true,
         exposes: {
           './GraphifyApp': './ui/GraphifyApp.tsx',
+          './GraphifySearch': './ui/GraphifySearch.tsx',
         },
         shared: {
           react: { singleton: true },

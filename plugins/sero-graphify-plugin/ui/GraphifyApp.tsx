@@ -54,7 +54,7 @@ export function GraphifyApp() {
           <p className="text-base text-muted-foreground">No workspaces discovered yet — the background runtime populates this list on startup.</p>
         )}
         {workspaces.map((entry) => (
-          <Card key={entry.workspaceId} className="flex flex-row items-center justify-between p-3">
+          <Card key={entry.workspaceId} className="flex flex-row items-center justify-between border-border/40 p-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium">{entry.name}</span>
@@ -107,7 +107,7 @@ function GraphSearch({ run, profileGraph }: GraphSearchProps) {
   };
 
   return (
-    <Card className="p-3">
+    <Card className="border-border/40 p-3">
       <div className="flex gap-2">
         <Input
           value={question}

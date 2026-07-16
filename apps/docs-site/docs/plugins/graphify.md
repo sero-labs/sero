@@ -30,6 +30,15 @@ Once a workspace is indexed, the agent has six new tools it uses automatically:
 
 You don't need to invoke these manually — the agent picks them up when relevant.
 
+## Global search
+
+You can search the profile-wide graph yourself, from anywhere in Sero:
+
+- Click the search icon next to the session search field in the main sidebar, or
+- Press **⌘K** and choose **Global Search**.
+
+Type a question and press Enter — results come from every indexed workspace.
+
 ## Auto-context
 
 Graphify quietly enriches every session in an indexed workspace:

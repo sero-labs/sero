@@ -46,6 +46,8 @@ export interface SeroAppAgentBridge {
 export interface SeroAppControlBridge {
   /** Switch the shell to the app with this id. False when the app is unknown. */
   open(appId: string): Promise<boolean>;
+  /** Open a workspace file in the explorer editor. False when unavailable. */
+  openFile(workspaceId: string, filePath: string): Promise<boolean>;
 }
 
 export interface SeroGitAppBridge {
