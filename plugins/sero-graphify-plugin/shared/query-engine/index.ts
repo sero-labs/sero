@@ -7,8 +7,8 @@ function nameResolver(graph: KnowledgeGraph): (id: string) => string {
   return (id) => displayName(graph.nodes.get(id), id);
 }
 
-export { loadGraph, MAX_GRAPH_BYTES } from './graph-loader';
-export type { KnowledgeGraph, GraphNode, GraphEdge } from './graph-loader';
+export { loadGraph, loadGraphResult, MAX_GRAPH_BYTES } from './graph-loader';
+export type { KnowledgeGraph, GraphNode, GraphEdge, GraphLoadFailure, GraphLoadResult } from './graph-loader';
 
 /** Authoritative structural counts straight from a loaded graph. */
 export function graphStats(graph: KnowledgeGraph): { nodes: number; edges: number; communities: number } {

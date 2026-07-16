@@ -18,6 +18,8 @@ function makeHost(overrides: Partial<IndexerHost> = {}, seed?: (state: GraphifyS
     buildGraph: vi.fn().mockResolvedValue(STATS),
     updateGraph: vi.fn().mockResolvedValue(STATS),
     mergeProfileGraph: vi.fn().mockResolvedValue({ nodes: 20, edges: 40 }),
+    removeWorkspaceArtifacts: vi.fn().mockResolvedValue(undefined),
+    listArtifactWorkspaceIds: vi.fn().mockResolvedValue([]),
     log: () => {},
     ...overrides,
   };
@@ -255,6 +257,19 @@ describe('GraphifyIndexer', () => {
     await indexer.syncWorkspaces();
     expect(getState().workspaces.ws1).toBeUndefined();
     expect(getState().profileGraph.status).toBe('absent'); // no indexed workspaces left
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws1'); // artifacts cleaned up too
+    indexer.dispose();
+  });
+
+  it('sweeps orphaned artifacts on start but keeps live (incl. disabled) workspaces', async () => {
+    // ws1/ws2 are live; 'ws-gone' only has artifacts on disk (deleted workspace).
+    const { host } = makeHost({ listArtifactWorkspaceIds: vi.fn().mockResolvedValue(['ws1', 'ws2', 'ws-gone']) });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-gone');
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws1');
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws2');
     indexer.dispose();
   });
 

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readdir, rm } from 'node:fs/promises';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { GraphifyState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
@@ -110,6 +111,12 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
       await runMerge(await localDeps(), workspaceIds.map((id) => workspaceGraphJson(paths, id)), paths.profileGraph);
       const merged = await loadGraph(paths.profileGraph);
       return { nodes: merged?.nodes.size ?? 0, edges: merged?.edgeCount ?? 0 };
+    },
+    removeWorkspaceArtifacts: (workspaceId) =>
+      rm(workspaceGraphDir(paths, workspaceId), { recursive: true, force: true }),
+    listArtifactWorkspaceIds: async () => {
+      const entries = await readdir(paths.graphsDir, { withFileTypes: true }).catch(() => []);
+      return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
     },
     log: (message) => console.log(message),
   };

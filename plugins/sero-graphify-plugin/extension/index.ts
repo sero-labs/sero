@@ -13,7 +13,7 @@ import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
 import { readStateFile, appendIndexRequest } from '../shared/state-io';
-import { loadGraph, queryGraph, searchGraph, findPath, explainNode } from '../shared/query-engine';
+import { loadGraphResult, queryGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -29,6 +29,18 @@ function text(message: string): ToolResult {
 
 const NOT_BUILT = 'Profile graph not built yet. Enable workspace indexing in the Graphify panel or run: graphify_index enable-all';
 
+/** Turn a load failure into a message that names the real problem, not a generic "not built". */
+function unavailableMessage(failure: GraphLoadFailure, detail?: string): string {
+  switch (failure) {
+    case 'too-large':
+      return `Profile graph is built but too large to load (${detail}). Disable or remove some workspaces in the Graphify panel to shrink it.`;
+    case 'invalid':
+      return `Profile graph could not be read (${detail}). Rebuild it from the Graphify panel.`;
+    case 'absent':
+      return NOT_BUILT;
+  }
+}
+
 export default function graphifyExtension(pi: ExtensionAPI): void {
   const paths = resolveGraphifyPaths();
 
@@ -42,12 +54,9 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       budget: Type.Optional(Type.Number({ description: 'Max answer tokens (default 1200)' })),
     }),
     async execute(_toolCallId, params) {
-      const graph = await loadGraph(paths.profileGraph);
-      if (!graph) return text(NOT_BUILT);
-      const { text: answer, files } = searchGraph(graph, params.question, { mode: params.mode, budget: params.budget });
-      // `files` rides on `details` (UI-only) so the search panel can open them;
-      // the agent still sees the identical text in `content`.
-      return { content: [{ type: 'text', text: answer }], details: { files } };
+      const result = await loadGraphResult(paths.profileGraph);
+      if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
+      return text(queryGraph(result.graph, params.question, { mode: params.mode, budget: params.budget }));
     },
   });
 
@@ -64,9 +73,12 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       const state = await readStateFile(paths.stateFile);
       const entry = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
       const graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
-      const graph = (await loadGraph(graphPath)) ?? (await loadGraph(paths.profileGraph));
-      if (!graph) return text('No graph available for this workspace yet. Enable indexing in the Graphify panel.');
-      return text(queryGraph(graph, params.question, { mode: params.mode, budget: params.budget }));
+      const primary = await loadGraphResult(graphPath);
+      if ('graph' in primary) return text(queryGraph(primary.graph, params.question, { mode: params.mode, budget: params.budget }));
+      // Fall back to the profile graph when the workspace has no graph of its own.
+      const fallback = graphPath === paths.profileGraph ? primary : await loadGraphResult(paths.profileGraph);
+      if ('graph' in fallback) return text(queryGraph(fallback.graph, params.question, { mode: params.mode, budget: params.budget }));
+      return text(unavailableMessage(fallback.failure, fallback.detail));
     },
   });
 
@@ -79,9 +91,9 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       to: Type.String({ description: 'Target concept name or node id' }),
     }),
     async execute(_toolCallId, params) {
-      const graph = await loadGraph(paths.profileGraph);
-      if (!graph) return text(NOT_BUILT);
-      return text(findPath(graph, params.from, params.to));
+      const result = await loadGraphResult(paths.profileGraph);
+      if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
+      return text(findPath(result.graph, params.from, params.to));
     },
   });
 
@@ -93,9 +105,9 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       concept: Type.String({ description: 'Concept name or node id to explain' }),
     }),
     async execute(_toolCallId, params) {
-      const graph = await loadGraph(paths.profileGraph);
-      if (!graph) return text(NOT_BUILT);
-      return text(explainNode(graph, params.concept));
+      const result = await loadGraphResult(paths.profileGraph);
+      if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
+      return text(explainNode(result.graph, params.concept));
     },
   });
 

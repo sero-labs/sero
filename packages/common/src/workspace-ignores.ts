@@ -10,6 +10,7 @@ export const WORKSPACE_COMMON_IGNORES = [
   'node_modules/',
   'dist/',
   'build/',
+  'out/',
   '.DS_Store',
   '*.log',
   '.env',
