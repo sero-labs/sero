@@ -113,6 +113,11 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   return [...builtins, ...favourites];
 }
 
+/** Apps that contribute a global-search panel (`sero.app.search`) and are host-supported. */
+export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
+  return apps.filter((app) => app.manifest?.search && isAppEntrySupported(app));
+}
+
 export function getPriorityPreloadApps(
   manifests: SeroAppManifest[],
   activeApp: string,

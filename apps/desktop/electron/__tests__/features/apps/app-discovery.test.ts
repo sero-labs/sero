@@ -154,6 +154,49 @@ describe('app discovery devPort handling', () => {
     }
   });
 
+  it('parses the search contribution and drops it when the UI is suppressed', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-search-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'search-plugin');
+      await writeManifestPackage(packageDir, 'search-plugin', 'Search Plugin', undefined, {
+        ui: './dist/ui/remoteEntry.js',
+        component: 'SearchApp',
+        search: { component: 'SearchPanel', description: 'Search everything' },
+      });
+
+      const { readAppManifestFromPackagePath } = await importAppDiscovery();
+
+      const manifest = await readAppManifestFromPackagePath(packageDir);
+      expect(manifest?.search).toEqual({ component: 'SearchPanel', description: 'Search everything' });
+
+      const suppressed = await readAppManifestFromPackagePath(packageDir, { suppressUi: true });
+      expect(suppressed?.search).toBeNull();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores search contributions without a component name', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-search-invalid-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'searchless-plugin');
+      await writeManifestPackage(packageDir, 'searchless-plugin', 'Searchless Plugin', undefined, {
+        search: { description: 'missing component' },
+      });
+
+      const { readAppManifestFromPackagePath } = await importAppDiscovery();
+      const manifest = await readAppManifestFromPackagePath(packageDir);
+
+      expect(manifest?.search).toBeNull();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('preserves valid plugin metadata during discovery', async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-valid-'));
     process.env.SERO_HOME_OVERRIDE = tempRoot;

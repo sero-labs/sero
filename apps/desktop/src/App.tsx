@@ -22,6 +22,7 @@ import { NewAppBanner } from '@/components/layout/shell/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/shell/CommandMenu';
+import { GlobalSearchDialog } from '@/components/layout/search/GlobalSearchDialog';
 import { GitHubAuthDialog } from '@/components/layout/auth/github/GitHubAuthDialog';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';
@@ -331,6 +332,7 @@ export function App() {
         </div>
 
         <CommandMenu />
+        <GlobalSearchDialog />
         <GitHubAuthDialog />
         <NewAppBanner />
         <OnboardingWizard />

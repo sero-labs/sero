@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Monitor, Palette, Pencil, Smartphone, Star, Stethoscope } from 'lucide-react';
+import { Monitor, Palette, Pencil, Smartphone, Star, Stethoscope, TextSearch } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { useAppStore } from '@/stores/app';
+import { getSearchContributionApps, useAppStore } from '@/stores/app';
 import { isChromeShortcutsFull } from '@/stores/app/shared';
+import { useGlobalSearchStore } from '@/stores/global-search';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
@@ -45,6 +46,8 @@ export function CommandMenu() {
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
+  const openSearch = useGlobalSearchStore((s) => s.openSearch);
+  const searchApps = getSearchContributionApps(apps);
 
   // Listen for ⌘K / Ctrl+K
   useEffect(() => {
@@ -101,6 +104,23 @@ export function CommandMenu() {
         <CommandInput placeholder="Search apps..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          {searchApps.length > 0 && (
+            <CommandGroup heading="Search">
+              {searchApps.map((app) => (
+                <CommandItem
+                  key={`search-${app.id}`}
+                  value={`Search ${app.label} global search`}
+                  onSelect={() => {
+                    setOpen(false);
+                    openSearch(app.id);
+                  }}
+                >
+                  <TextSearch className="size-4 shrink-0" />
+                  <span>Search {app.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
           <CommandGroup heading="Apps">
             {apps.map((app) => {
               const Icon = getAppIcon(app.icon);

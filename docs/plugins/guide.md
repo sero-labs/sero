@@ -349,6 +349,28 @@ For the complete feature behavior, recovery model, and terminology, see
 The standard Sero app manifest used by all Sero apps and plugins. For a
 step-by-step guide to building a new app, use the `sero-plugin` skill.
 
+#### `sero.app.search` (optional)
+
+Contribute a global-search panel to the shell. The host mounts the named
+federated component in the global search overlay, reachable from the main
+sidebar and the ⌘K menu; the panel renders its own input and results, so all
+search logic stays inside the plugin.
+
+```json
+"search": {
+  "component": "MySearchPanel",
+  "description": "Search my data"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `component` | string | Yes | Exported component name from the module federation remote. Expose it in `vite.config.ts` alongside the app component. |
+| `description` | string | No | Short description shown in search entry points. |
+
+The component is wrapped in `AppProvider` like the main app component, so all
+`@sero-ai/app-runtime` hooks (`useAppState`, `useAppTools`, …) work as usual.
+
 ### `sero.plugin` (required for plugins)
 
 See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for

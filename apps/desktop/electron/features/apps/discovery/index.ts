@@ -10,7 +10,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
+import type { SeroAppManifest, SeroSearchManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
 import { buildCacheBustedRemoteEntryOverride } from '@electron/features/plugins/dev-sessions/remote-entry';
 import { readPluginDevSessionRecords } from '@electron/features/plugins/dev-sessions/settings';
@@ -36,6 +36,11 @@ interface PkgWidgetDef {
   description?: string;
 }
 
+interface PkgSearchDef {
+  component?: string;
+  description?: string;
+}
+
 interface PkgSeroApp {
   id: string;
   styleIsolation?: 'scope';
@@ -49,6 +54,7 @@ interface PkgSeroApp {
   component?: string;
   devPort?: number;
   widgets?: PkgWidgetDef[];
+  search?: PkgSearchDef;
 }
 
 interface PkgJson {
@@ -145,6 +151,14 @@ function parseWidgets(app: PkgSeroApp): SeroWidgetManifest[] {
   return widgets;
 }
 
+function parseSearch(app: PkgSeroApp): SeroSearchManifest | null {
+  if (typeof app.search?.component !== 'string' || !app.search.component) return null;
+  return {
+    component: app.search.component,
+    description: typeof app.search.description === 'string' ? app.search.description : undefined,
+  };
+}
+
 function buildManifest(
   pkgJson: PkgJson,
   packagePath: string,
@@ -199,6 +213,7 @@ function buildManifest(
       ? evaluatePluginCompatibility(compatibilityRequirements)
       : null,
     widgets: parseWidgets(app),
+    search: suppressUi ? null : parseSearch(app),
   };
 }
 

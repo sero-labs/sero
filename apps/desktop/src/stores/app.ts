@@ -1,6 +1,7 @@
 export { useAppStore, type AppState } from './app/state';
 export {
   getDiscoveredApps,
+  getSearchContributionApps,
   getSidebarApps,
   type AppEntry,
   type Theme,

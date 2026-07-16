@@ -23,6 +23,10 @@
       "stateFile": ".sero/apps/graphify/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GraphifyApp",
+      "search": {
+        "component": "GraphifySearch",
+        "description": "Search the profile-wide knowledge graph"
+      },
       "devPort": 5197,
       "runtime": "./runtime/index.ts"
     },

@@ -1,14 +1,16 @@
 import { memo, useState } from 'react';
-import { Grid2x2Plus, Search, X } from 'lucide-react';
+import { Grid2x2Plus, Search, TextSearch, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
 import {
   getDiscoveredApps,
+  getSearchContributionApps,
   getSidebarApps,
   useAppStore,
   type AppEntry,
 } from '@/stores/app';
+import { useGlobalSearchStore } from '@/stores/global-search';
 import { useSessionStore } from '@/stores/sessions';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
@@ -96,10 +98,12 @@ export const MainSidebar = memo(function MainSidebar() {
 function SearchBar() {
   const searchQuery = useSessionStore((s) => s.searchQuery);
   const setSearchQuery = useSessionStore((s) => s.setSearchQuery);
+  const hasGlobalSearch = useAppStore((s) => getSearchContributionApps(s.apps).length > 0);
+  const openSearch = useGlobalSearchStore((s) => s.openSearch);
 
   return (
-    <div className="px-3 py-2">
-      <div className="relative">
+    <div className="flex items-center gap-1 px-3 py-2">
+      <div className="relative flex-1">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
         <Input
           placeholder="Search sessions..."
@@ -108,6 +112,18 @@ function SearchBar() {
           className="h-7 !pl-8 text-xs"
         />
       </div>
+      {hasGlobalSearch && (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          aria-label="Global search"
+          title="Global search"
+          onClick={() => openSearch()}
+        >
+          <TextSearch className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
