@@ -149,6 +149,7 @@ provider-specific auth and model UI without hardcoded app-level logic:
   "sero": {
     "app": {
       "id": "todo",
+      "styleIsolation": "scope",
       "name": "Todo",
       "icon": "check-square",
       "stateFile": ".sero/apps/todo/state.json",
@@ -182,6 +183,32 @@ provider-specific auth and model UI without hardcoded app-level logic:
   }
 }
 ```
+
+UI plugins use `@sero-ai/plugin-vite` after Tailwind:
+
+```ts
+plugins: [
+  react(),
+  tailwindcss(),
+  seroPluginCssScope({ pluginId: 'todo' }),
+]
+```
+
+The helper wraps both development and production CSS in a bounded native
+`@scope`. Sero gives each app and widget its own `data-sero-plugin` root and
+routes shared UI portals to a matching body-level root. Plugins without the
+manifest capability remain on the legacy stylesheet-ordering path.
+
+The helper parses the CSS and rewrites document-level selectors
+(`:root`/`:host`/`html`/`body`) to `:scope`, so a plugin's default Tailwind
+theme and preflight resets live on its own scope root and never depend on which
+utilities the host happens to emit. Because it works on the parsed tree, only
+selectors are touched — declaration values, `url()`s and strings are left
+alone. Two rules follow from native `@scope`: a runtime `@import url(...)`
+is rejected at build time (it cannot be scoped without leaking to the shell, so
+bundle the stylesheet or `<link>` fonts instead), and Sero design tokens
+(`--background`, `--brand-*`) must be referenced with `var()` — not redefined —
+so they keep inheriting from the host.
 
 ### `sero.plugin` Fields
 

@@ -10,6 +10,7 @@ import {
   Component,
   Suspense,
   useInsertionEffect,
+  useId,
   type ErrorInfo,
   type ReactNode,
 } from 'react';
@@ -17,6 +18,7 @@ import { AppProvider } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { getFederatedComponent, prioritizeFederatedStyles } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
+import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
 
 interface SeroAppMountProps {
@@ -25,10 +27,11 @@ interface SeroAppMountProps {
 
 export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
+  const surfaceId = useId();
 
   useInsertionEffect(() => {
-    prioritizeFederatedStyles(manifest.id);
-  }, [manifest.id]);
+    if (manifest.styleIsolation !== 'scope') prioritizeFederatedStyles(manifest.id);
+  }, [manifest.id, manifest.styleIsolation]);
 
   if (status === 'loading-workspace') {
     return <AppLoading name={manifest.name} />;
@@ -56,11 +59,13 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   return (
     <AppProvider value={contextValue}>
       <AppErrorBoundary name={manifest.name}>
-        <div data-app={manifest.id} className="contents">
-          <Suspense fallback={<AppLoading name={manifest.name} />}>
-            <LazyComponent />
-          </Suspense>
-        </div>
+        <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
+          <div data-app={manifest.id} data-sero-plugin={manifest.id} className="contents">
+            <Suspense fallback={<AppLoading name={manifest.name} />}>
+              <LazyComponent />
+            </Suspense>
+          </div>
+        </PluginStyleScope>
       </AppErrorBoundary>
     </AppProvider>
   );

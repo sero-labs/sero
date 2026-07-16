@@ -1,0 +1,42 @@
+{
+  "name": "@sero-ai/plugin-vite",
+  "version": "0.1.1",
+  "description": "Vite build helpers for Sero plugins",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke": "node scripts/smoke-dist.mjs",
+    "prepublishOnly": "pnpm build && pnpm smoke"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "vite": ">=6.0.0"
+  },
+  "dependencies": {
+    "postcss": "^8.5.0",
+    "postcss-selector-parser": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "^8.5.1",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

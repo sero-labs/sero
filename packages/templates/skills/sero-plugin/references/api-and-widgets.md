@@ -379,6 +379,7 @@ Widget runtime API:
 | `runtimeExternals` | No | Packages to keep external when transpiling/bundling the background runtime. Use for native or non-bundle-safe runtime imports. |
 | `component` | No | Exported component name. Required if `ui` is set. |
 | `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |
+| `styleIsolation` | For UI plugins | Set to `"scope"`. The matching Vite helper contains plugin CSS and host mounts provide scoped portal roots. |
 | `widgets` | No | Array of widget definitions |
 
 ### sero.plugin fields

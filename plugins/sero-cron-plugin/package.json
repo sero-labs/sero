@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-cron",
   "version": "0.2.0",
   "description": "Cron scheduler for Sero - schedule recurring agent prompts",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],
@@ -20,6 +21,7 @@
   "sero": {
     "app": {
       "id": "cron",
+      "styleIsolation": "scope",
       "name": "Scheduler",
       "icon": "clock",
       "scope": "global",
@@ -69,6 +71,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "vitest": "catalog:",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",

@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-orchestrator",
   "version": "0.1.0",
   "description": "Sero Orchestrator — durable runner for LLM-authored step plans (loops)",
+  "type": "module",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",
@@ -15,6 +16,7 @@
   "sero": {
     "app": {
       "id": "orchestrator",
+      "styleIsolation": "scope",
       "name": "Sero Orchestrator",
       "icon": "infinity",
       "scope": "workspace",
@@ -62,6 +64,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",

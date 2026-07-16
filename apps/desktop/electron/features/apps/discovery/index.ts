@@ -38,6 +38,7 @@ interface PkgWidgetDef {
 
 interface PkgSeroApp {
   id: string;
+  styleIsolation?: 'scope';
   name: string;
   icon: string;
   stateFile: string;
@@ -151,6 +152,12 @@ function buildManifest(
 ): SeroAppManifest | null {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
+  if (app.styleIsolation !== undefined && app.styleIsolation !== 'scope') {
+    console.error(
+      `[app-discovery] Invalid sero.app.styleIsolation in "${packagePath}": expected "scope".`,
+    );
+    return null;
+  }
 
   const scope = app.scope === 'global' ? 'global' : 'workspace';
   const pluginDeclared = hasPluginDeclaration(pkgJson);
@@ -166,6 +173,7 @@ function buildManifest(
 
   return {
     id: app.id,
+    styleIsolation: app.styleIsolation ?? null,
     name: app.name,
     description: typeof pkgJson.description === 'string' ? pkgJson.description : null,
     version: typeof pkgJson.version === 'string' ? pkgJson.version : null,

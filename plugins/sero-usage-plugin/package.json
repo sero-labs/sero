@@ -2,6 +2,7 @@
   "name": "@sero-ai/plugin-usage",
   "version": "0.1.0",
   "description": "AI usage and cost analytics for Sero - aggregated per profile from local session data",
+  "type": "module",
   "keywords": [
     "pi-package"
   ],
@@ -20,6 +21,7 @@
   "sero": {
     "app": {
       "id": "usage",
+      "styleIsolation": "scope",
       "name": "Usage",
       "icon": "chart-column",
       "scope": "global",
@@ -67,6 +69,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:*",
     "@sero-ai/ui": "workspace:*",
