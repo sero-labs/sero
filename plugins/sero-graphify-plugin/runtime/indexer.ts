@@ -128,7 +128,8 @@ export class GraphifyIndexer {
     });
     // A removed workspace's per-workspace graph is now an orphan — delete it so
     // disk tracks the live workspace list (disable keeps artifacts; removal does not).
-    for (const id of removedIds) await this.host.removeWorkspaceArtifacts(id);
+    // Removals are independent, so run them together.
+    await Promise.all(removedIds.map((id) => this.host.removeWorkspaceArtifacts(id)));
     // A deleted workspace that was part of the profile graph leaves stale
     // nodes behind until the next merge — re-merge promptly.
     if (removedIndexed) await this.merge();
@@ -143,12 +144,11 @@ export class GraphifyIndexer {
    */
   private async sweepOrphanArtifacts(): Promise<void> {
     const live = new Set((await this.host.listWorkspaces()).map((ws) => ws.id));
-    for (const id of await this.host.listArtifactWorkspaceIds()) {
-      if (!live.has(id)) {
-        this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
-        await this.host.removeWorkspaceArtifacts(id);
-      }
-    }
+    const orphans = (await this.host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
+    await Promise.all(orphans.map((id) => {
+      this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
+      return this.host.removeWorkspaceArtifacts(id);
+    }));
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {

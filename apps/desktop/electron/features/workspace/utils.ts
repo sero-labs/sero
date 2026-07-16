@@ -62,7 +62,9 @@ export function prettifyName(slug: string): string {
 export function assertSafeToDelete(targetPath: string, seroHome: string): void {
   const resolved = path.resolve(targetPath);
   const forbidden = new Set([path.parse(resolved).root, os.homedir(), path.resolve(seroHome)]);
-  if (!path.isAbsolute(resolved) || forbidden.has(resolved)) {
+  // Guard the *raw* input: path.resolve() always yields an absolute path, so a
+  // relative registry entry would otherwise be silently joined to the cwd.
+  if (!path.isAbsolute(targetPath) || forbidden.has(resolved)) {
     throw new Error(`Refusing to delete unsafe workspace path: ${resolved}`);
   }
 }

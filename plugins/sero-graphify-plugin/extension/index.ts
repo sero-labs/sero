@@ -13,7 +13,7 @@ import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
 import { readStateFile, appendIndexRequest } from '../shared/state-io';
-import { loadGraphResult, queryGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
+import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -56,7 +56,10 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     async execute(_toolCallId, params) {
       const result = await loadGraphResult(paths.profileGraph);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
-      return text(queryGraph(result.graph, params.question, { mode: params.mode, budget: params.budget }));
+      const { text: answer, files } = searchGraph(result.graph, params.question, { mode: params.mode, budget: params.budget });
+      // `files` rides on `details` (UI-only) so the search panel can open them;
+      // the agent still sees the identical text in `content`.
+      return { content: [{ type: 'text', text: answer }], details: { files } };
     },
   });
 
@@ -75,8 +78,13 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       const graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
       const primary = await loadGraphResult(graphPath);
       if ('graph' in primary) return text(queryGraph(primary.graph, params.question, { mode: params.mode, budget: params.budget }));
-      // Fall back to the profile graph when the workspace has no graph of its own.
-      const fallback = graphPath === paths.profileGraph ? primary : await loadGraphResult(paths.profileGraph);
+      // Fall back to the profile graph only when the workspace simply has no graph
+      // of its own. A built-but-unreadable workspace graph (too-large/invalid)
+      // reports its real reason instead of a misleading "not built yet".
+      if (primary.failure !== 'absent' || graphPath === paths.profileGraph) {
+        return text(unavailableMessage(primary.failure, primary.detail));
+      }
+      const fallback = await loadGraphResult(paths.profileGraph);
       if ('graph' in fallback) return text(queryGraph(fallback.graph, params.question, { mode: params.mode, budget: params.budget }));
       return text(unavailableMessage(fallback.failure, fallback.detail));
     },
