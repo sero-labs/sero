@@ -84,6 +84,7 @@
     "@playwright/test": "^1.59.1",
     "@remixicon/react": "^4.9.0",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/plugin-vite": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
