@@ -69,7 +69,7 @@ Theming: `theme` = `{ light, dark }` shiki names derived from `editorThemeId` (r
 ### Wrap-up
 
 - [x] Check `apps/docs-site` for diff-view screenshots/descriptions; update if stale *(explorer-workspace.md updated. `docs/assets/images/explorer-diff.jpg` shows the old Monaco diff — re-capture manually once the new view is verified.)*
-- [ ] Conventional-commit PR: `feat(explorer): rebuild diff view on @pierre/diffs and @pierre/trees`
+- [x] Conventional-commit PR: `feat(explorer): rebuild diff view on @pierre/diffs and @pierre/trees` — [#279](https://github.com/sero-labs/sero/pull/279)
 
 ## Acceptance criteria
 
