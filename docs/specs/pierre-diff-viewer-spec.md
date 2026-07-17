@@ -68,7 +68,7 @@ Theming: `theme` = `{ light, dark }` shiki names derived from `editorThemeId` (r
 
 ### Wrap-up
 
-- [ ] Check `apps/docs-site` for diff-view screenshots/descriptions; update if stale
+- [x] Check `apps/docs-site` for diff-view screenshots/descriptions; update if stale *(explorer-workspace.md updated. `docs/assets/images/explorer-diff.jpg` shows the old Monaco diff — re-capture manually once the new view is verified.)*
 - [ ] Conventional-commit PR: `feat(explorer): rebuild diff view on @pierre/diffs and @pierre/trees`
 
 ## Acceptance criteria
