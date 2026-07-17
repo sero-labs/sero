@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Check, Loader2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -101,7 +101,7 @@ export function SessionNode({
       onClick={handleClick}
       onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
       className={cn(
-        'group flex w-full items-center gap-4 rounded-md px-2 py-1 text-left transition-colors',
+        'group relative flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors',
         isSelected
           ? 'bg-[var(--accent-muted)]/15 ring-1 ring-[var(--accent-primary)]/30 text-[var(--text-primary)]'
           : isActive
@@ -109,13 +109,22 @@ export function SessionNode({
             : 'hover:bg-[var(--bg-elevated)]',
       )}
     >
-      {/* Leading indicator: checkmark when selected, spinner when streaming */}
-      <span className="flex size-3 shrink-0 items-center justify-center">
+      {/* Active session accent bar on the leading edge */}
+      {isActive && !isSelected && (
+        <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+      )}
+
+      {/* Leading icon: checkmark when selected, spinner when streaming, else chat bubble */}
+      <span className="flex size-4 shrink-0 items-center justify-center">
         {isSelected ? (
-          <Check className="size-3 text-[var(--accent-primary)]" />
+          <Check className="size-4 text-[var(--accent-primary)]" />
         ) : isStreaming ? (
-          <Loader2 className="size-3 animate-spin text-[var(--brand-primary)]" />
-        ) : null}
+          <Loader2 className="size-4 animate-spin text-[var(--brand-primary)]" />
+        ) : (
+          <MessageSquare
+            className={cn('size-3.5', isActive ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]')}
+          />
+        )}
       </span>
 
       {/* Title + metadata */}

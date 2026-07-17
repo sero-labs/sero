@@ -69,7 +69,9 @@ export const MainSidebar = memo(function MainSidebar() {
           ))}
         </div>
 
-        <Separator className="mx-2" />
+        <div className="px-2">
+          <Separator />
+        </div>
 
         {/* ── Search ────────────────────────────────────────────── */}
         <SearchBar />

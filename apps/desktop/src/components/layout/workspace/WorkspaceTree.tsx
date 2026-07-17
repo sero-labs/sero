@@ -50,7 +50,7 @@ export function WorkspaceTree() {
   if (isLoadingWorkspaces && !workspacesReady) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
+        <Loader2 className="size-4 animate-spin text-(--text-muted)" />
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function WorkspaceTree() {
       ) : null}
 
       <div className="flex items-center justify-between px-2 pb-1">
-        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-(--text-secondary)">
           Workspaces
         </span>
         <div className="flex items-center gap-0.5">
@@ -82,7 +82,7 @@ export function WorkspaceTree() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+      <div className="mx-0 mb-0 flex flex-1 flex-col divide-y divide-(--border-subtle)/50 overflow-y-auto rounded-lg px-1">
         {openWorkspaces.map((workspace) => (
           <WorkspaceNode
             key={workspace.id}
@@ -92,7 +92,7 @@ export function WorkspaceTree() {
         ))}
 
         {openWorkspaces.length === 0 && (
-          <span className="px-2 py-4 text-center text-base text-[var(--text-muted)]">
+          <span className="px-2 py-4 text-center text-base text-(--text-muted)">
             No workspaces open
           </span>
         )}
@@ -127,11 +127,11 @@ function RuntimePreparingNotice({ workspaces }: { workspaces: Array<{ id: string
   const names = workspaces.map((workspace) => workspace.name).join(', ');
 
   return (
-    <div className="mx-2 mb-2 rounded-md border border-status-info-border bg-status-info-faint p-2 text-xs text-[var(--text-secondary)]">
+    <div className="mx-2 mb-2 rounded-md border border-status-info-border bg-status-info-faint p-2 text-xs text-(--text-secondary)">
       <div className="flex items-start gap-2">
         <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-status-info" />
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-[var(--text-primary)]">Preparing container runtime</p>
+          <p className="font-medium text-(--text-primary)">Preparing container runtime</p>
           <p className="mt-0.5">
             {names} {workspaces.length === 1 ? 'is' : 'are'} starting. First launch may pull the Sero runtime image and take a few minutes.
           </p>
@@ -205,7 +205,7 @@ function CollapseAllButton() {
   return (
     <IconAction
       onClick={collapseAll}
-      className="rounded-md hover:bg-[var(--bg-elevated)]"
+      className="rounded-md hover:bg-(--bg-elevated)"
       title="Collapse all"
     >
       <ChevronsDownUp className="size-3.5" />

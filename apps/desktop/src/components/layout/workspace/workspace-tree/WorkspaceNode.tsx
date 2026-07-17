@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
+  Folder,
   FolderOpen,
   GitBranch,
   Plus,
@@ -107,7 +108,7 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
   };
 
   return (
-    <div>
+    <div className="py-1.5">
       <button type="button"
         data-testid={`workspace-node-${workspace.id}`}
         onClick={handleHeaderClick}
@@ -137,15 +138,12 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
             )}
           />
         )}
-        <FolderOpen
-          className={cn(
-            'size-3.5 shrink-0 transition-colors',
-            isActive
-              ? 'text-[var(--text-primary)]'
-              : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]',
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        {expanded ? (
+          <FolderOpen className="size-4 shrink-0 fill-[var(--accent-primary)]/25 text-[var(--accent-primary)] transition-colors" />
+        ) : (
+          <Folder className="size-4 shrink-0 fill-[var(--accent-primary)]/25 text-[var(--accent-primary)] transition-colors" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
           {workspace.name}
         </span>
         <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
@@ -261,7 +259,7 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
       </button>
 
       {expanded && (
-        <div className="ml-2 flex flex-col gap-1 border-l border-[var(--border-subtle)] pl-2">
+        <div className="ml-2 flex flex-col gap-1 pl-2">
           {sessions.length === 0 ? (
             <span className="px-2 py-1 text-xs text-[var(--text-muted)]">
               No sessions
