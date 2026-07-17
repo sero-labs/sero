@@ -340,36 +340,42 @@ export function resolveEditorThemePalette(
   };
 }
 
+/** Bundled shiki theme name (the string half of ThemeInput). */
+export type ShikiThemeName = Extract<ThemeInput, string>;
+
+export interface ShikiThemePair {
+  light: ShikiThemeName;
+  dark: ShikiThemeName;
+}
+
+/**
+ * Editor theme id → shiki theme names. Non-auto themes use the same shiki
+ * theme in both slots so code colors follow the editor theme regardless of
+ * the app's light/dark mode. Shared by markdown code blocks and the diff view.
+ */
+const SHIKI_THEME_PAIRS: Record<string, ShikiThemePair> = {
+  vs: { light: 'light-plus', dark: 'light-plus' },
+  'vs-dark': { light: 'dark-plus', dark: 'dark-plus' },
+  'hc-light': { light: 'github-light-high-contrast', dark: 'github-light-high-contrast' },
+  'hc-black': { light: 'github-dark-high-contrast', dark: 'github-dark-high-contrast' },
+  'one-dark': { light: 'one-dark-pro', dark: 'one-dark-pro' },
+  'github-light': { light: 'github-light', dark: 'github-light' },
+  'github-dark': { light: 'github-dark', dark: 'github-dark' },
+  dracula: { light: 'dracula', dark: 'dracula' },
+  monokai: { light: 'monokai', dark: 'monokai' },
+  'solarized-light': { light: 'solarized-light', dark: 'solarized-light' },
+  'solarized-dark': { light: 'solarized-dark', dark: 'solarized-dark' },
+  nord: { light: 'nord', dark: 'nord' },
+  [AUTO_EDITOR_THEME_ID]: { light: 'github-light', dark: 'github-dark' },
+};
+
+export function resolveShikiThemePair(id: string): ShikiThemePair {
+  return SHIKI_THEME_PAIRS[id] ?? SHIKI_THEME_PAIRS[AUTO_EDITOR_THEME_ID];
+}
+
 export function resolveMarkdownCodeThemes(id: string): [ThemeInput, ThemeInput] {
-  switch (id) {
-    case 'vs':
-      return ['light-plus', 'light-plus'];
-    case 'vs-dark':
-      return ['dark-plus', 'dark-plus'];
-    case 'hc-light':
-      return ['github-light-high-contrast', 'github-light-high-contrast'];
-    case 'hc-black':
-      return ['github-dark-high-contrast', 'github-dark-high-contrast'];
-    case 'one-dark':
-      return ['one-dark-pro', 'one-dark-pro'];
-    case 'github-light':
-      return ['github-light', 'github-light'];
-    case 'github-dark':
-      return ['github-dark', 'github-dark'];
-    case 'dracula':
-      return ['dracula', 'dracula'];
-    case 'monokai':
-      return ['monokai', 'monokai'];
-    case 'solarized-light':
-      return ['solarized-light', 'solarized-light'];
-    case 'solarized-dark':
-      return ['solarized-dark', 'solarized-dark'];
-    case 'nord':
-      return ['nord', 'nord'];
-    case AUTO_EDITOR_THEME_ID:
-    default:
-      return ['github-light', 'github-dark'];
-  }
+  const { light, dark } = resolveShikiThemePair(id);
+  return [light, dark];
 }
 
 /**

@@ -1,0 +1,10 @@
+/* Diff view (@pierre/diffs) chrome alignment with app design tokens.
+   Only documented `--diffs-*` custom properties — no unsafeCSS. */
+
+.diff-changeset {
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: 12px;
+  --diffs-line-height: 1.5;
+  --diffs-tab-size: 4;
+  --diffs-header-font-family: var(--font-sans);
+}
