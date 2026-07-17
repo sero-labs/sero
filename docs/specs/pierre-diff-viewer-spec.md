@@ -66,6 +66,14 @@ Theming: `theme` = `{ light, dark }` shiki names derived from `editorThemeId` (r
   - [ ] Toggle hide/show navigator still works
   - [x] `pnpm typecheck` green (also `vite build` + all 1711 unit tests pass)
 
+### Scope amendment (approved during verification)
+
+The "no main-process changes" assumption was wrong: every diff-open call passed
+jujutsu-style parent revisions (`rev-`) to plain git, so the diff data path had
+never worked. Fixed in `fix(vcs)`: commit diffs use `rev^..rev` (empty-tree
+fallback for root commits), working-copy diffs use the `WORKING_TREE_REV`
+sentinel (summary merges untracked files; after-side content reads from disk).
+
 ### Wrap-up
 
 - [x] Check `apps/docs-site` for diff-view screenshots/descriptions; update if stale *(explorer-workspace.md updated. `docs/assets/images/explorer-diff.jpg` shows the old Monaco diff — re-capture manually once the new view is verified.)*
