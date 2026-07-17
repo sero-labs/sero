@@ -82,6 +82,7 @@
     "@module-federation/vite": "catalog:",
     "@monaco-editor/react": "^4.7.0",
     "@pierre/diffs": "1.2.12",
+    "@pierre/trees": "1.0.0-beta.5",
     "@playwright/test": "^1.59.1",
     "@remixicon/react": "^4.9.0",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",

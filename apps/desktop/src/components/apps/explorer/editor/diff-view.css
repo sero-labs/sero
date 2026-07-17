@@ -8,3 +8,24 @@
   --diffs-tab-size: 4;
   --diffs-header-font-family: var(--font-sans);
 }
+
+/* Changed-files tree (@pierre/trees) — documented `--trees-*-override` vars. */
+.diff-file-navigator {
+  --trees-bg-override: transparent;
+  --trees-fg-override: var(--text-secondary);
+  --trees-fg-muted-override: var(--text-muted);
+  --trees-selected-bg-override: var(--bg-elevated);
+  --trees-selected-fg-override: var(--text-primary);
+  --trees-accent-override: var(--status-info);
+  --trees-border-color-override: var(--border-subtle);
+  --trees-input-bg-override: var(--bg-elevated);
+  --trees-font-family-override: var(--font-sans);
+  --trees-git-added-color-override: var(--status-success);
+  --trees-git-modified-color-override: var(--status-warning);
+  --trees-git-deleted-color-override: var(--status-error);
+  --trees-git-renamed-color-override: var(--status-info);
+  --trees-status-added-override: var(--status-success);
+  --trees-status-modified-override: var(--status-warning);
+  --trees-status-deleted-override: var(--status-error);
+  --trees-status-renamed-override: var(--status-info);
+}

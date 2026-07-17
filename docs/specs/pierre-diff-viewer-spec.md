@@ -1,6 +1,6 @@
 # Spec: Diff Viewer on @pierre/diffs + @pierre/trees
 
-**Status:** Phase 1 implemented — manual verification pending
+**Status:** Phases 1 & 2 implemented — manual verification pending
 **Branch:** `feat/pierre-diff-viewer`
 **Background:** [docs/plans/pierre-diffs-trees-migration.md](../plans/pierre-diffs-trees-migration.md) (analysis & rationale — not needed to execute this spec)
 
@@ -56,15 +56,15 @@ Theming: `theme` = `{ light, dark }` shiki names derived from `editorThemeId` (r
 
 ### Phase 2 — File navigator on @pierre/trees
 
-- [ ] **2.1 Dependency**: add `@pierre/trees` (exact pin) to `apps/desktop`. Note: brings a small internal `preact` runtime (render-internal, no React interaction).
-- [ ] **2.2 `DiffFileNavigator.tsx`**: `useFileTree` + `<FileTree>` fed the full path list from `files` (`initialExpansion: 'open'`, search on). Map each entry's status → `setGitStatus()` entries. `onSelectionChange` → `scrollTo` callback prop. Theme via `--trees-*-override` vars from design tokens.
-- [ ] **2.3 Wire into `DiffTab`**: replace the button-list sidebar with `DiffFileNavigator`; keep the show/hide toggle. Selected file follows scroll target; drop `statusCode`/`statusColor` usage from this view (they remain used by the VCS panel).
+- [x] **2.1 Dependency**: add `@pierre/trees` (exact pin) to `apps/desktop`. Note: brings a small internal `preact` runtime (render-internal, no React interaction).
+- [x] **2.2 `DiffFileNavigator.tsx`**: `useFileTree` + `<FileTree>` fed the full path list from `files` (`initialExpansion: 'open'`, search on). Map each entry's status → git-status entries. `onSelectionChange` → `scrollTo` callback prop. Theme via `--trees-*-override` vars from design tokens. *(Git status passed at model creation via the `gitStatus` option; `copied` maps to `added`, `conflict` to `modified` — the trees lane set has no equivalents.)*
+- [x] **2.3 Wire into `DiffTab`**: replace the button-list sidebar with `DiffFileNavigator`; keep the show/hide toggle. Selected file follows scroll target; drop `statusCode`/`statusColor` usage from this view (they remain used by the VCS panel). *(Navigator keyed per changeset; `initialPath` pre-selected in the tree.)*
 - [ ] **2.4 Verify**:
   - [ ] Clicking a file scrolls the changeset to it
   - [ ] Status decorations match the VCS panel for the same change
   - [ ] Tree search filters files; keyboard navigation works
   - [ ] Toggle hide/show navigator still works
-  - [ ] `pnpm typecheck` green
+  - [x] `pnpm typecheck` green (also `vite build` + all 1711 unit tests pass)
 
 ### Wrap-up
 
