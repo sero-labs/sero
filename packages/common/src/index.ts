@@ -227,6 +227,8 @@ export type {
   VcsEvent,
 } from './vcs';
 
+export { WORKING_TREE_REV } from './vcs';
+
 export {
   parseGitHubUrl,
   normalizeGitHubRemoteUrl,

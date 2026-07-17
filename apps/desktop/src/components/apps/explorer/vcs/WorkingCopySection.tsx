@@ -8,6 +8,7 @@ import { PlusCircle } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
 import type { WorkingCopyStatus } from '@sero-ai/common';
+import { WORKING_TREE_REV } from '@sero-ai/common';
 import { VcsSection } from './VcsSection';
 import { statusCode, statusColor } from './vcs-utils';
 
@@ -120,7 +121,7 @@ const WorkingCopyFileList = memo(function WorkingCopyFileList({
           transition={{ duration: 0.12, delay: index * 0.02 }}
           onClick={() => {
             if (currentChangeId && onOpenDiff) {
-              onOpenDiff(currentChangeId + '-', currentChangeId, file.path);
+              onOpenDiff(currentChangeId, WORKING_TREE_REV, file.path);
             }
           }}
           className={cn(

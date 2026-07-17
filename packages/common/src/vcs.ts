@@ -29,6 +29,13 @@ export interface ChangeEntry {
   tags: string[];
 }
 
+/**
+ * Sentinel revision meaning "the working tree" in diff APIs. Valid only as
+ * the `to` side: the diff summary compares a commit against uncommitted
+ * changes, and file contents are read from disk instead of a commit.
+ */
+export const WORKING_TREE_REV = ':working-tree';
+
 export type FileStatus = 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'conflict';
 
 export interface StatusFile {

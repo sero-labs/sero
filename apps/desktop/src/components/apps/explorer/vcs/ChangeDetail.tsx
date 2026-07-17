@@ -54,7 +54,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     setLoading(true);
     setFileLoadError(null);
     void window.sero.vcs
-      .fileDiffSummary(workspaceId, entry.changeId)
+      .fileDiffSummary(workspaceId, `${entry.changeId}^`, entry.changeId)
       .then((summary) => {
         if (cancelled) return;
         setFiles(summary);
@@ -207,7 +207,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               initial={{ opacity: 0, x: -3 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.08, delay: i * 0.02 }}
-              onClick={() => onOpenDiff?.(entry.changeId + '-', entry.changeId, f.path)}
+              onClick={() => onOpenDiff?.(`${entry.changeId}^`, entry.changeId, f.path)}
               className={cn(
                 'flex w-full items-center gap-2 rounded px-1.5 py-px text-left',
                 'transition-colors duration-75 hover:bg-[var(--bg-elevated)]',
@@ -230,7 +230,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
         <DetailAction
           icon={<FileText className="size-3" />}
           label="Diff"
-          onClick={() => onOpenDiff?.(entry.changeId + '-', entry.changeId)}
+          onClick={() => onOpenDiff?.(`${entry.changeId}^`, entry.changeId)}
         />
         {!entry.immutable && (
           <>

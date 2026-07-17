@@ -11,6 +11,7 @@ import { parseDiffFromFile } from '@pierre/diffs';
 import type { CodeViewItem, CodeViewOptions } from '@pierre/diffs';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { FileDiffEntry } from '@sero-ai/common';
+import { WORKING_TREE_REV } from '@sero-ai/common';
 import { resolveDiffThemes } from './diff-themes';
 import './diff-view.css';
 
@@ -69,15 +70,17 @@ export const DiffChangeset = forwardRef<DiffChangesetHandle, Props>(
     useEffect(() => {
       let cancelled = false;
 
+      function readAtRev(rev: string, path: string): Promise<string> {
+        return rev === WORKING_TREE_REV
+          ? window.sero.editor.readFile(workspaceId, path).catch(() => '')
+          : window.sero.vcs.fileContent(workspaceId, rev, path).catch(() => '');
+      }
+
       async function loadFile(entry: FileDiffEntry): Promise<CodeViewItem> {
         const oldPath = entry.oldPath ?? entry.path;
         const [oldContents, newContents] = await Promise.all([
-          entry.status === 'added'
-            ? ''
-            : window.sero.vcs.fileContent(workspaceId, fromRev, oldPath).catch(() => ''),
-          entry.status === 'deleted'
-            ? ''
-            : window.sero.vcs.fileContent(workspaceId, toRev, entry.path).catch(() => ''),
+          entry.status === 'added' ? '' : readAtRev(fromRev, oldPath),
+          entry.status === 'deleted' ? '' : readAtRev(toRev, entry.path),
         ]);
         try {
           return {

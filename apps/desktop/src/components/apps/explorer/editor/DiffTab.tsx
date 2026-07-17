@@ -11,8 +11,13 @@ import { FileText, Columns2, Rows2, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import type { FileDiffEntry } from '@sero-ai/common';
+import { WORKING_TREE_REV } from '@sero-ai/common';
 import { DiffChangeset, type DiffChangesetHandle, type DiffStyle } from './DiffChangeset';
 import { DiffFileNavigator } from './DiffFileNavigator';
+
+function revLabel(rev: string): string {
+  return rev === WORKING_TREE_REV ? 'working tree' : rev.slice(0, 8);
+}
 
 export interface DiffTabState {
   type: 'diff';
@@ -75,7 +80,7 @@ export function DiffTab({ state }: Props) {
           {files.length === 1 ? '1 file changed' : `${files.length} files changed`}
         </span>
         <span className="text-sm text-[var(--text-muted)]/40">
-          {fromRev.slice(0, 8)} → {toRev.slice(0, 8)}
+          {revLabel(fromRev)} → {revLabel(toRev)}
         </span>
         <span className="flex-1" />
         <button type="button"
