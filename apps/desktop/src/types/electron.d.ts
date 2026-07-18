@@ -9,6 +9,7 @@ import type {
   SeroLspAPI,
   SeroDebugAPI,
   SeroVcsAPI,
+  SeroOrchestratorAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
 import type { SeroBrowserAPI } from './electron-browser';
@@ -445,6 +446,7 @@ export interface SeroAPI {
   lsp: SeroLspAPI;
   debug: SeroDebugAPI;
   vcs: SeroVcsAPI;
+  orchestrator: SeroOrchestratorAPI;
   subagent: SeroSubagentAPI;
   skills: SeroSkillsAPI;
   prompts: SeroPromptsAPI;

@@ -1,6 +1,9 @@
 # Agent Board — cross-workspace task board (design plan)
 
-Status: **proposed**. A high-level, profile-wide board that shows all agent work
+Status: **implemented** (phases 1–5; remote parity, §7.6, is a pending
+follow-up). Implementation notes at the end of this document.
+
+A high-level, profile-wide board that shows all agent work
 across workspaces in four columns — **Backlog · Active · Needs Attention ·
 Finished** — with drilldown into the owning workspace and inline resolution of
 the things that need the user (approvals, questions, failed steps).
@@ -252,3 +255,45 @@ preserved).
 - Shell imports plugin **contract types** only (`orchestrator-contract.ts`),
   never plugin internals.
 - Files ≤500 LOC; state in Zustand; layout persistence via `layout.json`.
+
+## 9. Implementation notes (phases 1–5, shipped)
+
+Where things landed, for the next person touching this:
+
+- **Board app**: `apps/desktop/src/components/apps/board/` — `AgentBoard`
+  (shell + header + columns), `BoardColumn`, `BoardCard`,
+  `BoardCardActions` (inline answers/approvals/retries/start-work), and the
+  pure `board-model.ts` (column mapping + unclaimed-issue filter +
+  formatting; unit-tested in `board-model.test.ts`). Registered as the
+  `board` entry in `BUILTIN_APPS` with a branch in `ActiveAppPanel`.
+- **Store**: `apps/desktop/src/stores/agent-board.ts` watches, per
+  registered workspace, `.sero/apps/orchestrator/index.json` and
+  `.sero/apps/git/state.json` through `window.sero.appState` (push-only);
+  gh reads (issues/PRs) fetch on mount + explicit refresh. Prefs persist as
+  `boardLayout` in `layout.json`.
+- **Contract**: `packages/common/src/orchestrator-contract.ts` gained the
+  `OrchestratorBoardLoopView` index view (attention content, progress,
+  usage roll-up, active step titles, model, branch, checkout path, PR
+  chips), the `OrchestratorBoardAction` subset union, and the typed
+  coordinator-registry seam (`getOrchestratorRegistry`). The plugin's
+  `LoopSummary` extends the board view and `shared/actions.ts` asserts the
+  action subset at compile time, so drift fails typecheck in the plugin.
+- **Index enrichment**: `runtime/store.ts#toSummary` now emits the board
+  fields (lifetime usage via `aggregateUsage`, running step titles, last
+  attempt model, branch/checkout from the resolved workspace, PR chips,
+  `lastRunAt`).
+- **Actions seam**: `sero:orchestrator:action` (`electron/ipc/integrations/
+  orchestrator.ts`) resolves the coordinator from the `globalThis` registry
+  via contract types and calls `requestAction`; exposed as
+  `window.sero.orchestrator.requestAction`. New coordinator action
+  `fire_event` broadcasts an event and reports the delivered count
+  (`broadcastEvent` now returns how many loops accepted), which powers
+  Start-work on issue cards and its "no loop is listening" hint.
+- **Git seams**: `gh issue list` twin (`listOpenIssues`) wired into the
+  app-runtime host and exposed with `sero:vcs:issues` / `sero:vcs:open-prs`;
+  `sero:vcs:diff-stat` computes the aggregate +adds −dels for a card's
+  checkout (`git diff --shortstat` vs the base branch), cached per
+  `loop.updatedAt` in the board store.
+- **Not shipped yet**: §7.6 remote parity (web-remote read-only board), and
+  one-tap catalog install of `issue-implementer` from the board (Start-work
+  currently deep-links to Orchestrator when no loop is subscribed).

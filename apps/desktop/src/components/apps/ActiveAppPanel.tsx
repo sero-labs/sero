@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Dashboard } from '@/components/apps/dashboard/Dashboard';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore } from '@/stores/app';
+import { AgentBoard } from './board/AgentBoard';
 import { ExplorerWorkspace } from './explorer/ExplorerWorkspace';
 
 interface ActiveAppPanelProps {
@@ -21,6 +22,8 @@ export const ActiveAppPanel = memo(function ActiveAppPanel({ app }: ActiveAppPan
 
   if (app === 'dashboard') {
     content = <Dashboard />;
+  } else if (app === 'board') {
+    content = <AgentBoard />;
   } else if (app === 'explorer') {
     content = <ExplorerWorkspace />;
   } else if (entry?.manifest) {

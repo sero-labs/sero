@@ -99,13 +99,18 @@ Use `⌘+` / `⌘-` / `⌘0` (`Ctrl+` equivalents elsewhere) or the zoom control
 the status bar to zoom the active app in, out, or back to 100%. The title bar
 and status bar stay the same physical size at any zoom level.
 
-## Apps: Dashboard and Explorer
+## Apps: Dashboard, Agent Board, and Explorer
 
 Sero starts with core built-in apps:
 
 - **Dashboard** — a home surface for workspace/app summaries and widgets. See
   [Dashboard and Widgets](/guide/dashboard-widgets) for adding, moving, and
   resizing widgets.
+- **Agent Board** — a profile-wide board of all agent work across workspaces,
+  in four columns: Backlog, Active, Needs Attention, and Finished. Cards show
+  live progress, branch and PR chips, and token/cost stats; questions and
+  approvals can be answered directly on the card. Clicking a card jumps to the
+  owning workspace.
 - **Explorer** — the project workspace surface for files, editors, previews,
   diffs, and terminal-related work.
 

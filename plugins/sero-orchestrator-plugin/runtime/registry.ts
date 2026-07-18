@@ -11,6 +11,7 @@
  * process (see 02-integration-seams.md, "CLI Bridge Boundary").
  */
 
+import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY } from '@sero-ai/common';
 import type { Coordinator } from './coordinator';
 
 interface RegistryEntry {
@@ -19,7 +20,9 @@ interface RegistryEntry {
   coordinator: Coordinator;
 }
 
-const REGISTRY_KEY = '__seroOrchestratorCoordinators__';
+// Shared with the shell's `sero:orchestrator:action` IPC handler, which reads
+// the same global through the contract types (@sero-ai/common).
+const REGISTRY_KEY = ORCHESTRATOR_REGISTRY_GLOBAL_KEY;
 
 function store(): Map<string, RegistryEntry> {
   const globalScope = globalThis as Record<string, unknown>;

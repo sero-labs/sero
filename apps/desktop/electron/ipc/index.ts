@@ -31,6 +31,7 @@ import { registerLspHandlers } from './editor/lsp';
 import { registerDebugHandlers } from './editor/debug';
 import { registerContextPresetsHandlers } from './workspace/context-presets';
 import { registerVcsHandlers } from './integrations/vcs';
+import { registerOrchestratorHandlers } from './integrations/orchestrator';
 import { registerGitHubHandlers } from './integrations/github';
 import { registerFeedbackHandlers } from './platform/ui/feedback';
 import { registerNetHandlers } from './platform/system/net';
@@ -77,6 +78,7 @@ export function registerAllIpcHandlers(): void {
   registerDebugHandlers();
   registerContextPresetsHandlers();
   registerVcsHandlers();
+  registerOrchestratorHandlers();
   registerGitHubHandlers();
   registerFeedbackHandlers();
   registerNetHandlers();

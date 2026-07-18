@@ -194,3 +194,55 @@ describe('schedule summaries (cross-plugin index view)', () => {
     expect(toSummary(loop).schedules).toBeUndefined();
   });
 });
+
+describe('board enrichment (Agent Board index view)', () => {
+  it('embeds usage roll-up, activity, model, branch, checkout, and PR chips', () => {
+    const host = createFakeHost();
+    const plan = oneStepPlan().plan;
+    const base = seedActiveLoop(host, plan, 'loop-a');
+    const stepId = plan.steps[0].id;
+    const usedRun: LoopRun = {
+      ...run('r1'),
+      stepAttempts: [
+        { ...run('r1').stepAttempts[0], model: 'claude-sonnet-5', usage: { inputTokens: 100, outputTokens: 40, costUsd: 0.02 } },
+      ],
+    };
+    const loop: Loop = {
+      ...base,
+      runs: [usedRun, { ...run('r2'), stepAttempts: [{ ...run('r2').stepAttempts[0], usage: { inputTokens: 10, outputTokens: 5 } }] }],
+      runtime: {
+        ...base.runtime,
+        activeRunId: 'r2',
+        lastRunAt: '2026-07-18T11:00:00Z',
+        stepStates: { ...base.runtime.stepStates, [stepId]: { status: 'running', attempts: 1, updatedAt: 't' } },
+        workspace: {
+          resolved: {
+            id: 'ctx', type: 'managed-worktree', workspaceRoot: '/ws', cwd: '/ws/.sero/worktrees/loop-a',
+            worktreePath: '/ws/.sero/worktrees/loop-a', branchName: 'sero/loop-a', resolvedBy: 'create-option', createdAt: 't',
+          },
+        },
+        pullRequests: [
+          { number: 7, url: 'https://github.com/o/r/pull/7', title: 'Fix', headRefName: 'sero/loop-a', updatedAt: 't' },
+        ],
+      },
+    };
+    const summary = toSummary(loop);
+    expect(summary.usage).toEqual({ inputTokens: 110, outputTokens: 45, costUsd: 0.02 });
+    expect(summary.activeStepTitles).toEqual([plan.steps[0].title]);
+    expect(summary.lastModel).toBe('claude-sonnet-5');
+    expect(summary.branchName).toBe('sero/loop-a');
+    expect(summary.checkoutPath).toBe('/ws/.sero/worktrees/loop-a');
+    expect(summary.pullRequests).toEqual([{ number: 7, url: 'https://github.com/o/r/pull/7', title: 'Fix' }]);
+    expect(summary.lastRunAt).toBe('2026-07-18T11:00:00Z');
+  });
+
+  it('omits every board field when the loop has no runs or workspace context', () => {
+    const host = createFakeHost();
+    const summary = toSummary(seedActiveLoop(host, oneStepPlan().plan, 'loop-a'));
+    expect(summary.usage).toBeUndefined();
+    expect(summary.activeStepTitles).toBeUndefined();
+    expect(summary.lastModel).toBeUndefined();
+    expect(summary.branchName).toBeUndefined();
+    expect(summary.pullRequests).toBeUndefined();
+  });
+});

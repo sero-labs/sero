@@ -19,7 +19,7 @@ discovery, favorites, and plugin management.
 
 Sero shows a few categories of app-like surfaces:
 
-- **Core shell apps** such as Dashboard and Explorer are built into the desktop
+- **Core shell apps** such as Dashboard, Agent Board, and Explorer are built into the desktop
   shell and are always present.
 - **Bundled plugin apps** ship with the Sero source tree but are still surfaced
   through the plugin/discovered-app path. Examples can include internal apps
@@ -69,7 +69,7 @@ The main sidebar intentionally stays small. It shows core shell apps first, then
 favorited discovered app manifests that pass host compatibility checks.
 
 Favorites are for plugin-backed/discovered app surfaces. Core shell apps such as
-Dashboard and Explorer are always available and are not favorited or unfavorited
+Dashboard, Agent Board, and Explorer are always available and are not favorited or unfavorited
 through the same mechanism. Bundled plugin apps may still appear through the
 favorites path, so unstarring them can remove them from the sidebar without
 uninstalling them from Sero.

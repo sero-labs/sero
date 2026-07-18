@@ -29,15 +29,21 @@ export interface CoordinatorRunSeam {
   runNext(loopId: string, known?: Loop): Promise<OrchestratorActionResult>;
 }
 
-/** Broadcasts one event to every active loop with a matching trigger. */
+/**
+ * Broadcasts one event to every active loop with a matching trigger.
+ * Returns how many loops accepted a fire (0 ⇒ nothing subscribed/matched),
+ * so callers like the Agent Board's "Start work" can tell the user when an
+ * event landed nowhere.
+ */
 export async function broadcastEvent(
   host: OrchestratorHost,
   seam: CoordinatorRunSeam,
   event: OrchestratorEvent,
-): Promise<void> {
-  if (await alreadyDelivered(host, event)) return;
+): Promise<number> {
+  if (await alreadyDelivered(host, event)) return 0;
   const state = await host.readState();
-  if (!state) return;
+  if (!state) return 0;
+  let delivered = 0;
   const nowMs = Date.parse(host.now());
   for (const loop of state.loops) {
     if (loop.status !== 'active') continue;
@@ -62,8 +68,12 @@ export async function broadcastEvent(
       }
       passing.push(trigger.id);
     }
-    if (passing.length > 0) await deliverEventFire(host, seam, loop.id, passing, event);
+    if (passing.length > 0) {
+      await deliverEventFire(host, seam, loop.id, passing, event);
+      delivered += 1;
+    }
   }
+  return delivered;
 }
 
 /**

@@ -149,6 +149,48 @@ export async function getWorktreeDiffSummary(worktreePath: string): Promise<stri
   }
 }
 
+export interface WorktreeDiffStat {
+  files: number;
+  additions: number;
+  deletions: number;
+}
+
+/**
+ * Aggregate +adds −dels of the branch's work relative to its base (the Agent
+ * Board card stat). Fail-soft to null when the path is not a repo or has no
+ * commits — the card simply omits the stat.
+ */
+export async function getWorktreeDiffStat(worktreePath: string): Promise<WorktreeDiffStat | null> {
+  if (!await hasCommits(worktreePath)) return null;
+  const base = await resolveBaseBranch(worktreePath);
+  const isBranch = /^[a-zA-Z]/.test(base) || base.startsWith('HEAD');
+  const diffSpec = isBranch ? `${base}...HEAD` : `${base}..HEAD`;
+  try {
+    const result = await execFileAsync('git', ['diff', '--shortstat', diffSpec], {
+      cwd: worktreePath,
+      timeout: 15_000,
+    });
+    return parseShortstat(result.stdout);
+  } catch {
+    return null;
+  }
+}
+
+/** Parses `git diff --shortstat` output ("3 files changed, 10 insertions(+), 2 deletions(-)"). */
+function parseShortstat(stdout: string): WorktreeDiffStat | null {
+  const text = stdout.trim();
+  if (!text) return { files: 0, additions: 0, deletions: 0 };
+  const files = /(\d+) files? changed/.exec(text);
+  const additions = /(\d+) insertions?\(\+\)/.exec(text);
+  const deletions = /(\d+) deletions?\(-\)/.exec(text);
+  if (!files && !additions && !deletions) return null;
+  return {
+    files: files ? Number(files[1]) : 0,
+    additions: additions ? Number(additions[1]) : 0,
+    deletions: deletions ? Number(deletions[1]) : 0,
+  };
+}
+
 /** Check whether the repo has any commits at all. */
 async function hasCommits(cwd: string): Promise<boolean> {
   try {

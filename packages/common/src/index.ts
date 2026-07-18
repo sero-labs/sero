@@ -81,6 +81,7 @@ export type {
   AppRuntimeMergePullRequestResult,
   AppRuntimePullRequestMergeState,
   AppRuntimePullRequestSummary,
+  AppRuntimeIssueSummary,
   AppRuntimeWorkspaceStatusResult,
   AppRuntimeDirtyWorkspaceStashResult,
   AppRuntimeGitApi,
@@ -212,6 +213,7 @@ export type {
   StatusFile,
   WorkingCopyStatus,
   FileDiffEntry,
+  GitDiffStat,
   BookmarkRemoteStatus,
   Bookmark,
   Remote,
@@ -258,6 +260,8 @@ export type {
 export {
   ORCHESTRATOR_APP_ID,
   ORCHESTRATOR_INDEX_FILE,
+  ORCHESTRATOR_REGISTRY_GLOBAL_KEY,
+  getOrchestratorRegistry,
 } from './orchestrator-contract';
 export type {
   OrchestratorLoopStatus,
@@ -265,6 +269,22 @@ export type {
   OrchestratorScheduledLoopView,
   OrchestratorIndexView,
   OrchestratorSetScheduleParams,
+  OrchestratorQuestionChoiceView,
+  OrchestratorQuestionView,
+  OrchestratorAttentionInputView,
+  OrchestratorAttentionSuggestionView,
+  OrchestratorAttentionView,
+  OrchestratorProgressView,
+  OrchestratorUsageView,
+  OrchestratorPullRequestView,
+  OrchestratorBoardLoopView,
+  OrchestratorBoardIndexView,
+  OrchestratorInputAnswerView,
+  OrchestratorBoardEventView,
+  OrchestratorBoardAction,
+  OrchestratorBoardActionResult,
+  OrchestratorCoordinatorHandle,
+  OrchestratorRegistryEntryView,
 } from './orchestrator-contract';
 
 export type {

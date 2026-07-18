@@ -125,7 +125,7 @@ export class Coordinator {
    * Semantics live in event-delivery.ts; the seam keeps the coordinator the
    * only component that starts runs.
    */
-  fireEvent(event: OrchestratorEvent): Promise<void> {
+  fireEvent(event: OrchestratorEvent): Promise<number> {
     return broadcastEvent(this.host, this.runSeam(), event);
   }
 
@@ -182,6 +182,10 @@ export class Coordinator {
         return handleReflectAction(this.host, action);
       case 'answer_input':
         return this.answerInput(action);
+      case 'fire_event': {
+        const delivered = await this.fireEvent(action.event);
+        return { ok: true, delivered };
+      }
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);
       default: {

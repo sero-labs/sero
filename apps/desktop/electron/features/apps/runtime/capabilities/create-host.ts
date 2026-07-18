@@ -29,6 +29,7 @@ import {
 import {
   createPrFromWorktree,
   ensureRemoteDefaultBranch,
+  listOpenIssues,
   listOpenPullRequests,
   mergePrFromWorktree,
 } from '@electron/features/vcs/worktree/pull-request';
@@ -171,6 +172,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       pushBranch: pushWorktreeBranch,
       ensureRemoteDefaultBranch,
       listPullRequests: (cwd, options) => listOpenPullRequests(cwd, options),
+      listIssues: (cwd) => listOpenIssues(cwd),
       createPr: createPrFromWorktree,
       mergePr: mergePrFromWorktree,
       getPrMergeState: getPullRequestMergeState,

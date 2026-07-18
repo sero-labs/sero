@@ -22,6 +22,7 @@ export type Theme = 'dark' | 'light';
 
 export const BUILTIN_APPS: AppEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', builtin: true, manifest: null },
+  { id: 'board', label: 'Agent Board', icon: 'columns-3', builtin: true, manifest: null },
   { id: 'explorer', label: 'Explorer', icon: 'code', builtin: true, manifest: null },
 ];
 
