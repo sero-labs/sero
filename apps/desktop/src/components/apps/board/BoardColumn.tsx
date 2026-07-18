@@ -85,7 +85,7 @@ export const BoardColumn = memo(function BoardColumn({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${meta.countClass}`}
+            className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${meta.countClass}`}
           >
             {cards.length}
           </motion.span>

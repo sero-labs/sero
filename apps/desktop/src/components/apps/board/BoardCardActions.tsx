@@ -69,7 +69,7 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className={`text-[11px] ${error ? 'text-status-error' : 'text-[var(--text-muted)]'}`}
+            className={`text-sm ${error ? 'text-status-error' : 'text-[var(--text-muted)]'}`}
           >
             {error ?? notice}
             {notice?.includes('issue-implementer') && (
@@ -117,7 +117,7 @@ function renderLoopActions(
 
     return (
       <div className="flex flex-col gap-1.5 rounded-md bg-[var(--bg-elevated)]/60 p-2">
-        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{question.prompt}</p>
+        <p className="text-sm leading-snug text-[var(--text-secondary)]">{question.prompt}</p>
         {question.kind === 'approval' ? (
           <div className="flex gap-1.5">
             <ActionButton
@@ -157,7 +157,7 @@ function renderLoopActions(
                 if (e.key === 'Enter' && text.trim()) void answer(undefined, text.trim());
               }}
               placeholder="Answer…"
-              className="h-6 min-w-0 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+              className="h-6 min-w-0 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
             />
             <ActionButton
               tone="neutral"
@@ -176,7 +176,7 @@ function renderLoopActions(
   if (suggestion) {
     return (
       <div className="flex flex-col gap-1.5 rounded-md bg-[var(--bg-elevated)]/60 p-2">
-        <p className="flex items-start gap-1 text-[11px] leading-snug text-[var(--text-secondary)]">
+        <p className="flex items-start gap-1 text-sm leading-snug text-[var(--text-secondary)]">
           <Sparkles className="mt-0.5 size-3 shrink-0 text-status-info" />
           {suggestion.rationale}
         </p>
@@ -297,7 +297,7 @@ function ActionButton({
       whileTap={{ scale: 0.95 }}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium transition-colors disabled:opacity-50 ${toneClass}`}
+      className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-sm font-medium transition-colors disabled:opacity-50 ${toneClass}`}
     >
       {children}
     </motion.button>

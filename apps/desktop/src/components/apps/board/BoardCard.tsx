@@ -14,6 +14,7 @@ import {
   CircleDot,
   GitBranch,
   GitPullRequest,
+  ExternalLink,
   MessageSquare,
 } from 'lucide-react';
 import { useAgentBoardStore } from '@/stores/agent-board';
@@ -21,6 +22,8 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
+import { useBrowserStore } from '@/stores/browser';
+import { useExplorerStore } from '@/stores/explorer';
 import type { BoardColumnId } from '@/types/board';
 import {
   formatAge,
@@ -58,13 +61,11 @@ export const BoardCard = memo(function BoardCard({ card, columnId, nowMs }: Boar
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
       transition={CARD_SPRING}
-      whileHover={{ y: -2 }}
-      className={`group relative shrink-0 cursor-pointer overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-sm transition-shadow hover:shadow-md ${
+      className={`group relative shrink-0 overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-sm transition-shadow hover:shadow-md ${
         columnId === 'attention'
           ? 'border-status-warning-border bg-status-warning-faint'
           : 'border-[var(--border-subtle)]'
       }`}
-      onClick={() => openCard(card)}
     >
       <span
         aria-hidden
@@ -98,10 +99,11 @@ function LoopCardBody({
     <>
       <div className="flex items-start gap-2">
         {running ? <PulsingDot tone="var(--status-success)" /> : null}
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium leading-snug text-[var(--text-primary)]">
+        <h3 className="min-w-0 flex-1 truncate text-base font-medium leading-snug text-[var(--text-primary)]">
           {loop.title}
         </h3>
-        <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-muted)]">
+        <OpenCardButton card={card} />
+        <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
           {formatAge(loop.updatedAt, nowMs)}
         </span>
       </div>
@@ -116,7 +118,7 @@ function LoopCardBody({
       ) : null}
 
       {card.queuedReason && columnId === 'backlog' ? (
-        <p className="text-[11px] text-[var(--text-muted)]">
+        <p className="text-xs text-[var(--text-muted)]">
           {card.queuedReason === 'draft' && 'Draft — not yet activated'}
           {card.queuedReason === 'scheduled' && `Next run ${formatUntil(card.queuedAt, nowMs)}`}
           {card.queuedReason === 'snoozed' && `Snoozed — retries ${formatUntil(card.queuedAt, nowMs)}`}
@@ -150,7 +152,7 @@ function ChipRow({ card }: { card: BoardLoopCard }) {
   if (!hasChips) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-[10px] text-[var(--text-muted)]">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-xs text-[var(--text-muted)]">
       {loop.lastModel && (
         <span className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-medium text-[var(--text-secondary)]">
           {shortModel(loop.lastModel)}
@@ -182,7 +184,7 @@ function ChipRow({ card }: { card: BoardLoopCard }) {
           title={pr.title}
           onClick={(e) => {
             e.stopPropagation();
-            void window.sero.shell.openExternal(pr.url);
+            openInBrowser(card.workspaceId, pr.url);
           }}
           className="inline-flex items-center gap-0.5 rounded bg-status-info-muted px-1.5 py-0.5 font-medium text-status-info transition-colors hover:bg-status-info-subtle"
         >
@@ -209,11 +211,12 @@ function IssueCardBody({ card, nowMs }: { card: BoardIssueCard; nowMs: number })
     <>
       <div className="flex items-start gap-2">
         <CircleDot className="mt-0.5 size-3.5 shrink-0 text-status-success" />
-        <h3 className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-[var(--text-primary)]">
+        <h3 className="min-w-0 flex-1 text-base font-medium leading-snug text-[var(--text-primary)]">
           <span className="mr-1 text-[var(--text-muted)]">#{issue.number}</span>
           {issue.title}
         </h3>
-        <span className="shrink-0 text-[10px] tabular-nums text-[var(--text-muted)]">
+        <OpenCardButton card={card} />
+        <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
           {formatAge(issue.updatedAt, nowMs)}
         </span>
       </div>
@@ -223,7 +226,7 @@ function IssueCardBody({ card, nowMs }: { card: BoardIssueCard; nowMs: number })
           {issue.labels.slice(0, 4).map((label) => (
             <span
               key={label}
-              className="rounded-full bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
+              className="rounded-full bg-[var(--bg-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-secondary)]"
             >
               {label}
             </span>
@@ -242,13 +245,13 @@ function SessionCardBody({ card }: { card: BoardSessionCard }) {
     <>
       <div className="flex items-start gap-2">
         <PulsingDot tone="var(--status-success)" />
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium leading-snug text-[var(--text-primary)]">
+        <h3 className="min-w-0 flex-1 truncate text-base font-medium leading-snug text-[var(--text-primary)]">
           {card.title}
         </h3>
         <MessageSquare className="size-3.5 shrink-0 text-[var(--text-muted)]" />
       </div>
       <WorkspaceLine name={card.workspaceName} />
-      <p className="text-[11px] text-status-success">Live session — responding…</p>
+      <p className="text-xs text-status-success">Live session — responding…</p>
     </>
   );
 }
@@ -257,10 +260,10 @@ function SessionCardBody({ card }: { card: BoardSessionCard }) {
 
 function WorkspaceLine({ name, branch }: { name: string; branch?: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+    <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
       <span className="truncate">{name}</span>
       {branch && (
-        <span className="inline-flex min-w-0 items-center gap-0.5 truncate font-mono text-[10px]">
+        <span className="inline-flex min-w-0 items-center gap-0.5 truncate font-mono text-xs">
           <GitBranch className="size-2.5 shrink-0" />
           <span className="truncate">{branch}</span>
         </span>
@@ -300,7 +303,7 @@ function ActivityLine({ titles }: { titles: string[] }) {
         animate={{ x: ['-4rem', '18rem'] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: 'linear' }}
       />
-      <span className="relative truncate text-[11px] text-status-success">{label}</span>
+      <span className="relative truncate text-xs text-status-success">{label}</span>
     </div>
   );
 }
@@ -317,7 +320,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
         />
       </div>
-      <span className="text-[10px] tabular-nums text-[var(--text-muted)]">
+      <span className="text-xs tabular-nums text-[var(--text-muted)]">
         {done}/{total}
       </span>
     </div>
@@ -331,7 +334,30 @@ function shortModel(model: string): string {
 
 // ── Drilldown ───────────────────────────────────────────────
 
-/** Clicking a card lands the user where the work actually lives. */
+function OpenCardButton({ card }: { card: BoardLoopCard | BoardIssueCard }) {
+  const label = card.kind === 'loop' ? 'Open loop' : 'Open issue';
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={() => openCard(card)}
+      className="flex shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]"
+    >
+      <ExternalLink className="size-3" />
+    </button>
+  );
+}
+
+/** Opens web links in the card's workspace-scoped Explorer browser. */
+function openInBrowser(workspaceId: string, url: string): void {
+  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+  useAppStore.getState().setActiveApp('explorer');
+  useExplorerStore.getState().set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
+  useBrowserStore.getState().createTab(workspaceId, url);
+}
+
+/** Opens the work item that the link button explicitly targets. */
 function openCard(card: BoardCardModel): void {
   useWorkspaceStore.getState().setActiveWorkspace(card.workspaceId);
   if (card.kind === 'loop') {
@@ -339,7 +365,7 @@ function openCard(card: BoardCardModel): void {
     return;
   }
   if (card.kind === 'issue') {
-    void window.sero.shell.openExternal(card.issue.url);
+    openInBrowser(card.workspaceId, card.issue.url);
     return;
   }
   const info = useSessionStore.getState().sessions.find((s) => s.id === card.sessionId);
