@@ -130,6 +130,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
 - NEVER add unnecessary clutter to UI components
 - When giving instructions to manually review changes do so in simple unambiguous terms - no jargon or expectation of recent familiarity with the subject
+- After making changes to `packages/*` remind that the packages may need to be republished to npm
 
 ## File Size Rules (CRITICAL)
 
