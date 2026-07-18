@@ -261,8 +261,8 @@ export async function listOpenIssues(cwd: string): Promise<OpenIssueSummary[]> {
       number: issue.number,
       url: issue.url,
       title: issue.title,
-      labels: (issue.labels ?? []).map((l) => l.name ?? '').filter(Boolean),
-      assignees: (issue.assignees ?? []).map((a) => a.login ?? '').filter(Boolean),
+      labels: (issue.labels ?? []).flatMap((label) => label.name ? [label.name] : []),
+      assignees: (issue.assignees ?? []).flatMap((assignee) => assignee.login ? [assignee.login] : []),
       updatedAt: issue.updatedAt,
     }));
   } catch {

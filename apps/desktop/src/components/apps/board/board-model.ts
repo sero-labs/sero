@@ -82,16 +82,22 @@ export function isUnclaimedIssue(
   openPrs: AppRuntimePullRequestSummary[],
 ): boolean {
   if (issue.assignees.length > 0) return false;
-  return !openPrs.some((pr) => extractClosedIssueNumbers(pr.body).includes(issue.number));
+  const closedIssueNumbers = new Set(
+    openPrs.flatMap((pullRequest) => extractClosedIssueNumbers(pullRequest.body)),
+  );
+  return !closedIssueNumbers.has(issue.number);
 }
 
 /** The soonest upcoming fire across a loop's schedules (paused/exhausted excluded). */
 function nextScheduledFire(loop: OrchestratorBoardLoopView): string | undefined {
-  const fires = (loop.schedules ?? [])
-    .filter((s) => !s.paused && !s.exhausted && s.nextFireAt)
-    .map((s) => s.nextFireAt as string)
-    .sort();
-  return fires[0];
+  let nextFire: string | undefined;
+  for (const schedule of loop.schedules ?? []) {
+    if (!schedule.paused && !schedule.exhausted && schedule.nextFireAt
+      && (!nextFire || schedule.nextFireAt < nextFire)) {
+      nextFire = schedule.nextFireAt;
+    }
+  }
+  return nextFire;
 }
 
 /** Which column a loop belongs to. Null = not shown (disabled loops). */
@@ -114,9 +120,9 @@ function toLoopCard(
   nowMs: number,
 ): BoardLoopCard {
   const prNumbers = new Set((loop.pullRequests ?? []).map((pr) => pr.number));
-  const issueNumbers = openPrs
-    .filter((pr) => prNumbers.has(pr.number))
-    .flatMap((pr) => extractClosedIssueNumbers(pr.body));
+  const issueNumbers = openPrs.flatMap((pullRequest) =>
+    prNumbers.has(pullRequest.number) ? extractClosedIssueNumbers(pullRequest.body) : [],
+  );
   const card: BoardLoopCard = {
     kind: 'loop',
     key: `${workspace.id}:loop:${loop.id}`,

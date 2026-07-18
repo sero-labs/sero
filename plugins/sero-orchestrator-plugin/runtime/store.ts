@@ -141,9 +141,9 @@ export function diffRuns(prev: LoopRun[], next: LoopRun[]): RunsDiff {
 /** Titles of currently running steps — the Agent Board card's live activity line. */
 function toActiveStepTitles(loop: Loop): string[] | undefined {
   if (!loop.runtime.activeRunId) return undefined;
-  const titles = loop.plan.steps
-    .filter((step) => loop.runtime.stepStates[step.id]?.status === 'running')
-    .map((step) => step.title);
+  const titles = loop.plan.steps.flatMap((step) =>
+    loop.runtime.stepStates[step.id]?.status === 'running' ? [step.title] : [],
+  );
   return titles.length > 0 ? titles : undefined;
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { memo, useEffect, useMemo } from 'react';
-import { LayoutGroup, motion } from 'motion/react';
+import { domMax, LazyMotion, LayoutGroup, m } from 'motion/react';
 import { Columns3, RefreshCw } from 'lucide-react';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -18,7 +18,8 @@ import {
   type BoardSession,
   type BoardWorkspace,
 } from './board-model';
-import { BoardColumn, COLUMN_ORDER } from './BoardColumn';
+import { BoardColumn } from './BoardColumn';
+import { COLUMN_ORDER } from './board-constants';
 
 export const AgentBoard = memo(function AgentBoard() {
   const start = useAgentBoardStore((s) => s.start);
@@ -39,9 +40,11 @@ export const AgentBoard = memo(function AgentBoard() {
 
   const boardWorkspaces = useMemo<BoardWorkspace[]>(
     () =>
-      workspaces
-        .filter((ws) => ws.path && (!workspaceFilter || ws.id === workspaceFilter))
-        .map((ws) => ({ id: ws.id, name: ws.name, path: ws.path })),
+      workspaces.flatMap((workspace) =>
+        workspace.path && (!workspaceFilter || workspace.id === workspaceFilter)
+          ? [{ id: workspace.id, name: workspace.name, path: workspace.path }]
+          : [],
+      ),
     [workspaces, workspaceFilter],
   );
 
@@ -73,7 +76,8 @@ export const AgentBoard = memo(function AgentBoard() {
   const attentionCount = columns.attention.length;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-base)]">
+    <LazyMotion features={domMax}>
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-base)]">
       {/* Ambient top glow — brand-tinted, purely decorative. */}
       <div
         aria-hidden
@@ -85,7 +89,7 @@ export const AgentBoard = memo(function AgentBoard() {
       />
 
       <header className="relative z-10 flex flex-wrap items-center gap-3 px-5 pb-3 pt-4">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -103,11 +107,13 @@ export const AgentBoard = memo(function AgentBoard() {
               {attentionCount > 0 ? ` · ${attentionCount} need${attentionCount === 1 ? 's' : ''} you` : ''}
             </p>
           </div>
-        </motion.div>
+        </m.div>
 
         <div className="ml-auto flex items-center gap-1.5">
           <WorkspaceFilterChips
-            workspaces={workspaces.filter((ws) => ws.path).map((ws) => ({ id: ws.id, name: ws.name }))}
+            workspaces={workspaces.flatMap((workspace) =>
+              workspace.path ? [{ id: workspace.id, name: workspace.name }] : [],
+            )}
             selected={workspaceFilter}
             onSelect={setWorkspaceFilter}
           />
@@ -138,7 +144,8 @@ export const AgentBoard = memo(function AgentBoard() {
           </div>
         </LayoutGroup>
       </div>
-    </div>
+      </div>
+    </LazyMotion>
   );
 });
 
@@ -170,7 +177,7 @@ function WorkspaceFilterChips({ workspaces, selected, onSelect }: WorkspaceFilte
             }`}
           >
             {active && (
-              <motion.span
+              <m.span
                 layoutId="board-filter-pill"
                 className="absolute inset-0 rounded-full bg-[var(--bg-overlay)] ring-1 ring-[var(--border-default)]"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}

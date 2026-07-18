@@ -5,14 +5,13 @@
  */
 
 import { memo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import type { BoardColumnId } from '@/types/board';
 import type { BoardCard as BoardCardModel } from './board-model';
+import { COLUMN_ORDER } from './board-constants';
 import { BoardCard } from './BoardCard';
-
-export const COLUMN_ORDER: BoardColumnId[] = ['backlog', 'active', 'attention', 'done'];
 
 const COLUMN_META: Record<
   BoardColumnId,
@@ -61,7 +60,7 @@ export const BoardColumn = memo(function BoardColumn({
   const highlight = columnId === 'attention' && cards.length > 0;
 
   return (
-    <motion.section
+    <m.section
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.06, ease: 'easeOut' }}
@@ -79,7 +78,7 @@ export const BoardColumn = memo(function BoardColumn({
           {meta.label}
         </span>
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
+          <m.span
             key={cards.length}
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,24 +87,25 @@ export const BoardColumn = memo(function BoardColumn({
             className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${meta.countClass}`}
           >
             {cards.length}
-          </motion.span>
+          </m.span>
         </AnimatePresence>
-        <motion.span
+        <m.span
           animate={{ rotate: collapsed ? -90 : 0 }}
           transition={{ duration: 0.15 }}
           className="ml-auto text-[var(--text-muted)]"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AnimatePresence initial={false}>
         {!collapsed && (
-          <motion.div
+          <m.div
             key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="min-h-0 flex-1 overflow-hidden"
           >
@@ -121,9 +121,9 @@ export const BoardColumn = memo(function BoardColumn({
                 </div>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.section>
+    </m.section>
   );
 });

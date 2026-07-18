@@ -5,7 +5,7 @@
  */
 
 import { memo, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { openSeroApp } from '@sero-ai/app-runtime';
 import { ORCHESTRATOR_APP_ID } from '@sero-ai/common';
 import {
@@ -54,7 +54,7 @@ interface BoardCardProps {
 
 export const BoardCard = memo(function BoardCard({ card, columnId, nowMs }: BoardCardProps) {
   return (
-    <motion.article
+    <m.article
       layout
       layoutId={card.key}
       initial={{ opacity: 0, y: 14, scale: 0.97 }}
@@ -77,7 +77,7 @@ export const BoardCard = memo(function BoardCard({ card, columnId, nowMs }: Boar
         {card.kind === 'issue' && <IssueCardBody card={card} nowMs={nowMs} />}
         {card.kind === 'session' && <SessionCardBody card={card} />}
       </div>
-    </motion.article>
+    </m.article>
   );
 });
 
@@ -276,7 +276,7 @@ function WorkspaceLine({ name, branch }: { name: string; branch?: string }) {
 function PulsingDot({ tone }: { tone: string }) {
   return (
     <span className="relative mt-1 flex size-2 shrink-0">
-      <motion.span
+      <m.span
         aria-hidden
         className="absolute inline-flex h-full w-full rounded-full"
         style={{ background: tone }}
@@ -293,7 +293,7 @@ function ActivityLine({ titles }: { titles: string[] }) {
   const label = titles.length > 1 ? `${titles[0]} +${titles.length - 1} more` : titles[0];
   return (
     <div className="relative overflow-hidden rounded-md bg-status-success-faint px-2 py-1">
-      <motion.span
+      <m.span
         aria-hidden
         className="pointer-events-none absolute inset-y-0 w-16"
         style={{
@@ -313,10 +313,10 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--bg-muted)]">
-        <motion.div
-          className="h-full rounded-full bg-status-success"
+        <m.div
+          className="h-full w-full origin-left rounded-full bg-status-success"
           initial={false}
-          animate={{ width: `${pct}%` }}
+          animate={{ scaleX: pct / 100 }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
         />
       </div>

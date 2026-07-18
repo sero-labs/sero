@@ -6,7 +6,7 @@
  */
 
 import { useState, type MouseEvent } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { Check, CornerDownLeft, Play, RotateCcw, Sparkles, X } from 'lucide-react';
 import type { OrchestratorBoardAction } from '@sero-ai/common';
 import { openSeroApp } from '@sero-ai/app-runtime';
@@ -60,7 +60,7 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
   if (!body) return null;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -70,10 +70,11 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
       {body}
       <AnimatePresence>
         {(error ?? notice) && (
-          <motion.p
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+          <m.p
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className={`text-sm ${error ? 'text-status-error' : 'text-[var(--text-muted)]'}`}
           >
             {error ?? notice}
@@ -86,10 +87,10 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
                 Open Orchestrator
               </button>
             )}
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -302,7 +303,7 @@ function ActionButton({
         ? 'bg-status-error-muted text-status-error hover:bg-status-error-subtle'
         : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-overlay)]';
   return (
-    <motion.button
+    <m.button
       type="button"
       whileTap={{ scale: 0.95 }}
       disabled={disabled}
@@ -310,6 +311,6 @@ function ActionButton({
       className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-sm font-medium transition-colors disabled:opacity-50 ${toneClass}`}
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
