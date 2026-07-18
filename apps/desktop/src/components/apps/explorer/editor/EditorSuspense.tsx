@@ -1,7 +1,7 @@
 /**
  * EditorSuspense, shared boundary for lazily-loaded Monaco editors.
  *
- * Wraps a lazy Editor/DiffEditor in a spinner fallback plus an error boundary
+ * Wraps a lazy Editor in a spinner fallback plus an error boundary
  * so a chunk-load failure or Monaco render error stays contained to the editor
  * pane (and auto-recovers stale chunks) instead of blanking the whole app.
  */

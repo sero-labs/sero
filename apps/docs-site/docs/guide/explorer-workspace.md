@@ -89,8 +89,13 @@ Explorer's main area can show several kinds of tabs:
 - dev-server previews for known local servers
 - revision-based Git diff views
 
-The diff view is designed around comparing Git revisions and changed files. Do
-not treat it as a complete arbitrary file-comparison product.
+The diff view shows the whole changeset in one scrollable view, with sticky
+file headers and unchanged regions collapsed by default. A file tree sidebar
+lists every changed file with its Git status, and you can search the list or
+click a file to jump to it. A split/unified toggle switches how each file's
+changes are laid out. It is designed around comparing Git revisions and
+changed files — do not treat it as a complete arbitrary file-comparison
+product.
 
 The editor view is the normal path for reading and changing text files in the
 active workspace.

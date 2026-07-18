@@ -1,37 +1,23 @@
 /**
- * DiffTab, Monaco DiffEditor for comparing file contents between revisions.
+ * DiffTab — revision-to-revision changeset viewer built on @pierre/diffs.
  *
- * Renders a side-by-side (or inline) diff view with full syntax highlighting,
- * char-level diff decorations, and minimap.
- *
- * The DiffEditor is keyed on `activePath` so React fully unmounts/remounts it
- * on file switch, this avoids Monaco's "TextModel got disposed before
- * DiffEditorWidget model got reset" error that happens when swapping models
- * on a live widget.
+ * Shows every changed file in one scrollable view with sticky file headers.
+ * The sidebar lists changed files; clicking one scrolls the changeset to it.
  */
 
-import { lazy, useEffect, useState, useCallback, useRef } from 'react';
-import type { RefObject } from 'react';
-import type { editor as MonacoEditor } from 'monaco-editor';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  FileText,
-  Columns2,
-  Rows2,
-  Loader2,
-} from 'lucide-react';
-import { cn } from '@sero-ai/ui/lib/utils';
+import { FileText, Columns2, Rows2, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
-import { registerCustomEditorThemes, resolveMonacoThemeName } from './monaco-themes';
-import { EditorSuspense } from './EditorSuspense';
 import type { FileDiffEntry } from '@sero-ai/common';
-import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
+import { WORKING_TREE_REV } from '@sero-ai/common';
+import { DiffChangeset, type DiffChangesetHandle, type DiffStyle } from './DiffChangeset';
+import { DiffFileNavigator } from './DiffFileNavigator';
 
-const DiffEditor = lazy(async () => {
-  const { DiffEditor: MonacoDiffEditor } = await import('@monaco-editor/react');
-  return { default: MonacoDiffEditor };
-});
+function revLabel(rev: string): string {
+  return rev === WORKING_TREE_REV ? 'working tree' : rev.slice(0, 8);
+}
 
 export interface DiffTabState {
   type: 'diff';
@@ -49,33 +35,29 @@ export function DiffTab({ state }: Props) {
   const { workspaceId, fromRev, toRev, initialPath } = state;
   const effectiveMode = useThemeStore((s) => s.effectiveMode);
   const editorThemeId = useAppStore((s) => s.editorThemeId);
-  const monacoThemeName = resolveMonacoThemeName(editorThemeId, effectiveMode);
 
-  const [files, setFiles] = useState<FileDiffEntry[]>([]);
-  const [activePath, setActivePath] = useState<string | null>(initialPath ?? null);
-  const [loading, setLoading] = useState(true);
-  const [sideBySide, setSideBySide] = useState(true);
+  const [files, setFiles] = useState<FileDiffEntry[] | null>(null);
+  const [diffStyle, setDiffStyle] = useState<DiffStyle>('split');
   const [navOpen, setNavOpen] = useState(true);
+  const changesetRef = useRef<DiffChangesetHandle>(null);
 
-  // Load file list
+  // Load the changed-file list for the revision pair.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setFiles(null);
     window.sero.vcs
       .fileDiffSummary(workspaceId, fromRev, toRev)
-      .then((f) => {
-        if (cancelled) return;
-        setFiles(f);
-        setActivePath((currentPath) => currentPath ?? f[0]?.path ?? null);
-        setLoading(false);
-      })
-      .catch(() => { if (!cancelled) setLoading(false); });
+      .then((f) => { if (!cancelled) setFiles(f); })
+      .catch(() => { if (!cancelled) setFiles([]); });
     return () => { cancelled = true; };
   }, [workspaceId, fromRev, toRev]);
 
-  const language = activePath ? langFromPath(activePath) : 'plaintext';
+  // Stable — DiffFileNavigator captures this once at tree-model creation.
+  const selectFile = useCallback((path: string) => {
+    changesetRef.current?.scrollToFile(path);
+  }, []);
 
-  if (loading) {
+  if (files === null) {
     return (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
         <Loader2 className="size-5 animate-spin text-[var(--text-muted)]" />
@@ -95,24 +77,23 @@ export function DiffTab({ state }: Props) {
           <FileText className="size-3.5" />
         </button>
         <span className="text-sm text-[var(--text-muted)]">
-          {activePath ? basename(activePath) : 'No files'}
+          {files.length === 1 ? '1 file changed' : `${files.length} files changed`}
         </span>
         <span className="text-sm text-[var(--text-muted)]/40">
-          {fromRev.slice(0, 8)} → {toRev.slice(0, 8)}
+          {revLabel(fromRev)} → {revLabel(toRev)}
         </span>
         <span className="flex-1" />
         <button type="button"
-          onClick={() => setSideBySide((v) => !v)}
-          title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
+          onClick={() => setDiffStyle((v) => (v === 'split' ? 'unified' : 'split'))}
+          title={diffStyle === 'split' ? 'Unified diff' : 'Side-by-side diff'}
           className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         >
-          {sideBySide ? <Rows2 className="size-3.5" /> : <Columns2 className="size-3.5" />}
+          {diffStyle === 'split' ? <Rows2 className="size-3.5" /> : <Columns2 className="size-3.5" />}
         </button>
       </div>
 
-      {/* ── Body: file nav + diff editor ──────────────────── */}
+      {/* ── Body: file nav + changeset ────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        {/* File navigator */}
         <AnimatePresence>
           {navOpen && files.length > 1 && (
             <motion.div
@@ -120,48 +101,33 @@ export function DiffTab({ state }: Props) {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -16, opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-[180px] shrink-0 overflow-hidden border-r border-[var(--border-subtle)]"
+              className="w-[220px] shrink-0 overflow-hidden border-r border-[var(--border-subtle)]"
             >
-              <div className="h-full w-[180px] overflow-y-auto py-1">
-                {files.map((f) => (
-                  <button type="button"
-                    key={f.path}
-                    onClick={() => setActivePath(f.path)}
-                    className={cn(
-                      'flex w-full items-center gap-1.5 px-2 py-0.5 text-left',
-                      'transition-colors duration-75',
-                      'hover:bg-[var(--bg-elevated)]/60',
-                      activePath === f.path && 'bg-[var(--bg-elevated)]',
-                    )}
-                  >
-                    <span className={cn('w-3 shrink-0 text-center text-sm font-bold', statusColor(f.status))}>
-                      {statusCode(f.status)}
-                    </span>
-                    <span className={cn(
-                      'min-w-0 truncate text-sm',
-                      activePath === f.path ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
-                    )}>
-                      {basename(f.path)}
-                    </span>
-                  </button>
-                ))}
+              <div className="h-full w-[220px] py-1">
+                <DiffFileNavigator
+                  key={`${workspaceId}:${fromRev}:${toRev}`}
+                  files={files}
+                  initialPath={initialPath}
+                  onSelectFile={selectFile}
+                />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Keyed DiffEditor, remounts cleanly per file */}
         <div className="min-w-0 flex-1">
-          {activePath ? (
-            <DiffFileView
-              key={activePath}
+          {files.length > 0 ? (
+            <DiffChangeset
+              key={`${workspaceId}:${fromRev}:${toRev}`}
+              ref={changesetRef}
               workspaceId={workspaceId}
               fromRev={fromRev}
               toRev={toRev}
-              path={activePath}
-              language={language}
-              theme={monacoThemeName}
-              sideBySide={sideBySide}
+              files={files}
+              diffStyle={diffStyle}
+              editorThemeId={editorThemeId}
+              themeType={effectiveMode}
+              initialPath={initialPath}
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -172,104 +138,4 @@ export function DiffTab({ state }: Props) {
       </div>
     </div>
   );
-}
-
-// ── Per-file diff viewer (keyed, owns its own content loading) ──
-
-function DiffFileView({
-  workspaceId,
-  fromRev,
-  toRev,
-  path,
-  language,
-  theme,
-  sideBySide,
-}: {
-  workspaceId: string;
-  fromRev: string;
-  toRev: string;
-  path: string;
-  language: string;
-  theme: string;
-  sideBySide: boolean;
-}) {
-  const [left, setLeft] = useState<string | null>(null);
-  const [right, setRight] = useState<string | null>(null);
-  const modelRefs = useRef<{
-    original: MonacoEditor.ITextModel | null;
-    modified: MonacoEditor.ITextModel | null;
-  }>({ original: null, modified: null });
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      window.sero.vcs.fileContent(workspaceId, fromRev, path).catch(() => ''),
-      window.sero.vcs.fileContent(workspaceId, toRev, path).catch(() => ''),
-    ]).then(([l, r]) => {
-      if (!cancelled) { setLeft(l); setRight(r); }
-    });
-    return () => { cancelled = true; };
-  }, [workspaceId, fromRev, toRev, path]);
-
-  useEffect(() => {
-    return () => {
-      disposeDiffModels(modelRefs);
-    };
-  }, []);
-
-  const handleDiffMount = useCallback((editor: MonacoEditor.IStandaloneDiffEditor) => {
-    const model = editor.getModel();
-    modelRefs.current = {
-      original: model?.original ?? null,
-      modified: model?.modified ?? null,
-    };
-  }, []);
-
-  if (left === null || right === null) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
-      </div>
-    );
-  }
-
-  return (
-    <EditorSuspense>
-      <DiffEditor
-        original={left}
-        modified={right}
-        language={language}
-        theme={theme}
-        beforeMount={registerCustomEditorThemes}
-        onMount={handleDiffMount}
-        keepCurrentOriginalModel
-        keepCurrentModifiedModel
-        options={{
-          readOnly: true,
-          renderSideBySide: sideBySide,
-          minimap: { enabled: true },
-          scrollBeyondLastLine: false,
-          fontSize: 12,
-          lineNumbers: 'on',
-          renderOverviewRuler: true,
-          diffWordWrap: 'on',
-        }}
-      />
-    </EditorSuspense>
-  );
-}
-
-function disposeDiffModels(refs: RefObject<{
-  original: MonacoEditor.ITextModel | null;
-  modified: MonacoEditor.ITextModel | null;
-}>) {
-  const { original, modified } = refs.current;
-  refs.current = { original: null, modified: null };
-  if (!original && !modified) return;
-
-  // Defer model disposal until after DiffEditor has fully unmounted.
-  setTimeout(() => {
-    try { original?.dispose(); } catch {}
-    try { modified?.dispose(); } catch {}
-  }, 0);
 }

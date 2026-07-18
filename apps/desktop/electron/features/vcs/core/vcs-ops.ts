@@ -36,6 +36,10 @@ import type {
   SyncResult,
   WorkingCopyStatus,
 } from '@sero-ai/common';
+import { WORKING_TREE_REV } from '@sero-ai/common';
+
+/** git's well-known empty tree object — the base every root commit diffs against. */
+const EMPTY_TREE_REV = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export class VcsOps {
   constructor(private readonly runner: GitRunner) {}
@@ -68,13 +72,53 @@ export class VcsOps {
     from: string,
     to?: string,
   ): Promise<FileDiffEntry[]> {
-    const args = to
-      ? ['diff', '--name-status', `${from}..${to}`]
-      : ['diff', '--name-status', from];
+    const fromRev = await this.resolveDiffBase(workspaceId, from);
+    if (to && to !== WORKING_TREE_REV) {
+      const result = await this.runner.run(workspaceId, ['diff', '--name-status', `${fromRev}..${to}`]);
+      if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get diff summary');
+      return parseDiffSummary(result.stdout);
+    }
+    return this.getWorkingTreeDiffSummary(workspaceId, fromRev);
+  }
 
-    const result = await this.runner.run(workspaceId, args);
-    if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get diff summary');
-    return parseDiffSummary(result.stdout);
+  /**
+   * Diff a commit against the working tree. `git diff <rev>` alone misses
+   * untracked files, so merge them in from `git status` (`-uall` expands
+   * untracked directories into their files).
+   */
+  private async getWorkingTreeDiffSummary(
+    workspaceId: string,
+    fromRev: string,
+  ): Promise<FileDiffEntry[]> {
+    const [diff, status] = await Promise.all([
+      this.runner.run(workspaceId, ['diff', '--name-status', fromRev]),
+      this.runner.run(workspaceId, ['status', '--porcelain', '-uall']),
+    ]);
+    if (diff.exitCode !== 0) throw new Error(diff.stderr || 'Failed to get diff summary');
+    if (status.exitCode !== 0) throw new Error(status.stderr || 'Failed to get status');
+
+    const entries = parseDiffSummary(diff.stdout);
+    const seen = new Set(entries.map((entry) => entry.path));
+    for (const file of parseStatus(status.stdout).files) {
+      if (seen.has(file.path)) continue;
+      entries.push({ path: file.path, status: file.status, oldPath: file.oldPath });
+    }
+    return entries;
+  }
+
+  /**
+   * Resolve the base revision of a diff. A root commit has no parent, so
+   * `<rev>^` doesn't resolve — fall back to git's empty tree, which diffs
+   * the first commit as all-added.
+   */
+  private async resolveDiffBase(workspaceId: string, rev: string): Promise<string> {
+    const result = await this.runner.run(workspaceId, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${rev}^{commit}`,
+    ]);
+    return result.exitCode === 0 ? rev : EMPTY_TREE_REV;
   }
 
   async getFileContent(

@@ -38,6 +38,9 @@ export function useExplorerEditorState(workspaceId: string) {
   // workspace transitions don't apply stale results to the new workspace.
   useEffect(() => {
     editorReadyRef.current = false;
+    // A diff tab belongs to the workspace it was opened in — close it so it
+    // can't render another workspace's changes over this one.
+    setDiffState(null);
     let cancelled = false;
 
     (async () => {
