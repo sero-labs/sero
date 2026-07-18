@@ -54,8 +54,8 @@ The shell centers around:
 ├──────────────┬──────────────────────────────┬────────────────┤
 │ Main sidebar │ Active app area              │ Global chat    │
 │              │                              │ panel          │
-│ Apps         │ Dashboard / Explorer /       │ Pi-backed      │
-│ Workspaces   │ Plugin UI                    │ session        │
+│ Apps         │ Dashboard / Agent Board /    │ Pi-backed      │
+│ Workspaces   │ Explorer / Plugin UI         │ session        │
 │ Sessions     │                              │                │
 ├──────────────┴──────────────────────────────┴────────────────┤
 │ Status bar: workspace/runtime/session state, zoom control     │

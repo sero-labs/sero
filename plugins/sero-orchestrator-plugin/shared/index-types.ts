@@ -8,7 +8,11 @@
  * specs/09-ui-redesign.md). Type-only imports keep the re-export cycle harmless.
  */
 
-import type { OrchestratorScheduledLoopView, OrchestratorScheduleSummary } from '@sero-ai/common';
+import type {
+  OrchestratorBoardLoopView,
+  OrchestratorPullRequestView,
+  OrchestratorScheduleSummary,
+} from '@sero-ai/common';
 import type {
   CompletionSignal,
   LoopRunStatus,
@@ -37,10 +41,11 @@ export interface LoopProgress {
 /**
  * Lightweight per-loop entry for the watched index (drives the loop list + home).
  * Extends the cross-plugin view contract (@sero-ai/common orchestrator-contract)
- * that external surfaces like the Scheduler app read, so drifting from it fails
- * typecheck here.
+ * that external surfaces — the Scheduler app (`OrchestratorScheduledLoopView`)
+ * and the shell's Agent Board (`OrchestratorBoardLoopView`) — read, so drifting
+ * from it fails typecheck here.
  */
-export interface LoopSummary extends OrchestratorScheduledLoopView {
+export interface LoopSummary extends OrchestratorBoardLoopView {
   id: string;
   title: string;
   status: LoopStatus;
@@ -60,6 +65,19 @@ export interface LoopSummary extends OrchestratorScheduledLoopView {
    * loop is waiting on the user.
    */
   attention?: LoopAttention;
+  /** Lifetime token/cost roll-up across all runs — drives the board card stats. */
+  usage?: UsageSummary;
+  /** Titles of currently running steps — the board card's live activity line. */
+  activeStepTitles?: string[];
+  /** Model of the most recent step attempt that reported one — the board's model chip. */
+  lastModel?: string;
+  /** Branch of the loop's resolved workspace (worktree or workspace root). */
+  branchName?: string;
+  /** Absolute path of the loop's checkout (worktree or workspace root) — feeds the board's diff stat. */
+  checkoutPath?: string;
+  /** Open PRs attributed to this loop (compact chip data). */
+  pullRequests?: OrchestratorPullRequestView[];
+  lastRunAt?: string;
   /** Library link, when loaded from / saved to the Library — drives the update badge. */
   libraryLink?: LoopLibraryLink;
   createdAt: string;

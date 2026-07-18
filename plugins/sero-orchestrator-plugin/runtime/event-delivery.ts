@@ -29,15 +29,28 @@ export interface CoordinatorRunSeam {
   runNext(loopId: string, known?: Loop): Promise<OrchestratorActionResult>;
 }
 
-/** Broadcasts one event to every active loop with a matching trigger. */
+/** Outcome of one broadcast — lets callers distinguish "nobody listened" from "dropped as duplicate". */
+export interface EventBroadcast {
+  /** How many loops accepted a fire (0 ⇒ nothing subscribed/matched). */
+  delivered: number;
+  /** The event's dedupeKey was already delivered, so the broadcast was dropped. */
+  deduped: boolean;
+}
+
+/**
+ * Broadcasts one event to every active loop with a matching trigger.
+ * Callers like the Agent Board's "Start work" use the outcome to tell the user
+ * when an event landed nowhere versus when it was a duplicate.
+ */
 export async function broadcastEvent(
   host: OrchestratorHost,
   seam: CoordinatorRunSeam,
   event: OrchestratorEvent,
-): Promise<void> {
-  if (await alreadyDelivered(host, event)) return;
+): Promise<EventBroadcast> {
+  if (await alreadyDelivered(host, event)) return { delivered: 0, deduped: true };
   const state = await host.readState();
-  if (!state) return;
+  if (!state) return { delivered: 0, deduped: false };
+  let delivered = 0;
   const nowMs = Date.parse(host.now());
   for (const loop of state.loops) {
     if (loop.status !== 'active') continue;
@@ -62,8 +75,12 @@ export async function broadcastEvent(
       }
       passing.push(trigger.id);
     }
-    if (passing.length > 0) await deliverEventFire(host, seam, loop.id, passing, event);
+    if (passing.length > 0) {
+      await deliverEventFire(host, seam, loop.id, passing, event);
+      delivered += 1;
+    }
   }
+  return { delivered, deduped: false };
 }
 
 /**

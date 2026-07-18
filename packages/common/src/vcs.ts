@@ -49,6 +49,13 @@ export interface FileDiffEntry {
   oldPath?: string;
 }
 
+/** Aggregate diff counts of a checkout's branch work vs its base (`git diff --shortstat`). */
+export interface GitDiffStat {
+  files: number;
+  additions: number;
+  deletions: number;
+}
+
 export interface BookmarkRemoteStatus {
   remote: string;
   synced: boolean;

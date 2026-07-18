@@ -5,6 +5,7 @@ import { hydrateThemeStore, useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
+import { useAgentBoardStore } from '@/stores/agent-board';
 import { seedNavigationHistory } from '@/stores/navigation';
 import { hydrateZoom } from '@/stores/zoom';
 import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
@@ -90,6 +91,9 @@ export async function loadLayout(): Promise<void> {
 
       // Hydrate Explorer panel sizes and visibility per workspace.
       useExplorerStore.getState().hydrate(state.explorerLayout);
+
+      // Hydrate Agent Board preferences.
+      useAgentBoardStore.getState().hydrate(state.boardLayout);
 
       return;
     }

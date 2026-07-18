@@ -32,6 +32,11 @@ import type {
   PullRequestDraft,
   CreatePullRequestInput,
   CreatePullRequestResult,
+  GitDiffStat,
+  AppRuntimeIssueSummary,
+  AppRuntimePullRequestSummary,
+  OrchestratorBoardAction,
+  OrchestratorBoardActionResult,
 } from '@sero-ai/common';
 
 export interface SeroWorkspaceAPI {
@@ -217,4 +222,22 @@ export interface SeroVcsAPI {
   abandon(wsId: string, changeId: string): Promise<void>;
   squash(wsId: string, from?: string, into?: string): Promise<void>;
   opLog(wsId: string, limit?: number): Promise<OperationEntry[]>;
+
+  // ── Repo-scoped gh reads (Agent Board) — fail-soft to [] ──
+  issues(wsId: string): Promise<AppRuntimeIssueSummary[]>;
+  openPrs(wsId: string): Promise<AppRuntimePullRequestSummary[]>;
+  /** Aggregate +adds −dels of a checkout's branch work vs its base. Null when not a repo. */
+  diffStat(checkoutPath: string): Promise<GitDiffStat | null>;
+}
+
+export interface SeroOrchestratorAPI {
+  /**
+   * Route an Agent Board action to a workspace's orchestrator coordinator.
+   * Fails with a clear error when the workspace has no coordinator loaded
+   * (workspace not open) — the board renders that as "open workspace to act".
+   */
+  requestAction(
+    workspaceId: string,
+    action: OrchestratorBoardAction,
+  ): Promise<OrchestratorBoardActionResult>;
 }

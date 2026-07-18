@@ -8,7 +8,7 @@
  * unchanged loop's file is never rewritten when another loop changes.
  */
 
-import type { OrchestratorScheduleSummary } from '@sero-ai/common';
+import type { OrchestratorPullRequestView, OrchestratorScheduleSummary } from '@sero-ai/common';
 import type {
   Loop,
   LoopAttention,
@@ -18,6 +18,7 @@ import type {
   OrchestratorIndex,
   OrchestratorState,
   RunIndex,
+  UsageSummary,
 } from '../shared/types';
 import { aggregateUsage } from '../shared/usage';
 import { isExhausted } from './scheduler';
@@ -137,6 +138,38 @@ export function diffRuns(prev: LoopRun[], next: LoopRun[]): RunsDiff {
   return { changed, removedIds, indexChanged: changed.length > 0 || removedIds.length > 0 };
 }
 
+/** Titles of currently running steps — the Agent Board card's live activity line. */
+function toActiveStepTitles(loop: Loop): string[] | undefined {
+  if (!loop.runtime.activeRunId) return undefined;
+  const titles = loop.plan.steps.flatMap((step) =>
+    loop.runtime.stepStates[step.id]?.status === 'running' ? [step.title] : [],
+  );
+  return titles.length > 0 ? titles : undefined;
+}
+
+/** Lifetime usage roll-up: sums the per-run roll-ups across all runs. */
+function toLifetimeUsage(loop: Loop): UsageSummary | undefined {
+  return aggregateUsage(loop.runs.map((run) => ({ usage: aggregateUsage(run.stepAttempts) })));
+}
+
+/** Model of the most recent step attempt that reported one. */
+function toLastModel(loop: Loop): string | undefined {
+  for (let r = loop.runs.length - 1; r >= 0; r -= 1) {
+    const attempts = loop.runs[r].stepAttempts;
+    for (let a = attempts.length - 1; a >= 0; a -= 1) {
+      if (attempts[a].model) return attempts[a].model;
+    }
+  }
+  return undefined;
+}
+
+/** Open PRs attributed to this loop, slimmed to chip data. */
+function toPullRequests(loop: Loop): OrchestratorPullRequestView[] | undefined {
+  const prs = loop.runtime.pullRequests;
+  if (!prs?.length) return undefined;
+  return prs.map((pr) => ({ number: pr.number, url: pr.url, title: pr.title }));
+}
+
 export function toSummary(loop: Loop): LoopSummary {
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
   const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
@@ -152,6 +185,13 @@ export function toSummary(loop: Loop): LoopSummary {
     attention: toAttention(loop),
     schedules: toSchedules(loop),
     snoozedUntil: loop.runtime.snoozedUntil,
+    usage: toLifetimeUsage(loop),
+    activeStepTitles: toActiveStepTitles(loop),
+    lastModel: toLastModel(loop),
+    branchName: loop.runtime.workspace.resolved?.branchName,
+    checkoutPath: loop.runtime.workspace.resolved?.cwd,
+    pullRequests: toPullRequests(loop),
+    lastRunAt: loop.runtime.lastRunAt,
     libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,
     updatedAt: loop.updatedAt,

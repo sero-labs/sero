@@ -29,6 +29,7 @@ export type {
   AppRuntimeMergePullRequestResult,
   AppRuntimePullRequestMergeState,
   AppRuntimePullRequestSummary,
+  AppRuntimeIssueSummary,
   AppRuntimeWorkspaceStatusResult,
   AppRuntimeDirtyWorkspaceStashResult,
   AppRuntimeGitApi,

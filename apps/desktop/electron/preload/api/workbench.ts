@@ -1,11 +1,14 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
+  AppRuntimeIssueSummary,
+  AppRuntimePullRequestSummary,
   Bookmark,
   ChangeEntry,
   CreatePullRequestInput,
   CreatePullRequestResult,
   FileDiffEntry,
+  GitDiffStat,
   OperationEntry,
   PullRequestDraft,
   PullRequestPreview,
@@ -115,6 +118,12 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.squash, workspaceId, from, into),
   opLog: (workspaceId: string, limit?: number): Promise<OperationEntry[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.opLog, workspaceId, limit),
+  issues: (workspaceId: string): Promise<AppRuntimeIssueSummary[]> =>
+    ipcRenderer.invoke(IpcChannels.vcs.issues, workspaceId),
+  openPrs: (workspaceId: string): Promise<AppRuntimePullRequestSummary[]> =>
+    ipcRenderer.invoke(IpcChannels.vcs.openPrs, workspaceId),
+  diffStat: (checkoutPath: string): Promise<GitDiffStat | null> =>
+    ipcRenderer.invoke(IpcChannels.vcs.diffStat, checkoutPath),
 };
 
 export const terminalBridge = {

@@ -14,7 +14,7 @@ bundled Sero features.
 
 Sero has a few app/plugin categories that users should keep separate:
 
-- **Core shell apps** such as Dashboard and Explorer are built into the desktop
+- **Core shell apps** such as Dashboard, Agent Board, and Explorer are built into the desktop
   shell and are always present.
 - **Bundled plugin apps** live in the Sero monorepo and ship with the local
   source checkout. They may appear through the same discovered-app/favorites path
@@ -63,7 +63,7 @@ host supports. Discovered apps are not all shown by default.
 
 Favorites are a convenience for keeping frequent plugin apps close at hand:
 
-- core shell apps such as Dashboard and Explorer are always available and are not
+- core shell apps such as Dashboard, Agent Board, and Explorer are always available and are not
   favorited/unfavorited the same way plugin-backed apps are
 - bundled plugin apps may be seeded as favorites and can be removed from the
   sidebar without being uninstalled from Sero

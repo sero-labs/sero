@@ -75,6 +75,16 @@ export interface AppRuntimePullRequestSummary {
   body?: string;
 }
 
+/** An open issue in this workspace's repo (from `gh issue list`). */
+export interface AppRuntimeIssueSummary {
+  number: number;
+  url: string;
+  title: string;
+  labels: string[];
+  assignees: string[];
+  updatedAt: string;
+}
+
 export interface AppRuntimeWorkspaceStatusResult {
   isGitRepository: boolean;
   hasUncommittedChanges: boolean;
@@ -138,6 +148,12 @@ export interface AppRuntimeGitApi {
     workspacePath: string,
     options?: { author?: string },
   ): Promise<AppRuntimePullRequestSummary[]>;
+  /**
+   * Lists open issues in this workspace's repo (repo-scoped, `gh issue list`).
+   * Fail-soft to `[]` when `gh`, the remote, or issues are absent — a workspace
+   * without a GitHub remote simply contributes no issue cards.
+   */
+  listIssues(workspacePath: string): Promise<AppRuntimeIssueSummary[]>;
   createPr(
     worktreePath: string,
     options: AppRuntimeCreatePullRequestOptions,

@@ -25,6 +25,7 @@ import { useDashboardStore } from '@/stores/dashboard';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
 import { useZoomStore } from '@/stores/zoom';
+import { useAgentBoardStore } from '@/stores/agent-board';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -72,6 +73,10 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       partial.activeBrowserTabIds ?? useBrowserStore.getState().activeTabIds,
     browserBookmarks: partial.browserBookmarks ?? useBrowserStore.getState().bookmarks,
     explorerLayout: partial.explorerLayout ?? useExplorerStore.getState().ui,
+    boardLayout: partial.boardLayout ?? {
+      collapsedColumns: useAgentBoardStore.getState().collapsedColumns,
+      workspaceFilter: useAgentBoardStore.getState().workspaceFilter,
+    },
   };
 }
 

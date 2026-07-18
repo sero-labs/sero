@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
@@ -6,6 +8,8 @@ import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
+import { listOpenIssues, listOpenPullRequests } from '@electron/features/vcs/worktree/pull-request';
+import { getWorktreeDiffStat } from '@electron/features/vcs/worktree/git';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 const Ch = IpcChannels.vcs;
@@ -190,4 +194,27 @@ export function registerVcsHandlers(): void {
   ipcMain.handle(Ch.opLog, async (_e, wsId: string, limit?: number) =>
     vcsOps.getOperationLog(wsId, limit ?? 20),
   );
+
+  // ── Repo-scoped gh reads (Agent Board) ────────────────────
+  // Fail-soft to [] inside the helpers; a workspace without a GitHub remote
+  // or gh auth simply contributes nothing.
+
+  ipcMain.handle(Ch.issues, async (_e, wsId: string) => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    return workspacePath ? listOpenIssues(workspacePath) : [];
+  });
+
+  ipcMain.handle(Ch.openPrs, async (_e, wsId: string) => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    return workspacePath ? listOpenPullRequests(workspacePath) : [];
+  });
+
+  ipcMain.handle(Ch.diffStat, async (_e, checkoutPath: string) => {
+    // Renderer-supplied path: only serve checkouts inside a registered
+    // workspace (the root itself or a worktree under it, e.g. .sero/worktrees).
+    const resolved = path.resolve(checkoutPath);
+    const roots = (await workspaceManager.list()).map((ws) => ws.path);
+    const known = roots.some((root) => resolved === root || resolved.startsWith(root + path.sep));
+    return known ? getWorktreeDiffStat(resolved) : null;
+  });
 }

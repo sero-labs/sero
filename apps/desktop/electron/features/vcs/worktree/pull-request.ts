@@ -227,6 +227,49 @@ export async function listOpenPullRequests(
   }
 }
 
+export interface OpenIssueSummary {
+  number: number;
+  url: string;
+  title: string;
+  labels: string[];
+  assignees: string[];
+  updatedAt: string;
+}
+
+/**
+ * Lists open issues in `cwd`'s repo via `gh` — the twin of `listOpenPullRequests`.
+ * `gh` returns labels/assignees as objects; they are flattened to names here so
+ * consumers get plain strings. Fail-soft to `[]` like the sibling helpers.
+ */
+export async function listOpenIssues(cwd: string): Promise<OpenIssueSummary[]> {
+  // Explicit cap (gh defaults to a silent 30): the board renders at most a
+  // screenful of backlog issues, and gh returns the most recently updated first.
+  const args = ['issue', 'list', '--state', 'open', '--limit', '50',
+    '--json', 'number,url,title,labels,assignees,updatedAt'];
+  try {
+    const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });
+    const parsed = JSON.parse(r.stdout) as Array<{
+      number: number;
+      url: string;
+      title: string;
+      labels?: Array<{ name?: string }>;
+      assignees?: Array<{ login?: string }>;
+      updatedAt: string;
+    }>;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((issue) => ({
+      number: issue.number,
+      url: issue.url,
+      title: issue.title,
+      labels: (issue.labels ?? []).flatMap((label) => label.name ? [label.name] : []),
+      assignees: (issue.assignees ?? []).flatMap((assignee) => assignee.login ? [assignee.login] : []),
+      updatedAt: issue.updatedAt,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function createPrFromWorktree(
   worktreePath: string,
   opts: { title: string; body: string; baseBranch?: string; draft?: boolean },

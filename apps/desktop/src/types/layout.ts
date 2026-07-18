@@ -8,6 +8,7 @@
 
 import type { DashboardLayoutState } from './dashboard';
 import type { BrowserBookmark, BrowserTab } from './browser';
+import type { BoardLayoutState } from './board';
 
 export interface PersistedWorkspaceExplorerLayout {
   sidebarOpen?: boolean;
@@ -66,6 +67,8 @@ export interface LayoutState {
   hiddenProviders?: string[];
   /** Dashboard widget grid layout. */
   dashboardLayout?: DashboardLayoutState;
+  /** Agent Board preferences (collapsed columns, workspace filter). */
+  boardLayout?: BoardLayoutState;
   /** Open browser tabs (restored on app start). */
   browserTabs?: PersistedBrowserTab[];
   /** Active browser tab id per workspace. */

@@ -30,7 +30,7 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   // demand follows loop state with no file watching and no timers.
   const host = attachDemandSync(createOrchestratorHost(ctx), manager);
   const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks(), { stopChecker: llmStopChecker }));
-  const emit: EmitEvent = (event) => coordinator.fireEvent(event);
+  const emit: EmitEvent = (event) => coordinator.fireEvent(event).then(() => undefined);
   adapters.push(createFsAdapter(host, emit), createWebhookAdapter(host, emit), createGithubAdapter(host, emit));
   let tickTimer: ReturnType<typeof setInterval> | undefined;
 

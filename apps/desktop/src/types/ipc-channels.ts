@@ -333,6 +333,15 @@ export const IpcChannels = {
     abandon: 'sero:vcs:abandon',
     squash: 'sero:vcs:squash',
     opLog: 'sero:vcs:op-log',
+    // Repo-scoped gh reads (Agent Board backlog + PR chips)
+    issues: 'sero:vcs:issues',
+    openPrs: 'sero:vcs:open-prs',
+    /** Aggregate +adds −dels of a checkout (workspace root or loop worktree). */
+    diffStat: 'sero:vcs:diff-stat',
+  },
+  orchestrator: {
+    /** Route an Agent Board action to a workspace's orchestrator coordinator. */
+    action: 'sero:orchestrator:action',
   },
   github: githubIpcChannels,
   net: netIpcChannels,

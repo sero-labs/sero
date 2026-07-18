@@ -3,8 +3,9 @@
  * 500-LOC limit; re-exported from types.ts so existing imports are unaffected.
  */
 
-import type { ContextOverrides } from '@sero-ai/common';
+import type { ContextOverrides, OrchestratorBoardAction } from '@sero-ai/common';
 import type { CatalogRepoContents, CatalogRepoRef } from './catalog-types';
+import type { OrchestratorEvent } from './event-types';
 import type {
   InputAnswer,
   LibraryIndex,
@@ -59,7 +60,18 @@ export type OrchestratorAction =
   | { kind: 'catalog_remove_repo'; repoKey: string }
   | { kind: 'catalog_refresh'; repoKey?: string }
   | { kind: 'catalog_install'; repoKey: string; slug: string; workspaceLoad?: boolean }
-  | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
+  | { kind: 'delete'; loopId: string; deleteBranch?: boolean }
+  | { kind: 'fire_event'; event: OrchestratorEvent };
+
+/**
+ * Compile-time guard: every action the shell's Agent Board can send
+ * (@sero-ai/common orchestrator-contract) must be a valid coordinator action.
+ * A drifted board payload fails typecheck here, next to the union it mirrors.
+ */
+type Assert<T extends true> = T;
+export type BoardActionContractCheck = Assert<
+  OrchestratorBoardAction extends OrchestratorAction ? true : false
+>;
 
 /** Per-loop result of a workspace-wide reflection sweep. */
 export interface ReflectedLoopSummary {
@@ -74,6 +86,10 @@ export interface OrchestratorActionResult {
   loops?: Loop[];
   run?: LoopRun;
   error?: string;
+  /** Set by `fire_event`: how many active loops accepted the event. */
+  delivered?: number;
+  /** Set by `fire_event`: the event's dedupeKey was already delivered, so it was dropped. */
+  deduped?: boolean;
   /** Set by `reflect`: how many suggestions this pass produced. */
   reflection?: { suggestionCount: number };
   /** Set by `reflect_workspace`: the consecutive per-loop sweep summary. */
