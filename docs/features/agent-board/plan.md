@@ -1,9 +1,15 @@
 # Agent Board — cross-workspace task board (design plan)
 
 Status: **proposed**. A high-level, profile-wide board that shows all agent work
-across workspaces in three columns — **Active · Needs Attention · Finished** —
-with drilldown into the owning workspace and inline resolution of the things
-that need the user (approvals, questions, failed steps).
+across workspaces in four columns — **Backlog · Active · Needs Attention ·
+Finished** — with drilldown into the owning workspace and inline resolution of
+the things that need the user (approvals, questions, failed steps).
+
+The board is a **work board, not a GitHub-issues board**: a card is a unit of
+work. GitHub issues are one *source* of backlog cards; orchestrator loops and
+agent sessions are how work runs; git metadata (branch, PR, issue number) is
+the thread that links a card's lifecycle across columns instead of duplicating
+it.
 
 Reference visual: agent-fleet kanban with per-card model, branch, token ↑/↓,
 cost, files/commits, +adds −dels, live activity line, and attention badges
@@ -83,6 +89,14 @@ sero:vcs:* invoke (on demand per card) ──────▶ │  PR state, diff
 
 ## 4. Column + card mapping
 
+- **Backlog** — work that exists but isn't running. Three sources, merged:
+  1. **Draft loops** (`status:'draft'`) — planned in-Sero work, one-tap
+     `activate`.
+  2. **Queued loops** — scheduled next-runs and `snoozedUntil` loops, with
+     their fire time.
+  3. **Open GitHub issues** across each workspace's repo — only issues that
+     are *unclaimed*: not assigned, no linked open PR, no active claim comment
+     (the spec-15 issue-claim protocol's own candidate filter). See §4a.
 - **Active** — loops with `status:'active'` and a running/waiting run
   (`progress.running > 0` or recent `lastRunAt`), plus interactive sessions
   currently streaming (`useStreamingSessionIds`). Card: title, model, branch,
@@ -100,6 +114,56 @@ orchestrator app on that loop (or focuses the session in ChatPanel for plain
 session cards). The deep-link metadata pattern already exists on orchestrator
 notifications ("source, workspace, and open-target metadata so the shell can
 deep-link", spec `02-integration-seams.md`).
+
+### 4a. GitHub issues across workspaces
+
+**Why not the orchestrator's GitHub adapter:** its extraction is cursor-based
+by design — the first poll baselines and emits nothing, later polls emit only
+*new* occurrences (`runtime/events/github-kinds.ts`). It answers "what just
+happened", never "what is open right now", so it cannot list a backlog.
+
+**New seam (symmetric with PR tracking):** the host git seam already shells
+`gh pr list --json …` for `listPullRequests`
+(`packages/common/src/app-runtime-git.ts`). Add the twin:
+
+```ts
+interface AppRuntimeIssueSummary {
+  number: number; url: string; title: string;
+  labels: string[]; assignees: string[]; updatedAt: string;
+}
+// gh issue list --json number,url,title,labels,assignees,updatedAt
+// repo-scoped, fail-soft to [].
+listIssues(workspacePath: string): Promise<AppRuntimeIssueSummary[]>;
+```
+
+exposed to the renderer as `sero:vcs:issues`. The board resolves workspace →
+repo from the workspace remote (same resolution the GitHub adapter uses) and
+aggregates per open workspace. Workspaces without a GitHub remote or `gh`
+auth simply contribute no issue cards (fail-soft).
+
+**Refresh model:** issues are external state, so file-watching doesn't apply.
+Fetch on board mount and on explicit refresh, cache per repo; where a
+workspace already has `github:issue-opened`/`issue-labelled` subscriptions,
+those occurrences nudge an incremental refetch. No background polling beyond
+what loops already demand.
+
+**Lifecycle linking (one card, moving — not duplicates):**
+- An issue that is assigned, has an active claim comment, or has a linked open
+  PR leaves Backlog. If a loop claimed it (spec-15 `issue-implementer`
+  protocol: assign `@me` + structured claim comment; branch/PR embed the loop
+  id), the issue renders as a `#123` chip on that loop's Active/Attention
+  card.
+- A merged PR with `Closes #123` closes the issue → it disappears from the
+  source list; the loop's Finished card keeps the chip from its run history.
+- Stale claims (>24 h, no open PR) re-enter Backlog automatically because the
+  claim protocol's candidate filter re-admits them — the board reuses the
+  same filter, no extra state.
+
+**Starting work from Backlog:** an issue card's primary action is **Start
+work** — it deep-links into the owning workspace's loop create flow
+(D1→D2→D3) pre-filled with the issue title/body/URL, or hands the issue to
+the `issue-implementer` catalog loop where installed. Draft-loop cards
+activate in place; queued cards offer run-now/snooze.
 
 ## 5. Inline actions (the "user action should be simple" part)
 
@@ -149,7 +213,10 @@ preserved).
    contract-type extension; inline answer/approve/retry/run-again on attention
    cards (reusing the orchestrator UI's AttentionQueue interaction patterns and
    `@sero-ai/ui` status styling so states look identical everywhere).
-5. **Remote parity (the "1 remote" header).** New gateway request/broadcast
+5. **Backlog column.** Draft + queued loop cards (data already in
+   `index.json`); `listIssues` host seam + `sero:vcs:issues`; unclaimed-issue
+   filter + issue↔loop chip linking; Start-work deep link into loop create.
+6. **Remote parity (the "1 remote" header).** New gateway request/broadcast
    (`electron/features/gateway/`) serving the merged board model to
    `apps/web-remote` with a read-only board + deep links; follow-up, desktop
    first.
