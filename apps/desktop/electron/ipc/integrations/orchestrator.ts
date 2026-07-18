@@ -32,7 +32,12 @@ export function registerOrchestratorHandlers(): void {
       }
       try {
         const result = await entry.coordinator.requestAction(action);
-        return { ok: result.ok, error: result.error, delivered: result.delivered };
+        return {
+          ok: result.ok,
+          error: result.error,
+          delivered: result.delivered,
+          deduped: result.deduped,
+        };
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }

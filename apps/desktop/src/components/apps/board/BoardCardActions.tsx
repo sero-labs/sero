@@ -21,6 +21,7 @@ interface BoardCardActionsProps {
 export function BoardCardActions({ card }: BoardCardActionsProps) {
   const requestAction = useAgentBoardStore((s) => s.requestAction);
   const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -36,11 +37,15 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
       if (!result.ok) {
         setError(result.error ?? 'Action failed');
       } else if (action.kind === 'fire_event') {
-        setNotice(
-          result.delivered
-            ? `Sent to ${result.delivered} loop${result.delivered === 1 ? '' : 's'}`
-            : 'No loop is listening — install the issue-implementer loop in Orchestrator',
-        );
+        if (result.deduped) {
+          setSent(true);
+          setNotice('Already sent — a loop is on it');
+        } else if (result.delivered) {
+          setSent(true);
+          setNotice(`Sent to ${result.delivered} loop${result.delivered === 1 ? '' : 's'}`);
+        } else {
+          setNotice('No loop is listening — install the issue-implementer loop in Orchestrator');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -50,7 +55,7 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
   }
 
   const body = card.kind === 'issue'
-    ? renderIssueActions(card, pending, run)
+    ? renderIssueActions(card, pending, sent, run)
     : renderLoopActions(card, pending, text, setText, run);
   if (!body) return null;
 
@@ -238,13 +243,13 @@ function renderLoopActions(
 
 // ── Issue actions (backlog) ─────────────────────────────────
 
-function renderIssueActions(card: BoardIssueCard, pending: boolean, run: RunFn) {
+function renderIssueActions(card: BoardIssueCard, pending: boolean, sent: boolean, run: RunFn) {
   const { issue } = card;
   return (
     <div className="flex gap-1.5">
       <ActionButton
         tone="success"
-        disabled={pending}
+        disabled={pending || sent}
         onClick={(e) =>
           void run(
             {
@@ -260,13 +265,18 @@ function renderIssueActions(card: BoardIssueCard, pending: boolean, run: RunFn) 
                 },
                 occurredAt: new Date().toISOString(),
                 summary: `Start work on issue #${issue.number}: ${issue.title}`,
+                // Restart-safe duplicate guard: repeated Start-work clicks on the
+                // same issue dedupe in the coordinator. The `board:` prefix keeps
+                // the key clear of the GitHub adapter's `github:<kind>:<id>` keys.
+                dedupeKey: `board:issue-${issue.number}`,
               },
             },
             e,
           )
         }
       >
-        <Play className="size-3" /> Start work
+        {sent ? <Check className="size-3" /> : <Play className="size-3" />}
+        {sent ? 'Sent' : 'Start work'}
       </ActionButton>
     </div>
   );

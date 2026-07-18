@@ -88,6 +88,8 @@ export interface OrchestratorActionResult {
   error?: string;
   /** Set by `fire_event`: how many active loops accepted the event. */
   delivered?: number;
+  /** Set by `fire_event`: the event's dedupeKey was already delivered, so it was dropped. */
+  deduped?: boolean;
   /** Set by `reflect`: how many suggestions this pass produced. */
   reflection?: { suggestionCount: number };
   /** Set by `reflect_workspace`: the consecutive per-loop sweep summary. */

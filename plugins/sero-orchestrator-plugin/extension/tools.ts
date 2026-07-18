@@ -399,7 +399,9 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
         ? `Installed "${res.loop.title}" as a draft loop ${res.loop.id} — ${res.loop.runtime.pendingInput ? 'it has questions to adapt it to this workspace' : 'review the plan, then activate'}.`
         : `Installed ${action.repoKey}/${action.slug} into the library.`;
     case 'fire_event':
-      return `Fired ${action.event.source} — accepted by ${res.delivered ?? 0} loop(s).`;
+      return res.deduped
+        ? `Dropped ${action.event.source} — an event with the same dedupeKey was already delivered.`
+        : `Fired ${action.event.source} — accepted by ${res.delivered ?? 0} loop(s).`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

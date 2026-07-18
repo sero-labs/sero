@@ -33,10 +33,6 @@ export const AgentBoard = memo(function AgentBoard() {
   const streamingSessionIds = useStreamingSessionIds();
   const agents = useAgentStore((s) => s.agents);
 
-  // No timers on the board: the clock advances whenever a watched file or
-  // agent event re-renders it, which is exactly when ages can change meaning.
-  const nowMs = Date.now();
-
   useEffect(() => {
     start();
   }, [start]);
@@ -62,10 +58,15 @@ export const AgentBoard = memo(function AgentBoard() {
     });
   }, [streamingSessionIds, agents, sessions]);
 
+  // No timers on the board: the clock advances only when board data changes,
+  // which is exactly when ages can change meaning. A stable value between data
+  // changes also keeps the memoized columns/cards from re-rendering for free.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- data deps deliberately drive the clock
+  const nowMs = useMemo(() => Date.now(), [boardWorkspaces, slices, liveSessions]);
+
   const columns = useMemo(
     () => buildBoardColumns(boardWorkspaces, slices, liveSessions, nowMs),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- nowMs changes every render; columns should only recompute on data change
-    [boardWorkspaces, slices, liveSessions],
+    [boardWorkspaces, slices, liveSessions, nowMs],
   );
 
   const runningCount = columns.active.length;

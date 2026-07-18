@@ -212,6 +212,8 @@ export interface OrchestratorBoardActionResult {
   error?: string;
   /** Set by `fire_event`: how many loops accepted the event (0 ⇒ nothing subscribed). */
   delivered?: number;
+  /** Set by `fire_event`: the event's dedupeKey was already delivered, so it was dropped. */
+  deduped?: boolean;
 }
 
 // ── Coordinator registry seam (Electron main) ──

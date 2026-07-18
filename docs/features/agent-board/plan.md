@@ -267,10 +267,10 @@ Where things landed, for the next person touching this:
   formatting; unit-tested in `board-model.test.ts`). Registered as the
   `board` entry in `BUILTIN_APPS` with a branch in `ActiveAppPanel`.
 - **Store**: `apps/desktop/src/stores/agent-board.ts` watches, per
-  registered workspace, `.sero/apps/orchestrator/index.json` and
-  `.sero/apps/git/state.json` through `window.sero.appState` (push-only);
-  gh reads (issues/PRs) fetch on mount + explicit refresh. Prefs persist as
-  `boardLayout` in `layout.json`.
+  registered workspace, `.sero/apps/orchestrator/index.json` through
+  `window.sero.appState` (push-only); gh reads (issues/PRs) fetch on every
+  board mount + explicit refresh. Prefs persist as `boardLayout` in
+  `layout.json`.
 - **Contract**: `packages/common/src/orchestrator-contract.ts` gained the
   `OrchestratorBoardLoopView` index view (attention content, progress,
   usage roll-up, active step titles, model, branch, checkout path, PR
@@ -286,14 +286,18 @@ Where things landed, for the next person touching this:
   orchestrator.ts`) resolves the coordinator from the `globalThis` registry
   via contract types and calls `requestAction`; exposed as
   `window.sero.orchestrator.requestAction`. New coordinator action
-  `fire_event` broadcasts an event and reports the delivered count
-  (`broadcastEvent` now returns how many loops accepted), which powers
-  Start-work on issue cards and its "no loop is listening" hint.
-- **Git seams**: `gh issue list` twin (`listOpenIssues`) wired into the
-  app-runtime host and exposed with `sero:vcs:issues` / `sero:vcs:open-prs`;
-  `sero:vcs:diff-stat` computes the aggregate +adds −dels for a card's
-  checkout (`git diff --shortstat` vs the base branch), cached per
-  `loop.updatedAt` in the board store.
+  `fire_event` broadcasts an event and reports the outcome
+  (`broadcastEvent` returns how many loops accepted and whether the event
+  was dropped as a dedupeKey duplicate), which powers Start-work on issue
+  cards and its "no loop is listening" hint. Start-work events carry
+  `dedupeKey: board:issue-<n>`, so repeated clicks can't start duplicate
+  work; the card shows a durable "Sent" state after a successful fire.
+- **Git seams**: `gh issue list` twin (`listOpenIssues`, explicit
+  `--limit 50`) wired into the app-runtime host and exposed with
+  `sero:vcs:issues` / `sero:vcs:open-prs`; `sero:vcs:diff-stat` computes
+  the aggregate +adds −dels for a card's checkout (`git diff --shortstat`
+  vs the base branch), cached per `loop.updatedAt` in the board store and
+  restricted to paths inside a registered workspace.
 - **Not shipped yet**: §7.6 remote parity (web-remote read-only board), and
   one-tap catalog install of `issue-implementer` from the board (Start-work
   currently deep-links to Orchestrator when no loop is subscribed).

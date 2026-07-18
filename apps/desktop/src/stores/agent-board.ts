@@ -3,11 +3,10 @@
  * (docs/features/agent-board/plan.md).
  *
  * Reads are push-only: for every registered workspace the store watches the
- * orchestrator's loop index and the git app's state file through the
- * `window.sero.appState` bridge (it accepts arbitrary absolute paths). GitHub
- * issues/PRs are external state, so they are fetched on board mount and on
- * explicit refresh — never polled. Writes route through the single
- * `sero:orchestrator:action` seam.
+ * orchestrator's loop index through the `window.sero.appState` bridge (it
+ * accepts arbitrary absolute paths). GitHub issues/PRs are external state, so
+ * they are fetched on every board mount and on explicit refresh — never
+ * polled. Writes route through the single `sero:orchestrator:action` seam.
  */
 
 import { create } from 'zustand';
@@ -18,19 +17,11 @@ import {
   type OrchestratorBoardActionResult,
   type OrchestratorBoardIndexView,
 } from '@sero-ai/common';
-import type { BoardColumnId, BoardGitState, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
+import type { BoardColumnId, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
 
-/** Written by the git plugin's extension; the board reads a structural subset. */
-const GIT_STATE_FILE = '.sero/apps/git/state.json';
-
-const EMPTY_SLICE: WorkspaceBoardSlice = { index: null, git: null, issues: [], openPrs: [] };
-
-interface WatchTarget {
-  workspaceId: string;
-  field: 'index' | 'git';
-}
+const EMPTY_SLICE: WorkspaceBoardSlice = { index: null, issues: [], openPrs: [] };
 
 interface AgentBoardState {
   /** Aggregated per-workspace state (watched files + fetched gh reads). */
@@ -56,17 +47,13 @@ interface AgentBoardState {
   hydrate: (layout: BoardLayoutState | undefined) => void;
 }
 
-/** Absolute path → which slice field it feeds. Module-level: survives store updates. */
-const watchTargets = new Map<string, WatchTarget>();
+/** Absolute index path → owning workspace id. Module-level: survives store updates. */
+const watchTargets = new Map<string, string>();
 let changeUnsubscribe: (() => void) | null = null;
 let workspaceUnsubscribe: (() => void) | null = null;
 
 function indexPath(workspacePath: string): string {
   return `${workspacePath}/${ORCHESTRATOR_INDEX_FILE}`;
-}
-
-function gitStatePath(workspacePath: string): string {
-  return `${workspacePath}/${GIT_STATE_FILE}`;
 }
 
 function normalizeIndex(data: unknown): OrchestratorBoardIndexView | null {
@@ -76,47 +63,38 @@ function normalizeIndex(data: unknown): OrchestratorBoardIndexView | null {
   return data as OrchestratorBoardIndexView;
 }
 
-function normalizeGit(data: unknown): BoardGitState | null {
-  if (!data || typeof data !== 'object') return null;
-  return data as BoardGitState;
-}
-
 export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
-  function applyWatched(target: WatchTarget, data: unknown): void {
+  function applyWatched(workspaceId: string, data: unknown): void {
     set((state) => {
-      const slice = state.slices[target.workspaceId] ?? EMPTY_SLICE;
-      const next: WorkspaceBoardSlice =
-        target.field === 'index'
-          ? { ...slice, index: normalizeIndex(data) }
-          : { ...slice, git: normalizeGit(data) };
-      return { slices: { ...state.slices, [target.workspaceId]: next } };
+      const slice = state.slices[workspaceId] ?? EMPTY_SLICE;
+      const next: WorkspaceBoardSlice = { ...slice, index: normalizeIndex(data) };
+      return { slices: { ...state.slices, [workspaceId]: next } };
     });
   }
 
-  function watchPath(filePath: string, target: WatchTarget): void {
+  function watchPath(filePath: string, workspaceId: string): void {
     if (watchTargets.has(filePath)) return;
-    watchTargets.set(filePath, target);
+    watchTargets.set(filePath, workspaceId);
     window.sero.appState
       .watch(filePath)
-      .then((data: unknown) => applyWatched(target, data))
-      .catch(() => applyWatched(target, null));
+      .then((data: unknown) => applyWatched(workspaceId, data))
+      .catch(() => applyWatched(workspaceId, null));
   }
 
   /** Aligns watchers with the current workspace list (idempotent, push-driven). */
   function syncWatchers(): void {
     const workspaces = useWorkspaceStore.getState().workspaces;
-    const wanted = new Map<string, WatchTarget>();
+    const wanted = new Map<string, string>();
     for (const ws of workspaces) {
       if (!ws.path) continue;
-      wanted.set(indexPath(ws.path), { workspaceId: ws.id, field: 'index' });
-      wanted.set(gitStatePath(ws.path), { workspaceId: ws.id, field: 'git' });
+      wanted.set(indexPath(ws.path), ws.id);
     }
     for (const [filePath] of watchTargets) {
       if (wanted.has(filePath)) continue;
       watchTargets.delete(filePath);
       void window.sero.appState.unwatch(filePath).catch(() => undefined);
     }
-    for (const [filePath, target] of wanted) watchPath(filePath, target);
+    for (const [filePath, workspaceId] of wanted) watchPath(filePath, workspaceId);
     // Drop slices of workspaces that no longer exist.
     set((state) => {
       const ids = new Set(workspaces.map((ws) => ws.id));
@@ -135,20 +113,19 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
     workspaceFilter: null,
 
     start: () => {
-      if (get().started) {
-        syncWatchers();
-        return;
+      if (!get().started) {
+        set({ started: true });
+        changeUnsubscribe ??= window.sero.appState.onChange((filePath: string, data: unknown) => {
+          const workspaceId = watchTargets.get(filePath);
+          if (workspaceId) applyWatched(workspaceId, data);
+        });
+        // Workspaces added/removed while the board is up re-align the watcher set.
+        workspaceUnsubscribe ??= useWorkspaceStore.subscribe((state, prev) => {
+          if (state.workspaces !== prev.workspaces) syncWatchers();
+        });
       }
-      set({ started: true });
-      changeUnsubscribe ??= window.sero.appState.onChange((filePath: string, data: unknown) => {
-        const target = watchTargets.get(filePath);
-        if (target) applyWatched(target, data);
-      });
-      // Workspaces added/removed while the board is up re-align the watcher set.
-      workspaceUnsubscribe ??= useWorkspaceStore.subscribe((state, prev) => {
-        if (state.workspaces !== prev.workspaces) syncWatchers();
-      });
       syncWatchers();
+      // Every mount refetches gh state, so a reopened board isn't stale.
       void get().refreshIssues();
     },
 

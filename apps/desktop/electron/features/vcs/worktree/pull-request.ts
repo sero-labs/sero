@@ -242,7 +242,9 @@ export interface OpenIssueSummary {
  * consumers get plain strings. Fail-soft to `[]` like the sibling helpers.
  */
 export async function listOpenIssues(cwd: string): Promise<OpenIssueSummary[]> {
-  const args = ['issue', 'list', '--state', 'open',
+  // Explicit cap (gh defaults to a silent 30): the board renders at most a
+  // screenful of backlog issues, and gh returns the most recently updated first.
+  const args = ['issue', 'list', '--state', 'open', '--limit', '50',
     '--json', 'number,url,title,labels,assignees,updatedAt'];
   try {
     const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });

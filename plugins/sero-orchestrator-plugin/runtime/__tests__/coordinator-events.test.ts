@@ -155,6 +155,24 @@ describe('fireEvent broadcast', () => {
     expect(host.state.recentEventKeys).toContain('github:ci-failed#check-run-9');
   });
 
+  it('fire_event reports delivered vs deduped (the Agent Board Start-work contract)', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    const c = coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) });
+
+    const first = await c.requestAction({ kind: 'fire_event', event: ciEvent({ dedupeKey: 'board:issue-42' }) });
+    expect(first).toMatchObject({ ok: true, delivered: 1 });
+    expect(first.deduped).toBeUndefined();
+
+    const second = await c.requestAction({
+      kind: 'fire_event',
+      event: ciEvent({ id: 'evt-2', dedupeKey: 'board:issue-42' }),
+    });
+    expect(second).toMatchObject({ ok: true, delivered: 0, deduped: true });
+  });
+
   it('drops a fire at the loop→loop chain-depth cap with a visible warning', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;

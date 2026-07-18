@@ -37,7 +37,12 @@ import { handleCatalogAction, isCatalogAction } from './catalog-actions';
 import { handleOverrideAction, isOverrideAction } from './override-actions';
 import { applyAnswerInput } from './input-actions';
 import { evaluateCronTriggers, isEventArmedOnly, isRecurring, rearmLoop } from './scheduler';
-import { broadcastEvent, drainPendingEvent, type CoordinatorRunSeam } from './event-delivery';
+import {
+  broadcastEvent,
+  drainPendingEvent,
+  type CoordinatorRunSeam,
+  type EventBroadcast,
+} from './event-delivery';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
@@ -125,7 +130,7 @@ export class Coordinator {
    * Semantics live in event-delivery.ts; the seam keeps the coordinator the
    * only component that starts runs.
    */
-  fireEvent(event: OrchestratorEvent): Promise<number> {
+  fireEvent(event: OrchestratorEvent): Promise<EventBroadcast> {
     return broadcastEvent(this.host, this.runSeam(), event);
   }
 
@@ -183,8 +188,10 @@ export class Coordinator {
       case 'answer_input':
         return this.answerInput(action);
       case 'fire_event': {
-        const delivered = await this.fireEvent(action.event);
-        return { ok: true, delivered };
+        const broadcast = await this.fireEvent(action.event);
+        return broadcast.deduped
+          ? { ok: true, delivered: 0, deduped: true }
+          : { ok: true, delivered: broadcast.delivered };
       }
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);

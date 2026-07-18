@@ -55,7 +55,7 @@ function pr(partial: Partial<AppRuntimePullRequestSummary>): AppRuntimePullReque
 }
 
 function slice(partial: Partial<WorkspaceBoardSlice>): Record<string, WorkspaceBoardSlice> {
-  return { ws1: { index: null, git: null, issues: [], openPrs: [], ...partial } };
+  return { ws1: { index: null, issues: [], openPrs: [], ...partial } };
 }
 
 describe('loopColumn', () => {

@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
@@ -207,7 +209,12 @@ export function registerVcsHandlers(): void {
     return workspacePath ? listOpenPullRequests(workspacePath) : [];
   });
 
-  ipcMain.handle(Ch.diffStat, async (_e, checkoutPath: string) =>
-    getWorktreeDiffStat(checkoutPath),
-  );
+  ipcMain.handle(Ch.diffStat, async (_e, checkoutPath: string) => {
+    // Renderer-supplied path: only serve checkouts inside a registered
+    // workspace (the root itself or a worktree under it, e.g. .sero/worktrees).
+    const resolved = path.resolve(checkoutPath);
+    const roots = (await workspaceManager.list()).map((ws) => ws.path);
+    const known = roots.some((root) => resolved === root || resolved.startsWith(root + path.sep));
+    return known ? getWorktreeDiffStat(resolved) : null;
+  });
 }
