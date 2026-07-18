@@ -121,7 +121,7 @@ export function registerGatewayHandlers(): void {
       const status = gatewayServer.getStatus();
       const tsStatus = await tailscale.getStatus();
       const tailnetUrl = tsStatus.running
-        ? await tailscale.serve(status.port)
+        ? await tailscale.serve(status.port, gatewayServer.getPreviewPorts())
         : null;
       const baseUrl = tailnetUrl ?? `http://127.0.0.1:${status.port}`;
 

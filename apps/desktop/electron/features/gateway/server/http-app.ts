@@ -8,8 +8,9 @@ type WebChatHtmlProvider = () => string;
 
 interface GatewayHttpServerOptions {
   staticRoot: string;
-  /** Port of the preview listener — allowed as a frame source for the SPA. */
+  /** Preview listener ports — allowed as frame sources for the SPA. */
   previewPort: number;
+  previewTlsPort: number;
   getWebChatHtml: () => WebChatHtmlProvider | null;
   getProxyDeps: () => DevProxyDeps;
   upgradeWebSocket: (
@@ -23,15 +24,18 @@ function setGatewaySecurityHeaders(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   previewPort: number,
+  previewTlsPort: number,
 ): void {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Dev-server previews are framed from their own origin (same host,
-  // previewPort) so the sandboxed iframe can use allow-same-origin without
-  // sharing the SPA's origin. Derive that origin from the request host.
+  // preview port — direct or tailnet TLS mapping) so the sandboxed iframe
+  // can use allow-same-origin without sharing the SPA's origin. Derive
+  // that origin from the request host.
   const hostname = (req.headers.host ?? '').split(':')[0];
   const previewSrc = hostname
-    ? ` http://${hostname}:${previewPort} https://${hostname}:${previewPort}`
+    ? ` http://${hostname}:${previewPort} https://${hostname}:${previewPort}` +
+      ` https://${hostname}:${previewTlsPort}`
     : '';
   res.setHeader(
     'Content-Security-Policy',
@@ -65,7 +69,9 @@ export function createGatewayHttpServer(options: GatewayHttpServerOptions): http
     const pathname = rawUrl.split('?')[0];
     const isProxyRequest = pathname.startsWith(DEV_PROXY_PREFIX);
 
-    if (!isProxyRequest) setGatewaySecurityHeaders(req, res, options.previewPort);
+    if (!isProxyRequest) {
+      setGatewaySecurityHeaders(req, res, options.previewPort, options.previewTlsPort);
+    }
 
     if (isProxyRequest) {
       void serveDevProxy(req, res, options.getProxyDeps());

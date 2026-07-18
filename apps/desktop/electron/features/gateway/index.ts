@@ -152,6 +152,7 @@ export class GatewayServer {
     this.httpServer = createGatewayHttpServer({
       staticRoot: __dirname,
       previewPort: this.config.previewPort,
+      previewTlsPort: this.config.previewTlsPort,
       getWebChatHtml: () => this.webChatHtml,
       getProxyDeps: () => this.proxyDeps(),
       upgradeWebSocket: (req, socket, head) => {
@@ -235,6 +236,14 @@ export class GatewayServer {
         });
       });
     });
+  }
+
+  /** Preview listener ports (direct + tailnet TLS mapping). */
+  getPreviewPorts(): { previewPort: number; previewTlsPort: number } {
+    return {
+      previewPort: this.config.previewPort,
+      previewTlsPort: this.config.previewTlsPort,
+    };
   }
 
   /** Get the auth token for display. */
@@ -493,7 +502,7 @@ export class GatewayServer {
       this.auth,
       client.isMasterAuth,
       this.devProxyTickets,
-      this.config.previewPort,
+      this.getPreviewPorts(),
     );
   }
 }

@@ -180,6 +180,7 @@ async function createHarness(): Promise<TestHarness> {
   const server = new GatewayServer({
     port: 0,
     previewPort: 0,
+    previewTlsPort: 8443,
     host: '127.0.0.1',
     tokenPath: path.join(tmpDir, 'gateway-token.txt'),
     configDir: tmpDir,

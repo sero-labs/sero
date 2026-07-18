@@ -14,6 +14,12 @@ export interface GatewayConfig {
    * must not be able to reach the SPA's storage or gateway session.
    */
   previewPort: number;
+  /**
+   * HTTPS port the preview listener is mapped to when the gateway is
+   * exposed over the tailnet (`tailscale serve --https=<this> <previewPort>`).
+   * TLS-connected clients build preview URLs against this port.
+   */
+  previewTlsPort: number;
   /** Bind host. Default: '127.0.0.1' (localhost only). */
   host: string;
   /** Path to the auth token file. */

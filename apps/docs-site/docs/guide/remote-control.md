@@ -92,6 +92,15 @@ Dev-server previews are served from a dedicated listener:
 127.0.0.1:18802
 ```
 
+When Sero exposes the gateway over the tailnet, it also maps this preview
+listener to HTTPS port 8443 on the tailnet hostname. If you configure
+`tailscale serve` manually instead, add that mapping yourself:
+
+```bash
+tailscale serve --bg 18800
+tailscale serve --bg --https=8443 18802
+```
+
 For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.

@@ -98,7 +98,7 @@ export async function routeAgentRequest(
   auth?: GatewayAuth,
   isMasterAuth?: boolean,
   devProxyTickets?: DevProxyTicketManager | null,
-  previewPort?: number | null,
+  previewPorts?: { previewPort: number; previewTlsPort: number } | null,
 ): Promise<void> {
   const respond = makeResponder(ws, request.requestId);
   // Try extended handlers first (file ops, artifacts, web tokens, sessions)
@@ -112,7 +112,7 @@ export async function routeAgentRequest(
       auth,
       isMasterAuth ?? false,
       devProxyTickets ?? null,
-      previewPort ?? null,
+      previewPorts ?? null,
     );
     if (handled) return;
   }

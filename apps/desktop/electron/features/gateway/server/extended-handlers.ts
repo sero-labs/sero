@@ -50,7 +50,7 @@ export async function routeExtendedRequest(
   auth: GatewayAuth,
   isMasterAuth: boolean,
   devProxyTickets: DevProxyTicketManager | null,
-  previewPort: number | null,
+  previewPorts: { previewPort: number; previewTlsPort: number } | null,
 ): Promise<boolean> {
   const respond = makeResponder(ws, request.requestId);
   switch (request.type) {
@@ -391,9 +391,11 @@ export async function routeExtendedRequest(
             expiresAt: issued.expiresAt,
             workspaceId: issued.workspaceId,
             port: issued.port,
-            // Previews are served from their own origin (same host, this
-            // port) so the client should load them from there.
-            previewPort: previewPort ?? undefined,
+            // Previews are served from their own origin so the client
+            // should load them from there: previewPort for direct HTTP
+            // access, previewTlsPort when connected over TLS (tailnet).
+            previewPort: previewPorts?.previewPort,
+            previewTlsPort: previewPorts?.previewTlsPort,
           },
         });
       } catch (err) {
