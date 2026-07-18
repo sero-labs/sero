@@ -132,6 +132,9 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - When giving instructions to manually review changes do so in simple unambiguous terms - no jargon or expectation of recent familiarity with the subject
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
 
+## Styling
+ - Don't use specific tailwind font-sizes, use utilities like `text-sm`,`text-base`, etc.
+
 ## File Size Rules (CRITICAL)
 
 **Never exceed 500 LOC in any source file** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
