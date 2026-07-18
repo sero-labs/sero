@@ -47,6 +47,18 @@ export type BrowserBookmarkContextAction =
   | 'delete';
 
 /**
+ * Outcome of a react-grab element pick. `content` is the agent-ready
+ * context react-grab produces for the selection (element markup plus the
+ * component stack with source locations when the page is a React dev
+ * build). `unavailable` means react-grab could not be injected or was
+ * already picking.
+ */
+export type BrowserGrabResult =
+  | { status: 'grabbed'; content: string }
+  | { status: 'cancelled' }
+  | { status: 'unavailable' };
+
+/**
  * Events emitted by the main-process view manager to the renderer so the
  * store can keep tab metadata in sync with what the WebContentsView reports.
  */

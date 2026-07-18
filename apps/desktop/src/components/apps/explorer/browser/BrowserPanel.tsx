@@ -72,6 +72,8 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const reload = useBrowserStore((s) => s.reload);
   const stop = useBrowserStore((s) => s.stop);
   const sharePageWithChat = useBrowserStore((s) => s.sharePageWithChat);
+  const grabElementToChat = useBrowserStore((s) => s.grabElementToChat);
+  const grabbingTabId = useBrowserStore((s) => s.grabbingTabId);
   const lightboxOpen = useLightbox((s) => s.open);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -281,6 +283,8 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         onStop={() => stop(activeTab.id)}
         onSharePage={() => { void sharePageWithChat(activeTab.id); }}
         onCaptureArea={() => { void startCapture(); }}
+        grabActive={grabbingTabId === activeTab.id}
+        onGrabElement={() => { void grabElementToChat(activeTab.id); }}
       />
       <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} workspaceId={workspaceId} />
       {/*

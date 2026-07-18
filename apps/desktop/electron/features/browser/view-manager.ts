@@ -1,10 +1,11 @@
 import { BrowserWindow, WebContentsView, shell, session } from 'electron';
 import type { WebContents } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
-import { BROWSER_HOME_URL } from '@/types/browser';
+import type { BrowserEvent, BrowserGrabResult, BrowserViewBounds } from '@/types/browser';
 import { showBrowserContextMenu } from './context-menu';
+import { cancelGrabInPage, grabElementInPage } from './element-grab';
 import { buildExtractPageScript, buildScrollPageScript } from './page-scripts';
+import { handleBrowserShortcut } from './view-shortcuts';
 
 const BROWSER_PARTITION_PREFIX = 'persist:sero-browser';
 const ALLOWED_BROWSER_PROTOCOLS = new Set(['http:', 'https:']);
@@ -35,7 +36,7 @@ export interface LoadedTabInfo {
   isActive: boolean;
 }
 
-class BrowserViewManager {
+export class BrowserViewManager {
   private window: BrowserWindow | null = null;
   private readonly views = new Map<string, WebContentsView>();
   private readonly viewWorkspaces = new Map<string, string>();
@@ -283,7 +284,8 @@ class BrowserViewManager {
     return this.lastActivePerWorkspace.get(workspaceId) ?? null;
   }
 
-  private activateByOffset(workspaceId: string, delta: number): void {
+  /** Cycle the active tab within a workspace by the given offset (wraps). */
+  activateByOffset(workspaceId: string, delta: number): void {
     const tabs = this.listLoadedTabs(workspaceId);
     if (tabs.length === 0) return;
     const activeId = this.resolveActiveTabForWorkspace(workspaceId);
@@ -295,6 +297,28 @@ class BrowserViewManager {
   /** Whether a given tab id exists as a loaded WebContentsView. */
   hasTab(tabId: string): boolean {
     return this.views.has(tabId);
+  }
+
+  /** WebContents for a tab, gated on workspace ownership. */
+  webContentsFor(tabId: string, workspaceId: string): WebContents | null {
+    if (!this.ownsTab(tabId, workspaceId, 'webContentsFor')) return null;
+    return this.views.get(tabId)?.webContents ?? null;
+  }
+
+  /**
+   * Start a react-grab element pick in the tab. Resolves when the user
+   * grabs an element or cancels; navigation and tab close also cancel.
+   */
+  grabElement(tabId: string, workspaceId: string): Promise<BrowserGrabResult> {
+    const wc = this.webContentsFor(tabId, workspaceId);
+    if (!wc) return Promise.resolve({ status: 'unavailable' });
+    return grabElementInPage(wc);
+  }
+
+  /** Cancel an in-flight element pick in the tab. */
+  cancelGrab(tabId: string, workspaceId: string): void {
+    const wc = this.webContentsFor(tabId, workspaceId);
+    if (wc) cancelGrabInPage(wc);
   }
 
   /** Workspace a tab belongs to, or null if unknown. */
@@ -369,53 +393,7 @@ class BrowserViewManager {
     const wc = view.webContents;
 
     wc.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || (!input.meta && !input.control) || input.alt) return;
-      const key = input.key.toLowerCase();
-      const loaded = this.listLoadedTabs(workspaceId);
-      const activeId = this.resolveActiveTabForWorkspace(workspaceId) ?? tabId;
-      const activeView = this.views.get(activeId);
-
-      if (input.shift && (key === '[' || key === ']')) {
-        event.preventDefault();
-        this.activateByOffset(workspaceId, key === '[' ? -1 : 1);
-        return;
-      }
-      if (input.shift) return;
-
-      if (/^[1-9]$/.test(key)) {
-        event.preventDefault();
-        const index = key === '9' ? loaded.length - 1 : Number(key) - 1;
-        const target = loaded[index];
-        if (target) this.setActive(target.id, workspaceId);
-        return;
-      }
-
-      switch (key) {
-        case 't':
-          event.preventDefault();
-          this.openTabForHost(BROWSER_HOME_URL, workspaceId);
-          return;
-        case 'w':
-          event.preventDefault();
-          this.closeTabForHost(activeId, workspaceId);
-          return;
-        case 'r':
-          event.preventDefault();
-          activeView?.webContents.reload();
-          return;
-        case '[':
-          if (activeView?.webContents.navigationHistory.canGoBack()) {
-            event.preventDefault();
-            activeView.webContents.navigationHistory.goBack();
-          }
-          return;
-        case ']':
-          if (activeView?.webContents.navigationHistory.canGoForward()) {
-            event.preventDefault();
-            activeView.webContents.navigationHistory.goForward();
-          }
-          return;
-      }
+      handleBrowserShortcut(this, event, input, tabId, workspaceId);
     });
 
     // Security: open new windows (target=_blank, window.open) as new tabs

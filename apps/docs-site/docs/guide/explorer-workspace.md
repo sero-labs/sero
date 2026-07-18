@@ -119,6 +119,9 @@ Current safe expectations include:
 - navigation and history are managed inside the Explorer browser surface
 - bookmarks can be used from the browser UI
 - page sharing and screenshot capture can feed chat attachments where supported
+- the toolbar's element picker (powered by React Grab) copies a hovered
+  element into the chat composer; on React dev servers this includes the
+  component stack with source file locations
 
 This browser surface is part of Sero's local development workflow. It is the visible in-app browser, separate from Sero's UI-backed app screenshot/recording bridge. It should not be described as a general-purpose hardened browser or a guarantee that every web app behaves like it would in your default browser. See [Browser and Capture](/guide/browser-and-capture) for screenshots, interactions, and recording.
 

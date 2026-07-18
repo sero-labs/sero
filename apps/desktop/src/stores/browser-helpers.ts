@@ -6,6 +6,12 @@
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
+import type { BrowserTab } from '@/types/browser';
+import type { PersistedBrowserTab } from '@/types/layout';
+
+export function toPersistedTabs(tabs: BrowserTab[]): PersistedBrowserTab[] {
+  return tabs.map((t) => ({ id: t.id, workspaceId: t.workspaceId, url: t.url, title: t.title }));
+}
 
 /**
  * Format a page selection as a markdown blockquote with an attribution

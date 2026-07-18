@@ -1,6 +1,7 @@
 import { spawnSync } from 'child_process';
 import { build } from 'esbuild';
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import builtinPackageDetection from '../electron/platform/protocols/builtin-package-detection.js';
@@ -211,6 +212,15 @@ if (fs.existsSync(webDistSrc)) {
 // Copy built-in packages/templates into dist/electron/builtin/ so packaged
 // builds can discover them without depending on the monorepo layout.
 stageBuiltinResources();
+
+// Stage the react-grab in-page bundle next to main.mjs so the browser
+// feature can inject it into WebContentsView pages at runtime
+// (electron/features/browser/element-grab.ts).
+const require = createRequire(import.meta.url);
+fs.copyFileSync(
+  path.join(path.dirname(require.resolve('react-grab/package.json')), 'dist/index.global.js'),
+  path.join(electronOutDir, 'react-grab.global.js'),
+);
 
 // Preload — must be CJS for Electron's preload context
 await build({
