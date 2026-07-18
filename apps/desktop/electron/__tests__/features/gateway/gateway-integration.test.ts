@@ -179,6 +179,7 @@ async function createHarness(): Promise<TestHarness> {
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'gateway-integration-test-'));
   const server = new GatewayServer({
     port: 0,
+    previewPort: 0,
     host: '127.0.0.1',
     tokenPath: path.join(tmpDir, 'gateway-token.txt'),
     configDir: tmpDir,

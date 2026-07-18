@@ -21,6 +21,7 @@ describe('GatewayServer artifact authorization', () => {
 
     const server = new GatewayServer({
       port: 18800,
+      previewPort: 0,
       host: '127.0.0.1',
       tokenPath: path.join(tmpDir, 'gateway-token.txt'),
       configDir: tmpDir,

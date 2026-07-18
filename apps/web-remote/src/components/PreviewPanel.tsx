@@ -4,7 +4,8 @@
  * gateway's `/p/<workspace>/<port>/...` reverse proxy.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useChatStore } from '@/stores/chat';
 import { useDevServerStore, type DevServer } from '@/stores/dev-servers';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -12,6 +13,7 @@ import {
   Globe,
   ExternalLink,
   RefreshCw,
+  SquareDashedMousePointer,
   X,
   ArrowLeftRight,
 } from 'lucide-react';
@@ -46,13 +48,56 @@ export function PreviewPanel() {
   const isLoading = useDevServerStore((s) => s.isLoading);
   const [active, setActive] = useState<ActivePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // React-grab element pick in the previewed page. The proxy injects the
+  // grab script into preview documents; we talk to it over postMessage
+  // because the sandboxed iframe (no allow-same-origin) is an opaque origin.
+  const [picking, setPicking] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const setComposerPrefill = useChatStore((s) => s.setComposerPrefill);
 
   // Refresh when the workspace changes, registered servers are scoped to it.
   useEffect(() => {
     if (!activeWorkspaceId) return;
     fetchServers();
     setActive(null);
+    setPicking(false);
   }, [activeWorkspaceId, fetchServers]);
+
+  // Grab results posted by the injected script inside the preview iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+      const data = event.data as { type?: string; status?: string; content?: string } | null;
+      if (!data || data.type !== 'sero:grab-result') return;
+      const wasPicking = picking;
+      setPicking(false);
+      if (wasPicking && data.status === 'grabbed' && typeof data.content === 'string' && active) {
+        const cleanUrl = active.url.split('?')[0];
+        setComposerPrefill(`${data.content}\n\n— ${cleanUrl}\n\n`);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [picking, active, setComposerPrefill]);
+
+  const handlePickElement = () => {
+    const frame = iframeRef.current?.contentWindow;
+    if (!frame) return;
+    if (picking) {
+      // Clear locally too so a preview without the bridge (injection
+      // failed) can't leave the button stuck in the active state.
+      setPicking(false);
+      frame.postMessage({ type: 'sero:grab-cancel' }, '*');
+      return;
+    }
+    setPicking(true);
+    frame.postMessage({ type: 'sero:grab-start' }, '*');
+  };
+
+  const closePreview = () => {
+    setActive(null);
+    setPicking(false);
+  };
 
   const visible = (activeWorkspaceId
     ? servers.filter((s) => s.workspaceId === activeWorkspaceId)
@@ -103,7 +148,7 @@ export function PreviewPanel() {
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-card shrink-0">
           <Button
-            onClick={() => setActive(null)}
+            onClick={closePreview}
             variant="ghost"
             size="icon-xs"
             title="Back to list"
@@ -113,6 +158,15 @@ export function PreviewPanel() {
           <div className="flex-1 min-w-0 text-xs font-medium truncate">
             Port {active.port}
           </div>
+          <Button
+            onClick={handlePickElement}
+            variant="ghost"
+            size="icon-xs"
+            title={picking ? 'Cancel element pick' : 'Pick element for chat'}
+            className={picking ? 'text-primary hover:text-primary' : ''}
+          >
+            <SquareDashedMousePointer className="size-4" />
+          </Button>
           <Button
             onClick={handleReload}
             variant="ghost"
@@ -130,7 +184,7 @@ export function PreviewPanel() {
             <ExternalLink className="size-4" />
           </Button>
           <Button
-            onClick={() => setActive(null)}
+            onClick={closePreview}
             variant="ghost"
             size="icon-xs"
             title="Close preview"
@@ -142,10 +196,19 @@ export function PreviewPanel() {
           // The key forces a full reload when the URL changes, including
           // when a stale ticket gets refreshed via handleReload.
           key={active.url}
+          ref={iframeRef}
           src={active.url}
+          // A (re)load resets the injected grab bridge, so drop any pick
+          // that was running against the previous document.
+          onLoad={() => setPicking(false)}
           className="flex-1 w-full bg-background border-0"
           title={`Dev server preview: port ${active.port}`}
-          sandbox="allow-scripts allow-forms allow-popups allow-modals"
+          // allow-same-origin is safe here because previews load from the
+          // gateway's dedicated preview port — a different origin from this
+          // SPA. Without it the document gets an opaque origin, which breaks
+          // every module-based dev server (module scripts fail CORS and drop
+          // the ticket cookie), rendering the preview blank.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
         />
       </div>
     );

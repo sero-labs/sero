@@ -86,6 +86,12 @@ A basic/legacy local web UI may also be available on:
 127.0.0.1:18801
 ```
 
+Dev-server previews are served from a dedicated listener:
+
+```text
+127.0.0.1:18802
+```
+
 For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.
@@ -99,7 +105,9 @@ proxy. This makes a dev server running in the local desktop session available to
 a trusted browser on your tailnet without exposing the dev server itself as a
 separate public or tailnet service.
 
-The proxy is path-based on the gateway origin:
+The proxy is path-based on the gateway's preview listener (port 18802), which
+gives previews their own browser origin so the embedded preview stays isolated
+from the Sero Remote app itself:
 
 ```text
 /p/<workspaceId>/<port>/...
@@ -123,6 +131,10 @@ Practical behavior:
   possible so absolute paths continue to work under `/p/<workspaceId>/<port>/`
 - the upstream dev server continues to run on your machine/workspace container; the
   remote browser talks only to the Sero gateway URL served over Tailscale
+- the embedded preview panel is resizable and includes an element picker
+  (powered by React Grab): pick an element in the previewed page and its
+  source context — on React dev servers, the component stack with file
+  locations — lands in the chat composer
 
 If a preview does not appear, confirm that the desktop app shows the dev server
 as registered/running for the target workspace and that the paired web client has

@@ -50,6 +50,7 @@ export async function routeExtendedRequest(
   auth: GatewayAuth,
   isMasterAuth: boolean,
   devProxyTickets: DevProxyTicketManager | null,
+  previewPort: number | null,
 ): Promise<boolean> {
   const respond = makeResponder(ws, request.requestId);
   switch (request.type) {
@@ -390,6 +391,9 @@ export async function routeExtendedRequest(
             expiresAt: issued.expiresAt,
             workspaceId: issued.workspaceId,
             port: issued.port,
+            // Previews are served from their own origin (same host, this
+            // port) so the client should load them from there.
+            previewPort: previewPort ?? undefined,
           },
         });
       } catch (err) {

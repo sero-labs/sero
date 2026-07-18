@@ -15,13 +15,17 @@ import { primeStaticFileCache } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
 import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
 import type { GatewayConfig, GatewayAgentOps, GatewayDevServerChange } from './server/types';
-import { hasWorkspaceAccess, authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
+import type { GatewayAccessScope } from './server/access-control';
+import {
+  broadcastDevServerChange as fanoutDevServerChange,
+  broadcastGatewayEvent,
+  pushSessionEvent,
+} from './server/event-broadcast';
 import {
   DevProxyTicketManager,
   generateTicketSecret,
 } from './security/devserver-ticket';
-import { toDevServerChangedEvent } from './server/devserver-proxy';
-import { createGatewayHttpServer } from './server/http-app';
+import { createGatewayHttpServer, createPreviewHttpServer } from './server/http-app';
 import { getClientIp, isOriginAllowed } from './server/connection-security';
 
 export type {
@@ -70,7 +74,7 @@ function readBestEffortRequestId(raw: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-interface ConnectedClient extends GatewayAccessScope {
+export interface ConnectedClient extends GatewayAccessScope {
   ws: WebSocket;
   clientType: string;
   clientId: string;
@@ -88,6 +92,7 @@ interface ConnectedClient extends GatewayAccessScope {
 export class GatewayServer {
   private wss: WebSocketServer | null = null;
   private httpServer: http.Server | null = null;
+  private previewServer: http.Server | null = null;
   private auth: GatewayAuth;
   private clients = new Map<WebSocket, ConnectedClient>();
   private agentOps: GatewayAgentOps | null = null;
@@ -146,6 +151,7 @@ export class GatewayServer {
 
     this.httpServer = createGatewayHttpServer({
       staticRoot: __dirname,
+      previewPort: this.config.previewPort,
       getWebChatHtml: () => this.webChatHtml,
       getProxyDeps: () => this.proxyDeps(),
       upgradeWebSocket: (req, socket, head) => {
@@ -153,6 +159,10 @@ export class GatewayServer {
           this.wss!.emit('connection', ws, req);
         });
       },
+    });
+
+    this.previewServer = createPreviewHttpServer({
+      getProxyDeps: () => this.proxyDeps(),
     });
 
     // The 'ws' library handles upgrades for paths it owns, but we need to
@@ -172,7 +182,7 @@ export class GatewayServer {
 
     this.idleCheckTimer = setInterval(() => this.checkIdleConnections(), 5 * 60_000);
 
-    return new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       this.httpServer!.listen(this.config.port, this.config.host, () => {
         console.log(
           `[gateway] Server listening on ws://${this.config.host}:${this.config.port}`,
@@ -180,6 +190,16 @@ export class GatewayServer {
         resolve();
       });
       this.httpServer!.on('error', reject);
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      this.previewServer!.listen(this.config.previewPort, this.config.host, () => {
+        console.log(
+          `[gateway] Preview listener on http://${this.config.host}:${this.config.previewPort}`,
+        );
+        resolve();
+      });
+      this.previewServer!.on('error', reject);
     });
   }
 
@@ -205,6 +225,8 @@ export class GatewayServer {
 
     return new Promise<void>((resolve) => {
       this.wss?.close(() => {
+        this.previewServer?.close();
+        this.previewServer = null;
         this.httpServer?.close(() => {
           this.wss = null;
           this.httpServer = null;
@@ -240,33 +262,12 @@ export class GatewayServer {
    * Called by the agent event bridge.
    */
   pushEvent(sessionId: string, event: GatewayPushEvent): void {
-    const payload = JSON.stringify(event);
-    for (const [ws, client] of this.clients) {
-      if (!client.authenticated || !client.subscribedSessions.has(sessionId)) {
-        continue;
-      }
-      if (!this.canReceiveSessionEvent(client, sessionId)) {
-        continue;
-      }
-      this.authorizeEventArtifacts(client, event);
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
-      }
-    }
+    pushSessionEvent(this.clients, sessionId, event);
   }
 
   /** Push an event to authenticated clients that are authorized for its session. */
   broadcastEvent(event: GatewayPushEvent): void {
-    const payload = JSON.stringify(event);
-    const sessionId = 'sessionId' in event ? event.sessionId : null;
-    for (const [ws, client] of this.clients) {
-      if (!client.authenticated) continue;
-      if (sessionId && !this.canReceiveSessionEvent(client, sessionId)) continue;
-      this.authorizeEventArtifacts(client, event);
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
-      }
-    }
+    broadcastGatewayEvent(this.clients, event);
   }
 
   /** Get the auth manager (for web token operations from the request handler). */
@@ -274,20 +275,9 @@ export class GatewayServer {
     return this.auth;
   }
 
-  /**
-   * Push a dev server change to clients authorized for the affected
-   * workspace. Master-token clients see everything; scoped clients
-   * only see workspaces in their authorization set.
-   */
+  /** Push a dev server change to clients authorized for the affected workspace. */
   broadcastDevServerChange(change: GatewayDevServerChange): void {
-    const payload = JSON.stringify(toDevServerChangedEvent(change));
-    for (const [ws, client] of this.clients) {
-      if (!client.authenticated) continue;
-      if (!hasWorkspaceAccess(client, change.workspaceId)) continue;
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
-      }
-    }
+    fanoutDevServerChange(this.clients, change);
   }
 
   private proxyDeps() {
@@ -295,16 +285,6 @@ export class GatewayServer {
       agentOps: () => this.agentOps,
       tickets: this.devProxyTickets,
     };
-  }
-
-  private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
-    return hasSessionAccess(client, sessionId);
-  }
-
-  private authorizeEventArtifacts(client: ConnectedClient, event: GatewayPushEvent): void {
-    if (event.type === 'artifact_added') {
-      authorizeArtifactFromSession(client, event.sessionId, event.artifactId);
-    }
   }
 
   private applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
@@ -513,6 +493,7 @@ export class GatewayServer {
       this.auth,
       client.isMasterAuth,
       this.devProxyTickets,
+      this.config.previewPort,
     );
   }
 }

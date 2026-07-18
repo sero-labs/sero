@@ -17,6 +17,7 @@ import {
   buildProxyLocation,
   copyUpstreamHeaders,
   filterRequestHeaders,
+  injectGrabScriptTag,
   isHttps,
   parseDevProxyPath,
   readCookie,
@@ -27,6 +28,7 @@ import {
   shouldRewriteResponse,
   type ParsedProxyRequest,
 } from './devserver-proxy-utils';
+import { GRAB_SCRIPT_PATH } from './grab-script';
 
 export { DEV_PROXY_PREFIX, parseDevProxyPath } from './devserver-proxy-utils';
 
@@ -170,7 +172,11 @@ function pipeUpstreamResponse(
     if (streaming) return;
     res.writeHead(upstreamRes.statusCode ?? 502, responseHeaders);
     const body = Buffer.concat(chunks).toString('utf8');
-    res.end(rewriteProxyBody(body, proxyBase));
+    const rewritten = rewriteProxyBody(body, proxyBase);
+    const isHtml = String(upstreamRes.headers['content-type'] ?? '')
+      .toLowerCase()
+      .includes('text/html');
+    res.end(isHtml ? injectGrabScriptTag(rewritten, GRAB_SCRIPT_PATH) : rewritten);
   });
   upstreamRes.on('error', () => res.end());
 }

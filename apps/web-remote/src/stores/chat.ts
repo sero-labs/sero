@@ -47,7 +47,11 @@ interface ChatStore {
   renderItems: ChatRenderItem[];
   isStreaming: boolean;
   isLoadingHistory: boolean;
+  /** Text waiting to be inserted into the composer (e.g. a preview element grab). */
+  composerPrefill: string | null;
 
+  setComposerPrefill: (text: string) => void;
+  clearComposerPrefill: () => void;
   sendMessage: (text: string, images?: Array<{ data: string; mimeType: string }>) => void;
   handleMessage: (msg: GatewayMessage) => void;
   clearMessages: () => void;
@@ -99,6 +103,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   renderItems: [],
   isStreaming: false,
   isLoadingHistory: false,
+  composerPrefill: null,
+
+  setComposerPrefill: (text) => set({ composerPrefill: text }),
+  clearComposerPrefill: () => set({ composerPrefill: null }),
 
   _rebuildRenderItems: () => {
     const { messages, toolCalls } = get();

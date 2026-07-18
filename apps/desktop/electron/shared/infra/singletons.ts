@@ -36,10 +36,12 @@ export const artifactRegistry = new ArtifactRegistry();
 
 const GATEWAY_PORT = 18800;
 const WEB_CHAT_PORT = 18801;
+const GATEWAY_PREVIEW_PORT = 18802;
 const GATEWAY_TOKEN_PATH = path.join(SERO_AGENT_DIR, 'gateway-token');
 
 export const gatewayServer = new GatewayServer({
   port: GATEWAY_PORT,
+  previewPort: GATEWAY_PREVIEW_PORT,
   host: '127.0.0.1',
   tokenPath: GATEWAY_TOKEN_PATH,
   configDir: SERO_AGENT_DIR,

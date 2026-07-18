@@ -19,7 +19,8 @@ import type { BrowserGrabResult } from '@/types/browser';
 
 let cachedBundle: string | null = null;
 
-function loadReactGrabBundle(): string {
+/** Also used by the gateway to build the dev-server preview grab script. */
+export function loadReactGrabBundle(): string {
   cachedBundle ??= fs.readFileSync(path.join(__dirname, 'react-grab.global.js'), 'utf8');
   return cachedBundle;
 }
