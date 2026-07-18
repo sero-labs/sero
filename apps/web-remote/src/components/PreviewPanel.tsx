@@ -144,6 +144,16 @@ export function PreviewPanel() {
   };
 
   if (active) {
+    // allow-same-origin is only safe when the preview loads from the
+    // gateway's dedicated preview origin (see buildPreviewUrl): previewed
+    // workspace code must never be same-origin with this SPA, or it could
+    // reach our DOM and origin-scoped credentials. If an older gateway
+    // didn't advertise a preview origin, fail closed: keep the opaque
+    // sandbox (module-based dev servers won't render, but nothing leaks).
+    const isolated = new URL(active.url).origin !== window.location.origin;
+    const sandbox = isolated
+      ? 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals'
+      : 'allow-scripts allow-forms allow-popups allow-modals';
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-card shrink-0">
@@ -203,12 +213,7 @@ export function PreviewPanel() {
           onLoad={() => setPicking(false)}
           className="flex-1 w-full bg-background border-0"
           title={`Dev server preview: port ${active.port}`}
-          // allow-same-origin is safe here because previews load from the
-          // gateway's dedicated preview port — a different origin from this
-          // SPA. Without it the document gets an opaque origin, which breaks
-          // every module-based dev server (module scripts fail CORS and drop
-          // the ticket cookie), rendering the preview blank.
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+          sandbox={sandbox}
         />
       </div>
     );

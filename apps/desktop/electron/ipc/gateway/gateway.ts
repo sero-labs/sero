@@ -180,7 +180,10 @@ async function startGateway(): Promise<void> {
 
   // Tailscale: if enabled, expose on tailnet
   if (gatewayConfig.tailscaleEnabled) {
-    const url = await tailscale.serve(gatewayServer.getStatus().port);
+    const url = await tailscale.serve(
+      gatewayServer.getStatus().port,
+      gatewayServer.getPreviewPorts(),
+    );
     if (url) {
       console.log(`[gateway] Available on tailnet: ${url}`);
     }

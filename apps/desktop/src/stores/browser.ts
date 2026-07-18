@@ -299,9 +299,16 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   grabElementToChat: async (id) => {
     const tab = get().tabs.find((t) => t.id === id);
     if (!tab) return;
-    if (get().grabbingTabId === id) {
+    const grabbingTabId = get().grabbingTabId;
+    if (grabbingTabId === id) {
       void window.sero.browser.cancelGrab(id, tab.workspaceId);
       return;
+    }
+    // Only one pick at a time: a pick left running in another tab would
+    // otherwise stay active with no visible control to cancel it.
+    if (grabbingTabId) {
+      const previous = get().tabs.find((t) => t.id === grabbingTabId);
+      if (previous) void window.sero.browser.cancelGrab(previous.id, previous.workspaceId);
     }
     set({ grabbingTabId: id });
     const result = await window.sero.browser.grabElement(id, tab.workspaceId);

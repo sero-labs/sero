@@ -139,27 +139,33 @@ export function Layout() {
           </div>
         )}
 
-        {/* Chat + right panel share the row; drag the divider to resize. */}
-        {!isMobile && rightPanel ? (
-          <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
-            <ResizablePanel defaultSize={rightPanel === 'preview' ? 55 : 70} minSize={25}>
-              <ChatPanel />
-            </ResizablePanel>
-            <ResizableHandle />
-            <ResizablePanel
-              defaultSize={rightPanel === 'preview' ? 45 : 30}
-              minSize={20}
-              className="bg-card overflow-hidden"
-            >
-              {rightPanel === 'files' && <FilesPanel />}
-              {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
-              {rightPanel === 'preview' && <PreviewPanel />}
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        ) : (
+        {/* Chat + right panel share the row; drag the divider to resize.
+            The group (and the chat's position in it) stays mounted across
+            panel toggles so composer drafts survive opening a panel. */}
+        {isMobile ? (
           <div className="flex-1 min-w-0">
             <ChatPanel />
           </div>
+        ) : (
+          <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
+            <ResizablePanel minSize={25}>
+              <ChatPanel />
+            </ResizablePanel>
+            {rightPanel && (
+              <>
+                <ResizableHandle />
+                <ResizablePanel
+                  defaultSize={rightPanel === 'preview' ? 45 : 30}
+                  minSize={20}
+                  className="bg-card overflow-hidden"
+                >
+                  {rightPanel === 'files' && <FilesPanel />}
+                  {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
+                  {rightPanel === 'preview' && <PreviewPanel />}
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
         )}
       </div>
 

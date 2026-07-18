@@ -17,6 +17,14 @@ import { validateRequest, type GatewayRequest, type GatewayResponse, type Gatewa
 import type { GatewayConfig, GatewayAgentOps, GatewayDevServerChange } from './server/types';
 import type { GatewayAccessScope } from './server/access-control';
 import {
+  AUTH_TIMEOUT_MS,
+  IDLE_TIMEOUT_MS,
+  MAX_CONNECTIONS_PER_IP,
+  MAX_PAYLOAD_BYTES,
+  MAX_TOTAL_CONNECTIONS,
+  readBestEffortRequestId,
+} from './server/connection-limits';
+import {
   broadcastDevServerChange as fanoutDevServerChange,
   broadcastGatewayEvent,
   pushSessionEvent,
@@ -38,41 +46,7 @@ export type {
   GatewayDevServerChange,
 } from './server/types';
 
-/**
- * Maximum WebSocket message payload (36 MB).
- *
- * This is the *first* gate: `ws` enforces it during frame reassembly, before
- * we ever see the bytes — over-limit messages close the socket with code
- * 1009. Sized to accommodate the voice transcription path: the OpenAI helper
- * caps decoded audio at 25 MB, which becomes ~33.4 MB after base64 encoding
- * plus the JSON envelope.
- *
- * Once a frame fits, two further checks run in order:
- *   1. `validateRequest` (protocol.ts) rejects voice payloads above 35 MB
- *      to short-circuit clearly bogus inputs.
- *   2. The OpenAI transcription helper enforces the 25 MB decoded ceiling.
- */
-const MAX_PAYLOAD_BYTES = 36 * 1024 * 1024;
-/** Maximum total concurrent WebSocket connections. */
-const MAX_TOTAL_CONNECTIONS = 50;
-/** Maximum concurrent WebSocket connections per source IP. */
-const MAX_CONNECTIONS_PER_IP = 10;
-/** Idle timeout for authenticated connections (30 minutes). */
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-/** Auth timeout for unauthenticated connections (10 seconds). */
-const AUTH_TIMEOUT_MS = 10_000;
 type WebChatHtmlProvider = () => string;
-
-/**
- * Best-effort `requestId` extraction for early errors that fail before
- * `validateRequest` produces a typed request. Lets the client correlate the
- * error with its outstanding promise instead of leaving it pending.
- */
-function readBestEffortRequestId(raw: unknown): string | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const value = (raw as { requestId?: unknown }).requestId;
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
 
 export interface ConnectedClient extends GatewayAccessScope {
   ws: WebSocket;
@@ -183,24 +157,36 @@ export class GatewayServer {
 
     this.idleCheckTimer = setInterval(() => this.checkIdleConnections(), 5 * 60_000);
 
-    await new Promise<void>((resolve, reject) => {
-      this.httpServer!.listen(this.config.port, this.config.host, () => {
-        console.log(
-          `[gateway] Server listening on ws://${this.config.host}:${this.config.port}`,
-        );
-        resolve();
-      });
-      this.httpServer!.on('error', reject);
-    });
+    try {
+      await this.listenOn(this.httpServer, this.config.port);
+      console.log(
+        `[gateway] Server listening on ws://${this.config.host}:${this.config.port}`,
+      );
+      await this.listenOn(this.previewServer, this.config.previewPort);
+      console.log(
+        `[gateway] Preview listener on http://${this.config.host}:${this.config.previewPort}`,
+      );
+    } catch (err) {
+      // Roll back everything: a half-started gateway must not report
+      // itself running, and a later start() has to retry from scratch.
+      if (this.idleCheckTimer) {
+        clearInterval(this.idleCheckTimer);
+        this.idleCheckTimer = null;
+      }
+      this.wss?.close();
+      this.wss = null;
+      this.previewServer?.close();
+      this.previewServer = null;
+      this.httpServer?.close();
+      this.httpServer = null;
+      throw err;
+    }
+  }
 
+  private listenOn(server: http.Server, port: number): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.previewServer!.listen(this.config.previewPort, this.config.host, () => {
-        console.log(
-          `[gateway] Preview listener on http://${this.config.host}:${this.config.previewPort}`,
-        );
-        resolve();
-      });
-      this.previewServer!.on('error', reject);
+      server.listen(port, this.config.host, () => resolve());
+      server.on('error', reject);
     });
   }
 
