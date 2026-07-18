@@ -140,33 +140,30 @@ export function Layout() {
         )}
 
         {/* Chat + right panel share the row; drag the divider to resize.
-            The group (and the chat's position in it) stays mounted across
-            panel toggles so composer drafts survive opening a panel. */}
-        {isMobile ? (
-          <div className="flex-1 min-w-0">
+            The group renders on mobile too (right panels are Sheets there)
+            so ChatPanel keeps one position in the tree across panel
+            toggles AND the responsive breakpoint — composer drafts must
+            survive both. Numeric panel sizes are pixels in
+            react-resizable-panels v4, so sizes are percentage strings. */}
+        <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
+          <ResizablePanel minSize="25%">
             <ChatPanel />
-          </div>
-        ) : (
-          <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
-            <ResizablePanel minSize={25}>
-              <ChatPanel />
-            </ResizablePanel>
-            {rightPanel && (
-              <>
-                <ResizableHandle />
-                <ResizablePanel
-                  defaultSize={rightPanel === 'preview' ? 45 : 30}
-                  minSize={20}
-                  className="bg-card overflow-hidden"
-                >
-                  {rightPanel === 'files' && <FilesPanel />}
-                  {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
-                  {rightPanel === 'preview' && <PreviewPanel />}
-                </ResizablePanel>
-              </>
-            )}
-          </ResizablePanelGroup>
-        )}
+          </ResizablePanel>
+          {!isMobile && rightPanel && (
+            <>
+              <ResizableHandle />
+              <ResizablePanel
+                defaultSize={rightPanel === 'preview' ? '45%' : '30%'}
+                minSize="20%"
+                className="bg-card overflow-hidden"
+              >
+                {rightPanel === 'files' && <FilesPanel />}
+                {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
+                {rightPanel === 'preview' && <PreviewPanel />}
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
       </div>
 
       {/* Status bar, hidden on mobile to save space */}
