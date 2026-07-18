@@ -156,6 +156,20 @@ export function registerBrowserHandlers(): void {
   );
 
   ipcMain.handle(
+    IpcChannels.browser.grabElement,
+    (_e, tabId: string, workspaceId: string) => {
+      return browserViewManager.grabElement(tabId, workspaceId);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.browser.cancelGrab,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.cancelGrab(tabId, workspaceId);
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.browser.showTabContextMenu,
     (event, tabId: string, workspaceId: string) => {
       if (browserViewManager.workspaceForTab(tabId) !== workspaceId) return null;

@@ -4,6 +4,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   BrowserBookmarkContextAction,
   BrowserEvent,
+  BrowserGrabResult,
   BrowserTabContextAction,
   BrowserViewBounds,
 } from '@/types/browser';
@@ -46,6 +47,10 @@ export const browserBridge = {
     rect?: { x: number; y: number; width: number; height: number },
   ): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.browser.capturePage, tabId, workspaceId, rect),
+  grabElement: (tabId: string, workspaceId: string): Promise<BrowserGrabResult> =>
+    ipcRenderer.invoke(IpcChannels.browser.grabElement, tabId, workspaceId),
+  cancelGrab: (tabId: string, workspaceId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.browser.cancelGrab, tabId, workspaceId),
   showTabContextMenu: (tabId: string, workspaceId: string): Promise<BrowserTabContextAction | null> =>
     ipcRenderer.invoke(IpcChannels.browser.showTabContextMenu, tabId, workspaceId),
   showBookmarkContextMenu: (): Promise<BrowserBookmarkContextAction | null> =>

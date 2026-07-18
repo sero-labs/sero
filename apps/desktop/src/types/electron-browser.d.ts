@@ -1,6 +1,7 @@
 import type {
   BrowserBookmarkContextAction,
   BrowserEvent,
+  BrowserGrabResult,
   BrowserTabContextAction,
   BrowserViewBounds,
 } from './browser';
@@ -25,6 +26,8 @@ export interface SeroBrowserAPI {
     workspaceId: string,
     rect?: { x: number; y: number; width: number; height: number },
   ): Promise<string | null>;
+  grabElement(tabId: string, workspaceId: string): Promise<BrowserGrabResult>;
+  cancelGrab(tabId: string, workspaceId: string): Promise<void>;
   showTabContextMenu(tabId: string, workspaceId: string): Promise<BrowserTabContextAction | null>;
   showBookmarkContextMenu(): Promise<BrowserBookmarkContextAction | null>;
   onEvent(callback: (event: BrowserEvent) => void): () => void;

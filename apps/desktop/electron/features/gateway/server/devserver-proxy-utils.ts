@@ -275,6 +275,22 @@ export function rewriteProxyBody(content: string, proxyBase: string): string {
     });
 }
 
+/**
+ * Add the react-grab preview script to a proxied HTML document. Placed at
+ * the top of <head> so the React DevTools hook it installs exists before
+ * the page's own (deferred module) scripts load React. Runs after path
+ * rewriting — the src must stay on the gateway origin, not the proxy base.
+ */
+export function injectGrabScriptTag(html: string, scriptPath: string): string {
+  const tag = `<script src="${scriptPath}"></script>`;
+  const headOpen = /<head[^>]*>/i.exec(html);
+  if (headOpen) {
+    const end = headOpen.index + headOpen[0].length;
+    return `${html.slice(0, end)}${tag}${html.slice(end)}`;
+  }
+  return `${tag}${html}`;
+}
+
 export function buildProxyLocation(parsed: ParsedProxyRequest, rest: string): string {
   const base = `${DEV_PROXY_PREFIX}${encodeURIComponent(parsed.workspaceId)}/${parsed.port}`;
   return `${base}${rest.startsWith('/') ? rest : `/${rest}`}`;

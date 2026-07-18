@@ -5,7 +5,7 @@
  * for automatic stick-to-bottom scrolling (same component the desktop app uses).
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '@/stores/chat';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useConnectionStore } from '@/stores/connection';
@@ -63,6 +63,15 @@ export function ChatPanel() {
   const isConnected = connectionState === 'connected';
   const hasContent = input.trim().length > 0 || pendingImages.length > 0;
   const canSend = isConnected && !!activeWorkspaceId && !isStreaming && hasContent;
+
+  // Consume prefill pushed by other panels (e.g. a preview element grab).
+  const composerPrefill = useChatStore((s) => s.composerPrefill);
+  useEffect(() => {
+    if (!composerPrefill) return;
+    setInput((prev) => (prev ? `${prev}\n${composerPrefill}` : composerPrefill));
+    useChatStore.getState().clearComposerPrefill();
+    textareaRef.current?.focus();
+  }, [composerPrefill]);
 
   const addImages = useCallback(async (files: File[]) => {
     const imageFiles = files.filter((f) => f.type.startsWith('image/'));

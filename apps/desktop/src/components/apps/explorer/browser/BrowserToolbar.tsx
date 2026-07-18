@@ -1,11 +1,21 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ArrowLeft, ArrowRight, Camera, MessageSquareQuote, RotateCw, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  MessageSquareQuote,
+  RotateCw,
+  SquareDashedMousePointer,
+  X,
+} from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { BrowserTab } from '@/types/browser';
 
 interface BrowserToolbarProps {
   tab: BrowserTab;
+  /** True while a react-grab element pick is running in this tab. */
+  grabActive: boolean;
   onNavigate: (urlOrQuery: string) => void;
   onBack: () => void;
   onForward: () => void;
@@ -13,10 +23,11 @@ interface BrowserToolbarProps {
   onStop: () => void;
   onSharePage: () => void;
   onCaptureArea: () => void;
+  onGrabElement: () => void;
 }
 
 export function BrowserToolbar({
-  tab, onNavigate, onBack, onForward, onReload, onStop, onSharePage, onCaptureArea,
+  tab, grabActive, onNavigate, onBack, onForward, onReload, onStop, onSharePage, onCaptureArea, onGrabElement,
 }: BrowserToolbarProps) {
   // Mirror the tab URL into the input but let the user edit freely. When the
   // tab navigates elsewhere (e.g. clicking a link), the field refreshes to
@@ -100,6 +111,20 @@ export function BrowserToolbar({
           'focus:border-[var(--border-default)] focus:outline-none',
         )}
       />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onGrabElement}
+        title={grabActive ? 'Cancel element pick' : 'Pick element for chat'}
+        className={cn(
+          grabActive
+            ? 'text-[var(--accent-primary)] hover:text-[var(--accent-primary)]'
+            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
+        )}
+      >
+        <SquareDashedMousePointer className="size-[14px]" />
+      </Button>
       <Button
         type="button"
         variant="ghost"

@@ -21,6 +21,10 @@ export const browserIpcChannels = {
   extractPage: 'sero:browser:extract-page',
   /** Capture the tab as a PNG (optionally cropped). Returns base64 PNG. */
   capturePage: 'sero:browser:capture-page',
+  /** Start a react-grab element pick; resolves with the grabbed context. */
+  grabElement: 'sero:browser:grab-element',
+  /** Cancel an in-flight element pick. */
+  cancelGrab: 'sero:browser:cancel-grab',
   /** Native tab-strip context menu. Returns selected action or null. */
   showTabContextMenu: 'sero:browser:show-tab-context-menu',
   /** Native bookmarks-bar context menu. Returns selected action or null. */

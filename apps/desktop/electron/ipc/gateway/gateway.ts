@@ -121,7 +121,7 @@ export function registerGatewayHandlers(): void {
       const status = gatewayServer.getStatus();
       const tsStatus = await tailscale.getStatus();
       const tailnetUrl = tsStatus.running
-        ? await tailscale.serve(status.port)
+        ? await tailscale.serve(status.port, gatewayServer.getPreviewPorts())
         : null;
       const baseUrl = tailnetUrl ?? `http://127.0.0.1:${status.port}`;
 
@@ -180,7 +180,10 @@ async function startGateway(): Promise<void> {
 
   // Tailscale: if enabled, expose on tailnet
   if (gatewayConfig.tailscaleEnabled) {
-    const url = await tailscale.serve(gatewayServer.getStatus().port);
+    const url = await tailscale.serve(
+      gatewayServer.getStatus().port,
+      gatewayServer.getPreviewPorts(),
+    );
     if (url) {
       console.log(`[gateway] Available on tailnet: ${url}`);
     }

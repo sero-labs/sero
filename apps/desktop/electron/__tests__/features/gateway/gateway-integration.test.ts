@@ -2,86 +2,22 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { WebSocket, type RawData } from 'ws';
+import { WebSocket } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
+import {
+  connectClient,
+  sendRequest,
+  waitForClose,
+  waitForMessage,
+  waitForOpen,
+} from './gateway-ws-test-utils';
 
 interface TestHarness {
   server: GatewayServer;
   port: number;
   tmpDir: string;
-}
-
-interface GatewayMessageBase {
-  type: string;
-}
-
-function waitForOpen(ws: WebSocket): Promise<void> {
-  if (ws.readyState === WebSocket.OPEN) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    ws.once('open', () => resolve());
-    ws.once('error', reject);
-  });
-}
-
-function waitForClose(ws: WebSocket): Promise<void> {
-  if (ws.readyState === WebSocket.CLOSED) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    ws.once('close', () => resolve());
-  });
-}
-
-function waitForMessage<T extends GatewayMessageBase>(ws: WebSocket): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      ws.off('message', onMessage);
-      ws.off('error', onError);
-      reject(new Error('Timed out waiting for gateway message'));
-    }, 2000);
-
-    const onMessage = (data: RawData) => {
-      clearTimeout(timeout);
-      ws.off('error', onError);
-      resolve(JSON.parse(data.toString()) as T);
-    };
-
-    const onError = (error: Error) => {
-      clearTimeout(timeout);
-      ws.off('message', onMessage);
-      reject(error);
-    };
-
-    ws.once('message', onMessage);
-    ws.once('error', onError);
-  });
-}
-
-async function sendRequest<T extends GatewayMessageBase>(ws: WebSocket, request: Record<string, unknown>): Promise<T> {
-  const responsePromise = waitForMessage<T>(ws);
-  ws.send(JSON.stringify(request));
-  return responsePromise;
-}
-
-async function connectClient(port: number, token: string): Promise<WebSocket> {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-  await waitForOpen(ws);
-
-  const response = await sendRequest<GatewayResponse>(ws, {
-    type: 'connect',
-    token,
-    clientType: 'web',
-    clientId: `test-${Date.now()}`,
-  });
-
-  expect(response).toEqual({ type: 'ok', requestType: 'connect' });
-  return ws;
 }
 
 function createAgentOps(): GatewayAgentOps {
@@ -179,6 +115,8 @@ async function createHarness(): Promise<TestHarness> {
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'gateway-integration-test-'));
   const server = new GatewayServer({
     port: 0,
+    previewPort: 0,
+    previewTlsPort: 8443,
     host: '127.0.0.1',
     tokenPath: path.join(tmpDir, 'gateway-token.txt'),
     configDir: tmpDir,

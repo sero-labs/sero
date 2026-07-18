@@ -90,8 +90,16 @@ export class TailscaleIntegration {
    * Expose a local port on the tailnet using `tailscale serve`.
    * This makes the gateway accessible to other devices on your tailnet.
    * Does NOT use Funnel (no public internet exposure).
+   *
+   * The dev-server preview listener is always exposed alongside, on its
+   * own HTTPS port — previews must keep a separate origin from the SPA
+   * (see GatewayConfig.previewPort). Required so no call site can expose
+   * the SPA without its preview mapping.
    */
-  async serve(port: number): Promise<string | null> {
+  async serve(
+    port: number,
+    preview: { previewPort: number; previewTlsPort: number },
+  ): Promise<string | null> {
     const bin = await this.findBinary();
     if (!bin) return null;
 
@@ -105,6 +113,19 @@ export class TailscaleIntegration {
         { timeout: 15000 },
       );
       this.servingPort = port;
+
+      // Preview listener → https://<hostname>:<previewTlsPort>.
+      // Non-fatal: without it the SPA still works, only embedded
+      // previews are unavailable remotely.
+      try {
+        await execFileAsync(
+          bin,
+          ['serve', '--bg', `--https=${preview.previewTlsPort}`, String(preview.previewPort)],
+          { timeout: 15000 },
+        );
+      } catch (err) {
+        console.error('[tailscale] Failed to serve preview port:', err);
+      }
 
       const status = await this.getStatus();
       console.log(

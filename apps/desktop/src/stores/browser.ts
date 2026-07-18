@@ -11,11 +11,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { persistLayout } from '@/lib/persist-layout';
-import {
-  formatSelectionForChat,
-  formatSelectionForMemory,
-  prefillChatComposer,
-} from './browser-helpers';
+import { applyBrowserEvent } from './browser-events';
+import { prefillChatComposer, toPersistedTabs } from './browser-helpers';
 import {
   BROWSER_HOME_URL,
   resolveAddressBarInput,
@@ -36,13 +33,15 @@ interface ClosedTab {
 
 const MAX_RECENTLY_CLOSED = 10;
 
-interface BrowserState {
+export interface BrowserState {
   tabs: BrowserTab[];
   /** Active tab id per workspace. */
   activeTabIds: Record<string, string | null>;
   bookmarks: BrowserBookmark[];
   /** Most-recently-closed first. In-memory only (not persisted). */
   recentlyClosed: ClosedTab[];
+  /** Tab with a react-grab element pick in progress, or null. */
+  grabbingTabId: string | null;
 
   /** Create a new tab under the given workspace. Returns the new id. */
   createTab: (workspaceId: string, urlOrQuery?: string) => string;
@@ -63,6 +62,11 @@ interface BrowserState {
   stop: (id: string) => void;
   /** Extract the tab's page (title + plain text) and prefill the chat composer. */
   sharePageWithChat: (id: string) => Promise<void>;
+  /**
+   * Toggle a react-grab element pick in the tab. On grab, the element's
+   * source context is prefilled into the chat composer.
+   */
+  grabElementToChat: (id: string) => Promise<void>;
 
   addBookmark: (input: { title: string; url: string; favicon?: string }) => void;
   removeBookmark: (id: string) => void;
@@ -83,10 +87,6 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function toPersistedTabs(tabs: BrowserTab[]): PersistedBrowserTab[] {
-  return tabs.map((t) => ({ id: t.id, workspaceId: t.workspaceId, url: t.url, title: t.title }));
-}
-
 function newTab(workspaceId: string, url: string): BrowserTab {
   return {
     id: generateId('tab'),
@@ -104,6 +104,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   activeTabIds: {},
   bookmarks: [],
   recentlyClosed: [],
+  grabbingTabId: null,
 
   createTab: (workspaceId, urlOrQuery) => {
     const url = urlOrQuery ? resolveAddressBarInput(urlOrQuery) : BROWSER_HOME_URL;
@@ -295,6 +296,32 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     prefillChatComposer(`${heading}${body}\n\n${attribution}\n\n`);
   },
 
+  grabElementToChat: async (id) => {
+    const tab = get().tabs.find((t) => t.id === id);
+    if (!tab) return;
+    const grabbingTabId = get().grabbingTabId;
+    if (grabbingTabId === id) {
+      void window.sero.browser.cancelGrab(id, tab.workspaceId);
+      return;
+    }
+    // Only one pick at a time: a pick left running in another tab would
+    // otherwise stay active with no visible control to cancel it.
+    if (grabbingTabId) {
+      const previous = get().tabs.find((t) => t.id === grabbingTabId);
+      if (previous) void window.sero.browser.cancelGrab(previous.id, previous.workspaceId);
+    }
+    set({ grabbingTabId: id });
+    const result = await window.sero.browser.grabElement(id, tab.workspaceId);
+    set((s) => (s.grabbingTabId === id ? { grabbingTabId: null } : {}));
+    if (result.status === 'unavailable') {
+      console.warn('[browser] Element pick unavailable in this tab.');
+      return;
+    }
+    if (result.status !== 'grabbed') return;
+    const url = get().tabs.find((t) => t.id === id)?.url ?? tab.url;
+    prefillChatComposer(`${result.content}\n\n— ${url}\n\n`);
+  },
+
   addBookmark: (input) => {
     const { bookmarks } = get();
     const existing = bookmarks.find((b) => b.url === input.url);
@@ -386,104 +413,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     void window.sero.browser.setActive(activeTabIds[workspaceId] ?? null, workspaceId);
   },
 
-  applyEvent: (event) => {
-    set((s) => {
-      const tabs = s.tabs.map((t) => {
-        if (t.id !== event.tabId) return t;
-        switch (event.kind) {
-          case 'did-navigate':
-            return {
-              ...t,
-              url: event.url,
-              canGoBack: event.canGoBack,
-              canGoForward: event.canGoForward,
-            };
-          case 'did-start-loading':
-            return { ...t, isLoading: true };
-          case 'did-stop-loading':
-            return { ...t, isLoading: false };
-          case 'title-updated':
-            return { ...t, title: event.title || t.title };
-          case 'favicon-updated':
-            return { ...t, favicon: event.favicon };
-          case 'did-fail-load':
-            return { ...t, isLoading: false };
-          default:
-            return t;
-        }
-      });
-      return { tabs };
-    });
-
-    if (event.kind === 'new-tab-request') {
-      get().createTab(event.workspaceId, event.url);
-      return;
-    }
-
-    if (event.kind === 'selection-to-chat') {
-      prefillChatComposer(formatSelectionForChat(event.selection, event.pageUrl, event.pageTitle));
-      return;
-    }
-
-    if (event.kind === 'selection-to-memory') {
-      prefillChatComposer(formatSelectionForMemory(event.selection, event.pageUrl, event.pageTitle));
-      return;
-    }
-
-    if (event.kind === 'host-tab-opened') {
-      // Mirror the host-created tab into the renderer store so it shows up
-      // in the tab strip. The view already exists in main; don't re-open it.
-      if (get().tabs.some((t) => t.id === event.tabId)) return;
-      const tab: BrowserTab = {
-        id: event.tabId,
-        workspaceId: event.workspaceId,
-        url: event.url,
-        title: event.url,
-        isLoading: true,
-        canGoBack: false,
-        canGoForward: false,
-      };
-      set((s) => ({
-        tabs: [...s.tabs, tab],
-        activeTabIds: { ...s.activeTabIds, [event.workspaceId]: event.tabId },
-      }));
-      persistLayout({
-        browserTabs: toPersistedTabs(get().tabs),
-        activeBrowserTabIds: get().activeTabIds,
-      });
-      return;
-    }
-
-    if (event.kind === 'host-tab-activated') {
-      if (!get().tabs.some((t) => t.id === event.tabId && t.workspaceId === event.workspaceId)) return;
-      set((s) => ({
-        activeTabIds: { ...s.activeTabIds, [event.workspaceId]: event.tabId },
-      }));
-      persistLayout({ activeBrowserTabIds: get().activeTabIds });
-      return;
-    }
-
-    if (event.kind === 'host-tab-closed') {
-      if (!get().tabs.some((t) => t.id === event.tabId)) return;
-      const nextTabs = get().tabs.filter((t) => t.id !== event.tabId);
-      const ws = event.workspaceId;
-      const activeIds = { ...get().activeTabIds };
-      if (activeIds[ws] === event.tabId) {
-        const replacement = nextTabs.find((t) => t.workspaceId === ws) ?? null;
-        activeIds[ws] = replacement ? replacement.id : null;
-      }
-      set({ tabs: nextTabs, activeTabIds: activeIds });
-      persistLayout({
-        browserTabs: toPersistedTabs(nextTabs),
-        activeBrowserTabIds: activeIds,
-      });
-      return;
-    }
-
-    if (event.kind === 'did-navigate' || event.kind === 'title-updated') {
-      persistLayout({ browserTabs: toPersistedTabs(get().tabs) });
-    }
-  },
+  applyEvent: (event) => applyBrowserEvent(event, useBrowserStore),
 }));
 
 /* ── Selectors ──────────────────────────────────────────────── */

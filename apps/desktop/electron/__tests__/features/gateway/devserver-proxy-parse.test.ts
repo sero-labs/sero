@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDevProxyPath } from '@electron/features/gateway/server/devserver-proxy';
 import {
   buildProxyLocation,
+  injectGrabScriptTag,
   readQueryTicket,
   rewriteProxyBody,
 } from '@electron/features/gateway/server/devserver-proxy-utils';
@@ -74,5 +75,23 @@ describe('parseDevProxyPath', () => {
     expect(rewritten).toContain("url('/p/ws-1/5173/assets/bg.png')");
     expect(rewritten).toContain('"/p/ws-1/5173/@react-refresh"');
     expect(rewritten).toContain("'/p/ws-1/5173/api/me'");
+  });
+});
+
+describe('injectGrabScriptTag', () => {
+  it('inserts the script at the top of <head> so it runs before page scripts', () => {
+    const html = '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
+    const injected = injectGrabScriptTag(html, '/__sero/grab.js');
+    expect(injected).toContain('<head><script src="/__sero/grab.js"></script><meta');
+  });
+
+  it('handles <head> tags with attributes', () => {
+    const injected = injectGrabScriptTag('<head lang="en"><title>x</title></head>', '/g.js');
+    expect(injected).toBe('<head lang="en"><script src="/g.js"></script><title>x</title></head>');
+  });
+
+  it('prepends when the document has no head', () => {
+    const injected = injectGrabScriptTag('<body>hi</body>', '/g.js');
+    expect(injected).toBe('<script src="/g.js"></script><body>hi</body>');
   });
 });

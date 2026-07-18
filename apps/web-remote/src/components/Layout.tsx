@@ -20,6 +20,11 @@ import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@sero-ai/ui/components/ui/resizable';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
@@ -134,21 +139,31 @@ export function Layout() {
           </div>
         )}
 
-        {/* Chat panel, fills remaining space */}
-        <div className="flex-1 min-w-0">
-          <ChatPanel />
-        </div>
-
-        {/* Desktop right panel, inline panel */}
-        {!isMobile && rightPanel && (
-          <div
-            className={`${rightPanel === 'preview' ? 'w-[28rem]' : 'w-80'} border-l border-border bg-card shrink-0 overflow-hidden`}
-          >
-            {rightPanel === 'files' && <FilesPanel />}
-            {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
-            {rightPanel === 'preview' && <PreviewPanel />}
-          </div>
-        )}
+        {/* Chat + right panel share the row; drag the divider to resize.
+            The group renders on mobile too (right panels are Sheets there)
+            so ChatPanel keeps one position in the tree across panel
+            toggles AND the responsive breakpoint — composer drafts must
+            survive both. Numeric panel sizes are pixels in
+            react-resizable-panels v4, so sizes are percentage strings. */}
+        <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
+          <ResizablePanel minSize="25%">
+            <ChatPanel />
+          </ResizablePanel>
+          {!isMobile && rightPanel && (
+            <>
+              <ResizableHandle />
+              <ResizablePanel
+                defaultSize={rightPanel === 'preview' ? '45%' : '30%'}
+                minSize="20%"
+                className="bg-card overflow-hidden"
+              >
+                {rightPanel === 'files' && <FilesPanel />}
+                {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
+                {rightPanel === 'preview' && <PreviewPanel />}
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
       </div>
 
       {/* Status bar, hidden on mobile to save space */}

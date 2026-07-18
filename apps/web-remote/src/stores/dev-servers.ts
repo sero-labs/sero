@@ -62,9 +62,21 @@ function buildPreviewUrl(
   workspaceId: string,
   port: number,
   ticket: string,
+  previewPort: number | undefined,
+  previewTlsPort: number | undefined,
 ): string {
   const base = `${getGatewayHttpOrigin()}/p/${encodeURIComponent(workspaceId)}/${port}/`;
   const url = new URL(base);
+  // Previews load from the gateway's dedicated preview listener so they
+  // get their own origin — the sandboxed preview iframe can then use
+  // allow-same-origin without sharing this SPA's origin. Over TLS
+  // (tailnet access via `tailscale serve`) the listener is reachable on
+  // the mapped HTTPS port instead of the direct one.
+  if (url.protocol === 'https:') {
+    if (previewTlsPort) url.port = String(previewTlsPort);
+  } else if (previewPort) {
+    url.port = String(previewPort);
+  }
   url.searchParams.set('t', ticket);
   return url.toString();
 }
@@ -112,6 +124,8 @@ export const useDevServerStore = create<DevServerStore>((set, get) => ({
           ticket: string;
           workspaceId: string;
           port: number;
+          previewPort?: number;
+          previewTlsPort?: number;
         } | undefined;
         if (!data) return;
         const key = `${data.workspaceId}:${data.port}`;
@@ -120,7 +134,15 @@ export const useDevServerStore = create<DevServerStore>((set, get) => ({
         const next = new Map(get()._pendingTickets);
         next.delete(key);
         set({ _pendingTickets: next });
-        pending.resolve(buildPreviewUrl(data.workspaceId, data.port, data.ticket));
+        pending.resolve(
+          buildPreviewUrl(
+            data.workspaceId,
+            data.port,
+            data.ticket,
+            data.previewPort,
+            data.previewTlsPort,
+          ),
+        );
         return;
       }
     }
