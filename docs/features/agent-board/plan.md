@@ -159,11 +159,32 @@ what loops already demand.
   claim protocol's candidate filter re-admits them — the board reuses the
   same filter, no extra state.
 
-**Starting work from Backlog:** an issue card's primary action is **Start
-work** — it deep-links into the owning workspace's loop create flow
-(D1→D2→D3) pre-filled with the issue title/body/URL, or hands the issue to
-the `issue-implementer` catalog loop where installed. Draft-loop cards
-activate in place; queued cards offer run-now/snooze.
+**Starting work from Backlog:** the board does **not** create a loop per
+issue. The loop is the reusable, refinable process (the orchestrator's whole
+guardrails premise — one loop, many runs, reflection improves it); issues are
+inputs to it.
+
+- **Primary action — Start work:** fire the issue at the workspace's
+  installed issue-handling loop (the `issue-implementer` catalog loop, spec
+  15). The coordinator already routes payload-carrying events to subscribed
+  loops via `fireEvent` (`runtime/coordinator.ts`), and the loop processes
+  one issue per fire. Each issue becomes a new **run** of the same loop —
+  run history and reflection accumulate on one process, and the Active
+  column shows "issue-implementer → #123", not N near-identical loops.
+- **Per-workspace tailoring** comes from the existing catalog→library link:
+  installing creates a provenance-linked copy the user can customize (step
+  overrides), while staying connected to catalog updates (spec 14). The
+  catalog entry is the ideal starting point, not a mandate.
+- **Not yet installed:** the first press offers a one-time "Install
+  issue-implementer from the catalog" for that workspace, then fires.
+- **Escape hatch:** "create a custom loop from this issue" (pre-filled
+  D1→D2→D3) is a secondary menu action for genuinely unusual work.
+- Draft-loop cards activate in place; queued cards offer run-now/snooze.
+
+Gap to close: `fireEvent` exists on the coordinator but is not a user-facing
+action (`shared/actions.ts` has `run_next`, no `fire_event`). Add a
+`fire_event` action kind routed through the same shell→coordinator seam as
+the inline attention actions (§5).
 
 ## 5. Inline actions (the "user action should be simple" part)
 
