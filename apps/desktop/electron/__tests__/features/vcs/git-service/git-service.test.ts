@@ -3,8 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { runGitAction } from '@electron/features/vcs/git-service/git-service';
-import { runGit } from '@electron/features/vcs/git-service/git-exec';
 import {
+  runGit,
   cleanupPaths,
   commitAll,
   createBareRemote,

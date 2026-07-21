@@ -560,7 +560,13 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   *Risk probed: the two PR-create paths really are behaviourally equivalent
   (--head flag semantics, worktree vs workspace cwd).*
 
-- [ ] **Step 3 — Host absorbs the plugin's git service.** Move
+- [x] **Step 3 — Host absorbs the plugin's git service.** *(done in two
+  commits — (1) code moved to features/vcs/git-service, GitAppState contract
+  moved to @sero-ai/common, GitServiceBridge (globalThis, like the
+  user-feedback bus) lets the plugin's git_manager delegate to the host, auth
+  injected on the fetch/pull/push seam; (2) query stack converted sync→async
+  and a GitExecutionRouter routes container/remote workspace repos through
+  GitRunner while host workspaces and card worktrees execute directly)* Move
   `extension/git-{exec,service*,refresh,refs,log,status,diff}*.ts` +
   `state-io.ts` into host `features/git/core|state/`, executing via
   GitExecutor (this is what makes container workspaces and token-injected

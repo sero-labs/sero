@@ -51,14 +51,14 @@ function createRefSignature(snapshot: Pick<GitRefSnapshot, 'defaultBranch' | 'br
   ].join('\n---\n');
 }
 
-export function createGitRefSnapshot(cwd: string): GitRefSnapshot {
+export async function createGitRefSnapshot(cwd: string): Promise<GitRefSnapshot> {
   return {
-    currentBranch: getCurrentBranch(cwd),
-    headHash: getHeadHash(cwd),
-    defaultBranch: getDefaultBranch(cwd),
-    branches: getBranches(cwd),
-    remoteBranches: getRemoteBranches(cwd),
-    remotes: getRemotes(cwd),
+    currentBranch: await getCurrentBranch(cwd),
+    headHash: await getHeadHash(cwd),
+    defaultBranch: await getDefaultBranch(cwd),
+    branches: await getBranches(cwd),
+    remoteBranches: await getRemoteBranches(cwd),
+    remotes: await getRemotes(cwd),
   };
 }
 
@@ -72,24 +72,24 @@ export function canUseQuickRefresh(previousState: GitAppState, snapshot: GitRefS
   return createRefSignature(previousState) === createRefSignature(snapshot);
 }
 
-export function createQuickRefreshState(
+export async function createQuickRefreshState(
   cwd: string,
   syncMode: GitSyncMode,
   previousState: GitAppState,
   snapshot: GitRefSnapshot,
-): GitAppState {
+): Promise<GitAppState> {
   return {
     ...previousState,
     repoPath: cwd,
-    repoName: getRepoName(cwd),
+    repoName: await getRepoName(cwd),
     currentBranch: snapshot.currentBranch,
     headHash: snapshot.headHash,
     defaultBranch: snapshot.defaultBranch,
     branches: snapshot.branches,
     remoteBranches: snapshot.remoteBranches,
     remotes: snapshot.remotes,
-    fileChanges: getFileChanges(cwd),
-    stashes: getStashes(cwd),
+    fileChanges: await getFileChanges(cwd),
+    stashes: await getStashes(cwd),
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,

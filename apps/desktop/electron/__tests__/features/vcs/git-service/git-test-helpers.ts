@@ -2,8 +2,18 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { runGit } from '@electron/features/vcs/git-service/git-exec';
+import { execFileSync } from 'node:child_process';
+
 import { resolveStatePath } from '@electron/features/vcs/git-service/state-io';
+
+/** Sync git for test scaffolding only — product code uses runGitAsync. */
+export function runGit(args: string[], cwd: string): string {
+  try {
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch {
+    return '';
+  }
+}
 
 export async function createGitRepo(prefix = 'sero-git-plugin-'): Promise<string> {
   const repoPath = await mkdtemp(path.join(os.tmpdir(), prefix));

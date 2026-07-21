@@ -1,8 +1,8 @@
 import type { FileChange, RemoteInfo, StashEntry } from '@sero-ai/common';
 import { git, nonEmpty, parseStatusChar } from './git-command-support';
 
-export function getRemotes(cwd: string): RemoteInfo[] {
-  const raw = git(['remote', '-v'], cwd);
+export async function getRemotes(cwd: string): Promise<RemoteInfo[]> {
+  const raw = await git(['remote', '-v'], cwd);
   if (!raw) return [];
 
   const map = new Map<string, RemoteInfo>();
@@ -19,8 +19,8 @@ export function getRemotes(cwd: string): RemoteInfo[] {
   return Array.from(map.values());
 }
 
-export function getFileChanges(cwd: string): FileChange[] {
-  const raw = git(['status', '--porcelain=v1', '-z'], cwd);
+export async function getFileChanges(cwd: string): Promise<FileChange[]> {
+  const raw = await git(['status', '--porcelain=v1', '-z'], cwd);
   if (!raw) return [];
 
   const entries = raw.split('\0');
@@ -59,8 +59,8 @@ export function getFileChanges(cwd: string): FileChange[] {
   return changes;
 }
 
-export function getStashes(cwd: string): StashEntry[] {
-  const raw = git(['stash', 'list', '--format=%H%x00%gd%x00%gs%x00%aI'], cwd);
+export async function getStashes(cwd: string): Promise<StashEntry[]> {
+  const raw = await git(['stash', 'list', '--format=%H%x00%gd%x00%gs%x00%aI'], cwd);
   if (!raw) return [];
 
   return raw.split('\n').filter(nonEmpty).map((line, index) => {

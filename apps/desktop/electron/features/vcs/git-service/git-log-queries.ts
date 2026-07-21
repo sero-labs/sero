@@ -9,21 +9,21 @@ const RECORD_SEP = '\x01';
 const HISTORY_REF_GLOBS = ['--branches', '--remotes', '--tags'] as const;
 const VISIBLE_HISTORY_REFS = ['HEAD', ...HISTORY_REF_GLOBS] as const;
 
-function hasHeadCommit(cwd: string): boolean {
-  return git(['rev-parse', '--verify', 'HEAD'], cwd).length > 0;
+async function hasHeadCommit(cwd: string): Promise<boolean> {
+  return (await git(['rev-parse', '--verify', 'HEAD'], cwd)).length > 0;
 }
 
-function visibleHistoryRefs(cwd: string): string[] {
-  return hasHeadCommit(cwd) ? [...VISIBLE_HISTORY_REFS] : [...HISTORY_REF_GLOBS];
+async function visibleHistoryRefs(cwd: string): Promise<string[]> {
+  return (await hasHeadCommit(cwd)) ? [...VISIBLE_HISTORY_REFS] : [...HISTORY_REF_GLOBS];
 }
 
-export function getCommits(cwd: string, max = 150): CommitNode[] {
-  const raw = git([
+export async function getCommits(cwd: string, max = 150): Promise<CommitNode[]> {
+  const raw = await git([
     'log',
     '--topo-order',
     `--max-count=${max}`,
     `--format=${RECORD_SEP}${LOG_FORMAT}`,
-    ...visibleHistoryRefs(cwd),
+    ...await visibleHistoryRefs(cwd),
   ], cwd);
   if (!raw) return [];
 
@@ -66,25 +66,27 @@ function parseRefs(raw: string): RefLabel[] {
     });
 }
 
-export function getCurrentBranch(cwd: string): string {
-  return git(['symbolic-ref', '--short', 'HEAD'], cwd) || git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) || 'HEAD';
+export async function getCurrentBranch(cwd: string): Promise<string> {
+  return (await git(['symbolic-ref', '--short', 'HEAD'], cwd))
+    || (await git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd))
+    || 'HEAD';
 }
 
-export function getHeadHash(cwd: string): string {
-  if (!hasHeadCommit(cwd)) return '';
-  return git(['rev-parse', '--short', 'HEAD'], cwd) || '';
+export async function getHeadHash(cwd: string): Promise<string> {
+  if (!(await hasHeadCommit(cwd))) return '';
+  return (await git(['rev-parse', '--short', 'HEAD'], cwd)) || '';
 }
 
-export function getRepoName(cwd: string): string {
-  const topLevel = git(['rev-parse', '--show-toplevel'], cwd);
+export async function getRepoName(cwd: string): Promise<string> {
+  const topLevel = await git(['rev-parse', '--show-toplevel'], cwd);
   return topLevel ? path.basename(topLevel) : path.basename(cwd);
 }
 
-export function isGitRepo(cwd: string): boolean {
-  return git(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
+export async function isGitRepo(cwd: string): Promise<boolean> {
+  return (await git(['rev-parse', '--is-inside-work-tree'], cwd)) === 'true';
 }
 
-export function getCommitCount(cwd: string): number {
-  const raw = git(['rev-list', '--count', ...visibleHistoryRefs(cwd)], cwd);
+export async function getCommitCount(cwd: string): Promise<number> {
+  const raw = await git(['rev-list', '--count', ...await visibleHistoryRefs(cwd)], cwd);
   return parseInt(raw, 10) || 0;
 }

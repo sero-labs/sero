@@ -2,9 +2,9 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runGit } from '@electron/features/vcs/git-service/git-exec';
 import { getBranches, getRemoteBranches } from '@electron/features/vcs/git-service/git-refs';
 import {
+  runGit,
   cleanupPaths,
   commitAll,
   createBareRemote,
@@ -27,7 +27,7 @@ describe('git refs helpers', () => {
       await writeRepoFile(worktreePath, 'feature.txt', 'feature\n');
       commitAll(worktreePath, 'feature work');
 
-      const branches = getBranches(repoPath);
+      const branches = await getBranches(repoPath);
 
       expect(branches[0]?.name).toBe('feature');
       expect(branches.find((branch) => branch.name === 'feature')?.checkedOutIn).toContain('feature-worktree');
@@ -56,7 +56,7 @@ describe('git refs helpers', () => {
       runGit(['switch', defaultBranch], repoPath);
       runGit(['fetch', '--all', '--prune'], repoPath);
 
-      const remoteBranches = getRemoteBranches(repoPath).map((branch) => branch.name);
+      const remoteBranches = (await getRemoteBranches(repoPath)).map((branch) => branch.name);
 
       expect(remoteBranches).toContain(`origin/${defaultBranch}`);
       expect(remoteBranches).toContain('origin/feature');

@@ -1,25 +1,25 @@
 import path from 'node:path';
 
 import type { BranchInfo } from '@sero-ai/common';
-import { runGit } from './git-exec';
+import { runGitAsync } from './git-exec';
 
-function git(args: string[], cwd: string): string {
-  return runGit(args, cwd, { allowFailure: true });
+function git(args: string[], cwd: string): Promise<string> {
+  return runGitAsync(args, cwd, { allowFailure: true });
 }
 
 function nonEmpty(line: string): boolean {
   return line.trim().length > 0;
 }
 
-function getWorktreeRoot(cwd: string): string {
-  return git(['rev-parse', '--show-toplevel'], cwd) || cwd;
+async function getWorktreeRoot(cwd: string): Promise<string> {
+  return (await git(['rev-parse', '--show-toplevel'], cwd)) || cwd;
 }
 
-function getBranchWorktreeMap(cwd: string): Map<string, string> {
-  const raw = git(['worktree', 'list', '--porcelain'], cwd);
+async function getBranchWorktreeMap(cwd: string): Promise<Map<string, string>> {
+  const raw = await git(['worktree', 'list', '--porcelain'], cwd);
   if (!raw) return new Map();
 
-  const worktreeRoot = path.resolve(getWorktreeRoot(cwd));
+  const worktreeRoot = path.resolve(await getWorktreeRoot(cwd));
   const result = new Map<string, string>();
   const blocks = raw.split(/\n(?=worktree )/g).filter(nonEmpty);
 
@@ -54,15 +54,15 @@ function sortBranches(branches: BranchInfo[]): BranchInfo[] {
   });
 }
 
-export function getBranches(cwd: string): BranchInfo[] {
-  const raw = git([
+export async function getBranches(cwd: string): Promise<BranchInfo[]> {
+  const raw = await git([
     'for-each-ref',
     '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(objectname:short)%00%(creatordate:iso-strict)',
     'refs/heads/',
   ], cwd);
   if (!raw) return [];
 
-  const worktreeByBranch = getBranchWorktreeMap(cwd);
+  const worktreeByBranch = await getBranchWorktreeMap(cwd);
   const branches = raw.split('\n').filter(nonEmpty).map((line) => {
     const [name, head, upstream, track, hash, date] = line.split('\x00');
     const branchName = name ?? '';
@@ -83,8 +83,8 @@ export function getBranches(cwd: string): BranchInfo[] {
   return sortBranches(branches);
 }
 
-export function getRemoteBranches(cwd: string): BranchInfo[] {
-  const raw = git([
+export async function getRemoteBranches(cwd: string): Promise<BranchInfo[]> {
+  const raw = await git([
     'for-each-ref',
     '--format=%(refname:short)%00%(objectname:short)%00%(creatordate:iso-strict)',
     'refs/remotes/',

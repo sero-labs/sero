@@ -31,7 +31,7 @@ containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
 // same auth injection as workspace-routed execution.
 setWorktreeGitHubAuth(githubAuth);
 
-const gitRunner = new GitRunner(workspaceManager, runtimeManager, githubAuth);
+export const gitRunner = new GitRunner(workspaceManager, runtimeManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);

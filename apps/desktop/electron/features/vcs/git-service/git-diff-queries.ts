@@ -10,10 +10,10 @@ import type {
 import { git, nonEmpty } from './git-command-support';
 import { getFileChanges } from './git-status-queries';
 
-export function getFileDiff(cwd: string, filePath: string, staged: boolean): FileDiff | null {
+export async function getFileDiff(cwd: string, filePath: string, staged: boolean): Promise<FileDiff | null> {
   const args = staged ? ['diff', '--cached', '-M', '--', filePath] : ['diff', '-M', '--', filePath];
-  const raw = git(args, cwd);
-  const statusEntry = getFileChanges(cwd).find((change) => change.path === filePath && change.staged === staged);
+  const raw = await git(args, cwd);
+  const statusEntry = (await getFileChanges(cwd)).find((change) => change.path === filePath && change.staged === staged);
   const diff = parseDiffOutput(raw, filePath, staged);
   if (diff) {
     if (statusEntry?.oldPath && !diff.oldPath) diff.oldPath = statusEntry.oldPath;
@@ -22,7 +22,7 @@ export function getFileDiff(cwd: string, filePath: string, staged: boolean): Fil
     return diff;
   }
 
-  if (!staged && isUntrackedWorktreePath(cwd, filePath)) {
+  if (!staged && await isUntrackedWorktreePath(cwd, filePath)) {
     return createUntrackedFileDiff(cwd, filePath, staged);
   }
 
@@ -40,8 +40,8 @@ export function getFileDiff(cwd: string, filePath: string, staged: boolean): Fil
     : null;
 }
 
-export function getCommitDiff(cwd: string, hash: string): FileDiff[] {
-  const raw = git(['diff-tree', '--root', '-M', '-p', '--no-commit-id', hash], cwd);
+export async function getCommitDiff(cwd: string, hash: string): Promise<FileDiff[]> {
+  const raw = await git(['diff-tree', '--root', '-M', '-p', '--no-commit-id', hash], cwd);
   if (!raw) return [];
   return splitDiffByFile(raw);
 }
@@ -134,8 +134,8 @@ function extractDiffPaths(raw: string, fallbackPath: string): { path: string; ol
   };
 }
 
-function isUntrackedWorktreePath(cwd: string, filePath: string): boolean {
-  const raw = git(['status', '--porcelain=v1', '--', filePath], cwd);
+async function isUntrackedWorktreePath(cwd: string, filePath: string): Promise<boolean> {
+  const raw = await git(['status', '--porcelain=v1', '--', filePath], cwd);
   return raw.split('\n').some((line) => line.startsWith('?? '));
 }
 

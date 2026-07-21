@@ -17,7 +17,7 @@ import {
 import { getBranches, getRemoteBranches } from './git-refs';
 import { getDefaultBranch } from './git-default-branch';
 import { canUseQuickRefresh, createGitRefSnapshot, createQuickRefreshState } from './git-refresh';
-import { runGit, runGitAsync } from './git-exec';
+import { runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
 // Match the Git app state directory anywhere in the repo so nested workspaces
@@ -47,7 +47,7 @@ export function err(message: string): GitActionResult {
 }
 
 async function ensureGitStateIgnored(cwd: string): Promise<void> {
-  const gitDir = runGit(['rev-parse', '--git-dir'], cwd, { allowFailure: true });
+  const gitDir = await runGitAsync(['rev-parse', '--git-dir'], cwd, { allowFailure: true });
   if (!gitDir) return;
 
   const resolvedGitDir = path.isAbsolute(gitDir)
@@ -73,20 +73,20 @@ async function ensureGitStateIgnored(cwd: string): Promise<void> {
   await fs.writeFile(excludePath, next, 'utf8');
 }
 
-function createFullRefreshState(cwd: string, syncMode: GitSyncMode): GitAppState {
+async function createFullRefreshState(cwd: string, syncMode: GitSyncMode): Promise<GitAppState> {
   return {
     repoPath: cwd,
-    repoName: getRepoName(cwd),
-    currentBranch: getCurrentBranch(cwd),
-    headHash: getHeadHash(cwd),
-    defaultBranch: getDefaultBranch(cwd),
-    branches: getBranches(cwd),
-    remoteBranches: getRemoteBranches(cwd),
-    remotes: getRemotes(cwd),
-    commits: getCommits(cwd, 150),
-    stashes: getStashes(cwd),
-    fileChanges: getFileChanges(cwd),
-    commitCount: getCommitCount(cwd),
+    repoName: await getRepoName(cwd),
+    currentBranch: await getCurrentBranch(cwd),
+    headHash: await getHeadHash(cwd),
+    defaultBranch: await getDefaultBranch(cwd),
+    branches: await getBranches(cwd),
+    remoteBranches: await getRemoteBranches(cwd),
+    remotes: await getRemotes(cwd),
+    commits: await getCommits(cwd, 150),
+    stashes: await getStashes(cwd),
+    fileChanges: await getFileChanges(cwd),
+    commitCount: await getCommitCount(cwd),
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,
@@ -101,7 +101,7 @@ export async function refreshGitState(
   const syncMode = options.syncMode ?? 'manual';
   const scope = options.scope ?? 'full';
 
-  if (!isGitRepo(cwd)) {
+  if (!(await isGitRepo(cwd))) {
     const state: GitAppState = {
       ...createDefaultGitState(),
       repoPath: cwd,
@@ -117,16 +117,16 @@ export async function refreshGitState(
 
   if (scope === 'auto') {
     const previousState = await readState(statePath);
-    const snapshot = createGitRefSnapshot(cwd);
+    const snapshot = await createGitRefSnapshot(cwd);
 
     if (canUseQuickRefresh(previousState, snapshot)) {
-      const state = createQuickRefreshState(cwd, syncMode, previousState, snapshot);
+      const state = await createQuickRefreshState(cwd, syncMode, previousState, snapshot);
       await writeState(statePath, state);
       return state;
     }
   }
 
-  const state = createFullRefreshState(cwd, syncMode);
+  const state = await createFullRefreshState(cwd, syncMode);
   await writeState(statePath, state);
   return state;
 }
@@ -144,8 +144,8 @@ export function createGitActionContext(
   };
 }
 
-function hasHeadCommit(cwd: string): boolean {
-  return runGit(['rev-parse', '--verify', 'HEAD'], cwd, { allowFailure: true }).length > 0;
+async function hasHeadCommit(cwd: string): Promise<boolean> {
+  return (await runGitAsync(['rev-parse', '--verify', 'HEAD'], cwd, { allowFailure: true })).length > 0;
 }
 
 export async function unstageChanges(
@@ -153,7 +153,7 @@ export async function unstageChanges(
   exec: (args: string[]) => Promise<string>,
   file?: string,
 ): Promise<void> {
-  if (hasHeadCommit(cwd)) {
+  if (await hasHeadCommit(cwd)) {
     if (file) await exec(['reset', 'HEAD', '--', file]);
     else await exec(['reset', 'HEAD']);
     return;
@@ -178,8 +178,8 @@ export async function pushWithUpstreamFallback(
     const upstreamMissing = /upstream branch|has no upstream branch|set the remote as upstream/i.test(message);
     if (!upstreamMissing) throw error;
 
-    const branch = getCurrentBranch(cwd);
-    const remotes = getRemotes(cwd);
+    const branch = await getCurrentBranch(cwd);
+    const remotes = await getRemotes(cwd);
     const remote = remotes.find((entry) => entry.name === 'origin')?.name ?? remotes[0]?.name;
     if (!branch || !remote) throw error;
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { GitActionResult, GitManagerRequest } from '@sero-ai/common';
 import { getCurrentBranch, getFileChanges } from './git-commands';
 import { getDefaultBranch } from './git-default-branch';
-import { runGit } from './git-exec';
+import { runGitAsync } from './git-exec';
 import { getBranches } from './git-refs';
 import {
   err,
@@ -105,7 +105,7 @@ export async function runGitMutationAction(
 
     case 'checkout': {
       if (!params.branch) return err('branch is required');
-      const branch = getBranches(context.cwd).find((entry) => entry.name === params.branch);
+      const branch = (await getBranches(context.cwd)).find((entry) => entry.name === params.branch);
       if (branch?.checkedOutIn) {
         return err(`Branch ${params.branch} is already checked out in ${branch.checkedOutIn}`);
       }
@@ -125,17 +125,17 @@ export async function runGitMutationAction(
       if (!params.branch) return err('branch name is required');
 
       const branchName = params.branch;
-      const currentBranch = getCurrentBranch(context.cwd);
+      const currentBranch = await getCurrentBranch(context.cwd);
       if (branchName === currentBranch) {
         return err(`Cannot delete the current branch ${branchName}. Switch to another branch first.`);
       }
 
-      const defaultBranch = getDefaultBranch(context.cwd);
+      const defaultBranch = await getDefaultBranch(context.cwd);
       if (defaultBranch && branchName === defaultBranch) {
         return err(`Cannot delete the default branch ${branchName}.`);
       }
 
-      const branch = getBranches(context.cwd).find((entry) => entry.name === branchName);
+      const branch = (await getBranches(context.cwd)).find((entry) => entry.name === branchName);
       if (branch?.checkedOutIn) {
         return err(`Branch ${branchName} is already checked out in ${branch.checkedOutIn}`);
       }
@@ -163,7 +163,7 @@ export async function runGitMutationAction(
 
     case 'cherry_pick': {
       if (!params.hash) return err('hash is required');
-      const fileChanges = getFileChanges(context.cwd);
+      const fileChanges = await getFileChanges(context.cwd);
       if (fileChanges.length > 0) {
         if (!params.all) {
           return err('Working tree has uncommitted changes. Stash or commit them before cherry-picking.');
@@ -179,7 +179,7 @@ export async function runGitMutationAction(
       if (!params.worktreePath) return err('worktreePath is required');
 
       const worktreePath = params.worktreePath;
-      const repoRoot = runGit(['rev-parse', '--show-toplevel'], context.cwd, { allowFailure: true }) || context.cwd;
+      const repoRoot = (await runGitAsync(['rev-parse', '--show-toplevel'], context.cwd, { allowFailure: true })) || context.cwd;
       const resolvedWorktreePath = await fs.realpath(worktreePath).catch(() => path.resolve(worktreePath));
       const resolvedRepoRoot = await fs.realpath(repoRoot).catch(() => path.resolve(repoRoot));
       if (resolvedWorktreePath === resolvedRepoRoot) {

@@ -68,7 +68,7 @@ export async function runGitQueryAction(
     case 'diff': {
       if (!params.file) return err('file is required for diff');
       const state = await readState(context.statePath);
-      const diff = getFileDiff(context.cwd, params.file, params.staged ?? false);
+      const diff = await getFileDiff(context.cwd, params.file, params.staged ?? false);
 
       state.activeDiff = diff ?? undefined;
       state.lastRefresh = new Date().toISOString();
@@ -80,7 +80,7 @@ export async function runGitQueryAction(
 
     case 'show_commit': {
       if (!params.hash) return err('hash is required');
-      const diffs = getCommitDiff(context.cwd, params.hash);
+      const diffs = await getCommitDiff(context.cwd, params.hash);
       const state = await readState(context.statePath);
       state.commitDiffs = diffs;
       state.selectedCommitHash = params.hash;

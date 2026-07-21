@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { getCommitDiff, getFileDiff } from '@electron/features/vcs/git-service/git-commands';
-import { runGit } from '@electron/features/vcs/git-service/git-exec';
 import {
+  runGit,
   cleanupPaths,
   commitAll,
   createGitRepo,
@@ -18,7 +18,7 @@ describe('diff parsing', () => {
       commitAll(repoPath, 'initial');
 
       runGit(['mv', 'a.txt', 'b.txt'], repoPath);
-      const diff = getFileDiff(repoPath, 'b.txt', true);
+      const diff = await getFileDiff(repoPath, 'b.txt', true);
 
       expect(diff).not.toBeNull();
       expect(diff?.status).toBe('renamed');
@@ -40,7 +40,7 @@ describe('diff parsing', () => {
       commitAll(repoPath, 'rename file');
       const renameCommitHash = runGit(['rev-parse', 'HEAD'], repoPath);
 
-      const diffs = getCommitDiff(repoPath, renameCommitHash);
+      const diffs = await getCommitDiff(repoPath, renameCommitHash);
 
       expect(diffs).toHaveLength(1);
       expect(diffs[0]?.status).toBe('renamed');
