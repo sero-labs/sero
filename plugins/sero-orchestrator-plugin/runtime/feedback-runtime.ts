@@ -14,11 +14,15 @@ export function feedbackDecision(loop: Loop, step: LoopStepDefinition, outcome: 
   return traversals >= feedback.maxTraversalsPerRun ? 'exhausted' : 'traverse';
 }
 
-export function feedbackExhaustedOutcome(step: LoopStepDefinition): StepOutcome {
+export function feedbackExhaustedOutcome(step: LoopStepDefinition, source: StepOutcome): StepOutcome {
   const feedback = step.feedback!;
   return {
     status: 'needs-revision',
-    summary: `Feedback transition "${feedback.id}" to "${feedback.toStepId}" is exhausted after ${feedback.maxTraversalsPerRun} traversal(s); recovery must revise, wait, or block instead of repeating again.`,
+    // Keep the source step's real summary and produced variables: recovery (and
+    // any forward guard that reads them) needs the step's actual findings, not a
+    // bare synthetic outcome. Only the status flips so it enters normal recovery.
+    summary: `${source.summary} — feedback transition "${feedback.id}" to "${feedback.toStepId}" is exhausted after ${feedback.maxTraversalsPerRun} traversal(s); recovery must revise, wait, or block instead of repeating again.`,
+    variables: source.variables,
   };
 }
 

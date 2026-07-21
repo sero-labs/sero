@@ -107,7 +107,28 @@ describe('RunEngine bounded feedback', () => {
     expect(loop.runtime.feedbackStates?.['verify-fix'].traversals).toBe(1);
     expect(loop.runtime.stepStates.verify.status).toBe('needs-revision');
     expect(loop.runs[0].recoveryDecisions).toHaveLength(1);
+    // The synthetic exhausted outcome keeps the source's real summary and produced
+    // variables so recovery (and any forward guard) still sees the step's findings.
+    expect(loop.runs[0].stepAttempts.at(-1)?.outcome?.summary).toContain('still broken');
     expect(loop.runs[0].stepAttempts.at(-1)?.outcome?.summary).toContain('is exhausted');
+    expect(loop.runs[0].stepAttempts.at(-1)?.outcome?.variables).toEqual({ route: 'needs-fix' });
+  });
+
+  it('blocks instead of re-running the source when recovery retries after exhaustion', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, feedbackPlan(1));
+    const executor = fakeExecutor({
+      prepare: SUCCESS,
+      implement: SUCCESS,
+      verify: { status: 'succeeded', summary: 'still broken', variables: { route: 'needs-fix' } },
+    });
+    // A retry after exhaustion would re-run verify → re-match → re-exhaust; it is
+    // coerced to a decisive block instead of churning the per-step budget.
+    await new RunEngine(host, deps(executor, 'retry-step')).run('loop-1');
+    const loop = host.state.loops[0];
+    expect(executor.calls).toEqual(['prepare', 'implement', 'verify', 'implement', 'verify']);
+    expect(loop.status).toBe('blocked');
+    expect(loop.runs[0].recoveryDecisions.at(-1)?.decision).toBe('block-loop');
   });
 
   it('preserves the exhausted traversal count when recovery starts another run', async () => {

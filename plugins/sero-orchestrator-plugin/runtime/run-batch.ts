@@ -1,6 +1,6 @@
 /** Executes one ready batch, including activation, feedback, recovery and parking. */
 
-import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, RecoveryDecision, StepAttempt, StepOutcome } from '../shared/types';
 import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
 import { startActivations, recordActivationAttempt, settleActivation } from './activations';
@@ -40,7 +40,7 @@ interface RoutedFeedbackOutcome {
 
 function routeFeedbackOutcome(loop: Loop, step: LoopStepDefinition, outcome: StepOutcome): RoutedFeedbackOutcome {
   const route = feedbackDecision(loop, step, outcome);
-  return { outcome: route === 'exhausted' ? feedbackExhaustedOutcome(step) : outcome, route };
+  return { outcome: route === 'exhausted' ? feedbackExhaustedOutcome(step, outcome) : outcome, route };
 }
 
 function applyOutcome(host: OrchestratorHost, loop: Loop, run: LoopRun, stepId: string, attempt: StepAttempt, outcome: StepOutcome): AppliedOutcome {
@@ -151,7 +151,14 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
       let recoveryAttempt = recorded;
       let repeatedAcceptedExhaustion = false;
       while (TERMINAL_OUTCOMES.has(outcome.status)) {
-        const decision = await deps.decider.decide({ host, loop, step, attempt: recoveryAttempt, outcome });
+        const rawDecision = await deps.decider.decide({ host, loop, step, attempt: recoveryAttempt, outcome });
+        // Retrying the source after exhaustion cannot make progress: the region
+        // that feeds it is unchanged, so it re-matches and re-exhausts, burning
+        // the per-step budget. Route a post-exhaustion retry to a decisive block
+        // instead — the same rail the accept-step path already enforces below.
+        const decision: RecoveryDecision = route === 'exhausted' && rawDecision.decision === 'retry-step'
+          ? { ...rawDecision, decision: 'block-loop', reason: `${outcome.summary} Retrying the source after exhaustion cannot make progress; blocking for human revision.` }
+          : rawDecision;
         run = { ...run, recoveryDecisions: [...run.recoveryDecisions, decision] };
         if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
           const acceptedRoute = routeFeedbackOutcome(

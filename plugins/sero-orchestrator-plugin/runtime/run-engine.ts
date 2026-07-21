@@ -227,7 +227,11 @@ export class RunEngine {
   private async finalize(loop: Loop, run: LoopRun): Promise<LoopRun> {
     const now = this.host.now();
     this.consumedEvents.delete(loop.id);
-    const settledRun = run.status === 'cancelled' ? orphanRunningActivations(run, now, 'cancelled') : run;
+    // Any activation still 'running' at finalize is a ghost: the run has ended,
+    // so no step is executing. This happens when a batch returned early (a step
+    // completed or blocked the loop) leaving unprocessed siblings. Settle them so
+    // the digest and run summary don't show a finished run with 'running' steps.
+    const settledRun = orphanRunningActivations(run, now, run.status === 'cancelled' ? 'cancelled' : 'orphaned');
     const finishedRun: LoopRun = { ...settledRun, endedAt: now };
     // Durable digest for reflection — colocated with the loop, outside run
     // pruning. Best-effort: a digest write must never fail the run.

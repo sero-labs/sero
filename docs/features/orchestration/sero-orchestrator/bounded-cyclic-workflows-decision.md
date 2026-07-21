@@ -390,7 +390,7 @@ A plan with feedback is valid only when:
 - the target is a strict dependency ancestor of the source;
 - `when.in` is a non-empty primitive list;
 - `when.var` is listed in the source step's `produces`;
-- `maxTraversalsPerRun` is a positive integer;
+- `maxTraversalsPerRun` is a positive integer no greater than 100;
 - the computed feedback region is single-entry and single-exit;
 - every region step can reach the source barrier;
 - the finalisation step is outside the region;

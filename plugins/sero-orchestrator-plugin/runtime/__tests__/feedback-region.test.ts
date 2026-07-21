@@ -45,6 +45,15 @@ describe('bounded feedback validation', () => {
     expect(validateLoopPlan(target).join('\n')).toContain('strict dependency ancestor');
   });
 
+  it('rejects a traversal bound above the hard ceiling', () => {
+    const excessive = plan();
+    excessive.steps[2].feedback!.maxTraversalsPerRun = 101;
+    expect(validateLoopPlan(excessive).join('\n')).toContain('no greater than 100');
+    const atCeiling = plan();
+    atCeiling.steps[2].feedback!.maxTraversalsPerRun = 100;
+    expect(validateLoopPlan(atCeiling)).toEqual([]);
+  });
+
   it('rejects multiple transitions, missing source produces, and approval inside the region', () => {
     const multiple = plan();
     multiple.steps[1].produces = ['again'];

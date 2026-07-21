@@ -56,10 +56,14 @@ The next target prompt receives the source summary, variables, observations and
 artifact reference as a dedicated feedback block. It does not rely on stale
 shared routing variables.
 
-`maxTraversalsPerRun` counts returns, not the initial pass. When the condition
-matches after the bound is reached, the source result becomes a synthetic
-`needs-revision` outcome and enters normal recovery. The engine never continues
-forward as if verification passed and never exceeds the bound.
+`maxTraversalsPerRun` counts returns, not the initial pass, and must be a
+positive integer no greater than 100 (a hard ceiling so a declared value cannot
+defeat the "bounded" guarantee). When the condition matches after the bound is
+reached, the source result becomes a synthetic `needs-revision` outcome that
+keeps the source step's real summary and produced variables, and enters normal
+recovery. A post-exhaustion `retry-step` is coerced to `block-loop`, since
+re-running the source cannot make progress. The engine never continues forward as
+if verification passed and never exceeds the bound.
 
 Recurring and manually rearmed runs start with fresh traversal state.
 

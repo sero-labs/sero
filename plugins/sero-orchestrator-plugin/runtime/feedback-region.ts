@@ -4,6 +4,12 @@ import type { LoopPlan, LoopStepDefinition, StepFeedbackTransition } from '../sh
 
 export const SAFE_FEEDBACK_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const VALUE_TYPES = ['string', 'number', 'boolean'];
+/**
+ * Hard ceiling on declared feedback returns. Real implement/verify/fix cycles use
+ * a handful; an unbounded value would re-run the whole region that many times and
+ * defeat the "bounded" guarantee, so we cap it well above any legitimate plan.
+ */
+export const MAX_FEEDBACK_TRAVERSALS = 100;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -22,8 +28,8 @@ export function validateFeedbackShape(step: Record<string, unknown>, errors: str
     errors.push(`step "${id}": feedback.id must be a slug of letters, numbers, "_" or "-" (1–64 chars)`);
   }
   if (typeof feedback.toStepId !== 'string' || !feedback.toStepId.trim()) errors.push(`step "${id}": feedback.toStepId is required`);
-  if (!Number.isInteger(feedback.maxTraversalsPerRun) || (feedback.maxTraversalsPerRun as number) < 1) {
-    errors.push(`step "${id}": feedback.maxTraversalsPerRun must be a positive integer`);
+  if (!Number.isInteger(feedback.maxTraversalsPerRun) || (feedback.maxTraversalsPerRun as number) < 1 || (feedback.maxTraversalsPerRun as number) > MAX_FEEDBACK_TRAVERSALS) {
+    errors.push(`step "${id}": feedback.maxTraversalsPerRun must be a positive integer no greater than ${MAX_FEEDBACK_TRAVERSALS}`);
   }
   if (!isRecord(feedback.when)) {
     errors.push(`step "${id}": feedback.when must be { var, in }`);
