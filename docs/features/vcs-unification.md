@@ -576,7 +576,11 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   *Risk probed: the Pi-session side of the plugin can reach the host service
   in all session topologies (in-process, container).*
 
-- [ ] **Step 4 — Vocabulary conversion (D1).** Rename types/methods/IPC
+- [x] **Step 4 — Vocabulary conversion (D1).** *(done in two commits — dead
+  surface deleted first (squash/pushDryRun/opLog/watch stubs; fileContent
+  kept, the diff view uses it), then the rename across common/core/IPC/
+  store/UI/CLI. CLI is now `sero git` with `sero vcs` as an alias; persisted
+  session-entry fields keep `changeId` on disk for compatibility)* Rename types/methods/IPC
   payload fields/store/UI labels from jj terms to git terms across core,
   `@sero-ai/common`, renderer, and CLI (`sero vcs` → `sero git`, old name kept
   as alias for one release; bash-blocker redirect text updated). Delete the
