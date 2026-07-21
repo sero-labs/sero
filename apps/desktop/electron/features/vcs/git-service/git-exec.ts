@@ -1,6 +1,8 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { buildHostGitAuthEnv } from '@electron/features/vcs/worktree/exec';
+
 interface RunGitOptions {
   timeout?: number;
   maxBuffer?: number;
@@ -77,11 +79,15 @@ export async function runGitAsync(
   }: RunGitOptions = {},
 ): Promise<string> {
   try {
+    // Network-touching actions (fetch/pull/push) run through here — inject
+    // Sero's GitHub auth so they share the auth posture of every other layer.
+    const authEnv = await buildHostGitAuthEnv('git');
     const { stdout } = await execFileAsync('git', args, {
       cwd,
       encoding: 'utf8',
       timeout,
       maxBuffer,
+      env: { ...process.env, ...authEnv },
     });
 
     return normalizeResult(stdout, trim);

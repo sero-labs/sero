@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { runGit } from '../git-exec';
-import { refreshGitState } from '../git-service';
+import { runGit } from '@electron/features/vcs/git-service/git-exec';
+import { refreshGitState } from '@electron/features/vcs/git-service/git-service';
 import {
   cleanupPaths,
   commitAll,

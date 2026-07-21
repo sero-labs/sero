@@ -202,7 +202,27 @@ export type {
   GitManagerAction,
   GitManagerRequest,
   GitActionResult,
+  CommitNode,
+  RefLabel,
+  BranchInfo,
+  RemoteInfo,
+  FileChangeStatus,
+  FileChange,
+  StashEntry,
+  DiffHunk,
+  DiffLine,
+  FileDiff,
+  GitSyncMode,
+  GitAppState,
 } from './git-app';
+export {
+  createDefaultGitState,
+  normalizeGitState,
+  DEFAULT_GIT_STATE,
+  BRANCH_COLORS,
+} from './git-app';
+export type { GitServiceBridge } from './git-service-bridge';
+export { setGitServiceBridge, getGitServiceBridge } from './git-service-bridge';
 
 export type {
   VcsCheckpointSource,

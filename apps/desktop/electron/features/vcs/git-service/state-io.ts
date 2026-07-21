@@ -5,8 +5,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { GitAppState } from '../shared/types';
-import { createDefaultGitState, normalizeGitState } from '../shared/types';
+import type { GitAppState } from '@sero-ai/common';
+import { createDefaultGitState, normalizeGitState } from '@sero-ai/common';
 
 const STATE_REL_PATH = path.join('.sero', 'apps', 'git', 'state.json');
 

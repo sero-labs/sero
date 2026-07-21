@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { CommitNode, RefLabel } from '../shared/types';
+import type { CommitNode, RefLabel } from '@sero-ai/common';
 import { git, nonEmpty } from './git-command-support';
 
 const LOG_FORMAT = '%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%s%x00%D';

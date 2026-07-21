@@ -3,7 +3,7 @@ import type {
   GitAppState,
   GitSyncMode,
   RemoteInfo,
-} from '../shared/types';
+} from '@sero-ai/common';
 import {
   getCurrentBranch,
   getFileChanges,

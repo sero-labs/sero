@@ -3,8 +3,8 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { readState, writeState } from '../state-io';
-import { createDefaultGitState } from '../../shared/types';
+import { readState, writeState } from '@electron/features/vcs/git-service/state-io';
+import { createDefaultGitState } from '@sero-ai/common';
 
 describe('git state I/O', () => {
   let tmpDir: string;

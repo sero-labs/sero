@@ -2,8 +2,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runGit } from '../git-exec';
-import { getBranches, getRemoteBranches } from '../git-refs';
+import { runGit } from '@electron/features/vcs/git-service/git-exec';
+import { getBranches, getRemoteBranches } from '@electron/features/vcs/git-service/git-refs';
 import {
   cleanupPaths,
   commitAll,

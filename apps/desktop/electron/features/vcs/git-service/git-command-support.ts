@@ -1,5 +1,5 @@
 import { runGit } from './git-exec';
-import type { FileChangeStatus } from '../shared/types';
+import type { FileChangeStatus } from '@sero-ai/common';
 
 export function git(args: string[], cwd: string): string {
   return runGit(args, cwd, { allowFailure: true });

@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { BranchInfo } from '../shared/types';
+import type { BranchInfo } from '@sero-ai/common';
 import { runGit } from './git-exec';
 
 function git(args: string[], cwd: string): string {

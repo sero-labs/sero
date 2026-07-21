@@ -66,16 +66,23 @@ export interface WorktreeExecOptions {
   maxBuffer?: number;
 }
 
+/**
+ * The GitHub auth env for a host-side git/gh spawn (empty when the user is
+ * not signed into Sero's GitHub auth). Exported for the git service, which
+ * owns its own spawn wrapper but must share the same auth posture.
+ */
+export async function buildHostGitAuthEnv(program: 'git' | 'gh'): Promise<Record<string, string>> {
+  if (!githubAuth?.getToken()) return {};
+  const sshWorks = await isHostSshAvailable();
+  return buildGitHubAuthEnv(githubAuth, program, sshWorks);
+}
+
 async function execWithAuth(
   program: 'git' | 'gh',
   args: string[],
   options: WorktreeExecOptions,
 ): Promise<{ stdout: string; stderr: string }> {
-  let authEnv: Record<string, string> = {};
-  if (githubAuth?.getToken()) {
-    const sshWorks = await isHostSshAvailable();
-    authEnv = buildGitHubAuthEnv(githubAuth, program, sshWorks);
-  }
+  const authEnv = await buildHostGitAuthEnv(program);
   const result = await execFileAsync(program, args, {
     ...options,
     env: { ...process.env, ...authEnv },

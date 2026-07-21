@@ -1,17 +1,16 @@
 import { existsSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
-import type { GitManagerRequest } from '@sero-ai/common';
+import type { GitManagerAction, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { appStateManager } from '../state/manager';
-import { resolveStatePath } from '@plugins/sero-git-plugin/extension/state-io';
-import { runGit } from '@plugins/sero-git-plugin/extension/git-exec';
+import { resolveStatePath } from '@electron/features/vcs/git-service/state-io';
+import { runGit } from '@electron/features/vcs/git-service/git-exec';
 import {
   refreshGitState,
   runGitAction,
   type GitActionResult,
-} from '@plugins/sero-git-plugin/extension/git-service';
-import type { GitManagerAction, GitSyncMode } from '@plugins/sero-git-plugin/shared/types';
+} from '@electron/features/vcs/git-service/git-service';
 import {
   gitRefreshInvalidationCoordinator,
   type GitRefreshInvalidationOptions,

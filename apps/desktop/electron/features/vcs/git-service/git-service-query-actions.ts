@@ -1,4 +1,4 @@
-import type { GitActionResult, GitManagerRequest } from '../shared/types';
+import type { GitActionResult, GitManagerRequest } from '@sero-ai/common';
 import { getCommitDiff, getFileChanges, getFileDiff } from './git-commands';
 import {
   err,

@@ -2,8 +2,8 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { runGit } from '../git-exec';
-import { resolveStatePath } from '../state-io';
+import { runGit } from '@electron/features/vcs/git-service/git-exec';
+import { resolveStatePath } from '@electron/features/vcs/git-service/state-io';
 
 export async function createGitRepo(prefix = 'sero-git-plugin-'): Promise<string> {
   const repoPath = await mkdtemp(path.join(os.tmpdir(), prefix));

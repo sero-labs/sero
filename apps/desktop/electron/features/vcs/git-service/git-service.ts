@@ -2,7 +2,7 @@
  * Shared Git service logic used by both the Pi extension and the desktop host.
  */
 
-import type { GitActionResult, GitManagerRequest } from '../shared/types';
+import type { GitActionResult, GitManagerRequest } from '@sero-ai/common';
 import {
   createGitActionContext,
   formatActionError,

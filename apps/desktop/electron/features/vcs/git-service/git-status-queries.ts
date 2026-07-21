@@ -1,4 +1,4 @@
-import type { FileChange, RemoteInfo, StashEntry } from '../shared/types';
+import type { FileChange, RemoteInfo, StashEntry } from '@sero-ai/common';
 import { git, nonEmpty, parseStatusChar } from './git-command-support';
 
 export function getRemotes(cwd: string): RemoteInfo[] {

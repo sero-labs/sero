@@ -44,16 +44,16 @@ vi.mock('node:fs', () => ({
   watch: mocks.watch,
 }));
 
-vi.mock('@plugins/sero-git-plugin/extension/git-service', () => ({
+vi.mock('@electron/features/vcs/git-service/git-service', () => ({
   refreshGitState: mocks.refreshGitState,
   runGitAction: mocks.runGitAction,
 }));
 
-vi.mock('@plugins/sero-git-plugin/extension/state-io', () => ({
+vi.mock('@electron/features/vcs/git-service/state-io', () => ({
   resolveStatePath: mocks.resolveStatePath,
 }));
 
-vi.mock('@plugins/sero-git-plugin/extension/git-exec', () => ({
+vi.mock('@electron/features/vcs/git-service/git-exec', () => ({
   runGit: mocks.runGit,
 }));
 

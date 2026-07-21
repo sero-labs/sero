@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { getCommitDiff, getFileDiff } from '../git-commands';
-import { runGit } from '../git-exec';
+import { getCommitDiff, getFileDiff } from '@electron/features/vcs/git-service/git-commands';
+import { runGit } from '@electron/features/vcs/git-service/git-exec';
 import {
   cleanupPaths,
   commitAll,

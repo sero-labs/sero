@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { GitActionResult, GitManagerRequest } from '../shared/types';
+import type { GitActionResult, GitManagerRequest } from '@sero-ai/common';
 import { getCurrentBranch, getFileChanges } from './git-commands';
 import { getDefaultBranch } from './git-default-branch';
 import { runGit } from './git-exec';

@@ -1,8 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { GitActionResult, GitAppState, GitManagerRequest, GitSyncMode } from '../shared/types';
-import { createDefaultGitState } from '../shared/types';
+import type { GitActionResult, GitAppState, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
+import { createDefaultGitState } from '@sero-ai/common';
 import {
   getCommitCount,
   getCommits,

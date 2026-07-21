@@ -6,7 +6,7 @@ import type {
   DiffLine,
   FileChangeStatus,
   FileDiff,
-} from '../shared/types';
+} from '@sero-ai/common';
 import { git, nonEmpty } from './git-command-support';
 import { getFileChanges } from './git-status-queries';
 
