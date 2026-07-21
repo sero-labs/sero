@@ -10,17 +10,14 @@
  * removed later during explicit cleanup (or cancellation).
  */
 
-import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { promisify } from 'util';
 
 import { inferConventionalType, slugifyBranchLabel } from '@electron/features/vcs/support/branch-naming';
 import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './workspace-sync';
 import { isMissingPathError, warnCleanupFailure } from '@electron/features/vcs/support/cleanup-warnings';
-
-const execFileAsync = promisify(execFile);
+import { execWorktreeGit } from './exec';
 
 /**
  * Ensure a workspace directory is a git repo with at least one commit.
@@ -36,13 +33,13 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
 
   // Check if it's a git repo
   try {
-    await execFileAsync('git', ['rev-parse', '--git-dir'], {
+    await execWorktreeGit(['rev-parse', '--git-dir'], {
       cwd: workspacePath,
       timeout: 5_000,
     });
   } catch {
     console.log(`[worktree] Initialising git repo in ${workspacePath}`);
-    await execFileAsync('git', ['init'], { cwd: workspacePath, timeout: 10_000 });
+    await execWorktreeGit(['init'], { cwd: workspacePath, timeout: 10_000 });
     bootstrapped = true;
   }
 
@@ -56,7 +53,7 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
 
   // Check if there are any commits
   try {
-    await execFileAsync('git', ['rev-parse', 'HEAD'], {
+    await execWorktreeGit(['rev-parse', 'HEAD'], {
       cwd: workspacePath,
       timeout: 5_000,
     });
@@ -64,10 +61,10 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
     console.log('[worktree] Creating initial commit (greenfield project)');
     // Ensure default branch is 'main' (not 'master')
     try {
-      await execFileAsync('git', ['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
+      await execWorktreeGit(['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
     } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
-    await execFileAsync('git', ['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
-    await execFileAsync('git', [
+    await execWorktreeGit(['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
+    await execWorktreeGit([
       'commit', '--allow-empty', '-m', 'Initial commit',
     ], { cwd: workspacePath, timeout: 10_000 });
     bootstrapped = true;
@@ -140,7 +137,7 @@ export class WorktreeManager {
       ...(baseRef ? [baseRef] : []),
     ];
     try {
-      await execFileAsync('git', addArgs, {
+      await execWorktreeGit(addArgs, {
         cwd: workspacePath,
         timeout: 30_000,
       });
@@ -150,7 +147,7 @@ export class WorktreeManager {
       const message = err instanceof Error ? err.message : String(err);
       // If branch already exists, try without -b
       if (stderr.includes('already exists')) {
-        await execFileAsync('git', [
+        await execWorktreeGit([
           'worktree', 'add',
           worktreePath,
           branchName,
@@ -190,14 +187,14 @@ export class WorktreeManager {
 
     // Best-effort: a local-only branch or an offline repo still resolves below.
     try {
-      await execFileAsync('git', ['fetch', 'origin', branchName], { cwd: workspacePath, timeout: 60_000 });
+      await execWorktreeGit(['fetch', 'origin', branchName], { cwd: workspacePath, timeout: 60_000 });
     } catch {
       console.log(`[worktree] fetch origin ${branchName} failed — trying local refs`);
     }
 
     const hasRef = async (ref: string): Promise<boolean> => {
       try {
-        await execFileAsync('git', ['rev-parse', '--verify', '--quiet', ref], { cwd: workspacePath, timeout: 5_000 });
+        await execWorktreeGit(['rev-parse', '--verify', '--quiet', ref], { cwd: workspacePath, timeout: 5_000 });
         return true;
       } catch {
         return false;
@@ -213,7 +210,7 @@ export class WorktreeManager {
       throw new Error(`Branch "${branchName}" exists neither locally nor on origin`);
     }
     try {
-      await execFileAsync('git', addArgs, { cwd: workspacePath, timeout: 30_000 });
+      await execWorktreeGit(addArgs, { cwd: workspacePath, timeout: 30_000 });
     } catch (err: unknown) {
       const stderr = err && typeof err === 'object' && 'stderr' in err ? String((err as { stderr: unknown }).stderr) : '';
       const message = err instanceof Error ? err.message : String(err);
@@ -238,7 +235,7 @@ export class WorktreeManager {
     let branchName: string | null = null;
     if (opts?.deleteBranch) {
       try {
-        const { stdout } = await execFileAsync('git', [
+        const { stdout } = await execWorktreeGit([
           'rev-parse', '--abbrev-ref', 'HEAD',
         ], { cwd: worktreePath, timeout: 5_000 });
         branchName = stdout.trim();
@@ -252,12 +249,12 @@ export class WorktreeManager {
     if (opts?.force) args.push('--force');
 
     try {
-      await execFileAsync('git', args, {
+      await execWorktreeGit(args, {
         cwd: workspacePath,
         timeout: 15_000,
       });
       try {
-        await execFileAsync('git', ['worktree', 'prune'], {
+        await execWorktreeGit(['worktree', 'prune'], {
           cwd: workspacePath,
           timeout: 10_000,
         });
@@ -271,7 +268,7 @@ export class WorktreeManager {
       // If the directory is already gone, prune instead
       if (stderr.includes('is not a working tree')) {
         try {
-          await execFileAsync('git', ['worktree', 'prune'], {
+          await execWorktreeGit(['worktree', 'prune'], {
             cwd: workspacePath,
             timeout: 10_000,
           });
@@ -295,7 +292,7 @@ export class WorktreeManager {
     // Delete branch if requested
     if (branchName && opts?.deleteBranch) {
       try {
-        await execFileAsync('git', ['branch', '-D', branchName], {
+        await execWorktreeGit(['branch', '-D', branchName], {
           cwd: workspacePath,
           timeout: 10_000,
         });
@@ -312,7 +309,7 @@ export class WorktreeManager {
    */
   async list(workspacePath: string): Promise<WorktreeInfo[]> {
     try {
-      const { stdout } = await execFileAsync('git', [
+      const { stdout } = await execWorktreeGit([
         'worktree', 'list', '--porcelain',
       ], { cwd: workspacePath, timeout: 10_000 });
 

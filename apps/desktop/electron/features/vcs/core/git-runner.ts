@@ -46,6 +46,37 @@ export function resetGitRunnerSshAvailabilityCacheForTests(): void {
   sshAvailabilityCache.clear();
 }
 
+/**
+ * Build the GitHub auth env for a git/gh invocation given whether SSH
+ * transport works in the target environment. Shared by workspace-routed
+ * execution (GitRunner) and path-addressed execution (worktree exec).
+ */
+export function buildGitHubAuthEnv(
+  githubAuth: GitHubAuthManager | undefined,
+  program: string,
+  sshWorks: boolean,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (!githubAuth || (program !== 'git' && program !== 'gh')) return env;
+
+  const authVars = githubAuth.getAuthEnvVars();
+  if (sshWorks) {
+    // Keep GH_TOKEN for gh CLI and retain the GitHub HTTPS auth header so
+    // existing HTTPS remotes still authenticate, but drop the SSH→HTTPS
+    // rewrite so SSH remotes continue using native SSH transport.
+    if (authVars.GH_TOKEN) env.GH_TOKEN = authVars.GH_TOKEN;
+    if (authVars.GIT_TERMINAL_PROMPT) env.GIT_TERMINAL_PROMPT = authVars.GIT_TERMINAL_PROMPT;
+    if (authVars.GIT_CONFIG_VALUE_2) {
+      env.GIT_CONFIG_COUNT = '1';
+      env.GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader';
+      env.GIT_CONFIG_VALUE_0 = authVars.GIT_CONFIG_VALUE_2;
+    }
+  } else {
+    Object.assign(env, authVars);
+  }
+  return env;
+}
+
 export class GitRunner {
   constructor(
     private readonly workspaceManager: WorkspaceManager,
@@ -99,22 +130,8 @@ export class GitRunner {
   ): Promise<Record<string, string>> {
     const env: Record<string, string> = {};
     if (this.githubAuth && (program === 'git' || program === 'gh')) {
-      const authVars = this.githubAuth.getAuthEnvVars();
       const sshWorks = await isRuntimeSshAvailable(workspaceId, runtime);
-      if (sshWorks) {
-        // Keep GH_TOKEN for gh CLI and retain the GitHub HTTPS auth header so
-        // existing HTTPS remotes still authenticate, but drop the SSH→HTTPS
-        // rewrite so SSH remotes continue using native SSH transport.
-        if (authVars.GH_TOKEN) env.GH_TOKEN = authVars.GH_TOKEN;
-        if (authVars.GIT_TERMINAL_PROMPT) env.GIT_TERMINAL_PROMPT = authVars.GIT_TERMINAL_PROMPT;
-        if (authVars.GIT_CONFIG_VALUE_2) {
-          env.GIT_CONFIG_COUNT = '1';
-          env.GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader';
-          env.GIT_CONFIG_VALUE_0 = authVars.GIT_CONFIG_VALUE_2;
-        }
-      } else {
-        Object.assign(env, authVars);
-      }
+      Object.assign(env, buildGitHubAuthEnv(this.githubAuth, program, sshWorks));
     }
     Object.assign(env, stringEnv(extraEnv));
     return env;

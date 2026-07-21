@@ -1,7 +1,4 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { execWorktreeGh } from './exec';
 
 export type PullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
 
@@ -10,8 +7,7 @@ export async function getPullRequestMergeState(
   prNumber: number,
 ): Promise<PullRequestMergeState> {
   try {
-    const { stdout } = await execFileAsync(
-      'gh',
+    const { stdout } = await execWorktreeGh(
       ['pr', 'view', String(prNumber), '--json', 'state,mergedAt'],
       { cwd: worktreePath, timeout: 15_000 },
     );

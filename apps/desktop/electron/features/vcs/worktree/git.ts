@@ -1,14 +1,11 @@
 /** Worktree git helpers — VCS operations scoped to a worktree directory. */
 
-import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { promisify } from 'util';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import { warnCleanupFailure } from '@electron/features/vcs/support/cleanup-warnings';
+import { execWorktreeGit } from './exec';
 export { ensureRemoteDefaultBranch, createPrFromWorktree } from './pull-request';
-
-const execFileAsync = promisify(execFile);
 
 /** Max buffer for git diff output (50MB — diffs can be large for greenfield projects). */
 const DIFF_MAX_BUFFER = 50 * 1024 * 1024;
@@ -42,17 +39,17 @@ export async function createCheckpointInWorktree(
 
   // Remove .DS_Store from tracking if present (safe, targeted removal)
   try {
-    await execFileAsync('git', ['rm', '-r', '--cached', '--ignore-unmatch', '.DS_Store'], {
+    await execWorktreeGit(['rm', '-r', '--cached', '--ignore-unmatch', '.DS_Store'], {
       cwd: worktreePath, timeout: 10_000,
     });
     // Also check subdirectories
-    await execFileAsync('git', ['rm', '-r', '--cached', '--ignore-unmatch', '**/.DS_Store'], {
+    await execWorktreeGit(['rm', '-r', '--cached', '--ignore-unmatch', '**/.DS_Store'], {
       cwd: worktreePath, timeout: 10_000,
     });
   } catch { /* not tracked — fine */ }
 
   // Check if there are changes to commit
-  const status = await execFileAsync('git', ['status', '--porcelain'], {
+  const status = await execWorktreeGit(['status', '--porcelain'], {
     cwd: worktreePath,
     timeout: 10_000,
   });
@@ -63,19 +60,19 @@ export async function createCheckpointInWorktree(
   }
 
   // Stage all changes
-  await execFileAsync('git', ['add', '-A'], {
+  await execWorktreeGit(['add', '-A'], {
     cwd: worktreePath,
     timeout: 15_000,
   });
 
   // Commit
-  await execFileAsync('git', ['commit', '-m', message], {
+  await execWorktreeGit(['commit', '-m', message], {
     cwd: worktreePath,
     timeout: 15_000,
   });
 
   // Get the short SHA
-  const sha = await execFileAsync('git', ['rev-parse', '--short=12', 'HEAD'], {
+  const sha = await execWorktreeGit(['rev-parse', '--short=12', 'HEAD'], {
     cwd: worktreePath,
     timeout: 5_000,
   });
@@ -95,7 +92,7 @@ export async function pushWorktreeBranch(
   branchName: string,
 ): Promise<boolean> {
   try {
-    await execFileAsync('git', ['push', '-u', 'origin', branchName], {
+    await execWorktreeGit(['push', '-u', 'origin', branchName], {
       cwd: worktreePath,
       timeout: 60_000,
     });
@@ -106,7 +103,7 @@ export async function pushWorktreeBranch(
     // Force-push if rejected (e.g. rebased branch)
     if (stderr.includes('rejected') || stderr.includes('non-fast-forward')) {
       try {
-        await execFileAsync('git', ['push', '-u', '--force-with-lease', 'origin', branchName], {
+        await execWorktreeGit(['push', '-u', '--force-with-lease', 'origin', branchName], {
           cwd: worktreePath,
           timeout: 60_000,
         });
@@ -128,7 +125,7 @@ export async function getWorktreeDiffSummary(worktreePath: string): Promise<stri
   if (!await hasCommits(worktreePath)) {
     // No commits — list all tracked/untracked files as "Added"
     try {
-      const result = await execFileAsync('git', ['ls-files', '--others', '--exclude-standard'], {
+      const result = await execWorktreeGit(['ls-files', '--others', '--exclude-standard'], {
         cwd: worktreePath,
         timeout: 15_000,
       });
@@ -142,7 +139,7 @@ export async function getWorktreeDiffSummary(worktreePath: string): Promise<stri
   const isBranch = /^[a-zA-Z]/.test(base) || base.startsWith('HEAD');
   const diffSpec = isBranch ? `${base}...HEAD` : `${base}..HEAD`;
   try {
-    const result = await execFileAsync('git', ['diff', '--name-status', diffSpec], {
+    const result = await execWorktreeGit(['diff', '--name-status', diffSpec], {
       cwd: worktreePath,
       timeout: 15_000,
     });
@@ -169,7 +166,7 @@ export async function getWorktreeDiffStat(worktreePath: string): Promise<Worktre
   const isBranch = /^[a-zA-Z]/.test(base) || base.startsWith('HEAD');
   const diffSpec = isBranch ? `${base}...HEAD` : `${base}..HEAD`;
   try {
-    const result = await execFileAsync('git', ['diff', '--shortstat', diffSpec], {
+    const result = await execWorktreeGit(['diff', '--shortstat', diffSpec], {
       cwd: worktreePath,
       timeout: 15_000,
     });
@@ -197,7 +194,7 @@ function parseShortstat(stdout: string): WorktreeDiffStat | null {
 /** Check whether the repo has any commits at all. */
 async function hasCommits(cwd: string): Promise<boolean> {
   try {
-    await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd, timeout: 5_000 });
+    await execWorktreeGit(['rev-parse', 'HEAD'], { cwd, timeout: 5_000 });
     return true;
   } catch {
     return false;
@@ -207,7 +204,7 @@ async function hasCommits(cwd: string): Promise<boolean> {
 /** Resolve the base branch (main/master) for comparisons. */
 async function resolveBaseBranch(worktreePath: string): Promise<string> {
   const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => {
-    const r = await execFileAsync('git', ['rev-parse', '--verify', branch], {
+    const r = await execWorktreeGit(['rev-parse', '--verify', branch], {
         cwd: worktreePath,
         timeout: 5_000,
       }).catch(() => null);
@@ -218,7 +215,7 @@ async function resolveBaseBranch(worktreePath: string): Promise<string> {
 
   // No main/master — check if HEAD~1 exists (more than one commit)
   try {
-    const r = await execFileAsync('git', ['rev-parse', '--verify', 'HEAD~1'], {
+    const r = await execWorktreeGit(['rev-parse', '--verify', 'HEAD~1'], {
       cwd: worktreePath,
       timeout: 5_000,
     });
@@ -235,23 +232,23 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
     // No commits — diff all files against the empty tree
     // First stage everything so diff-index can see it
     try {
-      await execFileAsync('git', ['add', '-A'], {
+      await execWorktreeGit(['add', '-A'], {
         cwd: worktreePath,
         timeout: 15_000,
       });
       // 4b825dc... is the well-known empty tree SHA in git
-      const emptyTree = await execFileAsync('git', ['hash-object', '-t', 'tree', '/dev/null'], {
+      const emptyTree = await execWorktreeGit(['hash-object', '-t', 'tree', '/dev/null'], {
         cwd: worktreePath,
         timeout: 5_000,
       });
-      const diff = await execFileAsync('git', ['diff', '--cached', emptyTree.stdout.trim()], {
+      const diff = await execWorktreeGit(['diff', '--cached', emptyTree.stdout.trim()], {
         cwd: worktreePath,
         timeout: 30_000,
         maxBuffer: DIFF_MAX_BUFFER,
       });
       // Unstage to avoid side effects
       try {
-        await execFileAsync('git', ['reset'], { cwd: worktreePath, timeout: 10_000 });
+        await execWorktreeGit(['reset'], { cwd: worktreePath, timeout: 10_000 });
       } catch (error) {
         warnCleanupFailure(`failed to reset staged diff state in ${worktreePath}`, error);
       }
@@ -268,7 +265,7 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
   const diffSpec = isBranch ? `${base}...HEAD` : `${base}..HEAD`;
 
   try {
-    const diff = await execFileAsync('git', ['diff', diffSpec], {
+    const diff = await execWorktreeGit(['diff', diffSpec], {
       cwd: worktreePath,
       timeout: 30_000,
       maxBuffer: DIFF_MAX_BUFFER,
@@ -278,7 +275,7 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
     console.warn(`[worktree-git] git diff ${diffSpec} failed:`, (err as Error)?.message?.slice(0, 200));
     // Fallback: diff working tree against HEAD
     try {
-      const diff = await execFileAsync('git', ['diff', 'HEAD'], {
+      const diff = await execWorktreeGit(['diff', 'HEAD'], {
         cwd: worktreePath,
         timeout: 30_000,
         maxBuffer: DIFF_MAX_BUFFER,

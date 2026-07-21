@@ -1,7 +1,4 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { execWorktreeGit } from './exec';
 
 export interface GitRunner {
   run: (
@@ -13,7 +10,7 @@ export interface GitRunner {
 
 const defaultGitRunner: GitRunner = {
   async run(workspacePath, args, timeoutMs = 30_000) {
-    const result = await execFileAsync('git', args, {
+    const result = await execWorktreeGit(args, {
       cwd: workspacePath,
       timeout: timeoutMs,
     });

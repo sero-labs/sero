@@ -535,8 +535,10 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   than smuggled into refactor steps.
   *Risk probed: none — hygiene.*
 
-- [ ] **Step 1 — GitExecutor learns path addressing; worktree layer executes
-  through it.** Extend the core runner to accept an explicit repo path (with
+- [x] **Step 1 — GitExecutor learns path addressing; worktree layer executes
+  through it.** *(done — worktree/exec.ts; auth env logic shared with
+  GitRunner via buildGitHubAuthEnv; unit-tested; live loop/board check
+  pending user verification)* Extend the core runner to accept an explicit repo path (with
   the same auth env build), then replace every raw `execFileAsync` in
   `features/vcs/worktree/` with it. Function signatures and callers unchanged.
   *Risk probed (the biggest one): auth-injected gh behaves correctly for the

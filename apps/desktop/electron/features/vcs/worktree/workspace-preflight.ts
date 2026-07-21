@@ -7,19 +7,16 @@
  * generated workflow steps.
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import type {
   AppRuntimeDirtyWorkspaceStashResult,
   AppRuntimeWorkspaceStatusResult,
 } from '@sero-ai/common';
 import { extractStatusPath, isIgnoredWorkspaceStatusPath } from './workspace-sync';
-
-const execFileAsync = promisify(execFile);
+import { execWorktreeGit } from './exec';
 
 async function isGitRepository(workspacePath: string): Promise<boolean> {
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], {
+    const { stdout } = await execWorktreeGit(['rev-parse', '--is-inside-work-tree'], {
       cwd: workspacePath,
       timeout: 10_000,
     });
@@ -30,7 +27,7 @@ async function isGitRepository(workspacePath: string): Promise<boolean> {
 }
 
 async function meaningfulStatusPaths(workspacePath: string): Promise<string[]> {
-  const { stdout } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=all'], {
+  const { stdout } = await execWorktreeGit(['status', '--porcelain', '--untracked-files=all'], {
     cwd: workspacePath,
     timeout: 15_000,
   });
@@ -57,12 +54,12 @@ export async function stashWorkspaceChanges(
   workspacePath: string,
   message: string,
 ): Promise<AppRuntimeDirtyWorkspaceStashResult> {
-  await execFileAsync('git', ['stash', 'push', '--include-untracked', '-m', message], {
+  await execWorktreeGit(['stash', 'push', '--include-untracked', '-m', message], {
     cwd: workspacePath,
     timeout: 30_000,
   });
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', 'stash@{0}'], {
+    const { stdout } = await execWorktreeGit(['rev-parse', 'stash@{0}'], {
       cwd: workspacePath,
       timeout: 10_000,
     });

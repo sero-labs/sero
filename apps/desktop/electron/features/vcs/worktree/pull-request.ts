@@ -1,9 +1,5 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
+import { execWorktreeGit, execWorktreeGh } from './exec';
 import { getPullRequestMergeState } from './merge-status';
-
-const execFileAsync = promisify(execFile);
 
 export type PullRequestMergeMethod = 'merge' | 'squash' | 'rebase';
 
@@ -42,7 +38,7 @@ function warnGhReadFailure(op: string, err: unknown): void {
 
 async function fetchRemoteRefs(worktreePath: string): Promise<void> {
   try {
-    await execFileAsync('git', ['fetch', 'origin'], {
+    await execWorktreeGit(['fetch', 'origin'], {
       cwd: worktreePath,
       timeout: 30_000,
     });
@@ -53,7 +49,7 @@ async function fetchRemoteRefs(worktreePath: string): Promise<void> {
 
 async function getGithubDefaultBranch(worktreePath: string): Promise<string | null> {
   try {
-    const result = await execFileAsync('gh', [
+    const result = await execWorktreeGh([
       'repo', 'view', '--json', 'defaultBranchRef', '--jq', '.defaultBranchRef.name',
     ], {
       cwd: worktreePath,
@@ -68,7 +64,7 @@ async function getGithubDefaultBranch(worktreePath: string): Promise<string | nu
 
 async function setLocalRemoteHead(worktreePath: string, branch: string): Promise<void> {
   try {
-    await execFileAsync('git', ['remote', 'set-head', 'origin', branch], {
+    await execWorktreeGit(['remote', 'set-head', 'origin', branch], {
       cwd: worktreePath,
       timeout: 10_000,
     });
@@ -85,7 +81,7 @@ async function ensureGithubDefaultBranch(worktreePath: string, branch: string): 
       return;
     }
 
-    await execFileAsync('gh', ['repo', 'edit', '--default-branch', branch], {
+    await execWorktreeGh(['repo', 'edit', '--default-branch', branch], {
       cwd: worktreePath,
       timeout: 30_000,
     });
@@ -108,13 +104,13 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
 
   const sharedHistoryChecks = await Promise.all(['main', 'master'].map(async (branch) => {
     try {
-      const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
+      const r = await execWorktreeGit(['ls-remote', '--heads', 'origin', branch], {
         cwd: worktreePath,
         timeout: 15_000,
       });
       if (!r.stdout.trim()) return null;
 
-      await execFileAsync('git', ['merge-base', `origin/${branch}`, 'HEAD'], {
+      await execWorktreeGit(['merge-base', `origin/${branch}`, 'HEAD'], {
         cwd: worktreePath,
         timeout: 10_000,
       });
@@ -129,13 +125,13 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
 
   const existingRemoteChecks = await Promise.all(['main', 'master'].map(async (branch) => {
     try {
-      const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
+      const r = await execWorktreeGit(['ls-remote', '--heads', 'origin', branch], {
         cwd: worktreePath,
         timeout: 15_000,
       });
       if (!r.stdout.trim()) return null;
 
-      const countResult = await execFileAsync('git', [
+      const countResult = await execWorktreeGit([
         'rev-list', '--count', `origin/${branch}`,
       ], { cwd: worktreePath, timeout: 10_000 });
       const commitCount = parseInt(countResult.stdout.trim(), 10);
@@ -158,18 +154,18 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
 
   console.log('[worktree-git] Setting up remote main from feature branch root commit');
   try {
-    const rootResult = await execFileAsync('git', ['rev-list', '--max-parents=0', 'HEAD'], {
+    const rootResult = await execWorktreeGit(['rev-list', '--max-parents=0', 'HEAD'], {
       cwd: worktreePath,
       timeout: 10_000,
     });
     const rootCommit = rootResult.stdout.trim().split('\n')[0];
 
     if (rootCommit) {
-      await execFileAsync('git', ['update-ref', 'refs/heads/main', rootCommit], {
+      await execWorktreeGit(['update-ref', 'refs/heads/main', rootCommit], {
         cwd: worktreePath,
         timeout: 5_000,
       });
-      await execFileAsync('git', ['push', '--force-with-lease', '-u', 'origin', 'main'], {
+      await execWorktreeGit(['push', '--force-with-lease', '-u', 'origin', 'main'], {
         cwd: worktreePath,
         timeout: 30_000,
       });
@@ -186,7 +182,7 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
 
 async function resolveDefaultBranch(worktreePath: string): Promise<string> {
   try {
-    const r = await execFileAsync('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
+    const r = await execWorktreeGit(['symbolic-ref', 'refs/remotes/origin/HEAD'], {
       cwd: worktreePath,
       timeout: 5_000,
     });
@@ -198,12 +194,12 @@ async function resolveDefaultBranch(worktreePath: string): Promise<string> {
   }
 
   const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => {
-    const hasRemote = await execFileAsync('git', ['rev-parse', '--verify', `origin/${branch}`], {
+    const hasRemote = await execWorktreeGit(['rev-parse', '--verify', `origin/${branch}`], {
       cwd: worktreePath,
       timeout: 5_000,
     }).then(() => true, () => false);
     if (hasRemote) return branch;
-    const hasLocal = await execFileAsync('git', ['rev-parse', '--verify', branch], {
+    const hasLocal = await execWorktreeGit(['rev-parse', '--verify', branch], {
       cwd: worktreePath,
       timeout: 5_000,
     }).then(() => true, () => false);
@@ -237,7 +233,7 @@ export async function listOpenPullRequests(
     '--json', 'number,url,title,headRefName,updatedAt,body'];
   if (opts.author) args.push('--author', opts.author);
   try {
-    const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });
+    const r = await execWorktreeGh(args, { cwd, timeout: 30_000 });
     const parsed = JSON.parse(r.stdout) as OpenPullRequestSummary[];
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
@@ -266,7 +262,7 @@ export async function listOpenIssues(cwd: string): Promise<OpenIssueSummary[]> {
   const args = ['issue', 'list', '--state', 'open', '--limit', '50',
     '--json', 'number,url,title,labels,assignees,updatedAt'];
   try {
-    const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });
+    const r = await execWorktreeGh(args, { cwd, timeout: 30_000 });
     const parsed = JSON.parse(r.stdout) as Array<{
       number: number;
       url: string;
@@ -299,7 +295,7 @@ export async function createPrFromWorktree(
   if (opts.draft) args.push('--draft');
 
   try {
-    const result = await execFileAsync('gh', args, {
+    const result = await execWorktreeGh(args, {
       cwd: worktreePath,
       timeout: 120_000,
     });
@@ -334,14 +330,14 @@ export async function mergePrFromWorktree(
   const method = opts.method ?? 'squash';
 
   try {
-    await execFileAsync('gh', buildMergeArgs(prNumber, method), {
+    await execWorktreeGh(buildMergeArgs(prNumber, method), {
       cwd: worktreePath,
       timeout: 120_000,
     });
   } catch (mergeErr: unknown) {
     const immediateError = execError(mergeErr);
     try {
-      await execFileAsync('gh', buildMergeArgs(prNumber, method, true), {
+      await execWorktreeGh(buildMergeArgs(prNumber, method, true), {
         cwd: worktreePath,
         timeout: 120_000,
       });
@@ -369,7 +365,7 @@ async function findExistingPr(
   worktreePath: string,
 ): Promise<{ url: string; number: number } | null> {
   try {
-    const result = await execFileAsync('gh', [
+    const result = await execWorktreeGh([
       'pr', 'view', '--json', 'url,number',
     ], { cwd: worktreePath, timeout: 30_000 });
 
