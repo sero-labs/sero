@@ -12,9 +12,9 @@ import { setGitServiceBridge } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { gitRunner } from '@electron/shared/infra/singletons';
-import { setGitExecutionRouter } from '@electron/features/vcs/git-service/git-exec';
-import { resolveStatePath } from '@electron/features/vcs/git-service/state-io';
-import { refreshGitState, runGitAction } from '@electron/features/vcs/git-service/git-service';
+import { setGitExecutionRouter } from '@electron/features/git/git-service/git-exec';
+import { resolveStatePath } from '@electron/features/git/git-service/state-io';
+import { refreshGitState, runGitAction } from '@electron/features/git/git-service/git-service';
 import { gitWorkspaceStateManager } from './manager';
 
 export function registerGitServiceBridge(): void {

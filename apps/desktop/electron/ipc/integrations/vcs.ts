@@ -7,12 +7,12 @@ import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { githubAuth, githubRepoOps, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
-import { connectRemote, publishRepo } from '@electron/features/vcs/remote-connect';
+import { connectRemote, publishRepo } from '@electron/features/git/remote-connect';
 import type { PublishRepoInput, RemoteImportMode } from '@sero-ai/common';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
-import { ghForPath } from '@electron/features/vcs/github/invoker';
-import { listOpenIssues, listOpenPullRequests } from '@electron/features/vcs/github/pull-requests';
-import { getWorktreeDiffStat } from '@electron/features/vcs/worktree/git';
+import { ghForPath } from '@electron/features/git/github/invoker';
+import { listOpenIssues, listOpenPullRequests } from '@electron/features/git/github/pull-requests';
+import { getWorktreeDiffStat } from '@electron/features/git/worktree/git';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 const Ch = IpcChannels.vcs;

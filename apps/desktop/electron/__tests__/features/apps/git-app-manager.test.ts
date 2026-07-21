@@ -47,12 +47,12 @@ vi.mock('node:fs', () => ({
   watch: mocks.watch,
 }));
 
-vi.mock('@electron/features/vcs/git-service/git-service', () => ({
+vi.mock('@electron/features/git/git-service/git-service', () => ({
   refreshGitState: mocks.refreshGitState,
   runGitAction: mocks.runGitAction,
 }));
 
-vi.mock('@electron/features/vcs/git-service/state-io', () => ({
+vi.mock('@electron/features/git/git-service/state-io', () => ({
   resolveStatePath: mocks.resolveStatePath,
 }));
 

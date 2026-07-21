@@ -4,12 +4,12 @@ import path from 'node:path';
 import type { GitManagerAction, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { appStateManager } from '../state/manager';
-import { resolveStatePath } from '@electron/features/vcs/git-service/state-io';
+import { resolveStatePath } from '@electron/features/git/git-service/state-io';
 import {
   refreshGitState,
   runGitAction,
   type GitActionResult,
-} from '@electron/features/vcs/git-service/git-service';
+} from '@electron/features/git/git-service/git-service';
 import {
   gitRefreshInvalidationCoordinator,
   type GitRefreshInvalidationOptions,

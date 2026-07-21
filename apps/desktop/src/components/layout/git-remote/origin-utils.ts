@@ -1,7 +1,7 @@
 /**
  * Display helpers + thin wrappers for the remote-connect/publish flows.
  * The policy (origin upsert, import-into-empty-workspace, repo publish)
- * lives in the main process (electron/features/vcs/remote-connect.ts);
+ * lives in the main process (electron/features/git/remote-connect.ts);
  * this module only shapes results for the connect/publish UI.
  */
 

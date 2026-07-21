@@ -6,6 +6,7 @@
  * combined results.
  */
 
+import { githubAuth } from '@electron/shared/infra/singletons';
 import type { DiscoveredPlugin } from '@sero-ai/common';
 import { listInstalledPlugins } from './manager';
 
@@ -64,10 +65,14 @@ async function searchGitHubByTopic(topic: string, query: string): Promise<GitHub
     : `topic:${topic}`;
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=30`;
 
+  // Authenticated search gets 30 req/min instead of the 10 req/min
+  // anonymous limit; anonymous still works for signed-out users.
+  const token = githubAuth.getToken();
   const res = await fetch(url, {
     headers: {
       Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'Sero-Desktop',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 

@@ -11,7 +11,7 @@ import {
 import { registerEditorCliCommands } from './commands/editor';
 import { registerBrowserCliCommands } from './commands/browser';
 import { registerSessionCliCommands } from './commands/agent';
-import { registerVcsCliCommands } from './commands/vcs';
+import { registerVcsCliCommands } from './commands/git';
 import { registerWorkspaceCliCommands } from './commands/workspace';
 import {
   registerHelpCliCommand,

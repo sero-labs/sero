@@ -625,7 +625,17 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   combo input; both originals deleted)* Extract the shared component, mount in
   titlebar + explorer, seed from unified state, delete the two originals.
 
-- [ ] **Step 8 — Sweep and rename.** Fold the remaining worktree-layer
+- [x] **Step 8 — Sweep and rename.** *(done — `features/vcs/` →
+  `features/git/` (and `cli/commands/vcs` → `git`); default-branch detection
+  folded into worktree/default-branch.ts with one injectable
+  WorktreeGitRunner (the two same-named local GitRunner interfaces are
+  gone); worktree execError deduped onto github/helpers; plugin discovery
+  search now attaches the Sero token when present; docs-site git guide and
+  the version-control user flow updated to git vocabulary. The `remotes`
+  read IPC is retained deliberately — it serves the connect/origin UI as a
+  plain read, not policy. IPC channel strings keep the `sero:vcs:` prefix
+  (renderer and main ship together; renaming the wire strings buys
+  nothing).)* Fold the remaining worktree-layer
   duplicates into GitService (default-branch detection to one helper, shared
   execError), move `features/vcs/` → `features/git/`, retire the duplicate
   local `GitRunner` interfaces, route discovery search with token when

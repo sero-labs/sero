@@ -19,30 +19,30 @@ import {
   runVerificationCommands,
   summarizeVerificationFailure,
 } from '@electron/features/workspace/runtime/verification';
-import { WorktreeManager } from '@electron/features/vcs/worktree/manager';
+import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import {
   createCheckpointInWorktree,
   getWorktreeDiff,
   getWorktreeDiffSummary,
   pushWorktreeBranch,
-} from '@electron/features/vcs/worktree/git';
+} from '@electron/features/git/worktree/git';
 import {
   createPrFromWorktree,
   ensureRemoteDefaultBranch,
-} from '@electron/features/vcs/worktree/pull-request';
-import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
-import { syncWorkspaceRootToDefaultBranch } from '@electron/features/vcs/worktree/workspace-sync';
-import { getWorkspaceStatus, stashWorkspaceChanges } from '@electron/features/vcs/worktree/workspace-preflight';
-import { ghForPath } from '@electron/features/vcs/github/invoker';
+} from '@electron/features/git/worktree/pull-request';
+import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/git/worktree/sync';
+import { syncWorkspaceRootToDefaultBranch } from '@electron/features/git/worktree/workspace-sync';
+import { getWorkspaceStatus, stashWorkspaceChanges } from '@electron/features/git/worktree/workspace-preflight';
+import { ghForPath } from '@electron/features/git/github/invoker';
 import {
   listOpenIssues,
   listOpenPullRequests,
   mergePullRequest,
-} from '@electron/features/vcs/github/pull-requests';
+} from '@electron/features/git/github/pull-requests';
 import {
   getPullRequestMergeError,
   getPullRequestMergeState,
-} from '@electron/features/vcs/github/merge-state';
+} from '@electron/features/git/github/merge-state';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 
