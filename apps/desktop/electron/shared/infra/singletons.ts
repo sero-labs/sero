@@ -13,7 +13,7 @@ import { FileWatcherManager } from '@electron/features/workspace/watcher';
 import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
 import { setWorktreeGitHubAuth } from '@electron/features/vcs/worktree/exec';
-import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import { GitHubRepoOps } from '@electron/features/vcs/github/repos';
 import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { appRuntimeManager } from '@electron/features/apps/runtime/manager';

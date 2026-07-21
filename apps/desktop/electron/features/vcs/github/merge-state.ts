@@ -1,15 +1,15 @@
-import { execWorktreeGh } from './exec';
+import type { GhInvoker } from './invoker';
 
 export type PullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
 
 export async function getPullRequestMergeState(
-  worktreePath: string,
+  gh: GhInvoker,
   prNumber: number,
 ): Promise<PullRequestMergeState> {
   try {
-    const { stdout } = await execWorktreeGh(
+    const { stdout } = await gh(
       ['pr', 'view', String(prNumber), '--json', 'state,mergedAt'],
-      { cwd: worktreePath, timeout: 15_000 },
+      15_000,
     );
     const parsed = JSON.parse(stdout) as { state?: string; mergedAt?: string | null };
     if (parsed.mergedAt) return 'merged';
@@ -22,10 +22,10 @@ export async function getPullRequestMergeState(
 }
 
 export async function getPullRequestMergeError(
-  worktreePath: string,
+  gh: GhInvoker,
   prNumber: number,
 ): Promise<string | null> {
-  const mergeState = await getPullRequestMergeState(worktreePath, prNumber);
+  const mergeState = await getPullRequestMergeState(gh, prNumber);
   if (mergeState === 'merged') return null;
   if (mergeState === 'open') return `Awaiting review. Merge PR #${prNumber} before marking this card done.`;
   if (mergeState === 'closed') return `PR #${prNumber} was closed without merging. Re-open or create a new PR before marking this card done.`;

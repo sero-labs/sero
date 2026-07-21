@@ -545,7 +545,12 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   Agent Board and orchestrator loops that previously used ambient gh. Verify
   with a live loop + board refresh before merging.*
 
-- [ ] **Step 2 — Single GitHubService.** Merge `pr-ops/*`, `auth/github/
+- [x] **Step 2 — Single GitHubService.** *(done — features/vcs/github/
+  {invoker,helpers,pull-requests,merge-state,default-branch,repos}; the two
+  PR-create paths were NOT identical (explicit --head vs current-branch
+  inference) so the single implementation takes an optional head;
+  ensureRemoteDefaultBranch's force-push behaviour is reachable and preserved
+  as flagged)* Merge `pr-ops/*`, `auth/github/
   repo-ops.ts`, `worktree/pull-request.ts`, `merge-status.ts` into
   `features/git/github/`. One PR create, one PR list/view, one merge, one
   default-branch resolver/setter, one URL extractor, one error mapper. Rewire

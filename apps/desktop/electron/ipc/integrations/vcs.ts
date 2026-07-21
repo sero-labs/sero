@@ -8,7 +8,8 @@ import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
-import { listOpenIssues, listOpenPullRequests } from '@electron/features/vcs/worktree/pull-request';
+import { ghForPath } from '@electron/features/vcs/github/invoker';
+import { listOpenIssues, listOpenPullRequests } from '@electron/features/vcs/github/pull-requests';
 import { getWorktreeDiffStat } from '@electron/features/vcs/worktree/git';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
@@ -201,12 +202,12 @@ export function registerVcsHandlers(): void {
 
   ipcMain.handle(Ch.issues, async (_e, wsId: string) => {
     const workspacePath = workspaceManager.getPath(wsId);
-    return workspacePath ? listOpenIssues(workspacePath) : [];
+    return workspacePath ? listOpenIssues(ghForPath(workspacePath)) : [];
   });
 
   ipcMain.handle(Ch.openPrs, async (_e, wsId: string) => {
     const workspacePath = workspaceManager.getPath(wsId);
-    return workspacePath ? listOpenPullRequests(workspacePath) : [];
+    return workspacePath ? listOpenPullRequests(ghForPath(workspacePath)) : [];
   });
 
   ipcMain.handle(Ch.diffStat, async (_e, checkoutPath: string) => {

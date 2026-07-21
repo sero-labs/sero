@@ -4,7 +4,7 @@ import path from 'path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import { GitHubRepoOps } from '@electron/features/vcs/github/repos';
 import type { GitRunner } from '@electron/features/vcs/core/git-runner';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 

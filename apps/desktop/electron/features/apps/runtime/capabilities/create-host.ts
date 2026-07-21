@@ -29,17 +29,20 @@ import {
 import {
   createPrFromWorktree,
   ensureRemoteDefaultBranch,
-  listOpenIssues,
-  listOpenPullRequests,
-  mergePrFromWorktree,
 } from '@electron/features/vcs/worktree/pull-request';
 import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
 import { syncWorkspaceRootToDefaultBranch } from '@electron/features/vcs/worktree/workspace-sync';
 import { getWorkspaceStatus, stashWorkspaceChanges } from '@electron/features/vcs/worktree/workspace-preflight';
+import { ghForPath } from '@electron/features/vcs/github/invoker';
+import {
+  listOpenIssues,
+  listOpenPullRequests,
+  mergePullRequest,
+} from '@electron/features/vcs/github/pull-requests';
 import {
   getPullRequestMergeError,
   getPullRequestMergeState,
-} from '@electron/features/vcs/worktree/merge-status';
+} from '@electron/features/vcs/github/merge-state';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 
@@ -171,12 +174,12 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       getDiff: getWorktreeDiff,
       pushBranch: pushWorktreeBranch,
       ensureRemoteDefaultBranch,
-      listPullRequests: (cwd, options) => listOpenPullRequests(cwd, options),
-      listIssues: (cwd) => listOpenIssues(cwd),
+      listPullRequests: (cwd, options) => listOpenPullRequests(ghForPath(cwd), options),
+      listIssues: (cwd) => listOpenIssues(ghForPath(cwd)),
       createPr: createPrFromWorktree,
-      mergePr: mergePrFromWorktree,
-      getPrMergeState: getPullRequestMergeState,
-      getPrMergeError: getPullRequestMergeError,
+      mergePr: (cwd, prNumber, options) => mergePullRequest(ghForPath(cwd), prNumber, options),
+      getPrMergeState: (cwd, prNumber) => getPullRequestMergeState(ghForPath(cwd), prNumber),
+      getPrMergeError: (cwd, prNumber) => getPullRequestMergeError(ghForPath(cwd), prNumber),
     },
     devServers: {
       startManaged: startManagedDevServer,

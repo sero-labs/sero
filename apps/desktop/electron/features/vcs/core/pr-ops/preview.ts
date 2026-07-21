@@ -6,6 +6,8 @@ import type {
 } from '@sero-ai/common';
 
 import { parseDiffSummary } from '../../support/parsers';
+import { ghForWorkspace } from '../../github/invoker';
+import { findOpenPullRequest } from '../../github/pull-requests';
 import type { GitRunner } from '../git-runner';
 import { resolveSourceBranch, resolveTargetBranch } from './state';
 
@@ -53,45 +55,7 @@ async function findExistingOpenPr(
   sourceBranch: string,
   targetBranch: string,
 ): Promise<PullRequestRef | undefined> {
-  const result = await runner.runCommand(
-    workspaceId,
-    'gh',
-    [
-      'pr',
-      'list',
-      '--head',
-      sourceBranch,
-      '--base',
-      targetBranch,
-      '--state',
-      'open',
-      '--limit',
-      '1',
-      '--json',
-      'url,number,title,baseRefName',
-    ],
-    60_000,
-  );
-  if (result.exitCode !== 0 || !result.stdout.trim()) return undefined;
-
-  try {
-    const parsed = JSON.parse(result.stdout) as Array<{
-      url?: string;
-      number?: number;
-      title?: string;
-      baseRefName?: string;
-    }>;
-    const first = parsed[0];
-    if (!first?.url || typeof first.number !== 'number' || !first.title) return undefined;
-    return {
-      url: first.url,
-      number: first.number,
-      title: first.title,
-      baseBranch: first.baseRefName ?? targetBranch,
-    };
-  } catch {
-    return undefined;
-  }
+  return findOpenPullRequest(ghForWorkspace(runner, workspaceId), sourceBranch, targetBranch);
 }
 
 export async function buildPullRequestPreview(

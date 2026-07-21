@@ -5,8 +5,9 @@ import type {
   PullRequestState,
 } from '@sero-ai/common';
 
+import { ghForWorkspace } from '../github/invoker';
+import { createPullRequest } from '../github/pull-requests';
 import type { GitRunner } from './git-runner';
-import { executeCreatePullRequest } from './pr-ops/create';
 import {
   buildPullRequestPreview,
   formatFileSummary,
@@ -98,9 +99,9 @@ export class VcsPullRequestOps {
       };
     }
 
-    return executeCreatePullRequest(this.runner, workspaceId, {
-      sourceBranch: preview.sourceBranch,
-      targetBranch: preview.targetBranch,
+    return createPullRequest(ghForWorkspace(this.runner, workspaceId), {
+      head: preview.sourceBranch,
+      base: preview.targetBranch,
       title,
       body,
       draft: input.draft,

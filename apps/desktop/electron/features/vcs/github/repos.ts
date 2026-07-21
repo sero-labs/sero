@@ -15,6 +15,9 @@ import type { GitRunner } from '@electron/features/vcs/core/git-runner';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
 import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
+import { setGithubDefaultBranch } from './default-branch';
+import { formatGhFailure } from './helpers';
+import { ghForWorkspace } from './invoker';
 
 export class GitHubRepoOps {
   constructor(
@@ -222,15 +225,11 @@ export class GitHubRepoOps {
       };
     }
 
-    const edit = await this.runner.runCommand(
-      workspaceId,
-      'gh',
-      ['repo', 'edit', '--default-branch', branch],
-      30_000,
-    );
-    if (edit.exitCode !== 0) {
+    try {
+      await setGithubDefaultBranch(ghForWorkspace(this.runner, workspaceId), branch);
+    } catch (err) {
       console.warn(
-        `[github-repo-ops] Failed to set default branch to ${branch}: ${edit.stderr || edit.stdout}`,
+        `[github-repo-ops] Failed to set default branch to ${branch}: ${formatGhFailure(err, 'gh repo edit failed')}`,
       );
     }
 
@@ -309,18 +308,11 @@ export class GitHubRepoOps {
 
   private formatError(stderr: string, stdout: string): string {
     const message = (stderr || stdout || 'Failed to create repository').trim();
-    const lower = message.toLowerCase();
-
-    if (lower.includes('enoent') || lower.includes('not found') || lower.includes('cannot run gh')) {
-      return 'GitHub CLI (`gh`) is not available. Install `gh` and retry.';
-    }
-    if (lower.includes('authentication') || lower.includes('not logged')) {
-      return `${message}\nConnect your GitHub account in the sidebar GitHub login and retry.`;
-    }
-    if (lower.includes('name already exists') || lower.includes('already exists')) {
+    const mapped = formatGhFailure({ stderr, stdout, message }, 'Failed to create repository');
+    if (mapped === message && message.toLowerCase().includes('already exists')) {
       return 'A repository with this name already exists on your GitHub account.';
     }
-    return message;
+    return mapped;
   }
 }
 
