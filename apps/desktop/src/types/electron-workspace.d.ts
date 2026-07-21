@@ -19,10 +19,10 @@ import type {
   VcsCheckpoint,
   VcsEvent,
   VcsWorkspaceState,
-  ChangeEntry,
+  CommitEntry,
   WorkingCopyStatus,
   FileDiffEntry,
-  Bookmark,
+  Branch,
   Remote,
   SyncResult,
   PullRequestState,
@@ -186,33 +186,33 @@ export interface SeroVcsAPI {
   /** Restore files to a prior checkpoint snapshot. */
   restore(workspaceId: string, checkpointId: string): Promise<void>;
   /** Get a rich git-format diff between checkpoints. */
-  diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string>;
+  diff(workspaceId: string, fromRev: string, toRev?: string): Promise<string>;
   /** Subscribe to VCS events. Returns unsubscribe. */
   onEvent(callback: (event: VcsEvent) => void): () => void;
 
   // ── Rich VCS ops ──────────────────────────────────────────
-  logEntries(wsId: string, limit?: number, revset?: string): Promise<ChangeEntry[]>;
+  logEntries(wsId: string, limit?: number, range?: string): Promise<CommitEntry[]>;
   status(wsId: string): Promise<WorkingCopyStatus>;
   fileDiffSummary(wsId: string, from: string, to?: string): Promise<FileDiffEntry[]>;
   fileContent(wsId: string, rev: string, path: string): Promise<string>;
-  describe(wsId: string, changeId: string, msg: string): Promise<void>;
-  bookmarks(wsId: string): Promise<Bookmark[]>;
-  createBookmark(wsId: string, name: string, rev?: string): Promise<void>;
-  deleteBookmark(wsId: string, name: string): Promise<void>;
-  moveBookmark(wsId: string, name: string, toRev: string): Promise<void>;
+  amendMessage(wsId: string, sha: string, msg: string): Promise<void>;
+  branches(wsId: string): Promise<Branch[]>;
+  createBranch(wsId: string, name: string, rev?: string): Promise<void>;
+  deleteBranch(wsId: string, name: string): Promise<void>;
+  moveBranch(wsId: string, name: string, toRev: string): Promise<void>;
   remotes(wsId: string): Promise<Remote[]>;
   addRemote(wsId: string, name: string, url: string): Promise<void>;
   setRemoteUrl(wsId: string, name: string, url: string): Promise<void>;
   removeRemote(wsId: string, name: string): Promise<void>;
   checkoutRemote(wsId: string, remote?: string): Promise<SyncResult>;
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
-  push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;
+  push(wsId: string, branch?: string, sha?: string): Promise<SyncResult>;
   prState(wsId: string): Promise<PullRequestState>;
   prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
-  abandon(wsId: string, changeId: string): Promise<void>;
+  discardCommit(wsId: string, sha: string): Promise<void>;
 
   // ── Repo-scoped gh reads (Agent Board) — fail-soft to [] ──
   issues(wsId: string): Promise<AppRuntimeIssueSummary[]>;

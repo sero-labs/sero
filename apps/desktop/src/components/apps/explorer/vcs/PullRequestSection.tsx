@@ -3,7 +3,7 @@ import { GitBranch, Sparkles, Loader2, Github } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import type {
-  Bookmark,
+  Branch,
   PullRequestPreview,
   PullRequestState,
 } from '@sero-ai/common';
@@ -11,14 +11,14 @@ import { VcsSection } from './VcsSection';
 
 interface Props {
   workspaceId: string;
-  bookmarks: Bookmark[];
-  activePushBookmark?: string | null;
+  branches: Branch[];
+  activePushBranch?: string | null;
 }
 
 export function PullRequestSection({
   workspaceId,
-  bookmarks,
-  activePushBookmark,
+  branches,
+  activePushBranch,
 }: Props) {
   const listId = useId();
   const [prState, setPrState] = useState<PullRequestState | null>(null);
@@ -38,13 +38,13 @@ export function PullRequestSection({
   } | null>(null);
   const previewRequestIdRef = useRef(0);
 
-  const localBookmarks = useMemo(
-    () => bookmarks.filter((b) => b.isLocal).map((b) => b.name),
-    [bookmarks],
+  const localBranchs = useMemo(
+    () => branches.filter((b) => b.isLocal).map((b) => b.name),
+    [branches],
   );
-  const bookmarkKey = useMemo(
-    () => localBookmarks.slice().sort((a, b) => a.localeCompare(b)).join('|'),
-    [localBookmarks],
+  const branchKey = useMemo(
+    () => localBranchs.slice().sort((a, b) => a.localeCompare(b)).join('|'),
+    [localBranchs],
   );
 
   useEffect(() => {
@@ -58,8 +58,8 @@ export function PullRequestSection({
 
         setSourceBranch((prev) => {
           if (prev && state.sourceBranches.includes(prev)) return prev;
-          if (activePushBookmark && state.sourceBranches.includes(activePushBookmark) && activePushBookmark !== state.defaultBaseBranch) {
-            return activePushBookmark;
+          if (activePushBranch && state.sourceBranches.includes(activePushBranch) && activePushBranch !== state.defaultBaseBranch) {
+            return activePushBranch;
           }
           return state.sourceBranches.find((b) => b !== state.defaultBaseBranch) ?? state.sourceBranches[0] ?? '';
         });
@@ -77,7 +77,7 @@ export function PullRequestSection({
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, bookmarkKey, activePushBookmark]);
+  }, [workspaceId, branchKey, activePushBranch]);
 
   const requestPreview = useDebouncedCallback(
     (nextSourceBranch: string, nextTargetBranch: string, requestId: number) => {

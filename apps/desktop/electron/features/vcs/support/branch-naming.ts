@@ -3,15 +3,15 @@
  * branch names from commit descriptions.
  */
 
-const AUTO_PUSH_BOOKMARK_PREFIX = 'push-';
+const AUTO_PUSH_BRANCH_PREFIX = 'push-';
 
 const CONVENTIONAL_TYPES = new Set([
   'feat', 'fix', 'docs', 'style', 'refactor', 'perf',
   'test', 'build', 'ci', 'chore', 'revert',
 ]);
 
-export function isAutoPushBookmark(name: string): boolean {
-  return name.startsWith(AUTO_PUSH_BOOKMARK_PREFIX);
+export function isAutoPushBranch(name: string): boolean {
+  return name.startsWith(AUTO_PUSH_BRANCH_PREFIX);
 }
 
 /**

@@ -3,9 +3,9 @@ import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
-async function handleVcs(args: string[], ctx: CliCommandContext) {
+async function handleGit(args: string[], ctx: CliCommandContext) {
   const [action, ...rest] = args;
-  if (!action) return fail('Usage: sero vcs <status|log|diff|checkpoint|push|remote|fetch|bookmarks>');
+  if (!action) return fail('Usage: sero git <status|log|diff|checkpoint|push|remote|fetch|branches>');
 
   try {
     switch (action) {
@@ -29,8 +29,8 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
           entries
             .map((e) => {
               const head = e.isWorkingCopy ? '*' : '-';
-              const bookmarks = e.bookmarks.length ? ` [${e.bookmarks.join(', ')}]` : '';
-              return `${head} ${e.changeId} ${e.description || '(no description)'}${bookmarks}`;
+              const branches = e.branches.length ? ` [${e.branches.join(', ')}]` : '';
+              return `${head} ${e.sha} ${e.description || '(no description)'}${branches}`;
             })
             .join('\n'),
         );
@@ -39,13 +39,13 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
       case 'diff': {
         const from = rest[0];
         const to = rest[1];
-        if (!from) return fail('Usage: sero vcs diff <from> [to]');
+        if (!from) return fail('Usage: sero git diff <from> [to]');
         const diff = await vcsManager.diff(ctx.workspaceId, from, to);
         return ok(diff.trim() || '(empty diff)');
       }
 
       case 'checkpoint': {
-        // Support: sero vcs checkpoint "msg", sero vcs checkpoint --message "msg"
+        // Support: sero git checkpoint "msg", sero git checkpoint --message "msg"
         // Also handles bare `-m` by stripping it from positionals.
         const { flags, positionals } = parseFlags(rest);
         const flagMsg = flags.get('message');
@@ -62,7 +62,7 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
           description: message,
         });
         if (!cp) return fail('No file changes to checkpoint.');
-        return ok(`Created checkpoint ${cp.changeId}${cp.description ? ` — ${cp.description}` : ''}`);
+        return ok(`Created checkpoint ${cp.sha}${cp.description ? ` — ${cp.description}` : ''}`);
       }
 
       case 'push': {
@@ -86,58 +86,71 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
         }
         if (subAction === 'add') {
           const [name, url] = subRest;
-          if (!name || !url) return fail('Usage: sero vcs remote add <name> <url>');
+          if (!name || !url) return fail('Usage: sero git remote add <name> <url>');
           await vcsOps.addRemote(ctx.workspaceId, name, url);
           return ok(`Added remote '${name}' → ${url}`);
         }
         if (subAction === 'remove') {
           const name = subRest[0];
-          if (!name) return fail('Usage: sero vcs remote remove <name>');
+          if (!name) return fail('Usage: sero git remote remove <name>');
           await vcsOps.removeRemote(ctx.workspaceId, name);
           return ok(`Removed remote '${name}'`);
         }
-        return fail('Usage: sero vcs remote [list|add <name> <url>|remove <name>]');
+        return fail('Usage: sero git remote [list|add <name> <url>|remove <name>]');
       }
 
+      case 'branches':
       case 'bookmarks': {
-        const bookmarks = await vcsOps.listBookmarks(ctx.workspaceId);
-        if (bookmarks.length === 0) return ok('No bookmarks.');
+        const branches = await vcsOps.listBranches(ctx.workspaceId);
+        if (branches.length === 0) return ok('No branches.');
         return ok(
-          bookmarks
-            .map((b) => `${b.name} -> ${b.changeId}${b.isLocal ? ' (local)' : ''}`)
+          branches
+            .map((b) => `${b.name} -> ${b.sha}${b.isLocal ? ' (local)' : ''}`)
             .join('\n'),
         );
       }
 
       default:
-        return fail(`Unknown vcs action: ${action}`);
+        return fail(`Unknown git action: ${action}`);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'VCS command failed';
+    const message = error instanceof Error ? error.message : 'Git command failed';
     return fail(message);
   }
 }
 
+const GIT_CLI_HELP =
+  'git — Version control\n\n' +
+  'Usage: sero git <action> [args]\n\n' +
+  'Actions:\n' +
+  '  status                  Show working tree status\n' +
+  '  log [--limit N]         Show recent commits\n' +
+  '  diff <from> [to]        Show diff between revisions\n' +
+  '  checkpoint [message]    Create checkpoint\n' +
+  '  push [branch]           Push commits to the remote\n' +
+  '  fetch [remote]          Fetch from remote(s)\n' +
+  '  remote [list]           List configured remotes\n' +
+  '  remote add <name> <url> Add a remote\n' +
+  '  remote remove <name>    Remove a remote\n' +
+  '  branches                List branches\n';
+
 export function registerVcsCliCommands(registry: CliRegistry): void {
   registry.register({
-    name: 'vcs',
-    summary: 'Version control commands (status, log, diff, checkpoint, push, remote, fetch, bookmarks)',
-    help:
-      'vcs — Version control\n\n' +
-      'Usage: sero vcs <action> [args]\n\n' +
-      'Actions:\n' +
-      '  status                  Show working copy status\n' +
-      '  log [--limit N]         Show recent changes\n' +
-      '  diff <from> [to]        Show diff between revisions\n' +
-      '  checkpoint [message]    Create checkpoint\n' +
-      '  push [branch]           Push commits to the remote\n' +
-      '  fetch [remote]          Fetch from remote(s)\n' +
-      '  remote [list]           List configured remotes\n' +
-      '  remote add <name> <url> Add a remote\n' +
-      '  remote remove <name>    Remove a remote\n' +
-      '  bookmarks               List bookmarks\n',
+    name: 'git',
+    summary: 'Version control commands (status, log, diff, checkpoint, push, remote, fetch, branches)',
+    help: GIT_CLI_HELP,
     source: 'ipc',
     group: 'Version Control',
-    execute: handleVcs,
+    execute: handleGit,
+  });
+
+  // Legacy alias — agents and older sessions still call `sero vcs`.
+  registry.register({
+    name: 'vcs',
+    summary: 'Alias of `sero git`',
+    help: GIT_CLI_HELP,
+    source: 'ipc',
+    group: 'Version Control',
+    execute: handleGit,
   });
 }

@@ -77,9 +77,9 @@ export async function createCheckpointInWorktree(
     timeout: 5_000,
   });
 
-  const changeId = sha.stdout.trim();
-  console.log(`[worktree-git] Checkpoint ${changeId}: ${message}`);
-  return changeId;
+  const commitSha = sha.stdout.trim();
+  console.log(`[worktree-git] Checkpoint ${commitSha}: ${message}`);
+  return commitSha;
 }
 
 /**

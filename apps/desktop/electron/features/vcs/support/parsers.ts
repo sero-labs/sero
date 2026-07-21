@@ -6,14 +6,13 @@
  */
 
 import type {
-  ChangeEntry,
+  CommitEntry,
   WorkingCopyStatus,
   StatusFile,
   FileStatus,
   FileDiffEntry,
-  Bookmark,
+  Branch,
   Remote,
-  OperationEntry,
 } from '@sero-ai/common';
 
 // ── Separator used in Git format strings for unambiguous parsing ───
@@ -40,8 +39,8 @@ export const LOG_FORMAT = [
   '%D',             // ref names (branches, tags)
 ].join(FIELD_SEP) + RECORD_SEP;
 
-export function parseLogEntries(stdout: string): ChangeEntry[] {
-  const entries: ChangeEntry[] = [];
+export function parseLogEntries(stdout: string): CommitEntry[] {
+  const entries: CommitEntry[] = [];
   const records = stdout.split(RECORD_SEP);
 
   for (const record of records) {
@@ -52,11 +51,11 @@ export function parseLogEntries(stdout: string): ChangeEntry[] {
     if (fields.length < 7) continue;
 
     const refNames = fields[6].trim();
-    const { bookmarks, tags, isHead } = parseRefNames(refNames);
+    const { branches, tags, isHead } = parseRefNames(refNames);
 
     entries.push({
-      changeId: fields[0].trim(),
-      commitId: fields[1].trim().slice(0, 12),
+      sha: fields[0].trim(),
+      fullSha: fields[1].trim().slice(0, 12),
       author: fields[2].trim(),
       email: fields[3].trim(),
       timestamp: fields[4].trim(),
@@ -65,7 +64,7 @@ export function parseLogEntries(stdout: string): ChangeEntry[] {
       conflict: false,
       immutable: false,
       isWorkingCopy: isHead,
-      bookmarks,
+      branches,
       tags,
     });
   }
@@ -74,12 +73,12 @@ export function parseLogEntries(stdout: string): ChangeEntry[] {
 }
 
 /** Parse git's %D ref decoration into branches and tags. */
-function parseRefNames(refNames: string): { bookmarks: string[]; tags: string[]; isHead: boolean } {
-  const bookmarks: string[] = [];
+function parseRefNames(refNames: string): { branches: string[]; tags: string[]; isHead: boolean } {
+  const branches: string[] = [];
   const tags: string[] = [];
   let isHead = false;
 
-  if (!refNames) return { bookmarks, tags, isHead };
+  if (!refNames) return { branches, tags, isHead };
 
   for (const ref of refNames.split(',')) {
     const trimmed = ref.trim();
@@ -94,7 +93,7 @@ function parseRefNames(refNames: string): { bookmarks: string[]; tags: string[];
     const headArrow = trimmed.match(/^HEAD -> (.+)$/);
     if (headArrow) {
       isHead = true;
-      bookmarks.push(headArrow[1].trim());
+      branches.push(headArrow[1].trim());
       continue;
     }
 
@@ -106,10 +105,10 @@ function parseRefNames(refNames: string): { bookmarks: string[]; tags: string[];
     // Skip remote tracking refs (origin/main, etc.) — we only show local branches
     if (trimmed.includes('/')) continue;
 
-    bookmarks.push(trimmed);
+    branches.push(trimmed);
   }
 
-  return { bookmarks, tags, isHead };
+  return { branches, tags, isHead };
 }
 
 // ── Status parser ────────────────────────────────────────────
@@ -163,7 +162,7 @@ export function parseStatus(stdout: string): WorkingCopyStatus {
     }
   }
 
-  return { files, conflictCount, parentChangeIds: [] };
+  return { files, conflictCount, parentShas: [] };
 }
 
 // ── Diff summary parser ──────────────────────────────────────
@@ -210,8 +209,8 @@ export function parseDiffSummary(stdout: string): FileDiffEntry[] {
 export const BRANCH_FORMAT =
   `%(refname:short)${FIELD_SEP}%(objectname:short)${FIELD_SEP}%(upstream:short)${FIELD_SEP}%(upstream:track)${RECORD_SEP}`;
 
-export function parseBranches(stdout: string): Bookmark[] {
-  const bookmarks: Bookmark[] = [];
+export function parseBranches(stdout: string): Branch[] {
+  const branches: Branch[] = [];
   const records = stdout.split(RECORD_SEP);
 
   for (const record of records) {
@@ -228,22 +227,22 @@ export function parseBranches(stdout: string): Bookmark[] {
 
     if (!name) continue;
 
-    const remoteStatuses: Bookmark['remoteStatuses'] = [];
+    const remoteStatuses: Branch['remoteStatuses'] = [];
     if (upstream) {
       const remoteName = upstream.split('/')[0] || 'origin';
       const synced = !trackingStatus || trackingStatus === '';
       remoteStatuses.push({ remote: remoteName, synced });
     }
 
-    bookmarks.push({
+    branches.push({
       name,
-      changeId: commitId,
+      sha: commitId,
       isLocal: true,
       remoteStatuses,
     });
   }
 
-  return bookmarks;
+  return branches;
 }
 
 // ── Remote parser ────────────────────────────────────────────
@@ -266,30 +265,4 @@ export function parseRemotes(stdout: string): Remote[] {
   }
 
   return Array.from(remoteMap, ([name, url]) => ({ name, url }));
-}
-
-// ── Reflog parser ────────────────
-
-export const REFLOG_FORMAT =
-  `%h${FIELD_SEP}%aI${FIELD_SEP}%gs${RECORD_SEP}`;
-
-export function parseReflog(stdout: string): OperationEntry[] {
-  const entries: OperationEntry[] = [];
-  const records = stdout.split(RECORD_SEP);
-
-  for (const record of records) {
-    const trimmed = record.trim();
-    if (!trimmed) continue;
-
-    const fields = trimmed.split(FIELD_SEP);
-    if (fields.length < 3) continue;
-
-    entries.push({
-      id: fields[0].trim(),
-      timestamp: fields[1].trim(),
-      description: fields[2].trim(),
-    });
-  }
-
-  return entries;
 }

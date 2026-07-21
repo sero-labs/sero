@@ -1,4 +1,4 @@
-import type { Bookmark, PullRequestState } from '@sero-ai/common';
+import type { Branch, PullRequestState } from '@sero-ai/common';
 
 import { BRANCH_FORMAT, parseBranches, parseRemotes } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';
@@ -9,7 +9,7 @@ const FALLBACK_BASE_BRANCH = 'master';
 export async function listBranches(
   runner: GitRunner,
   workspaceId: string,
-): Promise<Bookmark[]> {
+): Promise<Branch[]> {
   const result = await runner.run(workspaceId, [
     'branch',
     `--format=${BRANCH_FORMAT}`,

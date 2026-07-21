@@ -190,7 +190,7 @@ test.describe('VCS IPC contracts', () => {
         const state = await window.sero.vcs.getState(workspace.id, 10);
         const status = await window.sero.vcs.status(workspace.id);
         const logEntries = await window.sero.vcs.logEntries(workspace.id, 10);
-        const bookmarks = await window.sero.vcs.bookmarks(workspace.id);
+        const bookmarks = await window.sero.vcs.branches(workspace.id);
         const remotes = await window.sero.vcs.remotes(workspace.id);
         return { workspaceId: workspace.id, state, checkpoints, status, logEntries, bookmarks, remotes };
       } finally {

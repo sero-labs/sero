@@ -81,24 +81,24 @@ export function registerVcsHandlers(): void {
     vcsOps.getFileContent(wsId, rev, path),
   );
 
-  ipcMain.handle(Ch.describe, async (_e, wsId: string, changeId: string, msg: string) =>
-    vcsOps.describeChange(wsId, changeId, msg),
+  ipcMain.handle(Ch.amendMessage, async (_e, wsId: string, sha: string, msg: string) =>
+    vcsOps.amendCommitMessage(wsId, sha, msg),
   );
 
-  ipcMain.handle(Ch.bookmarks, async (_e, wsId: string) =>
-    vcsOps.listBookmarks(wsId),
+  ipcMain.handle(Ch.branches, async (_e, wsId: string) =>
+    vcsOps.listBranches(wsId),
   );
 
-  ipcMain.handle(Ch.createBookmark, async (_e, wsId: string, name: string, rev?: string) =>
-    vcsOps.createBookmark(wsId, name, rev),
+  ipcMain.handle(Ch.createBranch, async (_e, wsId: string, name: string, rev?: string) =>
+    vcsOps.createBranch(wsId, name, rev),
   );
 
-  ipcMain.handle(Ch.deleteBookmark, async (_e, wsId: string, name: string) =>
-    vcsOps.deleteBookmark(wsId, name),
+  ipcMain.handle(Ch.deleteBranch, async (_e, wsId: string, name: string) =>
+    vcsOps.deleteBranch(wsId, name),
   );
 
-  ipcMain.handle(Ch.moveBookmark, async (_e, wsId: string, name: string, toRev: string) =>
-    vcsOps.moveBookmark(wsId, name, toRev),
+  ipcMain.handle(Ch.moveBranch, async (_e, wsId: string, name: string, toRev: string) =>
+    vcsOps.moveBranch(wsId, name, toRev),
   );
 
   ipcMain.handle(Ch.remotes, async (_e, wsId: string) =>
@@ -136,8 +136,8 @@ export function registerVcsHandlers(): void {
     vcsOps.fetch(wsId, remote),
   );
 
-  ipcMain.handle(Ch.push, async (_e, wsId: string, bookmark?: string, changeId?: string) =>
-    vcsOps.push(wsId, bookmark, changeId),
+  ipcMain.handle(Ch.push, async (_e, wsId: string, branch?: string, sha?: string) =>
+    vcsOps.push(wsId, branch, sha),
   );
 
   // ── Pull request workflow ────────────────────────────────
@@ -175,10 +175,10 @@ export function registerVcsHandlers(): void {
     vcsPrOps.create(wsId, input),
   );
 
-  ipcMain.handle(Ch.undo, async (_e, wsId: string) => vcsOps.undo(wsId));
+  ipcMain.handle(Ch.undo, async (_e, wsId: string) => vcsOps.undoLastCommit(wsId));
 
-  ipcMain.handle(Ch.abandon, async (_e, wsId: string, changeId: string) =>
-    vcsOps.abandon(wsId, changeId),
+  ipcMain.handle(Ch.discardCommit, async (_e, wsId: string, sha: string) =>
+    vcsOps.discardCommit(wsId, sha),
   );
 
   // ── Repo-scoped gh reads (Agent Board) ────────────────────

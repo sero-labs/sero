@@ -1,6 +1,6 @@
-import type { Bookmark } from '@sero-ai/common';
+import type { Branch } from '@sero-ai/common';
 
-import { inferConventionalType, isAutoPushBookmark, slugifyBranchLabel } from '../../support/branch-naming';
+import { inferConventionalType, isAutoPushBranch, slugifyBranchLabel } from '../../support/branch-naming';
 import type { GitRunner } from '../git-runner';
 
 const DEFAULT_PRIMARY_BRANCH = 'main';
@@ -8,13 +8,13 @@ const DEFAULT_PRIMARY_BRANCH = 'main';
 async function getCommitDescription(
   runner: GitRunner,
   workspaceId: string,
-  changeId: string,
+  sha: string,
 ): Promise<string> {
   const result = await runner.run(workspaceId, [
     'log',
     '--format=%s',
     '-1',
-    changeId,
+    sha,
   ]);
 
   if (result.exitCode !== 0) return '';
@@ -24,36 +24,36 @@ async function getCommitDescription(
 export async function suggestPushBranchForCommit(
   runner: GitRunner,
   workspaceId: string,
-  changeId: string,
-  bookmarks: Bookmark[],
+  sha: string,
+  branches: Branch[],
 ): Promise<string> {
   // 1. Prefer an existing branch already pointing at this exact commit
-  const localAtTarget = bookmarks
-    .filter((bm) => bm.isLocal && bm.changeId === changeId)
+  const localAtTarget = branches
+    .filter((bm) => bm.isLocal && bm.sha === sha)
     .map((bm) => bm.name);
 
   const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BRANCH)
-    ?? localAtTarget.find((name) => !isAutoPushBookmark(name));
+    ?? localAtTarget.find((name) => !isAutoPushBranch(name));
   if (preferredAtTarget) return preferredAtTarget;
 
   // 2. Generate a descriptive feature branch name
-  const description = await getCommitDescription(runner, workspaceId, changeId);
+  const description = await getCommitDescription(runner, workspaceId, sha);
   const type = inferConventionalType(description);
   const label = slugifyBranchLabel(description);
-  return `${type}/${label}-${changeId.slice(0, 8)}`;
+  return `${type}/${label}-${sha.slice(0, 8)}`;
 }
 
 export async function ensureBranchAtCommit(
   runner: GitRunner,
   workspaceId: string,
   branch: string,
-  changeId: string,
+  sha: string,
 ): Promise<void> {
   // Try creating the branch
   const create = await runner.run(workspaceId, [
     'branch',
     branch,
-    changeId,
+    sha,
   ]);
   if (create.exitCode === 0) return;
 
@@ -62,11 +62,11 @@ export async function ensureBranchAtCommit(
     'branch',
     '-f',
     branch,
-    changeId,
+    sha,
   ]);
 
   if (move.exitCode !== 0) {
-    throw new Error(move.stderr || `Failed to set branch '${branch}' to ${changeId}`);
+    throw new Error(move.stderr || `Failed to set branch '${branch}' to ${sha}`);
   }
 }
 

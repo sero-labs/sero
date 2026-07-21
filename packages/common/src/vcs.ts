@@ -1,7 +1,7 @@
 export type VcsCheckpointSource = 'turn' | 'fs' | 'manual' | 'restore';
 
 export interface VcsCheckpoint {
-  changeId: string;
+  sha: string;
   description: string;
   source: VcsCheckpointSource;
   createdAt: string;
@@ -9,14 +9,15 @@ export interface VcsCheckpoint {
 
 export interface VcsWorkspaceState {
   workspaceId: string;
-  currentChangeId: string | null;
+  currentSha: string | null;
   hasWorkingCopyChanges: boolean;
   checkpoints: VcsCheckpoint[];
 }
 
-export interface ChangeEntry {
-  changeId: string;
-  commitId: string;
+export interface CommitEntry {
+  /** Abbreviated commit SHA (12 chars). */
+  sha: string;
+  fullSha: string;
   author: string;
   email: string;
   timestamp: string;
@@ -25,7 +26,7 @@ export interface ChangeEntry {
   conflict: boolean;
   immutable: boolean;
   isWorkingCopy: boolean;
-  bookmarks: string[];
+  branches: string[];
   tags: string[];
 }
 
@@ -47,7 +48,7 @@ export interface StatusFile {
 export interface WorkingCopyStatus {
   files: StatusFile[];
   conflictCount: number;
-  parentChangeIds: string[];
+  parentShas: string[];
 }
 
 export interface FileDiffEntry {
@@ -63,33 +64,21 @@ export interface GitDiffStat {
   deletions: number;
 }
 
-export interface BookmarkRemoteStatus {
+export interface BranchRemoteStatus {
   remote: string;
   synced: boolean;
 }
 
-export interface Bookmark {
+export interface Branch {
   name: string;
-  changeId: string;
+  sha: string;
   isLocal: boolean;
-  remoteStatuses: BookmarkRemoteStatus[];
+  remoteStatuses: BranchRemoteStatus[];
 }
 
 export interface Remote {
   name: string;
   url: string;
-}
-
-export interface OperationEntry {
-  id: string;
-  timestamp: string;
-  description: string;
-}
-
-export interface PushPreview {
-  bookmarks: string[];
-  willCreate: string[];
-  message: string;
 }
 
 export interface SyncResult {

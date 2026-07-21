@@ -1,12 +1,12 @@
-import type { Bookmark } from '@sero-ai/common';
+import type { Branch } from '@sero-ai/common';
 
 import { BRANCH_FORMAT, parseBranches } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';
 
-export async function listBookmarks(
+export async function listBranches(
   runner: GitRunner,
   workspaceId: string,
-): Promise<Bookmark[]> {
+): Promise<Branch[]> {
   const result = await runner.run(workspaceId, [
     'branch',
     `--format=${BRANCH_FORMAT}`,
@@ -19,7 +19,7 @@ export async function listBookmarks(
   return parseBranches(result.stdout);
 }
 
-export async function createBookmark(
+export async function createBranch(
   runner: GitRunner,
   workspaceId: string,
   name: string,
@@ -35,7 +35,7 @@ export async function createBookmark(
   }
 }
 
-export async function deleteBookmark(
+export async function deleteBranch(
   runner: GitRunner,
   workspaceId: string,
   name: string,
@@ -50,7 +50,7 @@ export async function deleteBookmark(
   }
 }
 
-export async function moveBookmark(
+export async function moveBranch(
   runner: GitRunner,
   workspaceId: string,
   name: string,

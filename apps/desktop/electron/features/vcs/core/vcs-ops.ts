@@ -1,18 +1,16 @@
 import type { GitRunner } from './git-runner';
 import {
   LOG_FORMAT,
-  REFLOG_FORMAT,
   parseDiffSummary,
   parseLogEntries,
-  parseReflog,
   parseStatus,
 } from '../support/parsers';
 import {
-  createBookmark,
-  deleteBookmark,
-  listBookmarks,
-  moveBookmark,
-} from './vcs-ops/bookmark-ops';
+  createBranch,
+  deleteBranch,
+  listBranches,
+  moveBranch,
+} from './vcs-ops/branch-ops';
 import {
   addRemote,
   checkoutRemote,
@@ -27,11 +25,9 @@ import {
   suggestPushBranchForCommit,
 } from './vcs-ops/push-helpers';
 import type {
-  Bookmark,
-  ChangeEntry,
+  Branch,
+  CommitEntry,
   FileDiffEntry,
-  OperationEntry,
-  PushPreview,
   Remote,
   SyncResult,
   WorkingCopyStatus,
@@ -47,10 +43,10 @@ export class VcsOps {
   async getLogEntries(
     workspaceId: string,
     limit = 40,
-    revset?: string,
-  ): Promise<ChangeEntry[]> {
+    range?: string,
+  ): Promise<CommitEntry[]> {
     const args = ['log', `--format=${LOG_FORMAT}`, `--max-count=${limit}`];
-    if (revset) args.push(revset);
+    if (range) args.push(range);
 
     const result = await this.runner.run(workspaceId, args);
     if (result.exitCode !== 0) {
@@ -140,16 +136,16 @@ export class VcsOps {
     return result.stdout;
   }
 
-  async describeChange(
+  async amendCommitMessage(
     workspaceId: string,
-    changeId: string,
+    sha: string,
     message: string,
   ): Promise<void> {
     // Git can only amend the HEAD commit's message directly.
     const head = await this.runner.run(workspaceId, ['rev-parse', '--short', 'HEAD']);
     const headSha = head.stdout.trim();
 
-    if (!headSha.startsWith(changeId.slice(0, headSha.length))) {
+    if (!headSha.startsWith(sha.slice(0, headSha.length))) {
       throw new Error('Can only edit the description of the most recent commit (HEAD)');
     }
 
@@ -164,28 +160,28 @@ export class VcsOps {
     }
   }
 
-  async listBookmarks(workspaceId: string): Promise<Bookmark[]> {
-    return listBookmarks(this.runner, workspaceId);
+  async listBranches(workspaceId: string): Promise<Branch[]> {
+    return listBranches(this.runner, workspaceId);
   }
 
-  async createBookmark(
+  async createBranch(
     workspaceId: string,
     name: string,
     revision = 'HEAD',
   ): Promise<void> {
-    return createBookmark(this.runner, workspaceId, name, revision);
+    return createBranch(this.runner, workspaceId, name, revision);
   }
 
-  async deleteBookmark(workspaceId: string, name: string): Promise<void> {
-    return deleteBookmark(this.runner, workspaceId, name);
+  async deleteBranch(workspaceId: string, name: string): Promise<void> {
+    return deleteBranch(this.runner, workspaceId, name);
   }
 
-  async moveBookmark(
+  async moveBranch(
     workspaceId: string,
     name: string,
     toRevision: string,
   ): Promise<void> {
-    return moveBookmark(this.runner, workspaceId, name, toRevision);
+    return moveBranch(this.runner, workspaceId, name, toRevision);
   }
 
   async listRemotes(workspaceId: string): Promise<Remote[]> {
@@ -228,13 +224,13 @@ export class VcsOps {
 
   async push(
     workspaceId: string,
-    bookmark?: string,
-    changeId?: string,
+    branch?: string,
+    sha?: string,
   ): Promise<SyncResult> {
-    let resolvedBranch = bookmark;
-    if (resolvedBranch && changeId) {
+    let resolvedBranch = branch;
+    if (resolvedBranch && sha) {
       try {
-        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, changeId);
+        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, sha);
       } catch (err) {
         return {
           success: false,
@@ -242,11 +238,11 @@ export class VcsOps {
         };
       }
     }
-    if (!resolvedBranch && changeId) {
+    if (!resolvedBranch && sha) {
       try {
-        const bookmarks = await listBookmarks(this.runner, workspaceId);
-        resolvedBranch = await suggestPushBranchForCommit(this.runner, workspaceId, changeId, bookmarks);
-        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, changeId);
+        const branches = await listBranches(this.runner, workspaceId);
+        resolvedBranch = await suggestPushBranchForCommit(this.runner, workspaceId, sha, branches);
+        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, sha);
       } catch (err) {
         return {
           success: false,
@@ -283,7 +279,7 @@ export class VcsOps {
     return { success: true, message: output || 'Push complete' };
   }
 
-  async undo(workspaceId: string): Promise<void> {
+  async undoLastCommit(workspaceId: string): Promise<void> {
     // Undo last commit by soft-resetting to HEAD~1 (keeps changes staged)
     const result = await this.runner.run(workspaceId, ['reset', '--soft', 'HEAD~1']);
     if (result.exitCode !== 0) {
@@ -291,18 +287,18 @@ export class VcsOps {
     }
   }
 
-  async abandon(workspaceId: string, changeId: string): Promise<void> {
-    // "Abandon" = drop a commit. Only supported for HEAD in a non-interactive flow.
+  async discardCommit(workspaceId: string, sha: string): Promise<void> {
+    // Drop a commit. Only supported for HEAD in a non-interactive flow.
     const head = await this.runner.run(workspaceId, ['rev-parse', '--short', 'HEAD']);
     const headSha = head.stdout.trim();
 
-    if (!headSha.startsWith(changeId.slice(0, headSha.length))) {
+    if (!headSha.startsWith(sha.slice(0, headSha.length))) {
       throw new Error('Can only drop the most recent commit (HEAD). Use interactive rebase for older commits.');
     }
 
     const result = await this.runner.run(workspaceId, ['reset', '--hard', 'HEAD~1']);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to drop commit ${changeId}`);
+      throw new Error(result.stderr || `Failed to drop commit ${sha}`);
     }
   }
 

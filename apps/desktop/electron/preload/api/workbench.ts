@@ -3,8 +3,8 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
-  Bookmark,
-  ChangeEntry,
+  Branch,
+  CommitEntry,
   CreatePullRequestInput,
   CreatePullRequestResult,
   FileDiffEntry,
@@ -34,8 +34,8 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.create, workspaceId, description, source),
   restore: (workspaceId: string, checkpointId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.restore, workspaceId, checkpointId),
-  diff: (workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> =>
-    ipcRenderer.invoke(IpcChannels.vcs.diff, workspaceId, fromChangeId, toChangeId),
+  diff: (workspaceId: string, fromRev: string, toRev?: string): Promise<string> =>
+    ipcRenderer.invoke(IpcChannels.vcs.diff, workspaceId, fromRev, toRev),
   onEvent: (callback: (event: VcsEvent) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, data: VcsEvent) => {
       callback(data);
@@ -45,8 +45,8 @@ export const vcsBridge = {
       ipcRenderer.removeListener(IpcChannels.vcs.event, handler);
     };
   },
-  logEntries: (workspaceId: string, limit?: number, revset?: string): Promise<ChangeEntry[]> =>
-    ipcRenderer.invoke(IpcChannels.vcs.logEntries, workspaceId, limit, revset),
+  logEntries: (workspaceId: string, limit?: number, range?: string): Promise<CommitEntry[]> =>
+    ipcRenderer.invoke(IpcChannels.vcs.logEntries, workspaceId, limit, range),
   status: (workspaceId: string): Promise<WorkingCopyStatus> =>
     ipcRenderer.invoke(IpcChannels.vcs.status, workspaceId),
   fileDiffSummary: (
@@ -57,16 +57,16 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.fileDiffSummary, workspaceId, from, to),
   fileContent: (workspaceId: string, rev: string, path: string): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.vcs.fileContent, workspaceId, rev, path),
-  describe: (workspaceId: string, changeId: string, msg: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.describe, workspaceId, changeId, msg),
-  bookmarks: (workspaceId: string): Promise<Bookmark[]> =>
-    ipcRenderer.invoke(IpcChannels.vcs.bookmarks, workspaceId),
-  createBookmark: (workspaceId: string, name: string, rev?: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.createBookmark, workspaceId, name, rev),
-  deleteBookmark: (workspaceId: string, name: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.deleteBookmark, workspaceId, name),
-  moveBookmark: (workspaceId: string, name: string, toRev: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.moveBookmark, workspaceId, name, toRev),
+  amendMessage: (workspaceId: string, sha: string, msg: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.vcs.amendMessage, workspaceId, sha, msg),
+  branches: (workspaceId: string): Promise<Branch[]> =>
+    ipcRenderer.invoke(IpcChannels.vcs.branches, workspaceId),
+  createBranch: (workspaceId: string, name: string, rev?: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.vcs.createBranch, workspaceId, name, rev),
+  deleteBranch: (workspaceId: string, name: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.vcs.deleteBranch, workspaceId, name),
+  moveBranch: (workspaceId: string, name: string, toRev: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.vcs.moveBranch, workspaceId, name, toRev),
   remotes: (workspaceId: string): Promise<Remote[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.remotes, workspaceId),
   addRemote: (workspaceId: string, name: string, url: string): Promise<void> =>
@@ -79,8 +79,8 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.checkoutRemote, workspaceId, remote),
   fetch: (workspaceId: string, remote?: string): Promise<SyncResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.fetch, workspaceId, remote),
-  push: (workspaceId: string, bookmark?: string, changeId?: string): Promise<SyncResult> =>
-    ipcRenderer.invoke(IpcChannels.vcs.push, workspaceId, bookmark, changeId),
+  push: (workspaceId: string, branch?: string, sha?: string): Promise<SyncResult> =>
+    ipcRenderer.invoke(IpcChannels.vcs.push, workspaceId, branch, sha),
   prState: (workspaceId: string): Promise<PullRequestState> =>
     ipcRenderer.invoke(IpcChannels.vcs.prState, workspaceId),
   prPreview: (
@@ -101,8 +101,8 @@ export const vcsBridge = {
   ): Promise<CreatePullRequestResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.prCreate, workspaceId, input),
   undo: (workspaceId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.vcs.undo, workspaceId),
-  abandon: (workspaceId: string, changeId: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.abandon, workspaceId, changeId),
+  discardCommit: (workspaceId: string, sha: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.vcs.discardCommit, workspaceId, sha),
   issues: (workspaceId: string): Promise<AppRuntimeIssueSummary[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.issues, workspaceId),
   openPrs: (workspaceId: string): Promise<AppRuntimePullRequestSummary[]> =>

@@ -3,8 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChangeEntry } from '@sero-ai/common';
-import { ChangeDetail } from './ChangeDetail';
+import type { CommitEntry } from '@sero-ai/common';
+import { CommitDetail } from './CommitDetail';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -12,19 +12,19 @@ import { ChangeDetail } from './ChangeDetail';
 
 const vcsStoreMocks = vi.hoisted(() => {
   const store = {
-    byWorkspace: { 'ws-1': { activePushBookmark: null } },
-    describe: vi.fn(async () => {}),
+    byWorkspace: { 'ws-1': { activePushBranch: null } },
+    amendMessage: vi.fn(async () => {}),
     push: vi.fn(async () => ({ success: true, message: 'ok' })),
-    moveBookmark: vi.fn(async () => {}),
-    createBookmark: vi.fn(async () => {}),
+    moveBranch: vi.fn(async () => {}),
+    createBranch: vi.fn(async () => {}),
     restoreCheckpoint: vi.fn(async () => {}),
-    abandon: vi.fn(async () => {}),
+    discardCommit: vi.fn(async () => {}),
   };
 
   return {
     store,
     getState: vi.fn(() => ({ byWorkspace: {} })),
-    useWorkspaceVcs: vi.fn(() => ({ activePushBookmark: null })),
+    useWorkspaceVcs: vi.fn(() => ({ activePushBranch: null })),
   };
 });
 
@@ -37,7 +37,7 @@ vi.mock('@/stores/vcs', () => ({
   useWorkspaceVcs: vcsStoreMocks.useWorkspaceVcs,
 }));
 
-describe('ChangeDetail', () => {
+describe('CommitDetail', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
   let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -46,9 +46,9 @@ describe('ChangeDetail', () => {
     throw new Error('boom');
   });
 
-  const entry: ChangeEntry = {
-    changeId: 'change-1',
-    commitId: '1234567890abcdef',
+  const entry: CommitEntry = {
+    sha: 'change-1',
+    fullSha: '1234567890abcdef',
     author: 'Sero',
     email: 'sero@example.com',
     timestamp: '2026-04-14T00:00:00.000Z',
@@ -57,7 +57,7 @@ describe('ChangeDetail', () => {
     conflict: false,
     immutable: false,
     isWorkingCopy: false,
-    bookmarks: [],
+    branches: [],
     tags: [],
   };
 
@@ -95,7 +95,7 @@ describe('ChangeDetail', () => {
 
   it('surfaces file-summary load failures instead of silently swallowing them', async () => {
     await act(async () => {
-      root?.render(<ChangeDetail workspaceId="ws-1" entry={entry} />);
+      root?.render(<CommitDetail workspaceId="ws-1" entry={entry} />);
       await Promise.resolve();
     });
 

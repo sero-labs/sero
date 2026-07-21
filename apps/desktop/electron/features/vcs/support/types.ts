@@ -7,17 +7,15 @@ export type {
   VcsCheckpoint,
   VcsWorkspaceState,
   VcsEvent,
-  ChangeEntry,
+  CommitEntry,
   WorkingCopyStatus,
   StatusFile,
   FileStatus,
   FileDiffEntry,
-  Bookmark,
-  BookmarkRemoteStatus,
+  Branch,
+  BranchRemoteStatus,
   Remote,
-  OperationEntry,
   SyncResult,
-  PushPreview,
 } from '@sero-ai/common';
 
 export interface GitResult {

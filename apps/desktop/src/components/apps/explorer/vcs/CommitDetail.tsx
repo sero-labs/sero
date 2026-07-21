@@ -1,5 +1,5 @@
 /**
- * ChangeDetail, expanded inline detail for a change log row.
+ * CommitDetail, expanded inline detail for a change log row.
  *
  * Shows file list with status indicators + action buttons.
  */
@@ -18,25 +18,25 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { ChangeEntry, FileDiffEntry } from '@sero-ai/common';
+import type { CommitEntry, FileDiffEntry } from '@sero-ai/common';
 import { useTransientValue } from '../useTransientUiState';
 import { statusCode, statusColor } from './vcs-utils';
 
 interface Props {
   workspaceId: string;
-  entry: ChangeEntry;
+  entry: CommitEntry;
   onOpenDiff?: (from: string, to: string, path?: string) => void;
 }
 
-export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
-  const abandon = useVcsStore((state) => state.abandon);
-  const createBookmark = useVcsStore((state) => state.createBookmark);
-  const describe = useVcsStore((state) => state.describe);
-  const moveBookmark = useVcsStore((state) => state.moveBookmark);
+export function CommitDetail({ workspaceId, entry, onOpenDiff }: Props) {
+  const discardCommit = useVcsStore((state) => state.discardCommit);
+  const createBranch = useVcsStore((state) => state.createBranch);
+  const amendMessage = useVcsStore((state) => state.amendMessage);
+  const moveBranch = useVcsStore((state) => state.moveBranch);
   const push = useVcsStore((state) => state.push);
   const restoreCheckpoint = useVcsStore((state) => state.restoreCheckpoint);
-  const activePushBookmark = useVcsStore(
-    (state) => state.byWorkspace[workspaceId]?.activePushBookmark ?? null,
+  const activePushBranch = useVcsStore(
+    (state) => state.byWorkspace[workspaceId]?.activePushBranch ?? null,
   );
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +53,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     setLoading(true);
     setFileLoadError(null);
     void window.sero.vcs
-      .fileDiffSummary(workspaceId, `${entry.changeId}^`, entry.changeId)
+      .fileDiffSummary(workspaceId, `${entry.sha}^`, entry.sha)
       .then((summary) => {
         if (cancelled) return;
         setFiles(summary);
@@ -73,19 +73,19 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, entry.changeId]);
+  }, [workspaceId, entry.sha]);
 
   const handleSaveDesc = useCallback(async () => {
     if (descDraft.trim() && descDraft !== entry.description) {
-      await describe(workspaceId, entry.changeId, descDraft.trim());
+      await amendMessage(workspaceId, entry.sha, descDraft.trim());
     }
     setEditing(false);
-  }, [describe, descDraft, entry.changeId, entry.description, workspaceId]);
+  }, [amendMessage, descDraft, entry.sha, entry.description, workspaceId]);
 
   const handlePush = useCallback(async () => {
     setPushing(true);
     try {
-      const r = await push(workspaceId, activePushBookmark ?? undefined, entry.changeId);
+      const r = await push(workspaceId, activePushBranch ?? undefined, entry.sha);
       showPushNotice({
         message: r.message || (r.success ? 'Push complete' : 'Push failed'),
         error: !r.success,
@@ -98,7 +98,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     } finally {
       setPushing(false);
     }
-  }, [activePushBookmark, entry.changeId, push, showPushNotice, workspaceId]);
+  }, [activePushBranch, entry.sha, push, showPushNotice, workspaceId]);
 
   const handlePushAs = useCallback(async () => {
     const branch = pushBranch.trim().replace(/\s+/g, '-');
@@ -106,16 +106,16 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
 
     setPushing(true);
     try {
-      // Read fresh bookmarks from the store to avoid race with stale render snapshot
+      // Read fresh branches from the store to avoid race with stale render snapshot
       const freshWs = useVcsStore.getState().byWorkspace[workspaceId];
-      const existing = freshWs?.bookmarks.find((b) => b.name === branch);
+      const existing = freshWs?.branches.find((b) => b.name === branch);
       if (existing) {
-        await moveBookmark(workspaceId, branch, entry.changeId);
+        await moveBranch(workspaceId, branch, entry.sha);
       } else {
-        await createBookmark(workspaceId, branch, entry.changeId);
+        await createBranch(workspaceId, branch, entry.sha);
       }
 
-      const r = await push(workspaceId, branch, entry.changeId);
+      const r = await push(workspaceId, branch, entry.sha);
       showPushNotice({
         message: r.message || (r.success ? 'Push complete' : 'Push failed'),
         error: !r.success,
@@ -132,7 +132,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     } finally {
       setPushing(false);
     }
-  }, [createBookmark, entry.changeId, moveBookmark, push, pushBranch, showPushNotice, workspaceId]);
+  }, [createBranch, entry.sha, moveBranch, push, pushBranch, showPushNotice, workspaceId]);
 
   return (
     <div className="border-t border-[var(--border-subtle)]/30 bg-[var(--bg-elevated)]/20 px-3 py-2">
@@ -185,7 +185,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {/* Meta */}
       <div className="mb-2 flex items-center gap-3 text-sm text-[var(--text-muted)]/50">
         <span>{entry.author || entry.email}</span>
-        <span className="font-mono">{entry.commitId.slice(0, 8)}</span>
+        <span className="font-mono">{entry.fullSha.slice(0, 8)}</span>
         {entry.empty && <span className="italic">empty</span>}
       </div>
 
@@ -206,7 +206,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               initial={{ opacity: 0, x: -3 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.08, delay: i * 0.02 }}
-              onClick={() => onOpenDiff?.(`${entry.changeId}^`, entry.changeId, f.path)}
+              onClick={() => onOpenDiff?.(`${entry.sha}^`, entry.sha, f.path)}
               className={cn(
                 'flex w-full items-center gap-2 rounded px-1.5 py-px text-left',
                 'transition-colors duration-75 hover:bg-[var(--bg-elevated)]',
@@ -229,19 +229,19 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
         <DetailAction
           icon={<FileText className="size-3" />}
           label="Diff"
-          onClick={() => onOpenDiff?.(`${entry.changeId}^`, entry.changeId)}
+          onClick={() => onOpenDiff?.(`${entry.sha}^`, entry.sha)}
         />
         {!entry.immutable && (
           <>
             <DetailAction
               icon={<RotateCcw className="size-3" />}
               label="Restore checkpoint"
-              onClick={() => void restoreCheckpoint(workspaceId, entry.changeId)}
+              onClick={() => void restoreCheckpoint(workspaceId, entry.sha)}
             />
             <DetailAction
               icon={<Trash2 className="size-3" />}
-              label="Abandon"
-              onClick={() => void abandon(workspaceId, entry.changeId)}
+              label="Discard"
+              onClick={() => void discardCommit(workspaceId, entry.sha)}
               danger
             />
             <DetailAction

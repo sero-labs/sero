@@ -1,5 +1,5 @@
 /**
- * ChangeLog, dense, paginated change history.
+ * CommitLog, dense, paginated change history.
  *
  * Each row: glyph · commitSha · age · description · [branches]
  * Click to expand inline detail. Context menu for actions.
@@ -10,25 +10,25 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { ChangeEntry } from '@sero-ai/common';
+import type { CommitEntry } from '@sero-ai/common';
 import { VcsSection } from './VcsSection';
-import { ChangeLogRow } from './ChangeLogRow';
-import { ChangeDetail } from './ChangeDetail';
+import { CommitLogRow } from './CommitLogRow';
+import { CommitDetail } from './CommitDetail';
 
 interface Props {
   workspaceId: string;
-  entries: ChangeEntry[];
+  entries: CommitEntry[];
   hasMore: boolean;
   onOpenDiff?: (from: string, to: string, path?: string) => void;
 }
 
-export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) {
+export function CommitLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) {
   const loadMore = useVcsStore((s) => s.loadMoreLog);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const handleToggle = useCallback((changeId: string) => {
-    setExpandedId((prev) => (prev === changeId ? null : changeId));
+  const handleToggle = useCallback((sha: string) => {
+    setExpandedId((prev) => (prev === sha ? null : sha));
   }, []);
 
   const handleLoadMore = useCallback(async () => {
@@ -45,15 +45,15 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
           </div>
         ) : (
           entries.map((entry, i) => (
-            <div key={entry.changeId}>
-              <ChangeLogRow
+            <div key={entry.sha}>
+              <CommitLogRow
                 entry={entry}
                 index={i}
-                isExpanded={expandedId === entry.changeId}
+                isExpanded={expandedId === entry.sha}
                 onToggle={handleToggle}
               />
               <AnimatePresence>
-                {expandedId === entry.changeId && (
+                {expandedId === entry.sha && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
@@ -61,7 +61,7 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
                     transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
                     className="overflow-hidden"
                   >
-                    <ChangeDetail
+                    <CommitDetail
                       workspaceId={workspaceId}
                       entry={entry}
                       onOpenDiff={onOpenDiff}

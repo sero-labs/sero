@@ -1,5 +1,5 @@
 /**
- * BookmarksSection, Git branch list with remote tracking indicators.
+ * BranchesSection, Git branch list with remote tracking indicators.
  */
 
 import { memo, useCallback, useState } from 'react';
@@ -18,28 +18,28 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { Bookmark, Remote } from '@sero-ai/common';
+import type { Branch, Remote } from '@sero-ai/common';
 import { useTransientValue } from '../useTransientUiState';
 import { VcsSection } from './VcsSection';
 
 interface Props {
   workspaceId: string;
-  bookmarks: Bookmark[];
+  branches: Branch[];
   remotes: Remote[];
-  activePushBookmark?: string | null;
+  activePushBranch?: string | null;
 }
 
-export function BookmarksSection({
+export function BranchesSection({
   workspaceId,
-  bookmarks,
+  branches,
   remotes,
-  activePushBookmark,
+  activePushBranch,
 }: Props) {
-  const createBookmark = useVcsStore((state) => state.createBookmark);
-  const deleteBookmark = useVcsStore((state) => state.deleteBookmark);
+  const createBranch = useVcsStore((state) => state.createBranch);
+  const deleteBranch = useVcsStore((state) => state.deleteBranch);
   const fetchRemote = useVcsStore((state) => state.fetch);
   const push = useVcsStore((state) => state.push);
-  const setActivePushBookmark = useVcsStore((state) => state.setActivePushBookmark);
+  const setActivePushBranch = useVcsStore((state) => state.setActivePushBranch);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -52,13 +52,13 @@ export function BookmarksSection({
     const sanitized = newName.trim().replace(/\s+/g, '-');
     if (!sanitized) return;
     try {
-      await createBookmark(workspaceId, sanitized);
+      await createBranch(workspaceId, sanitized);
       setNewName('');
       setShowCreate(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to create branch');
     }
-  }, [createBookmark, workspaceId, newName, showToast]);
+  }, [createBranch, workspaceId, newName, showToast]);
 
   const handleFetch = useCallback(async () => {
     setFetching(true);
@@ -81,18 +81,18 @@ export function BookmarksSection({
   }, [push, workspaceId, showToast]);
 
   const handleSetActive = useCallback((name: string) => {
-    setActivePushBookmark(workspaceId, name);
+    setActivePushBranch(workspaceId, name);
     showToast(`Active push branch: ${name}`);
-  }, [setActivePushBookmark, workspaceId, showToast]);
+  }, [setActivePushBranch, workspaceId, showToast]);
 
   const handleDelete = useCallback((name: string) => {
-    void deleteBookmark(workspaceId, name);
-  }, [deleteBookmark, workspaceId]);
+    void deleteBranch(workspaceId, name);
+  }, [deleteBranch, workspaceId]);
 
   return (
     <VcsSection
       title="Branches"
-      count={bookmarks.length}
+      count={branches.length}
       actions={
         <div className="flex items-center gap-0.5">
           {hasRemotes && (
@@ -102,11 +102,11 @@ export function BookmarksSection({
               </SectionAction>
               <SectionAction
                 onClick={() => {
-                  const target = activePushBookmark ?? bookmarks[0]?.name;
+                  const target = activePushBranch ?? branches[0]?.name;
                   if (target) void handlePush(target);
                 }}
                 loading={pushing}
-                title={activePushBookmark ? `Push (${activePushBookmark})` : 'Push'}
+                title={activePushBranch ? `Push (${activePushBranch})` : 'Push'}
               >
                 <CloudUpload className="size-3" />
               </SectionAction>
@@ -163,18 +163,18 @@ export function BookmarksSection({
         </AnimatePresence>
 
         {/* Branch list */}
-        {bookmarks.length === 0 ? (
+        {branches.length === 0 ? (
           <div className="px-3 py-1.5 text-sm text-[var(--text-muted)]/60">
             No branches
           </div>
         ) : (
-          bookmarks.map((bm, i) => (
-            <BookmarkRow
+          branches.map((bm, i) => (
+            <BranchRow
               key={bm.name}
-              bookmark={bm}
+              branch={bm}
               index={i}
               hasRemotes={hasRemotes}
-              isActive={activePushBookmark === bm.name}
+              isActive={activePushBranch === bm.name}
               onPush={handlePush}
               onSetActive={handleSetActive}
               onDelete={handleDelete}
@@ -202,8 +202,8 @@ export function BookmarksSection({
 
 // ── Branch row ───────────────────────────────────────────────
 
-const BookmarkRow = memo(function BookmarkRow({
-  bookmark,
+const BranchRow = memo(function BranchRow({
+  branch,
   index,
   hasRemotes,
   isActive,
@@ -211,7 +211,7 @@ const BookmarkRow = memo(function BookmarkRow({
   onSetActive,
   onDelete,
 }: {
-  bookmark: Bookmark;
+  branch: Branch;
   index: number;
   hasRemotes: boolean;
   isActive: boolean;
@@ -219,8 +219,8 @@ const BookmarkRow = memo(function BookmarkRow({
   onSetActive: (name: string) => void;
   onDelete: (name: string) => void;
 }) {
-  const synced = bookmark.remoteStatuses.every((r) => r.synced);
-  const hasRemote = bookmark.remoteStatuses.length > 0;
+  const synced = branch.remoteStatuses.every((r) => r.synced);
+  const hasRemote = branch.remoteStatuses.length > 0;
 
   return (
     <motion.div
@@ -234,7 +234,7 @@ const BookmarkRow = memo(function BookmarkRow({
     >
       <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-secondary)]">
-        {bookmark.name}
+        {branch.name}
       </span>
       {isActive && (
         <span className="rounded-sm border border-status-info-subtle bg-status-info-muted px-1 py-px text-xs text-status-info">
@@ -242,7 +242,7 @@ const BookmarkRow = memo(function BookmarkRow({
         </span>
       )}
       <span className="shrink-0 font-mono text-sm text-[var(--text-muted)]/50">
-        {bookmark.changeId.slice(0, 8)}
+        {branch.sha.slice(0, 8)}
       </span>
 
       {/* Sync indicator */}
@@ -259,16 +259,16 @@ const BookmarkRow = memo(function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button type="button" onClick={() => onSetActive(bookmark.name)} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors">
+          <button type="button" onClick={() => onSetActive(branch.name)} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors">
             <Star className="size-3" />
           </button>
         )}
         {hasRemotes && !synced && (
-          <button type="button" onClick={() => void onPush(bookmark.name)} title="Push" className="text-[var(--text-muted)] hover:text-status-info transition-colors">
+          <button type="button" onClick={() => void onPush(branch.name)} title="Push" className="text-[var(--text-muted)] hover:text-status-info transition-colors">
             <CloudUpload className="size-3" />
           </button>
         )}
-        <button type="button" onClick={() => onDelete(bookmark.name)} title="Delete" className="text-[var(--text-muted)] hover:text-status-error transition-colors">
+        <button type="button" onClick={() => onDelete(branch.name)} title="Delete" className="text-[var(--text-muted)] hover:text-status-error transition-colors">
           <Trash2 className="size-2.5" />
         </button>
       </div>

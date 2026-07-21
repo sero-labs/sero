@@ -1,7 +1,7 @@
 /**
- * ChangeLogRow, single dense row in the change log.
+ * CommitLogRow, single dense row in the change log.
  *
- * Format: <glyph> <changeId:8> <age> <description> [bookmark-badges]
+ * Format: <glyph> <sha:8> <age> <description> [branch-badges]
  * ~28px height. Hover reveals context actions.
  */
 
@@ -9,17 +9,17 @@ import { memo } from 'react';
 import { CheckCircle2, Circle, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { ChangeEntry } from '@sero-ai/common';
+import type { CommitEntry } from '@sero-ai/common';
 import { formatAge, truncate } from './vcs-utils';
 
 interface Props {
-  entry: ChangeEntry;
+  entry: CommitEntry;
   index: number;
   isExpanded: boolean;
-  onToggle: (changeId: string) => void;
+  onToggle: (sha: string) => void;
 }
 
-function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
+function ChangeGlyph({ entry }: { entry: CommitEntry }) {
   if (entry.isWorkingCopy) {
     return <span className="text-sm font-bold text-[var(--brand-primary)]">@</span>;
   }
@@ -35,7 +35,7 @@ function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
   return <Circle className="size-3 text-[var(--text-muted)]/60" />;
 }
 
-export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpanded, onToggle }: Props) {
+export const CommitLogRow = memo(function CommitLogRow({ entry, index, isExpanded, onToggle }: Props) {
   const age = formatAge(entry.timestamp);
 
   return (
@@ -43,7 +43,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.1, delay: Math.min(index * 0.015, 0.3) }}
-      onClick={() => onToggle(entry.changeId)}
+      onClick={() => onToggle(entry.sha)}
       className={cn(
         'group flex w-full items-center gap-1.5 px-3 py-[3px] text-left',
         'transition-colors duration-75',
@@ -65,7 +65,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
             : 'text-[var(--text-muted)]/50',
         )}
       >
-        {entry.changeId.slice(0, 8)}
+        {entry.sha.slice(0, 8)}
       </span>
 
       {/* Age */}
@@ -87,10 +87,10 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
         {truncate(entry.description, 60)}
       </span>
 
-      {/* Bookmark badges */}
-      {entry.bookmarks.length > 0 && (
+      {/* Branch badges */}
+      {entry.branches.length > 0 && (
         <span className="flex shrink-0 items-center gap-1">
-          {entry.bookmarks.slice(0, 2).map((bm) => (
+          {entry.branches.slice(0, 2).map((bm) => (
             <span
               key={bm}
               className={cn(
@@ -102,9 +102,9 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
               {truncate(bm, 18)}
             </span>
           ))}
-          {entry.bookmarks.length > 2 && (
+          {entry.branches.length > 2 && (
             <span className="text-xs text-[var(--text-muted)]/40">
-              +{entry.bookmarks.length - 2}
+              +{entry.branches.length - 2}
             </span>
           )}
         </span>

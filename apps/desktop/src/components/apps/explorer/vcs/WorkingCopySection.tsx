@@ -15,11 +15,11 @@ import { statusCode, statusColor } from './vcs-utils';
 interface Props {
   workspaceId: string;
   status: WorkingCopyStatus | null;
-  currentChangeId: string | null;
+  currentSha: string | null;
   onOpenDiff?: (from: string, to: string, path?: string) => void;
 }
 
-export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpenDiff }: Props) {
+export function WorkingCopySection({ workspaceId, status, currentSha, onOpenDiff }: Props) {
   const createCheckpoint = useVcsStore((s) => s.createCheckpoint);
   const [desc, setDesc] = useState('');
   const [creating, setCreating] = useState(false);
@@ -42,9 +42,9 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
       title="Working Copy"
       count={fileCount}
       badge={
-        currentChangeId ? (
+        currentSha ? (
           <span className="ml-1 font-mono text-sm text-[var(--text-muted)]/60">
-            @{currentChangeId.slice(0, 8)}
+            @{currentSha.slice(0, 8)}
           </span>
         ) : null
       }
@@ -54,7 +54,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
         {hasChanges ? (
           <WorkingCopyFileList
             status={status!}
-            currentChangeId={currentChangeId}
+            currentSha={currentSha}
             onOpenDiff={onOpenDiff}
           />
         ) : (
@@ -104,11 +104,11 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
 
 const WorkingCopyFileList = memo(function WorkingCopyFileList({
   status,
-  currentChangeId,
+  currentSha,
   onOpenDiff,
 }: {
   status: WorkingCopyStatus;
-  currentChangeId: string | null;
+  currentSha: string | null;
   onOpenDiff?: (from: string, to: string, path?: string) => void;
 }) {
   return (
@@ -120,8 +120,8 @@ const WorkingCopyFileList = memo(function WorkingCopyFileList({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.12, delay: index * 0.02 }}
           onClick={() => {
-            if (currentChangeId && onOpenDiff) {
-              onOpenDiff(currentChangeId, WORKING_TREE_REV, file.path);
+            if (currentSha && onOpenDiff) {
+              onOpenDiff(currentSha, WORKING_TREE_REV, file.path);
             }
           }}
           className={cn(
