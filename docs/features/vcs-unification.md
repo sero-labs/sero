@@ -618,7 +618,11 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   section become thin views; delete `git-remote/workflow.ts` and the
   hardcoded scaffold allowlist in the renderer.
 
-- [ ] **Step 7 — One PR composer.** Extract the shared component, mount in
+- [x] **Step 7 — One PR composer.** *(done — src/components/git/
+  PullRequestComposer.tsx mounted by the Ship deck and the explorer panel;
+  one gating rule (no remote → publish hint, no feature branch → branch
+  hint), one seed preference (current/active-push branch), one target-branch
+  combo input; both originals deleted)* Extract the shared component, mount in
   titlebar + explorer, seed from unified state, delete the two originals.
 
 - [ ] **Step 8 — Sweep and rename.** Fold the remaining worktree-layer
