@@ -245,6 +245,11 @@ export type {
   CreatePullRequestInput,
   CreatePullRequestResult,
   VcsEvent,
+  RemoteImportMode,
+  RemoteImportOutcome,
+  ConnectRemoteResult,
+  PublishRepoInput,
+  PublishRepoResult,
 } from './vcs';
 
 export { WORKING_TREE_REV } from './vcs';

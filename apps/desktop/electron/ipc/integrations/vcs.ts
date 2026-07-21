@@ -6,7 +6,9 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
-import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { githubAuth, githubRepoOps, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { connectRemote, publishRepo } from '@electron/features/vcs/remote-connect';
+import type { PublishRepoInput, RemoteImportMode } from '@sero-ai/common';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { ghForPath } from '@electron/features/vcs/github/invoker';
 import { listOpenIssues, listOpenPullRequests } from '@electron/features/vcs/github/pull-requests';
@@ -120,6 +122,38 @@ export function registerVcsHandlers(): void {
         workspaceId: wsId,
         directories: ['/workspace'],
       });
+    }
+    return result;
+  });
+
+  ipcMain.handle(Ch.connectRemote, async (_e, wsId: string, url: string, importMode?: RemoteImportMode) => {
+    const result = await connectRemote(
+      { vcsOps, githubRepoOps, githubAuth, runtimeManager },
+      wsId,
+      url,
+      importMode,
+    );
+    if (result.ok && result.import.imported) {
+      const refresh = await gitWorkspaceStateManager.refreshWorkspace(wsId);
+      if (!refresh.ok) {
+        gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:connect-remote');
+      }
+      broadcastToWindows(IpcChannels.filetree.changed, {
+        workspaceId: wsId,
+        directories: ['/workspace'],
+      });
+    }
+    return result;
+  });
+
+  ipcMain.handle(Ch.publishRepo, async (_e, wsId: string, input: PublishRepoInput) => {
+    const result = await publishRepo(
+      { vcsOps, githubRepoOps, githubAuth, runtimeManager },
+      wsId,
+      input,
+    );
+    if (result.ok) {
+      gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:publish-repo');
     }
     return result;
   });

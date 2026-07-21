@@ -7,7 +7,7 @@ const workflowMocks = vi.hoisted(() => ({
   connectOrigin: vi.fn(),
 }));
 
-vi.mock('@/components/layout/git-remote/workflow', () => ({
+vi.mock('@/components/layout/git-remote/origin-utils', () => ({
   connectOrigin: workflowMocks.connectOrigin,
 }));
 

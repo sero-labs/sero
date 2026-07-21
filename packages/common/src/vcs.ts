@@ -137,3 +137,50 @@ export type VcsEvent =
   | { type: 'restored'; workspaceId: string; checkpointId: string }
   | { type: 'refreshed'; workspaceId: string }
   | { type: 'error'; workspaceId: string; error: string };
+
+// ── Remote connect / publish (main-process policy) ─────────
+
+/**
+ * How much to import when connecting a remote:
+ * - `never`  — record the remote only, touch no files (default).
+ * - `auto`   — fetch + check out only when the workspace is empty (safe default for new workspaces).
+ * - `force`  — attempt to fetch + check out even when files are present. The VCS
+ *              layer refuses tracked history and path conflicts before checkout.
+ */
+export type RemoteImportMode = 'never' | 'auto' | 'force';
+
+/** What actually happened to the working tree when a remote was connected. */
+export type RemoteImportOutcome =
+  | { imported: true }
+  | {
+      imported: false;
+      /**
+       * - `link-only`           — no import was requested.
+       * - `workspace-not-empty` — auto import skipped because the workspace already has files.
+       * - `import-failed`       — fetch/checkout ran but failed (e.g. path conflict, auth).
+       */
+      reason: 'link-only' | 'workspace-not-empty' | 'import-failed';
+      message?: string;
+    };
+
+export type ConnectRemoteResult =
+  | {
+      ok: true;
+      url: string;
+      updatedExisting: boolean;
+      import: RemoteImportOutcome;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export interface PublishRepoInput {
+  name: string;
+  description?: string;
+  visibility: 'public' | 'private';
+}
+
+export type PublishRepoResult =
+  | { ok: true; url: string }
+  | { ok: false; reason: 'auth' | 'api' | 'missing-url'; message?: string; url?: string };

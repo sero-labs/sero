@@ -5,7 +5,7 @@ import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
-import { connectOrigin } from '@/components/layout/git-remote/workflow';
+import { connectOrigin } from '@/components/layout/git-remote/origin-utils';
 
 // ── Store ──────────────────────────────────────────────────────
 

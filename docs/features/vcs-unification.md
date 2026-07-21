@@ -605,7 +605,15 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   *Risk probed: the state file stays comfortably sized and fresh enough for
   the explorer's needs.*
 
-- [ ] **Step 6 — Renderer policy to main (D5).** Implement
+- [x] **Step 6 — Renderer policy to main (D5).** *(done —
+  features/vcs/remote-connect.ts owns origin upsert (listRemotes-based, no
+  error-string matching), the import policy (emptiness checked via the
+  workspace runtime, matching the old listFiles semantics), and publish;
+  exposed as sero:vcs:connect-remote / publish-repo. workflow.ts replaced
+  by thin origin-utils.ts display helpers; the fabricated
+  github.com/{user}/{name} URL fallback is gone per the design — publish
+  resolves the real URL main-side. Policy tests moved to
+  electron/__tests__/features/vcs/remote-connect.test.ts)* Implement
   `git:connectRemote` / `git:publish`; ConnectExistingView and the publish
   section become thin views; delete `git-remote/workflow.ts` and the
   hardcoded scaffold allowlist in the renderer.

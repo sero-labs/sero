@@ -16,9 +16,8 @@ import { RemoteOriginManager } from './RemoteOriginManager';
 const seroBridge = {
   vcs: {
     remotes: vi.fn(),
-    addRemote: vi.fn(),
-    setRemoteUrl: vi.fn(),
-    checkoutRemote: vi.fn(),
+    connectRemote: vi.fn(),
+    publishRepo: vi.fn(),
   },
   github: {
     status: vi.fn(),
@@ -101,10 +100,13 @@ describe('RemoteOriginManager', () => {
     githubEventListener = null;
 
     seroBridge.vcs.remotes.mockResolvedValue([]);
-    seroBridge.vcs.addRemote.mockResolvedValue(undefined);
-    seroBridge.vcs.setRemoteUrl.mockResolvedValue(undefined);
-    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: true, message: 'checked out origin/main' });
-    seroBridge.editor.listFiles.mockResolvedValue([]);
+    seroBridge.vcs.connectRemote.mockImplementation(async (_wsId: string, url: string) => ({
+      ok: true,
+      url,
+      updatedExisting: false,
+      import: { imported: true },
+    }));
+    seroBridge.vcs.publishRepo.mockResolvedValue({ ok: true, url: 'https://github.com/octocat/alpha-repo' });
     seroBridge.github.status.mockImplementation(async () => githubStatus);
     seroBridge.github.createRepo.mockResolvedValue({
       success: true,
@@ -215,7 +217,7 @@ describe('RemoteOriginManager', () => {
     expect(findInput('repo-desc').value).toBe('Alpha description');
     expect(document.body.textContent).not.toContain('sidebar first');
     expect(document.body.textContent).not.toContain('Explorer');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
 
     await clickButton('Connect GitHub');
 
@@ -237,7 +239,7 @@ describe('RemoteOriginManager', () => {
     expect(findInput('repo-name').value).toBe('alpha-repo');
     expect(findInput('repo-desc').value).toBe('Alpha description');
     expect(document.body.textContent).toContain('GitHub connection required');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
   });
 
   it('shows a retryable generic auth failure without losing create form values', async () => {
@@ -285,7 +287,7 @@ describe('RemoteOriginManager', () => {
 
     expect(findInput('repo-name').value).toBe('alpha-repo');
     expect(findInput('repo-desc').value).toBe('Alpha description');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
 
     await clickButton('Try again');
 
@@ -295,9 +297,8 @@ describe('RemoteOriginManager', () => {
   });
 
   it('resumes the blocked create action after successful auth without losing form values', async () => {
-    seroBridge.github.createRepo.mockResolvedValue({
-      success: true,
-      message: 'created',
+    seroBridge.vcs.publishRepo.mockResolvedValue({
+      ok: true,
       url: 'https://github.com/octocat/alpha-repo',
     });
 
@@ -340,12 +341,11 @@ describe('RemoteOriginManager', () => {
     });
 
     await vi.waitFor(() => {
-      expect(seroBridge.github.createRepo).toHaveBeenCalledTimes(1);
-      expect(seroBridge.github.createRepo).toHaveBeenCalledWith('workspace-1', {
+      expect(seroBridge.vcs.publishRepo).toHaveBeenCalledTimes(1);
+      expect(seroBridge.vcs.publishRepo).toHaveBeenCalledWith('workspace-1', {
         name: 'alpha-repo',
         description: 'Alpha description',
         visibility: 'public',
-        addRemote: true,
       });
       expect(document.body.textContent).toContain('octocat/alpha-repo');
     });
@@ -365,12 +365,21 @@ describe('RemoteOriginManager', () => {
     await vi.waitFor(() => {
       expect(document.body.textContent).toContain('octocat/workspace-1');
     });
-    expect(seroBridge.vcs.checkoutRemote).toHaveBeenCalledWith('workspace-1', 'origin');
+    expect(seroBridge.vcs.connectRemote).toHaveBeenCalledWith(
+      'workspace-1',
+      'https://github.com/octocat/workspace-1.git',
+      'auto',
+    );
   });
 
   it('offers a reconcile choice when the import fails, keeping the remote linked', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: false, message: 'checkout failed' });
+    seroBridge.vcs.connectRemote.mockImplementation(async (_wsId: string, url: string) => ({
+      ok: true,
+      url,
+      updatedExisting: false,
+      import: { imported: false, reason: 'import-failed', message: 'checkout failed' },
+    }));
 
     await renderManager();
 

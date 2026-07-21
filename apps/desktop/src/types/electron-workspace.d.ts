@@ -20,6 +20,10 @@ import type {
   VcsEvent,
   VcsWorkspaceState,
   CommitEntry,
+  ConnectRemoteResult,
+  PublishRepoInput,
+  PublishRepoResult,
+  RemoteImportMode,
   WorkingCopyStatus,
   FileDiffEntry,
   Branch,
@@ -203,6 +207,8 @@ export interface SeroVcsAPI {
   setRemoteUrl(wsId: string, name: string, url: string): Promise<void>;
   removeRemote(wsId: string, name: string): Promise<void>;
   checkoutRemote(wsId: string, remote?: string): Promise<SyncResult>;
+  connectRemote(wsId: string, url: string, importMode?: RemoteImportMode): Promise<ConnectRemoteResult>;
+  publishRepo(wsId: string, input: PublishRepoInput): Promise<PublishRepoResult>;
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
   push(wsId: string, branch?: string, sha?: string): Promise<SyncResult>;
   prState(wsId: string): Promise<PullRequestState>;

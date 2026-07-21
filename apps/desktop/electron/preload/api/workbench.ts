@@ -3,6 +3,10 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
+  ConnectRemoteResult,
+  PublishRepoInput,
+  PublishRepoResult,
+  RemoteImportMode,
   CommitEntry,
   CreatePullRequestInput,
   CreatePullRequestResult,
@@ -71,6 +75,14 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.removeRemote, workspaceId, name),
   checkoutRemote: (workspaceId: string, remote?: string): Promise<SyncResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.checkoutRemote, workspaceId, remote),
+  connectRemote: (
+    workspaceId: string,
+    url: string,
+    importMode?: RemoteImportMode,
+  ): Promise<ConnectRemoteResult> =>
+    ipcRenderer.invoke(IpcChannels.vcs.connectRemote, workspaceId, url, importMode),
+  publishRepo: (workspaceId: string, input: PublishRepoInput): Promise<PublishRepoResult> =>
+    ipcRenderer.invoke(IpcChannels.vcs.publishRepo, workspaceId, input),
   fetch: (workspaceId: string, remote?: string): Promise<SyncResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.fetch, workspaceId, remote),
   push: (workspaceId: string, branch?: string, sha?: string): Promise<SyncResult> =>
