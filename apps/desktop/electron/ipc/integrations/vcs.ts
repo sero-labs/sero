@@ -69,10 +69,6 @@ export function registerVcsHandlers(): void {
     vcsOps.getLogEntries(wsId, limit ?? 40, revset),
   );
 
-  ipcMain.handle(Ch.status, async (_e, wsId: string) =>
-    vcsOps.getStatus(wsId),
-  );
-
   ipcMain.handle(Ch.fileDiffSummary, async (_e, wsId: string, from: string, to?: string) =>
     vcsOps.getFileDiffSummary(wsId, from, to),
   );
@@ -83,10 +79,6 @@ export function registerVcsHandlers(): void {
 
   ipcMain.handle(Ch.amendMessage, async (_e, wsId: string, sha: string, msg: string) =>
     vcsOps.amendCommitMessage(wsId, sha, msg),
-  );
-
-  ipcMain.handle(Ch.branches, async (_e, wsId: string) =>
-    vcsOps.listBranches(wsId),
   );
 
   ipcMain.handle(Ch.createBranch, async (_e, wsId: string, name: string, rev?: string) =>

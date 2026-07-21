@@ -5,11 +5,20 @@ import type {
   VcsEvent,
   VcsWorkspaceState,
   CommitEntry,
+  GitAppState,
   WorkingCopyStatus,
   Branch,
   Remote,
   FileDiffEntry,
 } from '@sero-ai/common';
+import {
+  adaptBranches,
+  adaptRemotes,
+  adaptWorkingCopyStatus,
+  deriveHeadLog,
+  getGitStateFilePath,
+  normalizeGitAppState,
+} from '@/lib/git-state';
 
 // ── Per-workspace VCS data ───────────────────────────────────
 
@@ -39,16 +48,13 @@ interface VcsStore {
   // Lifecycle
   initEventListener: () => () => void;
 
-  // Data loading
-  loadWorkspace: (wsId: string) => Promise<void>;
-  loadLog: (wsId: string, page?: number) => Promise<void>;
-  loadMoreLog: (wsId: string) => Promise<void>;
-  loadStatus: (wsId: string) => Promise<void>;
-  loadBranchs: (wsId: string) => Promise<void>;
-  loadRemotes: (wsId: string) => Promise<void>;
-  refreshAll: (wsId: string) => Promise<void>;
+  // Unified repo state (pushed .sero/apps/git/state.json cache)
+  subscribeGitState: (wsId: string, workspacePath: string) => () => void;
 
-  // Watcher
+  // Data loading (checkpoints + deep-history overflow)
+  loadWorkspace: (wsId: string) => Promise<void>;
+  loadMoreLog: (wsId: string) => Promise<void>;
+  refreshAll: (wsId: string) => Promise<void>;
 
   // Mutations
   createCheckpoint: (wsId: string, desc?: string, src?: VcsCheckpoint['source']) => Promise<void>;
@@ -74,6 +80,15 @@ interface VcsStore {
 }
 
 const PAGE_SIZE = 40;
+
+interface GitStateSubscription {
+  filePath: string;
+  refCount: number;
+}
+
+const gitStateSubs = new Map<string, GitStateSubscription>();
+const wsIdByFilePath = new Map<string, string>();
+let appStateListenerStarted = false;
 
 function emptyWs(wsId: string): WorkspaceVcsData {
   return {
@@ -128,9 +143,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
             .filter((cp, i, arr) => arr.findIndex((x) => x.sha === cp.sha) === i)
             .slice(0, 80);
           updateWs(set, wsId, { checkpoints: cps, hasWorkingCopyChanges: false, error: null });
-          // Refresh log + status in background
-          void get().loadLog(wsId);
-          void get().loadStatus(wsId);
+          // Repo state (log/status/branches) arrives via the pushed state file
           break;
         }
         case 'restored':
@@ -148,6 +161,39 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     return () => { unsub(); set({ listening: false }); };
   },
 
+  subscribeGitState: (wsId, workspacePath) => {
+    const filePath = getGitStateFilePath(workspacePath);
+
+    if (!appStateListenerStarted) {
+      appStateListenerStarted = true;
+      window.sero.appState.onChange((changedPath: string, data: unknown) => {
+        const targetWsId = wsIdByFilePath.get(changedPath);
+        if (targetWsId) applyGitAppState(set, get, targetWsId, data);
+      });
+    }
+
+    const existing = gitStateSubs.get(wsId);
+    if (existing) {
+      existing.refCount += 1;
+    } else {
+      gitStateSubs.set(wsId, { filePath, refCount: 1 });
+      wsIdByFilePath.set(filePath, wsId);
+      void window.sero.appState.watch(filePath).then((data: unknown) => {
+        if (data !== undefined && data !== null) applyGitAppState(set, get, wsId, data);
+      });
+    }
+
+    return () => {
+      const sub = gitStateSubs.get(wsId);
+      if (!sub) return;
+      sub.refCount -= 1;
+      if (sub.refCount > 0) return;
+      gitStateSubs.delete(wsId);
+      wsIdByFilePath.delete(sub.filePath);
+      void window.sero.appState.unwatch(sub.filePath);
+    };
+  },
+
   loadWorkspace: async (wsId) => {
     updateWs(set, wsId, { isLoading: true, error: null });
     try {
@@ -155,21 +201,6 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
       updateWs(set, wsId, { ...state, isLoading: false, error: null });
     } catch (err) {
       updateWs(set, wsId, { isLoading: false, error: errMsg(err) });
-    }
-  },
-
-  loadLog: async (wsId, page = 0) => {
-    try {
-      const limit = PAGE_SIZE;
-      const entries = await window.sero.vcs.logEntries(wsId, limit);
-      updateWs(set, wsId, {
-        logEntries: entries,
-        logPage: 0,
-        logHasMore: entries.length >= limit,
-        error: null,
-      });
-    } catch (err) {
-      updateWs(set, wsId, { error: errMsg(err) });
     }
   },
 
@@ -188,59 +219,9 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     }
   },
 
-  loadStatus: async (wsId) => {
-    try {
-      const status = await window.sero.vcs.status(wsId);
-      updateWs(set, wsId, { wcStatus: status });
-    } catch (err) {
-      console.debug('[vcs] Failed to load status (may not have Git repo yet):', err);
-    }
-  },
-
-  loadBranchs: async (wsId) => {
-    try {
-      const branches = await window.sero.vcs.branches(wsId);
-      const ws = getWs(get(), wsId);
-      let activePushBranch = ws.activePushBranch;
-
-      // Clear if the selected branch was deleted
-      if (activePushBranch && !branches.some((b) => b.name === activePushBranch)) {
-        activePushBranch = null;
-      }
-
-      // Only auto-select on first initialization, not on every reload
-      // (otherwise the user's explicit "auto" choice gets overwritten)
-      if (!ws.activePushBranchInitialized && activePushBranch === null && branches.length > 0) {
-        activePushBranch = branches.find((b) => b.name === 'main')?.name ?? branches[0]?.name ?? null;
-      }
-
-      updateWs(set, wsId, {
-        branches,
-        activePushBranch,
-        activePushBranchInitialized: ws.activePushBranchInitialized || branches.length > 0,
-      });
-    } catch (err) {
-      console.warn('[vcs] Failed to load branches:', err);
-    }
-  },
-
-  loadRemotes: async (wsId) => {
-    try {
-      const remotes = await window.sero.vcs.remotes(wsId);
-      updateWs(set, wsId, { remotes });
-    } catch (err) {
-      console.warn('[vcs] Failed to load remotes:', err);
-    }
-  },
-
   refreshAll: async (wsId) => {
-    await Promise.all([
-      get().loadWorkspace(wsId),
-      get().loadLog(wsId),
-      get().loadStatus(wsId),
-      get().loadBranchs(wsId),
-      get().loadRemotes(wsId),
-    ]);
+    // Checkpoint state is IPC; repo state arrives via the pushed state file.
+    await get().loadWorkspace(wsId);
   },
 
 
@@ -265,22 +246,18 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
   amendMessage: async (wsId, sha, msg) => {
     await window.sero.vcs.amendMessage(wsId, sha, msg);
-    await get().loadLog(wsId);
   },
 
   createBranch: async (wsId, name, rev) => {
     await window.sero.vcs.createBranch(wsId, name, rev);
-    await Promise.all([get().loadBranchs(wsId), get().loadLog(wsId)]);
   },
 
   deleteBranch: async (wsId, name) => {
     await window.sero.vcs.deleteBranch(wsId, name);
-    await Promise.all([get().loadBranchs(wsId), get().loadLog(wsId)]);
   },
 
   moveBranch: async (wsId, name, toRev) => {
     await window.sero.vcs.moveBranch(wsId, name, toRev);
-    await Promise.all([get().loadBranchs(wsId), get().loadLog(wsId)]);
   },
 
   setActivePushBranch: (wsId, name) => {
@@ -291,12 +268,10 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
   addRemote: async (wsId, name, url) => {
     await window.sero.vcs.addRemote(wsId, name, url);
-    await get().loadRemotes(wsId);
   },
 
   removeRemote: async (wsId, name) => {
     await window.sero.vcs.removeRemote(wsId, name);
-    await get().loadRemotes(wsId);
   },
 
   fetch: async (wsId, remote) => {
@@ -308,7 +283,6 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
   push: async (wsId, bm, cId) => {
     const result = await window.sero.vcs.push(wsId, bm, cId);
     updateWs(set, wsId, { error: result.success ? null : result.message });
-    await get().loadBranchs(wsId);
     return result;
   },
 
@@ -339,6 +313,46 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : 'Unknown VCS error';
+}
+
+function applyGitAppState(
+  set: (fn: (s: VcsStore) => Partial<VcsStore>) => void,
+  get: () => VcsStore,
+  wsId: string,
+  data: unknown,
+): void {
+  const state: GitAppState = normalizeGitAppState(data);
+  const ws = getWs(get(), wsId);
+
+  const branches = adaptBranches(state);
+  let activePushBranch = ws.activePushBranch;
+  if (activePushBranch && !branches.some((b) => b.name === activePushBranch)) {
+    activePushBranch = null;
+  }
+  // Only auto-select on first initialization, not on every update
+  if (!ws.activePushBranchInitialized && activePushBranch === null && branches.length > 0) {
+    activePushBranch = branches.find((b) => b.name === 'main')?.name ?? branches[0]?.name ?? null;
+  }
+
+  // While the user is paging deep history via IPC, don't clobber the longer
+  // list with the (shorter) derived page.
+  const derivedLog = deriveHeadLog(state, (ws.logPage + 1) * PAGE_SIZE);
+  const logEntries = ws.logPage > 0 && ws.logEntries.length > derivedLog.length
+    ? ws.logEntries
+    : derivedLog;
+
+  updateWs(set, wsId, {
+    branches,
+    activePushBranch,
+    activePushBranchInitialized: ws.activePushBranchInitialized || branches.length > 0,
+    remotes: adaptRemotes(state),
+    wcStatus: adaptWorkingCopyStatus(state),
+    currentSha: state.headHash || null,
+    hasWorkingCopyChanges: state.fileChanges.length > 0,
+    logEntries,
+    logHasMore: state.commitCount > logEntries.length,
+    error: state.error ?? null,
+  });
 }
 
 export function useWorkspaceVcs(wsId: string | null | undefined): WorkspaceVcsData | null {

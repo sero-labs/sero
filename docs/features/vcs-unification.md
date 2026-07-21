@@ -589,7 +589,15 @@ Progress tracking: tick the box + note the commit hash when each step lands.
   *Risk probed: none new — churn management (do it after the structural moves
   so renames don't conflict with them).*
 
-- [ ] **Step 5 — One repo state.** Extend `GitAppState` with what the explorer
+- [x] **Step 5 — One repo state.** *(done — the explorer store subscribes to
+  the pushed .sero/apps/git/state.json cache (same source as titlebar and
+  git app) with adapters in src/lib/git-state.ts; the explorer log is the
+  cache's commit graph filtered to HEAD-reachable commits; status/branches
+  read IPC deleted. Intentional residuals: `logEntries` IPC remains solely
+  as the "Load more" deep-history overflow beyond the 150-commit cache, and
+  the `remotes` read IPC survives until step 6 removes its last caller
+  (workflow.ts). FileChangeStatus gained 'conflict' (porcelain U), shown in
+  the plugin UI too)* Extend `GitAppState` with what the explorer
   panel needs (checkpoint list, remote details, PR-relevant branch info);
   point the explorer store and both composers at GitStateService; delete the
   renderer's duplicate status/log/branches query paths. Titlebar and explorer

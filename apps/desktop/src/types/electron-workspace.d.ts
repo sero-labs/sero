@@ -192,11 +192,9 @@ export interface SeroVcsAPI {
 
   // ── Rich VCS ops ──────────────────────────────────────────
   logEntries(wsId: string, limit?: number, range?: string): Promise<CommitEntry[]>;
-  status(wsId: string): Promise<WorkingCopyStatus>;
   fileDiffSummary(wsId: string, from: string, to?: string): Promise<FileDiffEntry[]>;
   fileContent(wsId: string, rev: string, path: string): Promise<string>;
   amendMessage(wsId: string, sha: string, msg: string): Promise<void>;
-  branches(wsId: string): Promise<Branch[]>;
   createBranch(wsId: string, name: string, rev?: string): Promise<void>;
   deleteBranch(wsId: string, name: string): Promise<void>;
   moveBranch(wsId: string, name: string, toRev: string): Promise<void>;

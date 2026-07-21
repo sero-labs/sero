@@ -79,7 +79,7 @@ export interface RemoteInfo {
 
 // ── Working tree types ──────────────────────────────────────
 
-export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked';
+export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'conflict';
 
 export interface FileChange {
   path: string;

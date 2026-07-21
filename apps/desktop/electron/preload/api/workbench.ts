@@ -3,7 +3,6 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
-  Branch,
   CommitEntry,
   CreatePullRequestInput,
   CreatePullRequestResult,
@@ -17,7 +16,6 @@ import type {
   VcsCheckpoint,
   VcsEvent,
   VcsWorkspaceState,
-  WorkingCopyStatus,
 } from '@sero-ai/common';
 import type { EditorRoot, TerminalCreateResult } from '@/types/ipc';
 
@@ -47,8 +45,6 @@ export const vcsBridge = {
   },
   logEntries: (workspaceId: string, limit?: number, range?: string): Promise<CommitEntry[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.logEntries, workspaceId, limit, range),
-  status: (workspaceId: string): Promise<WorkingCopyStatus> =>
-    ipcRenderer.invoke(IpcChannels.vcs.status, workspaceId),
   fileDiffSummary: (
     workspaceId: string,
     from: string,
@@ -59,8 +55,6 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.fileContent, workspaceId, rev, path),
   amendMessage: (workspaceId: string, sha: string, msg: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.amendMessage, workspaceId, sha, msg),
-  branches: (workspaceId: string): Promise<Branch[]> =>
-    ipcRenderer.invoke(IpcChannels.vcs.branches, workspaceId),
   createBranch: (workspaceId: string, name: string, rev?: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.createBranch, workspaceId, name, rev),
   deleteBranch: (workspaceId: string, name: string): Promise<void> =>

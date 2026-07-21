@@ -19,18 +19,14 @@ const expectedVcsMethods = [
   'createCheckpoint',
   'restore',
   'diff',
-  'watch',
-  'unwatch',
   'onEvent',
   'logEntries',
-  'status',
   'fileDiffSummary',
   'fileContent',
-  'describe',
-  'bookmarks',
-  'createBookmark',
-  'deleteBookmark',
-  'moveBookmark',
+  'amendMessage',
+  'createBranch',
+  'deleteBranch',
+  'moveBranch',
   'remotes',
   'addRemote',
   'setRemoteUrl',
@@ -38,15 +34,12 @@ const expectedVcsMethods = [
   'checkoutRemote',
   'fetch',
   'push',
-  'pushDryRun',
   'prState',
   'prPreview',
   'prGenerateDraft',
   'prCreate',
   'undo',
-  'abandon',
-  'squash',
-  'opLog',
+  'discardCommit',
 ];
 
 async function removeWorkspaceIfPresent(workspaceId: string): Promise<void> {
@@ -181,18 +174,16 @@ test.describe('VCS IPC contracts', () => {
     }
   });
 
-  test('returns stable cheap state, status, log, bookmark, and remote shapes', async () => {
+  test('returns stable cheap state, log, and remote shapes', async () => {
     const result = await page.evaluate(async ({ parent }) => {
       const workspace = await window.sero.workspace.create('VCS Contract', parent);
       try {
         await window.sero.editor.writeFile(workspace.id, 'notes/vcs.txt', 'vcs contract');
         const checkpoints = await window.sero.vcs.listCheckpoints(workspace.id, 10);
         const state = await window.sero.vcs.getState(workspace.id, 10);
-        const status = await window.sero.vcs.status(workspace.id);
         const logEntries = await window.sero.vcs.logEntries(workspace.id, 10);
-        const bookmarks = await window.sero.vcs.branches(workspace.id);
         const remotes = await window.sero.vcs.remotes(workspace.id);
-        return { workspaceId: workspace.id, state, checkpoints, status, logEntries, bookmarks, remotes };
+        return { workspaceId: workspace.id, state, checkpoints, logEntries, remotes };
       } finally {
         await window.sero.workspace.remove(workspace.id);
       }
@@ -200,23 +191,12 @@ test.describe('VCS IPC contracts', () => {
 
     expect(result.state).toEqual(expect.objectContaining({
       workspaceId: result.workspaceId,
-      currentChangeId: null,
+      currentSha: null,
       hasWorkingCopyChanges: true,
       checkpoints: expect.any(Array),
     }));
     expect(result.checkpoints).toEqual([]);
-    expect(result.status).toEqual(expect.objectContaining({
-      files: expect.any(Array),
-      conflictCount: expect.any(Number),
-      parentChangeIds: expect.any(Array),
-    }));
-    expect(result.status.files.length).toBeGreaterThan(0);
-    expect(result.status.files[0]).toEqual(expect.objectContaining({
-      path: expect.any(String),
-      status: expect.any(String),
-    }));
     expect(result.logEntries).toEqual([]);
-    expect(result.bookmarks).toEqual([]);
     expect(result.remotes).toEqual([]);
   });
 });

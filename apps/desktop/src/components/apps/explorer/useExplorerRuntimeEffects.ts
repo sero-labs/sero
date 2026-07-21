@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useVcsStore } from '@/stores/vcs';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 /**
  * Owns non-visual explorer lifecycle wiring: terminal exit events, VCS event
@@ -13,6 +14,9 @@ export function useExplorerRuntimeEffects(
 ) {
   const loadVcsWorkspace = useVcsStore((state) => state.loadWorkspace);
   const initVcsEventListener = useVcsStore((state) => state.initEventListener);
+  const workspacePath = useWorkspaceStore(
+    (state) => state.workspaces.find((ws) => ws.id === workspaceId)?.path ?? null,
+  );
   const autoCreatingRef = useRef(false);
 
   useEffect(() => {
@@ -27,7 +31,11 @@ export function useExplorerRuntimeEffects(
 
   useEffect(() => {
     void loadVcsWorkspace(workspaceId);
-  }, [workspaceId, loadVcsWorkspace]);
+    if (!workspacePath) return;
+    // One repo-state cache: subscribe to the pushed git state file (the same
+    // source the titlebar and git app read).
+    return useVcsStore.getState().subscribeGitState(workspaceId, workspacePath);
+  }, [workspaceId, workspacePath, loadVcsWorkspace]);
 
   // Auto-create a default terminal whenever the panel is open but has no tabs.
   // The main process handles container vs host fallback, so we don't gate on

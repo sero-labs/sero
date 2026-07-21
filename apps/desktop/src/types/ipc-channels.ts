@@ -307,11 +307,9 @@ export const IpcChannels = {
     event: 'sero:vcs:event',
     // Rich VCS operations
     logEntries: 'sero:vcs:log-entries',
-    status: 'sero:vcs:status',
     fileDiffSummary: 'sero:vcs:file-diff-summary',
     fileContent: 'sero:vcs:file-content',
     amendMessage: 'sero:vcs:amend-message',
-    branches: 'sero:vcs:branches',
     createBranch: 'sero:vcs:create-branch',
     deleteBranch: 'sero:vcs:delete-branch',
     moveBranch: 'sero:vcs:move-branch',

@@ -23,8 +23,9 @@ export function parseStatusChar(code: string): FileChangeStatus | null {
       return 'untracked';
     case 'M':
     case 'T':
-    case 'U':
       return 'modified';
+    case 'U':
+      return 'conflict';
     default:
       return null;
   }
