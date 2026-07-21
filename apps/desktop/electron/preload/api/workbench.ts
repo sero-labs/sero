@@ -109,6 +109,8 @@ export const vcsBridge = {
   undo: (workspaceId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.vcs.undo, workspaceId),
   discardCommit: (workspaceId: string, sha: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.discardCommit, workspaceId, sha),
+  refreshState: (workspaceId: string): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke(IpcChannels.vcs.refreshState, workspaceId),
   issues: (workspaceId: string): Promise<AppRuntimeIssueSummary[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.issues, workspaceId),
   openPrs: (workspaceId: string): Promise<AppRuntimePullRequestSummary[]> =>

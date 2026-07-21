@@ -207,6 +207,16 @@ export function registerVcsHandlers(): void {
     vcsOps.discardCommit(wsId, sha),
   );
 
+  // Explicit refresh of the pushed repo-state cache. The file watchers cover
+  // most changes, but manual sync mode (or a missed event) needs this seam so
+  // the Refresh button and post-mutation reloads never show stale state.
+  ipcMain.handle(Ch.refreshState, async (_e, wsId: string) =>
+    gitWorkspaceStateManager.refreshWorkspace(wsId).catch((error: unknown) => ({
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    })),
+  );
+
   // ── Repo-scoped gh reads (Agent Board) ────────────────────
   // Fail-soft to [] inside the helpers; a workspace without a GitHub remote
   // or gh auth simply contributes nothing.

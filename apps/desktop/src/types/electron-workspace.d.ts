@@ -217,6 +217,8 @@ export interface SeroVcsAPI {
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   discardCommit(wsId: string, sha: string): Promise<void>;
+  /** Force a re-derive of the pushed repo-state cache (never rejects; failures come back as ok:false). */
+  refreshState(wsId: string): Promise<{ ok: boolean; message: string }>;
 
   // ── Repo-scoped gh reads (Agent Board) — fail-soft to [] ──
   issues(wsId: string): Promise<AppRuntimeIssueSummary[]>;

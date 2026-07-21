@@ -17,6 +17,7 @@ import {
   adaptWorkingCopyStatus,
   deriveHeadLog,
   getGitStateFilePath,
+  mergePagedLog,
   normalizeGitAppState,
 } from '@/lib/git-state';
 
@@ -220,8 +221,13 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
   },
 
   refreshAll: async (wsId) => {
-    // Checkpoint state is IPC; repo state arrives via the pushed state file.
-    await get().loadWorkspace(wsId);
+    // Checkpoint state is IPC; repo state arrives via the pushed state file —
+    // force a re-derive so explicit refreshes work even when the workspace
+    // watcher runs in manual mode or missed an event.
+    await Promise.all([
+      get().loadWorkspace(wsId),
+      window.sero.vcs.refreshState(wsId),
+    ]);
   },
 
 
@@ -315,6 +321,7 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : 'Unknown VCS error';
 }
 
+
 function applyGitAppState(
   set: (fn: (s: VcsStore) => Partial<VcsStore>) => void,
   get: () => VcsStore,
@@ -334,11 +341,11 @@ function applyGitAppState(
     activePushBranch = branches.find((b) => b.name === 'main')?.name ?? branches[0]?.name ?? null;
   }
 
-  // While the user is paging deep history via IPC, don't clobber the longer
-  // list with the (shorter) derived page.
+  // While the user is paging deep history via IPC, keep the paged depth but
+  // replace the cache-covered prefix so new commits still appear.
   const derivedLog = deriveHeadLog(state, (ws.logPage + 1) * PAGE_SIZE);
   const logEntries = ws.logPage > 0 && ws.logEntries.length > derivedLog.length
-    ? ws.logEntries
+    ? mergePagedLog(derivedLog, ws.logEntries)
     : derivedLog;
 
   updateWs(set, wsId, {

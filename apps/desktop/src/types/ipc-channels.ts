@@ -328,6 +328,8 @@ export const IpcChannels = {
     prCreate: 'sero:vcs:pr-create',
     undo: 'sero:vcs:undo',
     discardCommit: 'sero:vcs:discard-commit',
+    /** Force a re-derive of the pushed repo-state cache (Refresh button, manual sync mode). */
+    refreshState: 'sero:vcs:refresh-state',
     // Repo-scoped gh reads (Agent Board backlog + PR chips)
     issues: 'sero:vcs:issues',
     openPrs: 'sero:vcs:open-prs',

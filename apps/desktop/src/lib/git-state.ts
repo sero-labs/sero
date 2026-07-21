@@ -96,10 +96,19 @@ export function deriveHeadLog(state: GitAppState, limit: number): CommitEntry[] 
     if (node) queue.push(...node.parents);
   }
 
-  return state.commits
-    .filter((commit) => reachable.has(commit.hash))
-    .slice(0, limit)
-    .map((node) => ({
+  const entries: CommitEntry[] = [];
+  for (const node of state.commits) {
+    if (entries.length >= limit) break;
+    if (!reachable.has(node.hash)) continue;
+
+    const branches: string[] = [];
+    const tags: string[] = [];
+    for (const ref of node.refs) {
+      if (ref.type === 'tag') tags.push(ref.name);
+      else if (ref.type === 'local' || ref.type === 'head') branches.push(ref.name);
+    }
+
+    entries.push({
       sha: node.shortHash,
       fullSha: node.hash.slice(0, 12),
       author: node.authorName,
@@ -110,9 +119,22 @@ export function deriveHeadLog(state: GitAppState, limit: number): CommitEntry[] 
       conflict: false,
       immutable: false,
       isWorkingCopy: node.hash === head.hash,
-      branches: node.refs
-        .filter((ref) => ref.type === 'local' || ref.type === 'head')
-        .map((ref) => ref.name),
-      tags: node.refs.filter((ref) => ref.type === 'tag').map((ref) => ref.name),
-    }));
+      branches,
+      tags,
+    });
+  }
+  return entries;
+}
+
+/**
+ * The user paged (via IPC) deeper than the pushed cache covers. Splice the
+ * fresh derived prefix onto the deep tail at the last commit both lists
+ * share; if the tail no longer connects (history rewritten), drop it.
+ */
+export function mergePagedLog(fresh: CommitEntry[], paged: CommitEntry[]): CommitEntry[] {
+  const anchor = fresh[fresh.length - 1];
+  if (!anchor) return paged;
+  const anchorIndex = paged.findIndex((entry) => entry.fullSha === anchor.fullSha);
+  if (anchorIndex === -1) return fresh;
+  return [...fresh, ...paged.slice(anchorIndex + 1)];
 }

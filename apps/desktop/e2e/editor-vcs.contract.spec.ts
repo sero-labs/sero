@@ -40,6 +40,7 @@ const expectedVcsMethods = [
   'prCreate',
   'undo',
   'discardCommit',
+  'refreshState',
 ];
 
 async function removeWorkspaceIfPresent(workspaceId: string): Promise<void> {

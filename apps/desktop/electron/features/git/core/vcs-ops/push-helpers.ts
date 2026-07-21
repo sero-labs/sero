@@ -28,9 +28,10 @@ export async function suggestPushBranchForCommit(
   branches: Branch[],
 ): Promise<string> {
   // 1. Prefer an existing branch already pointing at this exact commit
-  const localAtTarget = branches
-    .filter((bm) => bm.isLocal && bm.sha === sha)
-    .map((bm) => bm.name);
+  const localAtTarget: string[] = [];
+  for (const bm of branches) {
+    if (bm.isLocal && bm.sha === sha) localAtTarget.push(bm.name);
+  }
 
   const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BRANCH)
     ?? localAtTarget.find((name) => !isAutoPushBranch(name));

@@ -123,9 +123,7 @@ export function PullRequestComposer({
     }
   }, [workspaceId]);
 
-  const debouncedPreview = useDebouncedCallback((source: string, target: string) => {
-    void requestPreview(source, target);
-  }, 180);
+  const debouncedPreview = useDebouncedCallback(requestPreview, 180);
 
   useEffect(() => {
     if (!prState || !sourceBranch.trim()) {

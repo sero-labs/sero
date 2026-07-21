@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { CommitNode, GitAppState } from '@sero-ai/common';
+import type { CommitEntry, CommitNode, GitAppState } from '@sero-ai/common';
 import { createDefaultGitState } from '@sero-ai/common';
 import {
   adaptBranches,
   adaptWorkingCopyStatus,
   deriveHeadLog,
+  mergePagedLog,
 } from './git-state';
 
 function commit(hash: string, parents: string[], refs: CommitNode['refs'] = []): CommitNode {
@@ -48,6 +49,47 @@ describe('deriveHeadLog', () => {
     ];
     const log = deriveHeadLog(state({ commits, headHash: 'a000000' }), 2);
     expect(log).toHaveLength(2);
+  });
+});
+
+function entry(fullSha: string): CommitEntry {
+  return {
+    sha: fullSha.slice(0, 7),
+    fullSha,
+    author: 'Dev',
+    email: 'dev@example.com',
+    timestamp: '2026-01-01T00:00:00Z',
+    description: `commit ${fullSha}`,
+    empty: false,
+    conflict: false,
+    immutable: false,
+    isWorkingCopy: false,
+    branches: [],
+    tags: [],
+  };
+}
+
+describe('mergePagedLog', () => {
+  it('replaces the cache-covered prefix and keeps the deeper tail', () => {
+    // Paged list was fetched before commit "new1" existed
+    const paged = ['c3', 'c2', 'c1', 'deep2', 'deep1'].map(entry);
+    const fresh = ['new1', 'c3', 'c2', 'c1'].map(entry);
+
+    const merged = mergePagedLog(fresh, paged);
+
+    expect(merged.map((e) => e.fullSha)).toEqual(['new1', 'c3', 'c2', 'c1', 'deep2', 'deep1']);
+  });
+
+  it('drops the stale tail when it no longer connects (history rewritten)', () => {
+    const paged = ['old2', 'old1'].map(entry);
+    const fresh = ['rewritten2', 'rewritten1'].map(entry);
+
+    expect(mergePagedLog(fresh, paged)).toEqual(fresh);
+  });
+
+  it('keeps the paged list when the fresh derivation is empty', () => {
+    const paged = ['c2', 'c1'].map(entry);
+    expect(mergePagedLog([], paged)).toEqual(paged);
   });
 });
 
