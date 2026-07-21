@@ -24,9 +24,7 @@ import type {
   FileDiffEntry,
   Bookmark,
   Remote,
-  OperationEntry,
   SyncResult,
-  PushPreview,
   PullRequestState,
   PullRequestPreview,
   PullRequestDraft,
@@ -189,10 +187,6 @@ export interface SeroVcsAPI {
   restore(workspaceId: string, checkpointId: string): Promise<void>;
   /** Get a rich git-format diff between checkpoints. */
   diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string>;
-  /** Start workspace filesystem checkpoint watcher. */
-  watch(workspaceId: string): Promise<void>;
-  /** Stop workspace filesystem checkpoint watcher. */
-  unwatch(workspaceId: string): Promise<void>;
   /** Subscribe to VCS events. Returns unsubscribe. */
   onEvent(callback: (event: VcsEvent) => void): () => void;
 
@@ -213,15 +207,12 @@ export interface SeroVcsAPI {
   checkoutRemote(wsId: string, remote?: string): Promise<SyncResult>;
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
   push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;
-  pushDryRun(wsId: string, bookmark?: string, changeId?: string): Promise<PushPreview>;
   prState(wsId: string): Promise<PullRequestState>;
   prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   abandon(wsId: string, changeId: string): Promise<void>;
-  squash(wsId: string, from?: string, into?: string): Promise<void>;
-  opLog(wsId: string, limit?: number): Promise<OperationEntry[]>;
 
   // ── Repo-scoped gh reads (Agent Board) — fail-soft to [] ──
   issues(wsId: string): Promise<AppRuntimeIssueSummary[]>;

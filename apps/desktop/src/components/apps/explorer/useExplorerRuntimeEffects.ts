@@ -11,8 +11,6 @@ export function useExplorerRuntimeEffects(
   terminalOpen: boolean,
   terminalTabCount: number,
 ) {
-  const watchVcsWorkspace = useVcsStore((state) => state.watchWorkspace);
-  const unwatchVcsWorkspace = useVcsStore((state) => state.unwatchWorkspace);
   const loadVcsWorkspace = useVcsStore((state) => state.loadWorkspace);
   const initVcsEventListener = useVcsStore((state) => state.initEventListener);
   const autoCreatingRef = useRef(false);
@@ -28,12 +26,8 @@ export function useExplorerRuntimeEffects(
   }, [initVcsEventListener]);
 
   useEffect(() => {
-    void watchVcsWorkspace(workspaceId);
     void loadVcsWorkspace(workspaceId);
-    return () => {
-      void unwatchVcsWorkspace(workspaceId);
-    };
-  }, [workspaceId, loadVcsWorkspace, unwatchVcsWorkspace, watchVcsWorkspace]);
+  }, [workspaceId, loadVcsWorkspace]);
 
   // Auto-create a default terminal whenever the panel is open but has no tabs.
   // The main process handles container vs host fallback, so we don't gate on

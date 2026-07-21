@@ -49,8 +49,6 @@ interface VcsStore {
   refreshAll: (wsId: string) => Promise<void>;
 
   // Watcher
-  watchWorkspace: (wsId: string) => Promise<void>;
-  unwatchWorkspace: (wsId: string) => Promise<void>;
 
   // Mutations
   createCheckpoint: (wsId: string, desc?: string, src?: VcsCheckpoint['source']) => Promise<void>;
@@ -245,8 +243,6 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     ]);
   },
 
-  watchWorkspace: async (wsId) => { await window.sero.vcs.watch(wsId); },
-  unwatchWorkspace: async (wsId) => { await window.sero.vcs.unwatch(wsId); },
 
   createCheckpoint: async (wsId, desc, src = 'manual') => {
     try {

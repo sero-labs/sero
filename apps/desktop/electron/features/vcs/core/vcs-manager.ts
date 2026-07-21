@@ -333,12 +333,4 @@ export class VcsManager extends EventEmitter {
     return diff.stdout;
   }
 
-  watchWorkspace(workspaceId: string): void {
-    // Explicit checkpoint mode: no automatic filesystem-based checkpointing.
-    void this.workspaceManager.getPath(workspaceId);
-  }
-
-  unwatchWorkspace(_workspaceId: string): void {}
-
-  disposeAll(): void {}
 }

@@ -63,9 +63,6 @@ export function registerVcsHandlers(): void {
     vcsManager.diff(wsId, from, to),
   );
 
-  ipcMain.handle(Ch.watch, async (_e, wsId: string) => vcsManager.watchWorkspace(wsId));
-  ipcMain.handle(Ch.unwatch, async (_e, wsId: string) => vcsManager.unwatchWorkspace(wsId));
-
   // ── Rich VCS ops ──────────────────────────────────────────
 
   ipcMain.handle(Ch.logEntries, async (_e, wsId: string, limit?: number, revset?: string) =>
@@ -143,10 +140,6 @@ export function registerVcsHandlers(): void {
     vcsOps.push(wsId, bookmark, changeId),
   );
 
-  ipcMain.handle(Ch.pushDryRun, async (_e, wsId: string, bookmark?: string, changeId?: string) =>
-    vcsOps.pushDryRun(wsId, bookmark, changeId),
-  );
-
   // ── Pull request workflow ────────────────────────────────
 
   ipcMain.handle(Ch.prState, async (_e, wsId: string) =>
@@ -186,14 +179,6 @@ export function registerVcsHandlers(): void {
 
   ipcMain.handle(Ch.abandon, async (_e, wsId: string, changeId: string) =>
     vcsOps.abandon(wsId, changeId),
-  );
-
-  ipcMain.handle(Ch.squash, async (_e, wsId: string, from?: string, into?: string) =>
-    vcsOps.squash(wsId, from, into),
-  );
-
-  ipcMain.handle(Ch.opLog, async (_e, wsId: string, limit?: number) =>
-    vcsOps.getOperationLog(wsId, limit ?? 20),
   );
 
   // ── Repo-scoped gh reads (Agent Board) ────────────────────

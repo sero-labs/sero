@@ -9,11 +9,9 @@ import type {
   CreatePullRequestResult,
   FileDiffEntry,
   GitDiffStat,
-  OperationEntry,
   PullRequestDraft,
   PullRequestPreview,
   PullRequestState,
-  PushPreview,
   Remote,
   SyncResult,
   VcsCheckpoint,
@@ -38,9 +36,6 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.restore, workspaceId, checkpointId),
   diff: (workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.vcs.diff, workspaceId, fromChangeId, toChangeId),
-  watch: (workspaceId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.vcs.watch, workspaceId),
-  unwatch: (workspaceId: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.unwatch, workspaceId),
   onEvent: (callback: (event: VcsEvent) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, data: VcsEvent) => {
       callback(data);
@@ -86,12 +81,6 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.fetch, workspaceId, remote),
   push: (workspaceId: string, bookmark?: string, changeId?: string): Promise<SyncResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.push, workspaceId, bookmark, changeId),
-  pushDryRun: (
-    workspaceId: string,
-    bookmark?: string,
-    changeId?: string,
-  ): Promise<PushPreview> =>
-    ipcRenderer.invoke(IpcChannels.vcs.pushDryRun, workspaceId, bookmark, changeId),
   prState: (workspaceId: string): Promise<PullRequestState> =>
     ipcRenderer.invoke(IpcChannels.vcs.prState, workspaceId),
   prPreview: (
@@ -114,10 +103,6 @@ export const vcsBridge = {
   undo: (workspaceId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.vcs.undo, workspaceId),
   abandon: (workspaceId: string, changeId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.abandon, workspaceId, changeId),
-  squash: (workspaceId: string, from?: string, into?: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.vcs.squash, workspaceId, from, into),
-  opLog: (workspaceId: string, limit?: number): Promise<OperationEntry[]> =>
-    ipcRenderer.invoke(IpcChannels.vcs.opLog, workspaceId, limit),
   issues: (workspaceId: string): Promise<AppRuntimeIssueSummary[]> =>
     ipcRenderer.invoke(IpcChannels.vcs.issues, workspaceId),
   openPrs: (workspaceId: string): Promise<AppRuntimePullRequestSummary[]> =>

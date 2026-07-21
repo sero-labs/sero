@@ -226,36 +226,6 @@ export class VcsOps {
     return { success: true, message: result.stderr || result.stdout || 'Fetch complete' };
   }
 
-  async pushDryRun(
-    workspaceId: string,
-    bookmark?: string,
-    changeId?: string,
-  ): Promise<PushPreview> {
-    let resolvedBranch = bookmark;
-    if (!resolvedBranch && changeId) {
-      try {
-        const bookmarks = await listBookmarks(this.runner, workspaceId);
-        resolvedBranch = await suggestPushBranchForCommit(this.runner, workspaceId, changeId, bookmarks);
-      } catch (err) {
-        console.warn('[vcs-ops] Dry-run branch suggestion failed (best-effort):', err);
-      }
-    }
-
-    const pushRemote = await resolvePushRemote(this.runner, workspaceId);
-    const args = ['push', '--dry-run'];
-    if (pushRemote) args.push(pushRemote);
-    if (resolvedBranch) args.push(resolvedBranch);
-
-    const result = await this.runner.run(workspaceId, args, 60_000);
-    const output = result.stdout + '\n' + result.stderr;
-
-    return {
-      bookmarks: resolvedBranch ? [resolvedBranch] : [],
-      willCreate: [],
-      message: output.trim(),
-    };
-  }
-
   async push(
     workspaceId: string,
     bookmark?: string,
@@ -336,39 +306,4 @@ export class VcsOps {
     }
   }
 
-  async squash(
-    workspaceId: string,
-    from?: string,
-    into?: string,
-  ): Promise<void> {
-    void from;
-    void into;
-
-    const soft = await this.runner.run(workspaceId, ['reset', '--soft', 'HEAD~1']);
-    if (soft.exitCode !== 0) {
-      throw new Error(soft.stderr || 'Squash failed — cannot reset');
-    }
-
-    const amend = await this.runner.run(workspaceId, ['commit', '--amend', '--no-edit']);
-    if (amend.exitCode !== 0) {
-      throw new Error(amend.stderr || 'Squash failed — cannot amend');
-    }
-  }
-
-  async getOperationLog(
-    workspaceId: string,
-    limit = 20,
-  ): Promise<OperationEntry[]> {
-    const result = await this.runner.run(workspaceId, [
-      'reflog',
-      `--format=${REFLOG_FORMAT}`,
-      '-n',
-      String(limit),
-    ]);
-    if (result.exitCode !== 0) {
-      return [];
-    }
-
-    return parseReflog(result.stdout);
-  }
 }

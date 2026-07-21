@@ -415,7 +415,6 @@ async function performGracefulShutdown(): Promise<void> {
 
   fileWatcherManager.disposeAll();
   console.log('[sero] Shutdown sync step done: file watchers');
-  vcsManager.disposeAll();
   console.log('[sero] Shutdown sync step done: vcs manager');
 
   await Promise.allSettled([
