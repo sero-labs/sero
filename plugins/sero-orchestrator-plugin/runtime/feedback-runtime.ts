@@ -48,10 +48,11 @@ export function applyFeedbackTraversal(
   };
   const stepStates = { ...loop.runtime.stepStates };
   const variables = { ...loop.runtime.variables };
+  const stepById = new Map(loop.plan.steps.map((definition) => [definition.id, definition]));
   for (const id of region.stepIds) {
     const state = stepStates[id];
     stepStates[id] = { ...state, status: 'pending', attempts: 0, lastAttemptId: undefined, outcome: undefined, updatedAt: now };
-    const definition = loop.plan.steps.find((candidate) => candidate.id === id)!;
+    const definition = stepById.get(id)!;
     for (const variable of definition.produces ?? []) if (variable !== 'notes') delete variables[variable];
   }
   return {

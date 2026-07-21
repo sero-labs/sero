@@ -128,7 +128,6 @@ export class RunEngine {
         runSeq,
         pendingTriggerId: undefined,
         pendingEvents: remainingEvents?.length ? remainingEvents : undefined,
-        feedbackStates: undefined,
       },
     };
     loop = await this.commit(loop);

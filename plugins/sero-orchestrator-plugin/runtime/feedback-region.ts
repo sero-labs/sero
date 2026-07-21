@@ -113,8 +113,9 @@ export function feedbackPlanProblems(plan: LoopPlan): string[] {
 
   const region = computeFeedbackRegion(plan)!;
   const dependents = dependentsOf(plan.steps);
+  const stepById = new Map(plan.steps.map((step) => [step.id, step]));
   for (const id of region.stepIds) {
-    const step = plan.steps.find((candidate) => candidate.id === id)!;
+    const step = stepById.get(id)!;
     if (id !== region.targetStepId) {
       for (const dependency of step.dependsOn ?? []) {
         if (!region.stepIds.has(dependency)) {

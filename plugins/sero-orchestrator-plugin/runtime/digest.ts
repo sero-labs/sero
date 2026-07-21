@@ -9,7 +9,7 @@
  * path; the host resolves it under the state dir.
  */
 
-import type { DigestLog, Loop, LoopRun, RunDigest, RunDigestStep, StepAttempt, StepStatus } from '../shared/types';
+import type { DigestLog, Loop, LoopRun, RunDigest, RunDigestStep, StepAttempt, StepOutcome, StepStatus } from '../shared/types';
 import type { OrchestratorHost } from './host';
 
 export function digestsPath(loopId: string): string {
@@ -31,9 +31,10 @@ function digestStep(
   attempts: StepAttempt[],
   visitNumber?: number,
   activationStatus?: StepStatus,
+  activationOutcome?: StepOutcome,
 ): RunDigestStep {
   const last = attempts[attempts.length - 1];
-  const status = last ? stepStatusFromAttempt(last) : activationStatus ?? 'pending';
+  const status = activationStatus ?? (last ? stepStatusFromAttempt(last) : 'pending');
   const durationMs = attempts.reduce((sum, attempt) => sum + (attempt.usage?.durationMs ?? 0), 0) || undefined;
   return {
     id: stepId,
@@ -43,7 +44,7 @@ function digestStep(
     attempts: attempts.length,
     model: last?.model,
     durationMs,
-    failureSummary: FAILED_STATUSES.has(status) ? last?.outcome?.summary ?? last?.error : undefined,
+    failureSummary: FAILED_STATUSES.has(status) ? activationOutcome?.summary ?? last?.outcome?.summary ?? last?.error : undefined,
   };
 }
 
@@ -65,6 +66,7 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
         run.stepAttempts.filter((attempt) => attempt.activationId === activation.id),
         activation.visitNumber,
         activation.status === 'cancelled' || activation.status === 'orphaned' ? 'failed' : activation.status,
+        activation.outcome,
       )),
       recoveries: run.recoveryDecisions.map((decision) => ({ stepId: decision.stepId, decision: decision.decision, reason: decision.reason })),
       usage: run.usage,

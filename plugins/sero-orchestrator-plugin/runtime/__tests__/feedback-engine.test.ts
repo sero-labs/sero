@@ -5,6 +5,7 @@ import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
 import { rearmLoop } from '../scheduler';
 import { buildStepTask } from '../executors/prompt';
+import { retryStuckLoop } from '../recovery-apply';
 import { fakeDecider, fakeExecutor } from './engine-fakes';
 import { createFakeHost } from './fake-host';
 import { seedActiveLoop } from './fixtures';
@@ -107,6 +108,59 @@ describe('RunEngine bounded feedback', () => {
     expect(loop.runtime.stepStates.verify.status).toBe('needs-revision');
     expect(loop.runs[0].recoveryDecisions).toHaveLength(1);
     expect(loop.runs[0].stepAttempts.at(-1)?.outcome?.summary).toContain('is exhausted');
+  });
+
+  it('preserves the exhausted traversal count when recovery starts another run', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, feedbackPlan(1));
+    const executor = fakeExecutor({
+      prepare: SUCCESS,
+      implement: SUCCESS,
+      verify: { status: 'succeeded', summary: 'still broken', variables: { route: 'needs-fix' } },
+    });
+    const engine = new RunEngine(host, deps(executor));
+
+    await engine.run('loop-1');
+    const retried = retryStuckLoop(host.state.loops[0], host.now())!;
+    host.state = { ...host.state, loops: [retried] };
+    await engine.run('loop-1');
+
+    expect(executor.calls).toEqual(['prepare', 'implement', 'verify', 'implement', 'verify', 'verify']);
+    expect(host.state.loops[0].runtime.feedbackStates?.['verify-fix'].traversals).toBe(1);
+    expect(host.state.loops[0].runs[1].stepAttempts.at(-1)?.outcome?.summary).toContain('is exhausted');
+  });
+
+  it('traverses feedback when recovery accepts a corrected matching outcome', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, feedbackPlan());
+    let verifies = 0;
+    const executor = fakeExecutor({
+      prepare: SUCCESS,
+      implement: SUCCESS,
+      verify: () => {
+        verifies += 1;
+        return verifies === 1
+          ? { status: 'failed', summary: 'misreported' }
+          : { status: 'succeeded', summary: 'verified', variables: { route: 'passed' } };
+      },
+      finalise: { status: 'succeeded', summary: 'finished', completion: { status: 'complete', reason: 'done' } },
+    });
+    const engineDeps: EngineDeps = {
+      executor,
+      decider: fakeDecider({
+        decision: 'accept-step',
+        acceptedOutcome: { status: 'succeeded', summary: 'needs another pass', variables: { route: 'needs-fix' } },
+      }),
+      locks: new LoopLocks(),
+    };
+
+    await new RunEngine(host, engineDeps).run('loop-1');
+
+    const loop = host.state.loops[0];
+    const verifyActivations = loop.runs[0].stepActivations!.filter((activation) => activation.stepId === 'verify');
+    expect(executor.calls).toEqual(['prepare', 'implement', 'verify', 'implement', 'verify', 'finalise']);
+    expect(loop.runtime.feedbackStates?.['verify-fix'].traversals).toBe(1);
+    expect(verifyActivations.map((activation) => activation.outcome?.status)).toEqual(['succeeded', 'succeeded']);
   });
 
   it('starts a recurring run with fresh traversal state', () => {

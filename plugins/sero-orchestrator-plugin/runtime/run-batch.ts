@@ -3,7 +3,7 @@
 import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
 import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
-import { startActivations, recordActivationAttempt } from './activations';
+import { startActivations, recordActivationAttempt, settleActivation } from './activations';
 import { applyFeedbackTraversal, feedbackDecision, feedbackExhaustedOutcome } from './feedback-runtime';
 import { enforceRouteContract } from './route-contract';
 import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcomes';
@@ -31,6 +31,16 @@ interface AppliedOutcome {
   loop: Loop;
   run: LoopRun;
   completed: boolean;
+}
+
+interface RoutedFeedbackOutcome {
+  outcome: StepOutcome;
+  route: ReturnType<typeof feedbackDecision>;
+}
+
+function routeFeedbackOutcome(loop: Loop, step: LoopStepDefinition, outcome: StepOutcome): RoutedFeedbackOutcome {
+  const route = feedbackDecision(loop, step, outcome);
+  return { outcome: route === 'exhausted' ? feedbackExhaustedOutcome(step) : outcome, route };
 }
 
 function applyOutcome(host: OrchestratorHost, loop: Loop, run: LoopRun, stepId: string, attempt: StepAttempt, outcome: StepOutcome): AppliedOutcome {
@@ -89,14 +99,12 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
   for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index];
     const attempt = attempts[index];
-    let outcome = await applyDeliveryContract(
+    let { outcome, route } = routeFeedbackOutcome(loop, step, await applyDeliveryContract(
       host,
       loop,
       step,
       enforceRouteContract(loop, step, await resolveOutcome(host, deps, loop, step, attempt)),
-    );
-    const route = feedbackDecision(loop, step, outcome);
-    if (route === 'exhausted') outcome = feedbackExhaustedOutcome(step);
+    ));
     const activationId = started.activationIds[step.id];
     const recorded: StepAttempt = { ...attempt, activationId, outcome };
     run = {
@@ -140,28 +148,65 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
     }
 
     if (TERMINAL_OUTCOMES.has(outcome.status)) {
-      const decision = await deps.decider.decide({ host, loop, step, attempt: recorded, outcome });
-      run = { ...run, recoveryDecisions: [...run.recoveryDecisions, decision] };
-      if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
-        const accepted = applyOutcome(host, loop, run, step.id, recorded, enforceDeliveryContract(loop, step, decision.acceptedOutcome));
-        loop = accepted.loop;
-        run = accepted.run;
-        if (accepted.completed) {
-          loop = await commit(syncRun(loop, run));
-          return { loop, run, stop: true };
+      let recoveryAttempt = recorded;
+      let repeatedAcceptedExhaustion = false;
+      while (TERMINAL_OUTCOMES.has(outcome.status)) {
+        const decision = await deps.decider.decide({ host, loop, step, attempt: recoveryAttempt, outcome });
+        run = { ...run, recoveryDecisions: [...run.recoveryDecisions, decision] };
+        if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
+          const acceptedRoute = routeFeedbackOutcome(
+            loop,
+            step,
+            enforceDeliveryContract(loop, step, enforceRouteContract(loop, step, decision.acceptedOutcome)),
+          );
+          outcome = acceptedRoute.outcome;
+          route = acceptedRoute.route;
+          run = settleActivation(run, activationId, outcome, host.now());
+          const accepted = applyOutcome(host, loop, run, step.id, recorded, outcome);
+          loop = accepted.loop;
+          run = accepted.run;
+          if (accepted.completed) {
+            loop = await commit(syncRun(loop, run));
+            return { loop, run, stop: true };
+          }
+          if (route === 'traverse') {
+            loop = applyFeedbackTraversal(syncRun(loop, run), run, step, activationId, recorded, outcome, host.now());
+            loop = await commit(loop);
+            break;
+          }
+          if (route !== 'exhausted') break;
+          if (repeatedAcceptedExhaustion) {
+            const blocked = applyRecovery(host, loop, {
+              ...decision,
+              decision: 'block-loop',
+              reason: `${outcome.summary} Recovery accepted another matching outcome after exhaustion.`,
+            });
+            loop = blocked.loop;
+            run = { ...run, status: 'blocked' };
+            stop = true;
+            break;
+          }
+          repeatedAcceptedExhaustion = true;
+          recoveryAttempt = { ...recorded, outcome };
+          continue;
         }
-        continue;
-      }
-      const recovery = applyRecovery(host, loop, decision);
-      loop = recovery.loop;
-      if (recovery.rejection) {
-        run = { ...run, observations: [...run.observations, { id: host.newId('obs'), source: 'system', summary: recovery.rejection, createdAt: host.now() }] };
-      }
-      if (recovery.stop) {
-        run = { ...run, status: decision.decision === 'block-loop' ? 'blocked' : 'waiting' };
-        stop = true;
+
+        const recovery = applyRecovery(host, loop, decision);
+        loop = recovery.loop;
+        if (decision.decision === 'skip-step') {
+          const skippedOutcome = loop.runtime.stepStates[step.id]?.outcome;
+          if (skippedOutcome) run = settleActivation(run, activationId, skippedOutcome, host.now());
+        }
+        if (recovery.rejection) {
+          run = { ...run, observations: [...run.observations, { id: host.newId('obs'), source: 'system', summary: recovery.rejection, createdAt: host.now() }] };
+        }
+        if (recovery.stop) {
+          run = { ...run, status: decision.decision === 'block-loop' ? 'blocked' : 'waiting' };
+          stop = true;
+        }
         break;
       }
+      if (stop) break;
     }
   }
 
