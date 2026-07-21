@@ -14,6 +14,7 @@ import { formatRouteContract, routeVariableRequirements } from '../route-contrac
 import { finalizationStepId } from '../readiness';
 import { effectiveDelivery, isDeliveryDestinationId, type DeliveryReceipt } from '../../shared/delivery-types';
 import { formatDeliveryContract } from '../delivery/delivery-contract';
+import { latestActivation } from '../activations';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
@@ -125,11 +126,22 @@ function eventContext(run?: LoopRun): string {
   return `\nThis iteration was fired by an event — ${run.firedBy.source} at ${run.firedBy.occurredAt}: ${run.firedBy.summary}.${payload}`;
 }
 
+function feedbackContext(step: LoopStepDefinition, run?: LoopRun): string {
+  const context = latestActivation(run, step.id)?.feedbackContext;
+  if (!context) return '';
+  const artifact = context.outputPath ? `\nSource artifact: ${context.outputPath}` : '';
+  const observations = context.observations.length
+    ? `\nSource observations:\n${context.observations.map((observation) => `- ${observation.summary}`).join('\n')}`
+    : '';
+  return `\nFEEDBACK REVISIT #${context.traversal} — transition "${context.feedbackId}" returned here from step "${context.sourceStepId}" (activation ${context.sourceActivationId}). Use these findings to improve the next pass; do not treat this as a mechanical retry.\nSource outcome: ${context.sourceOutcome.summary}\nSource variables:\n${JSON.stringify(context.sourceOutcome.variables ?? {}, null, 2)}${artifact}${observations}`;
+}
+
 export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
   parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
+  parts.push(feedbackContext(step, run));
   if (step.gate === 'approval') {
     parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":
 { "prompt": "<what needs approving, one sentence>", "kind": "approval", "attachment": "<the FULL exact content to be delivered>", "choices": [ { "id": "approve", "label": "Approve" }, { "id": "reject", "label": "Reject" } ] }

@@ -87,6 +87,19 @@ export function stripLoopForPersist(loop: Loop): Loop {
 
 /** Compact summary of one run for the per-loop runs/index.json. */
 export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
+  const activationSteps = run.stepActivations?.map((activation) => {
+    const attempts = run.stepAttempts.filter((attempt) => attempt.activationId === activation.id);
+    const last = attempts[attempts.length - 1];
+    return {
+      stepId: activation.stepId,
+      visitNumber: activation.visitNumber,
+      activationId: activation.id,
+      attemptNumber: last?.attemptNumber ?? attempts.length,
+      executionType: last?.executionType ?? 'background-agent' as const,
+      status: last?.status ?? (activation.status === 'running' ? 'running' as const : 'completed' as const),
+      outcomeStatus: activation.outcome?.status,
+    };
+  });
   return {
     id: run.id,
     runNumber: run.runNumber,
@@ -98,7 +111,7 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
     completionStatus: run.completionSignal?.status,
     firedBy: run.firedBy,
     delivery: run.completionSignal?.receipt,
-    steps: run.stepAttempts.map((a) => ({
+    steps: activationSteps ?? run.stepAttempts.map((a) => ({
       stepId: a.stepId,
       attemptNumber: a.attemptNumber,
       executionType: a.executionType,

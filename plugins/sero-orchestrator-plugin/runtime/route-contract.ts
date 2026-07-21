@@ -31,6 +31,8 @@ export interface RouteVarRequirement {
   allowed: (string | number | boolean)[];
   /** A sibling guard has a default branch, so an unlisted value still routes somewhere. */
   hasDefault: boolean;
+  /** Values that return through bounded feedback; all other values continue forward. */
+  feedbackValues?: (string | number | boolean)[];
 }
 
 /** The guard-relevant routing variables a step is expected to record when it runs. */
@@ -40,7 +42,8 @@ export function routeVariableRequirements(loop: Loop, step: LoopStepDefinition):
   const requirements: RouteVarRequirement[] = [];
   for (const name of produced) {
     const guards = loop.plan.steps.filter((s) => s.when?.var === name);
-    if (guards.length === 0) continue; // declared but no guard reads it → advisory only
+    const feedback = step.feedback?.when.var === name ? step.feedback : undefined;
+    if (guards.length === 0 && !feedback) continue; // declared but no route reads it → advisory only
     const allowed: (string | number | boolean)[] = [];
     const allowedValues = new Set<string | number | boolean>();
     let hasDefault = false;
@@ -52,7 +55,17 @@ export function routeVariableRequirements(loop: Loop, step: LoopStepDefinition):
       }
       if (g.when!.default) hasDefault = true;
     }
-    requirements.push({ name, allowed, hasDefault });
+    for (const value of feedback?.when.in ?? []) {
+      if (allowedValues.has(value)) continue;
+      allowedValues.add(value);
+      allowed.push(value);
+    }
+    requirements.push({
+      name,
+      allowed,
+      hasDefault,
+      ...(feedback ? { feedbackValues: [...feedback.when.in] } : {}),
+    });
   }
   return requirements;
 }
@@ -87,6 +100,10 @@ export function enforceRouteContract(loop: Loop, step: LoopStepDefinition, outco
 }
 
 function describeAllowed(req: RouteVarRequirement): string {
+  if (req.feedbackValues) {
+    const feedback = req.feedbackValues.map((value) => JSON.stringify(value)).join(', ');
+    return `a primitive route value (${feedback} ${req.feedbackValues.length === 1 ? 'returns' : 'return'} through feedback; any other value continues forward)`;
+  }
   if (req.allowed.length === 0) return 'a value naming the route';
   const list = req.allowed.map((v) => JSON.stringify(v)).join(', ');
   return req.hasDefault ? `one of ${list} (or another value → the default route)` : `one of ${list}`;

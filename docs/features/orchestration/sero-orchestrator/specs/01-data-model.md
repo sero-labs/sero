@@ -196,6 +196,7 @@ interface LoopStepDefinition {
   maxAttempts?: number;          // optional per-step limit, capped by loop limits
   produces?: string[];           // routing variables this step records (branching)
   when?: StepGuard;              // branch guard; absent ⇒ the step always runs
+  feedback?: StepFeedbackTransition; // one bounded return to an earlier ancestor
 }
 
 interface StepGuard {
@@ -339,6 +340,7 @@ interface LoopRuntimeState {
   // each run start (merged/closed PRs drop out); injected into background-agent
   // step context so an iteration doesn't redo work an open PR already covers.
   pullRequests?: AppRuntimePullRequestSummary[];
+  feedbackStates?: Record<string, FeedbackRuntimeState>; // per-run traversal state
 }
 
 interface LoopBlock {
@@ -431,6 +433,7 @@ interface LoopRun {
   triggerId?: string;
   startedStepIds: string[];
   stepAttempts: StepAttempt[];
+  stepActivations?: StepActivation[]; // durable logical visits; optional for compatibility
   recoveryDecisions: RecoveryDecision[];
   completionSignal?: CompletionSignal;
   observations: Observation[];

@@ -8,35 +8,27 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
 import { resolveBranchSkips } from './branching';
-import { enforceRouteContract } from './route-contract';
-import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcomes';
-import { parkForInput } from './human-input';
 import { notifyOutcome } from './notify-outcome';
-import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
 import { appendDigest, buildRunDigest } from './digest';
 import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
-import { recordAgentWarning, recordModelWarning } from './run-warnings';
-import { isRecurring } from './scheduler';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
-import { enforceDeliveryContract } from './delivery/delivery-contract';
-import { applyDeliveryContract } from './delivery/verify-receipt';
+import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps } from './run-engine-helpers';
 import { reconcileDeliveryWarning } from './delivery/availability';
+import { runStepBatch } from './run-batch';
+import { orphanRunningActivations } from './activations';
 
 export interface RunResult {
   acquired: boolean;
   run?: LoopRun;
   reason?: string;
 }
-
-const TERMINAL_OUTCOMES = new Set<StepOutcome['status']>(['failed', 'blocked', 'needs-revision']);
 
 export class RunEngine {
   /**
@@ -119,6 +111,7 @@ export class RunEngine {
       firedBy: event ? toEventFiredBy(event) : undefined,
       startedStepIds: [],
       stepAttempts: [],
+      stepActivations: [],
       recoveryDecisions: [],
       observations: event ? [toEventObservation(event, this.host.newId('obs'), now)] : [],
       startedAt: now,
@@ -135,6 +128,7 @@ export class RunEngine {
         runSeq,
         pendingTriggerId: undefined,
         pendingEvents: remainingEvents?.length ? remainingEvents : undefined,
+        feedbackStates: undefined,
       },
     };
     loop = await this.commit(loop);
@@ -202,7 +196,15 @@ export class RunEngine {
         }
       }
 
-      const result = await this.runBatch(loop, run, batch, signal);
+      const result = await runStepBatch({
+        host: this.host,
+        deps: this.deps,
+        loop,
+        run,
+        batch,
+        signal,
+        commit: (next) => this.commit(next),
+      });
       loop = result.loop;
       run = result.run;
       stop = result.stop;
@@ -223,185 +225,11 @@ export class RunEngine {
     return this.commit({ ...loop, runtime: { ...loop.runtime, pullRequests: mine } });
   }
 
-
-  private async runBatch(
-    loop: Loop,
-    run: LoopRun,
-    batch: string[],
-    signal?: AbortSignal,
-  ): Promise<{ loop: Loop; run: LoopRun; stop: boolean }> {
-    const startNow = this.host.now();
-    // Mark the batch running and persist so the UI shows live progress.
-    for (const stepId of batch) {
-      const prev = loop.runtime.stepStates[stepId];
-      loop = {
-        ...loop,
-        runtime: {
-          ...loop.runtime,
-          stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'running', attempts: prev.attempts + 1, updatedAt: startNow } },
-        },
-      };
-    }
-    run = { ...run, startedStepIds: [...run.startedStepIds, ...batch] };
-    loop = await this.commit(loop);
-
-    const steps = batch.map((id) => this.step(loop, id));
-    const attempts = await Promise.all(
-      steps.map((step) =>
-        this.deps.executor.run({
-          host: this.host,
-          loop,
-          run,
-          step,
-          attemptNumber: loop.runtime.stepStates[step.id].attempts,
-          parentSessionId: loop.runtime.parentSessionId,
-          workspace: loop.runtime.workspace.resolved,
-          signal,
-        }),
-      ),
-    );
-
-    // If a `disable` aborted mid-batch, stop here: do not apply the aborted
-    // attempts' outcomes or run recovery (which would mask the disable).
-    if (signal?.aborted) {
-      return { loop, run: { ...run, status: 'cancelled' }, stop: true };
-    }
-
-    let stop = false;
-    // A step in this batch that asked the user; the loop parks on it after the
-    // batch's other (non-asking) outcomes are applied.
-    let parked: { stepId: string; questions: HumanQuestion[] } | undefined;
-    for (let i = 0; i < steps.length; i += 1) {
-      const step = steps[i];
-      const attempt = attempts[i];
-      // A "succeeded" step that didn't record a routing variable a later step
-      // branches on becomes needs-revision, so recovery handles it instead of the
-      // branch silently skipping and the loop completing having done nothing.
-      // Likewise a completion claim without valid (and verified) proof of
-      // delivery — the loop cannot "finish" without actually shipping.
-      const outcome = await applyDeliveryContract(
-        this.host, loop, step,
-        enforceRouteContract(loop, step, await this.resolveOutcome(loop, step, attempt)),
-      );
-      const recorded: StepAttempt = { ...attempt, outcome };
-      run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
-      if (recorded.modelFallback) {
-        loop = recordModelWarning(this.host, loop, step.id, recorded.modelFallback.requestedModel);
-      }
-      if (recorded.agentFallback) {
-        loop = recordAgentWarning(this.host, loop, step.id, recorded.agentFallback.requestedAgent);
-      }
-
-      // The step asked the user. Reset it to pending so it re-runs with the answer,
-      // and remember to park the loop; do not apply this outcome or run recovery.
-      if (outcome.questions && outcome.questions.length > 0) {
-        loop = resetStepPending(loop, step.id, this.host.now());
-        if (!parked) parked = { stepId: step.id, questions: outcome.questions };
-        continue;
-      }
-
-      const applied = this.applyOutcome(loop, run, step.id, recorded, outcome);
-      loop = applied.loop;
-      run = applied.run;
-      if (applied.completed) {
-        loop = await this.commit(loop);
-        return { loop, run, stop: true };
-      }
-
-      // Recurring loops: after any non-completing step, a dedicated check can end
-      // THIS RUN early — so an iteration that finds nothing to do skips its
-      // remaining steps instead of running them all. This ends the iteration, NOT
-      // the loop: a scheduled loop stays active and fires again next interval. The
-      // checker is told that starting/claiming work means "keep going".
-      if (this.deps.stopChecker && !TERMINAL_OUTCOMES.has(outcome.status) && isRecurring(loop)) {
-        const decision = await this.deps.stopChecker.check({ host: this.host, loop, run });
-        if (decision.stop) {
-          this.host.log(`Loop ${loop.id} run ended early — nothing to do: ${decision.reason}`);
-          run = { ...run, status: 'completed' };
-          return { loop, run, stop: true };
-        }
-      }
-
-      if (TERMINAL_OUTCOMES.has(outcome.status)) {
-        const decision = await this.deps.decider.decide({ host: this.host, loop, step, attempt: recorded, outcome });
-        run = { ...run, recoveryDecisions: [...run.recoveryDecisions, decision] };
-
-        if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
-          // The model judged the step actually succeeded; re-apply the corrected
-          // outcome exactly like a reported one so its variables and completion flow.
-          // The delivery backstop applies here too: an accepted outcome cannot
-          // smuggle in a completion the receipt contract would have refused.
-          const accepted = this.applyOutcome(loop, run, step.id, recorded, enforceDeliveryContract(loop, step, decision.acceptedOutcome));
-          loop = accepted.loop;
-          run = accepted.run;
-          if (accepted.completed) {
-            loop = await this.commit(loop);
-            return { loop, run, stop: true };
-          }
-          continue;
-        }
-
-        const recovery = applyRecovery(this.host, loop, decision);
-        loop = recovery.loop;
-        if (recovery.rejection) {
-          run = { ...run, observations: [...run.observations, this.observation('system', recovery.rejection)] };
-        }
-        if (recovery.stop) {
-          run = { ...run, status: decision.decision === 'block-loop' ? 'blocked' : 'waiting' };
-          stop = true;
-          break;
-        }
-      }
-    }
-    // A step asked the user: park the loop (durable pendingInput) and stop the run.
-    if (parked && !stop) {
-      loop = parkForInput(this.host, loop, parked.stepId, parked.questions, run.id);
-      run = { ...run, status: 'waiting' };
-      loop = await this.commit(loop);
-      return { loop, run, stop: true };
-    }
-    loop = await this.commit(loop);
-    return { loop, run, stop };
-  }
-
-  /**
-   * Records a StepOutcome on loop state and, if it carries a completion signal,
-   * moves the loop to complete/blocked. Shared by the normal outcome path and
-   * the accept-step recovery path so completion is handled identically.
-   */
-  private applyOutcome(
-    loop: Loop,
-    run: LoopRun,
-    stepId: string,
-    attempt: StepAttempt,
-    outcome: StepOutcome,
-  ): { loop: Loop; run: LoopRun; completed: boolean } {
-    loop = applyStepOutcome(loop, stepId, attempt, outcome, this.host.now());
-    if (!outcome.completion || !acceptsCompletion(this.host, loop, stepId, outcome.completion)) {
-      return { loop, run, completed: false };
-    }
-    const completed = recordCompletion(this.host, loop, stepId, attempt, outcome);
-    return {
-      loop: completed.loop,
-      run: { ...run, completionSignal: completed.signal, status: completed.signal.status === 'complete' ? 'completed' : 'blocked' },
-      completed: true,
-    };
-  }
-
-  /** Uses the reported outcome, else the evaluator, else a mechanical fallback. */
-  private async resolveOutcome(loop: Loop, step: LoopStepDefinition, attempt: StepAttempt): Promise<StepOutcome> {
-    if (attempt.outcome) return attempt.outcome;
-    if (this.deps.evaluator) return this.deps.evaluator.evaluate({ host: this.host, loop, step, attempt });
-    return {
-      status: attempt.status === 'completed' ? 'succeeded' : 'failed',
-      summary: attempt.error ?? `step ${step.id} ${attempt.status}`,
-    };
-  }
-
   private async finalize(loop: Loop, run: LoopRun): Promise<LoopRun> {
     const now = this.host.now();
     this.consumedEvents.delete(loop.id);
-    const finishedRun: LoopRun = { ...run, endedAt: now };
+    const settledRun = run.status === 'cancelled' ? orphanRunningActivations(run, now, 'cancelled') : run;
+    const finishedRun: LoopRun = { ...settledRun, endedAt: now };
     // Durable digest for reflection — colocated with the loop, outside run
     // pruning. Best-effort: a digest write must never fail the run.
     await appendDigest(this.host, loop.id, buildRunDigest(loop, finishedRun), loop.logPolicy.retainDigests ?? DEFAULT_RETAIN_DIGESTS)
@@ -435,10 +263,6 @@ export class RunEngine {
     const step = loop.plan.steps.find((s) => s.id === id);
     if (!step) throw new Error(`step not found: ${id}`);
     return step;
-  }
-
-  private observation(source: 'system', summary: string) {
-    return { id: this.host.newId('obs'), source, summary, createdAt: this.host.now() };
   }
 
   private async markDueAgain(loopId: string): Promise<void> {

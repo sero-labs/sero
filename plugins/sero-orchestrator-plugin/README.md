@@ -12,6 +12,19 @@ token limits, workspace isolation, restart recovery). Sero performs the **work**
 through standard background agents, active sessions, and model calls. Orchestrator
 adds no second permission, approval, or tool-policy layer.
 
+## Bounded feedback
+
+Plans normally run forward through their dependency DAG. For genuinely iterative
+work, the planner may add one bounded feedback transition, such as implement →
+verify → implement. Each return creates a distinct durable visit, so retries stay
+attached to the same visit while feedback passes appear as `Implement #1`,
+`Implement #2`, and so on.
+
+The repeated region must have one entry and one exit. Approval, delivery and
+finalisation stay after it. When its declared traversal limit is reached, the
+loop enters normal recovery instead of repeating again or silently continuing.
+Scheduled and event-driven runs receive a fresh traversal budget each run.
+
 ## Layout
 
 ```

@@ -19,6 +19,7 @@ import type {
 import { EVENT_SOURCE_NAMESPACES, isKnownEventSource } from '../shared/constants';
 import { approvalGateProblems } from './delivery/validate';
 import { isValidCron } from './cron';
+import { feedbackPlanProblems, validateFeedbackShape } from './feedback-region';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
 const SESSION_STRATEGIES = ['specific-session', 'most-recent-active', 'ask-user'];
@@ -145,6 +146,7 @@ function validateStepShape(step: unknown, index: number, errors: string[]): step
   }
   validateExecution(step.execution, String(step.id), errors);
   validateBranching(step, errors);
+  validateFeedbackShape(step, errors);
   return ok;
 }
 
@@ -282,6 +284,7 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
     if (errors.length === 0) {
       validateSingleFinalStep(plan.steps, errors);
       validateGuardSources(plan.steps, errors);
+      errors.push(...feedbackPlanProblems(plan));
     }
   }
   return errors;

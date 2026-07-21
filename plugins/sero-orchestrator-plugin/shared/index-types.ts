@@ -98,6 +98,9 @@ export interface OrchestratorIndex {
  */
 export interface LoopRunStepSummary {
   stepId: string;
+  /** Logical visit number. Absent for history written before activations. */
+  visitNumber?: number;
+  activationId?: string;
   attemptNumber: number;
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;
