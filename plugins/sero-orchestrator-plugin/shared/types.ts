@@ -19,8 +19,10 @@ import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-t
 import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepCompletion } from './recovery-types';
 import type { Observation } from './observation-types';
 import type { LoopRunStatus } from './run-status-types';
+import type { FeedbackRuntimeState, StepActivation, StepFeedbackTransition } from './activation-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
+export type { FeedbackContext, FeedbackRuntimeState, StepActivation, StepActivationStatus, StepFeedbackTransition } from './activation-types';
 
 // Workspace settings & runtime-context types live in workspace-types.ts (500-LOC
 // limit); re-exported here so existing imports from './types' keep resolving.
@@ -228,6 +230,8 @@ export interface LoopStepDefinition {
    * decision. Required on a pre-final step for external destinations.
    */
   gate?: 'approval';
+  /** Optional bounded return to one strict dependency ancestor. */
+  feedback?: StepFeedbackTransition;
 }
 
 // ── Execution targets ───────────────────────────────────────
@@ -328,6 +332,8 @@ export interface LoopRuntimeState {
    * `firedBy` + an `event` observation. Only the coordinator enqueues.
    */
   pendingEvents?: OrchestratorEvent[];
+  /** Per-run traversal counts, keyed by feedback transition id. */
+  feedbackStates?: Record<string, FeedbackRuntimeState>;
 }
 
 export interface LoopBlock {
@@ -390,6 +396,8 @@ export interface LoopRun {
   firedBy?: EventFiredBy;
   startedStepIds: string[];
   stepAttempts: StepAttempt[];
+  /** Durable logical visits. Optional so existing persisted runs keep loading. */
+  stepActivations?: StepActivation[];
   recoveryDecisions: RecoveryDecision[];
   completionSignal?: CompletionSignal;
   observations: Observation[];
@@ -414,6 +422,8 @@ export interface StepAttempt {
   id: string;
   stepId: string;
   attemptNumber: number;
+  /** Logical visit this attempt belongs to. Optional for older history. */
+  activationId?: string;
   parentSessionId: string;
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;

@@ -19,6 +19,7 @@
 import type { Loop, Observation, StepRuntimeState } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { isRecurring, rearmLoop } from './scheduler';
+import { orphanRunningActivations } from './activations';
 
 const inFlight = (state: StepRuntimeState): boolean =>
   state.status === 'running' || state.status === 'ready';
@@ -41,7 +42,7 @@ export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
           ? { ...attempt, status: 'orphaned' as const, endedAt: now, error: attempt.error ?? 'process restarted' }
           : attempt,
       );
-      return { ...run, status: 'orphaned' as const, endedAt: run.endedAt ?? now, stepAttempts };
+      return orphanRunningActivations({ ...run, status: 'orphaned' as const, endedAt: run.endedAt ?? now, stepAttempts }, now, 'orphaned');
     }
     // A non-active run still marked 'running' is a stale zombie from a prior run.
     if (run.status === 'running') return { ...run, status: 'orphaned' as const, endedAt: run.endedAt ?? now };

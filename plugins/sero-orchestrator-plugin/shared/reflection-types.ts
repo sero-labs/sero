@@ -18,6 +18,7 @@ import type {
 export interface RunDigestStep {
   id: string;
   title: string;
+  visitNumber?: number;
   status: StepStatus;
   attempts: number;
   model?: string;

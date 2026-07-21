@@ -17,8 +17,14 @@ export interface LimitCheck {
 
 const OK: LimitCheck = { ok: true };
 
-function totalAttempts(loop: Loop): number {
-  return Object.values(loop.runtime.stepStates).reduce((sum, state) => sum + state.attempts, 0);
+function totalAttempts(loop: Loop, run: LoopRun): number {
+  const projected = Object.values(loop.runtime.stepStates).reduce((sum, state) => sum + state.attempts, 0);
+  // Count real work attempts from history (stepStates.attempts undercounts after a
+  // feedback revisit resets it to 0), but exclude parks: an attempt that asked the
+  // user is a deliberate pause, not a failed work attempt, and must not burn the
+  // total-attempt budget — matching resetStepPending's per-step behaviour.
+  const workAttempts = run.stepAttempts.reduce((sum, attempt) => sum + (attempt.outcome?.questions?.length ? 0 : 1), 0);
+  return Math.max(projected, workAttempts);
 }
 
 function totalTokens(loop: Loop): number {
@@ -39,7 +45,7 @@ function totalCost(loop: Loop): number {
 export function checkManagementLimits(loop: Loop, run: LoopRun, nowMs: number): LimitCheck {
   const limits = loop.limits;
 
-  if (limits.maxAttemptsTotal !== undefined && totalAttempts(loop) >= limits.maxAttemptsTotal) {
+  if (limits.maxAttemptsTotal !== undefined && totalAttempts(loop, run) >= limits.maxAttemptsTotal) {
     return { ok: false, limit: 'maxAttemptsTotal', reason: `reached max total attempts (${limits.maxAttemptsTotal})` };
   }
   if (limits.maxWallClockMs !== undefined) {

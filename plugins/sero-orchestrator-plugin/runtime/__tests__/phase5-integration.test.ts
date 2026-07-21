@@ -3,6 +3,8 @@ import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
 import { createEngineDeps } from '../executors';
 import type { LoopPlan, StepOutcome } from '../../shared/types';
+import { buildRunDigest } from '../digest';
+import { toRunSummary } from '../store';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
 
@@ -64,7 +66,15 @@ describe('Phase 5 — outcomes, recovery, completion', () => {
     seedActiveLoop(host, oneStepPlan().plan);
     host.modelResponses.push({ response: failed() }, { response: json({ decision: 'skip-step', reason: 'not needed' }) });
     await engineFor(host).run('loop-1');
-    expect(loopOf(host).runtime.stepStates['step-1'].status).toBe('skipped');
+    const loop = loopOf(host);
+    const run = loop.runs[0];
+    expect(loop.runtime.stepStates['step-1'].status).toBe('skipped');
+    expect(run.stepActivations?.[0]).toMatchObject({
+      status: 'skipped',
+      outcome: { status: 'skipped', summary: 'not needed' },
+    });
+    expect(toRunSummary(run).steps[0].outcomeStatus).toBe('skipped');
+    expect(buildRunDigest(loop, run).steps[0].status).toBe('skipped');
   });
 
   it('block-loop recovery blocks with recovery-block', async () => {
@@ -128,8 +138,15 @@ describe('Phase 5 — outcomes, recovery, completion', () => {
     );
     await engineFor(host).run('loop-1');
     const loop = loopOf(host);
+    const run = loop.runs[0];
     expect(loop.runtime.stepStates['step-1'].status).toBe('succeeded');
     expect(loop.runtime.variables.file).toBe('src/main.tsx');
+    expect(run.stepActivations?.[0]).toMatchObject({
+      status: 'succeeded',
+      outcome: { status: 'succeeded', summary: 'really done' },
+    });
+    expect(toRunSummary(run).steps[0].outcomeStatus).toBe('succeeded');
+    expect(buildRunDigest(loop, run).steps[0].status).toBe('succeeded');
   });
 
   it('an accept-step outcome that carries completion completes the loop', async () => {

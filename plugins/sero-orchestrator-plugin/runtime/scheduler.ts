@@ -95,6 +95,7 @@ export function rearmLoop(loop: Loop, now: string): Loop {
       dueAgain: false,
       snoozedUntil: undefined,
       pendingTriggerId: undefined,
+      feedbackStates: undefined,
       workspace: {},
     },
     updatedAt: now,
