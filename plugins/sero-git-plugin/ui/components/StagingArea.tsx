@@ -12,9 +12,11 @@ interface StagingAreaProps {
   fileChanges: FileChange[];
   onAction: (action: GitManagerRequest) => void;
   onSelectFile: (path: string, staged: boolean) => void;
+  /** File whose diff is open in the diff panel — its row stays highlighted. */
+  selectedFile?: { path: string; staged: boolean } | null;
 }
 
-export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingAreaProps) {
+export function StagingArea({ fileChanges, onAction, onSelectFile, selectedFile }: StagingAreaProps) {
   const [commitMsg, setCommitMsg] = useState('');
   const staged = fileChanges.filter((f) => f.staged);
   const unstaged = fileChanges.filter((f) => !f.staged);
@@ -62,6 +64,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
             <ChangeRow
               key={`${f.path}:unstaged:${f.status}`}
               file={f}
+              selected={selectedFile?.path === f.path && selectedFile.staged === false}
               onToggle={() => onAction({ action: 'stage', file: f.path })}
               onSelect={() => onSelectFile(f.path, false)}
               actionLabel="+"
@@ -82,6 +85,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
             <ChangeRow
               key={`${f.path}:staged:${f.status}`}
               file={f}
+              selected={selectedFile?.path === f.path && selectedFile.staged === true}
               onToggle={() => onAction({ action: 'unstage', file: f.path })}
               onSelect={() => onSelectFile(f.path, true)}
               actionLabel="-"
@@ -159,9 +163,9 @@ function ChangeColumn({ title, count, className = '', action, children }: Change
 // ── Change row ──────────────────────────────────────────────
 
 function ChangeRow({
-  file, onToggle, onSelect, actionLabel,
+  file, onToggle, onSelect, actionLabel, selected = false,
 }: {
-  file: FileChange; onToggle: () => void; onSelect: () => void; actionLabel: string;
+  file: FileChange; onToggle: () => void; onSelect: () => void; actionLabel: string; selected?: boolean;
 }) {
   const statusColor = {
     added: 'var(--g-green)',
@@ -170,6 +174,7 @@ function ChangeRow({
     renamed: 'var(--g-blue)',
     copied: 'var(--g-blue)',
     untracked: 'var(--g-dim)',
+    conflict: 'var(--g-red)',
   }[file.status];
 
   const fileName = file.path.includes('/')
@@ -180,7 +185,7 @@ function ChangeRow({
     : '';
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--g-hover)] group">
+    <div className={`flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--g-hover)] group ${selected ? 'bg-[var(--g-hover)]' : ''}`.trim()}>
       <button type="button"
         onClick={onToggle}
         className="size-5 rounded flex items-center justify-center text-sm font-bold

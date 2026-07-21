@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import { GitShipActionPill } from './GitShipActionPill';
-import { GitPullRequestComposer } from './GitPullRequestComposer';
+import { PullRequestComposer } from '@/components/git/PullRequestComposer';
 import { GitRemotePublishSection } from './GitRemotePublishSection';
 import type { GitTitleBarState } from './git-titlebar-state';
 import { formatGitRefreshTime } from './git-titlebar-state';
@@ -229,12 +229,15 @@ export function GitShipPanel({
           />
         )}
 
-        <GitPullRequestComposer
-          workspaceId={workspaceId}
-          branchLabel={branchLabel}
-          hasRemote={hasRemote}
-          refreshToken={refreshToken}
-        />
+        <section className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-3">
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">Pull request</h3>
+          <PullRequestComposer
+            workspaceId={workspaceId}
+            hasRemote={hasRemote}
+            preferredSourceBranch={branchLabel}
+            refreshKey={refreshToken}
+          />
+        </section>
 
         {feedback && (
           <div className={cn(

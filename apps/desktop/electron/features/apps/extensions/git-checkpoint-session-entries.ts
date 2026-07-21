@@ -5,7 +5,7 @@ export const CHECKPOINT_ENTRY = 'git-checkpoint';
 export const TURN_UNDO_ENTRY = 'turn-undo';
 
 interface CheckpointEntryLike {
-  changeId: string;
+  sha: string;
   description: string;
   source: string;
 }
@@ -17,7 +17,7 @@ interface TurnUndoEntryLike {
 }
 
 export interface GitCheckpointSessionEntries {
-  appendWorkspaceLink: (changeId: string | null) => void;
+  appendWorkspaceLink: (sha: string | null) => void;
   appendCheckpointEntry: (checkpoint: CheckpointEntryLike) => void;
   appendTurnUndoEntry: (turnUndo: TurnUndoEntryLike) => void;
 }
@@ -27,10 +27,12 @@ export function createGitCheckpointSessionEntries(
   workspaceId: string,
 ): GitCheckpointSessionEntries {
   return {
-    appendWorkspaceLink(changeId) {
+    appendWorkspaceLink(sha) {
+      // `changeId` is the persisted session-entry field name — kept for
+      // compatibility with existing session files.
       pi.appendEntry(WORKSPACE_LINK_ENTRY, {
         workspaceId,
-        changeId,
+        changeId: sha,
         recordedAt: new Date().toISOString(),
       });
     },
@@ -38,7 +40,7 @@ export function createGitCheckpointSessionEntries(
     appendCheckpointEntry(checkpoint) {
       pi.appendEntry(CHECKPOINT_ENTRY, {
         workspaceId,
-        changeId: checkpoint.changeId,
+        changeId: checkpoint.sha,
         description: checkpoint.description,
         source: checkpoint.source,
         recordedAt: new Date().toISOString(),

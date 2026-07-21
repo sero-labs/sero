@@ -202,23 +202,41 @@ export type {
   GitManagerAction,
   GitManagerRequest,
   GitActionResult,
+  CommitNode,
+  RefLabel,
+  BranchInfo,
+  RemoteInfo,
+  FileChangeStatus,
+  FileChange,
+  StashEntry,
+  DiffHunk,
+  DiffLine,
+  FileDiff,
+  GitSyncMode,
+  GitAppState,
 } from './git-app';
+export {
+  createDefaultGitState,
+  normalizeGitState,
+  DEFAULT_GIT_STATE,
+  BRANCH_COLORS,
+} from './git-app';
+export type { GitServiceBridge } from './git-service-bridge';
+export { setGitServiceBridge, getGitServiceBridge } from './git-service-bridge';
 
 export type {
   VcsCheckpointSource,
   VcsCheckpoint,
   VcsWorkspaceState,
-  ChangeEntry,
+  CommitEntry,
   FileStatus,
   StatusFile,
   WorkingCopyStatus,
   FileDiffEntry,
   GitDiffStat,
-  BookmarkRemoteStatus,
-  Bookmark,
+  BranchRemoteStatus,
+  Branch,
   Remote,
-  OperationEntry,
-  PushPreview,
   SyncResult,
   PullRequestRef,
   PullRequestState,
@@ -227,6 +245,11 @@ export type {
   CreatePullRequestInput,
   CreatePullRequestResult,
   VcsEvent,
+  RemoteImportMode,
+  RemoteImportOutcome,
+  ConnectRemoteResult,
+  PublishRepoInput,
+  PublishRepoResult,
 } from './vcs';
 
 export { WORKING_TREE_REV } from './vcs';

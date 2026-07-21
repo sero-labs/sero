@@ -62,6 +62,7 @@ function DiffShell({
     renamed: 'var(--g-blue)',
     copied: 'var(--g-blue)',
     untracked: 'var(--g-dim)',
+    conflict: 'var(--g-red)',
   }[diff.status];
 
   return (

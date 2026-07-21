@@ -9,7 +9,7 @@ import { GitHubAuthOutcomeNote } from '@/components/layout/auth/github/GitHubAut
 import { GitHubAuthSummary } from '@/components/layout/auth/github/GitHubAuthSummary';
 import type { GitHubAuthDialogResult } from '@/stores/github-auth';
 import { useGitHubAuthStore } from '@/stores/github-auth';
-import { connectOrigin, createGitHubOrigin, defaultRepoName } from '../../git-remote/workflow';
+import { connectOrigin, createGitHubOrigin, defaultRepoName } from '../../git-remote/origin-utils';
 
 interface PublishFeedback {
   tone: 'success' | 'error' | 'info';

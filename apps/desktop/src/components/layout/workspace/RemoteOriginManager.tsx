@@ -27,7 +27,7 @@ import {
   ConnectedView,
 } from './remote-origin-views';
 import { ConnectExistingView } from './ConnectExistingView';
-import { fetchOriginInfo, toOriginInfo, type GitRemoteOriginInfo } from '../git-remote/workflow';
+import { fetchOriginInfo, toOriginInfo, type GitRemoteOriginInfo } from '../git-remote/origin-utils';
 
 // ── Types ────────────────────────────────────────────────────
 

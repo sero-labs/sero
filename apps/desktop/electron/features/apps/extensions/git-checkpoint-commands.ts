@@ -30,7 +30,7 @@ export function registerManualGitCheckpointCommands(
         entries.appendCheckpointEntry(checkpoint);
         pi.sendMessage({
           customType: 'git-checkpoint',
-          content: `Checkpoint created: **${checkpoint.changeId}**`,
+          content: `Checkpoint created: **${checkpoint.sha}**`,
           display: true,
           details: checkpoint,
         });
@@ -61,7 +61,7 @@ export function registerManualGitCheckpointCommands(
           return;
         }
 
-        const lines = checkpoints.map((cp) => `- \`${cp.changeId}\` ${cp.description}`);
+        const lines = checkpoints.map((cp) => `- \`${cp.sha}\` ${cp.description}`);
         pi.sendMessage({
           customType: 'git-checkpoint',
           content: `**Recent checkpoints (${checkpoints.length})**\n${lines.join('\n')}`,
@@ -80,8 +80,8 @@ export function registerManualGitCheckpointCommands(
   pi.registerCommand('restore', {
     description: 'Restore the workspace files to a checkpoint: /restore <commit-sha>',
     handler: async (args) => {
-      const changeId = args?.trim();
-      if (!changeId) {
+      const checkpointId = args?.trim();
+      if (!checkpointId) {
         pi.sendMessage({
           customType: 'git-checkpoint',
           content: 'Usage: /restore <commit-sha>',
@@ -91,11 +91,11 @@ export function registerManualGitCheckpointCommands(
       }
 
       try {
-        await vcsManager.restoreCheckpoint(workspaceId, changeId);
-        entries.appendWorkspaceLink(changeId);
+        await vcsManager.restoreCheckpoint(workspaceId, checkpointId);
+        entries.appendWorkspaceLink(checkpointId);
         pi.sendMessage({
           customType: 'git-checkpoint',
-          content: `Workspace restored to **${changeId}**.`,
+          content: `Workspace restored to **${checkpointId}**.`,
           display: true,
         });
       } catch (err) {

@@ -217,7 +217,7 @@ describe('registerGitCheckpointFeatures', () => {
     const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
     const { pi, runCommand } = createPiStub();
     mocks.createCheckpoint.mockResolvedValue({
-      changeId: 'man123',
+      sha: 'man123',
       description: 'checkpoint: manual save',
       source: 'manual',
     });
@@ -239,7 +239,7 @@ describe('registerGitCheckpointFeatures', () => {
       content: 'Checkpoint created: **man123**',
       display: true,
       details: {
-        changeId: 'man123',
+        sha: 'man123',
         description: 'checkpoint: manual save',
         source: 'manual',
       },
@@ -250,8 +250,8 @@ describe('registerGitCheckpointFeatures', () => {
     const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
     const { pi, runCommand } = createPiStub();
     mocks.listCheckpoints.mockResolvedValue([
-      { changeId: 'a1', description: 'checkpoint: manual one', source: 'manual' },
-      { changeId: 'b2', description: 'checkpoint: turn two', source: 'turn' },
+      { sha: 'a1', description: 'checkpoint: manual one', source: 'manual' },
+      { sha: 'b2', description: 'checkpoint: turn two', source: 'turn' },
     ]);
 
     registerGitCheckpointFeatures(pi, 'ws-1');

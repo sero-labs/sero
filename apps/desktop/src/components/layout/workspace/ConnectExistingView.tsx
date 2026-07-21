@@ -12,7 +12,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
 import type { WorkspaceInfo } from '@/types/ipc';
-import { connectOrigin, describeImportOutcome } from '../git-remote/workflow';
+import { connectOrigin, describeImportOutcome } from '../git-remote/origin-utils';
 import { BackButton, ErrorBanner } from './remote-origin-views';
 
 type Phase =

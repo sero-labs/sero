@@ -37,15 +37,19 @@ test.describe('VCS - IPC Bridge', () => {
   test('should expose all VCS IPC methods', async () => {
     const methods = await page.evaluate(() => {
       const v = (window as any).sero.vcs;
+      const appState = (window as any).sero.appState;
       return {
         listCheckpoints: typeof v.listCheckpoints === 'function',
         getState: typeof v.getState === 'function',
         createCheckpoint: typeof v.createCheckpoint === 'function',
         restore: typeof v.restore === 'function',
         diff: typeof v.diff === 'function',
-        watch: typeof v.watch === 'function',
-        unwatch: typeof v.unwatch === 'function',
+        refreshState: typeof v.refreshState === 'function',
         onEvent: typeof v.onEvent === 'function',
+        // Repo state is pushed via the app-state file subscription
+        appStateWatch: typeof appState.watch === 'function',
+        appStateUnwatch: typeof appState.unwatch === 'function',
+        appStateOnChange: typeof appState.onChange === 'function',
       };
     });
     expect(methods.listCheckpoints).toBe(true);
@@ -53,9 +57,11 @@ test.describe('VCS - IPC Bridge', () => {
     expect(methods.createCheckpoint).toBe(true);
     expect(methods.restore).toBe(true);
     expect(methods.diff).toBe(true);
-    expect(methods.watch).toBe(true);
-    expect(methods.unwatch).toBe(true);
+    expect(methods.refreshState).toBe(true);
     expect(methods.onEvent).toBe(true);
+    expect(methods.appStateWatch).toBe(true);
+    expect(methods.appStateUnwatch).toBe(true);
+    expect(methods.appStateOnChange).toBe(true);
   });
 
   test('should subscribe and unsubscribe from VCS events', async () => {
@@ -155,7 +161,7 @@ test.describe('VCS - Checkpoint Lifecycle', () => {
 
     // Checkpoint creation may fail if git is not available
     if (checkpoint !== null) {
-      expect(checkpoint).toHaveProperty('changeId');
+      expect(checkpoint).toHaveProperty('sha');
       expect(checkpoint).toHaveProperty('description');
       expect(checkpoint.description).toContain('e2e test checkpoint');
       expect(checkpoint).toHaveProperty('source', 'manual');
@@ -184,14 +190,14 @@ test.describe('VCS - Checkpoint Lifecycle', () => {
     }
 
     const diff = await page.evaluate(
-      async ({ wsId, changeId }: { wsId: string; changeId: string }) => {
+      async ({ wsId, sha }: { wsId: string; sha: string }) => {
         try {
-          return await (window as any).sero.vcs.diff(wsId, changeId);
+          return await (window as any).sero.vcs.diff(wsId, sha);
         } catch {
           return null;
         }
       },
-      { wsId: testWorkspaceId, changeId: state.checkpoints[0].changeId },
+      { wsId: testWorkspaceId, sha: state.checkpoints[0].sha },
     );
 
     // Diff returns a string (may be empty if no changes)
@@ -201,8 +207,8 @@ test.describe('VCS - Checkpoint Lifecycle', () => {
   });
 });
 
-test.describe('VCS - Watch/Unwatch', () => {
-  test('should watch and unwatch a workspace', async () => {
+test.describe('VCS - Repo State Subscription', () => {
+  test('should watch and unwatch the pushed git state file', async () => {
     const workspaces = await page.evaluate(async () => {
       return (window as any).sero.workspace.list();
     });
@@ -212,30 +218,49 @@ test.describe('VCS - Watch/Unwatch', () => {
       return;
     }
 
-    const wsId = workspaces[0].id;
+    const stateFilePath = `${workspaces[0].path.replace(/\/+$/, '')}/.sero/apps/git/state.json`;
 
-    // Watch should not throw
-    const watchResult = await page.evaluate(async (id: string) => {
+    // Watch should not throw (returns the current state or null/undefined)
+    const watchResult = await page.evaluate(async (filePath: string) => {
       try {
-        await (window as any).sero.vcs.watch(id);
+        await (window as any).sero.appState.watch(filePath);
         return 'ok';
       } catch (e) {
         return e instanceof Error ? e.message : String(e);
       }
-    }, wsId);
+    }, stateFilePath);
 
     // Unwatch should not throw
-    const unwatchResult = await page.evaluate(async (id: string) => {
+    const unwatchResult = await page.evaluate(async (filePath: string) => {
       try {
-        await (window as any).sero.vcs.unwatch(id);
+        await (window as any).sero.appState.unwatch(filePath);
         return 'ok';
       } catch (e) {
         return e instanceof Error ? e.message : String(e);
       }
-    }, wsId);
+    }, stateFilePath);
 
     // Results depend on whether git is available, but neither should crash the app
     expect(typeof watchResult).toBe('string');
     expect(typeof unwatchResult).toBe('string');
+  });
+
+  test('should refresh repo state on demand', async () => {
+    const workspaces = await page.evaluate(async () => {
+      return (window as any).sero.workspace.list();
+    });
+
+    if (workspaces.length === 0) {
+      test.skip();
+      return;
+    }
+
+    // Never rejects — git-less workspaces report ok: false with a message
+    const result = await page.evaluate(async (wsId: string) => {
+      return (window as any).sero.vcs.refreshState(wsId);
+    }, workspaces[0].id);
+
+    expect(typeof result.ok).toBe('boolean');
+    expect(typeof result.message).toBe('string');
   });
 });

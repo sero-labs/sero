@@ -156,6 +156,12 @@ export function GitApp() {
   }, [pendingDiffRequest, state.lastRefresh]);
 
   const viewDiff = activeDiff ?? requestedStateDiff ?? null;
+  const selectedStagingFile = useMemo(
+    () => (showDiffPanel && pendingDiffRequest
+      ? { path: pendingDiffRequest.path, staged: pendingDiffRequest.staged }
+      : null),
+    [showDiffPanel, pendingDiffRequest],
+  );
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
   const isNotRepo = state.error === 'Not a git repository' && isWorkspaceStateCurrent;
@@ -222,6 +228,7 @@ export function GitApp() {
               fileChanges={state.fileChanges}
               onAction={runAction}
               onSelectFile={handleSelectStagingFile}
+              selectedFile={selectedStagingFile}
             />
           </>
         )}

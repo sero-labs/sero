@@ -144,6 +144,7 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
     renamed: 'var(--g-blue)',
     copied: 'var(--g-blue)',
     untracked: 'var(--g-dim)',
+    conflict: 'var(--g-red)',
   }[diff.status];
 
   const statusLabel = diff.status[0].toUpperCase();

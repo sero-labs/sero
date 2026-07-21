@@ -5,9 +5,9 @@ import { MAX_ZOOM, MIN_ZOOM, useZoomStore } from '@/stores/zoom';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
 import { useVcsStore } from '@/stores/vcs';
-import type { Bookmark } from '@sero-ai/common';
+import type { Branch } from '@sero-ai/common';
 
-const EMPTY_BOOKMARKS: Bookmark[] = [];
+const EMPTY_BOOKMARKS: Branch[] = [];
 
 /**
  * StatusBar, bottom bar showing workspace info (à la VSCode).
@@ -20,14 +20,14 @@ export function StatusBar() {
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activeWorkspace = useActiveWorkspace();
   const activeWorkspaceId = activeWorkspace?.id ?? null;
-  const activePushBookmark = useVcsStore((state) => (
+  const activePushBranch = useVcsStore((state) => (
     activeWorkspaceId
-      ? (state.byWorkspace[activeWorkspaceId]?.activePushBookmark ?? null)
+      ? (state.byWorkspace[activeWorkspaceId]?.activePushBranch ?? null)
       : null
   ));
-  const bookmarks = useVcsStore((state) => (
+  const branches = useVcsStore((state) => (
     activeWorkspaceId
-      ? (state.byWorkspace[activeWorkspaceId]?.bookmarks ?? EMPTY_BOOKMARKS)
+      ? (state.byWorkspace[activeWorkspaceId]?.branches ?? EMPTY_BOOKMARKS)
       : EMPTY_BOOKMARKS
   ));
 
@@ -58,8 +58,8 @@ export function StatusBar() {
         <DevServerIndicator />
         <ActivePushBranchPicker
           workspaceId={activeWorkspaceId}
-          activePushBookmark={activePushBookmark}
-          bookmarks={bookmarks}
+          activePushBranch={activePushBranch}
+          branches={branches}
         />
         <ZoomControl />
         <span>Sero v0.1.0</span>
@@ -78,14 +78,14 @@ export function StatusBar() {
 
 function ActivePushBranchPicker({
   workspaceId,
-  activePushBookmark,
-  bookmarks,
+  activePushBranch,
+  branches,
 }: {
   workspaceId: string | null;
-  activePushBookmark: string | null;
-  bookmarks: Bookmark[];
+  activePushBranch: string | null;
+  branches: Branch[];
 }) {
-  const setActivePushBookmark = useVcsStore((s) => s.setActivePushBookmark);
+  const setActivePushBranch = useVcsStore((s) => s.setActivePushBranch);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -101,7 +101,7 @@ function ActivePushBranchPicker({
   }, [open]);
 
   if (!workspaceId) return null;
-  if (!activePushBookmark && bookmarks.length === 0) return null;
+  if (!activePushBranch && branches.length === 0) return null;
 
   return (
     <div ref={rootRef} className="relative">
@@ -112,7 +112,7 @@ function ActivePushBranchPicker({
       >
         <GitBranch className="size-3" />
         <span className="rounded-sm border border-[var(--brand-primary-border)] bg-[var(--brand-primary-muted)] px-1 py-px font-mono text-[var(--brand-primary)]">
-          {activePushBookmark ?? 'auto'}
+          {activePushBranch ?? 'auto'}
         </span>
       </button>
 
@@ -120,25 +120,25 @@ function ActivePushBranchPicker({
         <div className="absolute bottom-6 right-0 z-50 min-w-[180px] rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-lg">
           <button type="button"
             onClick={() => {
-              setActivePushBookmark(workspaceId, null);
+              setActivePushBranch(workspaceId, null);
               setOpen(false);
             }}
             className="flex w-full items-center justify-between rounded px-2 py-1 text-left hover:bg-[var(--bg-muted)]"
           >
             <span>Auto (main/first)</span>
-            {!activePushBookmark && <span className="text-[var(--brand-primary)]">active</span>}
+            {!activePushBranch && <span className="text-[var(--brand-primary)]">active</span>}
           </button>
-          {bookmarks.map((bm) => (
+          {branches.map((bm) => (
             <button type="button"
               key={bm.name}
               onClick={() => {
-                setActivePushBookmark(workspaceId, bm.name);
+                setActivePushBranch(workspaceId, bm.name);
                 setOpen(false);
               }}
               className="flex w-full items-center justify-between rounded px-2 py-1 text-left hover:bg-[var(--bg-muted)]"
             >
               <span className="truncate">{bm.name}</span>
-              {activePushBookmark === bm.name && <span className="text-[var(--brand-primary)]">active</span>}
+              {activePushBranch === bm.name && <span className="text-[var(--brand-primary)]">active</span>}
             </button>
           ))}
         </div>
