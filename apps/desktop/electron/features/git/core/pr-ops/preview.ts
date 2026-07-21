@@ -49,6 +49,11 @@ async function compareBranches(
   };
 }
 
+async function hasUncommittedChanges(runner: GitRunner, workspaceId: string): Promise<boolean> {
+  const status = await runner.run(workspaceId, ['status', '--porcelain']);
+  return status.exitCode === 0 && status.stdout.trim().length > 0;
+}
+
 async function findExistingOpenPr(
   runner: GitRunner,
   workspaceId: string,
@@ -145,7 +150,9 @@ export async function buildPullRequestPreview(
       hasChanges: false,
       changedFiles: 0,
       files: [],
-      blockingReason: `No changes found between '${source}' and '${target}'.`,
+      blockingReason: (await hasUncommittedChanges(runner, workspaceId))
+        ? `No commits on '${source}' that '${target}' doesn't have. Commit your changes first — uncommitted work isn't part of a pull request.`
+        : `No changes found between '${source}' and '${target}'.`,
     };
   }
 

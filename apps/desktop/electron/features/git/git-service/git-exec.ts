@@ -56,7 +56,10 @@ function formatGitError(error: unknown, args: string[]): string {
 }
 
 function normalizeResult(output: string, trim: boolean): string {
-  return trim ? output.trim() : output;
+  // Trailing only: a leading space is significant in git plumbing output —
+  // `status --porcelain` encodes "not staged" as a space in the first column,
+  // so a full trim() corrupts the first record (staged flag + first path char).
+  return trim ? output.trimEnd() : output;
 }
 
 export async function runGitAsync(
