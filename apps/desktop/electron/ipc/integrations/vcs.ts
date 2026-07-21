@@ -79,37 +79,48 @@ export function registerVcsHandlers(): void {
     vcsOps.getFileContent(wsId, rev, path),
   );
 
-  ipcMain.handle(Ch.amendMessage, async (_e, wsId: string, sha: string, msg: string) =>
-    vcsOps.amendCommitMessage(wsId, sha, msg),
-  );
+  // Mutations invalidate the pushed repo-state cache after they succeed. In
+  // watch mode the .git watchers fire too — the coordinator's debounce
+  // collapses both into one refresh; in manual mode this is the only trigger.
 
-  ipcMain.handle(Ch.createBranch, async (_e, wsId: string, name: string, rev?: string) =>
-    vcsOps.createBranch(wsId, name, rev),
-  );
+  ipcMain.handle(Ch.amendMessage, async (_e, wsId: string, sha: string, msg: string) => {
+    await vcsOps.amendCommitMessage(wsId, sha, msg);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:amend-message');
+  });
 
-  ipcMain.handle(Ch.deleteBranch, async (_e, wsId: string, name: string) =>
-    vcsOps.deleteBranch(wsId, name),
-  );
+  ipcMain.handle(Ch.createBranch, async (_e, wsId: string, name: string, rev?: string) => {
+    await vcsOps.createBranch(wsId, name, rev);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:create-branch');
+  });
 
-  ipcMain.handle(Ch.moveBranch, async (_e, wsId: string, name: string, toRev: string) =>
-    vcsOps.moveBranch(wsId, name, toRev),
-  );
+  ipcMain.handle(Ch.deleteBranch, async (_e, wsId: string, name: string) => {
+    await vcsOps.deleteBranch(wsId, name);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:delete-branch');
+  });
+
+  ipcMain.handle(Ch.moveBranch, async (_e, wsId: string, name: string, toRev: string) => {
+    await vcsOps.moveBranch(wsId, name, toRev);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:move-branch');
+  });
 
   ipcMain.handle(Ch.remotes, async (_e, wsId: string) =>
     vcsOps.listRemotes(wsId),
   );
 
-  ipcMain.handle(Ch.addRemote, async (_e, wsId: string, name: string, url: string) =>
-    vcsOps.addRemote(wsId, name, url),
-  );
+  ipcMain.handle(Ch.addRemote, async (_e, wsId: string, name: string, url: string) => {
+    await vcsOps.addRemote(wsId, name, url);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:add-remote');
+  });
 
-  ipcMain.handle(Ch.setRemoteUrl, async (_e, wsId: string, name: string, url: string) =>
-    vcsOps.setRemoteUrl(wsId, name, url),
-  );
+  ipcMain.handle(Ch.setRemoteUrl, async (_e, wsId: string, name: string, url: string) => {
+    await vcsOps.setRemoteUrl(wsId, name, url);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:set-remote-url');
+  });
 
-  ipcMain.handle(Ch.removeRemote, async (_e, wsId: string, name: string) =>
-    vcsOps.removeRemote(wsId, name),
-  );
+  ipcMain.handle(Ch.removeRemote, async (_e, wsId: string, name: string) => {
+    await vcsOps.removeRemote(wsId, name);
+    gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:remove-remote');
+  });
 
   ipcMain.handle(Ch.checkoutRemote, async (_e, wsId: string, remote?: string) => {
     const result = await vcsOps.checkoutRemote(wsId, remote);
@@ -162,9 +173,11 @@ export function registerVcsHandlers(): void {
     vcsOps.fetch(wsId, remote),
   );
 
-  ipcMain.handle(Ch.push, async (_e, wsId: string, branch?: string, sha?: string) =>
-    vcsOps.push(wsId, branch, sha),
-  );
+  ipcMain.handle(Ch.push, async (_e, wsId: string, branch?: string, sha?: string) => {
+    const result = await vcsOps.push(wsId, branch, sha);
+    if (result.success) gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:push');
+    return result;
+  });
 
   // ── Pull request workflow ────────────────────────────────
 
