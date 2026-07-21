@@ -368,3 +368,44 @@ macOS on Intel CPUs is explicitly unsupported and must not appear as a planned
 or pending Sero target. Windows ARM64 is not supported today, but may be
 revisited as a future target when runner, packaging, and browser-pack validation
 exist.
+
+## AD-024: Unified Git Layer
+
+**Problem:** Six overlapping git/GitHub subsystems grew independently: a
+jj-vocabulary core layer (the only one that is container-aware and injects
+Sero's GitHub token), a raw-exec worktree layer for background loops, the
+sero-git-plugin's own complete git stack (also run in-process by electron
+main), three GitHub credential postures (Sero OAuth vs ambient `gh login` vs
+anonymous), two renderer repo-state caches, two PR composers, and renderer-side
+remote-connect policy keyed on error-message strings. Full audit:
+`docs/features/vcs-unification.md`.
+
+**Decision:** One main-process module (`electron/features/git/`) owns git
+execution, local operations, checkpoints/snapshots, worktrees, GitHub, and repo
+state. Everything else — renderer, plugins, CLI, agent tools, background
+loops — is a consumer.
+
+- **Plain git vocabulary everywhere.** The jj terms (changeId, bookmark,
+  op log, abandon, squash) were renaming, not abstraction, and jj support was
+  removed. "Checkpoint" and "snapshot" remain as Sero product concepts.
+- **One spawn seam.** GitExecutor (evolved GitRunner) is the only place that
+  spawns `git` or `gh`, addressing repos by workspaceId (runtime-routed) or
+  explicit path (worktrees) — auth env injection in both modes.
+- **GitHub = `gh` CLI only, through GitExecutor.** Sero's OAuth token is
+  injected as `GH_TOKEN` (env wins over gh's own login), so signed-in users get
+  one credential everywhere and ambient `gh login` is a uniform fallback.
+  Device-flow auth acquisition stays REST in the auth manager.
+- **sero-git-plugin is a pure consumer**: it keeps the UI, widgets, `/git`
+  command, and `git_manager` tool registration; the host owns the service,
+  state.json writing, and invalidation.
+- **One repo-state cache** (GitStateService, push-model state.json) feeds the
+  titlebar, explorer, and plugin UI alike.
+- **Remote-connect/publish policy lives in main** as atomic operations; the
+  renderer holds presentation state only.
+
+**Rules:**
+- Never spawn `git`/`gh` outside GitExecutor for workspace/worktree repos.
+  (Documented one-offs: plugin installFromGit, orchestrator catalog cache,
+  container provisioning, plugin discovery search.)
+- New git features extend GitService/GitHubService — never a parallel helper.
+- Repo state reaches UIs only through GitStateService.

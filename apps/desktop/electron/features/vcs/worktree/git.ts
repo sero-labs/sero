@@ -13,6 +13,9 @@ const execFileAsync = promisify(execFile);
 /** Max buffer for git diff output (50MB — diffs can be large for greenfield projects). */
 const DIFF_MAX_BUFFER = 50 * 1024 * 1024;
 
+/** The well-known git empty-tree object — diff base for root commits. */
+const EMPTY_TREE_REV = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
 /** Extract stderr and message from an execFile error. */
 function execError(err: unknown): { stderr: string; message: string } {
   if (err && typeof err === 'object') {
@@ -219,19 +222,11 @@ async function resolveBaseBranch(worktreePath: string): Promise<string> {
       cwd: worktreePath,
       timeout: 5_000,
     });
-    if (r.stdout.trim()) return 'HEAD~10';
+    if (r.stdout.trim()) return 'HEAD~1';
   } catch { /* single commit or empty repo */ }
 
   // Single commit (root) — use the empty tree so diff shows all files
-  try {
-    const r = await execFileAsync('git', ['hash-object', '-t', 'tree', '/dev/null'], {
-      cwd: worktreePath,
-      timeout: 5_000,
-    });
-    return r.stdout.trim();
-  } catch {
-    return 'HEAD~10';
-  }
+  return EMPTY_TREE_REV;
 }
 
 /** Get the diff of all changes in a worktree from the branch base. */

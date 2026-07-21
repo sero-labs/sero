@@ -22,6 +22,24 @@ function execError(err: unknown): { stderr: string; message: string } {
   return { stderr: '', message: String(err) };
 }
 
+/**
+ * gh reads fail soft to `[]`, which makes a missing or logged-out `gh` look
+ * like "no PRs/issues". Distinguish those causes in the log so the empty
+ * board is diagnosable.
+ */
+function warnGhReadFailure(op: string, err: unknown): void {
+  const { stderr, message } = execError(err);
+  const detail = (stderr || message).slice(0, 200);
+  const code = (err as { code?: string })?.code;
+  if (code === 'ENOENT') {
+    console.warn(`[worktree-pr] gh ${op}: gh CLI not found — returning empty list`);
+  } else if (/auth|login|credentials|401|403/i.test(detail)) {
+    console.warn(`[worktree-pr] gh ${op}: not authenticated — returning empty list:`, detail);
+  } else {
+    console.warn(`[worktree-pr] gh ${op} failed — returning empty list:`, detail);
+  }
+}
+
 async function fetchRemoteRefs(worktreePath: string): Promise<void> {
   try {
     await execFileAsync('git', ['fetch', 'origin'], {
@@ -222,7 +240,8 @@ export async function listOpenPullRequests(
     const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });
     const parsed = JSON.parse(r.stdout) as OpenPullRequestSummary[];
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (err) {
+    warnGhReadFailure('pr list', err);
     return [];
   }
 }
@@ -265,7 +284,8 @@ export async function listOpenIssues(cwd: string): Promise<OpenIssueSummary[]> {
       assignees: (issue.assignees ?? []).flatMap((assignee) => assignee.login ? [assignee.login] : []),
       updatedAt: issue.updatedAt,
     }));
-  } catch {
+  } catch (err) {
+    warnGhReadFailure('issue list', err);
     return [];
   }
 }

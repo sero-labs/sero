@@ -10,7 +10,6 @@ import {
   FileText,
   RotateCcw,
   Trash2,
-  ArrowDownToLine,
   Pencil,
   Check,
   X,
@@ -238,11 +237,6 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               icon={<RotateCcw className="size-3" />}
               label="Restore checkpoint"
               onClick={() => void restoreCheckpoint(workspaceId, entry.changeId)}
-            />
-            <DetailAction
-              icon={<ArrowDownToLine className="size-3" />}
-              label="Squash"
-              onClick={() => void abandon(workspaceId, entry.changeId)}
             />
             <DetailAction
               icon={<Trash2 className="size-3" />}
