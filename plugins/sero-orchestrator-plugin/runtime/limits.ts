@@ -18,12 +18,26 @@ export interface LimitCheck {
 const OK: LimitCheck = { ok: true };
 
 function totalAttempts(loop: Loop, run: LoopRun): number {
-  const projected = Object.values(loop.runtime.stepStates).reduce((sum, state) => sum + state.attempts, 0);
+  // A fan-out step's stepState.attempts counts its whole-step VISITS (for
+  // maxAttemptsPerStep gating and the join attempt's number); its real executor
+  // cost is its per-item activation attempts, counted in workAttempts below. So
+  // exclude the fan-out container from `projected` — otherwise one fan-out visit
+  // double-counts against the total-attempt budget (once as the container, once
+  // as its activations).
+  const fanOutStepIds = new Set(loop.plan.steps.filter((step) => step.fanOut).map((step) => step.id));
+  const projected = Object.entries(loop.runtime.stepStates).reduce(
+    (sum, [id, state]) => sum + (fanOutStepIds.has(id) ? 0 : state.attempts),
+    0,
+  );
   // Count real work attempts from history (stepStates.attempts undercounts after a
-  // feedback revisit resets it to 0), but exclude parks: an attempt that asked the
-  // user is a deliberate pause, not a failed work attempt, and must not burn the
-  // total-attempt budget — matching resetStepPending's per-step behaviour.
-  const workAttempts = run.stepAttempts.reduce((sum, attempt) => sum + (attempt.outcome?.questions?.length ? 0 : 1), 0);
+  // feedback revisit resets it to 0), but exclude parks and synthetic records: an
+  // attempt that asked the user is a deliberate pause, and a fan-out join is
+  // bookkeeping over its per-item activations — neither called an executor, so
+  // neither burns the total-attempt budget (matching resetStepPending per-step).
+  const workAttempts = run.stepAttempts.reduce(
+    (sum, attempt) => sum + (attempt.synthetic || attempt.outcome?.questions?.length ? 0 : 1),
+    0,
+  );
   return Math.max(projected, workAttempts);
 }
 
@@ -39,6 +53,19 @@ function totalCost(loop: Loop): number {
     (sum, run) => sum + run.stepAttempts.reduce((s, a) => s + (a.usage?.costUsd ?? 0), 0),
     0,
   );
+}
+
+/**
+ * How many more work attempts the run may still start before `maxAttemptsTotal`
+ * trips (Infinity when uncapped). A fan-out wave is capped to this so one wave of
+ * up-to-maxConcurrency activations cannot overshoot the total-attempt budget —
+ * the between-wave `checkManagementLimits` only catches an overshoot after it has
+ * already happened.
+ */
+export function remainingAttemptBudget(loop: Loop, run: LoopRun): number {
+  const max = loop.limits.maxAttemptsTotal;
+  if (max === undefined) return Infinity;
+  return Math.max(0, max - totalAttempts(loop, run));
 }
 
 /** Checks loop-level limits before starting another batch of attempts. */

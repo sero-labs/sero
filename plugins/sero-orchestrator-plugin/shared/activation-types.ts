@@ -40,6 +40,12 @@ export interface StepActivation {
   stepId: string;
   visitNumber: number;
   status: StepActivationStatus;
+  /** Set on fan-out activations: which item of the expanded collection this is. */
+  fanOut?: {
+    index: number;
+    key: string;
+    item: unknown;
+  };
   attemptIds: string[];
   outcome?: StepOutcome;
   triggeredByFeedbackId?: string;

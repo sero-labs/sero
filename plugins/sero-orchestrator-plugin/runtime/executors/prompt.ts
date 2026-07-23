@@ -7,6 +7,8 @@
  */
 
 import type { Loop, LoopRun, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
+import type { FanOutRunContext } from '../engine-types';
+import { fanOutResultsVariable } from '../../shared/fanout-types';
 import { extractJson } from '../schema';
 import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
@@ -136,11 +138,22 @@ function feedbackContext(step: LoopStepDefinition, run?: LoopRun): string {
   return `\nFEEDBACK REVISIT #${context.traversal} — transition "${context.feedbackId}" returned here from step "${context.sourceStepId}" (activation ${context.sourceActivationId}). Use these findings to improve the next pass; do not treat this as a mechanical retry.\nSource outcome: ${context.sourceOutcome.summary}\nSource variables:\n${JSON.stringify(context.sourceOutcome.variables ?? {}, null, 2)}${artifact}${observations}`;
 }
 
-export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
+/**
+ * The one item a fan-out activation handles (specs/17-dynamic-fan-out.md). The
+ * item rides in the prompt (not in loop variables) because sibling activations
+ * run concurrently, each with a different value for the same variable name.
+ */
+function fanOutContext(step: LoopStepDefinition, fanOut?: FanOutRunContext): string {
+  if (!fanOut || !step.fanOut) return '';
+  return `\nFAN-OUT ACTIVATION ${fanOut.index + 1} of ${fanOut.total} ("${fanOut.key}") — this step runs once per item of "${step.fanOut.itemsFrom}". Handle ONLY the item below; sibling activations handle the rest, so do not process, enumerate, or summarise other items. Record this activation's findings in your StepOutcome "variables"/"summary" — they are aggregated with the sibling results (as "${fanOutResultsVariable(step.fanOut)}") for downstream steps.\nYour item (variables.${fanOut.itemVariable}):\n${JSON.stringify(fanOut.item, null, 2)}`;
+}
+
+export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun, fanOut?: FanOutRunContext): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
   parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
+  parts.push(fanOutContext(step, fanOut));
   parts.push(feedbackContext(step, run));
   if (step.gate === 'approval') {
     parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":

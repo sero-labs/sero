@@ -10,7 +10,8 @@ import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcome
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
-import { resetStepPending, replaceRun } from './run-engine-helpers';
+import { blockLimit, resetStepPending, replaceRun, resolveOutcome } from './run-engine-helpers';
+import { runFanOutStep } from './fan-out-run';
 import { parkForInput } from './human-input';
 import { applyRecovery } from './recovery-apply';
 import { isRecurring } from './scheduler';
@@ -54,12 +55,6 @@ function applyOutcome(host: OrchestratorHost, loop: Loop, run: LoopRun, stepId: 
   };
 }
 
-async function resolveOutcome(host: OrchestratorHost, deps: EngineDeps, loop: Loop, step: LoopStepDefinition, attempt: StepAttempt): Promise<StepOutcome> {
-  if (attempt.outcome) return attempt.outcome;
-  if (deps.evaluator) return deps.evaluator.evaluate({ host, loop, step, attempt });
-  return { status: attempt.status === 'completed' ? 'succeeded' : 'failed', summary: attempt.error ?? `step ${step.id} ${attempt.status}` };
-}
-
 function syncRun(loop: Loop, run: LoopRun): Loop {
   return { ...loop, runs: replaceRun(loop.runs, run) };
 }
@@ -68,11 +63,19 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
   const { host, deps, batch, signal, commit } = input;
   let { loop, run } = input;
   const startNow = host.now();
-  const started = startActivations(loop, run, batch, startNow);
+  // A fan-out step is always batched alone (run-engine) and creates its own
+  // per-item activations; only plain steps get a visit activation here.
+  const fanOutStep = batch.length === 1 ? loop.plan.steps.find((step) => step.id === batch[0] && step.fanOut) : undefined;
+  const started = startActivations(loop, run, fanOutStep ? [] : batch, startNow);
   loop = started.loop;
   run = { ...started.run, startedStepIds: [...run.startedStepIds, ...batch] };
   for (const stepId of batch) {
     const prev = loop.runtime.stepStates[stepId];
+    // Bump every step's visit count, fan-out included: this drives
+    // maxAttemptsPerStep gating and numbers the fan-out join attempt. The
+    // container does NOT double-count against maxAttemptsTotal — limits.ts
+    // excludes fan-out containers from `projected` and counts their per-item
+    // activations instead.
     loop = {
       ...loop,
       runtime: { ...loop.runtime, stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'running', attempts: prev.attempts + 1, updatedAt: startNow } } },
@@ -81,16 +84,39 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
   loop = await commit(syncRun(loop, run));
 
   const steps = batch.map((id) => loop.plan.steps.find((step) => step.id === id)!);
-  const attempts = await Promise.all(steps.map((step) => deps.executor.run({
-    host,
-    loop,
-    run,
-    step,
-    attemptNumber: loop.runtime.stepStates[step.id].attempts,
-    parentSessionId: loop.runtime.parentSessionId,
-    workspace: loop.runtime.workspace.resolved,
-    signal,
-  })));
+  let attempts: StepAttempt[];
+  if (fanOutStep) {
+    // Expands the collection, runs activations in bounded waves (committing per
+    // wave), and returns ONE join attempt that flows through the ordinary
+    // outcome/recovery path below like any single step's attempt.
+    const result = await runFanOutStep({ host, deps, loop, run, step: fanOutStep, signal, commit });
+    loop = result.loop;
+    run = result.run;
+    // A management limit tripped mid-fan-out: block the loop directly, exactly
+    // like the engine's pre-batch limit check — no LLM recovery, and the block is
+    // recorded as `management-limit`, not `recovery-block`. The step returns to
+    // pending so a later retry resumes from the persisted manifest (settled
+    // activations are not repeated).
+    if (result.limit) {
+      const now = host.now();
+      loop = blockLimit(resetStepPending(loop, fanOutStep.id, now), result.limit.limit, result.limit.reason ?? 'management limit reached', now);
+      run = { ...run, status: 'blocked', block: loop.runtime.block };
+      loop = await commit(syncRun(loop, run));
+      return { loop, run, stop: true };
+    }
+    attempts = [result.attempt!];
+  } else {
+    attempts = await Promise.all(steps.map((step) => deps.executor.run({
+      host,
+      loop,
+      run,
+      step,
+      attemptNumber: loop.runtime.stepStates[step.id].attempts,
+      parentSessionId: loop.runtime.parentSessionId,
+      workspace: loop.runtime.workspace.resolved,
+      signal,
+    })));
+  }
 
   if (signal?.aborted) return { loop, run: { ...run, status: 'cancelled' }, stop: true };
 

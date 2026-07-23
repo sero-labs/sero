@@ -2,8 +2,22 @@
  * Pure run-engine helpers, split out of run-engine.ts (500-LOC limit).
  */
 
-import type { Loop, LoopBlock, LoopRun } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
+
+/** The attempt's own outcome, the LLM evaluator's, or a mechanical fallback. */
+export async function resolveOutcome(
+  host: OrchestratorHost,
+  deps: EngineDeps,
+  loop: Loop,
+  step: LoopStepDefinition,
+  attempt: StepAttempt,
+): Promise<StepOutcome> {
+  if (attempt.outcome) return attempt.outcome;
+  if (deps.evaluator) return deps.evaluator.evaluate({ host, loop, step, attempt });
+  return { status: attempt.status === 'completed' ? 'succeeded' : 'failed', summary: attempt.error ?? `step ${step.id} ${attempt.status}` };
+}
 
 /** Blocks the loop on an invalid runtime state. */
 export function blockRuntime(loop: Loop, reason: string, now: string): Loop {

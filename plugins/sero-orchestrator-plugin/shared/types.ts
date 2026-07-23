@@ -20,9 +20,22 @@ import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepComp
 import type { Observation } from './observation-types';
 import type { LoopRunStatus } from './run-status-types';
 import type { FeedbackRuntimeState, StepActivation, StepFeedbackTransition } from './activation-types';
+import type { FanOutDefinition, FanOutRuntimeState } from './fanout-types';
+import type { StepExecutionTarget } from './execution-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 export type { FeedbackContext, FeedbackRuntimeState, StepActivation, StepActivationStatus, StepFeedbackTransition } from './activation-types';
+
+// Bounded dynamic fan-out types live in fanout-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
+export type {
+  FanOutDefinition,
+  FanOutManifest,
+  FanOutManifestItem,
+  FanOutRuntimeState,
+  FanOutAggregate,
+  FanOutActivationResult,
+} from './fanout-types';
 
 // Workspace settings & runtime-context types live in workspace-types.ts (500-LOC
 // limit); re-exported here so existing imports from './types' keep resolving.
@@ -232,56 +245,25 @@ export interface LoopStepDefinition {
   gate?: 'approval';
   /** Optional bounded return to one strict dependency ancestor. */
   feedback?: StepFeedbackTransition;
+  /**
+   * Bounded dynamic fan-out (specs/17-dynamic-fan-out.md): the runtime expands
+   * this step into one activation per item of an upstream array variable,
+   * within the declared bounds. The plan graph itself stays static.
+   */
+  fanOut?: FanOutDefinition;
 }
 
 // ── Execution targets ───────────────────────────────────────
+// Step execution targets live in execution-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
 
-export type StepExecutionTarget =
-  | BackgroundAgentTarget
-  | ActiveSessionTarget
-  | ModelTarget;
-
-export interface BackgroundAgentTarget {
-  type: 'background-agent';
-  model?: string;
-  thinking?: string;
-  /**
-   * Named agent role to run this step as (one of the workspace's `.md` agents),
-   * picked by the planner and user-overridable. Omitted ⇒ the default ad-hoc
-   * agent. A role contributes its system prompt and its default model/thinking;
-   * the orchestrator's step contract always still applies. An unknown role at run
-   * time falls back to the default with a warning (see spec 11).
-   */
-  agent?: string;
-  /**
-   * EXTRA tools this step needs beyond the always-on default tools
-   * (DEFAULT_TOOLS), picked by the planner and user-overridable. The effective
-   * allowlist is defaults ∪ tools; the default tools can't be removed.
-   * Omitted/empty means defaults only. Restricting the active surface also
-   * trims the per-tool prompt guidance.
-   */
-  tools?: string[];
-}
-
-export interface ActiveSessionTarget {
-  type: 'active-session';
-  sessionTarget: SessionTarget;
-}
-
-export interface ModelTarget {
-  type: 'model';
-  model?: string;
-  thinking?: string;
-  outputSchema?: unknown;
-}
-
-export interface SessionTarget {
-  workspaceId: string;
-  sessionId?: string;
-  strategy: 'specific-session' | 'most-recent-active' | 'ask-user';
-  deliverAs: 'steer' | 'followUp' | 'nextTurn';
-  triggerTurn: boolean;
-}
+export type {
+  StepExecutionTarget,
+  BackgroundAgentTarget,
+  ActiveSessionTarget,
+  ModelTarget,
+  SessionTarget,
+} from './execution-types';
 
 // ── Runtime state ───────────────────────────────────────────
 
@@ -334,6 +316,12 @@ export interface LoopRuntimeState {
   pendingEvents?: OrchestratorEvent[];
   /** Per-run traversal counts, keyed by feedback transition id. */
   feedbackStates?: Record<string, FeedbackRuntimeState>;
+  /**
+   * Fan-out manifests + join aggregates, keyed by step id. The manifest is
+   * written before any activation starts so a retry or restart reconstructs the
+   * same activations; entries belong to the run recorded in the manifest.
+   */
+  fanOutStates?: Record<string, FanOutRuntimeState>;
 }
 
 export interface LoopBlock {
@@ -424,6 +412,13 @@ export interface StepAttempt {
   attemptNumber: number;
   /** Logical visit this attempt belongs to. Optional for older history. */
   activationId?: string;
+  /**
+   * A bookkeeping attempt that did NOT call an executor — the fan-out join
+   * record whose real work is its per-item activation attempts. Excluded from
+   * the total-attempt budget so the synthetic container/join can't double-count
+   * against `maxAttemptsTotal` (see limits.ts).
+   */
+  synthetic?: boolean;
   parentSessionId: string;
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;

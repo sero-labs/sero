@@ -2,6 +2,7 @@ import { useAvailableModels, useSubagentContext } from '@sero-ai/app-runtime';
 import type { Loop, LoopStepDefinition, OrchestratorAction } from '../../shared/types';
 import { Card } from '@sero-ai/ui';
 import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
+import { fanOutView } from '../lib/fan-out-summary';
 import { groupStepsByLevel } from '../lib/plan-levels';
 import { StepCard } from './StepCard';
 
@@ -70,6 +71,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       onSetTools={setStepTools}
       onSetAgent={setStepAgent}
       onRetry={onRetryFor(step)}
+      fanOut={step.fanOut ? fanOutView(loop.runs, step.id) : undefined}
     />
   );
 

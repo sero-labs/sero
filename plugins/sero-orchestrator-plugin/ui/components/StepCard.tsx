@@ -13,6 +13,7 @@ import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { LoopStepDefinition, StepGuard, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
+import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
 import { StepStatusPill } from './StatusBadge';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
@@ -43,9 +44,11 @@ export interface StepCardProps {
   onSetAgent: (stepId: string, agent?: string) => void;
   /** Provided only when this step is recoverable and runnable — renders Retry. */
   onRetry?: () => void;
+  /** The latest run's fan-out activations of this step (fan-out steps only). */
+  fanOut?: FanOutView;
 }
 
-export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry }: StepCardProps) {
+export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const skipped = state?.status === 'skipped';
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
@@ -79,14 +82,17 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
         </div>
       </div>
 
-      {(step.produces?.length || step.when) && (
+      {(step.produces?.length || step.when || step.fanOut) && (
         <div className="flex flex-wrap items-center gap-1">
           {step.produces?.length ? <Badge variant="outline" className="text-sm font-normal">decides {step.produces.join(', ')}</Badge> : null}
           {step.when ? <Badge variant="outline" className="text-sm font-normal">{guardLabel(step.when)}</Badge> : null}
+          {step.fanOut ? <Badge variant="outline" className="text-sm font-normal">⇉ one per {step.fanOut.itemsFrom} · up to {step.fanOut.maxItems}</Badge> : null}
         </div>
       )}
 
       <p className="whitespace-pre-wrap text-xs text-muted-foreground">{step.instructions}</p>
+
+      {fanOut && <FanOutActivations view={fanOut} />}
 
       {(step.expectedOutcome || state?.outcome) && (
         <dl className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-2.5 text-xs">
@@ -126,5 +132,38 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * The runtime activations of a fan-out step: a compact status headline, expandable
+ * to one row per item. The plan keeps ONE durable step node; the activations are
+ * runtime detail, so large fan-outs don't turn into permanent graph noise.
+ */
+function FanOutActivations({ view }: { view: FanOutView }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span>⇉ {fanOutSummaryLabel(view)}</span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ul className="flex flex-col gap-1 border-t border-border/60 p-2">
+          {view.items.map((item) => (
+            <li key={item.key} className="flex items-center gap-2 text-xs">
+              <StepStatusPill status={item.status} />
+              <span className="font-medium">{item.key}</span>
+              {item.summary && <span className="truncate text-muted-foreground" title={item.summary}>{item.summary}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
