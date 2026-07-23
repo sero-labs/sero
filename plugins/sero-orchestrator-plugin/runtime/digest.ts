@@ -32,14 +32,18 @@ function digestStep(
   visitNumber?: number,
   activationStatus?: StepStatus,
   activationOutcome?: StepOutcome,
+  fanOutKey?: string,
 ): RunDigestStep {
   const last = attempts[attempts.length - 1];
   const status = activationStatus ?? (last ? stepStatusFromAttempt(last) : 'pending');
   const durationMs = attempts.reduce((sum, attempt) => sum + (attempt.usage?.durationMs ?? 0), 0) || undefined;
+  // A fan-out activation is labelled by its item key; a feedback revisit by its visit.
+  const suffix = fanOutKey !== undefined ? ` [${fanOutKey}]` : visitNumber === undefined ? '' : ` #${visitNumber}`;
   return {
     id: stepId,
-    title: `${titleOf(stepId)}${visitNumber === undefined ? '' : ` #${visitNumber}`}`,
-    visitNumber,
+    title: `${titleOf(stepId)}${suffix}`,
+    visitNumber: fanOutKey === undefined ? visitNumber : undefined,
+    fanOutKey,
     status,
     attempts: attempts.length,
     model: last?.model,
@@ -67,6 +71,7 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
         activation.visitNumber,
         activation.status === 'cancelled' || activation.status === 'orphaned' ? 'failed' : activation.status,
         activation.outcome,
+        activation.fanOut?.key,
       )),
       recoveries: run.recoveryDecisions.map((decision) => ({ stepId: decision.stepId, decision: decision.decision, reason: decision.reason })),
       usage: run.usage,

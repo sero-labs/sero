@@ -171,7 +171,10 @@ export class RunEngine {
         run = { ...run, status: hasRunningSteps(loop) ? 'running' : 'waiting' };
         break;
       }
-      const batch = ready.slice(0, loop.limits.maxConcurrentSteps ?? ready.length);
+      // A fan-out step runs alone in its batch: its concurrency budget goes to
+      // its own activations (fan-out-run.ts). Other ready steps run next tick.
+      const fanOutReady = ready.find((id) => this.step(loop, id).fanOut);
+      const batch = fanOutReady ? [fanOutReady] : ready.slice(0, loop.limits.maxConcurrentSteps ?? ready.length);
 
       // Resolve the loop workspace lazily, only when a background-agent
       // filesystem step is about to start (D-06). `run` rides along for

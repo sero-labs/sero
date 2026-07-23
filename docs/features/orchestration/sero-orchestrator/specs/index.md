@@ -60,6 +60,7 @@ restrictions.
 | [14-loop-catalog.md](14-loop-catalog.md) | Loop Catalog: git-repo catalogs (official + user-added/team), on-demand clone cache, install links into library versioning, model-adapted installs, verified badge |
 | [15-pr-lifecycle.md](15-pr-lifecycle.md) | PR lifecycle loops: work on the PR's own branch (event-scoped worktree checkout), pending-event FIFO queue, `pr-approved`/`main-updated`/`issue-opened` sources, updated-PR receipts, four catalog loops (Issue Implementer with claim protocol, CI fixer, review responder, rebase-on-main) |
 | [16-bounded-feedback.md](16-bounded-feedback.md) | One bounded return to a strict dependency ancestor, durable activation visits, traversal exhaustion through recovery, region validation and restart-safe persistence |
+| [17-dynamic-fan-out.md](17-dynamic-fan-out.md) | Bounded dynamic fan-out: one step expanded at run time into per-item activations of an upstream array (persisted manifest, wave concurrency, all-settled join, `<itemsFrom>Results` aggregate, per-activation recovery) |
 
 ## Non-Goals
 
