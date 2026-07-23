@@ -412,6 +412,13 @@ export interface StepAttempt {
   attemptNumber: number;
   /** Logical visit this attempt belongs to. Optional for older history. */
   activationId?: string;
+  /**
+   * A bookkeeping attempt that did NOT call an executor — the fan-out join
+   * record whose real work is its per-item activation attempts. Excluded from
+   * the total-attempt budget so the synthetic container/join can't double-count
+   * against `maxAttemptsTotal` (see limits.ts).
+   */
+  synthetic?: boolean;
   parentSessionId: string;
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;

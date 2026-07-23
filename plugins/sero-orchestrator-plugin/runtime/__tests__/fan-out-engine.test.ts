@@ -234,9 +234,42 @@ describe('fan-out engine integration', () => {
     expect(deciderCalls).toBe(0); // a limit is not a step failure — recovery is never consulted
     expect(loop.runtime.stepStates.scout.status).toBe('pending'); // resumable, not wedged at running
     // The wave cap holds the run to the budget: work attempts never overshoot the cap.
-    const workAttempts = loop.runs[0].stepAttempts.filter((a) => !a.outcome?.questions?.length).length;
+    const workAttempts = loop.runs[0].stepAttempts.filter((a) => !a.synthetic && !a.outcome?.questions?.length).length;
     expect(workAttempts).toBeLessThanOrEqual(3);
     expect(executor.calls.filter((id) => id === 'scout').length).toBeLessThan(5);
+  });
+
+  it('records the join when the last activation exactly spends the budget; the limit blocks only the next step', async () => {
+    const host = createFakeHost();
+    const seeded = seedActiveLoop(host, fanOutPlan());
+    // identify (1) + one scout (1) == 2 real executor calls; combine would be the
+    // 3rd and must be the ONLY thing the limit blocks — the fan-out itself completes.
+    host.state = { ...host.state, loops: [{ ...seeded, limits: { ...seeded.limits, maxAttemptsTotal: 2 } }] };
+
+    let deciderCalls = 0;
+    const decider: RecoveryDecider = {
+      async decide(input) {
+        deciderCalls += 1;
+        return { id: input.host.newId('rec'), stepId: input.step.id, failedAttemptId: input.attempt.id, decision: 'wait', reason: 'x', createdAt: input.host.now() };
+      },
+    };
+    const executor = fakeExecutor({
+      identify: { status: 'succeeded', summary: 'one area', variables: { scoutAreas: [{ id: 'runtime' }] } },
+      scout: SUCCESS,
+      combine: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor, decider })).run('loop-1');
+
+    const loop = loopOf(host);
+    // The fan-out finished and its aggregate is persisted — not discarded by the limit.
+    expect(loop.runtime.stepStates.scout.status).toBe('succeeded');
+    expect(loop.runtime.fanOutStates?.scout?.aggregate).toMatchObject({ total: 1, succeeded: 1, partial: false });
+    expect(executor.calls).toEqual(['identify', 'scout']); // combine never started
+    // Only the NEXT real step is blocked by the limit, and recovery is not consulted.
+    expect(loop.status).toBe('blocked');
+    expect(loop.runtime.block?.kind).toBe('management-limit');
+    expect(loop.runtime.stepStates.combine.status).not.toBe('succeeded');
+    expect(deciderCalls).toBe(0);
   });
 
   it('parks the loop when an activation asks the user, keeping siblings settled', async () => {

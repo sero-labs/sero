@@ -52,6 +52,9 @@ function joinAttempt(input: FanOutRunInput, outcome: StepOutcome): StepAttempt {
     id: host.newId('attempt'),
     stepId: step.id,
     attemptNumber: loop.runtime.stepStates[step.id]?.attempts ?? 1,
+    // The join is bookkeeping over the per-item activation attempts (which are the
+    // real executor calls); mark it so it does not double-count against the budget.
+    synthetic: true,
     parentSessionId: loop.runtime.parentSessionId,
     executionType: step.execution.type,
     status: outcome.status === 'succeeded' ? 'completed' : 'failed',
@@ -126,21 +129,26 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
   let limit: LimitCheck | undefined;
 
   while (!signal?.aborted && !questions && !limit) {
-    // Check limits BEFORE each wave, like the engine does before each batch. A
-    // trip is terminal here — it must not become a step outcome that recovery
-    // could retry/skip/accept, so we break out and hand the LimitCheck back.
+    // Are there still activations to run? Settle this FIRST: once every activation
+    // is terminal the step is done, so we must fall through to build and record the
+    // join even if the budget is now exactly spent — a limit only blocks work that
+    // still remains, never a completed fan-out.
+    const runnable = runnableFanOutActivations(run, manifest).filter((activation) => !executed.has(activation.id));
+    if (runnable.length === 0) break;
+    // Work remains, so a management limit is a real block (like the engine's
+    // pre-batch check). It is terminal — it must NOT become a step outcome that
+    // recovery could retry/skip/accept — so break out and hand the LimitCheck back.
     const check = checkManagementLimits(loop, run, Date.parse(host.now()));
     if (!check.ok) {
       limit = check;
       break;
     }
-    // Cap the wave to the remaining total-attempt budget so a wide fan-out
-    // cannot overshoot maxAttemptsTotal by (maxConcurrency − 1) activations.
+    // Cap the wave to the remaining total-attempt budget so a wide fan-out cannot
+    // overshoot maxAttemptsTotal by (maxConcurrency − 1) activations. The budget
+    // counts only real activation attempts — the synthetic container/join are
+    // excluded (limits.ts) — so it matches the executor calls exactly.
     const waveSize = Math.min(concurrency, remainingAttemptBudget(loop, run));
-    const wave = runnableFanOutActivations(run, manifest)
-      .filter((activation) => !executed.has(activation.id))
-      .slice(0, waveSize);
-    if (wave.length === 0) break;
+    const wave = runnable.slice(0, waveSize);
     for (const activation of wave) executed.add(activation.id);
     run = setActivationsRunning(run, new Set(wave.map((a) => a.id)));
     loop = await commit(syncRun(loop, run));
