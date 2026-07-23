@@ -41,6 +41,19 @@ function totalCost(loop: Loop): number {
   );
 }
 
+/**
+ * How many more work attempts the run may still start before `maxAttemptsTotal`
+ * trips (Infinity when uncapped). A fan-out wave is capped to this so one wave of
+ * up-to-maxConcurrency activations cannot overshoot the total-attempt budget —
+ * the between-wave `checkManagementLimits` only catches an overshoot after it has
+ * already happened.
+ */
+export function remainingAttemptBudget(loop: Loop, run: LoopRun): number {
+  const max = loop.limits.maxAttemptsTotal;
+  if (max === undefined) return Infinity;
+  return Math.max(0, max - totalAttempts(loop, run));
+}
+
 /** Checks loop-level limits before starting another batch of attempts. */
 export function checkManagementLimits(loop: Loop, run: LoopRun, nowMs: number): LimitCheck {
   const limits = loop.limits;

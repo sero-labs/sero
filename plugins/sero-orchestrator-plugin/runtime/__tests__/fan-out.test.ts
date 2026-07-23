@@ -31,12 +31,12 @@ describe('expandFanOut', () => {
     expect(result.manifest.sourceVariable).toBe('areas');
   });
 
-  it('reads and normalises itemKey fields into safe activation keys', () => {
+  it('reads and normalises itemKey fields into safe, lower-cased activation keys', () => {
     const areas = [{ id: 'Runtime Core!' }, { id: 'ui/panels' }];
     const result = expandFanOut(loopWith({ areas }), run, step({ itemKey: 'id' }), NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.manifest.items.map((i) => i.key)).toEqual(['Runtime-Core', 'ui-panels']);
+    expect(result.manifest.items.map((i) => i.key)).toEqual(['runtime-core', 'ui-panels']);
   });
 
   it('rejects duplicate keys with both item indices named', () => {
@@ -46,6 +46,14 @@ describe('expandFanOut', () => {
     if (result.ok) return;
     expect(result.reason).toContain('duplicate activation key "same"');
     expect(result.reason).toContain('items 0 and 1');
+  });
+
+  it('rejects keys that differ only by case (they share one case-insensitive artifact path)', () => {
+    const areas = [{ id: 'UI' }, { id: 'ui' }];
+    const result = expandFanOut(loopWith({ areas }), run, step({ itemKey: 'id' }), NOW);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toContain('duplicate activation key "ui"');
   });
 
   it('rejects a missing, non-array, undersized, or oversized source', () => {

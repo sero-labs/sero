@@ -10,7 +10,7 @@ import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcome
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
-import { resetStepPending, replaceRun, resolveOutcome } from './run-engine-helpers';
+import { blockLimit, resetStepPending, replaceRun, resolveOutcome } from './run-engine-helpers';
 import { runFanOutStep } from './fan-out-run';
 import { parkForInput } from './human-input';
 import { applyRecovery } from './recovery-apply';
@@ -87,7 +87,19 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
     const result = await runFanOutStep({ host, deps, loop, run, step: fanOutStep, signal, commit });
     loop = result.loop;
     run = result.run;
-    attempts = [result.attempt];
+    // A management limit tripped mid-fan-out: block the loop directly, exactly
+    // like the engine's pre-batch limit check — no LLM recovery, and the block is
+    // recorded as `management-limit`, not `recovery-block`. The step returns to
+    // pending so a later retry resumes from the persisted manifest (settled
+    // activations are not repeated).
+    if (result.limit) {
+      const now = host.now();
+      loop = blockLimit(resetStepPending(loop, fanOutStep.id, now), result.limit.limit, result.limit.reason ?? 'management limit reached', now);
+      run = { ...run, status: 'blocked', block: loop.runtime.block };
+      loop = await commit(syncRun(loop, run));
+      return { loop, run, stop: true };
+    }
+    attempts = [result.attempt!];
   } else {
     attempts = await Promise.all(steps.map((step) => deps.executor.run({
       host,

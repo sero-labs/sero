@@ -31,8 +31,8 @@ export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefi
   for (let i = runs.length - 1; i >= 0; i -= 1) {
     const activations = (runs[i].stepActivations ?? []).filter((a) => a.stepId === stepId && a.fanOut);
     if (activations.length === 0) continue;
-    const items = [...activations]
-      .sort((a, b) => (a.fanOut!.index) - (b.fanOut!.index))
+    const items = activations
+      .toSorted((a, b) => (a.fanOut!.index) - (b.fanOut!.index))
       .map((a) => ({ key: a.fanOut!.key, status: displayStatus(a.status), summary: a.outcome?.summary }));
     const count = (status: StepStatus) => items.filter((item) => item.status === status).length;
     return {

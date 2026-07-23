@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
-import type { EngineDeps } from '../engine-types';
+import type { EngineDeps, RecoveryDecider } from '../engine-types';
 import type { FanOutAggregate, LoopPlan, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { seedActiveLoop } from './fixtures';
@@ -205,6 +205,38 @@ describe('fan-out engine integration', () => {
     const loop = loopOf(host);
     expect(loop.runtime.stepStates.scout.status).toBe('blocked');
     expect(loop.runtime.stepStates.scout.outcome?.summary).toContain('never recorded');
+  });
+
+  it('blocks with a management-limit (bypassing recovery) and caps the wave when maxAttemptsTotal trips mid-fan-out', async () => {
+    const host = createFakeHost();
+    const seeded = seedActiveLoop(host, fanOutPlan({ maxConcurrency: 5 }));
+    // Tight total-attempt budget: identify (1) + at most 2 scouts fit under 3.
+    host.state = { ...host.state, loops: [{ ...seeded, limits: { ...seeded.limits, maxAttemptsTotal: 3 } }] };
+
+    let deciderCalls = 0;
+    const decider: RecoveryDecider = {
+      async decide(input) {
+        deciderCalls += 1;
+        return { id: input.host.newId('rec'), stepId: input.step.id, failedAttemptId: input.attempt.id, decision: 'wait', reason: 'x', createdAt: input.host.now() };
+      },
+    };
+    const executor = fakeExecutor({
+      identify: { status: 'succeeded', summary: 'areas', variables: { scoutAreas: Array.from({ length: 5 }, (_, i) => ({ id: `a${i}` })) } },
+      scout: SUCCESS,
+      combine: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor, decider })).run('loop-1');
+
+    const loop = loopOf(host);
+    expect(loop.status).toBe('blocked');
+    expect(loop.runtime.block?.kind).toBe('management-limit');
+    expect(loop.runtime.block?.limit).toBe('maxAttemptsTotal');
+    expect(deciderCalls).toBe(0); // a limit is not a step failure — recovery is never consulted
+    expect(loop.runtime.stepStates.scout.status).toBe('pending'); // resumable, not wedged at running
+    // The wave cap holds the run to the budget: work attempts never overshoot the cap.
+    const workAttempts = loop.runs[0].stepAttempts.filter((a) => !a.outcome?.questions?.length).length;
+    expect(workAttempts).toBeLessThanOrEqual(3);
+    expect(executor.calls.filter((id) => id === 'scout').length).toBeLessThan(5);
   });
 
   it('parks the loop when an activation asks the user, keeping siblings settled', async () => {

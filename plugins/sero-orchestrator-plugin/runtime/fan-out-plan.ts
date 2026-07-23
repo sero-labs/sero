@@ -72,6 +72,9 @@ export function fanOutPlanProblems(plan: LoopPlan): string[] {
   const errors: string[] = [];
   const dependedOn = new Set(plan.steps.flatMap((step) => step.dependsOn ?? []));
   const feedbackRegion = computeFeedbackRegion(plan);
+  // Build the id→produced-set map once so the ancestor check below is O(1) per
+  // ancestor instead of scanning plan.steps for each one.
+  const producedByStep = new Map(plan.steps.map((step) => [step.id, new Set(step.produces ?? [])]));
   for (const step of plan.steps) {
     const fanOut = step.fanOut;
     if (!fanOut) continue;
@@ -91,7 +94,7 @@ export function fanOutPlanProblems(plan: LoopPlan): string[] {
       errors.push(`step "${step.id}": a fan-out step cannot be the finalization step — a downstream step must join its results`);
     }
     const produced = [...ancestorsOf(plan.steps, step.id)].some((ancestorId) =>
-      plan.steps.find((s) => s.id === ancestorId)?.produces?.includes(fanOut.itemsFrom),
+      producedByStep.get(ancestorId)?.has(fanOut.itemsFrom),
     );
     if (!produced) {
       errors.push(`step "${step.id}": fanOut.itemsFrom "${fanOut.itemsFrom}" is not produced by any upstream step (a dependency-ancestor must list it in "produces")`);

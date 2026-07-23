@@ -26,11 +26,14 @@ export function fanOutActivationId(runId: string, stepId: string, key: string): 
 }
 
 /**
- * Normalises an item key to the same safe-slug alphabet as step ids: keys are
- * interpolated into activation ids and artifact file names.
+ * Normalises an item key to the same safe-slug alphabet as step ids, LOWER-cased:
+ * keys are interpolated into activation ids AND artifact file names, and artifact
+ * writes land on case-insensitive filesystems (default macOS), so `UI` and `ui`
+ * must not become distinct activations that share one `<step>-<key>-aN.txt` path.
+ * Folding case here makes such a pair collide into the duplicate-key check below.
  */
 function normaliseKey(raw: string): string {
-  return raw.trim().replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
 }
 
 export type FanOutExpansion =
@@ -142,16 +145,19 @@ export function buildFanOutAggregate(manifest: FanOutManifest, activations: Step
       error: activation?.status === 'failed' || activation?.status === 'blocked' ? activation.outcome?.summary : undefined,
     };
   });
-  const count = (statuses: StepActivation['status'][]) => results.filter((r) => statuses.includes(r.status)).length;
-  const succeeded = count(['succeeded']);
-  const skipped = count(['skipped']);
+  // Tally each status in one pass, then read groups off the map (no repeated scans).
+  const byStatus = new Map<StepActivation['status'], number>();
+  for (const r of results) byStatus.set(r.status, (byStatus.get(r.status) ?? 0) + 1);
+  const count = (...statuses: StepActivation['status'][]) => statuses.reduce((sum, s) => sum + (byStatus.get(s) ?? 0), 0);
+  const succeeded = count('succeeded');
+  const skipped = count('skipped');
   return {
     stepId: manifest.stepId,
     total: manifest.itemCount,
     succeeded,
-    failed: count(['failed', 'blocked', 'needs-revision']),
+    failed: count('failed', 'blocked', 'needs-revision'),
     skipped,
-    cancelled: count(['cancelled', 'orphaned']),
+    cancelled: count('cancelled', 'orphaned'),
     partial: succeeded + skipped < manifest.itemCount,
     results,
   };

@@ -13,7 +13,7 @@ import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
 import { recordActivationAttempt } from './activations';
 import { buildFanOutAggregate, expandFanOut, fanOutActivations, fanOutJoinOutcome, runnableFanOutActivations } from './fan-out';
-import { checkManagementLimits } from './limits';
+import { checkManagementLimits, remainingAttemptBudget, type LimitCheck } from './limits';
 import { replaceRun, resolveOutcome } from './run-engine-helpers';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 
@@ -31,7 +31,13 @@ export interface FanOutRunResult {
   loop: Loop;
   run: LoopRun;
   /** Join attempt carrying the step-level outcome; run-batch records and applies it. */
-  attempt: StepAttempt;
+  attempt?: StepAttempt;
+  /**
+   * Set instead of `attempt` when a management limit tripped mid-step. A limit is
+   * NOT a step failure, so it must bypass LLM recovery — run-batch applies
+   * `blockLimit` directly, exactly like the engine's pre-batch limit check.
+   */
+  limit?: LimitCheck;
 }
 
 function syncRun(loop: Loop, run: LoopRun): Loop {
@@ -88,11 +94,13 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
   }
 
   // Persist the manifest and the pending activation records BEFORE any
-  // activation starts, so a restart reconstructs the same expansion.
+  // activation starts, so a restart reconstructs the same expansion. One pass:
+  // build the not-yet-known activation records directly.
   const known = new Set((run.stepActivations ?? []).map((a) => a.id));
-  const created: StepActivation[] = manifest.items
-    .filter((item) => !known.has(item.activationId))
-    .map((item) => ({
+  const created: StepActivation[] = [];
+  for (const item of manifest.items) {
+    if (known.has(item.activationId)) continue;
+    created.push({
       id: item.activationId,
       stepId: step.id,
       visitNumber: 1,
@@ -100,7 +108,8 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
       fanOut: { index: item.index, key: item.key, item: item.item },
       attemptIds: [],
       startedAt: host.now(),
-    }));
+    });
+  }
   run = { ...run, stepActivations: [...(run.stepActivations ?? []), ...created] };
   loop = {
     ...loop,
@@ -114,18 +123,24 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
   // by a later recovery decision, never by looping within this invocation.
   const executed = new Set<string>();
   let questions: StepOutcome['questions'];
-  let limitReason: string | undefined;
+  let limit: LimitCheck | undefined;
 
-  while (!signal?.aborted && !questions && !limitReason) {
-    const wave = runnableFanOutActivations(run, manifest)
-      .filter((activation) => !executed.has(activation.id))
-      .slice(0, concurrency);
-    if (wave.length === 0) break;
-    const limit = checkManagementLimits(loop, run, Date.parse(host.now()));
-    if (!limit.ok) {
-      limitReason = limit.reason ?? 'management limit reached';
+  while (!signal?.aborted && !questions && !limit) {
+    // Check limits BEFORE each wave, like the engine does before each batch. A
+    // trip is terminal here — it must not become a step outcome that recovery
+    // could retry/skip/accept, so we break out and hand the LimitCheck back.
+    const check = checkManagementLimits(loop, run, Date.parse(host.now()));
+    if (!check.ok) {
+      limit = check;
       break;
     }
+    // Cap the wave to the remaining total-attempt budget so a wide fan-out
+    // cannot overshoot maxAttemptsTotal by (maxConcurrency − 1) activations.
+    const waveSize = Math.min(concurrency, remainingAttemptBudget(loop, run));
+    const wave = runnableFanOutActivations(run, manifest)
+      .filter((activation) => !executed.has(activation.id))
+      .slice(0, waveSize);
+    if (wave.length === 0) break;
     for (const activation of wave) executed.add(activation.id);
     run = setActivationsRunning(run, new Set(wave.map((a) => a.id)));
     loop = await commit(syncRun(loop, run));
@@ -177,9 +192,9 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
     };
     return { loop, run, attempt: joinAttempt({ ...input, loop }, outcome) };
   }
-  if (limitReason) {
-    return { loop, run, attempt: joinAttempt({ ...input, loop }, { status: 'blocked', summary: `Fan-out "${step.id}" stopped: ${limitReason}` }) };
-  }
+  // A management limit is a loop-level block, not a step failure: hand the raw
+  // LimitCheck back so run-batch applies blockLimit and skips recovery entirely.
+  if (limit) return { loop, run, limit };
 
   const aggregate = buildFanOutAggregate(manifest, fanOutActivations(run, manifest));
   loop = {
