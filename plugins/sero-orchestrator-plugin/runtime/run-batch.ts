@@ -71,13 +71,14 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
   run = { ...started.run, startedStepIds: [...run.startedStepIds, ...batch] };
   for (const stepId of batch) {
     const prev = loop.runtime.stepStates[stepId];
-    // A fan-out step's real attempts are its per-item activations (each recorded
-    // as a work attempt); bumping the container here would double-count it against
-    // the total-attempt budget, so leave the count untouched for a fan-out step.
-    const attempts = fanOutStep ? prev.attempts : prev.attempts + 1;
+    // Bump every step's visit count, fan-out included: this drives
+    // maxAttemptsPerStep gating and numbers the fan-out join attempt. The
+    // container does NOT double-count against maxAttemptsTotal — limits.ts
+    // excludes fan-out containers from `projected` and counts their per-item
+    // activations instead.
     loop = {
       ...loop,
-      runtime: { ...loop.runtime, stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'running', attempts, updatedAt: startNow } } },
+      runtime: { ...loop.runtime, stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'running', attempts: prev.attempts + 1, updatedAt: startNow } } },
     };
   }
   loop = await commit(syncRun(loop, run));

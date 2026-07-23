@@ -18,7 +18,17 @@ export interface LimitCheck {
 const OK: LimitCheck = { ok: true };
 
 function totalAttempts(loop: Loop, run: LoopRun): number {
-  const projected = Object.values(loop.runtime.stepStates).reduce((sum, state) => sum + state.attempts, 0);
+  // A fan-out step's stepState.attempts counts its whole-step VISITS (for
+  // maxAttemptsPerStep gating and the join attempt's number); its real executor
+  // cost is its per-item activation attempts, counted in workAttempts below. So
+  // exclude the fan-out container from `projected` — otherwise one fan-out visit
+  // double-counts against the total-attempt budget (once as the container, once
+  // as its activations).
+  const fanOutStepIds = new Set(loop.plan.steps.filter((step) => step.fanOut).map((step) => step.id));
+  const projected = Object.entries(loop.runtime.stepStates).reduce(
+    (sum, [id, state]) => sum + (fanOutStepIds.has(id) ? 0 : state.attempts),
+    0,
+  );
   // Count real work attempts from history (stepStates.attempts undercounts after a
   // feedback revisit resets it to 0), but exclude parks and synthetic records: an
   // attempt that asked the user is a deliberate pause, and a fan-out join is

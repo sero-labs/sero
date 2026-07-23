@@ -272,6 +272,27 @@ describe('fan-out engine integration', () => {
     expect(deciderCalls).toBe(0);
   });
 
+  it('gates the fan-out step by maxAttemptsPerStep and numbers its join attempts from 1', async () => {
+    const host = createFakeHost();
+    const seeded = seedActiveLoop(host, fanOutPlan());
+    host.state = { ...host.state, loops: [{ ...seeded, limits: { ...seeded.limits, maxAttemptsPerStep: 2 } }] };
+    // The activation always fails; recovery keeps asking to retry the whole step.
+    const executor = fakeExecutor({
+      identify: { status: 'succeeded', summary: 'one area', variables: { scoutAreas: [{ id: 'runtime' }] } },
+      scout: { status: 'failed', summary: 'always fails' },
+      combine: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor, decider: fakeDecider({ decision: 'retry-step' }) })).run('loop-1');
+
+    const loop = loopOf(host);
+    // The per-step cap bounds the WHOLE fan-out step: exactly 2 visits, not endless.
+    expect(executor.calls.filter((id) => id === 'scout')).toHaveLength(2);
+    expect(loop.runtime.stepStates.scout.attempts).toBe(2);
+    // The synthesized join attempts are real, sequential attempt numbers (never 0).
+    const joinAttempts = loop.runs[0].stepAttempts.filter((a) => a.stepId === 'scout' && a.synthetic);
+    expect(joinAttempts.map((a) => a.attemptNumber)).toEqual([1, 2]);
+  });
+
   it('parks the loop when an activation asks the user, keeping siblings settled', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, fanOutPlan());
