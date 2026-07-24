@@ -14,6 +14,7 @@ import type {
   AppRuntimeNotificationChoiceOptions,
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
+  AppRuntimeWorktreeRemoveOptions,
   ContextAgentInfo,
   ContextToolInfo,
   ExtensionRuntimeContent,
@@ -220,7 +221,10 @@ export interface OrchestratorHost {
    * PR's own branch, and removal never deletes it.
    */
   createWorktree(loopId: string, title: string, options?: { existingBranch?: string }): Promise<WorktreeHandle>;
-  removeWorktree(loopId: string, options?: { deleteBranch?: boolean; force?: boolean }): Promise<void>;
+  removeWorktree(
+    loopId: string,
+    options?: AppRuntimeWorktreeRemoveOptions,
+  ): Promise<void>;
   /** Workspace-root dirty preflight (workspace-root mode only). */
   getWorkspaceStatus(): Promise<WorkspaceStatus>;
   /** Stashes current workspace changes after an explicit user choice. */

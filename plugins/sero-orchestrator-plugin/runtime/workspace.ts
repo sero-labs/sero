@@ -21,8 +21,9 @@ import type { WorkspaceResolver } from './engine-types';
  * `loop.id` re-created its worktree on the SAME branch, which still held that
  * run's commits, so a re-run saw the work as "already done", asked to approve
  * changes already committed, and classified inconsistently. Each run now starts
- * clean; prior runs' branches and PRs are preserved untouched (and a branch still
- * embeds the loop id, so PR reconciliation keeps matching them). The iteration
+ * clean. Unmerged branches and PRs are preserved, while no-op or merged local
+ * branches can be removed safely during cleanup. A branch still embeds the loop
+ * id, so PR reconciliation keeps matching it. The iteration
  * number is the monotonic run counter — NOT `runs.length`, which repeats once
  * run-history pruning caps it and would reuse a branch across runs.
  */

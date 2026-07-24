@@ -92,3 +92,38 @@ describe('WorktreeManager.create with existingBranch', () => {
     );
   });
 });
+
+describe('WorktreeManager merged-branch cleanup', () => {
+  let root: string;
+  let workspace: string;
+  const manager = new WorktreeManager();
+
+  beforeEach(async () => {
+    root = await mkdtemp(path.join(tmpdir(), 'wt-cleanup-'));
+    workspace = path.join(root, 'workspace');
+    await execFileAsync('mkdir', ['-p', workspace]);
+    await initRepo(workspace);
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('deletes a no-op branch that is fully merged', async () => {
+    const worktree = await manager.create(workspace, 'loop-1-r1', 'Routine scan');
+    await manager.remove(workspace, 'loop-1-r1', { force: true, deleteMergedBranch: true });
+
+    await expect(git(workspace, 'rev-parse', '--verify', `refs/heads/${worktree.branchName}`)).rejects.toThrow();
+  });
+
+  it('preserves a branch with unmerged work', async () => {
+    const worktree = await manager.create(workspace, 'loop-1-r2', 'Implement change');
+    await writeFile(path.join(worktree.worktreePath, 'change.md'), 'work in progress');
+    await git(worktree.worktreePath, 'add', '.');
+    await git(worktree.worktreePath, 'commit', '-m', 'feat: work in progress');
+
+    await manager.remove(workspace, 'loop-1-r2', { force: true, deleteMergedBranch: true });
+
+    expect(await git(workspace, 'rev-parse', '--verify', `refs/heads/${worktree.branchName}`)).toBeTruthy();
+  });
+});

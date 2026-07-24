@@ -8,6 +8,7 @@
 import type { Loop, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { CoordinatorRunSeam } from './event-delivery';
+import { cleanupPreviousWorktree } from './worktree-cleanup';
 import { rearmLoop, reenableSchedule } from './scheduler';
 import { hasRunningSteps } from './readiness';
 import { retryStep, retryStuckLoop } from './recovery-apply';
@@ -15,7 +16,7 @@ import { retryStep, retryStuckLoop } from './recovery-apply';
 /**
  * Restart: re-run the whole plan from the first step. Re-arms every step
  * (back to pending, attempts cleared, run context and block/completion cleared),
- * drops the previous worktree (its branch/PR is kept), re-enables any disabled
+ * cleans up the previous worktree and any safely merged local branch, re-enables
  * schedule, sets the loop active, and runs a fresh pass now.
  *
  * Available from any loop the user might want to restart — completed, blocked,
@@ -37,11 +38,7 @@ export async function runAgain(
     return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
   }
   const now = host.now();
-  // Drop the previous run's worktree (its branch/PR is kept) before a fresh pass.
-  const prior = loop.runtime.workspace.resolved;
-  if (prior?.type === 'managed-worktree') {
-    await host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });
-  }
+  await cleanupPreviousWorktree(host, loopId, loop.runtime.workspace.resolved);
   const reactivated: Loop = {
     ...rearmLoop({ ...loop, triggers: reenableSchedule(loop, now) }, now),
     status: 'active',

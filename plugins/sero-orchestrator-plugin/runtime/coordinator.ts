@@ -43,6 +43,7 @@ import {
   type CoordinatorRunSeam,
   type EventBroadcast,
 } from './event-delivery';
+import { cleanupPreviousWorktree } from './worktree-cleanup';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
@@ -107,16 +108,12 @@ export class Coordinator {
   }
 
   /**
-   * Starts a fresh iteration: drops the previous iteration's worktree (its
-   * branch/PR is kept), re-arms the plan (steps back to pending, run context
-   * cleared), then runs it. Shared by scheduled fires and a manual "Run next"
-   * on a loop whose previous pass already finished.
+   * Starts a fresh iteration: cleans up the previous checkout, re-arms the plan,
+   * then runs it. Shared by scheduled fires and a manual "Run next" on a loop
+   * whose previous pass already finished.
    */
   private async runFreshPass(loop: Loop, triggerId?: string): Promise<OrchestratorActionResult> {
-    const prior = loop.runtime.workspace.resolved;
-    if (prior?.type === 'managed-worktree') {
-      await this.host.removeWorktree(prior.worktreeKey ?? loop.id, { force: true });
-    }
+    await cleanupPreviousWorktree(this.host, loop.id, loop.runtime.workspace.resolved);
     const base = rearmLoop(loop, this.host.now());
     const rearmed = triggerId
       ? { ...base, runtime: { ...base.runtime, pendingTriggerId: triggerId } }

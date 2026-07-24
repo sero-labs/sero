@@ -12,6 +12,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import type { AppRuntimeWorktreeRemoveOptions } from '@sero-ai/common';
 
 import { inferConventionalType, slugifyBranchLabel } from '@electron/features/git/support/branch-naming';
 import { ensureBootstrapGitignore } from '@electron/features/git/support/bootstrap-gitignore';
@@ -227,13 +228,13 @@ export class WorktreeManager {
   async remove(
     workspacePath: string,
     cardId: string,
-    opts?: { deleteBranch?: boolean; force?: boolean },
+    opts?: AppRuntimeWorktreeRemoveOptions,
   ): Promise<void> {
     const worktreePath = this.getPath(workspacePath, cardId);
 
     // Get branch name before removal
     let branchName: string | null = null;
-    if (opts?.deleteBranch) {
+    if (opts?.deleteBranch || opts?.deleteMergedBranch) {
       try {
         const { stdout } = await execWorktreeGit([
           'rev-parse', '--abbrev-ref', 'HEAD',
@@ -290,14 +291,17 @@ export class WorktreeManager {
     }
 
     // Delete branch if requested
-    if (branchName && opts?.deleteBranch) {
+    if (branchName && (opts?.deleteBranch || opts?.deleteMergedBranch)) {
       try {
-        await execWorktreeGit(['branch', '-D', branchName], {
+        await execWorktreeGit(['branch', opts.deleteBranch ? '-D' : '-d', branchName], {
           cwd: workspacePath,
           timeout: 10_000,
         });
       } catch (error) {
-        warnCleanupFailure(`failed to delete branch ${branchName} for card-${cardId}`, error);
+        const detail = error instanceof Error ? error.message : String(error);
+        if (!opts.deleteMergedBranch || !detail.includes('not fully merged')) {
+          warnCleanupFailure(`failed to delete branch ${branchName} for card-${cardId}`, error);
+        }
       }
     }
 

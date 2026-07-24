@@ -61,7 +61,7 @@ export interface FakeHost extends OrchestratorHost {
   worktreeCreates: { loopId: string; existingBranch?: string }[];
   worktreesRemoved: string[];
   /** Full removeWorktree calls, including the options passed. */
-  worktreeRemovals: { loopId: string; deleteBranch?: boolean; force?: boolean }[];
+  worktreeRemovals: { loopId: string; deleteBranch?: boolean; deleteMergedBranch?: boolean; force?: boolean }[];
   notifications: { message: string; type?: string }[];
   choiceRequests: ChoiceRequest[];
   stashes: string[];
@@ -174,7 +174,12 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async removeWorktree(loopId, options) {
       this.worktreesRemoved.push(loopId);
-      this.worktreeRemovals.push({ loopId, deleteBranch: options?.deleteBranch, force: options?.force });
+      this.worktreeRemovals.push({
+        loopId,
+        deleteBranch: options?.deleteBranch,
+        deleteMergedBranch: options?.deleteMergedBranch,
+        force: options?.force,
+      });
     },
     async getWorkspaceStatus() {
       return this.workspaceStatus;

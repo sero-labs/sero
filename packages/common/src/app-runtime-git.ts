@@ -15,7 +15,10 @@ export interface AppRuntimeWorktreeCreateResult {
 }
 
 export interface AppRuntimeWorktreeRemoveOptions {
+  /** Force-delete the local branch after removing the worktree. */
   deleteBranch?: boolean;
+  /** Delete the local branch only when Git confirms it is fully merged. */
+  deleteMergedBranch?: boolean;
   force?: boolean;
 }
 
