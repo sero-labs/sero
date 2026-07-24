@@ -126,6 +126,20 @@ svg{flex:0 0 auto}
 .dl.theirs{background:rgba(245,158,11,.12)} .dl.theirs .tx{color:#fcd34d}
 .dl.add{background:rgba(34,197,94,.10)} .dl.add .tx{color:#86efac}
 .dl.hunk{opacity:.5;padding:4px 12px}
+.collapsed{display:flex;align-items:center;gap:10px;height:26px;padding:0 12px;background:var(--bg-elevated);
+  border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);
+  font-size:0.79rem;color:var(--text-muted);cursor:pointer}
+.collapsed:hover{color:var(--text-secondary)}
+.actionrow{display:flex;gap:0;padding:2px 12px 2px 58px;font-size:0.78rem;color:var(--text-muted)}
+.actionrow a{color:var(--text-secondary);cursor:pointer;text-decoration:none}
+.actionrow a:hover{color:var(--brand-secondary);text-decoration:underline}
+.actionrow .sep{padding:0 8px;opacity:.4}
+.dl.curr{background:rgba(34,197,94,.13)} .dl.curr .tx{color:#bbf7d0}
+.dl.inc{background:rgba(59,130,246,.15)} .dl.inc .tx{color:#bfdbfe}
+.dl.mark .tx{font-weight:600}
+.dl.mark .who{font-weight:400;opacity:.6;padding-left:8px}
+.dl.sepmark{background:transparent}
+.dl.sepmark .tx{color:var(--text-muted);opacity:.7}
 .rest{flex:1;min-height:0;overflow:hidden}
 
 /* graph strip */
@@ -169,9 +183,16 @@ have to learn.
 <!-- ══════════════════════════ 1 · CONFLICT ══════════════════════════ -->
 <h2>1 · Merge conflict</h2>
 <p class="note">
-The app enters a mode it announces and can leave. The banner states what is happening and offers the only two
-ways out. Conflicted files get their own section <b>above</b> staged and unstaged, because nothing else can
-proceed until they're gone, and the count in the commit button counts down as you resolve them.
+The app enters a mode it announces and can leave. Conflicted files get their own section <b>above</b> staged and
+unstaged, because nothing else can proceed until they're gone, and the commit button counts down as you resolve.
+<br><br>
+<b>The resolver itself is not ours to build.</b> <code>@pierre/diffs@1.2.12</code> — already a dependency — ships
+<code>UnresolvedFile</code>, which parses the conflict markers, renders current and incoming as structured
+regions, and emits the <i>Accept current change · Accept incoming change · Accept both</i> row from
+<code>mergeConflictActionsType: 'default'</code>, with <code>resolveConflict()</code> and
+<code>onMergeConflictResolve</code> to apply the choice. Sero imports only <code>parseDiffFromFile</code> and
+<code>CodeView</code> today, so this component is <b>available but unused</b>. The pane below is drawn as the
+library renders it — inline unified, library vocabulary — so the work is adoption, not construction.
 </p>
 
 <div class="app">
@@ -243,49 +264,39 @@ proceed until they're gone, and the count in the commit button counts down as yo
           <div class="dbar">
             <span class="warnico"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span>
             src/lib/parse.ts <span class="mut">2 conflicts</span>
-            <div class="r"><span class="mini">Take all ours</span><span class="mini">Take all theirs</span><span class="mini">Open in Explorer</span></div>
+            <div class="r"><span class="mini">Accept all current</span><span class="mini">Accept all incoming</span><span class="mini">Open in Explorer</span></div>
           </div>
 
-          <div class="chunkbar">Conflict 1 of 2 · line 41
-            <div class="r"><span class="mini">Take ours</span><span class="mini">Take theirs</span><span class="mini">Take both</span></div>
-          </div>
-          <div class="sides">
-            <div class="side">
-              <div class="sidehead"><i style="background:var(--status-info)"></i>OURS — main</div>
-              <div class="dbody">
-                <div class="dl"><span class="ln">39</span><span class="tx">export function render(v: number) {</span></div>
-                <div class="dl ours"><span class="ln">40</span><span class="tx">  const out = format(v, 2);</span></div>
-                <div class="dl ours"><span class="ln">41</span><span class="tx">  return out;</span></div>
-                <div class="dl"><span class="ln">42</span><span class="tx">}</span></div>
-              </div>
+          <div class="dbody" style="padding-top:0">
+            <div class="collapsed">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>
+              19 unmodified lines
             </div>
-            <div class="side">
-              <div class="sidehead"><i style="background:var(--status-warning)"></i>THEIRS — feat/create-concise-changelog</div>
-              <div class="dbody">
-                <div class="dl"><span class="ln">39</span><span class="tx">export function render(v: number) {</span></div>
-                <div class="dl theirs"><span class="ln">40</span><span class="tx">  const out = format(v, 2, currency);</span></div>
-                <div class="dl theirs"><span class="ln">41</span><span class="tx">  return `${out} ${currency}`;</span></div>
-                <div class="dl"><span class="ln">42</span><span class="tx">}</span></div>
-              </div>
-            </div>
-          </div>
+            <div class="dl"><span class="ln">20</span><span class="tx">export function render(v: number, currency?: string) {</span></div>
+            <div class="dl"><span class="ln">21</span><span class="tx">  const scale = precisionFor(currency);</span></div>
+            <div class="dl"><span class="ln">22</span><span class="tx"></span></div>
 
-          <div class="chunkbar">Conflict 2 of 2 · line 88
-            <div class="r"><span class="mini">Take ours</span><span class="mini">Take theirs</span><span class="mini">Take both</span></div>
-          </div>
-          <div class="sides">
-            <div class="side">
-              <div class="sidehead"><i style="background:var(--status-info)"></i>OURS — main</div>
-              <div class="dbody">
-                <div class="dl ours"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 2;</span></div>
-              </div>
+            <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
+            <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
+            <div class="dl curr"><span class="ln">23</span><span class="tx">  const out = format(v, 2);</span></div>
+            <div class="dl curr"><span class="ln">24</span><span class="tx">  return out;</span></div>
+            <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
+            <div class="dl inc"><span class="ln">23</span><span class="tx">  const out = format(v, 2, currency);</span></div>
+            <div class="dl inc"><span class="ln">24</span><span class="tx">  return `${out} ${currency}`;</span></div>
+            <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
+            <div class="dl"><span class="ln">25</span><span class="tx">}</span></div>
+
+            <div class="collapsed">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>
+              62 unmodified lines
             </div>
-            <div class="side">
-              <div class="sidehead"><i style="background:var(--status-warning)"></i>THEIRS — feat/create-concise-changelog</div>
-              <div class="dbody">
-                <div class="dl theirs"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 4;</span></div>
-              </div>
-            </div>
+
+            <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
+            <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
+            <div class="dl curr"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 2;</span></div>
+            <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
+            <div class="dl inc"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 4;</span></div>
+            <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
           </div>
           <div class="rest"></div>
         </div>
@@ -317,11 +328,16 @@ proceed until they're gone, and the count in the commit button counts down as yo
 </div>
 
 <p class="spec">
-<b>Decisions this state makes.</b> Fetch, pull, push and PR are disabled, not hidden — you can see why they're
-unavailable. <b>Abort merge</b> sits in the banner, the only place it applies, rather than in a menu.
-Files are grouped by what you must do about them: conflicted, resolved, merged cleanly — so the list itself is
-the to-do list. The commit button is disabled with a count, not a vague error. And the graph shows the merge as
-a dashed, unfinished node with both parents visible, so the shape of what you're doing stays on screen.
+<b>Decisions this state makes</b> — all of them <i>around</i> the resolver, since the resolver is the library's.
+Fetch, pull, push and PR are disabled, not hidden — you can see why they're unavailable. <b>Abort merge</b> sits
+in the banner, the only place it applies, rather than in a menu. Files are grouped by what you must do about
+them: conflicted, resolved, merged cleanly — so the list itself is the to-do list. The commit button is disabled
+with a count, not a vague error. And the graph shows the merge as a dashed, unfinished node with both parents
+visible, so the shape of what you're doing stays on screen.
+<br><br>
+<b>The one addition.</b> <i>Accept all current</i> / <i>Accept all incoming</i> in the file header are not library
+features — they are a loop over <code>resolveConflict(i, 'current' | 'incoming')</code>. Thin, and worth it for a
+file with a dozen identical conflicts. Everything else in the pane is <code>UnresolvedFile</code> as shipped.
 </p>
 
 <!-- ══════════════════════════ 2 · EMPTY REPO ══════════════════════════ -->
