@@ -92,7 +92,7 @@ svg{flex:0 0 auto}
 .mi{width:100%;height:52px;resize:none;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:7px;
   padding:7px 30px 7px 9px;font:400 0.83rem/1.15rem inherit;color:var(--text-primary);outline:none}
 .mi::placeholder{color:var(--text-muted)}
-.ai{position:absolute;right:5px;top:5px;width:21px;height:21px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
+.msgai{position:absolute;right:5px;top:5px;width:21px;height:21px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
 .cbtn{margin-top:6px;height:28px;border-radius:7px;background:var(--brand-primary);color:var(--brand-primary-foreground);
   display:flex;align-items:center;justify-content:center;gap:7px;font-size:0.82rem;font-weight:500}
 .cbtn.off{background:var(--bg-muted);color:var(--text-muted)}
@@ -140,6 +140,17 @@ svg{flex:0 0 auto}
 .dl.mark .who{font-weight:400;opacity:.6;padding-left:8px}
 .dl.sepmark{background:transparent}
 .dl.sepmark .tx{color:var(--text-muted);opacity:.7}
+.dl.sugg{background:color-mix(in srgb,var(--brand-secondary) 13%,transparent)} .dl.sugg .tx{color:#ddd6fe}
+.sugghead{display:flex;align-items:center;gap:7px;padding:3px 12px 3px 58px;font-size:0.78rem;color:var(--brand-secondary)}
+.sugghead .r{margin-left:auto;display:flex;gap:5px}
+.rationale{padding:2px 12px 5px 58px;font-size:0.78rem;line-height:1.1rem;color:var(--text-muted);
+  font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;max-width:78ch}
+.needsyou{display:flex;align-items:flex-start;gap:7px;padding:5px 12px 6px 58px;font-size:0.78rem;
+  line-height:1.1rem;color:var(--status-warning);font-family:-apple-system,system-ui,sans-serif;max-width:78ch}
+.mini.ai{border-color:color-mix(in srgb,var(--brand-secondary) 40%,transparent);color:var(--brand-secondary)}
+.mini.ai:hover{background:color-mix(in srgb,var(--brand-secondary) 14%,transparent)}
+.mini.go{border-color:var(--brand-primary);color:var(--brand-primary)}
+.dot.s{background:var(--brand-secondary)}
 .rest{flex:1;min-height:0;overflow:hidden}
 
 /* graph strip */
@@ -253,7 +264,7 @@ library renders it — inline unified, library vocabulary — so the work is ado
           <div class="cbox">
             <div class="mw">
               <textarea class="mi">Merge branch 'feat/create-concise-changelog' into main</textarea>
-              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+              <span class="msgai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
             </div>
             <div class="cbtn off">Conclude merge</div>
             <div class="hint">2 conflicts left to resolve</div>
@@ -340,6 +351,126 @@ features — they are a loop over <code>resolveConflict(i, 'current' | 'incoming
 file with a dozen identical conflicts. Everything else in the pane is <code>UnresolvedFile</code> as shipped.
 </p>
 
+
+<h2>1b · Resolving conflicts with AI</h2>
+<p class="note">
+The model proposes; you accept. <b>Nothing is applied without a click</b> — a suggestion renders as a fourth
+region inside the conflict, in the same shape as current and incoming, with the reasoning in one line so you can
+judge it without reading the whole file. Conflicts the model won't take responsibility for are marked
+<b>Needs you</b> with the reason, rather than getting a confident guess.
+</p>
+
+<div class="app">
+  <div class="topbar">
+    <div class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+    <span class="bchip">main</span><span class="sync">merging</span>
+    <span style="flex:1"></span>
+    <span class="ghchip"><span class="av"></span>monobyte</span>
+    <span class="tb off">Fetch</span><span class="tb off">Pull</span><span class="tb off">Push</span>
+    <span class="tb off" style="background:var(--bg-muted);color:var(--text-muted)">Create pull request</span>
+  </div>
+
+  <div class="banner conflict">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>
+    <span><span class="t">Merging feat/create-concise-changelog into main.</span> AI suggested resolutions for 2 of 3 conflicts — review each before concluding.</span>
+    <div class="r"><span class="tb line">Abort merge</span></div>
+  </div>
+
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><span class="sw" style="background:var(--l0)"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l1)"></span><span class="nm">feat/create-concise-…-57596</span></div>
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span></div>
+      <div class="empty">Nothing stashed</div>
+    </div>
+    <div class="vhair"></div>
+
+    <div class="main">
+      <div class="detail" style="height:392px">
+        <div class="files">
+          <div class="sec bad">Conflicts <span class="n">1</span></div>
+          <div class="frow bad on"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st bad">1 of 2</span></div>
+
+          <div class="sec" style="padding-top:11px;color:var(--brand-secondary)">Suggested <span class="n">1</span><span class="act" style="color:var(--brand-secondary)">Accept all</span></div>
+          <div class="frow"><span class="dot s"></span><span class="fn">CHANGELOG.md</span><span class="st">1</span></div>
+
+          <div class="sec" style="padding-top:11px">Merged cleanly <span class="n">4</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+
+          <div class="cbox">
+            <div class="mw">
+              <textarea class="mi">Merge branch 'feat/create-concise-changelog' into main</textarea>
+              <span class="msgai"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+            </div>
+            <div class="cbtn off">Conclude merge</div>
+            <div class="hint">1 conflict and 1 unreviewed suggestion left</div>
+          </div>
+        </div>
+
+        <div class="diff">
+          <div class="dbar">
+            <span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span>
+            src/lib/parse.ts <span class="mut">2 conflicts · 1 suggested</span>
+            <div class="r"><span class="mini ai"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Re-run AI</span><span class="mini">Accept all current</span><span class="mini">Open in Explorer</span></div>
+          </div>
+
+          <div class="dbody" style="padding-top:0">
+            <div class="collapsed"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>19 unmodified lines</div>
+            <div class="dl"><span class="ln">20</span><span class="tx">export function render(v: number, currency?: string) {</span></div>
+            <div class="dl"><span class="ln">21</span><span class="tx">  const scale = precisionFor(currency);</span></div>
+
+            <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
+            <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
+            <div class="dl curr"><span class="ln">23</span><span class="tx">  const out = format(v, 2);</span></div>
+            <div class="dl curr"><span class="ln">24</span><span class="tx">  return out;</span></div>
+            <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
+            <div class="dl inc"><span class="ln">23</span><span class="tx">  const out = format(v, 2, currency);</span></div>
+            <div class="dl inc"><span class="ln">24</span><span class="tx">  return `${out} ${currency}`;</span></div>
+            <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
+
+            <div class="sugghead"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Suggested
+              <div class="r"><span class="mini go">Accept suggestion</span><span class="mini">Discard</span></div>
+            </div>
+            <div class="dl sugg"><span class="ln">23</span><span class="tx">  const out = format(v, scale, currency);</span></div>
+            <div class="dl sugg"><span class="ln">24</span><span class="tx">  return currency ? `${out} ${currency}` : out;</span></div>
+            <div class="rationale">Kept the currency parameter from incoming, but used <code>scale</code> from line 21 rather than the hardcoded <code>2</code>, and guarded the suffix so callers without a currency keep the old output.</div>
+
+            <div class="collapsed"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>62 unmodified lines</div>
+
+            <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
+            <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
+            <div class="dl curr"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 2;</span></div>
+            <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
+            <div class="dl inc"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 4;</span></div>
+            <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
+            <div class="needsyou"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg> <span><b style="color:var(--status-warning)">Needs you.</b> Both sides set the same constant to a different number and nothing in the diff says which is right — this is a product decision, not a merge.</span></div>
+          </div>
+          <div class="rest"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="spec">
+<b>Why it can't go through the library.</b> <code>resolveConflict(diff, conflict, type)</code> takes a closed union
+— <code>'current' | 'incoming' | 'both'</code> — so a suggestion that is <i>neither side</i> has no path through
+it. Accepting one writes the resolved text into the file and re-parses; the library then sees no markers and the
+conflict is gone. Worth stating in the spec, because it's the one place the AI path diverges from the built-in one.
+<br><br>
+<b>Why suggestions are a region and not a dialog.</b> They read in the same shape as current and incoming, in the
+same place, with the same accept gesture — so there's nothing new to learn and no modal hiding the code you're
+judging.
+<br><br>
+<b>Why "Needs you" exists.</b> A model that always answers is worse than one that declines, because you stop
+reading its output. Declining is the model's call and it gives its reason — not a confidence score we invented.
+The commit button counts unreviewed suggestions as unfinished, so an AI pass can never conclude a merge on its own.
+</p>
+
 <!-- ══════════════════════════ 2 · EMPTY REPO ══════════════════════════ -->
 <h2>2 · Repository with no commits</h2>
 <p class="note">
@@ -387,7 +518,7 @@ than showing an error, and the one action that matters — make the first commit
           <div class="cbox">
             <div class="mw">
               <textarea class="mi" placeholder="Message">chore: initial commit</textarea>
-              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+              <span class="msgai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
             </div>
             <div class="cbtn">Create the first commit <span class="kbd">⌘ ↵</span></div>
           </div>
@@ -479,7 +610,7 @@ says plainly what will happen and offers the two ways out — <b>keep this work<
           <div class="cbox">
             <div class="mw">
               <textarea class="mi" placeholder="Message"></textarea>
-              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+              <span class="msgai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
             </div>
             <div class="cbtn off">Commit</div>
             <div class="hint">Name a branch first, or this commit belongs to nothing</div>
