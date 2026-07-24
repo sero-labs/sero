@@ -90,6 +90,18 @@ svg{flex:0 0 auto}
 .btn.ghost:hover{background:var(--bg-elevated);color:var(--text-primary)}
 .kbd{font:0.72rem/1 var(--mono);opacity:.65;letter-spacing:.05em}
 .pad{padding:10px 12px}
+.scroller{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-muted) transparent}
+.scroller::-webkit-scrollbar{width:8px}
+.scroller::-webkit-scrollbar-thumb{background:var(--bg-muted);border-radius:4px;border:2px solid transparent;background-clip:content-box}
+.scroller::-webkit-scrollbar-track{background:transparent}
+.msgwrap{position:relative}
+.msgwrap .msg{padding-right:32px}
+.aibtn{position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:5px;display:flex;
+  align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer}
+.aibtn:hover{color:var(--brand-secondary);background:var(--bg-elevated)}
+.aibtn.busy{color:var(--brand-secondary)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
 .gap{display:flex;gap:6px}
 
 /* editor scale context */
@@ -106,115 +118,41 @@ svg{flex:0 0 auto}
 </head>
 <body>
 
-<h1>Git surfaces — prototype</h1>
+<h1>Git surfaces — prototype v2</h1>
 <p class="lede">
-Two surfaces, drawn at real size with the real Sero dark tokens. The Git app owns the actual work;
-these two are the ways in and out of it. Nothing here is nested in a card, nothing has a badge, and no
-label explains another label.
+Panel settled as B (changes + history). Header keeps its commit box, now with AI drafting.
+Both surfaces drawn with the real Sero dark tokens. New in this pass: what happens when the list is long.
 </p>
 
-<h2>1 · Explorer panel — at real width, beside a diff</h2>
+<h2>1 · Explorer panel — eight changed files, beside a diff</h2>
 <p class="note">
-300px, which is what you actually get. The point of the panel is that the list stays put while the diff
-changes — so the file rows are the only thing with any visual weight.
+The panel is fixed-height, so the two lists have to share it. <b style="color:var(--text-secondary)">Changes takes
+what it needs up to half the panel, then scrolls; History takes the remainder and scrolls too.</b> Changes never
+gets pushed out of view by a long history, and history never disappears because you touched a lot of files.
+Both section headers stay put while their list scrolls.
 </p>
 <div class="row">
-
   <div class="pcol">
-    <div class="panel" style="width:300px">
-      <div class="ptitle">
-        <span>Source Control</span>
-        <div class="icobtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div>
-      </div>
+    <div class="panel" style="width:300px;height:430px;display:flex;flex-direction:column">
+      <div class="ptitle"><span>Source Control</span><div class="icobtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div></div>
       <div class="hair"></div>
-
-      <div class="bstrip">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-        <span class="bname">main</span>
-        <span class="sync">↑0 ↓0</span>
-      </div>
+      <div class="bstrip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg><span class="bname">main</span><span class="sync">↑0 ↓0</span></div>
       <div class="hair"></div>
-
-      <div class="sec-label">Changes <span class="n">1</span></div>
-      <div class="frow sel">
-        <span class="dot m"></span>
-        <span class="fname">README.md</span>
-        <span class="stat"><span class="p">+2</span></span>
-      </div>
-      <div class="frow">
-        <span class="dot a"></span>
-        <span class="fname">src/lib/<span style="color:var(--text-primary)">parse.ts</span></span>
-        <span class="stat"><span class="p">+41</span> <span class="m">−3</span></span>
-      </div>
-
-      <div class="hair" style="margin-top:8px"></div>
-      <div class="footlink">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-        Open Git
-        <span style="flex:1"></span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
-      </div>
-    </div>
-    <p class="spec"><b>A · Changes only.</b> The strictest reading. History lives in the Git app, where the graph is.</p>
-  </div>
-
-  <div class="pcol">
-    <div class="panel" style="width:300px">
-      <div class="ptitle">
-        <span>Source Control</span>
-        <div class="icobtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div>
-      </div>
-      <div class="hair"></div>
-
-      <div class="bstrip">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-        <span class="bname">main</span>
-        <span class="sync">↑0 ↓0</span>
-      </div>
-      <div class="hair"></div>
-
-      <div class="sec-label">Changes <span class="n">1</span></div>
-      <div class="frow sel">
-        <span class="dot m"></span>
-        <span class="fname">README.md</span>
-        <span class="stat"><span class="p">+2</span></span>
-      </div>
-
+      <div class="sec-label">Changes <span class="n">8</span></div>
+      <div class="scroller" style="max-height:160px"><div class="frow sel"><span class="dot m"></span><span class="fname">README.md</span><span class="stat"><span class="p">+2</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/lib/parse.ts</span><span class="stat"><span class="p">+41</span> <span class="m">−3</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/lib/format.ts</span><span class="stat"><span class="p">+12</span> <span class="m">−8</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/components/Panel.tsx</span><span class="stat"><span class="p">+77</span> <span class="m">−14</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/components/Row.tsx</span><span class="stat"><span class="p">+96</span></span></div><div class="frow"><span class="dot d"></span><span class="fname">src/legacy/old-parse.ts</span><span class="stat"><span class="p">+0</span> <span class="m">−210</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">package.json</span><span class="stat"><span class="p">+3</span> <span class="m">−1</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">docs/reference/api.md</span><span class="stat"><span class="p">+18</span> <span class="m">−2</span></span></div></div>
       <div class="hair" style="margin-top:8px"></div>
       <div class="sec-label">History</div>
-      <div class="crow">
-        <span class="graphdot head"></span>
-        <span class="cmsg">chore: added CHANGELOG</span>
-        <span class="cmeta">986300b</span>
-      </div>
-      <div class="crow">
-        <span class="graphdot"></span>
-        <span class="cmsg">Fix README typo and round shares</span>
-        <span class="cmeta">878b180</span>
-      </div>
-      <div class="crow">
-        <span class="graphdot"></span>
-        <span class="cmsg">chore: initial commit</span>
-        <span class="cmeta">5790fdb</span>
-      </div>
-      <div class="more">Show more</div>
-
+      <div class="scroller" style="flex:1;min-height:0"><div class="crow"><span class="graphdot head"></span><span class="cmsg">chore: added CHANGELOG</span><span class="cmeta">986300b</span></div><div class="crow"><span class="graphdot"></span><span class="cmsg">Fix README typo and round shares</span><span class="cmeta">878b180</span></div><div class="crow"><span class="graphdot"></span><span class="cmsg">chore: initial commit</span><span class="cmeta">5790fdb</span></div><div class="crow"><span class="graphdot"></span><span class="cmsg">Add currency option to output</span><span class="cmeta">25b88c6</span></div><div class="crow"><span class="graphdot"></span><span class="cmsg">Initial commit</span><span class="cmeta">957a64f</span></div><div class="more">Show more</div></div>
       <div class="hair"></div>
-      <div class="footlink">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-        Open Git
-        <span style="flex:1"></span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
-      </div>
+      <div class="footlink"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> Open Git <span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></div>
     </div>
-    <p class="spec"><b>B · Changes + history.</b> The GitLens shape. Click a commit and its diff opens too, so the panel diffs the past as well as the present.</p>
+    <p class="spec"><b>B · Changes + history.</b> Click either list and the diff opens in the editor. No commit box, no branches, no PR form.</p>
   </div>
 
   <div class="editor">
     <div class="etab">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-      README.md
-      <span style="color:var(--text-muted);font-family:var(--mono);font-size:.72rem">986300b → working tree</span>
+      README.md <span style="color:var(--text-muted);font-family:var(--mono);font-size:.72rem">986300b → working tree</span>
     </div>
     <div class="ebody">
       <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
@@ -226,77 +164,98 @@ changes — so the file rows are the only thing with any visual weight.
   </div>
 </div>
 
-<h2>2 · Header popover</h2>
+<h2>2 · Header popover — one file, many files, drafting</h2>
 <p class="note">
-300px, down from 420px. The single biggest change: <b style="color:var(--text-secondary)">it shows you the files you're
-about to commit</b> — today it commits blind. The PR form is gone (it lives in the Git app), and with it the
-hero sentence, the four-way stats strip, and the two nested cards.
+The commit box stays. The sparkle in the message field drafts a message from the staged diff — the same
+<code style="color:var(--text-secondary)">runAdhocAgent</code> path that already powers "Draft with AI" on pull requests.
+When the list is long it <b style="color:var(--text-secondary)">scrolls at five rows</b>, so the popover height never
+changes and the commit button never moves. If you need to commit only some of them, that's what Open Git is for.
 </p>
-<div class="row" style="align-items:flex-start;gap:40px">
-  <div>
-    <div style="margin-bottom:14px">
-      <span class="trigger">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-        main <span class="c">1</span>
-      </span>
-    </div>
+<div class="row" style="gap:34px">
 
+  <div class="pcol">
+    <div style="margin-bottom:14px"><span class="trigger"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> main <span class="c">1</span></span></div>
     <div class="pop">
       <div class="pophead">
-        <div class="poprepo">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
-          orchestrator-demo-1
-        </div>
+        <div class="poprepo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
         <div class="popsub">main · ↑0 ↓0</div>
       </div>
       <div class="hair"></div>
-
       <div class="sec-label">Changes <span class="n">1</span></div>
-      <div class="frow">
-        <span class="dot m"></span>
-        <span class="fname">README.md</span>
-        <span class="stat"><span class="p">+2</span></span>
-      </div>
-
+      <div class="frow"><span class="dot m"></span><span class="fname">README.md</span><span class="stat"><span class="p">+2</span></span></div>
       <div class="pad" style="padding-top:8px">
-        <input class="msg" placeholder="Message">
-        <div class="btn primary" style="margin-top:6px">
-          Commit 1 file <span class="kbd">⌘ ↵</span>
+        <div class="msgwrap">
+          <input class="msg" placeholder="Message">
+          <div class="aibtn" title="Draft a commit message"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></div>
         </div>
+        <div class="btn primary" style="margin-top:6px">Commit 1 file <span class="kbd">⌘ ↵</span></div>
       </div>
       <div class="hair"></div>
-
-      <div class="pad gap">
-        <div class="btn ghost">Fetch</div>
-        <div class="btn ghost">Pull</div>
-        <div class="btn ghost">Push</div>
-      </div>
+      <div class="pad gap"><div class="btn ghost">Fetch</div><div class="btn ghost">Pull</div><div class="btn ghost">Push</div></div>
       <div class="hair"></div>
-
-      <div class="footlink">
-        Open Git
-        <span style="flex:1"></span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
-      </div>
+      <div class="footlink">Open Git <span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></div>
     </div>
-    <p class="spec"><b>Proposed.</b> One count in the trigger, not two. No "Ship deck", no "Quick sync", no "All in".</p>
+    <p class="spec"><b>One file.</b> The sparkle sits in the field, not as a second button competing with Commit.</p>
   </div>
 
-  <div style="max-width:34ch">
-    <p class="spec" style="margin:0 0 10px"><b>What was removed, and why</b></p>
-    <p class="spec" style="line-height:1.5rem">
-      <b>Hero sentence</b> — "Wrap up the current changes and keep the branch moving." Told you nothing you
-      couldn't see.<br><br>
-      <b>Stats strip</b> — <code>22:58:06 · 0 staged · 1 changed · 0↑/0↓</code>. Four facts, three of them
-      repeated elsewhere in the same popover.<br><br>
-      <b>Two nested cards</b> — Commit and Pull request were each a bordered box inside a bordered panel.
-      Hairlines separate now.<br><br>
-      <b>The PR form</b> — moved to the Git app. It never fitted in a popover, and it was byte-identical to
-      the one in the sidebar.<br><br>
-      <b>"Ready" / "Live refresh active"</b> — status labels for states with no action attached.
-    </p>
+  <div class="pcol">
+    <div style="margin-bottom:14px"><span class="trigger"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> main <span class="c">8</span></span></div>
+    <div class="pop">
+      <div class="pophead">
+        <div class="poprepo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+        <div class="popsub">main · ↑0 ↓0</div>
+      </div>
+      <div class="hair"></div>
+      <div class="sec-label">Changes <span class="n">8</span></div>
+      <div class="scroller" style="max-height:130px"><div class="frow sel"><span class="dot m"></span><span class="fname">README.md</span><span class="stat"><span class="p">+2</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/lib/parse.ts</span><span class="stat"><span class="p">+41</span> <span class="m">−3</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/lib/format.ts</span><span class="stat"><span class="p">+12</span> <span class="m">−8</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/components/Panel.tsx</span><span class="stat"><span class="p">+77</span> <span class="m">−14</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/components/Row.tsx</span><span class="stat"><span class="p">+96</span></span></div><div class="frow"><span class="dot d"></span><span class="fname">src/legacy/old-parse.ts</span><span class="stat"><span class="p">+0</span> <span class="m">−210</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">package.json</span><span class="stat"><span class="p">+3</span> <span class="m">−1</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">docs/reference/api.md</span><span class="stat"><span class="p">+18</span> <span class="m">−2</span></span></div></div>
+      <div class="pad" style="padding-top:8px">
+        <div class="msgwrap">
+          <input class="msg" placeholder="Message">
+          <div class="aibtn" title="Draft a commit message"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></div>
+        </div>
+        <div class="btn primary" style="margin-top:6px">Commit 8 files <span class="kbd">⌘ ↵</span></div>
+      </div>
+      <div class="hair"></div>
+      <div class="pad gap"><div class="btn ghost">Fetch</div><div class="btn ghost">Pull</div><div class="btn ghost">Push</div></div>
+      <div class="hair"></div>
+      <div class="footlink">Open Git <span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></div>
+    </div>
+    <p class="spec"><b>Eight files.</b> Scrolls at five rows. Popover height is identical to the one-file case — the commit button never moves.</p>
+  </div>
+
+  <div class="pcol">
+    <div style="margin-bottom:14px"><span class="trigger"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> main <span class="c">8</span></span></div>
+    <div class="pop">
+      <div class="pophead">
+        <div class="poprepo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+        <div class="popsub">main · ↑0 ↓0</div>
+      </div>
+      <div class="hair"></div>
+      <div class="sec-label">Changes <span class="n">8</span></div>
+      <div class="scroller" style="max-height:130px"><div class="frow sel"><span class="dot m"></span><span class="fname">README.md</span><span class="stat"><span class="p">+2</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/lib/parse.ts</span><span class="stat"><span class="p">+41</span> <span class="m">−3</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/lib/format.ts</span><span class="stat"><span class="p">+12</span> <span class="m">−8</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">src/components/Panel.tsx</span><span class="stat"><span class="p">+77</span> <span class="m">−14</span></span></div><div class="frow"><span class="dot a"></span><span class="fname">src/components/Row.tsx</span><span class="stat"><span class="p">+96</span></span></div><div class="frow"><span class="dot d"></span><span class="fname">src/legacy/old-parse.ts</span><span class="stat"><span class="p">+0</span> <span class="m">−210</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">package.json</span><span class="stat"><span class="p">+3</span> <span class="m">−1</span></span></div><div class="frow"><span class="dot m"></span><span class="fname">docs/reference/api.md</span><span class="stat"><span class="p">+18</span> <span class="m">−2</span></span></div></div>
+      <div class="pad" style="padding-top:8px">
+        <div class="msgwrap">
+          <input class="msg" value="feat(parse): support currency output" style="color:var(--text-primary)">
+          <div class="aibtn busy"><svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9" /></svg></div>
+        </div>
+        <div class="btn primary" style="margin-top:6px">Commit 8 files <span class="kbd">⌘ ↵</span></div>
+      </div>
+      <div class="hair"></div>
+      <div class="pad gap"><div class="btn ghost">Fetch</div><div class="btn ghost">Pull</div><div class="btn ghost">Push</div></div>
+      <div class="hair"></div>
+      <div class="footlink">Open Git <span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></div>
+    </div>
+    <p class="spec"><b>Drafting.</b> The sparkle spins in place and the message fills in. Nothing else moves; no toast, no status line.</p>
   </div>
 </div>
+
+<h2>3 · One thing that doesn't exist yet</h2>
+<p class="note">
+Commit-message drafting has no backend. Pull requests get theirs from <code style="color:var(--text-secondary)">prGenerateDraft</code>
+(<code>apps/desktop/electron/ipc/integrations/vcs.ts:192</code>), which calls <code style="color:var(--text-secondary)">runAdhocAgent</code>
+with a PR prompt. The commit equivalent is a sibling channel with a commit-message prompt and the staged diff —
+same seam, new prompt. Small, but it is net-new work rather than a move.
+</p>
 
 </body>
 </html>
