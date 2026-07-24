@@ -62,6 +62,7 @@ svg{flex:0 0 auto}
   color:var(--text-muted);text-transform:uppercase;flex:0 0 auto}
 .ghead .c1{width:210px;padding-left:14px} .ghead .c2{width:180px} .ghead .c3{flex:1}
 .ghead .c4{width:84px} .ghead .c5{width:104px} .ghead .c6{width:52px;text-align:right;padding-right:14px}
+.ghead{padding-right:0}
 
 .grid{position:relative;flex:1;min-height:0}
 .rows{position:absolute;inset:0;z-index:0}
@@ -80,6 +81,15 @@ svg{flex:0 0 auto}
 .tag.head{box-shadow:inset 0 0 0 1px currentColor}
 .wip{color:var(--brand-primary);background:color-mix(in srgb,var(--brand-primary) 14%,transparent)}
 .lanes{position:absolute;left:210px;top:0;width:180px;height:420px;pointer-events:none;z-index:1}
+.grid{overflow:hidden}
+.split{height:9px;flex:0 0 9px;display:flex;align-items:center;justify-content:center;cursor:row-resize;
+  background:var(--bg-base);border-top:1px solid var(--border-subtle)}
+.split:hover{background:var(--bg-elevated)}
+.split .grip{width:38px;height:3px;border-radius:2px;background:var(--border-default)}
+.split:hover .grip{background:var(--text-muted)}
+.chev{margin-left:auto;display:flex;align-items:center;gap:5px;padding-right:14px;cursor:pointer;
+  font-size:0.72rem;letter-spacing:.06em;color:var(--text-muted)}
+.chev:hover{color:var(--text-secondary)}
 
 /* ---- bottom detail ---- */
 .detail{flex:1;min-height:0;display:flex;border-top:1px solid var(--border-subtle)}
@@ -177,6 +187,7 @@ read off the graph without checking anything.
         <div class="ghead">
           <span class="c1">Branch / tag</span><span class="c2">Graph</span><span class="c3">Commit</span>
           <span class="c4">SHA</span><span class="c5">Author</span><span class="c6">When</span>
+          <span class="chev">Collapse <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg></span>
         </div>
         <div class="grid">
           <svg class="lanes" width="180" height="420" viewBox="0 0 180 420">
@@ -235,6 +246,7 @@ read off the graph without checking anything.
         </div>
       </div>
 
+      <div class="split"><span class="grip"></span></div>
       <div class="detail">
         <div class="files">
           <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
@@ -287,6 +299,173 @@ read off the graph without checking anything.
     </div>
   </div>
 </div>
+
+<h2>Dragging the split</h2>
+<p class="note">
+The divider between the graph and the working tree is draggable, and the graph header collapses it outright —
+so the same window serves both jobs. Reading history: pull it down. Committing: push it up and the diff takes
+the height. <b>You don't have to choose a layout; you choose it per moment.</b> Below is the same app with the
+graph dragged to five rows.
+</p>
+
+<div class="app" style="height:600px">
+  <div class="topbar">
+    <div class="repo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
+      orchestrator-demo-1
+    </div>
+    <span class="bchip">main</span>
+    <span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span>
+    <span class="ghchip"><span class="av"></span>monobyte</span>
+    <span class="tb">Fetch</span><span class="tb">Pull</span><span class="tb">Push</span>
+    <span class="tb solid">Create pull request</span>
+  </div>
+  <div class="hair"></div>
+
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><span class="sw" style="background:var(--l0)"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l2)"></span><span class="nm">chore/review-open-…-25cb4</span><span class="wt">WT</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l1)"></span><span class="nm">feat/create-concise-…-57596</span><span class="wt">WT</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l3)"></span><span class="nm">fix/review-and-handle-…-e644e</span><span class="ct">↓2</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l4)"></span><span class="nm">chore/review-open-…-cb4-r6</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--bg-muted)"></span><span class="nm">feat/create-concise-…-596-r2</span></div>
+
+      <div class="grp" style="padding-top:16px">origin <span class="n">github.com</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--bg-muted)"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--bg-muted)"></span><span class="nm">chore/review-open-…-25cb4</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--bg-muted)"></span><span class="nm">feat/create-concise-…-57596</span></div>
+
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span></div>
+      <div class="rrow" style="opacity:.6"><span class="sw"></span><span class="nm">Nothing stashed</span></div>
+    </div>
+    <div class="vhair"></div>
+
+    <div class="main">
+      <div class="graphwrap" style="height:176px;flex:0 0 176px">
+        <div class="ghead">
+          <span class="c1">Branch / tag</span><span class="c2">Graph</span><span class="c3">Commit</span>
+          <span class="c4">SHA</span><span class="c5">Author</span><span class="c6">When</span>
+          <span class="chev">Expand <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        </div>
+        <div class="grid">
+          <svg class="lanes" width="180" height="420" viewBox="0 0 180 420">
+            <!-- lane 0 : main, continuous -->
+            <path d="M20 0 V405" stroke="var(--l0)" stroke-width="2" fill="none"/>
+            <!-- lane 2 : chore/review — forks at r4, merges into main at r0 -->
+            <path d="M20 15 C20 30 56 30 56 45" stroke="var(--l2)" stroke-width="2" fill="none"/>
+            <path d="M56 45 V105" stroke="var(--l2)" stroke-width="2" fill="none"/>
+            <path d="M56 105 C56 120 20 120 20 135" stroke="var(--l2)" stroke-width="2" fill="none"/>
+            <!-- lane 1 : feat/changelog — forks at r8, merges into main at r4 -->
+            <path d="M20 135 C20 150 92 150 92 165" stroke="var(--l1)" stroke-width="2" fill="none"/>
+            <path d="M92 165 V225" stroke="var(--l1)" stroke-width="2" fill="none"/>
+            <path d="M92 225 C92 240 20 240 20 255" stroke="var(--l1)" stroke-width="2" fill="none"/>
+            <!-- lane 3 : fix/… — unmerged, tip only -->
+            <path d="M128 285 C128 300 20 300 20 315" stroke="var(--l3)" stroke-width="2" fill="none"/>
+            <!-- nodes -->
+            <circle cx="20"  cy="15"  r="5.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2.5"/>
+            <circle cx="20"  cy="15"  r="2"   fill="var(--l0)"/>
+            <circle cx="56"  cy="45"  r="4.5" fill="var(--bg-base)" stroke="var(--l2)" stroke-width="2"/>
+            <circle cx="56"  cy="75"  r="4.5" fill="var(--bg-base)" stroke="var(--l2)" stroke-width="2"/>
+            <circle cx="56"  cy="105" r="4.5" fill="var(--bg-base)" stroke="var(--l2)" stroke-width="2"/>
+            <circle cx="20"  cy="135" r="5.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2.5"/>
+            <circle cx="20"  cy="135" r="2"   fill="var(--l0)"/>
+            <circle cx="92"  cy="165" r="4.5" fill="var(--bg-base)" stroke="var(--l1)" stroke-width="2"/>
+            <circle cx="92"  cy="195" r="4.5" fill="var(--bg-base)" stroke="var(--l1)" stroke-width="2"/>
+            <circle cx="92"  cy="225" r="4.5" fill="var(--bg-base)" stroke="var(--l1)" stroke-width="2"/>
+            <circle cx="20"  cy="255" r="4.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2"/>
+            <circle cx="128" cy="285" r="4.5" fill="var(--bg-base)" stroke="var(--l3)" stroke-width="2"/>
+            <circle cx="20"  cy="315" r="4.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2"/>
+            <circle cx="20"  cy="345" r="4.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2"/>
+            <circle cx="20"  cy="375" r="4.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2"/>
+            <circle cx="20"  cy="405" r="4.5" fill="var(--bg-base)" stroke="var(--l0)" stroke-width="2"/>
+          </svg>
+
+          <div class="rows">
+            <div class="grow on">
+              <span class="c1"><span class="tag head" style="color:var(--l0);background:color-mix(in srgb,var(--l0) 16%,transparent)"><i style="background:var(--l0)"></i>main</span><span class="tag" style="color:var(--text-muted);background:var(--bg-muted)">origin/main</span></span>
+              <span class="c2"></span>
+              <span class="c3 merge">Merge branch 'chore/review-open-github-issues'</span>
+              <span class="c4">986300b</span><span class="c5">Monobyte</span><span class="c6">3w</span>
+            </div>
+            <div class="grow"><span class="c1"><span class="tag" style="color:var(--l2);background:color-mix(in srgb,var(--l2) 16%,transparent)"><i style="background:var(--l2)"></i>chore/review-…-25cb4</span></span><span class="c2"></span><span class="c3">chore: claim issue #41 and open the loop</span><span class="c4">3a37564</span><span class="c5">Monobyte</span><span class="c6">3w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">chore: review open GitHub issues</span><span class="c4">c8f1d02</span><span class="c5">Monobyte</span><span class="c6">3w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">chore: add the triage checklist</span><span class="c4">44be9a1</span><span class="c5">Monobyte</span><span class="c6">3w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3 merge">Merge branch 'feat/create-concise-changelog'</span><span class="c4">878b180</span><span class="c5">Monobyte</span><span class="c6">3w</span></div>
+            <div class="grow"><span class="c1"><span class="tag" style="color:var(--l1);background:color-mix(in srgb,var(--l1) 16%,transparent)"><i style="background:var(--l1)"></i>feat/create-…-57596</span></span><span class="c2"></span><span class="c3">feat: concise changelog output</span><span class="c4">25b88c6</span><span class="c5">Monobyte</span><span class="c6">3w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">Add currency option to output</span><span class="c4">7f3c118</span><span class="c5">Monobyte</span><span class="c6">4w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">test: cover changelog generation</span><span class="c4">2ed4a63</span><span class="c5">Monobyte</span><span class="c6">4w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">Fix README typo and round shares with currency</span><span class="c4">9b5e0af</span><span class="c5">Monobyte</span><span class="c6">4w</span></div>
+            <div class="grow"><span class="c1"><span class="tag" style="color:var(--l3);background:color-mix(in srgb,var(--l3) 16%,transparent)"><i style="background:var(--l3)"></i>fix/review-…-e644e</span></span><span class="c2"></span><span class="c3">fix: handle empty commit range</span><span class="c4">c17d284</span><span class="c5">Monobyte</span><span class="c6">5w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">chore: added CHANGELOG</span><span class="c4">60ba935</span><span class="c5">Monobyte</span><span class="c6">5w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">refactor: split parser into modules</span><span class="c4">4c1de90</span><span class="c5">Monobyte</span><span class="c6">5w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">refactor: drop the legacy formatter</span><span class="c4">e94f501</span><span class="c5">Monobyte</span><span class="c6">6w</span></div>
+            <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">chore: initial commit</span><span class="c4">5790fdb</span><span class="c5">Monobyte</span><span class="c6">6w</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split"><span class="grip"></span></div>
+      <div class="detail">
+        <div class="files">
+          <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
+            <span class="acts">
+              <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              <span class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
+            </span>
+          </div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+          <div class="sec" style="padding-top:10px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+          <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+          <div class="cbox">
+            <div class="mw">
+              <textarea class="mi">feat(parse): support currency output</textarea>
+              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+            </div>
+            <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
+          </div>
+        </div>
+
+        <div class="diff">
+          <div class="dbar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+            README.md <span class="mut">986300b → working tree</span>
+          </div>
+          <div class="fh">README.md</div>
+          <div class="dbody">
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
+            <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
+            <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
+            <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
+            <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
+            <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
+            <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<p class="spec">
+Dragged position persists per workspace, so a repo you mostly commit in stays collapsed and a repo you mostly
+read stays open.
+</p>
 
 <p class="spec">
 <b>What the graph now tells you that a gutter can't.</b> That <code>main</code> absorbed two branches and in which
