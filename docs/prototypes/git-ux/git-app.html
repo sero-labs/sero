@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Git app — prototype</title>
+<style>
+:root{
+  --bg-base:#0a0a0b; --bg-surface:#111113; --bg-elevated:#18181b; --bg-overlay:#1f1f23; --bg-muted:#27272a;
+  --border-subtle:#27272a; --border-default:#3f3f46;
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a;
+  --brand-primary:#34d399; --brand-primary-foreground:#052e1c; --brand-secondary:#c4b5fd;
+  --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444; --status-info:#3b82f6;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1480px;background:#08080a;color:var(--text-primary);padding:40px;
+  font:400 0.9rem/1.2rem -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:1.1rem;font-weight:600;margin-bottom:4px}
+h2{font-size:0.95rem;font-weight:600;margin:44px 0 4px}
+.lede,.note{color:var(--text-muted);font-size:0.87rem;line-height:1.45rem;max-width:96ch}
+.lede{margin-bottom:30px} .note{margin-bottom:16px}
+.spec{color:var(--text-muted);font-size:0.78rem;margin-top:8px;line-height:1.15rem}
+.spec b{color:var(--text-secondary);font-weight:500}
+b{color:var(--text-secondary);font-weight:500}
+code{font:0.8rem var(--mono);color:var(--text-secondary)}
+.hair{height:1px;background:var(--border-subtle);flex:0 0 auto}
+.vhair{width:1px;background:var(--border-subtle);flex:0 0 auto}
+svg{flex:0 0 auto}
+.scroller{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-muted) transparent}
+.scroller::-webkit-scrollbar{width:8px}
+.scroller::-webkit-scrollbar-thumb{background:var(--bg-muted);border-radius:4px;border:2px solid transparent;background-clip:content-box}
+
+/* ---- app shell ---- */
+.app{width:1400px;height:820px;background:var(--bg-base);border:1px solid var(--border-subtle);
+  border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.app.short{height:520px}
+.topbar{height:40px;display:flex;align-items:center;gap:10px;padding:0 12px;flex:0 0 auto}
+.repo{display:flex;align-items:center;gap:7px;font-size:0.9rem;font-weight:600}
+.bchip{display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;border-radius:5px;
+  background:var(--bg-elevated);font:0.78rem/1 var(--mono);color:var(--text-secondary)}
+.sync{font:0.78rem/1 var(--mono);color:var(--text-muted)}
+.tb{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:6px;
+  font-size:0.82rem;color:var(--text-secondary);cursor:pointer;border:1px solid transparent}
+.tb:hover{background:var(--bg-elevated);color:var(--text-primary)}
+.tb.solid{background:var(--brand-primary);color:var(--brand-primary-foreground);font-weight:500}
+.body{flex:1;display:flex;min-height:0}
+
+/* ---- rail ---- */
+.rail{width:214px;flex:0 0 214px;display:flex;flex-direction:column;min-height:0}
+.grp{display:flex;align-items:center;gap:6px;padding:12px 12px 5px;font-size:0.76rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.04em}
+.grp .n{opacity:.6}
+.grp .add{margin-left:auto;cursor:pointer;opacity:.6}
+.grp .add:hover{opacity:1;color:var(--text-secondary)}
+.rrow{display:flex;align-items:center;gap:7px;height:25px;padding:0 12px;cursor:pointer;font-size:0.83rem;color:var(--text-secondary)}
+.rrow:hover{background:var(--bg-elevated)}
+.rrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.rrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .ct{font:0.72rem/1 var(--mono);color:var(--text-muted)}
+.rrow .ct.ahead{color:var(--status-success)} .rrow .ct.behind{color:var(--status-warning)}
+.wt{font:0.62rem/1 var(--mono);color:var(--text-muted);border:1px solid var(--border-subtle);
+  border-radius:3px;padding:2px 3px;letter-spacing:.04em}
+
+/* ---- work column ---- */
+.work{width:372px;flex:0 0 372px;display:flex;flex-direction:column;min-height:0}
+.sec{display:flex;align-items:center;gap:7px;padding:11px 12px 6px;font-size:0.78rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.03em}
+.sec .n{opacity:.65} .sec .act{margin-left:auto;font-size:0.78rem;color:var(--text-muted);cursor:pointer}
+.sec .act:hover{color:var(--text-secondary)}
+.frow{display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer}
+.frow:hover{background:var(--bg-elevated)} .frow.on{background:var(--bg-overlay)}
+.ck{width:12px;height:12px;border-radius:3px;border:1px solid var(--border-default);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center}
+.ck.y{background:var(--brand-primary);border-color:var(--brand-primary)}
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.m{background:var(--status-warning)} .dot.a{background:var(--status-success)} .dot.d{background:var(--status-error)}
+.fn{flex:1;min-width:0;font-size:0.84rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn .dir{color:var(--text-muted)}
+.st{font:0.74rem/1 var(--mono);color:var(--text-muted)}
+.st .p{color:var(--status-success)} .st .m{color:var(--status-error)}
+.cbox{padding:8px 12px 10px}
+.mw{position:relative}
+.mi{width:100%;height:56px;resize:none;background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:7px;padding:7px 30px 7px 9px;font:400 0.84rem/1.15rem inherit;color:var(--text-primary);outline:none}
+.mi::placeholder{color:var(--text-muted)}
+.ai{position:absolute;right:5px;top:5px;width:21px;height:21px;border-radius:5px;display:flex;align-items:center;
+  justify-content:center;color:var(--text-muted);cursor:pointer}
+.ai:hover{color:var(--brand-secondary);background:var(--bg-elevated)}
+.cbtn{margin-top:6px;height:29px;border-radius:7px;background:var(--brand-primary);color:var(--brand-primary-foreground);
+  display:flex;align-items:center;justify-content:center;gap:7px;font-size:0.83rem;font-weight:500;cursor:pointer}
+.kbd{font:0.72rem/1 var(--mono);opacity:.62;letter-spacing:.05em}
+
+/* commit rows + lanes */
+.crow{display:flex;align-items:center;gap:8px;height:30px;padding:0 12px 0 0;cursor:pointer}
+.crow:hover{background:var(--bg-elevated)} .crow.on{background:var(--bg-overlay)}
+.lane{width:34px;flex:0 0 34px;height:30px;position:relative}
+.lane i{position:absolute;left:11px;top:-2px;bottom:-2px;width:1.5px;background:var(--border-default)}
+.lane i.b{left:22px;background:var(--status-warning);opacity:.55}
+.lane i.half{top:13px}
+.lane u{position:absolute;left:7.5px;top:11px;width:8px;height:8px;border-radius:50%;
+  border:1.5px solid var(--text-muted);background:var(--bg-base)}
+.lane u.hd{background:var(--brand-secondary);border-color:var(--brand-secondary)}
+.lane u.b{left:18.5px;border-color:var(--status-warning)}
+.cmsg{flex:1;min-width:0;font-size:0.84rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ref{display:inline-flex;align-items:center;max-width:92px;height:17px;padding:0 5px;border-radius:4px;
+  background:var(--bg-muted);font:0.7rem/1 var(--mono);color:var(--text-secondary);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+.ref.cur{background:color-mix(in srgb,var(--brand-secondary) 18%,transparent);color:var(--brand-secondary)}
+.ref.more{background:transparent;color:var(--text-muted);padding:0 2px}
+.sha{font:0.72rem/1 var(--mono);color:var(--text-muted);flex:0 0 auto}
+.when{font:0.72rem/1 var(--mono);color:var(--text-muted);opacity:.7;width:26px;text-align:right;flex:0 0 auto}
+
+/* ---- detail ---- */
+.detail{flex:1;min-width:0;display:flex;flex-direction:column}
+.dbar{height:32px;display:flex;align-items:center;gap:9px;padding:0 12px;flex:0 0 auto;font-size:0.82rem;color:var(--text-secondary)}
+.dbar .mut{color:var(--text-muted);font:0.75rem var(--mono)}
+.dbar .r{margin-left:auto;display:flex;gap:2px}
+.ico{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer}
+.ico:hover{background:var(--bg-elevated);color:var(--text-secondary)}
+.dbody{flex:1;min-height:0;font:0.79rem/1.55 var(--mono);padding:8px 0;color:var(--text-muted);overflow:hidden}
+.fh{display:flex;align-items:center;gap:8px;height:28px;padding:0 14px;background:var(--bg-surface);
+  border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);
+  font:0.78rem var(--mono);color:var(--text-secondary)}
+.fh .s{margin-left:auto;font-size:0.74rem}
+.dl{display:flex;padding:0 14px}
+.dl .ln{width:66px;flex:0 0 66px;color:var(--text-muted);opacity:.45;text-align:right;padding-right:14px;user-select:none}
+.dl.add{background:rgba(34,197,94,.10)} .dl.add .tx{color:#86efac}
+.dl.del{background:rgba(239,68,68,.10)} .dl.del .tx{color:#fca5a5}
+.dl.hunk{color:var(--text-muted);opacity:.55;padding-top:5px;padding-bottom:5px}
+
+/* PR compose */
+.pr{padding:14px 16px;display:flex;flex-direction:column;gap:9px;max-width:640px}
+.lbl{font-size:0.76rem;color:var(--text-muted);letter-spacing:.03em}
+.fld{height:30px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:7px;
+  padding:0 9px;font-size:0.84rem;color:var(--text-primary);display:flex;align-items:center;gap:6px}
+.fld.ta{height:98px;align-items:flex-start;padding-top:7px;line-height:1.3rem;color:var(--text-muted)}
+.two{display:flex;gap:9px} .two>div{flex:1}
+.prfoot{display:flex;gap:8px;align-items:center}
+.gh{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;
+  background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.22);font-size:0.82rem;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+
+<h1>Git app — prototype</h1>
+<p class="lede">
+The surface that does the work. <b>One selection model, three columns, no modes.</b> The left rail is what you
+can switch to; the middle column is what you're working on; the right is always a diff. The working tree is
+just the top of the history, so staging and browsing a past commit use the same two motions — pick a thing on
+the left of the middle column, read it on the right.
+</p>
+
+<h2>1 · Default — working tree selected</h2>
+<p class="note">
+The middle column repeats the explorer panel's structure at a larger size: changes on top with the commit box
+pinned beneath them, history below, both scrolling independently. Same pattern, two surfaces — that repetition
+<b>is</b> the unification.
+</p>
+
+<div class="app">
+  <div class="topbar">
+    <div class="repo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg>
+      orchestrator-demo-1
+    </div>
+    <span class="bchip">main</span>
+    <span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span>
+    <span class="tb">Fetch</span>
+    <span class="tb">Pull</span>
+    <span class="tb">Push</span>
+    <span class="tb solid">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="18" r="2.5"/><circle cx="6" cy="6" r="2.5"/><path d="M6 8.5V15a3 3 0 0 0 3 3h6.5"/></svg>
+      Create pull request
+    </span>
+  </div>
+  <div class="hair"></div>
+
+  <div class="body">
+    <!-- rail -->
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span>
+        <span class="add"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      </div>
+      <div class="rrow on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-secondary)" stroke-width="2.2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span class="nm">main</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">chore/review-open-…-25cb4</span><span class="wt">WT</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">chore/review-open-…-cb4-r6</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">feat/create-concise-…-57596</span><span class="wt">WT</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">feat/create-concise-…-596-r2</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">fix/review-and-handle-…-e644e</span><span class="ct behind">↓2</span></div>
+
+      <div class="grp" style="padding-top:16px">origin <span class="n">github.com</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">main</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">chore/review-open-…-25cb4</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">feat/create-concise-…-57596</span></div>
+
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span>
+        <span class="add"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      </div>
+      <div class="rrow" style="color:var(--text-muted);opacity:.75"><span style="width:12px"></span><span class="nm">Nothing stashed</span></div>
+    </div>
+    <div class="vhair"></div>
+
+    <!-- work -->
+    <div class="work">
+      <div class="sec">Changes <span class="n">8</span><span class="act">Stage all</span></div>
+      <div class="scroller" style="max-height:184px">
+        <div class="frow on"><span class="ck y"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary-foreground)" stroke-width="4" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+        <div class="frow"><span class="ck y"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary-foreground)" stroke-width="4" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+        <div class="frow"><span class="ck"></span><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+      </div>
+
+      <div class="cbox">
+        <div class="mw">
+          <textarea class="mi" placeholder="Message">feat(parse): support currency output</textarea>
+          <div class="ai" title="Draft a commit message"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></div>
+        </div>
+        <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
+      </div>
+      <div class="hair"></div>
+
+      <div class="sec">History</div>
+      <div class="scroller" style="flex:1;min-height:0">
+        <div class="crow"><span class="lane"><i class="half"></i><u class="hd"></u></span><span class="cmsg">chore: added CHANGELOG</span><span class="ref cur">main</span><span class="ref more">+2</span><span class="sha">986300b</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">Fix README typo and round shares with currency</span><span class="sha">878b180</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><i class="b half"></i><u></u></span><span class="cmsg">chore: initial commit</span><span class="ref">feat/create-…</span><span class="sha">5790fdb</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><i class="b"></i><u class="b"></u></span><span class="cmsg">Add currency option to output</span><span class="sha">25b88c6</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><i class="b"></i><u></u></span><span class="cmsg">Initial commit</span><span class="ref">fix/review-…</span><span class="sha">957a64f</span><span class="when">3w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">refactor: split parser into modules</span><span class="sha">4c1de90</span><span class="when">4w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">fix: currency rounding on zero balances</span><span class="sha">a0b7742</span><span class="when">4w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">test: cover changelog generation</span><span class="sha">7f3c118</span><span class="when">4w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">chore(deps): bump vitest to 3.1</span><span class="sha">2ed4a63</span><span class="when">5w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">docs: describe the output format</span><span class="sha">9b5e0af</span><span class="when">5w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">fix: handle empty commit range</span><span class="sha">c17d284</span><span class="when">5w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">feat: emit machine-readable summary</span><span class="sha">60ba935</span><span class="when">6w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">refactor: drop the legacy formatter</span><span class="sha">e94f501</span><span class="when">6w</span></div><div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">chore: initial scaffold</span><span class="sha">118a7cd</span><span class="when">6w</span></div>
+      </div>
+    </div>
+    <div class="vhair"></div>
+
+    <!-- detail -->
+    <div class="detail">
+      <div class="dbar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        README.md <span class="mut">986300b → working tree</span>
+        <div class="r">
+          <div class="ico" title="Unified"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/></svg></div>
+          <div class="ico" title="Discard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+        </div>
+      </div>
+      <div class="fh">README.md <span class="s"><span style="color:var(--status-success)">+2</span></span></div>
+      <div class="dbody">
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
+        <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
+        <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
+        <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
+        <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
+        <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
+        <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
+        <div class="dl"><span class="ln">29&nbsp;&nbsp;31</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">30&nbsp;&nbsp;32</span><span class="tx">Output is rounded to two decimal places by default.</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;33</span><span class="tx">Pass `--currency` to append an ISO 4217 code.</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;34</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">31&nbsp;&nbsp;35</span><span class="tx">See `docs/reference/api.md` for the full option list.</span></div>
+        <div class="dl"><span class="ln">32&nbsp;&nbsp;36</span><span class="tx"></span></div>
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -48,4 +52,6 @@</span></div>
+        <div class="dl"><span class="ln">48&nbsp;&nbsp;52</span><span class="tx">## Licence</span></div>
+        <div class="dl"><span class="ln">49&nbsp;&nbsp;53</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">50&nbsp;&nbsp;54</span><span class="tx">MIT</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="spec" style="max-width:104ch">
+<b>What changed from today.</b> The bottom staging strip is gone — staging lives in the middle column where there's
+room for it. The 45%-wide inline <code>DiffViewer</code> is gone — the right column is <code>DiffChangeset</code>.
+The empty middle is gone, because the graph no longer has the window to itself. Ref chips are capped at 92px with
+an overflow count, so <b>the commit message is never pushed off the row</b> — compare the top row today, where the
+message is invisible. Branch names are middle-truncated, so six branches sharing a prefix are actually
+distinguishable, and a branch checked out in a worktree is marked <code>WT</code> rather than listed twice.
+</p>
+
+<h2>2 · A past commit selected</h2>
+<p class="note">
+Same three columns, same motions. The right column becomes the full <code>DiffChangeset</code> for the commit,
+with its file list — this is exactly the <code>DiffTab</code> you already like, mounted in place.
+</p>
+
+<div class="app short">
+  <div class="topbar">
+    <div class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+    <span class="bchip">main</span><span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Pull</span><span class="tb">Push</span>
+    <span class="tb solid">Create pull request</span>
+  </div>
+  <div class="hair"></div>
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-secondary)" stroke-width="2.2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span class="nm">main</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">chore/review-open-…-25cb4</span><span class="wt">WT</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">feat/create-concise-…-57596</span><span class="wt">WT</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">fix/review-and-handle-…-e644e</span><span class="ct behind">↓2</span></div>
+    </div>
+    <div class="vhair"></div>
+    <div class="work">
+      <div class="sec">Changes <span class="n">8</span><span class="act">Stage all</span></div>
+      <div class="frow"><span class="ck"></span><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+      <div class="frow"><span class="ck"></span><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+      <div class="hair" style="margin-top:8px"></div>
+      <div class="sec">History</div>
+      <div class="scroller" style="flex:1;min-height:0">
+        <div class="crow on"><span class="lane"><i class="half"></i><u class="hd"></u></span><span class="cmsg">chore: added CHANGELOG</span><span class="ref cur">main</span><span class="ref more">+2</span><span class="sha">986300b</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">Fix README typo and round shares with currency</span><span class="sha">878b180</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><i class="b half"></i><u></u></span><span class="cmsg">chore: initial commit</span><span class="ref">feat/create-…</span><span class="sha">5790fdb</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><i class="b"></i><u class="b"></u></span><span class="cmsg">Add currency option to output</span><span class="sha">25b88c6</span><span class="when">3w</span></div>
+      </div>
+    </div>
+    <div class="vhair"></div>
+    <div class="detail">
+      <div class="dbar">
+        <span style="color:var(--text-primary);font-weight:500">chore: added CHANGELOG</span>
+        <span class="mut">986300b · Monobyte · 3w ago · 2 files</span>
+        <div class="r"><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/></svg></div></div>
+      </div>
+      <div class="fh">CHANGELOG.md <span class="s"><span style="color:var(--status-success)">+24</span></span></div>
+      <div class="dbody" style="padding-bottom:0">
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -0,0 +1,5 @@</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;1</span><span class="tx"># Changelog</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;2</span><span class="tx"></span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;3</span><span class="tx">## 0.2.0</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;4</span><span class="tx">- Currency option on output</span></div>
+      </div>
+      <div class="fh">README.md <span class="s"><span style="color:var(--status-success)">+2</span> <span style="color:var(--status-error)">−1</span></span></div>
+      <div class="dbody" style="flex:0 0 auto">
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -8,2 +8,3 @@</span></div>
+        <div class="dl del"><span class="ln">8&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">A small prototype.</span></div>
+        <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;8</span><span class="tx">A small prototype with a changelog.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>3 · Creating a pull request</h2>
+<p class="note">
+The PR form finally has room. It is <b>not a fourth surface</b> — it is the right column, same as a diff, so the
+history stays visible beside it and you can still click a commit to check what you're proposing.
+GitHub sign-in appears here, where it actually blocks you, instead of as a standing banner in the sidebar.
+</p>
+
+<div class="app short">
+  <div class="topbar">
+    <div class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+    <span class="bchip">feat/create-concise-…</span><span class="sync">↑3 ↓0 · clean</span>
+    <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Pull</span><span class="tb">Push</span>
+    <span class="tb solid">Create pull request</span>
+  </div>
+  <div class="hair"></div>
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">main</span></div>
+      <div class="rrow on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-secondary)" stroke-width="2.2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span class="nm">feat/create-concise-…-57596</span><span class="ct ahead">↑3</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">chore/review-open-…-25cb4</span><span class="wt">WT</span></div>
+    </div>
+    <div class="vhair"></div>
+    <div class="work">
+      <div class="sec">Changes <span class="n">0</span></div>
+      <div class="frow" style="color:var(--text-muted);opacity:.75"><span style="width:12px"></span><span class="fn" style="color:var(--text-muted)">Working tree clean</span></div>
+      <div class="hair" style="margin-top:8px"></div>
+      <div class="sec">History</div>
+      <div class="scroller" style="flex:1;min-height:0">
+        <div class="crow"><span class="lane"><i class="half"></i><u class="hd"></u></span><span class="cmsg">feat: concise changelog output</span><span class="ref cur">feat/create-…</span><span class="sha">25b88c6</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">Add currency option to output</span><span class="sha">878b180</span><span class="when">3w</span></div>
+        <div class="crow"><span class="lane"><i></i><u></u></span><span class="cmsg">chore: initial commit</span><span class="ref">main</span><span class="sha">5790fdb</span><span class="when">3w</span></div>
+      </div>
+    </div>
+    <div class="vhair"></div>
+    <div class="detail">
+      <div class="dbar">
+        <span style="color:var(--text-primary);font-weight:500">New pull request</span>
+        <span class="mut">3 commits · 6 files</span>
+        <div class="r"><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+      </div>
+      <div class="pr">
+        <div class="two">
+          <div><div class="lbl">From</div><div class="fld" style="margin-top:4px">feat/create-concise-…-57596</div></div>
+          <div><div class="lbl">Into</div><div class="fld" style="margin-top:4px">main</div></div>
+        </div>
+        <div>
+          <div class="lbl">Title</div>
+          <div class="fld" style="margin-top:4px">feat: concise changelog output</div>
+        </div>
+        <div>
+          <div class="lbl">Description</div>
+          <div class="fld ta" style="margin-top:4px">Explain what changed and what reviewers should focus on</div>
+        </div>
+        <div class="prfoot">
+          <span class="tb" style="border-color:var(--border-subtle);border:1px solid var(--border-subtle)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+            Draft with AI
+          </span>
+          <span class="tb solid">Create pull request</span>
+        </div>
+        <div class="gh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg>
+          Sign in to GitHub to open pull requests
+          <span style="flex:1"></span>
+          <span class="tb" style="border:1px solid rgba(59,130,246,.3)">Sign in</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
