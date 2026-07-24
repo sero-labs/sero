@@ -83,7 +83,7 @@ svg{flex:0 0 auto}
 .lanes{position:absolute;left:210px;top:0;width:180px;height:420px;pointer-events:none;z-index:1}
 .grid{overflow:hidden}
 .split{height:9px;flex:0 0 9px;display:flex;align-items:center;justify-content:center;cursor:row-resize;
-  background:var(--bg-base);border-top:1px solid var(--border-subtle)}
+  background:var(--bg-base);border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle)}
 .split:hover{background:var(--bg-elevated)}
 .split .grip{width:38px;height:3px;border-radius:2px;background:var(--border-default)}
 .split:hover .grip{background:var(--text-muted)}
@@ -92,7 +92,7 @@ svg{flex:0 0 auto}
 .chev:hover{color:var(--text-secondary)}
 
 /* ---- bottom detail ---- */
-.detail{flex:1;min-height:0;display:flex;border-top:1px solid var(--border-subtle)}
+.detail{flex:1;min-height:0;display:flex}
 .files{width:290px;flex:0 0 290px;display:flex;flex-direction:column;min-width:0}
 .sec{display:flex;align-items:center;gap:7px;padding:9px 12px 5px;font-size:0.76rem;font-weight:500;color:var(--text-muted)}
 .sec .n{opacity:.65} .sec .act{margin-left:auto;font-size:0.76rem;cursor:pointer}
@@ -133,10 +133,9 @@ svg{flex:0 0 auto}
 <h1>Git app — real lane graph</h1>
 <p class="lede">
 A lane graph that actually encodes topology can't live in a 34px gutter, so the layout changes: the graph gets
-the <b>full width of the main area</b> with its own columns, and the working tree and diff sit beneath it in a
-resizable split. This is the GitKraken/Fork shape, and it's close to what the Git app already does — the
-difference is that the two halves are balanced instead of the graph having five rows and the staging area
-being a strip.
+the <b>full width of the main area</b> with its own columns. It sits <b>below</b> the working tree and the diff,
+which take the top — the work you do constantly is above the reference you consult occasionally — with a
+draggable divider between them.
 </p>
 
 <h2>The graph, drawn from real topology</h2>
@@ -183,11 +182,62 @@ read off the graph without checking anything.
     <div class="vhair"></div>
 
     <div class="main">
+      <div class="detail">
+        <div class="files">
+          <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
+            <span class="acts">
+              <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              <span class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
+            </span>
+          </div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+          <div class="sec" style="padding-top:10px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+          <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+          <div class="cbox">
+            <div class="mw">
+              <textarea class="mi">feat(parse): support currency output</textarea>
+              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+            </div>
+            <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
+          </div>
+        </div>
+
+        <div class="diff">
+          <div class="dbar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+            README.md <span class="mut">986300b → working tree</span>
+          </div>
+          <div class="fh">README.md</div>
+          <div class="dbody">
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
+            <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
+            <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
+            <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
+            <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
+            <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
+            <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split"><span class="grip"></span></div>
       <div class="graphwrap">
         <div class="ghead">
           <span class="c1">Branch / tag</span><span class="c2">Graph</span><span class="c3">Commit</span>
           <span class="c4">SHA</span><span class="c5">Author</span><span class="c6">When</span>
-          <span class="chev">Collapse <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg></span>
+          <span class="chev">Collapse <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
         </div>
         <div class="grid">
           <svg class="lanes" width="180" height="420" viewBox="0 0 180 420">
@@ -246,66 +296,16 @@ read off the graph without checking anything.
         </div>
       </div>
 
-      <div class="split"><span class="grip"></span></div>
-      <div class="detail">
-        <div class="files">
-          <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
-          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
-            <span class="acts">
-              <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-              <span class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
-            </span>
-          </div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
-          <div class="sec" style="padding-top:10px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
-          <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
-          <div class="cbox">
-            <div class="mw">
-              <textarea class="mi">feat(parse): support currency output</textarea>
-              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
-            </div>
-            <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
-          </div>
-        </div>
-
-        <div class="diff">
-          <div class="dbar">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-            README.md <span class="mut">986300b → working tree</span>
-          </div>
-          <div class="fh">README.md</div>
-          <div class="dbody">
-            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
-            <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
-            <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
-            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
-            <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
-            <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
-            <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
-            <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </div>
 
 <h2>Dragging the split</h2>
 <p class="note">
-The divider between the graph and the working tree is draggable, and the graph header collapses it outright —
-so the same window serves both jobs. Reading history: pull it down. Committing: push it up and the diff takes
-the height. <b>You don't have to choose a layout; you choose it per moment.</b> Below is the same app with the
-graph dragged to five rows.
+The divider above the graph is draggable, and the graph header collapses it outright — so the same window
+serves both jobs. Reading history: pull it up. Committing: push it down and the diff takes the height.
+<b>You don't have to choose a layout; you choose it per moment.</b> Below is the same app with the graph
+dragged to five rows.
 </p>
 
 <div class="app" style="height:600px">
@@ -344,11 +344,62 @@ graph dragged to five rows.
     <div class="vhair"></div>
 
     <div class="main">
+      <div class="detail">
+        <div class="files">
+          <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
+            <span class="acts">
+              <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              <span class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
+            </span>
+          </div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+          <div class="sec" style="padding-top:10px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+          <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+          <div class="cbox">
+            <div class="mw">
+              <textarea class="mi">feat(parse): support currency output</textarea>
+              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+            </div>
+            <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
+          </div>
+        </div>
+
+        <div class="diff">
+          <div class="dbar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+            README.md <span class="mut">986300b → working tree</span>
+          </div>
+          <div class="fh">README.md</div>
+          <div class="dbody">
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
+            <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
+            <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
+            <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
+            <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
+            <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
+            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
+            <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split"><span class="grip"></span></div>
       <div class="graphwrap" style="height:176px;flex:0 0 176px">
         <div class="ghead">
           <span class="c1">Branch / tag</span><span class="c2">Graph</span><span class="c3">Commit</span>
           <span class="c4">SHA</span><span class="c5">Author</span><span class="c6">When</span>
-          <span class="chev">Expand <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+          <span class="chev">Expand <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg></span>
         </div>
         <div class="grid">
           <svg class="lanes" width="180" height="420" viewBox="0 0 180 420">
@@ -407,56 +458,6 @@ graph dragged to five rows.
         </div>
       </div>
 
-      <div class="split"><span class="grip"></span></div>
-      <div class="detail">
-        <div class="files">
-          <div class="sec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
-          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
-            <span class="acts">
-              <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-              <span class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
-            </span>
-          </div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
-          <div class="sec" style="padding-top:10px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
-          <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
-          <div class="cbox">
-            <div class="mw">
-              <textarea class="mi">feat(parse): support currency output</textarea>
-              <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
-            </div>
-            <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
-          </div>
-        </div>
-
-        <div class="diff">
-          <div class="dbar">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-            README.md <span class="mut">986300b → working tree</span>
-          </div>
-          <div class="fh">README.md</div>
-          <div class="dbody">
-            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -11,3 +11,5 @@</span></div>
-            <div class="dl"><span class="ln">11&nbsp;&nbsp;11</span><span class="tx">## Status</span></div>
-            <div class="dl"><span class="ln">12&nbsp;&nbsp;12</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">13&nbsp;&nbsp;13</span><span class="tx">Early prototype: rounding and a currency option are still rough</span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;14</span><span class="tx"></span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;15</span><span class="tx">Testing changes in diff editor</span></div>
-            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -24,9 +26,14 @@</span></div>
-            <div class="dl"><span class="ln">24&nbsp;&nbsp;26</span><span class="tx">## Usage</span></div>
-            <div class="dl"><span class="ln">25&nbsp;&nbsp;27</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">26&nbsp;&nbsp;28</span><span class="tx">```bash</span></div>
-            <div class="dl del"><span class="ln">27&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tx">pnpm run report --format text</span></div>
-            <div class="dl add"><span class="ln">&nbsp;&nbsp;&nbsp;&nbsp;29</span><span class="tx">pnpm run report --format text --currency GBP</span></div>
-            <div class="dl"><span class="ln">28&nbsp;&nbsp;30</span><span class="tx">```</span></div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -474,9 +475,9 @@ order. That <code>fix/review-…</code> was never merged — its lane simply sto
 rail, so picking a branch on the left tells you which line to follow. Merge commits are muted in the message
 column, because they carry no content of their own.
 <br><br>
-<b>What it costs.</b> The graph needs ~390px of width for four lanes plus the branch/tag column, so the working
-tree and diff move below it rather than beside it. The split is draggable; collapsing the graph entirely gives
-you back the three-column layout from the previous prototype.
+<b>What it costs.</b> The graph needs ~390px of width for four lanes plus the branch/tag column, so it takes a
+full-width band rather than a gutter beside the list. It sits at the bottom, so the diff keeps the top of the
+window and the graph is what yields space when you drag.
 </p>
 
 </body>
