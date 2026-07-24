@@ -1,0 +1,46 @@
+version: 2
+
+updates:
+  # The root pnpm lockfile covers every package in the workspace. Keep this as
+  # one update source so concurrent PRs do not compete to rewrite the lockfile.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    # Dependabot does not apply this routine-update cooldown to security fixes.
+    cooldown:
+      default-days: 2
+    open-pull-requests-limit: 5
+    rebase-strategy: auto
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      production-minor-and-patch:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-and-patch:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 2
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "chore(actions)"
+    groups:
+      actions:
+        patterns:
+          - "*"
