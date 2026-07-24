@@ -151,6 +151,36 @@ svg{flex:0 0 auto}
 .mini.ai:hover{background:color-mix(in srgb,var(--brand-secondary) 14%,transparent)}
 .mini.go{border-color:var(--brand-primary);color:var(--brand-primary)}
 .dot.s{background:var(--brand-secondary)}
+.runwrap{flex:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--border-subtle)}
+.runbar{height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;flex:0 0 auto;
+  font-size:0.83rem;color:var(--brand-secondary);border-bottom:1px solid var(--border-subtle)}
+.runbar .r{margin-left:auto;display:flex;gap:6px}
+.log{padding:8px 0;font-size:0.83rem}
+.logrow{display:flex;align-items:flex-start;gap:9px;padding:4px 14px;line-height:1.15rem}
+.logrow .ic{width:14px;flex:0 0 14px;display:flex;justify-content:center;padding-top:1px}
+.logrow .what{color:var(--text-primary);flex:0 0 auto}
+.logrow .why{color:var(--text-muted);min-width:0}
+.logrow.done .ic{color:var(--status-success)}
+.logrow.ask .ic{color:var(--status-warning)}
+.logrow.pending{opacity:.45}
+.qbox{margin:6px 14px 4px 37px;padding:11px 13px;border-radius:9px;
+  background:color-mix(in srgb,var(--status-warning) 8%,transparent);
+  border:1px solid color-mix(in srgb,var(--status-warning) 26%,transparent);max-width:74ch}
+.qbox .qt{font-size:0.85rem;line-height:1.3rem;color:var(--text-primary)}
+.qbox .qm{font-size:0.8rem;line-height:1.15rem;color:var(--text-muted);margin-top:5px;font-family:-apple-system,system-ui,sans-serif}
+.qopts{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.qopt{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 11px;border-radius:7px;
+  border:1px solid var(--border-default);font-size:0.82rem;color:var(--text-primary);cursor:pointer}
+.qopt:hover{background:var(--bg-elevated)}
+.qopt .code{font:0.78rem var(--mono);color:var(--brand-secondary)}
+.qopt .from{font-size:0.76rem;color:var(--text-muted)}
+.qopt.plain{color:var(--text-secondary)}
+.spin{animation:spin 1s linear infinite;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.banner.ok{background:color-mix(in srgb,var(--status-success) 9%,transparent);
+  border-top:1px solid color-mix(in srgb,var(--status-success) 24%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--status-success) 24%,transparent);color:#86efac}
+.sparkmark{color:var(--brand-secondary);display:flex;flex:0 0 auto}
 .rest{flex:1;min-height:0;overflow:hidden}
 
 /* graph strip */
@@ -352,12 +382,12 @@ file with a dozen identical conflicts. Everything else in the pane is <code>Unre
 </p>
 
 
-<h2>1b · Resolving conflicts with AI</h2>
+<h2>1b · Resolve conflicts with AI</h2>
 <p class="note">
-The model proposes; you accept. <b>Nothing is applied without a click</b> — a suggestion renders as a fourth
-region inside the conflict, in the same shape as current and incoming, with the reasoning in one line so you can
-judge it without reading the whole file. Conflicts the model won't take responsibility for are marked
-<b>Needs you</b> with the reason, rather than getting a confident guess.
+One button, then it works. It resolves everything it can on its own and applies as it goes —
+<b>it only interrupts when it genuinely can't decide</b>, and when it does it asks a specific question with the
+real options rather than handing the whole file back. The working tree is the safety net: nothing is committed,
+every resolution is visible as a diff, and <b>Abort merge</b> is still there.
 </p>
 
 <div class="app">
@@ -369,13 +399,14 @@ judge it without reading the whole file. Conflicts the model won't take responsi
     <span class="tb off">Fetch</span><span class="tb off">Pull</span><span class="tb off">Push</span>
     <span class="tb off" style="background:var(--bg-muted);color:var(--text-muted)">Create pull request</span>
   </div>
-
   <div class="banner conflict">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>
-    <span><span class="t">Merging feat/create-concise-changelog into main.</span> AI suggested resolutions for 2 of 3 conflicts — review each before concluding.</span>
-    <div class="r"><span class="tb line">Abort merge</span></div>
+    <span><span class="t">Merging feat/create-concise-changelog into main.</span> 8 conflicts across 3 files.</span>
+    <div class="r">
+      <span class="tb line">Abort merge</span>
+      <span class="tb solid"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Resolve with AI</span>
+    </div>
   </div>
-
   <div class="body">
     <div class="rail">
       <div class="grp">Branches <span class="n">6</span></div>
@@ -385,90 +416,183 @@ judge it without reading the whole file. Conflicts the model won't take responsi
       <div class="empty">Nothing stashed</div>
     </div>
     <div class="vhair"></div>
-
     <div class="main">
-      <div class="detail" style="height:392px">
+      <div class="detail" style="height:196px">
         <div class="files">
-          <div class="sec bad">Conflicts <span class="n">1</span></div>
-          <div class="frow bad on"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st bad">1 of 2</span></div>
-
-          <div class="sec" style="padding-top:11px;color:var(--brand-secondary)">Suggested <span class="n">1</span><span class="act" style="color:var(--brand-secondary)">Accept all</span></div>
-          <div class="frow"><span class="dot s"></span><span class="fn">CHANGELOG.md</span><span class="st">1</span></div>
-
+          <div class="sec bad">Conflicts <span class="n">3 files</span></div>
+          <div class="frow bad on"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st bad">4</span></div>
+          <div class="frow bad"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st bad">3</span></div>
+          <div class="frow bad"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn">CHANGELOG.md</span><span class="st bad">1</span></div>
           <div class="sec" style="padding-top:11px">Merged cleanly <span class="n">4</span></div>
           <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
-
-          <div class="cbox">
-            <div class="mw">
-              <textarea class="mi">Merge branch 'feat/create-concise-changelog' into main</textarea>
-              <span class="msgai"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
-            </div>
-            <div class="cbtn off">Conclude merge</div>
-            <div class="hint">1 conflict and 1 unreviewed suggestion left</div>
-          </div>
         </div>
-
         <div class="diff">
-          <div class="dbar">
-            <span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span>
-            src/lib/parse.ts <span class="mut">2 conflicts · 1 suggested</span>
-            <div class="r"><span class="mini ai"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Re-run AI</span><span class="mini">Accept all current</span><span class="mini">Open in Explorer</span></div>
-          </div>
-
+          <div class="dbar">src/lib/parse.ts <span class="mut">4 conflicts</span></div>
           <div class="dbody" style="padding-top:0">
-            <div class="collapsed"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>19 unmodified lines</div>
-            <div class="dl"><span class="ln">20</span><span class="tx">export function render(v: number, currency?: string) {</span></div>
-            <div class="dl"><span class="ln">21</span><span class="tx">  const scale = precisionFor(currency);</span></div>
-
             <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
             <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
             <div class="dl curr"><span class="ln">23</span><span class="tx">  const out = format(v, 2);</span></div>
-            <div class="dl curr"><span class="ln">24</span><span class="tx">  return out;</span></div>
             <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
             <div class="dl inc"><span class="ln">23</span><span class="tx">  const out = format(v, 2, currency);</span></div>
-            <div class="dl inc"><span class="ln">24</span><span class="tx">  return `${out} ${currency}`;</span></div>
             <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
-
-            <div class="sugghead"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Suggested
-              <div class="r"><span class="mini go">Accept suggestion</span><span class="mini">Discard</span></div>
-            </div>
-            <div class="dl sugg"><span class="ln">23</span><span class="tx">  const out = format(v, scale, currency);</span></div>
-            <div class="dl sugg"><span class="ln">24</span><span class="tx">  return currency ? `${out} ${currency}` : out;</span></div>
-            <div class="rationale">Kept the currency parameter from incoming, but used <code>scale</code> from line 21 rather than the hardcoded <code>2</code>, and guarded the suffix so callers without a currency keep the old output.</div>
-
-            <div class="collapsed"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>62 unmodified lines</div>
-
-            <div class="actionrow"><a>Accept current change</a><span class="sep">|</span><a>Accept incoming change</a><span class="sep">|</span><a>Accept both</a></div>
-            <div class="dl curr mark"><span class="ln"></span><span class="tx">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD<span class="who">(Current Change)</span></span></div>
-            <div class="dl curr"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 2;</span></div>
-            <div class="dl sepmark"><span class="ln"></span><span class="tx">=======</span></div>
-            <div class="dl inc"><span class="ln">88</span><span class="tx">const DEFAULT_PRECISION = 4;</span></div>
-            <div class="dl inc mark"><span class="ln"></span><span class="tx">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feat/create-concise-changelog<span class="who">(Incoming Change)</span></span></div>
-            <div class="needsyou"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg> <span><b style="color:var(--status-warning)">Needs you.</b> Both sides set the same constant to a different number and nothing in the diff says which is right — this is a product decision, not a merge.</span></div>
           </div>
-          <div class="rest"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
+<p class="spec"><b>Before.</b> The manual resolver is still there and unchanged — <b>Resolve with AI</b> is an
+offer, not a replacement.</p>
 
+<h3 style="font-size:0.88rem;font-weight:600;margin:30px 0 4px">Running — and it hits something it can't decide</h3>
+<p class="note">
+The file list drains live. The pane on the right is a running account of what it did and why, one line each — so
+when it stops, you already know what it changed to get there. <b>The question is the only thing that needs you</b>,
+and it comes with the actual options, not "please resolve manually".
+</p>
+
+<div class="app">
+  <div class="topbar">
+    <div class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+    <span class="bchip">main</span><span class="sync">merging · AI running</span>
+    <span style="flex:1"></span>
+    <span class="ghchip"><span class="av"></span>monobyte</span>
+    <span class="tb off">Fetch</span><span class="tb off">Pull</span><span class="tb off">Push</span>
+    <span class="tb off" style="background:var(--bg-muted);color:var(--text-muted)">Create pull request</span>
+  </div>
+  <div class="banner conflict">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>
+    <span><span class="t">Merging feat/create-concise-changelog into main.</span> 3 of 8 conflicts left — one needs an answer.</span>
+    <div class="r"><span class="tb line">Abort merge</span></div>
+  </div>
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><span class="sw" style="background:var(--l0)"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l1)"></span><span class="nm">feat/create-concise-…-57596</span></div>
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span></div>
+      <div class="empty">Nothing stashed</div>
+    </div>
+    <div class="vhair"></div>
+    <div class="main">
+      <div class="detail" style="height:352px">
+        <div class="files">
+          <div class="sec bad">Conflicts <span class="n">1 file</span></div>
+          <div class="frow bad on"><span class="warnico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st bad">1</span></div>
+          <div class="sec" style="padding-top:11px;color:var(--brand-secondary)">Resolved by AI <span class="n">5</span></div>
+          <div class="frow"><span class="sparkmark"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></span><span class="fn">CHANGELOG.md</span><span class="st"><span class="p">+12</span></span></div>
+          <div class="frow"><span class="sparkmark"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+9</span> <span class="m">−4</span></span></div>
+          <div class="sec" style="padding-top:11px">Merged cleanly <span class="n">4</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="cbox">
+            <div class="cbtn off">Conclude merge</div>
+            <div class="hint">Waiting on 1 answer</div>
+          </div>
+        </div>
+
+        <div class="runwrap">
+          <div class="runbar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Resolving conflicts
+            <div class="r"><span class="mini">Pause</span><span class="mini">Stop</span></div>
+          </div>
+          <div class="log">
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">CHANGELOG.md</span><span class="why">kept both entries and ordered them by version</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">format.ts · 3</span><span class="why">took incoming throughout — current was a subset of it</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 1</span><span class="why">kept the currency parameter, used <code>scale</code> from line 21 instead of the hardcoded 2</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 2</span><span class="why">both sides added the same guard — deduplicated</span></div>
+
+            <div class="logrow ask"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg></span><span class="what">parse.ts · 3</span><span class="why">needs an answer</span></div>
+            <div class="qbox">
+              <div class="qt"><code>DEFAULT_PRECISION</code> is <code>2</code> on main and <code>4</code> on the incoming branch. Which should I keep?</div>
+              <div class="qm">Nothing in either branch explains the change, and it alters rounding for every caller — so this is a product decision rather than a merge.</div>
+              <div class="qopts">
+                <span class="qopt"><span class="code">2</span><span class="from">current · main</span></span>
+                <span class="qopt"><span class="code">4</span><span class="from">incoming</span></span>
+                <span class="qopt plain">Let me edit it</span>
+              </div>
+            </div>
+
+            <div class="logrow pending"><span class="ic"><svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg></span><span class="what">parse.ts · 4</span><span class="why">queued</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <p class="spec">
-<b>Why it can't go through the library.</b> <code>resolveConflict(diff, conflict, type)</code> takes a closed union
-— <code>'current' | 'incoming' | 'both'</code> — so a suggestion that is <i>neither side</i> has no path through
-it. Accepting one writes the resolved text into the file and re-parses; the library then sees no markers and the
-conflict is gone. Worth stating in the spec, because it's the one place the AI path diverges from the built-in one.
-<br><br>
-<b>Why suggestions are a region and not a dialog.</b> They read in the same shape as current and incoming, in the
-same place, with the same accept gesture — so there's nothing new to learn and no modal hiding the code you're
-judging.
-<br><br>
-<b>Why "Needs you" exists.</b> A model that always answers is worse than one that declines, because you stop
-reading its output. Declining is the model's call and it gives its reason — not a confidence score we invented.
-The commit button counts unreviewed suggestions as unfinished, so an AI pass can never conclude a merge on its own.
+<b>It keeps going where it can.</b> A question blocks that conflict, not the run — anything independent carries on
+behind it, so one hard decision doesn't stall the other seven.
+<b>Pause and Stop are both there:</b> stop leaves what it already resolved in place, because those resolutions are
+in the working tree and perfectly good on their own.
+</p>
+
+<h3 style="font-size:0.88rem;font-weight:600;margin:30px 0 4px">Finished</h3>
+<p class="note">
+The account of what it did stays on screen. Every AI-resolved file carries a mark, so a week later you can still
+tell which resolutions were yours and which were the model's.
+</p>
+
+<div class="app">
+  <div class="topbar">
+    <div class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> orchestrator-demo-1</div>
+    <span class="bchip">main</span><span class="sync">merging · ready</span>
+    <span style="flex:1"></span>
+    <span class="ghchip"><span class="av"></span>monobyte</span>
+    <span class="tb off">Fetch</span><span class="tb off">Pull</span><span class="tb off">Push</span>
+    <span class="tb off" style="background:var(--bg-muted);color:var(--text-muted)">Create pull request</span>
+  </div>
+  <div class="banner ok">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg>
+    <span><span class="t">All 8 conflicts resolved.</span> 7 by AI, 1 answered by you. Review the diffs, then conclude the merge.</span>
+    <div class="r"><span class="tb line">Undo AI resolutions</span><span class="tb line">Abort merge</span></div>
+  </div>
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><span class="sw" style="background:var(--l0)"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:var(--l1)"></span><span class="nm">feat/create-concise-…-57596</span></div>
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span></div>
+      <div class="empty">Nothing stashed</div>
+    </div>
+    <div class="vhair"></div>
+    <div class="main">
+      <div class="detail" style="height:250px">
+        <div class="files">
+          <div class="sec" style="color:var(--brand-secondary)">Resolved by AI <span class="n">7</span></div>
+          <div class="frow on"><span class="sparkmark"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+18</span> <span class="m">−6</span></span></div>
+          <div class="frow"><span class="sparkmark"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+9</span> <span class="m">−4</span></span></div>
+          <div class="frow"><span class="sparkmark"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></span><span class="fn">CHANGELOG.md</span><span class="st"><span class="p">+12</span></span></div>
+          <div class="sec" style="padding-top:11px">Merged cleanly <span class="n">4</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="cbox">
+            <div class="mw">
+              <textarea class="mi">Merge branch 'feat/create-concise-changelog' into main</textarea>
+              <span class="msgai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+            </div>
+            <div class="cbtn">Conclude merge <span class="kbd">⌘ ↵</span></div>
+          </div>
+        </div>
+        <div class="runwrap">
+          <div class="runbar" style="color:var(--status-success)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg> 8 conflicts resolved
+            <div class="r"><span class="mini">Copy summary</span></div>
+          </div>
+          <div class="log">
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">CHANGELOG.md</span><span class="why">kept both entries and ordered them by version</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">format.ts · 3</span><span class="why">took incoming throughout — current was a subset of it</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 1</span><span class="why">kept the currency parameter, used <code>scale</code> from line 21 instead of the hardcoded 2</span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 2</span><span class="why">both sides added the same guard — deduplicated</span></div>
+            <div class="logrow done"><span class="ic" style="color:var(--status-warning)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 3</span><span class="why">you chose <code>4</code> (incoming) for <code>DEFAULT_PRECISION</code></span></div>
+            <div class="logrow done"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg></span><span class="what">parse.ts · 4</span><span class="why">applied the same precision to the formatter call below</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="spec">
+<b>Undo AI resolutions</b> reverts only the machine's work and leaves your answers alone, because it's the machine's
+work you'd want to second-guess. <b>Each line is clickable</b> and jumps to the resolution in the diff, so the
+account doubles as a review checklist. And the last line shows the model carrying your answer forward to a related
+conflict — the thing a per-conflict review loop can't do, and the reason automatic-first is the better shape here.
 </p>
 
 <!-- ══════════════════════════ 2 · EMPTY REPO ══════════════════════════ -->
