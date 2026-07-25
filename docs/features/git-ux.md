@@ -560,11 +560,21 @@ Built as `sero.app.explorerView` and `sero.app.titlebar`, mirroring
   is what §4's layout needs. `panelOwnsMainArea()` (`lib/explorer-panels.ts`) is
   the single rule, shared by the browser panel.
 
-**Step 2 — clear the host's git state consumers.**
+**Step 2 — clear the host's git state consumers. Done.**
 Convert checkpoint restore to call `window.sero.vcs` directly. The status bar
 branch picker is **done** ([#304](https://github.com/sero-labs/sero/issues/304),
 `a103dcaab`) — `push()` turned out not to read `activePushBranch` at all, callers
 pass it. `useVcsStore` is then used only by git UI that is about to go.
+
+The restore path needed no refresh call of its own, and no new signal: both
+routes (`agent.undoToTurn` and `vcs.restore`) reach `vcsManager.restoreCheckpoint`,
+which emits `restored`, which the main process broadcasts and the git store
+already subscribes to (`stores/vcs.ts:134-160`). The hook's manual
+`loadWorkspace()` was duplicating that push. The plugin's store subscribes to the
+same event at step 4.
+
+The one remaining non-git-UI consumer is `useExplorerRuntimeEffects`, which §8
+already assigns to step 4.
 
 `activePushBranch` deliberately stays in the store until step 4: `CommitDetail`,
 `BranchesSection` and `VcsPanel` still read it and all three die there. **Do not
