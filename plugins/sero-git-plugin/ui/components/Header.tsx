@@ -23,11 +23,6 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
   const branch = branches.find((b) => b.current);
   const currentBranch = branchChipLabel(state, info.mode);
   const modeWord = MODE_WORD[info.mode];
-  // When the watchers are alive the view keeps itself current and there is
-  // nothing to say. When they are not, the one thing worth knowing is that this
-  // is as fresh as it gets until you press Refresh — so it is Refresh that says
-  // so, rather than a label sitting somewhere else (rule 21).
-  const staleSince = state.syncMode === 'watch' ? null : formatRefreshTime(state.lastRefresh);
 
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-[var(--border-subtle)]">
@@ -79,10 +74,9 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
         </div>
       </div>
 
-      {/* Right: sync status + action buttons */}
+      {/* Right: actions. There is no sync indicator — the view keeps itself
+          current, and a repository-level failure is the mode banner's job. */}
       <div className="flex items-center gap-2">
-        <div className="w-px h-4 bg-[var(--border-subtle)]" />
-
         <GitHubControl
           github={github}
           onOpenPullRequest={onOpenPullRequest}
@@ -95,15 +89,6 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
         {/* Unavailable actions are disabled, not hidden (rule 20) — the reason
             is the banner when there is a mode, and the button beside them when
             the repository simply has no remote. */}
-        <ActionBtn
-          label="Refresh"
-          icon="refresh"
-          suffix={staleSince}
-          title={staleSince
-            ? `This view is not updating on its own. Last read at ${staleSince}.`
-            : undefined}
-          onClick={() => onAction({ action: 'refresh' })}
-        />
         <ActionBtn label="Fetch" icon="fetch" blockedReason={info.fetchBlockedReason} onClick={() => onAction({ action: 'fetch' })} />
         <ActionBtn label="Pull" icon="pull" blockedReason={info.pullBlockedReason} onClick={() => onAction({ action: 'pull' })} />
         <ActionBtn label="Push" icon="push" blockedReason={info.pushBlockedReason} onClick={() => onAction({ action: 'push' })} />
@@ -170,21 +155,18 @@ const GITHUB_BTN = `flex cursor-pointer items-center gap-1.5 rounded-md border b
 // ── Action button ───────────────────────────────────────────
 
 function ActionBtn({
-  label, icon, onClick, blockedReason, suffix, title,
+  label, icon, onClick, blockedReason,
 }: {
   label: string;
   icon: string;
   onClick: () => void;
   blockedReason?: string | null;
-  /** A machine value shown after the label, e.g. how stale this view is. */
-  suffix?: string | null;
-  title?: string;
 }) {
   return (
     <button type="button"
       onClick={onClick}
       disabled={Boolean(blockedReason)}
-      title={blockedReason || title || label}
+      title={blockedReason || label}
       className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-md
         text-[var(--text-secondary)] border border-[var(--border-subtle)]
         hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--border-default)]
@@ -193,7 +175,6 @@ function ActionBtn({
     >
       <ActionIcon type={icon} />
       {label}
-      {suffix && <span className="font-mono text-[var(--text-muted)]">{suffix}</span>}
     </button>
   );
 }
@@ -207,21 +188,11 @@ function ActionIcon({ type }: { type: string }) {
       return <svg className={cn} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10" /></svg>;
     case 'push':
       return <svg className={cn} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 12V4M5 7l3-3 3 3M3 13h10" /></svg>;
-    case 'refresh':
-      return <svg className={cn} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 0110.5-4M14 2v4h-4M14 8a6 6 0 01-10.5 4M2 14v-4h4" /></svg>;
     default:
       return null;
   }
 }
 
-function formatRefreshTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function BranchIcon({ detached }: { detached?: boolean }) {
   return (

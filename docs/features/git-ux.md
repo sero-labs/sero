@@ -852,7 +852,31 @@ plain text, mono where they are machine values (rule 9), and a level branch says
 nothing at all. `MetricCard` stays: it is the shared dashboard set, and §6 rules
 a redesign out.
 
-**The header's sync chip is gone entirely, and both of its jobs were rehomed.**
+**The whole sync apparatus was a workaround for a bug, and the bug is fixed.**
+Chasing "why does the view stop updating itself?" found three defects in the
+host's watcher (`features/apps/git-app/manager.ts`), none of them in scope for
+this document and all of them the reason its UI existed:
+
+1. **A failed watcher was permanent.** On error it closed everything, dropped to
+   manual and never retried, so one transient failure — `EMFILE`, a directory
+   briefly gone mid-rebase, a mounted volume blinking — stopped live updates for
+   the rest of the session.
+2. **It watched three files git never writes in place.** `HEAD`, `index` and
+   `packed-refs` are written by renaming a lock file over the top, which leaves
+   an `fs.watch` on the path holding the replaced file. Those watches went quiet
+   after the first commit — the "missed event" the refresh channel's comment
+   admits to — and they were redundant anyway, since the non-recursive watch on
+   the git directory sees the same writes survive the rename.
+3. **A repository arriving later was never noticed**, so `git init` inside an
+   open workspace never started watching.
+
+Watching now re-arms with backoff instead of giving up, catches up whatever
+changed while it was down, and retries until a git directory exists. With that
+true, **Refresh and the last-read time were deleted outright** rather than
+redesigned: neither had a job left. The `refresh` action stays for the agent and
+for the banner's *Try again*.
+
+**The header's sync chip is gone entirely, and one of its jobs was rehomed.**
 It broke three rules at once and had survived every step since 5: an uppercase
 pill reading *LIVE* beside a timestamp — a status label for a state with no
 action (rule 28, which names this label), a pill carrying a number rather than
@@ -867,16 +891,13 @@ control it belongs to rather than being dropped:
   carries **Try again**. `Not a git repository` stays out of it, because
   `EmptyRepoState` already covers that case and two announcements of one fact is
   worse than none.
-- **Staleness is now on Refresh**, as the last-read time after the label, shown
-  *only* when the view is not updating itself. Watchers die for ordinary reasons
-  — a filesystem that cannot be watched, a missing git dir, too many open files
-  — and the app then shows stale data indefinitely; Refresh is the thing you
-  would press about it (rule 21).
+- **Staleness needed no home at all** once watching stopped giving up. The top
+  bar now carries only actions.
 
-Watching, being a state with no action, now says nothing at all, and `Syncing`
-went with it. An existing test asserted the old behaviour outright ("shows Live
-when file watching is active"), so the rule went in as the assertion and both
-rehomed signals are pinned where they landed.
+Watching, being a state with no action, says nothing, and `Syncing` went with
+it. An existing test asserted the old behaviour outright ("shows Live when file
+watching is active"), so the rule went in as the assertion, and the watcher's
+recovery is pinned by tests that fail against the old give-up behaviour.
 
 **Every file the branch touches is under 500 lines.** The largest are
 `conflict-run.ts` (456), `GitApp.tsx` (442) and `WorkingTree.tsx` (425);

@@ -62,31 +62,22 @@ describe('Header sync status', () => {
   });
 
   /**
-   * The signal this must not lose. Watchers die for ordinary reasons — a
-   * filesystem that cannot be watched, a missing git dir, too many open files —
-   * and the app then shows stale data forever. Refresh carries the time,
-   * because Refresh is what you would press about it.
+   * There is no Refresh button any more, in either state. It existed to work
+   * around watching that gave up permanently on its first stumble; watching now
+   * re-arms itself, so the button had nothing left to do. A repository-level
+   * failure is the mode banner's job, and it carries its own Try again.
    */
-  it('puts the last-read time on Refresh when the view is not updating itself', async () => {
-    await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
-    });
+  it('offers no Refresh button, whatever the sync mode says', async () => {
+    for (const syncMode of ['watch', 'manual'] as const) {
+      await act(async () => {
+        root?.render(<Header state={createState({ syncMode })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
+      });
 
-    const refresh = Array.from(container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Refresh'));
-    expect(refresh).toBeDefined();
-    // A time, whatever the runner's locale renders it as.
-    expect(refresh?.textContent).toMatch(/\d{1,2}[:.]\d{2}/);
-    expect(refresh?.getAttribute('title')).toContain('not updating on its own');
-  });
-
-  it('leaves Refresh bare while the view keeps itself current', async () => {
-    await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
-    });
-
-    const refresh = Array.from(container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Refresh'));
-    expect(refresh?.textContent?.trim()).toBe('Refresh');
+      const labels = Array.from(container.querySelectorAll('button'))
+        .map((button) => button.textContent?.trim());
+      expect(labels).not.toContain('Refresh');
+      // The actions that do something are still there.
+      expect(labels).toEqual(expect.arrayContaining(['Fetch', 'Pull', 'Push']));
+    }
   });
 });
