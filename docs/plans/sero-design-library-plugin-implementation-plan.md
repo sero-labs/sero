@@ -1,99 +1,91 @@
 # Sero Design Library Plugin Implementation Plan
 
-**Status:** Ready for implementation  
-**Target branch:** `feat/design-library-plugin`  
-**Plugin:** `@sero-ai/plugin-design-library`  
-**App ID:** `design-library`  
+**Status:** Ready for PR 1; persistence and AI blocked by required spikes
+**Target branch:** `feat/design-library-plugin`
+**Plugin:** `@sero-ai/plugin-design-library`
+**App ID:** `design-library`
 **Scope:** Global
 
 ## 1. Purpose
 
-This plan turns the approved prototype and product specification into a reuse-first implementation sequence.
+This plan delivers the approved image-only Library to Design to Gallery loop while preserving external-plugin portability.
 
-The governing rule is:
+PR 1 may begin because it is fixture-backed. PR 2 and later production infrastructure must not begin until the pre-PR-2 spikes resolve state ownership, asset transport, multimodal input, preview isolation, Gallery preview capture and provider-neutral asset generation.
 
-> Use Sero's existing plugin contracts and proven repository patterns first. Add plugin-owned code only where the repository has no reusable capability, and do not introduce design-library-specific host APIs.
+## 2. Governing constraints
 
-The first release is an image-only vertical slice:
+- Reuse Sero's public plugin and runtime contracts.
+- No custom preload APIs.
+- No new desktop IPC.
+- No Design Library-specific host changes.
+- No imports from desktop source or `sero-web-plugin`.
+- No direct UI filesystem access.
+- No binary payloads in reactive state.
+- No provider-specific fal.ai types outside its adapter.
+- No source reference pixels in generated output.
+- No mutable Gallery snapshots.
 
-1. Import an image.
-2. Browse it in Library.
-3. Run Librarian analysis.
-4. Edit user-owned metadata and guardrails.
-5. Select one or more references.
-6. Generate runnable HTML/CSS variants.
-7. Preview variants in an isolated iframe.
-8. Save a chosen variant to Gallery.
-9. Restart Sero and recover all durable state.
+## 3. First-release vertical slice
 
-Video import and URL capture follow after this loop is proven.
+1. Import an image with file picker, drag-and-drop or clipboard paste.
+2. Detect exact duplicates by checksum.
+3. Display it immediately in the uniform Library grid.
+4. Run Librarian automatically.
+5. Edit whole user-facing fields with per-field reset.
+6. Search and filter the Library.
+7. Select up to six ordered references.
+8. Choose HTML or React output for the Design.
+9. Generate one to five variants, default three.
+10. Preview safely, including warnings for blocked behaviour.
+11. Revise with recoverable replace or retain behaviour.
+12. Generate local illustrative assets through provider-neutral LLM tools when the model chooses.
+13. Save an immutable version into a Gallery family.
+14. Export exact saved code, assets and metadata.
+15. Restart Sero and recover durable state and resumable jobs.
 
-## 2. Repository sources reviewed
+## 4. Reuse map
 
-The implementation must follow:
-
-- `packages/templates/skills/sero-plugin/SKILL.md`
-- Every file in `packages/templates/skills/sero-plugin/references/`
-- `packages/templates/skills/sero-plugin/example/sero-notes-plugin/`
-- `packages/app-runtime`
-- `packages/common/src/app-runtime-background.ts`
-- `packages/ui`
-- `packages/plugin-vite`
-- `plugins/sero-orchestrator-plugin`
-- `plugins/sero-cron-plugin`
-- `plugins/sero-web-plugin`
-- `plugins/sero-mcp-plugin`
-- `apps/desktop/src/components/apps/explorer/editor/HtmlPreview.tsx`
-- `apps/desktop/electron/features/apps/runtime/manager.ts`
-- `apps/desktop/electron/features/apps/state/manager.ts`
-
-## 3. Reuse audit
-
-| Requirement | Existing Sero capability or precedent | Decision |
+| Requirement | Sero capability or precedent | Plan |
 |---|---|---|
-| Plugin structure | Canonical `sero-notes-plugin` example | Copy and rename the canonical structure. Delete unused widget and CLI surfaces. |
-| Discovery and registration | `sero.app` manifest auto-discovery | No host registry edits. |
-| Global app lifecycle | `scope: "global"` plus the runtime manager's global target | Use the existing singleton global app and runtime lifecycle. |
-| Global state location | `SERO_HOME` resolution and `globalStatePath` | Use the resolved `ctx.stateFilePath` and its parent directory. Do not invent profile paths. |
-| Reactive UI state | `useAppState()` | Subscribe to the lightweight index. Domain mutations go through tools, not `updateState`. |
-| UI to plugin actions | `useAppTools()` and `appAgent.invokeTool` | All imports, mutations, analysis, generation and Gallery actions use plugin tools. |
-| Atomic JSON writes | `ctx.host.appState.update()` in runtimes and the established extension atomic-write pattern | Use the host API from the runtime. Use a small plugin-local extension helper where Pi-safe tools must write. |
-| Additional JSON documents | `AppRuntimeStateApi.read/update/watch` and the Orchestrator split-store pattern | Store the reactive index separately from full item, design and Gallery records. |
-| Binary files | No generic app-state binary API exists | Use plugin-owned Node file I/O with temporary files and atomic rename. No host IPC is added. |
-| Long-running work | `createAppRuntime()` | Use one global background runtime for recovery, analysis and generation. |
-| Runtime startup recovery | Runtime `start()` plus the Orchestrator coordinator precedent | Reconcile interrupted jobs at startup and drain queued jobs. |
-| Structured AI | `host.subagents.runStructured()` | Use the existing subagent runner, restricted custom tools, repair callback, cancellation and provenance metadata. |
-| Cancellation | `runStructured({ signal })` | Maintain runtime-owned `AbortController` instances keyed by job ID. |
-| Job concurrency | No reusable generic job queue exists | Implement a small plugin-owned dispatcher over persisted job summaries. Do not depend on Cron or Orchestrator internals. |
-| Shared UI | `@sero-ai/ui` | Use existing primitives, dialogs, controls, badges, scroll areas and semantic tokens. |
-| CSS isolation | `@sero-ai/ui/styles/plugin.css` and `seroPluginCssScope()` | Reuse the canonical scoped Tailwind/Vite configuration. |
-| Module Federation | Canonical notes Vite configuration | Reuse it with `sero_design_library`, the selected free development port, and both named/default exports. |
-| HTML preview isolation | Existing Explorer `HtmlPreview` and MCP viewer patterns | Adapt the established blob URL, opaque-origin iframe, CSP injection and URL cleanup pattern inside the plugin. Do not import desktop source. |
-| URL and document ingestion | Functionality currently lives inside `sero-web-plugin` | Do not duplicate it and do not import Web plugin source. Defer URL capture until neutral extraction is available. |
-| Video frame extraction | Functionality currently lives inside `sero-web-plugin` | Do not duplicate it for the first alpha. Extract reusable helpers later or implement only the missing neutral adapter. |
-| Thumbnail generation | No reusable neutral image pipeline exists | Validate a plugin-owned browser or runtime adapter in a spike before selecting a dependency. |
-| Large asset transfer | No generic binary upload seam exists | Use a bounded chunk protocol over `useAppTools()`. This is plugin-owned code on the existing generic bridge. |
-| Search/filtering | No cross-plugin design-library index exists | Start with in-memory filtering of lightweight summaries. Add virtualisation before the documented scale target. |
-| Routing | No plugin-specific router is required | Use component state for Library, Design and Gallery. Persist only genuine user preferences. |
+| Plugin structure | Canonical plugin template and notes example | Copy canonical structure and remove unused surfaces. |
+| Discovery | `sero.app` manifest | Use global app auto-discovery. |
+| UI state | `useAppState()` | Subscribe to lightweight summaries only. |
+| UI actions | `useAppTools()` | Route all domain mutation through grouped plugin tools. |
+| Background work | `createAppRuntime()` | Use one global runtime coordinator. |
+| Structured AI | `host.subagents.runStructured()` | Use configured models, structured schemas, repair and cancellation. |
+| Theme | `@sero-ai/ui` and theme CSS tokens | Use Sero colour, typography, spacing and radius contracts. |
+| Secrets | Existing per-profile secret mechanism | Resolve provider credentials without plugin-owned plaintext settings. |
+| Preview pattern | Existing opaque-origin iframe and CSP precedents | Adapt patterns inside the plugin after the isolation spike. |
+| Files | Resolved global app directory | Store plugin-owned records and assets without new host IPC. |
 
-## 4. Explicit non-goals
+## 5. Domain shape
 
-The implementation will not add:
+```text
+LibraryItem
+  generated analysis
+  field overrides
+  source provenance
+  owned original and preview
 
-- Custom preload APIs
-- Custom IPC channels
-- A new host state manager
-- A new app runtime abstraction
-- A new router
-- A new generic scheduler
-- A dependency on Cron, Orchestrator or Web plugin internals
-- Imports from desktop source aliases
-- `localStorage`
-- SQLite for the MVP
-- Automatic CLI bridging
-- A dashboard widget for the first alpha
+Design
+  ordered references
+  chosen output target
+  generation runs
+  variants and revision histories
+  provider-neutral generated assets
 
-## 5. Correct plugin shape
+GalleryFamily
+  featured version pointer
+  immutable GalleryVersion snapshots
+  optional linked source/remix family
+```
+
+Each reference can resolve to:
+
+- A live source.
+- Tombstoned provenance after permanent source deletion.
+
+## 6. Plugin shape
 
 ```text
 plugins/sero-design-library-plugin/
@@ -106,403 +98,401 @@ plugins/sero-design-library-plugin/
 ├── extension/
 │   ├── index.ts
 │   ├── paths.ts
-│   ├── state-io.ts
-│   ├── tool-results.ts
 │   └── tools/
-│       ├── assets.ts
-│       ├── items.ts
-│       ├── analysis.ts
-│       ├── designs.ts
-│       └── gallery.ts
 ├── runtime/
 │   ├── index.ts
 │   ├── coordinator.ts
-│   ├── store.ts
 │   ├── jobs/
 │   ├── librarian/
 │   ├── generation/
+│   ├── asset-generation/
+│   │   ├── contract.ts
+│   │   ├── registry.ts
+│   │   └── adapters/fal.ts
 │   └── preview/
 └── ui/
     ├── DesignLibraryApp.tsx
-    ├── styles.css
-    ├── components/
-    ├── hooks/
     ├── pages/
     │   ├── LibraryPage.tsx
     │   ├── DesignPage.tsx
     │   └── GalleryPage.tsx
-    └── index.html
+    └── components/
 ```
 
-No source file should exceed 500 lines.
-
-## 6. Manifest decisions
-
-The manifest will use:
-
-```json
-{
-  "sero": {
-    "app": {
-      "id": "design-library",
-      "name": "Design Library",
-      "icon": "panels-top-left",
-      "scope": "global",
-      "styleIsolation": "scope",
-      "stateFile": ".sero/apps/design-library/state.json",
-      "ui": "./dist/ui/remoteEntry.js",
-      "component": "DesignLibraryApp",
-      "runtime": "./runtime/index.ts",
-      "devPort": 5200
-    },
-    "plugin": {
-      "category": "creative",
-      "tags": ["design", "inspiration", "gallery", "ai"],
-      "requiredHostCapabilities": [
-        "appAgent.invokeTool",
-        "appRuntime.background"
-      ],
-      "bridgeTools": false
-    }
-  }
-}
-```
-
-Port `5200` is provisionally free in the audited branch and must be rechecked immediately before scaffolding.
-
-`tool.cli` is intentionally omitted because the MVP does not expose these tools as `sero` commands.
+Keep files focused and below 500 lines where practical.
 
 ## 7. Tool surface
 
-Use a small grouped tool surface rather than registering every mutation as a separate agent tool:
+Use grouped tools with validated action enums:
 
-| Tool | Actions |
+| Tool | First-release actions |
 |---|---|
-| `design_library_assets` | `upload_begin`, `upload_chunk`, `upload_commit`, `upload_abort`, `read_preview`, `read_original` |
-| `design_library_items` | `get`, `update`, `delete`, `set_collections` |
-| `design_library_analysis` | `analyse`, `reanalyse`, `cancel` |
-| `design_library_designs` | `create`, `get_variant`, `revise`, `delete_variant`, `export` |
-| `design_library_gallery` | `save`, `update`, `delete`, `favourite`, `open`, `remix`, `save_version`, `add_to_library` |
-| `design_library_recipes` | `save`, `delete`, `set_default` |
+| `design_library_assets` | Upload lifecycle, preview read, original read, delete, copy to Library |
+| `design_library_items` | Get, update field, reset field, soft delete, restore, permanent delete |
+| `design_library_analysis` | Analyse, reanalyse, cancel, retry |
+| `design_library_designs` | Create, open, revise, retry variant, cancel variant, delete, restore |
+| `design_library_design_assets` | List, retry, delete, promote |
+| `design_library_gallery` | Save version, feature, open, duplicate, remix, delete, restore, purge |
+| `design_library_export` | Export exact Gallery version to Downloads or Workspace |
 
-Use `StringEnum` for action values. Validate action-specific arguments explicitly and return clear errors.
-
-The UI uses these tools directly. The agent receives the same plugin-owned capabilities without a 25-tool prompt surface.
+Asset generation tools exposed to the LLM use a separate provider-neutral contract and do not expose the grouped UI administration surface.
 
 ## 8. State and storage
 
-### 8.1 Reactive index
+### Reactive index
 
-`state.json` contains only data required to render browsers, selection counts, progress and settings:
+Store only:
 
-- Item summaries
-- Collections and smart-group settings
-- Design-session summaries
-- Gallery summaries and family summaries
-- Job summaries
-- Prompt-recipe summaries
-- Schema version and revision
+- Item summaries.
+- Design summaries.
+- Gallery family and version summaries.
+- Job summaries.
+- Search/filter and page preferences.
+- Profile generation defaults.
+- Schema version and state revision.
 
-The UI subscribes with:
-
-```ts
-const [state] = useAppState(DEFAULT_STATE);
-```
-
-It does not call `updateState` for domain mutations.
-
-### 8.2 Full records and assets
-
-Full records live beside the index under the resolved global app directory:
+### Full records
 
 ```text
-items/<item-id>.json
-assets/<item-id>/original.<ext>
-assets/<item-id>/preview.webp
-designs/<session-id>/<variant-id>/*
-gallery/<gallery-id>/*
+items/<item-id>/record.json
+items/<item-id>/original.<ext>
+items/<item-id>/preview.webp
+designs/<design-id>/record.json
+designs/<design-id>/variants/<variant-id>/
+designs/<design-id>/assets/<asset-id>/
+gallery/<family-id>/family.json
+gallery/<family-id>/versions/<version-id>/
 jobs/<job-id>.json
-uploads/<upload-id>/*
+uploads/<upload-id>/
+trash/
 ```
 
-Use `ctx.host.appState.update()` for JSON written by the runtime. Use temporary file plus rename for binary files. The extension uses the same atomic convention while remaining Pi-safe.
+### Mutation ownership
 
-### 8.3 Concurrency ownership
+Production storage waits for the state-ownership spike.
 
-- The runtime is the single writer for job transitions and generated records.
-- Extension tools serialise mutations to the main index.
-- Upload sessions have per-upload write queues.
-- Runtime recovery converts orphaned `running` jobs into a retryable or failed state according to job type.
+The accepted solution must provide:
 
-## 9. Background runtime
+- One authoritative serialisation path per record and index.
+- No extension/runtime read-modify-write races.
+- A revision or compare-and-swap guard where multiple callers can mutate.
+- Atomic publish of complete records.
+- Recovery for interrupted index/record updates.
+- Tests proving stale writers cannot overwrite newer state.
 
-The runtime is justified and already supported for global apps.
+## 9. Job contract
 
-Its coordinator will:
+- One persisted job per variant.
+- Separate persisted jobs for Librarian and generated-asset calls.
+- Successful siblings do not roll back on failure or cancellation.
+- Cancellation uses `AbortSignal`.
+- Restart reconciles running jobs into resumable states.
+- Runtime continues work while the plugin UI is closed.
+- Sero shutdown persists state and resumes eligible jobs on restart.
 
-1. Read and normalise state in `start()`.
-2. Recover interrupted work.
-3. Drain queued jobs.
-4. React to subsequent state changes in `handleStateChange()`.
-5. Track active `AbortController` instances.
-6. Dispose active work cleanly when Sero shuts down or reloads the plugin.
+Do not implement a generic scheduler.
 
-Initial concurrency:
+## 10. Librarian
 
-- Analysis: 2
-- Generation: 1
-- Gallery snapshot: 1
-
-These are plugin policies, not a new generic queue framework.
-
-## 10. Librarian execution
-
-Librarian uses `host.subagents.runStructured()` with:
-
-- `platformTools: "none"`
-- A plugin-owned, read-only asset tool
-- A plugin-local schema validator
-- In-session repair with at most two attempts
-- An `AbortSignal`
-- Bounded input images
+Use Sero's configured model through structured subagent execution.
 
 Persist:
 
-- Generated analysis
-- User overrides separately
-- Resolved provider and model
-- Duration
-- Token usage and cost when available
-- Prompt/schema version
+- Generated profile.
+- Explicit field overrides.
+- Model and provider.
+- Prompt and schema versions.
+- Duration, usage and cost when available.
+- Analysis status and retry history.
 
-Reanalysis replaces generated fields and reapplies user overrides.
+Reanalysis updates only the generated profile. Resolution applies overrides field by field.
 
-## 11. Generated preview security
+## 11. Generated asset architecture
 
-The preview component will adapt Sero's existing safe HTML preview patterns:
+Define before implementing fal.ai:
 
-- Assemble the generated HTML, CSS and JavaScript into one bounded document.
-- Inject a restrictive CSP.
-- Create a blob URL.
-- Render with `sandbox="allow-scripts"` only.
-- Omit `allow-same-origin`.
-- Use `referrerPolicy="no-referrer"`.
-- Revoke replaced and unmounted blob URLs.
-- Block remote network access by default.
-- Display generation errors outside the iframe.
+```ts
+interface AssetGenerationProvider {
+  id: string;
+  capabilities(): AssetCapability[];
+  generate(
+    request: AssetGenerationRequest,
+    context: AssetGenerationContext,
+  ): Promise<AssetGenerationResult>;
+}
+```
 
-The plugin will not import desktop implementation files and will not add a host preview API.
+Required common types:
 
-## 12. Implementation sequence
+- Capability.
+- Request.
+- Local result.
+- Normalised error and retryability.
+- Provenance.
+- Cancellation context.
 
-### PR 1: Canonical foundation and real shell
+The fal.ai adapter:
 
-Reuse:
+- Uses the JavaScript client.
+- Resolves credentials from Sero secrets.
+- Maps common requests into fal.ai calls.
+- Downloads results into Design storage.
+- Normalises errors and provenance.
+- Never leaks remote asset URLs into preview or export.
 
-- Canonical notes plugin structure
-- Manifest, TypeScript, Module Federation and scoped CSS patterns
-- `@sero-ai/ui`
-- `useAppState` and `useAppTools`
+Failure inserts a local placeholder. Asset-only retry updates the visible revision and preserves history.
+
+## 12. Output construction
+
+### HTML target
+
+- Self-contained HTML, CSS and minimal JavaScript.
+- Local assets only.
+- No remote imports.
+
+### React target
+
+- React, TypeScript and Tailwind.
+- Approved bundled dependency allow-list.
+- Approved bundled interface icons.
+- Sero-supported sans and mono stacks.
+- Local font files where a non-system font is required.
+- A deterministic local build step selected by the preview spike.
+
+Each Design has one target.
+
+## 13. Preview and validation
+
+Required behaviour:
+
+- Opaque isolated origin.
+- Scripts allowed only inside the frame.
+- No same-origin privilege.
+- Restrictive CSP.
+- No network.
+- No host navigation or uncontrolled pop-ups.
+- No Sero, Node, Electron, filesystem, secret or persistent-storage access.
+- Approved dependencies only.
+- Block capability violations.
+- Render safe remaining output.
+- Display actionable warnings outside the frame.
+
+The isolation spike must include hostile fixtures and React bundle fixtures.
+
+## 14. Gallery
+
+Saving a version performs an immutable snapshot transaction:
+
+1. Validate the current Design revision.
+2. Copy exact code.
+3. Copy all used local assets.
+4. Record dependency and provenance manifests.
+5. Capture a deterministic preview.
+6. Publish the immutable version.
+7. Add it to the existing family.
+8. Feature it by default.
+
+Changing the featured pointer never mutates a version.
+
+Reopen restores the source Design at the saved revision. Duplicate or Remix explicitly starts a new linked family.
+
+## 15. Deletion and retention
+
+- Soft-deleted items remain until manual purge.
+- All Design revisions remain until manual deletion.
+- Gallery deletion is recoverable until manual purge.
+- Purging a Library source never cascades.
+- Dependants receive tombstoned provenance.
+- Gallery snapshots own all required assets.
+- Purging a Design asset cannot damage Gallery.
+- Cleanup removes an owned binary only when no retained owner still requires it.
+
+## 16. Implementation sequence
+
+### PR 1: Approved shell and schemas
 
 Build:
 
-- Plugin scaffold
-- Shared state types, defaults and normalisers
-- Library, Design and Gallery page shell
-- Prototype-derived components with fixture data
-- Uniform Library rows and bottom-aligned metadata
-- Empty, loading and error states
-- Component tests for navigation, selection and grid alignment
+- Canonical plugin scaffold.
+- Library, Design and Gallery navigation.
+- Uniform Library grid with fixture data.
+- Approved terminology.
+- Shared schema drafts for overrides, ordered references, jobs, revisions, generated assets, Gallery families and tombstones.
+- Dark and light theme support.
+- Empty, loading, warning and error states.
 
 Acceptance:
 
-- Plugin appears as a global app.
-- Dark and light themes work.
-- Build and typecheck pass.
-- No custom host code exists.
+- Global app discovery works.
+- The approved mockup structure is preserved.
+- Build, typecheck and component tests pass.
+- No persistence, AI, preview execution or provider integration exists.
+
+### Gate A: Required spikes
+
+Complete and document:
+
+1. Authoritative state mutation.
+2. Bounded upload and preview delivery.
+3. Multimodal structured Librarian input.
+4. HTML and React preview isolation.
+5. Deterministic Gallery preview capture.
+6. Provider-neutral asset contract with fal.ai proof.
+
+PR 2 is blocked until Gate A passes.
 
 ### PR 2: Durable image Library
 
-Reuse:
-
-- Generic app tool bridge
-- Existing state watcher and atomic JSON APIs
-- Established plugin path resolution
-
 Build:
 
-- Grouped asset and item tools
-- Bounded image upload protocol
-- Checksum and MIME validation
-- Atomic original and preview storage
-- Lightweight item index and full item records
-- Lazy preview reads through the asset tool
-- Paste, drag/drop and file picker
-- Inspector editing and deletion
-- Upload cleanup and migration tests
+- Unified file picker, drag/drop and clipboard ingestion.
+- Bounded upload protocol.
+- Checksum duplicate detection.
+- Original and preview storage.
+- Uniform grid backed by summaries.
+- Inspector editing with whole-field override/reset.
+- Keyword search and approved filters.
+- Soft deletion, restore, purge and tombstone behaviour.
 
 Acceptance:
 
-- An image appears immediately after import.
-- Restart preserves it.
-- The UI never reads plugin files directly.
-- Failed uploads leave no published item.
+- All import methods converge on one pipeline.
+- Duplicate import opens the existing item.
+- Restart preserves items.
+- UI never reads plugin files directly.
+- Stale-writer tests pass.
 
-### PR 3: Runtime jobs and Librarian
-
-Reuse:
-
-- Global `createAppRuntime`
-- `host.appState`
-- `host.subagents.runStructured`
-- Existing repair, cancellation and provenance contracts
+### PR 3: Librarian and durable jobs
 
 Build:
 
-- Minimal persisted job dispatcher
-- Startup recovery
-- Restricted read-only asset custom tool
-- Librarian prompt and schema
-- Editable user overrides
-- Reanalysis merge policy
-- Progress and failure UI
+- Runtime coordinator and persisted per-operation jobs.
+- Automatic analysis.
+- Structured schema and repair.
+- Reanalysis and override resolution.
+- Cancellation, retry and restart recovery.
 
 Acceptance:
 
-- Analysis survives closing the Design Library view.
-- Cancelling a job aborts the subagent.
-- Invalid structured output is repaired or fails clearly.
-- User overrides survive reanalysis.
+- Analysis continues when the page is closed.
+- Manual fields survive reanalysis.
+- Invalid output repairs or fails clearly.
+- Restart resumes eligible work.
 
-### PR 4: Design generation and secure workbench
-
-Reuse:
-
-- Structured subagents
-- Existing Sero iframe isolation patterns
-- `@sero-ai/ui` tabs and controls
+### PR 4: Design generation
 
 Build:
 
-- Reference selection and create dialog
-- Blend and per-reference prompt assembly
-- Three initial variants
-- Variant records and files
-- Secure preview component
-- Desktop, tablet and mobile widths
-- Regenerate, revise and delete
-- Export
+- Ordered selection of up to six references.
+- Primary reference semantics.
+- Guardrail conflict resolution.
+- HTML and React target choice.
+- One to five independently persisted variants.
+- Partial success, cancellation and retry.
+- Continuous autosave.
+- Recoverable revision replace/retain workflow.
 
 Acceptance:
 
-- One failed variant does not fail the session.
-- Generated code cannot access the host or network.
-- Preview URLs are cleaned up.
-- Completed variants reopen after restart.
+- Only incompatible guardrails block.
+- Reference pixels never enter output.
+- Sibling variants survive failure and cancellation.
+- Work restores to the previous position.
 
-### PR 5: Gallery vertical slice
-
-Reuse:
-
-- Split JSON store pattern
-- Existing Library visual components
+### PR 5: Asset generation adapter
 
 Build:
 
-- Explicit save to Gallery
-- Immutable snapshot copy
-- Family grouping and favourites
-- Gallery search
-- Open as a new editable Design session
-- Save as a new version
-- Delete without damaging source or sibling snapshots
+- Provider-neutral LLM asset tools.
+- fal.ai adapter using Sero secrets.
+- Local result storage and full provenance.
+- Placeholder and asset-only retry.
+- Design asset tray.
+- Same-Design reuse.
+- Copy to Library with automatic analysis.
 
 Acceptance:
 
-- Deleting the source Design session does not damage Gallery.
-- Prior versions never mutate.
-- The full image to analysis to design to Gallery flow survives restart.
+- Domain code has no fal.ai types.
+- No remote asset URL is required by preview.
+- Provider failure does not fail the whole variant.
+- A fake second adapter passes the contract tests.
 
-### PR 6: Alpha hardening
+### PR 6: Isolated workbench
 
 Build:
 
-- Keyboard navigation and multi-selection
-- Screen-reader progress announcements
-- Reduced motion
-- Incremental rendering or virtualisation
-- Bounded asset cache
-- Recovery and cleanup fault injection
-- Packaging validation
-- End-to-end plugin tests
+- HTML and React local preview construction.
+- Isolation and dependency enforcement.
+- Warning presentation.
+- Responsive viewport controls.
+- Hostile fixture regression tests.
 
 Acceptance:
 
-- The image-only alpha is installable through the standard external-plugin process.
-- `pnpm build`, `typecheck`, tests and `scripts/build-plugin.sh` pass.
+- Restricted calls are blocked.
+- Safe output still renders.
+- No network or host privilege is available.
+- Preview resources are cleaned up.
 
-### PR 7: Neutral ingestion extraction
+### PR 7: Gallery and export
 
-Only begin after the image-only alpha is stable.
+Build:
 
-Refactor genuinely reusable pieces from `sero-web-plugin` into a neutral published package, with Web plugin tests proving no behavioural regression:
+- Immutable version snapshot.
+- Deterministic preview capture.
+- One family card with revision selector.
+- Featured version pointer.
+- Reopen exact Design revision.
+- Explicit Duplicate and Remix family branching.
+- Recoverable deletion and purge.
+- Exact export with metadata manifest.
 
-- URL normalisation
-- HTTP fetch guards
-- Readability and metadata extraction
-- Content-type detection
-- Video frame helpers where they are genuinely provider-neutral
+Acceptance:
 
-Do not move Web plugin state, provider selection, bookmarks, history or UI.
+- Source deletion cannot damage Gallery.
+- Old versions never mutate.
+- Export matches the snapshot.
+- Downloads and Workspace destinations work.
 
-### PR 8: Video and URL import
+### PR 8: Alpha hardening
 
-Use the neutral package from PR 7 and add only Design Library-specific orchestration:
+Build:
 
-- Video upload and representative frames
-- URL screenshot capture
-- Browser discovery and isolated Playwright context
-- Capture fallback order
-- Analysis of bounded frames and screenshots
+- Keyboard navigation and accessibility.
+- Screen-reader job announcements.
+- Reduced motion.
+- Incremental grid rendering or virtualisation.
+- Bounded preview cache.
+- Fault injection for recovery and cleanup.
+- External package installation tests.
 
-## 13. Required spikes
-
-Run these before committing to their production implementations:
-
-1. **Chunked image upload:** measure tool-bridge throughput, memory and cancellation using 512 KiB chunks.
-2. **Preview generation:** compare browser-native WebP thumbnail creation with a runtime dependency, including external-plugin packaging.
-3. **Multimodal structured run:** prove that the runtime custom tool returns image content correctly with `platformTools: "none"`.
-4. **Preview isolation:** prove CSP, sandbox and no-network behaviour with deliberately hostile generated HTML.
-5. **Gallery durability:** delete source sessions and shared assets in tests, then confirm snapshots remain intact.
-
-Video and Playwright spikes are deferred until PR 7.
-
-## 14. Verification commands
+## 17. Verification
 
 ```bash
-pnpm install
 pnpm --filter @sero-ai/plugin-design-library build
 pnpm --filter @sero-ai/plugin-design-library typecheck
 pnpm --filter @sero-ai/plugin-design-library test
 bash scripts/build-plugin.sh plugins/sero-design-library-plugin
 ```
 
-Then run Sero with the plugin enabled and verify:
+Manual verification covers:
 
-1. Global app discovery
-2. UI tool calls
-3. Extension writes causing UI updates
-4. Runtime job recovery
-5. Plugin reload and cleanup
-6. External bundle installation
+- Global discovery.
+- All three image import paths.
+- Duplicate handling.
+- Search and filters.
+- Analysis and override reset.
+- Variant failure, cancellation and restart.
+- fal.ai failure and asset-only retry.
+- Hostile previews.
+- Gallery source deletion.
+- Downloads and Workspace export.
+- External plugin installation.
 
-## 15. Definition of implementation-ready
+## 18. Implementation readiness
 
-Implementation can begin when this plan is accepted. PR 1 must not introduce persistence, AI, ingestion or preview infrastructure beyond the shared types and fixture boundaries needed to make later PRs compile cleanly.
+PR 1 is ready.
 
-Every PR description must include a short reuse statement:
+PR 2 is not ready until Gate A is complete and its outcomes are reflected in the shared schemas and this plan. A spike may select a mechanism, but it must preserve the approved behaviour in the decision document.
 
-- Reused unchanged
-- Adapted from an existing Sero pattern
-- New plugin-owned code
-- Deferred because an existing capability must first be extracted
