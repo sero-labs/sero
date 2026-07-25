@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Git UX rules — two open questions</title>
+<style>
+:root{
+  --bg-base:#0a0a0b; --bg-surface:#111113; --bg-elevated:#18181b; --bg-overlay:#1f1f23; --bg-muted:#27272a;
+  --border-subtle:#27272a; --border-default:#3f3f46;
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a;
+  --brand-primary:#34d399; --brand-primary-foreground:#052e1c; --brand-secondary:#c4b5fd;
+  --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444; --status-info:#3b82f6;
+  --l0:#c4b5fd; --l1:#f59e0b; --l2:#38bdf8; --l3:#34d399;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1420px;background:#08080a;color:var(--text-primary);padding:40px;
+  font:400 0.9rem/1.2rem -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:1.1rem;font-weight:600;margin-bottom:4px}
+h2{font-size:0.95rem;font-weight:600;margin:44px 0 4px}
+h3{font-size:0.85rem;font-weight:600;margin-bottom:3px}
+.lede,.note{color:var(--text-muted);font-size:0.87rem;line-height:1.45rem;max-width:100ch}
+.lede{margin-bottom:26px} .note{margin-bottom:18px}
+.spec{color:var(--text-muted);font-size:0.79rem;margin-top:9px;line-height:1.18rem}
+.spec b{color:var(--text-secondary);font-weight:500}
+b{color:var(--text-secondary);font-weight:500}
+.row{display:flex;gap:30px;align-items:flex-start}
+.col{width:300px;flex:0 0 300px}
+.tagline{font-size:0.78rem;color:var(--text-muted);margin-bottom:9px}
+.tagline b{color:var(--brand-secondary);font-weight:600}
+.hair{height:1px;background:var(--border-subtle);flex:0 0 auto}
+.vhair{width:1px;background:var(--border-subtle);flex:0 0 auto}
+svg{flex:0 0 auto}
+
+.panel{background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden}
+.ptitle{display:flex;align-items:center;height:28px;padding:0 12px}
+.ptitle span{font-size:0.78rem;font-weight:500;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase}
+.sec{display:flex;align-items:center;gap:7px;padding:10px 12px 6px;font-size:0.78rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.03em}
+.sec .n{opacity:.65}
+.frow{display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer}
+.frow.hov{background:var(--bg-elevated)}
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.m{background:var(--status-warning)} .dot.a{background:var(--status-success)}
+.dot.d{background:var(--status-error)} .dot.u{background:var(--status-info)}
+.dot.n{background:var(--text-muted)}
+.fn{flex:1;min-width:0;font-size:0.84rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn .dir{color:var(--text-muted)}
+.st{font:0.74rem/1 var(--mono);color:var(--text-muted);flex:0 0 auto}
+.st .p{color:var(--status-success)} .st .m{color:var(--status-error)}
+.acts{display:flex;align-items:center;gap:1px;flex:0 0 auto}
+.ab{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted)}
+.ab.on{background:var(--bg-muted);color:var(--text-primary)}
+.ab.danger{color:#fca5a5}
+.slot{width:63px;flex:0 0 63px;display:flex;justify-content:flex-end;gap:1px}
+
+/* callout marks */
+.mark{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+  background:var(--brand-secondary);color:#1c1230;font:600 0.68rem/1 var(--mono);flex:0 0 auto}
+.legend{margin-top:14px;display:flex;flex-direction:column;gap:6px;font-size:0.8rem;color:var(--text-muted);max-width:66ch}
+.legend div{display:flex;align-items:flex-start;gap:8px;line-height:1.15rem}
+.legend b{color:var(--text-secondary);font-weight:500}
+
+/* app-ish composite for amber */
+.app{width:640px;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:11px;overflow:hidden}
+.topbar{height:38px;display:flex;align-items:center;gap:9px;padding:0 12px}
+.repo{display:flex;align-items:center;gap:7px;font-size:0.88rem;font-weight:600}
+.bchip{display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;border-radius:5px;
+  background:var(--bg-elevated);font:0.78rem/1 var(--mono);color:var(--text-secondary)}
+.bchip.warn{background:color-mix(in srgb,var(--status-warning) 16%,transparent);color:var(--status-warning)}
+.sync{font:0.78rem/1 var(--mono);color:var(--text-muted)}
+.sync .b{color:var(--status-warning)}
+.sync .a{color:var(--status-success)}
+.sync .neutral{color:var(--text-secondary)}
+.banner{display:flex;align-items:center;gap:9px;padding:8px 12px;font-size:0.83rem}
+.banner.warn{background:color-mix(in srgb,var(--status-warning) 10%,transparent);
+  border-top:1px solid color-mix(in srgb,var(--status-warning) 26%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--status-warning) 26%,transparent);color:#fcd34d}
+.banner .t{color:var(--text-primary);font-weight:500}
+.banner .r{margin-left:auto;display:flex;gap:6px}
+.tb{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:6px;font-size:0.8rem;
+  color:var(--text-secondary);border:1px solid var(--border-subtle)}
+.two{display:flex;min-height:0}
+.rail{width:196px;flex:0 0 196px}
+.grp{display:flex;align-items:center;gap:6px;padding:11px 12px 5px;font-size:0.76rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.04em}
+.grp .n{opacity:.6}
+.rrow{display:flex;align-items:center;gap:7px;height:25px;padding:0 12px;font-size:0.83rem;color:var(--text-secondary)}
+.rrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.rrow .sw{width:3px;height:13px;border-radius:2px;flex:0 0 auto}
+.rrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ct{font:0.72rem/1 var(--mono);color:var(--text-muted)}
+.ct.behind{color:var(--status-warning)} .ct.behind-n{color:var(--text-secondary)}
+.mainc{flex:1;min-width:0}
+.ghead{height:24px;display:flex;align-items:center;font-size:0.71rem;letter-spacing:.06em;
+  color:var(--text-muted);text-transform:uppercase}
+.ghead .g1{width:132px;padding-left:12px} .ghead .g2{width:74px} .ghead .g3{flex:1}
+.grow{height:29px;display:flex;align-items:center}
+.g1{width:132px;flex:0 0 132px;padding-left:12px;display:flex;gap:5px;align-items:center;overflow:hidden}
+.g2{width:74px;flex:0 0 74px;position:relative;height:29px}
+.g3{flex:1;min-width:0;font-size:0.83rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:12px}
+.tag{display:inline-flex;align-items:center;gap:4px;height:18px;max-width:112px;padding:0 6px;border-radius:4px;
+  font:0.71rem/1 var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;
+  background:var(--bg-muted);color:var(--text-secondary)}
+.tag i{width:5px;height:5px;border-radius:50%;flex:0 0 auto}
+.lane{position:absolute;top:-1px;bottom:-1px;width:1.5px}
+.lane.a{left:14px} .lane.b{left:32px} .lane.c{left:50px}
+.node{position:absolute;width:8px;height:8px;border-radius:50%;top:10px;background:var(--bg-base)}
+.node.a{left:10.5px} .node.b{left:28.5px} .node.c{left:46.5px}
+.callout{position:relative}
+.callout .mark{position:absolute;z-index:5}
+</style>
+</head>
+<body>
+
+<h1>Two rules I couldn't ask about in words</h1>
+<p class="lede">
+Both drawn at real size with the real tokens. Left-hand column of each row is what the prototypes already do;
+the alternatives sit beside it so the trade is visible rather than described.
+</p>
+
+<!-- ================= Q3 ================= -->
+<h2>1 · Row actions replace the line counts on hover</h2>
+<p class="note">
+In every prototype, a file row shows <code style="font:0.8rem var(--mono);color:var(--text-secondary)">+77 −14</code>
+at rest. Put the pointer on it and those numbers are swapped out for the action buttons — the row is the same width
+either way, nothing jumps. The cost: at the moment you reach for <b>Discard</b>, the size of the thing you're about
+to throw away has just disappeared. Second row down is shown hovered in all three.
+</p>
+<div class="row">
+
+  <div class="col">
+    <div class="tagline"><b>A · As drawn</b> — actions take the counts' place</div>
+    <div class="panel">
+      <div class="ptitle"><span>Git</span></div>
+      <div class="hair"></div>
+      <div class="sec">Changes <span class="n">6</span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+      <div class="frow hov"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span>
+        <span class="acts">
+          <span class="ab" title="Open in Explorer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></span>
+          <span class="ab danger" title="Discard"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span>
+          <span class="ab on" title="Stage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        </span>
+      </div>
+      <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+      <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+    </div>
+    <p class="spec"><b>Full width for the name.</b> <code style="font:0.78rem var(--mono)">src/components/Panel.tsx</code> fits whole.
+    But the hovered row can't tell you it's a 91-line change while you're deciding to bin it.</p>
+  </div>
+
+  <div class="col">
+    <div class="tagline"><b>B · Reserved slot</b> — both, always</div>
+    <div class="panel">
+      <div class="ptitle"><span>Git</span></div>
+      <div class="hair"></div>
+      <div class="sec">Changes <span class="n">6</span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span><span class="slot"></span></div>
+      <div class="frow hov"><span class="dot m"></span><span class="fn"><span class="dir">src/co…/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span>
+        <span class="slot">
+          <span class="ab"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></span>
+          <span class="ab danger"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span>
+          <span class="ab on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        </span>
+      </div>
+      <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span><span class="slot"></span></div>
+      <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/le…/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span><span class="slot"></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span><span class="slot"></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/re…/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span><span class="slot"></span></div>
+    </div>
+    <p class="spec"><b>63px of every row is empty most of the time.</b> Names truncate on all six rows, permanently,
+    to serve the one row you're pointing at. Worst in the 300px panel; harmless in the full app.</p>
+  </div>
+
+  <div class="col">
+    <div class="tagline"><b>C · Counts stay, actions move to a menu</b></div>
+    <div class="panel">
+      <div class="ptitle"><span>Git</span></div>
+      <div class="hair"></div>
+      <div class="sec">Changes <span class="n">6</span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+      <div class="frow hov"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span>
+        <span class="ab on" style="margin-left:2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+      </div>
+      <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+      <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+    </div>
+    <p class="spec"><b>Nothing hidden, nothing truncated.</b> But Stage — the action you use forty times an hour —
+    becomes two clicks instead of one, and the menu is a surface with its own styling to maintain.</p>
+  </div>
+</div>
+
+<!-- ================= Q4 ================= -->
+<h2>2 · Amber means five different things</h2>
+<p class="note">
+Everything numbered below is the same colour, <code style="font:0.8rem var(--mono);color:var(--status-warning)">--status-warning</code>.
+The question is whether that's five meanings sharing a colour, or one meaning — <i>look here</i> — that the modified-file
+dot quietly breaks by being the most common thing on screen and not a warning at all.
+</p>
+
+<div class="row" style="gap:34px;align-items:flex-start">
+  <div style="flex:0 0 640px">
+    <div class="tagline"><b>As drawn</b> — every amber in one view</div>
+    <div class="app">
+      <div class="topbar">
+        <span class="repo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg> sero</span>
+        <span class="callout" style="display:inline-flex;align-items:center">
+          <span class="mark" style="left:-9px;top:-9px">1</span>
+          <span class="bchip warn">HEAD detached</span>
+        </span>
+        <span class="callout" style="display:inline-flex;align-items:center">
+          <span class="mark" style="left:-9px;top:-9px">2</span>
+          <span class="sync">↑0 <span class="b">↓3</span></span>
+        </span>
+      </div>
+      <div class="callout">
+        <span class="mark" style="left:6px;top:6px">3</span>
+        <div class="banner warn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v5M12 17.5v.01"/><path d="M10.3 3.9 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <span><span class="t">You're not on a branch.</span> Commits here belong to nothing until you name one.</span>
+          <span class="r"><span class="tb">Create branch here</span><span class="tb">Return to main</span></span>
+        </div>
+      </div>
+      <div class="two">
+        <div class="rail">
+          <div class="grp">Branches <span class="n">4</span></div>
+          <div class="rrow on"><span class="sw" style="background:var(--l1)"></span><span class="nm">HEAD</span><span class="ct">878b180</span></div>
+          <div class="rrow"><span class="sw" style="background:var(--l0)"></span><span class="nm">main</span><span class="ct behind">↓3</span></div>
+          <div class="rrow"><span class="sw" style="background:var(--l2)"></span><span class="nm">feat/git-ux</span></div>
+          <div class="rrow"><span class="sw" style="background:var(--l3)"></span><span class="nm">fix/review-crash</span></div>
+          <div class="grp" style="padding-top:14px">Changes <span class="n">3</span></div>
+          <div class="callout">
+            <span class="mark" style="left:4px;top:6px">4</span>
+            <div class="frow" style="padding-left:24px"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          </div>
+          <div class="frow" style="padding-left:24px"><span class="dot m"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span></span></div>
+          <div class="frow" style="padding-left:24px"><span class="dot a"></span><span class="fn">Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+        </div>
+        <div class="vhair"></div>
+        <div class="mainc">
+          <div class="ghead"><span class="g1">Branch / tag</span><span class="g2">Graph</span><span class="g3">Commit</span></div>
+          <div class="grow">
+            <span class="g1"><span class="tag" style="box-shadow:inset 0 0 0 1px var(--status-warning);color:var(--status-warning)"><i style="background:var(--status-warning)"></i>HEAD</span></span>
+            <span class="g2 callout">
+              <span class="mark" style="left:24px;top:-4px">5</span>
+              <span class="lane a" style="background:var(--l0)"></span>
+              <span class="lane b" style="background:var(--l1)"></span>
+              <span class="node b" style="border:1.5px solid var(--l1)"></span>
+            </span>
+            <span class="g3">Fix README typo and round shares</span>
+          </div>
+          <div class="grow">
+            <span class="g1"></span>
+            <span class="g2"><span class="lane a" style="background:var(--l0)"></span><span class="lane b" style="background:var(--l1)"></span><span class="node a" style="border:1.5px solid var(--l0)"></span></span>
+            <span class="g3">chore: added CHANGELOG</span>
+          </div>
+          <div class="grow">
+            <span class="g1"><span class="tag"><i style="background:var(--l0)"></i>main</span></span>
+            <span class="g2"><span class="lane a" style="background:var(--l0)"></span><span class="lane b half" style="background:var(--l1);top:-1px;height:15px"></span><span class="node a" style="border:1.5px solid var(--l0)"></span></span>
+            <span class="g3">Add currency option to output</span>
+          </div>
+          <div class="grow">
+            <span class="g1"></span>
+            <span class="g2"><span class="lane a" style="background:var(--l0)"></span><span class="node a" style="border:1.5px solid var(--l0)"></span></span>
+            <span class="g3">chore: initial commit</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <div><span class="mark">1</span><span><b>Detached HEAD chip</b> — a state you should get out of</span></div>
+      <div><span class="mark">2</span><span><b>Behind count</b> — three commits you haven't pulled. Not a problem, just news</span></div>
+      <div><span class="mark">3</span><span><b>Warning banner</b> — the one unambiguous "something is wrong"</span></div>
+      <div><span class="mark">4</span><span><b>Modified-file dot</b> — the commonest amber in the product, and nothing is wrong at all</span></div>
+      <div><span class="mark">5</span><span><b>Lane colour 1</b> — which branch a line belongs to. Arbitrary; it just happened to be amber</span></div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0">
+    <div class="tagline"><b>If amber meant only "needs your attention"</b></div>
+    <div class="panel" style="padding:0 0 4px">
+      <div class="topbar" style="height:36px">
+        <span class="repo" style="font-size:0.85rem">sero</span>
+        <span class="bchip warn">HEAD detached</span>
+        <span class="sync">↑0 <span class="neutral">↓3</span></span>
+      </div>
+      <div class="hair"></div>
+      <div class="grp">Changes <span class="n">3</span></div>
+      <div class="frow"><span class="dot n"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+      <div class="frow"><span class="dot n"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+      <div class="frow"><span class="dot a"></span><span class="fn">Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+      <div class="frow"><span class="dot d"></span><span class="fn">old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+    </div>
+    <p class="spec"><b>1 and 3 keep amber. 2 and 4 go neutral.</b> Modified files become grey dots, so added
+    (green) and deleted (red) still read but "I touched this" stops shouting. Amber now appears perhaps twice
+    a week instead of on every row — which is the point of a warning colour.<br><br>
+    <b>The catch:</b> a grey dot beside a grey filename is nearly invisible, and modified is the status you scan
+    for most. You'd be trading the loudest signal in the list for the rarest one.</p>
+
+    <div class="tagline" style="margin-top:26px"><b>Or just take lanes out of it</b></div>
+    <div class="panel" style="padding:9px 12px 11px">
+      <div style="display:flex;gap:7px;align-items:center;font-size:0.8rem;color:var(--text-muted)">
+        Lane palette
+        <span style="width:3px;height:13px;border-radius:2px;background:#c4b5fd"></span>
+        <span style="width:3px;height:13px;border-radius:2px;background:#38bdf8"></span>
+        <span style="width:3px;height:13px;border-radius:2px;background:#f472b6"></span>
+        <span style="width:3px;height:13px;border-radius:2px;background:#a3e635"></span>
+        <span style="width:3px;height:13px;border-radius:2px;background:#fb923c"></span>
+      </div>
+      <div style="display:flex;gap:7px;align-items:center;font-size:0.8rem;color:var(--text-muted);margin-top:8px">
+        Status palette
+        <span class="dot m" style="width:8px;height:8px"></span>
+        <span class="dot a" style="width:8px;height:8px"></span>
+        <span class="dot d" style="width:8px;height:8px"></span>
+        <span class="dot u" style="width:8px;height:8px"></span>
+      </div>
+    </div>
+    <p class="spec"><b>Narrow fix.</b> Branch lanes get colours that mean nothing but "different branch", and
+    never collide with status. Leaves 1, 2, 3 and 4 exactly as drawn — which may be fine, since a dot in a file
+    row and a chip in a title bar are never confusable in practice.</p>
+  </div>
+</div>
+
+</body>
+</html>
