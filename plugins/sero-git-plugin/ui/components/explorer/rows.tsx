@@ -9,16 +9,7 @@
 
 import { FileText } from 'lucide-react';
 import type { CommitEntry, StatusFile } from '@sero-ai/common';
-
-/** File status is one 6px dot (rule 18). */
-const STATUS_COLOUR: Record<string, string> = {
-  added: 'var(--status-success)',
-  modified: 'var(--status-warning)',
-  deleted: 'var(--status-error)',
-  renamed: 'var(--status-info)',
-  copied: 'var(--status-info)',
-  conflict: 'var(--status-error)',
-};
+import { statusColour } from '../../lib/file-status';
 
 export function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
@@ -54,7 +45,7 @@ export function FileRow({ file, selected, onSelect, onOpenInEditor }: FileRowPro
     >
       <span
         className="size-1.5 shrink-0 rounded-full"
-        style={{ background: STATUS_COLOUR[file.status] ?? 'var(--text-muted)' }}
+        style={{ background: statusColour(file.status) }}
       />
       <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
         {dir && <span className="text-[var(--text-muted)]">{dir}</span>}

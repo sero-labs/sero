@@ -30,10 +30,14 @@ checkpoint, and source-control operations, see
 
 ## Where you interact with Git Integration
 
-You can use Git Integration from two main surfaces:
+You can use Git Integration from these surfaces:
 
 - **Git app** — a visual app surface for inspecting and operating on repository
   state.
+- **Title bar popover** — the branch button in the top-right corner, available
+  from every view. It lists what has changed, commits all of it with one
+  message, and offers Fetch, Pull and Push. Committing only some of the changed
+  files is what the Git app is for.
 - **Agent bridge** — the `git_manager` tool and `/git` command for asking the
   agent to inspect or modify the repository.
 
@@ -75,8 +79,6 @@ step-by-step UI how-to instructions.
 
 The main Git surface is meant for scanning branch, staging, and history context
 before making a repository-changing decision.
-
-![Git Ship Deck](../assets/images/git-ship-deck.jpg)
 
 GitHub connection can happen during onboarding or later when a workflow needs
 repository-host access that is not available from the local Git checkout alone.

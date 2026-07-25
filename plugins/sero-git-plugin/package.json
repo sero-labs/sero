@@ -33,6 +33,9 @@
         "label": "Git",
         "icon": "git-branch"
       },
+      "titlebar": {
+        "component": "GitTitleBar"
+      },
       "widgets": [
         {
           "id": "status",

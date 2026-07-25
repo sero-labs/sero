@@ -25,6 +25,7 @@ export default defineConfig({
       exposes: {
         './GitApp': './ui/GitApp.tsx',
         './ExplorerGitView': './ui/components/explorer/ExplorerGitView.tsx',
+        './GitTitleBar': './ui/components/titlebar/GitTitleBar.tsx',
         './GitStatusWidget': './ui/widgets/GitStatusWidget.tsx',
         './GitCommitsWidget': './ui/widgets/GitCommitsWidget.tsx',
       },

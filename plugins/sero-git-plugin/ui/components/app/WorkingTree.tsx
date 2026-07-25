@@ -10,16 +10,7 @@
 import { useCallback, useState } from 'react';
 import { FileText, Minus, Plus, Undo2 } from 'lucide-react';
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
-
-const STATUS_COLOUR: Record<FileChange['status'], string> = {
-  added: 'var(--status-success)',
-  modified: 'var(--status-warning)',
-  deleted: 'var(--status-error)',
-  renamed: 'var(--status-info)',
-  copied: 'var(--status-info)',
-  untracked: 'var(--status-info)',
-  conflict: 'var(--status-error)',
-};
+import { statusColour } from '../../lib/file-status';
 
 export interface WorkingTreeSelection {
   path: string;
@@ -215,7 +206,7 @@ function FileRow({
     >
       <span
         className="size-1.5 shrink-0 rounded-full"
-        style={{ background: STATUS_COLOUR[file.status] }}
+        style={{ background: statusColour(file.status) }}
       />
       <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
         {dir && <span className="text-[var(--text-muted)]">{dir}</span>}

@@ -695,9 +695,35 @@ Still open:
 That is the only part of §3 not delivered, and it is a backend gap rather than
 a UI one.
 
-**Step 6 — the titlebar popover.**
+**Step 6 — the titlebar popover. Done.**
 Move it to a plugin contribution on the titlebar slot from step 1, at 300px, per
 §5. Delete the Ship deck.
+
+Built as `sero.app.titlebar` → `GitTitleBar`, with the panel in `QuickPanel`.
+The host's whole `titlebar/git/` folder is gone, and `PullRequestComposer` with
+it — the popover was its last caller. Step 1's finding held: the plugin owns the
+`Popover` and it stays themed inside the plugin's style scope.
+
+Three things worth recording:
+
+- **The popover reads the pushed state file directly (`useAppState`), not the
+  plugin's vcs store.** The store's adapters drop what this surface needs —
+  `adaptBranches` keeps a synced flag but not the ahead/behind numbers, and
+  there is no current-branch name in it. Both read the same
+  `.sero/apps/git/state.json`, so this is not a second data path; it is the same
+  path without a lossy adapter in the way.
+- **The popover shows one list and commits the lot** (`commit` with `all`),
+  which is what §5 means by "committing only *some* of them is what the Git app
+  is for". Staged and unstaged are collapsed to one row per path.
+- **Publishing a repo to GitHub was not lost with `GitRemotePublishSection`.**
+  §1 never listed that section, but the same flow already lives in the workspace
+  tree and the add-workspace menu (`RemoteOriginManager`), so the popover copy
+  was a duplicate. §7 still homes publish in the Git app's PR slot for the
+  empty-repo state.
+
+**The AI sparkle is not in yet** — §5 draws it in the message field, and step 8
+owns commit-message drafting, so the field is built for it and the button
+arrives with its backend rather than as a dead control.
 
 **Step 7 — the hard states.**
 Conflict mode, empty repo, detached HEAD, dirty branch switch (§7), adopting
@@ -709,7 +735,10 @@ Commit-message drafting, then AI conflict resolution with its question loop
 
 **Step 9 — sweep.**
 Design rules (§2) across the dashboard widgets and anything missed. Check every
-touched file against the 500-LOC rule.
+touched file against the 500-LOC rule. `apps/docs-site`'s
+`guide/git-integration.md` needs a full pass here: steps 4–6 changed the
+surfaces it describes, and step 6 removed the stale Ship-deck screenshot without
+replacing it.
 
 Steps 1–2 can run in parallel with each other. Steps 7 and 8 depend only on
 step 5.
