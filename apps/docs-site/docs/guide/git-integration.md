@@ -140,7 +140,8 @@ cherry-pick, or force flags.
 Prefer these when you want the agent to explain the repository without changing
 anything:
 
-- `refresh` — rescan the repository and update the app's view.
+- `refresh` — re-read the repository. Rarely needed by hand; the app keeps
+  itself current.
 - `status` — changed files and index state.
 - `log` — recent commit history.
 - `branches` — local and remote branch information.
@@ -244,13 +245,14 @@ metadata, status summaries and timestamps.
 
 ### The app shows no repository
 
-Check the active workspace is inside a Git repository, then refresh. Outside a
-repository there is no branch or status data to show.
+Check the active workspace is inside a Git repository. Outside a repository
+there is no branch or status data to show.
 
 ### The app and the command line disagree
 
-Refresh from the app, or ask `git_manager` to `refresh`. The app's view is
-file-backed, so changes made on the command line may need a refresh to appear.
+It shouldn't happen: the app watches the repository and updates itself, whoever
+made the change. If it ever does, ask the agent to `refresh`, and say so — the
+watcher is meant to catch command-line changes on its own.
 
 ### A branch or worktree action was refused
 
@@ -260,8 +262,8 @@ locked. Avoid `force` unless you know what Git will remove.
 
 ### A conflict needs something the app cannot do
 
-Resolve it with normal Git tools in the same workspace, continue or abort as Git
-instructs, then refresh so the app catches up.
+Resolve it with normal Git tools in the same workspace and continue or abort as
+Git instructs. The app follows along on its own.
 
 ### Push went to the wrong place
 
