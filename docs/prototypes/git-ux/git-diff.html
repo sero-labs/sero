@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Diff surface — prototype</title>
+<style>
+:root{
+  --bg-base:#0a0a0b; --bg-surface:#111113; --bg-elevated:#18181b; --bg-overlay:#1f1f23; --bg-muted:#27272a;
+  --border-subtle:#27272a; --border-default:#3f3f46;
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a;
+  --brand-primary:#34d399; --brand-primary-foreground:#052e1c; --brand-secondary:#c4b5fd;
+  --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1480px;background:#08080a;color:var(--text-primary);padding:40px;
+  font:400 0.9rem/1.2rem -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:1.1rem;font-weight:600;margin-bottom:4px}
+h2{font-size:0.95rem;font-weight:600;margin:46px 0 4px}
+.lede,.note{color:var(--text-muted);font-size:0.87rem;line-height:1.45rem;max-width:100ch}
+.lede{margin-bottom:28px} .note{margin-bottom:16px}
+.spec{color:var(--text-muted);font-size:0.79rem;margin-top:9px;line-height:1.2rem;max-width:104ch}
+.spec b,b{color:var(--text-secondary);font-weight:500}
+code{font:0.8rem var(--mono);color:var(--text-secondary)}
+.tagline{font-size:0.79rem;color:var(--text-muted);margin-bottom:9px}
+.tagline b{color:var(--brand-secondary);font-weight:600}
+.hair{height:1px;background:var(--border-subtle);flex:0 0 auto}
+.vhair{width:1px;background:var(--border-subtle);flex:0 0 auto}
+svg{flex:0 0 auto}
+.row{display:flex;gap:26px;align-items:flex-start}
+
+/* ---- window ---- */
+.win{background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:11px;overflow:hidden;display:flex;flex-direction:column}
+.chrome{height:30px;display:flex;align-items:center;gap:8px;padding:0 11px;flex:0 0 auto;font-size:0.79rem;color:var(--text-muted)}
+.dots{display:flex;gap:5px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--bg-muted)}
+.wbody{flex:1;display:flex;min-height:0}
+
+/* ---- explorer sidebar ---- */
+.side{width:264px;flex:0 0 264px;display:flex;flex-direction:column;min-height:0}
+.side.narrow{width:236px;flex:0 0 236px}
+.ptitle{display:flex;align-items:center;height:26px;padding:0 12px}
+.ptitle span{font-size:0.75rem;font-weight:500;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase}
+.sec{display:flex;align-items:center;gap:7px;padding:9px 12px 5px;font-size:0.76rem;font-weight:500;color:var(--text-muted)}
+.sec .n{opacity:.65}
+.frow{display:flex;align-items:center;gap:8px;height:25px;padding:0 12px;cursor:pointer}
+.frow:hover{background:var(--bg-elevated)} .frow.on{background:var(--bg-overlay)}
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.m{background:var(--status-warning)} .dot.a{background:var(--status-success)} .dot.d{background:var(--status-error)}
+.fn{flex:1;min-width:0;font-size:0.82rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn .dir{color:var(--text-muted)}
+.st{font:0.72rem/1 var(--mono);color:var(--text-muted)}
+.st .p{color:var(--status-success)} .st .m{color:var(--status-error)}
+.crow{display:flex;align-items:center;gap:8px;height:25px;padding:0 12px;cursor:pointer}
+.crow:hover{background:var(--bg-elevated)}
+.gdot{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--text-muted);flex:0 0 auto}
+.gdot.hd{background:var(--brand-secondary);border-color:var(--brand-secondary)}
+.cmsg{flex:1;min-width:0;font-size:0.82rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmeta{font:0.71rem/1 var(--mono);color:var(--text-muted)}
+
+/* ---- editor area ---- */
+.ed{flex:1;min-width:0;display:flex;flex-direction:column}
+.tabs{height:32px;display:flex;align-items:stretch;border-bottom:1px solid var(--border-subtle);flex:0 0 auto;overflow:hidden}
+.tab{display:flex;align-items:center;gap:6px;padding:0 10px;border-right:1px solid var(--border-subtle);
+  font-size:0.77rem;color:var(--text-muted);white-space:nowrap;cursor:pointer;position:relative;flex:0 0 auto}
+.tab:hover{background:var(--bg-elevated)}
+.tab.on{background:var(--bg-elevated);color:var(--text-primary);font-weight:500}
+.tab.on:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--brand-primary)}
+.tab .x{opacity:.45;font-size:0.95rem;line-height:1;margin-left:2px}
+.tab.diff{color:var(--brand-secondary)}
+.tab.diff.on{color:var(--brand-secondary)}
+.tab.diff.on:after{background:var(--brand-secondary)}
+.tab .sub{font:0.7rem/1 var(--mono);color:var(--text-muted);opacity:.75}
+.fake{height:32px;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--border-subtle);
+  font-size:0.8rem;color:var(--text-muted);flex:0 0 auto}
+.fake .x{margin-left:auto;opacity:.5;font-size:1rem;line-height:1}
+
+.ed .dbar .rev{white-space:nowrap}
+.dbar{height:28px;display:flex;align-items:center;gap:9px;padding:0 12px;border-bottom:1px solid var(--border-subtle);
+  flex:0 0 auto;font-size:0.8rem;color:var(--text-muted)}
+.dbar .rev{opacity:.42;font:0.75rem var(--mono)}
+.dbar .r{margin-left:auto;display:flex;gap:8px;opacity:.7}
+.dsplit{flex:1;display:flex;min-height:0}
+.nav{width:220px;flex:0 0 220px;border-right:1px solid var(--border-subtle);padding:4px 0;min-height:0}
+.nrow{display:flex;align-items:center;gap:7px;height:23px;padding:0 11px;font-size:0.79rem;color:var(--text-secondary);cursor:pointer}
+.nrow:hover{background:var(--bg-elevated)} .nrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.nrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chg{flex:1;min-width:0;font:0.77rem/1.5 var(--mono);color:var(--text-muted);overflow:hidden}
+.fh{display:flex;align-items:center;gap:8px;height:26px;padding:0 13px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle);font:0.76rem var(--mono);color:var(--text-secondary)}
+.fh .s{margin-left:auto;font-size:0.73rem}
+.fh .s .p{color:var(--status-success)} .fh .s .m{color:var(--status-error)}
+.dl{display:flex;padding:0 13px}
+.dl .ln{width:54px;flex:0 0 54px;color:var(--text-muted);opacity:.4;text-align:right;padding-right:13px;user-select:none}
+.dl.add{background:rgba(34,197,94,.10)} .dl.add .tx{color:#86efac}
+.dl.del{background:rgba(239,68,68,.10)} .dl.del .tx{color:#fca5a5}
+.dl.hunk{opacity:.5;padding-top:4px;padding-bottom:4px}
+.code{padding:8px 0;font:0.77rem/1.5 var(--mono);color:var(--text-muted);flex:1;overflow:hidden}
+.kw{color:#c4b5fd}.str{color:#86efac}.cm{color:var(--text-muted);opacity:.6}
+
+/* git app bits */
+.gtop{height:34px;display:flex;align-items:center;gap:9px;padding:0 12px;flex:0 0 auto}
+.repo{display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600}
+.bchip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:var(--bg-elevated);
+  font:0.75rem/1 var(--mono);color:var(--text-secondary)}
+.tb{display:inline-flex;align-items:center;height:23px;padding:0 9px;border-radius:6px;font-size:0.79rem;color:var(--text-secondary)}
+.tb.solid{background:var(--brand-primary);color:var(--brand-primary-foreground);font-weight:500}
+.rail{width:170px;flex:0 0 170px}
+.grp{display:flex;align-items:center;gap:6px;padding:10px 12px 4px;font-size:0.74rem;font-weight:500;color:var(--text-muted)}
+.grp .n{opacity:.6}
+.rrow{display:flex;align-items:center;gap:7px;height:23px;padding:0 12px;font-size:0.81rem;color:var(--text-secondary)}
+.rrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.rrow .sw{width:3px;height:12px;border-radius:2px}
+.rrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.work{width:250px;flex:0 0 250px;display:flex;flex-direction:column;min-height:0}
+.cbox{margin-top:auto;padding:7px 12px 9px}
+.mi{width:100%;height:42px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:7px;
+  padding:6px 9px;font:0.81rem/1.1rem inherit;color:var(--text-muted)}
+.cbtn{margin-top:5px;height:26px;border-radius:7px;background:var(--brand-primary);color:var(--brand-primary-foreground);
+  display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:500}
+.gph{flex:0 0 auto;border-top:1px solid var(--border-subtle);padding:6px 0 8px}
+.gr{height:24px;display:flex;align-items:center;gap:9px;padding:0 12px;font-size:0.79rem;color:var(--text-secondary)}
+.gr .sha{font:0.71rem var(--mono);color:var(--text-muted);margin-left:auto}
+
+.blank{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+.blank p{font-size:0.83rem;line-height:1.3rem;color:var(--text-muted);max-width:38ch}
+.arrow{display:flex;align-items:center;justify-content:center;color:var(--brand-secondary);font-size:1.5rem;flex:0 0 auto;width:34px}
+.mark{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+  background:var(--brand-secondary);color:#1c1230;font:600 0.68rem/1 var(--mono);flex:0 0 auto}
+.legend{margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:0.8rem;color:var(--text-muted);max-width:96ch}
+.legend div{display:flex;align-items:flex-start;gap:8px;line-height:1.18rem}
+</style>
+</head>
+<body>
+
+<h1>Diff surface — where a diff opens</h1>
+<p class="lede">
+Drawn from the code as it stands, not from the ticket. Three things to react to: what opening a diff does to your
+open files <b>today</b>, what a diff looks like as a <b>real tab</b>, and whether the Git app <b>keeps its own diff
+pane or throws you out to the editor</b>.
+</p>
+
+<!-- ============ 1. TODAY ============ -->
+<h2>1 · What happens today</h2>
+<p class="note">
+<code>ExplorerWorkspace.tsx:235</code> renders the diff <i>instead of</i> the editor — not beside it. Four open files,
+click one changed file in the git panel, and the tab bar itself is replaced by a single grey line with an ×.
+The files are still open; you just can't see or reach them until you close the diff.
+</p>
+<div class="row">
+  <div style="flex:0 0 620px">
+    <div class="tagline">Before — four files open</div>
+    <div class="win" style="height:250px">
+      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
+      <div class="hair"></div>
+      <div class="wbody">
+        <div class="side narrow">
+          <div class="ptitle"><span>Git</span></div>
+          <div class="sec">Changes <span class="n">8</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/</span>Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
+        </div>
+        <div class="vhair"></div>
+        <div class="ed">
+          <div class="tabs">
+            <span class="tab on">Panel.tsx <span class="x">×</span></span>
+            <span class="tab">parse.ts <span class="x">×</span></span>
+            <span class="tab">format.ts <span class="x">×</span></span>
+            <span class="tab">api.md <span class="x">×</span></span>
+          </div>
+          <div class="code" style="padding-left:0">
+            <div class="dl"><span class="ln">18</span><span class="tx"><span class="kw">export function</span> Panel({ items }) {</span></div>
+            <div class="dl"><span class="ln">19</span><span class="tx">  <span class="kw">const</span> [open, setOpen] = useState(<span class="kw">false</span>);</span></div>
+            <div class="dl"><span class="ln">20</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">21</span><span class="tx">  <span class="cm">// bounded, then scrolls</span></span></div>
+            <div class="dl"><span class="ln">22</span><span class="tx">  <span class="kw">return</span> &lt;div className=<span class="str">"panel"</span>&gt;</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="arrow" style="height:250px">›</div>
+  <div style="flex:1;min-width:0">
+    <div class="tagline">After one click — the tab bar is gone</div>
+    <div class="win" style="height:250px">
+      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
+      <div class="hair"></div>
+      <div class="wbody">
+        <div class="side narrow">
+          <div class="ptitle"><span>Git</span></div>
+          <div class="sec">Changes <span class="n">8</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span></span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/</span>Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
+        </div>
+        <div class="vhair"></div>
+        <div class="ed">
+          <div class="fake">Diff: 986300b → working tree, README.md <span class="x">×</span></div>
+          <div class="dbar">8 files changed <span class="rev">986300b → working tree</span></div>
+          <div class="dsplit">
+            <div class="nav">
+              <div class="nrow on"><span class="dot m"></span><span class="nm">README.md</span></div>
+              <div class="nrow"><span class="dot a"></span><span class="nm">parse.ts</span></div>
+              <div class="nrow"><span class="dot m"></span><span class="nm">format.ts</span></div>
+            </div>
+            <div class="chg">
+              <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
+              <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding</span></div>
+              <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
+              <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="spec"><b>Panel.tsx, parse.ts, format.ts and api.md are still open and unreachable.</b> Close the diff to get them
+    back. You also can't have two diffs, and switching workspace silently throws the diff away.</p>
+  </div>
+</div>
+
+<!-- ============ 2. AS A REAL TAB ============ -->
+<h2>2 · The diff as a real tab</h2>
+<p class="note">
+Same tab strip, diffs sitting as peers beside files. Two open at once — one working-tree changeset, one past commit —
+so you can compare what you're about to commit against what you shipped last week. Diff tabs are tinted violet and
+carry the revision, because "README.md" alone wouldn't tell you which of the two you're looking at.
+</p>
+<div class="win" style="height:430px">
+  <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
+  <div class="hair"></div>
+  <div class="wbody">
+    <div class="side">
+      <div class="ptitle"><span>Git</span></div>
+      <div class="hair"></div>
+      <div class="sec">Changes <span class="n">8</span></div>
+      <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+      <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+      <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+      <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+      <div class="hair" style="margin-top:6px"></div>
+      <div class="sec">History</div>
+      <div class="crow"><span class="gdot hd"></span><span class="cmsg">chore: added CHANGELOG</span><span class="cmeta">986300b</span></div>
+      <div class="crow"><span class="gdot"></span><span class="cmsg">Fix README typo and round shares</span><span class="cmeta">878b180</span></div>
+      <div class="crow"><span class="gdot"></span><span class="cmsg">Add currency option to output</span><span class="cmeta">25b88c6</span></div>
+    </div>
+    <div class="vhair"></div>
+    <div class="ed">
+      <div class="tabs">
+        <span class="tab">Panel.tsx <span class="x">×</span></span>
+        <span class="tab">parse.ts <span class="x">×</span></span>
+        <span class="tab diff on">Changes <span class="sub">986300b → working tree</span> <span class="x">×</span></span>
+        <span class="tab diff">878b180 <span class="sub">Fix README typo…</span> <span class="x">×</span></span>
+        <span class="tab">api.md <span class="x">×</span></span>
+      </div>
+      <div class="dbar">8 files changed <span class="rev">986300b → working tree</span>
+        <span class="r">split · unified</span></div>
+      <div class="dsplit">
+        <div class="nav">
+          <div class="nrow on"><span class="dot m"></span><span class="nm">README.md</span></div>
+          <div class="nrow"><span class="dot a"></span><span class="nm">src/lib/parse.ts</span></div>
+          <div class="nrow"><span class="dot m"></span><span class="nm">src/lib/format.ts</span></div>
+          <div class="nrow"><span class="dot m"></span><span class="nm">src/components/Panel.tsx</span></div>
+          <div class="nrow"><span class="dot a"></span><span class="nm">src/components/Row.tsx</span></div>
+          <div class="nrow"><span class="dot d"></span><span class="nm">src/legacy/old-parse.ts</span></div>
+          <div class="nrow"><span class="dot m"></span><span class="nm">package.json</span></div>
+          <div class="nrow"><span class="dot m"></span><span class="nm">docs/reference/api.md</span></div>
+        </div>
+        <div class="chg">
+          <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
+          <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
+          <div class="dl"><span class="ln">12</span><span class="tx"></span></div>
+          <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding and a currency option</span></div>
+          <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
+          <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes in diff editor</span></div>
+          <div class="fh" style="margin-top:8px">src/lib/parse.ts <span class="s"><span class="p">+41</span> <span class="m">−3</span></span></div>
+          <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -12,7 +12,9 @@</span></div>
+          <div class="dl del"><span class="ln">12</span><span class="tx">− export function parse(input) {</span></div>
+          <div class="dl add"><span class="ln">12</span><span class="tx">+ export function parse(input, opts = {}) {</span></div>
+          <div class="dl"><span class="ln">13</span><span class="tx">  const rows = input.split('\n');</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="legend">
+  <div><span class="mark">1</span><span><b>Your files stay open and reachable.</b> The diff is one more tab, not a mode.</span></div>
+  <div><span class="mark">2</span><span><b>Two diffs at once</b> — the working tree, and a commit from last week.</span></div>
+  <div><span class="mark">3</span><span><b>What it costs.</b> A tab is a bare path string in six places today, including the state saved to disk
+  (<code>editorTabs: string[]</code>, the drag-reorder ids, the rename and delete remaps). Tab identity has to become
+  "a file <i>or</i> a revision pair" in all of them.</span></div>
+  <div><span class="mark">4</span><span><b>One question it raises:</b> should a diff tab come back when you reopen the workspace? The
+  revision it points at may have been rebased away.</span></div>
+</div>
+
+<!-- ============ 3. A vs B ============ -->
+<h2>3 · Does the Git app keep its own diff?</h2>
+<p class="note">
+The Git app is a full-screen app you opened on purpose to do git work. The question is what happens when you click a
+file in it.
+</p>
+<div class="row" style="gap:22px">
+
+  <div style="flex:1;min-width:0">
+    <div class="tagline"><b>A · Route only</b> — nothing embeds a diff; every click opens a tab in the Explorer</div>
+    <div class="win" style="height:334px">
+      <div class="gtop">
+        <span class="repo">sero</span><span class="bchip">main</span>
+        <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Push</span><span class="tb solid">Create pull request</span>
+      </div>
+      <div class="hair"></div>
+      <div class="wbody">
+        <div class="rail">
+          <div class="grp">Branches <span class="n">4</span></div>
+          <div class="rrow on"><span class="sw" style="background:#c4b5fd"></span><span class="nm">main</span></div>
+          <div class="rrow"><span class="sw" style="background:#38bdf8"></span><span class="nm">feat/git-ux</span></div>
+        </div>
+        <div class="vhair"></div>
+        <div class="work" style="width:250px;flex:0 0 250px">
+          <div class="sec">Staged <span class="n">2</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span></span></div>
+          <div class="sec">Changes <span class="n">6</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
+          <div class="frow"><span class="dot d"></span><span class="fn">old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+          <div class="cbox">
+            <div class="mi">feat(parse): support currency output</div>
+            <div class="cbtn">Commit 2 staged</div>
+          </div>
+        </div>
+        <div class="vhair"></div>
+        <div class="blank">
+          <p>Clicking <b>Panel.tsx</b> leaves this app<br>and opens a diff tab in the Explorer.<br><br>
+          Nothing renders here.</p>
+        </div>
+      </div>
+      <div class="gph">
+        <div class="gr"><span class="gdot hd"></span> chore: added CHANGELOG <span class="sha">986300b</span></div>
+        <div class="gr"><span class="gdot"></span> Fix README typo and round shares <span class="sha">878b180</span></div>
+      </div>
+    </div>
+    <p class="spec"><b>One diff implementation, one place diffs live.</b> But you opened the Git app to stage and commit, and
+    reading any file throws you into a different app — then you have to come back to press Commit. The graph, the
+    staged list and the commit box are all gone from view while you read.</p>
+  </div>
+
+  <div style="flex:1;min-width:0">
+    <div class="tagline"><b>B · Route by default, embed where it earns it</b> — panels route out, the full-screen app embeds</div>
+    <div class="win" style="height:334px">
+      <div class="gtop">
+        <span class="repo">sero</span><span class="bchip">main</span>
+        <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Push</span><span class="tb solid">Create pull request</span>
+      </div>
+      <div class="hair"></div>
+      <div class="wbody">
+        <div class="rail">
+          <div class="grp">Branches <span class="n">4</span></div>
+          <div class="rrow on"><span class="sw" style="background:#c4b5fd"></span><span class="nm">main</span></div>
+          <div class="rrow"><span class="sw" style="background:#38bdf8"></span><span class="nm">feat/git-ux</span></div>
+        </div>
+        <div class="vhair"></div>
+        <div class="work" style="width:212px;flex:0 0 212px">
+          <div class="sec">Staged <span class="n">2</span></div>
+          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
+          <div class="frow"><span class="dot a"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span></span></div>
+          <div class="sec">Changes <span class="n">6</span></div>
+          <div class="frow on"><span class="dot m"></span><span class="fn">Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
+          <div class="frow"><span class="dot d"></span><span class="fn">old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+          <div class="cbox">
+            <div class="mi">feat(parse): support currency output</div>
+            <div class="cbtn">Commit 2 staged</div>
+          </div>
+        </div>
+        <div class="vhair"></div>
+        <div class="ed">
+          <div class="dbar">Panel.tsx <span class="rev">986300b → working tree</span><span class="r">split · unified</span></div>
+          <div class="chg" style="flex:1">
+            <div class="fh">src/components/Panel.tsx <span class="s"><span class="p">+77</span> <span class="m">−14</span></span></div>
+            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -18,6 +18,9 @@</span></div>
+            <div class="dl"><span class="ln">18</span><span class="tx">function Panel({ items }) {</span></div>
+            <div class="dl del"><span class="ln">19</span><span class="tx">−  const [o, set] = useState(false)</span></div>
+            <div class="dl add"><span class="ln">19</span><span class="tx">+  const [o, set] = useState(init)</span></div>
+            <div class="dl add"><span class="ln">20</span><span class="tx">+  const rows = bounded(items, 8)</span></div>
+            <div class="dl"><span class="ln">21</span><span class="tx"></span></div>
+            <div class="dl"><span class="ln">22</span><span class="tx">  return &lt;div class="panel"&gt;</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="gph">
+        <div class="gr"><span class="gdot hd"></span> chore: added CHANGELOG <span class="sha">986300b</span></div>
+        <div class="gr"><span class="gdot"></span> Fix README typo and round shares <span class="sha">878b180</span></div>
+      </div>
+    </div>
+    <p class="spec"><b>Stage, read, commit without leaving.</b> The commit box and the graph stay on screen while you read the
+    diff — which is the layout #302 already agreed. Cost: the same changeset component is mounted in two places, and
+    the Git app is a plugin that can't reach <code>@pierre/diffs</code> today (it's a dependency of the desktop app only).</p>
+  </div>
+</div>
+
+<!-- ============ 4. ONE FILE ============ -->
+<h2>4 · One file, in a viewer built for changesets</h2>
+<p class="note">
+The viewer is keyed on a revision pair, not a file — so "show me just README.md" is really "show me this changeset,
+scrolled to README.md". The existing code already handles it: the 220px file list only appears when there is more
+than one file (<code>DiffTab.tsx:98</code>), so a single-file diff is just the diff, full width.
+</p>
+<div class="row">
+  <div style="flex:0 0 700px">
+    <div class="tagline">One changed file — navigator hidden, full width</div>
+    <div class="win" style="height:210px">
+      <div class="tabs">
+        <span class="tab">Panel.tsx <span class="x">×</span></span>
+        <span class="tab diff on">README.md <span class="sub">986300b → working tree</span> <span class="x">×</span></span>
+      </div>
+      <div class="dbar">1 file changed <span class="rev">986300b → working tree</span><span class="r">split · unified</span></div>
+      <div class="chg" style="flex:1">
+        <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
+        <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
+        <div class="dl"><span class="ln">12</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding and a currency option</span></div>
+        <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
+        <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes in diff editor</span></div>
+      </div>
+    </div>
+    <p class="spec"><b>Nothing new needed.</b> The tab is labelled with the file because there is only one; an eight-file
+    changeset is labelled "Changes". Same component either way.</p>
+  </div>
+  <div style="flex:1;min-width:0">
+    <div class="tagline">The one thing that has no answer yet</div>
+    <div class="win" style="padding:16px 18px">
+      <p style="font-size:0.85rem;line-height:1.4rem;color:var(--text-muted)">
+      Click <b>README.md</b> in the panel twice — once from Changes, once from a past commit — and you get
+      <b>two tabs</b>, because they're different revision pairs. Click it twice from the same place and you should get
+      <b>one</b>.<br><br>
+      So a diff tab's identity is the revision pair, and the file is only where it scrolls to. That is different from
+      file tabs, where the path is the identity. Worth stating in the spec, because it decides what happens on the
+      second click.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
