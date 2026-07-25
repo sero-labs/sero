@@ -271,7 +271,14 @@ export type {
 
 // ── Sero Apps ──────────────────────────────────────────────────
 
-export type { SettingsPackageSource, SeroAppManifest, SeroSearchManifest, SeroWidgetManifest } from './sero-apps';
+export type {
+  SettingsPackageSource,
+  SeroAppManifest,
+  SeroExplorerViewManifest,
+  SeroSearchManifest,
+  SeroTitleBarManifest,
+  SeroWidgetManifest,
+} from './sero-apps';
 
 // ── Plugins ─────────────────────────────────────────────────
 

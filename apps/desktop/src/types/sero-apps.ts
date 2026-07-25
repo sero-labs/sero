@@ -3,7 +3,9 @@ import type {
   PluginCompatibilityStatus,
   PluginMeta,
 } from '@sero-ai/common';
+import type { ExplorerViewManifest } from './explorer-view-manifest';
 import type { SearchManifest } from './search-manifest';
+import type { TitleBarManifest } from './titlebar-manifest';
 import type { WidgetManifest } from './widget-manifest';
 
 /**
@@ -14,6 +16,8 @@ export type SettingsPackageSource = PackageSource;
 
 export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
 export type { SearchManifest as SeroSearchManifest } from './search-manifest';
+export type { ExplorerViewManifest as SeroExplorerViewManifest } from './explorer-view-manifest';
+export type { TitleBarManifest as SeroTitleBarManifest } from './titlebar-manifest';
 
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {
@@ -68,4 +72,8 @@ export interface SeroAppManifest {
   widgets: WidgetManifest[];
   /** Global-search panel contribution declared in the app manifest. */
   search?: SearchManifest | null;
+  /** Explorer view contribution declared in the app manifest. */
+  explorerView?: ExplorerViewManifest | null;
+  /** Title-bar contribution declared in the app manifest. */
+  titlebar?: TitleBarManifest | null;
 }

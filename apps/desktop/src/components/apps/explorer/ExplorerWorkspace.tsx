@@ -5,8 +5,9 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '@sero-ai/ui/components/ui/resizable';
-import { ActivityBar, type ExplorerPanel } from './ActivityBar';
+import { ActivityBar } from './ActivityBar';
 import { ExplorerSidebar } from './ExplorerSidebar';
+import { ExplorerViewMissing, ExplorerViewMount } from './ExplorerViewMount';
 import { TerminalTabs } from './TerminalTabs';
 import { TerminalPanel } from './TerminalPanel';
 import { EditorPanel } from './editor/EditorPanel';
@@ -23,6 +24,8 @@ import {
   useTerminalStore,
 } from '@/stores/terminal';
 import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
+import { getExplorerViewContributionApps, useAppStore } from '@/stores/app';
+import { panelOwnsMainArea, type ExplorerPanel } from '@/lib/explorer-panels';
 
 const TERMINAL_MIN_HEIGHT = 100;
 
@@ -42,8 +45,16 @@ export function ExplorerWorkspace() {
   const workspaceId = activeWorkspace?.id ?? 'global';
   const { sidebarOpen, activePanel, terminalOpen, explorerSidebarSizePct, terminalSizePct } =
     useWorkspaceExplorer(workspaceId);
-  const showSidebar = sidebarOpen && activePanel !== 'browser';
+  const showSidebar = sidebarOpen && !panelOwnsMainArea(activePanel);
   const setExplorer = useExplorerStore((state) => state.set);
+  // A contributed view fills the whole area; `undefined` while its plugin is
+  // absent, which the placeholder below reports rather than silently
+  // redirecting to the file tree.
+  const contributedView = useAppStore((state) => (
+    panelOwnsMainArea(activePanel)
+      ? getExplorerViewContributionApps(state.apps).find((app) => app.id === activePanel)?.manifest
+      : undefined
+  ));
   const termTabs = useWorkspaceTerminals(workspaceId);
   const activeTerminalId = useActiveTerminalId(workspaceId);
 
@@ -91,7 +102,7 @@ export function ExplorerWorkspace() {
 
       setExplorer(workspaceId, {
         activePanel: panel,
-        sidebarOpen: panel !== 'browser',
+        sidebarOpen: !panelOwnsMainArea(panel),
       });
     },
     [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
@@ -232,6 +243,10 @@ export function ExplorerWorkspace() {
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
                   {activePanel === 'browser' ? (
                     <BrowserPanel workspaceId={workspaceId} />
+                  ) : panelOwnsMainArea(activePanel) ? (
+                    contributedView
+                      ? <ExplorerViewMount manifest={contributedView} />
+                      : <ExplorerViewMissing panelId={activePanel} />
                   ) : diffState ? (
                     <>
                       {/* Diff mode: show a minimal tab bar with close action */}

@@ -8,7 +8,7 @@
 
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import type { ExplorerPanel } from '@/components/apps/explorer/ActivityBar';
+import type { ExplorerPanel } from '@/lib/explorer-panels';
 import { persistLayout } from '@/lib/persist-layout';
 import type { PersistedWorkspaceExplorerLayout } from '@/types/layout';
 
@@ -30,16 +30,15 @@ const DEFAULT_EXPLORER_CONFIG: WorkspaceExplorer = {
   terminalSizePct: 30,
 };
 
-const EXPLORER_PANELS = new Set<ExplorerPanel>([
-  'explorer',
-  'git',
-  'orchestration',
-  'browser',
-  'terminal',
-]);
-
+/**
+ * Any non-empty string is a valid panel id: besides the built-ins, apps
+ * contribute Explorer views keyed by app id. A persisted id we don't recognise
+ * is deliberately kept rather than reset to `explorer` — the contributing
+ * plugin may simply not be loaded yet, and the view is restored when it is.
+ * Until then the Explorer shows a placeholder (see `ExplorerViewMissing`).
+ */
 function isExplorerPanel(value: unknown): value is ExplorerPanel {
-  return typeof value === 'string' && EXPLORER_PANELS.has(value as ExplorerPanel);
+  return typeof value === 'string' && value.length > 0;
 }
 
 function normaliseExplorerLayout(

@@ -27,6 +27,11 @@ export interface AppContextValue {
   themeMode?: 'light' | 'dark';
   /** Active theme preset ID. */
   themePresetId?: string;
+  /**
+   * Active editor/diff theme ID (`'auto'` follows `themeMode`). Plugins that
+   * render code or diffs use it so their syntax colours match the host editor.
+   */
+  editorThemeId?: string;
 }
 
 declare global {

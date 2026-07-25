@@ -14,6 +14,8 @@ export interface UseThemeResult {
   mode: 'light' | 'dark';
   /** Active theme preset ID. */
   presetId: string;
+  /** Active editor/diff theme ID; `'auto'` follows `mode`. */
+  editorThemeId: string;
 }
 
 export function useTheme(): UseThemeResult {
@@ -21,5 +23,6 @@ export function useTheme(): UseThemeResult {
   return {
     mode: ctx?.themeMode ?? 'dark',
     presetId: ctx?.themePresetId ?? 'default',
+    editorThemeId: ctx?.editorThemeId ?? 'auto',
   };
 }

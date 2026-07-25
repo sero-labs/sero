@@ -467,12 +467,18 @@ Two things verified rather than assumed:
 
 ### Published API changes
 
-One `@sero-ai/app-runtime` release, carrying **two** things and nothing about vcs:
+One `@sero-ai/app-runtime` release, carrying **one** thing and nothing about vcs:
 
 1. `editorThemeId` on the plugin context.
-2. Open-file-**and-switch-view**. `openSeroFile` already opens a tab but does not
-   change `activePanel`, so called from a git surface today the file would open
-   *behind* the git view and nothing would appear to happen.
+
+~~2. Open-file-**and-switch-view**.~~ **Corrected during step 1 — this already
+works.** The claim was that `openSeroFile` opens a tab without changing
+`activePanel`. It does change it: the call reaches `useEditorBridge`'s
+`focusEditor` (`stores/editor-bridge.ts:63-70`, added in #177), which sets
+`activePanel: 'explorer'`, opens the sidebar and switches the active app. A file
+opened from a git surface therefore reveals the editor as intended, contributed
+view included. No host change was needed; a test now pins the behaviour
+(`lib/app-control-bridge.test.ts`).
 
 External plugins pin the package, so this needs a version bump plus a
 `requiredHostCapabilities` floor.
@@ -535,11 +541,24 @@ are new:
 Sliced so the app works at every step and nothing sits half-migrated. Each step is
 independently shippable.
 
-**Step 1 — host affordances (nothing user-visible changes).**
-Add `editorThemeId` to the plugin context and open-file-and-switch-view; publish
-`@sero-ai/app-runtime` with the version floor. Add the Explorer view slot and the
-titlebar slot, including the deliberate handling of an unknown persisted
-`activePanel`. No git code moves yet.
+**Step 1 — host affordances (nothing user-visible changes). Done.**
+Add `editorThemeId` to the plugin context; publish `@sero-ai/app-runtime` with
+the version floor. Add the Explorer view slot and the titlebar slot, including
+the deliberate handling of an unknown persisted `activePanel`. No git code moves
+yet. Open-file-and-switch-view turned out to be already implemented (see §8,
+*Published API changes*).
+
+Built as `sero.app.explorerView` and `sero.app.titlebar`, mirroring
+`sero.app.search`, behind the host capabilities `ui.explorerView` and
+`ui.titlebar`. Two things settled while building it:
+
+- **The titlebar popover question is answered: the plugin owns the `Popover`.**
+  `@sero-ai/ui`'s Radix wrappers already portal into the container
+  `PluginStyleScope` provides, so a plugin-owned popover stays inside the
+  plugin's style scope instead of landing unscoped on `document.body`.
+- **A contributed Explorer view takes the whole area**, sidebar included, which
+  is what §4's layout needs. `panelOwnsMainArea()` (`lib/explorer-panels.ts`) is
+  the single rule, shared by the browser panel.
 
 **Step 2 — clear the host's git state consumers.**
 Convert checkpoint restore to call `window.sero.vcs` directly. The status bar

@@ -92,6 +92,7 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
   );
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const activePresetId = useThemeStore((state) => state.activePresetId);
+  const editorThemeId = useAppStore((state) => state.editorThemeId);
 
   const isGlobal = manifest.scope === 'global';
 
@@ -123,8 +124,9 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
       promptAgent,
       themeMode: effectiveMode,
       themePresetId: activePresetId,
+      editorThemeId,
     }),
-    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId],
+    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId],
   );
 
   return { contextValue, status };

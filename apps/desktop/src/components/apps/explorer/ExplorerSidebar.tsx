@@ -1,10 +1,10 @@
-import type { ExplorerPanel } from './ActivityBar';
+import type { ExplorerPanel } from '@/lib/explorer-panels';
 import type { EditorRoot } from '@/types/ipc';
 import { MultiRootFileTree } from './file-tree/MultiRootFileTree';
 import { VcsPanel } from './vcs/VcsPanel';
 import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
-const panelTitles: Record<ExplorerPanel, string> = {
+const panelTitles: Record<string, string> = {
   explorer: 'Explorer',
   git: 'Source Control',
   orchestration: 'Orchestration',
@@ -35,7 +35,7 @@ interface ExplorerSidebarProps {
  * Explorer panel renders the FileTree; other panels are placeholders.
  */
 export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpenDiff }: ExplorerSidebarProps) {
-  const title = panelTitles[activePanel];
+  const title = panelTitles[activePanel] ?? activePanel;
 
   return (
     <aside className="flex size-full flex-col bg-[var(--bg-surface)]">

@@ -8,6 +8,7 @@ import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBa
 import { NavButtons } from '@/components/layout/titlebar/NavButtons';
 import { ShortcutChips } from '@/components/layout/titlebar/ShortcutChips';
 import { TitleBarBreadcrumb } from '@/components/layout/titlebar/TitleBarBreadcrumb';
+import { TitleBarContributions } from '@/components/layout/titlebar/TitleBarContributions';
 import { WindowControls } from '@/components/layout/titlebar/WindowControls';
 import { UpdateIndicator } from '@/components/layout/shell/UpdateIndicator';
 
@@ -91,6 +92,8 @@ export const TitleBar = memo(function TitleBar() {
         <UpdateIndicator />
 
         <GitTitleBarControls />
+
+        <TitleBarContributions />
 
         <ProfileSwitcher />
 
