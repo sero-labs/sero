@@ -684,6 +684,8 @@ both surfaces, so a branch is the same colour in the rail and in the graph.
 Still open:
 
 - **`window.sero.gitApp` cannot be retired yet, and §11 assumes it can.**
+  Tracked as [#305](https://github.com/sero-labs/sero/issues/305), to be done
+  after the UI refactor lands.
   Staging, committing, stashing, checkout, merge and cherry-pick exist only as
   `gitApp.run` actions; `window.sero.vcs` has no equivalent. Retiring the bridge
   means adding those to the vcs surface first, which is net-new backend work §10
