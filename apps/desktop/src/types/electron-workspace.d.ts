@@ -16,6 +16,10 @@ import type {
 } from '@sero-ai/common';
 import type { LspNotification } from '@/lsp/lsp-protocol';
 import type {
+  ConflictOutcome,
+  ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
+import type {
   VcsCheckpoint,
   VcsEvent,
   VcsWorkspaceState,
@@ -216,6 +220,8 @@ export interface SeroVcsAPI {
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
   /** A drafted commit message for what is about to be committed. `''` means the model had nothing. */
   commitDraftMessage(wsId: string, scope?: 'staged' | 'all'): Promise<string>;
+  /** Resolve one merge conflict — or ask about it, or decline it. Rejects on a malformed reply. */
+  resolveConflictWithAi(wsId: string, input: ConflictResolveInput): Promise<ConflictOutcome>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   discardCommit(wsId: string, sha: string): Promise<void>;

@@ -12,6 +12,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export interface GitViewState {
   /** Height of the graph band, as a percentage of the app below the top bar. */
   graphHeightPct: number;
+  /**
+   * Which files the AI resolver resolved, and in which merge (§7). The run
+   * itself lives in memory, so without this a reload mid-merge would lose the
+   * marks that say whose resolution a file holds.
+   *
+   * Keyed by the merge it belongs to: a record left over from a previous merge
+   * would otherwise mark files nothing has touched this time.
+   */
+  aiResolved?: { mergeRef: string; paths: string[] };
 }
 
 export const DEFAULT_GRAPH_HEIGHT_PCT = 38;
@@ -34,16 +43,26 @@ function viewStatePath(workspacePath: string): string {
 }
 
 function normalise(value: unknown): GitViewState {
-  const pct = (value as GitViewState | null)?.graphHeightPct;
-  if (typeof pct !== 'number' || !Number.isFinite(pct)) return DEFAULTS;
-  return { graphHeightPct: Math.min(MAX_GRAPH_HEIGHT_PCT, Math.max(MIN_GRAPH_HEIGHT_PCT, pct)) };
+  const stored = value as GitViewState | null;
+  const pct = stored?.graphHeightPct;
+  const graphHeightPct = typeof pct === 'number' && Number.isFinite(pct)
+    ? Math.min(MAX_GRAPH_HEIGHT_PCT, Math.max(MIN_GRAPH_HEIGHT_PCT, pct))
+    : DEFAULTS.graphHeightPct;
+
+  const aiResolved = stored?.aiResolved;
+  const valid = typeof aiResolved?.mergeRef === 'string' && Array.isArray(aiResolved.paths);
+  return valid
+    ? { graphHeightPct, aiResolved: { mergeRef: aiResolved.mergeRef, paths: aiResolved.paths } }
+    : { graphHeightPct };
 }
 
 /**
  * Per-workspace view state. Reads once per workspace and writes back on change;
  * a missing or unreadable file is simply the default.
  */
-export function useGitViewState(workspacePath: string): [GitViewState, (next: GitViewState) => void] {
+export function useGitViewState(
+  workspacePath: string,
+): [GitViewState, (patch: Partial<GitViewState>) => void] {
   const [state, setState] = useState<GitViewState>(DEFAULTS);
   const pathRef = useRef<string | null>(null);
 
@@ -60,10 +79,15 @@ export function useGitViewState(workspacePath: string): [GitViewState, (next: Gi
     return () => { cancelled = true; };
   }, [workspacePath]);
 
-  const update = useCallback((next: GitViewState) => {
-    setState(next);
-    const filePath = pathRef.current;
-    if (filePath) void bridge()?.write(filePath, next).catch(() => {});
+  // A patch, not a replacement: the divider and the AI marks are written by
+  // different things at different times, and either would erase the other.
+  const update = useCallback((patch: Partial<GitViewState>) => {
+    setState((current) => {
+      const next = { ...current, ...patch };
+      const filePath = pathRef.current;
+      if (filePath) void bridge()?.write(filePath, next).catch(() => {});
+      return next;
+    });
   }, []);
 
   return [state, update];

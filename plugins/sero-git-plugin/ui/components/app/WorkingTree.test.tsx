@@ -58,6 +58,8 @@ describe('WorkingTree', () => {
           onOpenInEditor={vi.fn()}
           selectedFile={null}
           info={NORMAL}
+          aiResolvedPaths={[]}
+          unresolvedPaths={[]}
           {...overrides}
         />,
       );

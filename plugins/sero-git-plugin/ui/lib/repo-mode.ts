@@ -35,8 +35,22 @@ export interface RepoModeInfo {
   pullRequestBlockedReason: string | null;
 }
 
-export function deriveRepoMode(state: GitAppState): RepoModeInfo {
-  const conflictFiles = state.fileChanges.filter((file) => file.status === 'conflict');
+/**
+ * `unresolvedPaths` are files Sero knows are conflicted again even though git
+ * no longer says so. Staging a file makes git forget it ever conflicted — the
+ * same fact `merge.conflictPaths` exists for — so undoing an AI resolution puts
+ * the markers back on disk while `git status` reports an ordinary modified
+ * file. Without this the app would say the merge was ready to conclude over a
+ * file full of markers.
+ */
+export function deriveRepoMode(
+  state: GitAppState,
+  unresolvedPaths: string[] = [],
+): RepoModeInfo {
+  const stillConflicted = new Set(unresolvedPaths);
+  const conflictFiles = state.fileChanges.filter(
+    (file) => file.status === 'conflict' || stillConflicted.has(file.path),
+  );
   const conflicts = new Set(conflictFiles.map((file) => file.path)).size;
   const staged = state.fileChanges.filter((file) => file.staged).length;
   const hasRemote = state.remotes.length > 0;

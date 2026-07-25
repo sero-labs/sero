@@ -34,6 +34,44 @@ export type {
   WorkingCopyStatus,
 };
 
+// ── AI conflict resolution (§7) ───────────────────────────────
+// Declared here rather than imported for the same reason as the bridge itself:
+// AD-025 publishes nothing about vcs, so the plugin owns the shapes it uses.
+
+/** An answer already given in this run, carried forward to related conflicts. */
+export interface ConflictAnswer {
+  question: string;
+  answer: string;
+}
+
+export interface ConflictResolveInput {
+  path: string;
+  /** Which conflict in the file, counting from 1 — the number the UI shows. */
+  conflictNumber: number;
+  conflictCount: number;
+  current: string;
+  incoming: string;
+  /** The common ancestor, present only in diff3-style markers. */
+  base?: string;
+  currentLabel: string;
+  incomingLabel: string;
+  context: string;
+  answers: ConflictAnswer[];
+}
+
+export interface ConflictQuestionOption {
+  label: string;
+  detail: string;
+  /** What this option would write. Absent means "let me edit it". */
+  content?: string;
+}
+
+/** Declining is the model's call, with its reason — never a score we invented. */
+export type ConflictOutcome =
+  | { decision: 'resolve'; content: string; why: string }
+  | { decision: 'ask'; question: string; because: string; options: ConflictQuestionOption[] }
+  | { decision: 'decline'; why: string };
+
 export interface SeroVcsBridge {
   getState(workspaceId: string, limit?: number): Promise<VcsWorkspaceState>;
   logEntries(workspaceId: string, limit?: number, range?: string): Promise<CommitEntry[]>;
@@ -65,6 +103,13 @@ export interface SeroVcsBridge {
    * An empty string means the model had nothing to say — leave the field alone.
    */
   commitDraftMessage(workspaceId: string, scope?: 'staged' | 'all'): Promise<string>;
+  /**
+   * Resolve one merge conflict — or ask about it, or decline it (§7). One
+   * conflict per call, so a question can block that conflict without blocking
+   * the run. Rejects when the model's reply is malformed, which the run reports
+   * as a failed conflict rather than writing a half-resolution.
+   */
+  resolveConflictWithAi(workspaceId: string, input: ConflictResolveInput): Promise<ConflictOutcome>;
   prCreate(workspaceId: string, input: {
     sourceBranch: string;
     targetBranch: string;

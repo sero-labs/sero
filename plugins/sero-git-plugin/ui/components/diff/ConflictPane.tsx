@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { UnresolvedFile } from '@pierre/diffs/react';
 import type { MergeConflictResolution, UnresolvedFile as UnresolvedFileInstance } from '@pierre/diffs';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { countConflicts } from '../../lib/conflict-markers';
 import { readWorkingTreeFile, writeWorkingTreeFile } from '../../lib/sero-vcs';
 import { resolveDiffThemes } from './diff-themes';
@@ -41,10 +41,12 @@ interface Props {
   themeType: 'light' | 'dark';
   /** Called when the file has no markers left, so it can be staged. */
   onResolved: (path: string) => void;
+  /** Offered only when there is something to go back to, e.g. the AI run's account. */
+  onClose?: () => void;
 }
 
 export function ConflictPane({
-  workspaceId, path, diskPath, editorThemeId, themeType, onResolved,
+  workspaceId, path, diskPath, editorThemeId, themeType, onResolved, onClose,
 }: Props) {
   const [contents, setContents] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +125,16 @@ export function ConflictPane({
               Accept all incoming
             </SmallButton>
           </>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            aria-label="Close this file"
+            onClick={onClose}
+            className="shrink-0 rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          >
+            <X className="size-3.5" />
+          </button>
         )}
       </div>
 

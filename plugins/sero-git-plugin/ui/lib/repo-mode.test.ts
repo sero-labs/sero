@@ -103,3 +103,42 @@ describe('branchChipLabel', () => {
     expect(branchChipLabel(state({ headHash: '' }), 'unborn')).toBe('main · unborn');
   });
 });
+
+/**
+ * Staging a file makes git forget it ever conflicted, so undoing an AI
+ * resolution puts markers back on disk while `git status` reports an ordinary
+ * modified file. Without Sero's own memory the app would offer to conclude the
+ * merge over a file full of markers.
+ */
+describe('a file Sero knows is conflicted again', () => {
+  const merging = {
+    ...createDefaultGitState(),
+    headHash: 'abc1234',
+    commitCount: 3,
+    fileChanges: [
+      { path: 'src/parse.ts', status: 'modified' as const, staged: false },
+      { path: 'README.md', status: 'modified' as const, staged: true },
+    ],
+    merge: {
+      fromRef: 'feat/x',
+      message: 'Merge branch',
+      conflictPaths: ['src/parse.ts'],
+    },
+  };
+
+  it('reads as resolved when nothing says otherwise', () => {
+    const info = deriveRepoMode(merging);
+    expect(info.conflicts).toBe(0);
+    expect(info.commitBlockedReason).toBeNull();
+  });
+
+  it('blocks the merge again once it is named', () => {
+    const info = deriveRepoMode(merging, ['src/parse.ts']);
+    expect(info.conflicts).toBe(1);
+    expect(info.commitBlockedReason).toBe('1 conflict left to resolve');
+  });
+
+  it('ignores a named path that is not in the working tree', () => {
+    expect(deriveRepoMode(merging, ['src/gone.ts']).conflicts).toBe(0);
+  });
+});

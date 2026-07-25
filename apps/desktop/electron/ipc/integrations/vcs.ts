@@ -6,6 +6,12 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildCommitMessagePrompt, parseCommitMessage } from '@electron/features/agent/assistants/commit-message';
+import {
+  buildConflictPrompt,
+  parseConflictOutcome,
+  type ConflictOutcome,
+  type ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { buildCommitDraftContext, type CommitDraftScope } from '@electron/features/git/core/commit-draft';
 import { githubAuth, githubRepoOps, gitRunner, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
@@ -226,6 +232,18 @@ export function registerVcsHandlers(): void {
       'low',
     );
     return parseCommitMessage(generated.text);
+  });
+
+  // One conflict per call. The run itself lives in the git plugin, which owns
+  // the working tree it writes to (AD-025) — this is only the model call, so a
+  // question blocking one conflict never blocks the process handling the rest.
+  ipcMain.handle(Ch.resolveConflictWithAi, async (_e, wsId: string, input: ConflictResolveInput): Promise<ConflictOutcome> => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    if (!workspacePath) throw new Error(`Workspace not found: ${wsId}`);
+
+    // 'medium' rather than the draft's 'low': this one writes code into files.
+    const generated = await runAdhocAgent(workspacePath, buildConflictPrompt(input), 'medium');
+    return parseConflictOutcome(generated.text);
   });
 
   ipcMain.handle(Ch.prCreate, async (_e, wsId: string, input: CreatePullRequestInput) =>

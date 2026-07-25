@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { AlertCircle, FileText, Minus, Plus, Undo2 } from 'lucide-react';
+import { AlertCircle, FileText, Minus, Plus, Sparkles, Undo2 } from 'lucide-react';
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
 import { statusColour } from '../../lib/file-status';
 import { groupForMerge } from '../../lib/merge-groups';
@@ -29,10 +29,15 @@ interface Props {
   selectedFile: WorkingTreeSelection | null;
   /** The repo mode: what the commit button says, and why it may be off. */
   info: RepoModeInfo;
+  /** Files the AI resolver resolved, so its work stays identifiable (§7). */
+  aiResolvedPaths: string[];
+  /** Files an undo put markers back into, which git no longer calls conflicted. */
+  unresolvedPaths: string[];
 }
 
 export function WorkingTree({
   workspaceId, fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, info,
+  aiResolvedPaths, unresolvedPaths,
 }: Props) {
   // Null means untouched, so git's own merge message can show through without
   // an effect writing it into state behind the user's back.
@@ -83,6 +88,8 @@ export function WorkingTree({
           <MergeSections
             fileChanges={fileChanges}
             conflictPaths={info.conflictPaths}
+            aiResolvedPaths={aiResolvedPaths}
+            unresolvedPaths={unresolvedPaths}
             {...rowProps}
           />
         ) : (
@@ -195,10 +202,13 @@ export function WorkingTree({
 
 /** Mid-merge the list is the to-do list: what conflicts, what you fixed, what merged itself. */
 function MergeSections({
-  fileChanges, conflictPaths, onSelectFile, onOpenInEditor, selectedFile, onAction,
+  fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths,
+  onSelectFile, onOpenInEditor, selectedFile, onAction,
 }: {
   fileChanges: FileChange[];
   conflictPaths: string[];
+  aiResolvedPaths: string[];
+  unresolvedPaths: string[];
   onSelectFile: (path: string, staged: boolean) => void;
   onOpenInEditor: (path: string) => void;
   selectedFile: WorkingTreeSelection | null;
@@ -207,8 +217,8 @@ function MergeSections({
   setPendingDiscard: (path: string | null) => void;
 }) {
   const groups = useMemo(
-    () => groupForMerge(fileChanges, conflictPaths),
-    [fileChanges, conflictPaths],
+    () => groupForMerge(fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths),
+    [fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths],
   );
 
   return (
@@ -232,6 +242,24 @@ function MergeSections({
         ))}
         {groups.conflicts.length === 0 && <EmptyRow>Nothing left to resolve</EmptyRow>}
       </Section>
+
+      {/* Kept apart from the ones you resolved, and marked, so a week later you
+          can still tell which resolutions were the machine's (§7). */}
+      {groups.resolvedByAi.length > 0 && (
+        <Section label="Resolved by AI" count={groups.resolvedByAi.length}>
+          {groups.resolvedByAi.map((file) => (
+            <FileRow
+              key={`ai:${file.path}`}
+              file={file}
+              selected={selectedFile?.path === file.path}
+              onSelect={() => onSelectFile(file.path, file.staged)}
+              onOpenInEditor={() => onOpenInEditor(file.path)}
+              actions={[]}
+              mark="ai"
+            />
+          ))}
+        </Section>
+      )}
 
       {groups.resolved.length > 0 && (
         <Section label="Resolved" count={groups.resolved.length}>
@@ -303,7 +331,7 @@ interface RowAction {
 }
 
 function FileRow({
-  file, selected, onSelect, onOpenInEditor, actions, confirmingDiscard, onCancelDiscard,
+  file, selected, onSelect, onOpenInEditor, actions, confirmingDiscard, onCancelDiscard, mark,
 }: {
   file: FileChange;
   selected: boolean;
@@ -312,6 +340,8 @@ function FileRow({
   actions: RowAction[];
   confirmingDiscard?: boolean;
   onCancelDiscard?: () => void;
+  /** Replaces the status dot when the row needs to say who resolved it. */
+  mark?: 'ai';
 }) {
   const slash = file.path.lastIndexOf('/');
   const dir = slash === -1 ? '' : file.path.slice(0, slash + 1);
@@ -329,6 +359,11 @@ function FileRow({
           gets the warning mark instead of the 6px dot. */}
       {file.status === 'conflict' ? (
         <AlertCircle className="size-3 shrink-0 text-[var(--status-error)]" />
+      ) : mark === 'ai' ? (
+        <Sparkles
+          aria-label="Resolved by AI"
+          className="size-3 shrink-0 text-[var(--brand-secondary)]"
+        />
       ) : (
         <span
           className="size-1.5 shrink-0 rounded-full"

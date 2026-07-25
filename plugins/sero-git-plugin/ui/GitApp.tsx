@@ -14,16 +14,15 @@ import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../sh
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
-import { ConflictPane } from './components/diff/ConflictPane';
-import { DiffPane, type DiffSelection } from './components/diff/DiffPane';
-import { toWorkspacePath } from './lib/repo-paths';
+import { useConflictRun } from './store/conflict-run';
+import { useAiResolution } from './store/use-ai-resolution';
+import { DetailPane } from './components/app/DetailPane';
+import { type DiffSelection } from './components/diff/DiffPane';
 import { GraphBand } from './components/app/GraphBand';
 import { GraphDivider } from './components/app/GraphDivider';
 import { ModeBanner } from './components/app/ModeBanner';
 import { SwitchBranchDialog, type SwitchStrategy } from './components/app/SwitchBranchDialog';
 import { deriveRepoMode } from './lib/repo-mode';
-import { PublishPane } from './components/app/PublishPane';
-import { PullRequestPane } from './components/app/PullRequestPane';
 import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
 import { computeGraphLayout } from './lib/graph-layout';
@@ -34,7 +33,6 @@ import {
   useGitViewState,
 } from './store/ui-state';
 import {
-  DiffPaneHeader,
   EmptyRepoState,
   getActionFailureTitle,
   GitActionNotice,
@@ -70,6 +68,15 @@ export function GitApp() {
   /** The branch a dirty working tree is being asked to switch to. */
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const github = useGitHubAuth();
+  // Actions are stable store functions, so reading them here costs no renders.
+  const answerQuestion = useConflictRun((run) => run.answer);
+  const pauseRun = useConflictRun((run) => run.pause);
+  const resumeRun = useConflictRun((run) => run.resume);
+  const stopRun = useConflictRun((run) => run.stop);
+  const undoAiResolutions = useConflictRun((run) => run.undoAiResolutions);
+  // Read straight from the store: the repo mode needs it, and the resolution
+  // hook is built *from* the repo mode.
+  const unresolvedPaths = useConflictRun((run) => run.unresolvedPaths);
   const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -218,6 +225,15 @@ export function GitApp() {
     setViewState({ graphHeightPct: pct });
   }, [setViewState]);
 
+  // The AI marks live in the same per-workspace view state as the divider, so
+  // they survive a reload in the middle of a merge.
+  const aiResolvedStore = useMemo(() => ({
+    stored: viewState.aiResolved,
+    save: (next: { mergeRef: string; paths: string[] } | undefined) => {
+      setViewState({ aiResolved: next });
+    },
+  }), [setViewState, viewState.aiResolved]);
+
   const commitDiffs = useMemo(() => {
     if (!selectedCommit) return [];
     if (state.selectedCommitHash === selectedCommit.hash && state.commitDiffs) {
@@ -241,6 +257,11 @@ export function GitApp() {
     runAction({ action: 'stage', file: path });
   }, [runAction]);
 
+  // Every log line jumps to its file, so the account doubles as a checklist.
+  const handleSelectRunFile = useCallback((path: string) => {
+    handleSelectStagingFile(path, false);
+  }, [handleSelectStagingFile]);
+
   const selectedStagingFile = useMemo(
     () => (diffSelection?.kind === 'working'
       ? { path: diffSelection.path, staged: diffSelection.staged }
@@ -253,7 +274,35 @@ export function GitApp() {
   const effectiveGraphHeight = graphHeightPct ?? viewState.graphHeightPct;
   // The hard states, derived once: the banner, the top bar, the working tree
   // and the rail all read this rather than each working it out (§7).
-  const repoMode = useMemo(() => deriveRepoMode(state), [state]);
+  // Empty until an undo, so the mode is unaffected in every other case.
+  const repoMode = useMemo(
+    () => deriveRepoMode(state, unresolvedPaths),
+    [state, unresolvedPaths],
+  );
+
+  // The AI resolver (§7). It writes through the same seam the manual resolver
+  // does — file contents, then stage — so nothing about it is a special path.
+  const ai = useAiResolution({
+    workspaceId,
+    workspacePath,
+    repoPath: state.repoPath,
+    conflictPaths: repoMode.conflictPaths,
+    merging: repoMode.mode === 'merging',
+    mergeRef: repoMode.mergeFrom,
+    onAction: runActionAsync,
+    aiResolvedStore,
+  });
+
+  // The account takes the right pane, so starting a run puts it in view.
+  const handleResolveWithAi = useCallback(() => {
+    setDiffSelection(null);
+    setComposingPr(false);
+    ai.start();
+  }, [ai]);
+
+  // It holds the pane while there is one and nothing else was asked for.
+  const showRunLog = ai.status !== 'idle' && !diffSelection && !selectedCommit;
+
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
   const isNotRepo = state.error === 'Not a git repository' && isWorkspaceStateCurrent;
@@ -276,6 +325,10 @@ export function GitApp() {
           defaultBranch={state.defaultBranch}
           onAction={runAction}
           onRequestCheckout={handleRequestCheckout}
+          runStatus={ai.status}
+          hasAiResolutions={ai.aiResolvedPaths.length > 0}
+          onResolveWithAi={handleResolveWithAi}
+          onUndoAiResolutions={undoAiResolutions}
         />
 
         <SwitchBranchDialog
@@ -324,56 +377,35 @@ export function GitApp() {
                     onOpenInEditor={handleOpenInEditor}
                     selectedFile={selectedStagingFile}
                     info={repoMode}
+                    aiResolvedPaths={ai.aiResolvedPaths}
+                    unresolvedPaths={unresolvedPaths}
                   />
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {composingPr && state.remotes.length === 0 ? (
-                    <PublishPane
-                      workspaceId={workspaceId}
-                      repoName={state.repoName}
-                      authenticated={github.authenticated}
-                      onClose={handleClosePullRequest}
-                      onPublished={handlePublished}
-                    />
-                  ) : composingPr ? (
-                    <PullRequestPane
-                      workspaceId={workspaceId}
-                      hasRemote={state.remotes.length > 0}
-                      currentBranch={state.currentBranch}
-                      authenticated={github.authenticated}
-                      onClose={handleClosePullRequest}
-                    />
-                  ) : conflictPath ? (
-                    // A conflicted file is not a diff of two revisions; it is
-                    // one file with markers in it (§9.3).
-                    <ConflictPane
-                      workspaceId={workspaceId}
-                      path={conflictPath}
-                      diskPath={toWorkspacePath(workspacePath, state.repoPath, conflictPath)}
-                      editorThemeId={editorThemeId}
-                      themeType={themeMode}
-                      onResolved={handleConflictResolved}
-                    />
-                  ) : diffSelection ? (
-                    <>
-                      <DiffPaneHeader selection={diffSelection} onClose={handleCloseDiff} />
-                      <div className="min-h-0 flex-1">
-                        <DiffPane
-                          workspaceId={workspaceId}
-                          repoPath={state.repoPath}
-                          selection={diffSelection}
-                          diffStyle="unified"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-6 text-center">
-                      <p className="max-w-xs text-xs text-[var(--text-muted)]">
-                        Pick a file or a commit to see what changed.
-                      </p>
-                    </div>
-                  )}
+                  <DetailPane
+                    state={state}
+                    workspaceId={workspaceId}
+                    workspacePath={workspacePath}
+                    editorThemeId={editorThemeId}
+                    themeMode={themeMode}
+                    github={github}
+                    composingPr={composingPr}
+                    onClosePullRequest={handleClosePullRequest}
+                    onPublished={handlePublished}
+                    conflictPath={conflictPath}
+                    onConflictResolved={handleConflictResolved}
+                    diffSelection={diffSelection}
+                    onCloseDiff={handleCloseDiff}
+                    showRunLog={showRunLog}
+                    runStatus={ai.status}
+                    runEntries={ai.entries}
+                    onAnswer={answerQuestion}
+                    onPause={pauseRun}
+                    onResume={resumeRun}
+                    onStop={stopRun}
+                    onSelectRunFile={handleSelectRunFile}
+                  />
                 </div>
               </div>
 

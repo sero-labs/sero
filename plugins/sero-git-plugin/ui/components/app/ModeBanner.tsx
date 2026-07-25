@@ -8,9 +8,10 @@
  */
 
 import { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Sparkles } from 'lucide-react';
 import type { GitManagerRequest } from '../../../shared/types';
 import type { RepoModeInfo } from '../../lib/repo-mode';
+import type { RunStatus } from '../../store/conflict-run';
 
 interface Props {
   info: RepoModeInfo;
@@ -19,19 +20,40 @@ interface Props {
   onAction: (action: GitManagerRequest) => void;
   /** Leaving a detached HEAD is a branch switch, so it asks about changes too. */
   onRequestCheckout: (branch: string) => void;
+  /** The AI resolver: an offer while conflicts remain, and undo once it has run. */
+  runStatus: RunStatus;
+  hasAiResolutions: boolean;
+  onResolveWithAi: () => void;
+  onUndoAiResolutions: () => void;
 }
 
-export function ModeBanner({ info, defaultBranch, onAction, onRequestCheckout }: Props) {
+export function ModeBanner({
+  info, defaultBranch, onAction, onRequestCheckout,
+  runStatus, hasAiResolutions, onResolveWithAi, onUndoAiResolutions,
+}: Props) {
   if (info.mode === 'merging') {
+    const running = runStatus === 'running' || runStatus === 'paused';
     return (
       <Banner tone="error">
         <span>
           <b className="font-medium">Merging {info.mergeFrom ?? 'a branch'} in.</b>{' '}
           {mergeProgress(info)}
         </span>
+        {/* Reverting the machine's work is only worth offering once there is
+            some, and only when it is not still being made. */}
+        {hasAiResolutions && !running && (
+          <BannerButton onClick={onUndoAiResolutions}>Undo AI resolutions</BannerButton>
+        )}
         <BannerButton onClick={() => onAction({ action: 'abort_merge' })}>
           Abort merge
         </BannerButton>
+        {/* An offer, not a replacement — the manual resolver is untouched. */}
+        {info.conflicts > 0 && !running && (
+          <BannerButton primary onClick={onResolveWithAi}>
+            <Sparkles className="size-3.5" />
+            Resolve with AI
+          </BannerButton>
+        )}
       </Banner>
     );
   }
@@ -125,7 +147,7 @@ function BannerButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`h-6 shrink-0 rounded-md px-2 text-[0.84rem] disabled:opacity-40 ${
+      className={`ml-1.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 align-middle text-[0.84rem] disabled:opacity-40 ${
         primary
           ? 'bg-[var(--brand-primary)] font-medium text-[var(--brand-primary-foreground)] hover:bg-[var(--brand-primary-hover)]'
           : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'

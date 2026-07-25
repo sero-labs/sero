@@ -327,6 +327,8 @@ export const IpcChannels = {
     prGenerateDraft: 'sero:vcs:pr-generate-draft',
     /** Draft a commit message for what is about to be committed (git-ux §10). */
     commitDraftMessage: 'sero:vcs:commit-draft-message',
+    /** Resolve one merge conflict, or ask about it, or decline it (git-ux §7). */
+    resolveConflictWithAi: 'sero:vcs:resolve-conflict-ai',
     prCreate: 'sero:vcs:pr-create',
     undo: 'sero:vcs:undo',
     discardCommit: 'sero:vcs:discard-commit',

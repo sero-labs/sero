@@ -22,6 +22,10 @@ import type {
   VcsWorkspaceState,
 } from '@sero-ai/common';
 import type { EditorRoot, TerminalCreateResult } from '@/types/ipc';
+import type {
+  ConflictOutcome,
+  ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
 
 export const vcsBridge = {
   listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
@@ -106,6 +110,11 @@ export const vcsBridge = {
     scope?: 'staged' | 'all',
   ): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.vcs.commitDraftMessage, workspaceId, scope),
+  resolveConflictWithAi: (
+    workspaceId: string,
+    input: ConflictResolveInput,
+  ): Promise<ConflictOutcome> =>
+    ipcRenderer.invoke(IpcChannels.vcs.resolveConflictWithAi, workspaceId, input),
   prCreate: (
     workspaceId: string,
     input: CreatePullRequestInput,
