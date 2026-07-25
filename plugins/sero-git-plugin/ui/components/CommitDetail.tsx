@@ -44,11 +44,11 @@ export function CommitDetail({
   };
 
   return (
-    <div className="border-t border-[var(--g-border)] bg-[var(--g-surface)]">
-      <div className="flex items-start justify-between border-b border-[var(--g-border)] px-4 py-3">
+    <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+      <div className="flex items-start justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-center gap-2">
-            <span className="rounded border border-[var(--g-border)] bg-[var(--g-glow)] px-1.5 py-0.5 text-xs text-[var(--g-accent)] git-mono">
+            <span className="rounded border border-[var(--border-subtle)] bg-[var(--brand-secondary-faint)] px-1.5 py-0.5 text-xs text-[var(--brand-secondary)] git-mono">
               {commit.shortHash}
             </span>
             {commit.refs.map((ref) => (
@@ -65,30 +65,30 @@ export function CommitDetail({
               </span>
             ))}
           </div>
-          <p className="text-base font-medium leading-snug text-[var(--g-text)]">{commit.subject}</p>
-          <div className="mt-2 flex items-center gap-3 text-sm text-[var(--g-muted)]">
-            <span className="font-medium text-[var(--g-text)]">{commit.authorName}</span>
+          <p className="text-base font-medium leading-snug text-[var(--text-primary)]">{commit.subject}</p>
+          <div className="mt-2 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+            <span className="font-medium text-[var(--text-primary)]">{commit.authorName}</span>
             <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
           </div>
           {confirmCherryPick && (
-            <div className="mt-3 rounded-md border border-[var(--g-yellow)]/25 bg-[var(--g-bg)] px-3 py-2">
-              <div className="text-sm font-medium text-[var(--g-text)]">
+            <div className="mt-3 rounded-md border border-[var(--status-warning)]/25 bg-[var(--bg-base)] px-3 py-2">
+              <div className="text-sm font-medium text-[var(--text-primary)]">
                 Your working tree has uncommitted changes.
               </div>
-              <div className="mt-1 text-sm leading-relaxed text-[var(--g-muted)]">
+              <div className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
                 Auto-stash your current changes before cherry-picking this commit. If the cherry-pick conflicts,
                 the error toast will include next-step guidance.
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <button type="button"
                   onClick={handleAutoStashCherryPick}
-                  className="rounded border border-[var(--g-border)] px-2 py-1 text-sm text-[var(--g-text)] transition-colors hover:border-[var(--g-border-bright)] hover:bg-[var(--g-elevated)]"
+                  className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)]"
                 >
                   Auto-stash + cherry-pick
                 </button>
                 <button type="button"
                   onClick={() => setConfirmCherryPick(false)}
-                  className="rounded px-2 py-1 text-sm text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
+                  className="rounded px-2 py-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
                 >
                   Cancel
                 </button>
@@ -99,15 +99,15 @@ export function CommitDetail({
         <div className="ml-4 flex shrink-0 items-center gap-2">
           <button type="button"
             onClick={handleCherryPick}
-            className="rounded border border-[var(--g-border)] px-2 py-1 text-sm text-[var(--g-muted)]
-              transition-colors hover:bg-[var(--g-elevated)] hover:text-[var(--g-text)]"
+            className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-secondary)]
+              transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
           >
             {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
           </button>
           <button type="button"
             aria-label="Close commit details"
             onClick={onClose}
-            className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
+            className="cursor-pointer p-1 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M3 3l8 8M11 3l-8 8" />
@@ -117,8 +117,8 @@ export function CommitDetail({
       </div>
 
       <div className="max-h-48 overflow-y-auto git-scrollbar">
-        <div className="flex items-center gap-3 border-b border-[var(--g-border)] bg-[var(--g-bg)] px-4 py-2">
-          <span className="text-sm text-[var(--g-muted)]">
+        <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 py-2">
+          <span className="text-sm text-[var(--text-secondary)]">
             {diffs.length} file{diffs.length !== 1 ? 's' : ''} changed
           </span>
         </div>
@@ -133,13 +133,13 @@ export function CommitDetail({
 
 function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
   const statusColor = {
-    added: 'var(--g-green)',
-    modified: 'var(--g-yellow)',
-    deleted: 'var(--g-red)',
-    renamed: 'var(--g-blue)',
-    copied: 'var(--g-blue)',
-    untracked: 'var(--g-dim)',
-    conflict: 'var(--g-red)',
+    added: 'var(--status-success)',
+    modified: 'var(--status-warning)',
+    deleted: 'var(--status-error)',
+    renamed: 'var(--status-info)',
+    copied: 'var(--status-info)',
+    untracked: 'var(--text-muted)',
+    conflict: 'var(--status-error)',
   }[diff.status];
 
   const statusLabel = diff.status[0].toUpperCase();
@@ -153,7 +153,7 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="flex cursor-pointer items-center gap-2 border-b border-[var(--g-border)] px-4 py-1.5 hover:bg-[var(--g-hover)] last:border-b-0"
+      className="flex cursor-pointer items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-1.5 hover:bg-[var(--bg-elevated)] last:border-b-0"
     >
       <span
         className="flex size-4 shrink-0 items-center justify-center rounded text-xs font-bold"
@@ -162,8 +162,8 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
         {statusLabel}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-[var(--g-text)] git-mono">{primaryLabel}</div>
-        <div className="truncate text-sm text-[var(--g-dim)] git-mono">{secondaryLabel}</div>
+        <div className="truncate text-sm text-[var(--text-primary)] git-mono">{primaryLabel}</div>
+        <div className="truncate text-sm text-[var(--text-muted)] git-mono">{secondaryLabel}</div>
       </div>
     </div>
   );

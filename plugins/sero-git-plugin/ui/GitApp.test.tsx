@@ -26,6 +26,7 @@ vi.mock('./components/Header', () => ({
 }));
 
 vi.mock('./components/BranchPanel', () => ({ BranchPanel: () => null }));
+vi.mock('./components/app/WorkingTree', () => ({ WorkingTree: () => null }));
 vi.mock('./components/CommitDetail', () => ({ CommitDetail: () => null }));
 vi.mock('./components/CommitGraph', () => ({
   CommitGraph: () => {
@@ -34,7 +35,6 @@ vi.mock('./components/CommitGraph', () => ({
   },
 }));
 vi.mock('./components/diff/DiffPane', () => ({ DiffPane: () => null }));
-vi.mock('./components/StagingArea', () => ({ StagingArea: () => null }));
 vi.mock('./styles', () => ({ GIT_STYLES: '' }));
 
 function clickButton(container: HTMLElement, label: string): void {

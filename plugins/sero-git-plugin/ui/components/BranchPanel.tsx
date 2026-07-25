@@ -82,7 +82,7 @@ export function BranchPanel({
 
   return (
     <div
-      className="w-64 min-w-[13rem] max-w-[24rem] shrink-0 resize-x overflow-auto border-r border-[var(--g-border)] bg-[var(--g-surface)] git-scrollbar"
+      className="w-[214px] shrink-0 overflow-auto border-r border-[var(--border-default)] bg-[var(--bg-surface)] git-scrollbar"
       style={{ minHeight: 0 }}
     >
       <div className="min-h-full">
@@ -121,7 +121,7 @@ export function BranchPanel({
             />
           ))}
           {remoteGroups.length === 0 && (
-            <div className="px-3 py-2 text-sm text-[var(--g-dim)]">No remote branches</div>
+            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">No remote branches</div>
           )}
         </Section>
 

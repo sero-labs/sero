@@ -15,6 +15,7 @@ import {
   closeApp,
   createTempSeroHome,
   createWorkspaceDir,
+  collapseShellPanels,
   launchWorkflowApp,
   waitForShell,
   type TempSeroHome,
@@ -59,6 +60,7 @@ test.afterAll(async () => {
 
 test('mounts the contributed Git view and diffs a change from it', async () => {
   await page.getByText('Git Explorer Repo', { exact: true }).first().click();
+  await collapseShellPanels(page);
   await page.evaluate(() => window.__appControl?.openApp('explorer'));
 
   // The activity bar's Git entry comes from the plugin manifest now.

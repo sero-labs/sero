@@ -134,7 +134,7 @@ export function DiffChangeset({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {unreadable.length > 0 && (
-        <p className="shrink-0 px-3 py-2 text-xs text-[var(--g-yellow)]">
+        <p className="shrink-0 px-3 py-2 text-xs text-[var(--status-warning)]">
           {unreadable.length === 1
             ? `Couldn't read ${unreadable[0]} to compare it.`
             : `Couldn't read ${unreadable.length} files to compare them.`}

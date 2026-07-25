@@ -14,6 +14,7 @@ import {
   closeApp,
   createTempSeroHome,
   createWorkspaceDir,
+  collapseShellPanels,
   launchWorkflowApp,
   waitForShell,
   type TempSeroHome,
@@ -71,6 +72,7 @@ test.afterAll(async () => {
 test('renders a real diff for a changed file', async () => {
   // Make the seeded repo the active workspace — the Git app follows it.
   await page.getByText('Git Diff Repo', { exact: true }).first().click();
+  await collapseShellPanels(page);
 
   const opened = await page.evaluate(() => Boolean(window.__appControl?.openApp('git')));
   expect(opened).toBe(true);
@@ -84,10 +86,14 @@ test('renders a real diff for a changed file', async () => {
   await page.screenshot({ path: 'e2e-artifacts/git-diff-unstaged.png' });
 
   // And the staged side, which must compare against HEAD rather than disk.
-  const staged = page.getByText('greet.ts', { exact: true }).first();
+  // The row shows the directory and the filename in one line, dimmed prefix.
+  const staged = page.getByText('src/greet.ts', { exact: true }).first();
   await expect(staged).toBeVisible({ timeout: 15_000 });
   await staged.click();
   await expect(page.getByText('staged').first()).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(2_500);
   await page.screenshot({ path: 'e2e-artifacts/git-diff-staged.png' });
+
+  // The whole app, for a look at the rebuilt layout.
+  await page.screenshot({ path: 'e2e-artifacts/git-app-layout.png' });
 });

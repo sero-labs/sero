@@ -19,42 +19,42 @@ export function Header({ state, onAction }: HeaderProps) {
   const refreshedAt = formatRefreshTime(state.lastRefresh);
 
   return (
-    <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-[var(--g-border)]">
+    <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-[var(--border-subtle)]">
       {/* Left: repo info */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--g-accent)]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--brand-secondary)]">
             <circle cx="4" cy="4" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
             <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
             <circle cx="8" cy="13" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
             <path d="M4 6V10L8 11M12 6V10L8 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          <h1 className="text-base font-semibold text-[var(--g-text)] tracking-tight">
+          <h1 className="text-base font-semibold text-[var(--text-primary)] tracking-tight">
             {repoName || 'Git'}
           </h1>
         </div>
         {currentBranch && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--g-glow)] border border-[var(--g-border)]">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--brand-secondary-faint)] border border-[var(--border-subtle)]">
             <BranchIcon />
-            <span className="text-xs font-medium text-[var(--g-accent)] git-mono">
+            <span className="text-xs font-medium text-[var(--brand-secondary)] git-mono">
               {currentBranch}
             </span>
             {branch && (branch.ahead > 0 || branch.behind > 0) && (
-              <span className="text-sm text-[var(--g-muted)] ml-0.5">
-                {branch.ahead > 0 && <span className="text-[var(--g-green)]">+{branch.ahead}</span>}
+              <span className="text-sm text-[var(--text-secondary)] ml-0.5">
+                {branch.ahead > 0 && <span className="text-[var(--status-success)]">+{branch.ahead}</span>}
                 {branch.ahead > 0 && branch.behind > 0 && ' '}
-                {branch.behind > 0 && <span className="text-[var(--g-red)]">-{branch.behind}</span>}
+                {branch.behind > 0 && <span className="text-[var(--status-error)]">-{branch.behind}</span>}
               </span>
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 text-sm text-[var(--g-dim)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
           {commitCount > 0 && <span>{commitCount} commits</span>}
           {(staged > 0 || unstaged > 0) && (
             <>
               <span>·</span>
-              {staged > 0 && <span className="text-[var(--g-green)]">{staged} staged</span>}
-              {unstaged > 0 && <span className="text-[var(--g-yellow)]">{unstaged} changed</span>}
+              {staged > 0 && <span className="text-[var(--status-success)]">{staged} staged</span>}
+              {unstaged > 0 && <span className="text-[var(--status-warning)]">{unstaged} changed</span>}
             </>
           )}
         </div>
@@ -63,7 +63,7 @@ export function Header({ state, onAction }: HeaderProps) {
       {/* Right: sync status + action buttons */}
       <div className="flex items-center gap-2">
         <div
-          className="flex items-center gap-1.5 rounded-full border border-[var(--g-border)] bg-[var(--g-surface)] px-2.5 py-1"
+          className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1"
           title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
         >
           <span
@@ -72,10 +72,10 @@ export function Header({ state, onAction }: HeaderProps) {
           <span className={`text-sm font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
             {syncLabel}
           </span>
-          <span className="text-sm text-[var(--g-dim)]">{refreshedAt}</span>
+          <span className="text-sm text-[var(--text-muted)]">{refreshedAt}</span>
         </div>
 
-        <div className="w-px h-4 bg-[var(--g-border)]" />
+        <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
         <ActionBtn label="Refresh" icon="refresh" onClick={() => onAction({ action: 'refresh' })} />
         <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction({ action: 'fetch' })} />
@@ -94,8 +94,8 @@ function ActionBtn({ label, icon, onClick }: { label: string; icon: string; onCl
       onClick={onClick}
       title={label}
       className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-md
-        text-[var(--g-muted)] border border-[var(--g-border)]
-        hover:text-[var(--g-text)] hover:bg-[var(--g-elevated)] hover:border-[var(--g-border-bright)]
+        text-[var(--text-secondary)] border border-[var(--border-subtle)]
+        hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--border-default)]
         transition-all duration-150 cursor-pointer"
     >
       <ActionIcon type={icon} />
@@ -130,19 +130,19 @@ function getSyncLabel(state: GitAppState): string {
 function getSyncTone(state: GitAppState): { dot: string; text: string } {
   if (state.error) {
     return {
-      dot: 'bg-[var(--g-red)]',
-      text: 'text-[var(--g-red)]',
+      dot: 'bg-[var(--status-error)]',
+      text: 'text-[var(--status-error)]',
     };
   }
   if (state.syncMode === 'watch') {
     return {
-      dot: 'bg-[var(--g-green)]',
-      text: 'text-[var(--g-green)]',
+      dot: 'bg-[var(--status-success)]',
+      text: 'text-[var(--status-success)]',
     };
   }
   return {
-    dot: 'bg-[var(--g-yellow)]',
-    text: 'text-[var(--g-yellow)]',
+    dot: 'bg-[var(--status-warning)]',
+    text: 'text-[var(--status-warning)]',
   };
 }
 
@@ -157,7 +157,7 @@ function formatRefreshTime(value: string): string {
 
 function BranchIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-[var(--g-accent)]">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-[var(--brand-secondary)]">
       <path d="M5 3v6a3 3 0 003 3h1M11 3v4" />
       <circle cx="5" cy="3" r="1.5" />
       <circle cx="11" cy="3" r="1.5" />
