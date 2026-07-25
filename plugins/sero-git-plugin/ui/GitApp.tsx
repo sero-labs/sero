@@ -311,6 +311,7 @@ export function GitApp() {
         {/* A mode you are in, and the way out of it (rule 24). */}
         <MemoizedModeBanner
           info={repoMode}
+          {...(isNotRepo || !state.error ? {} : { error: state.error })}
           defaultBranch={state.defaultBranch}
           onAction={runAction}
           onRequestCheckout={handleRequestCheckout}

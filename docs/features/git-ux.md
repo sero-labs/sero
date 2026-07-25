@@ -852,18 +852,31 @@ plain text, mono where they are machine values (rule 9), and a level branch says
 nothing at all. `MetricCard` stays: it is the shared dashboard set, and §6 rules
 a redesign out.
 
-**The header's `LIVE` chip broke three rules at once** and had survived every
-step since 5. It was an uppercase pill reading *LIVE* beside a timestamp: a
-status label for a state with no action (rule 28, which names this label), a
-pill carrying a number rather than a name (rule 7), and uppercase outside the
-two places rule 8 allows it. Watching now says nothing at all. What is left is
-what you can act on — **Manual**, meaning the view will not refresh itself, and
-**Issue** — as plain text with a mono timestamp. `Syncing` went too: progress
-belongs in the control that started it (rules 21 and 23).
+**The header's sync chip is gone entirely, and both of its jobs were rehomed.**
+It broke three rules at once and had survived every step since 5: an uppercase
+pill reading *LIVE* beside a timestamp — a status label for a state with no
+action (rule 28, which names this label), a pill carrying a number rather than
+a name (rule 7), and uppercase outside the two places rule 8 allows it.
 
-An existing test asserted the old behaviour outright ("shows Live when file
-watching is active"), so the rule went in as the assertion and the case the
-change must not take with it — manual mode — is pinned beside it.
+Deleting it outright would have cost two real signals, so each moved to the
+control it belongs to rather than being dropped:
+
+- **A repository-level failure is now the mode banner**, which is where rule 22
+  already puts it and the only surface with room to say what actually went
+  wrong. It outranks a mode — whatever else is true, that is what stopped — and
+  carries **Try again**. `Not a git repository` stays out of it, because
+  `EmptyRepoState` already covers that case and two announcements of one fact is
+  worse than none.
+- **Staleness is now on Refresh**, as the last-read time after the label, shown
+  *only* when the view is not updating itself. Watchers die for ordinary reasons
+  — a filesystem that cannot be watched, a missing git dir, too many open files
+  — and the app then shows stale data indefinitely; Refresh is the thing you
+  would press about it (rule 21).
+
+Watching, being a state with no action, now says nothing at all, and `Syncing`
+went with it. An existing test asserted the old behaviour outright ("shows Live
+when file watching is active"), so the rule went in as the assertion and both
+rehomed signals are pinned where they landed.
 
 **Every file the branch touches is under 500 lines.** The largest are
 `conflict-run.ts` (456), `GitApp.tsx` (442) and `WorkingTree.tsx` (425);

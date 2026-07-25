@@ -15,6 +15,12 @@ import type { RunStatus } from '../../store/conflict-run';
 
 interface Props {
   info: RepoModeInfo;
+  /**
+   * A repository-level failure. Rule 22 puts it here rather than in a chip in
+   * the top bar: the banner is where something that affects the whole repo is
+   * said, and it is the only place with room for what actually went wrong.
+   */
+  error?: string;
   /** Where "Return to …" goes — the default branch, when there is one. */
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
@@ -28,9 +34,19 @@ interface Props {
 }
 
 export function ModeBanner({
-  info, defaultBranch, onAction, onRequestCheckout,
+  info, error, defaultBranch, onAction, onRequestCheckout,
   runStatus, hasAiResolutions, onResolveWithAi, onUndoAiResolutions,
 }: Props) {
+  // A failure outranks a mode: whatever else is true, this is what stopped.
+  if (error) {
+    return (
+      <Banner tone="error">
+        <span><b className="font-medium">Could not read this repository.</b> {error}</span>
+        <BannerButton onClick={() => onAction({ action: 'refresh' })}>Try again</BannerButton>
+      </Banner>
+    );
+  }
+
   if (info.mode === 'merging') {
     const running = runStatus === 'running' || runStatus === 'paused';
     return (

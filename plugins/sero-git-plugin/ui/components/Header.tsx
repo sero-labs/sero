@@ -23,9 +23,11 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
   const branch = branches.find((b) => b.current);
   const currentBranch = branchChipLabel(state, info.mode);
   const modeWord = MODE_WORD[info.mode];
-  const syncLabel = getSyncLabel(state);
-  const syncTone = getSyncTone(state);
-  const refreshedAt = formatRefreshTime(state.lastRefresh);
+  // When the watchers are alive the view keeps itself current and there is
+  // nothing to say. When they are not, the one thing worth knowing is that this
+  // is as fresh as it gets until you press Refresh — so it is Refresh that says
+  // so, rather than a label sitting somewhere else (rule 21).
+  const staleSince = state.syncMode === 'watch' ? null : formatRefreshTime(state.lastRefresh);
 
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-[var(--border-subtle)]">
@@ -79,22 +81,6 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
 
       {/* Right: sync status + action buttons */}
       <div className="flex items-center gap-2">
-        {/* Watching for changes is a state with no action, so it says nothing —
-            rule 28 names this exact label. What is left is what you can act on:
-            that the view will not refresh itself, and when it last did. Plain
-            text and no pill, because a pill carries a name, not a timestamp
-            (rules 7 and 8). */}
-        {syncLabel && (
-          <span
-            className="flex items-center gap-1.5 text-sm"
-            title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
-          >
-            <span className={`size-1.5 rounded-full ${syncTone.dot}`} />
-            <span className={syncTone.text}>{syncLabel}</span>
-            <span className="font-mono text-[var(--text-muted)]">{refreshedAt}</span>
-          </span>
-        )}
-
         <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
         <GitHubControl
@@ -109,7 +95,15 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
         {/* Unavailable actions are disabled, not hidden (rule 20) — the reason
             is the banner when there is a mode, and the button beside them when
             the repository simply has no remote. */}
-        <ActionBtn label="Refresh" icon="refresh" onClick={() => onAction({ action: 'refresh' })} />
+        <ActionBtn
+          label="Refresh"
+          icon="refresh"
+          suffix={staleSince}
+          title={staleSince
+            ? `This view is not updating on its own. Last read at ${staleSince}.`
+            : undefined}
+          onClick={() => onAction({ action: 'refresh' })}
+        />
         <ActionBtn label="Fetch" icon="fetch" blockedReason={info.fetchBlockedReason} onClick={() => onAction({ action: 'fetch' })} />
         <ActionBtn label="Pull" icon="pull" blockedReason={info.pullBlockedReason} onClick={() => onAction({ action: 'pull' })} />
         <ActionBtn label="Push" icon="push" blockedReason={info.pushBlockedReason} onClick={() => onAction({ action: 'push' })} />
@@ -176,18 +170,21 @@ const GITHUB_BTN = `flex cursor-pointer items-center gap-1.5 rounded-md border b
 // ── Action button ───────────────────────────────────────────
 
 function ActionBtn({
-  label, icon, onClick, blockedReason,
+  label, icon, onClick, blockedReason, suffix, title,
 }: {
   label: string;
   icon: string;
   onClick: () => void;
   blockedReason?: string | null;
+  /** A machine value shown after the label, e.g. how stale this view is. */
+  suffix?: string | null;
+  title?: string;
 }) {
   return (
     <button type="button"
       onClick={onClick}
       disabled={Boolean(blockedReason)}
-      title={blockedReason || label}
+      title={blockedReason || title || label}
       className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-md
         text-[var(--text-secondary)] border border-[var(--border-subtle)]
         hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--border-default)]
@@ -196,6 +193,7 @@ function ActionBtn({
     >
       <ActionIcon type={icon} />
       {label}
+      {suffix && <span className="font-mono text-[var(--text-muted)]">{suffix}</span>}
     </button>
   );
 }
@@ -214,36 +212,6 @@ function ActionIcon({ type }: { type: string }) {
     default:
       return null;
   }
-}
-
-/**
- * Empty when there is nothing to say. Watching for changes needs no label
- * (rule 28), and loading does not announce itself in its own slot — progress
- * belongs in the control that started it (rules 21 and 23).
- */
-function getSyncLabel(state: GitAppState): string {
-  if (state.error) return 'Issue';
-  if (state.syncMode === 'watch') return '';
-  return 'Manual';
-}
-
-function getSyncTone(state: GitAppState): { dot: string; text: string } {
-  if (state.error) {
-    return {
-      dot: 'bg-[var(--status-error)]',
-      text: 'text-[var(--status-error)]',
-    };
-  }
-  if (state.syncMode === 'watch') {
-    return {
-      dot: 'bg-[var(--status-success)]',
-      text: 'text-[var(--status-success)]',
-    };
-  }
-  return {
-    dot: 'bg-[var(--status-warning)]',
-    text: 'text-[var(--status-warning)]',
-  };
 }
 
 function formatRefreshTime(value: string): string {

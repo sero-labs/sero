@@ -47,43 +47,46 @@ describe('Header sync status', () => {
     root = null;
   });
 
-  // This used to assert the opposite — that watching showed "Live". Rule 28
-  // rules out a status label for a state with no action, and names this one.
-  it('says nothing while file watching is active', async () => {
+  // There is no sync slot any more. Watching keeps the view current, which is a
+  // state with no action and therefore nothing to say (rule 28); the two things
+  // that *were* worth saying moved to where you would act on them — staleness
+  // onto Refresh, failures into the mode banner (rules 21 and 22).
+  it('says nothing at all while file watching is active', async () => {
     await act(async () => {
       root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
-    expect(container.textContent).not.toContain('Live');
-    expect(container.textContent).not.toContain('Polling');
+    for (const gone of ['Live', 'LIVE', 'Manual', 'Issue', 'Syncing', 'Polling']) {
+      expect(container.textContent).not.toContain(gone);
+    }
   });
 
-  // The case the change must not take with it: manual mode means the view will
-  // not update itself, which is something you act on.
-  it('shows Manual when the app is running without live watchers', async () => {
+  /**
+   * The signal this must not lose. Watchers die for ordinary reasons — a
+   * filesystem that cannot be watched, a missing git dir, too many open files —
+   * and the app then shows stale data forever. Refresh carries the time,
+   * because Refresh is what you would press about it.
+   */
+  it('puts the last-read time on Refresh when the view is not updating itself', async () => {
     await act(async () => {
       root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
-    expect(container.textContent).toContain('Manual');
-    expect(container.textContent).not.toContain('Polling');
+    const refresh = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Refresh'));
+    expect(refresh).toBeDefined();
+    // A time, whatever the runner's locale renders it as.
+    expect(refresh?.textContent).toMatch(/\d{1,2}[:.]\d{2}/);
+    expect(refresh?.getAttribute('title')).toContain('not updating on its own');
   });
 
-  it('still surfaces a repository-level failure', async () => {
+  it('leaves Refresh bare while the view keeps itself current', async () => {
     await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'watch', error: 'fatal: not a git repository' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
+      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
-    expect(container.textContent).toContain('Issue');
-  });
-
-  // Progress belongs in the control that started it (rules 21 and 23), not in a
-  // label of its own appearing and disappearing beside it.
-  it('does not announce loading in the sync slot', async () => {
-    await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'watch', loading: true })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
-    });
-
-    expect(container.textContent).not.toContain('Syncing');
+    const refresh = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Refresh'));
+    expect(refresh?.textContent?.trim()).toBe('Refresh');
   });
 });
