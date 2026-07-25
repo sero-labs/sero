@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { FileText, Minus, Plus } from 'lucide-react';
+import { FileText, Minus, Plus, Undo2 } from 'lucide-react';
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
 
 const STATUS_COLOUR: Record<FileChange['status'], string> = {
@@ -40,6 +40,9 @@ export function WorkingTree({
   fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, commitBlockedReason,
 }: Props) {
   const [message, setMessage] = useState('');
+  // Discarding is irreversible, and rule 24 reserves dialogs for switching
+  // branch, so the row itself asks a second time.
+  const [pendingDiscard, setPendingDiscard] = useState<string | null>(null);
   const staged = fileChanges.filter((file) => file.staged);
   const changes = fileChanges.filter((file) => !file.staged);
 
@@ -93,11 +96,28 @@ export function WorkingTree({
               selected={selectedFile?.path === file.path && !selectedFile.staged}
               onSelect={() => onSelectFile(file.path, false)}
               onOpenInEditor={() => onOpenInEditor(file.path)}
-              actions={[{
-                label: `Stage ${file.path}`,
-                icon: <Plus className="size-3" />,
-                onClick: () => onAction({ action: 'stage', file: file.path }),
-              }]}
+              confirmingDiscard={pendingDiscard === file.path}
+              onCancelDiscard={() => setPendingDiscard(null)}
+              actions={[
+                {
+                  label: `Discard changes in ${file.path}`,
+                  icon: <Undo2 className="size-3" />,
+                  destructive: true,
+                  onClick: () => {
+                    if (pendingDiscard === file.path) {
+                      onAction({ action: 'discard', file: file.path });
+                      setPendingDiscard(null);
+                      return;
+                    }
+                    setPendingDiscard(file.path);
+                  },
+                },
+                {
+                  label: `Stage ${file.path}`,
+                  icon: <Plus className="size-3" />,
+                  onClick: () => onAction({ action: 'stage', file: file.path }),
+                },
+              ]}
             />
           ))}
           {changes.length === 0 && <EmptyRow>No changes</EmptyRow>}
@@ -171,13 +191,15 @@ interface RowAction {
 }
 
 function FileRow({
-  file, selected, onSelect, onOpenInEditor, actions,
+  file, selected, onSelect, onOpenInEditor, actions, confirmingDiscard, onCancelDiscard,
 }: {
   file: FileChange;
   selected: boolean;
   onSelect: () => void;
   onOpenInEditor: () => void;
   actions: RowAction[];
+  confirmingDiscard?: boolean;
+  onCancelDiscard?: () => void;
 }) {
   const slash = file.path.lastIndexOf('/');
   const dir = slash === -1 ? '' : file.path.slice(0, slash + 1);
@@ -185,7 +207,7 @@ function FileRow({
 
   return (
     <div
-      onClick={onSelect}
+      onClick={() => { onCancelDiscard?.(); onSelect(); }}
       title={file.path}
       className={`group flex h-[26px] cursor-pointer items-center gap-2 px-3 hover:bg-[var(--bg-elevated)] ${
         selected ? 'bg-[var(--bg-overlay)]' : ''
@@ -199,7 +221,10 @@ function FileRow({
         {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
         {name}
       </span>
-      <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+      {confirmingDiscard && (
+        <span className="shrink-0 text-xs text-[var(--status-error)]">Discard?</span>
+      )}
+      <div className={`shrink-0 items-center gap-0.5 ${confirmingDiscard ? 'flex' : 'hidden group-hover:flex'}`}>
         <RowButton label={`Open ${name} in the editor`} onClick={onOpenInEditor}>
           <FileText className="size-3" />
         </RowButton>

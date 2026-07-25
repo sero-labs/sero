@@ -35,6 +35,16 @@ export async function runGitMutationAction(
       return ok(params.all ? 'Unstaged all.' : `Unstaged ${params.file}`);
     }
 
+    // Throwing away work, so it is deliberately narrow: one named file, never
+    // an "all" sweep, and untracked files are left alone — `git checkout` does
+    // not touch them and removing them is not what "discard changes" means.
+    case 'discard': {
+      if (!params.file) return err('file is required for discard');
+      await context.exec(['checkout', 'HEAD', '--', params.file]);
+      await context.refresh('auto');
+      return ok(`Discarded changes in ${params.file}`);
+    }
+
     case 'commit': {
       if (!params.message) return err('message is required for commit');
       if (params.all) await context.exec(['add', '-A']);
