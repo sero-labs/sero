@@ -17,8 +17,11 @@ import { CommitDetail } from './components/CommitDetail';
 import { DiffPane, type DiffSelection } from './components/diff/DiffPane';
 import { GraphBand } from './components/app/GraphBand';
 import { GraphDivider } from './components/app/GraphDivider';
+import { PullRequestPane } from './components/app/PullRequestPane';
 import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
+import { computeGraphLayout } from './lib/graph-layout';
+import { useGitHubAuth } from './store/useGitHubAuth';
 import {
   MAX_GRAPH_HEIGHT_PCT,
   MIN_GRAPH_HEIGHT_PCT,
@@ -54,6 +57,9 @@ export function GitApp() {
   const [viewState, setViewState] = useGitViewState(workspacePath);
   const [graphHeightPct, setGraphHeightPct] = useState<number | null>(null);
   const [graphCollapsed, setGraphCollapsed] = useState(false);
+  // The right pane is the diff, or the PR composer — never a fourth surface.
+  const [composingPr, setComposingPr] = useState(false);
+  const github = useGitHubAuth();
   const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,6 +121,7 @@ export function GitApp() {
   // A file inside the selected commit — compared against that commit's parent.
   const handleSelectDiffFile = useCallback((diff: FileDiff) => {
     if (!selectedCommit) return;
+    setComposingPr(false);
     setDiffSelection({
       kind: 'commitFile',
       hash: selectedCommit.hash,
@@ -128,6 +135,7 @@ export function GitApp() {
   // there is no round trip through the extension to wait for.
   const handleSelectStagingFile = useCallback((path: string, staged: boolean) => {
     const change = state.fileChanges.find((f) => f.path === path && f.staged === staged);
+    setComposingPr(false);
     setDiffSelection({
       kind: 'working',
       path,
@@ -140,6 +148,13 @@ export function GitApp() {
   const handleCloseDiff = useCallback(() => {
     setDiffSelection(null);
   }, []);
+
+  const handleOpenPullRequest = useCallback(() => {
+    setComposingPr(true);
+    setDiffSelection(null);
+  }, []);
+
+  const handleClosePullRequest = useCallback(() => setComposingPr(false), []);
 
   const handleOpenInEditor = useCallback((path: string) => {
     void openSeroFile(workspaceId, path);
@@ -170,6 +185,9 @@ export function GitApp() {
       : null),
     [diffSelection],
   );
+  // One layout, read by both the graph and the rail, so a branch is the same
+  // colour in each.
+  const graphLayout = useMemo(() => computeGraphLayout(state.commits), [state.commits]);
   const effectiveGraphHeight = graphHeightPct ?? viewState.graphHeightPct;
   const conflicts = state.fileChanges.filter((file) => file.status === 'conflict').length;
   const commitBlockedReason = conflicts > 0
@@ -183,7 +201,12 @@ export function GitApp() {
     <>
       <style>{GIT_STYLES}</style>
       <div className="git-root relative flex size-full flex-col overflow-hidden">
-        <MemoizedHeader state={state} onAction={runAction} />
+        <MemoizedHeader
+          state={state}
+          onAction={runAction}
+          github={github}
+          onOpenPullRequest={handleOpenPullRequest}
+        />
 
         {notice && (
           <div className="pointer-events-none absolute right-4 top-14 z-30 flex w-[min(30rem,calc(100%-2rem))] justify-end">
@@ -208,6 +231,7 @@ export function GitApp() {
                   currentBranch={state.currentBranch}
                   defaultBranch={state.defaultBranch}
                   onAction={runAction}
+                  branchColours={graphLayout.branchColours}
                 />
 
                 <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
@@ -222,7 +246,15 @@ export function GitApp() {
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {diffSelection ? (
+                  {composingPr ? (
+                    <PullRequestPane
+                      workspaceId={workspaceId}
+                      hasRemote={state.remotes.length > 0}
+                      currentBranch={state.currentBranch}
+                      authenticated={github.authenticated}
+                      onClose={handleClosePullRequest}
+                    />
+                  ) : diffSelection ? (
                     <>
                       <DiffPaneHeader selection={diffSelection} onClose={handleCloseDiff} />
                       <div className="min-h-0 flex-1">

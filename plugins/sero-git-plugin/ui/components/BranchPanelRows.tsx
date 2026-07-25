@@ -6,11 +6,14 @@ export function BranchRow({
   label,
   isCurrent,
   onCheckout,
+  laneColour,
 }: {
   branch: BranchInfo;
   label: string;
   isCurrent: boolean;
   onCheckout?: () => void;
+  /** The colour of this branch's lane in the graph, so the two agree (§3). */
+  laneColour?: string;
 }) {
   const checkedOutElsewhere = Boolean(branch.checkedOutIn);
   const rowTitle = checkedOutElsewhere
@@ -35,7 +38,10 @@ export function BranchRow({
               : 'text-[var(--text-secondary)]'
         }`}
     >
-      <BranchIcon active={isCurrent} />
+      {/* The lane colour is the link between the rail and the graph. */}
+      {laneColour
+        ? <span className="size-1.5 shrink-0 rounded-full" style={{ background: laneColour }} />
+        : <BranchIcon active={isCurrent} />}
       <MiddleTruncate value={label} className="min-w-0 flex-1 git-mono text-sm" />
       <div className="flex shrink-0 items-center gap-1">
         {checkedOutElsewhere && (

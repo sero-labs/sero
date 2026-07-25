@@ -8,6 +8,8 @@ import type { GitAppState, GitManagerRequest } from '../../shared/types';
 import { DEFAULT_GIT_STATE } from '../../shared/types';
 import { Header } from './Header';
 
+const GITHUB = { ready: true, authenticated: false, signIn: () => {} };
+
 function createState(overrides: Partial<GitAppState> = {}): GitAppState {
   return {
     ...DEFAULT_GIT_STATE,
@@ -41,7 +43,7 @@ describe('Header sync status', () => {
 
   it('shows Live when file watching is active', async () => {
     await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} />);
+      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} />);
     });
 
     expect(container.textContent).toContain('Live');
@@ -50,7 +52,7 @@ describe('Header sync status', () => {
 
   it('shows Manual when the app is running without live watchers', async () => {
     await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} />);
+      root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} />);
     });
 
     expect(container.textContent).toContain('Manual');

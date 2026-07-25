@@ -9,7 +9,10 @@
 import type {
   Branch,
   CommitEntry,
+  CreatePullRequestResult,
   FileDiffEntry,
+  PullRequestPreview,
+  PullRequestState,
   Remote,
   VcsCheckpoint,
   VcsEvent,
@@ -17,7 +20,19 @@ import type {
   WorkingCopyStatus,
 } from '@sero-ai/common';
 
-export type { Branch, CommitEntry, FileDiffEntry, Remote, VcsCheckpoint, VcsEvent, VcsWorkspaceState, WorkingCopyStatus };
+export type {
+  Branch,
+  CommitEntry,
+  CreatePullRequestResult,
+  FileDiffEntry,
+  PullRequestPreview,
+  PullRequestState,
+  Remote,
+  VcsCheckpoint,
+  VcsEvent,
+  VcsWorkspaceState,
+  WorkingCopyStatus,
+};
 
 export interface SeroVcsBridge {
   getState(workspaceId: string, limit?: number): Promise<VcsWorkspaceState>;
@@ -39,6 +54,24 @@ export interface SeroVcsBridge {
   diff(workspaceId: string, fromRev: string, toRev?: string): Promise<string>;
   fileDiffSummary(workspaceId: string, from: string, to?: string): Promise<FileDiffEntry[]>;
   fileContent(workspaceId: string, rev: string, path: string): Promise<string>;
+
+  // Pull requests — the Git app's right pane (§3).
+  prState(workspaceId: string): Promise<PullRequestState>;
+  prPreview(workspaceId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestPreview>;
+  prGenerateDraft(workspaceId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestPreview & { title: string; body: string; model: string }>;
+  prCreate(workspaceId: string, input: {
+    sourceBranch: string;
+    targetBranch: string;
+    title: string;
+    body: string;
+  }): Promise<CreatePullRequestResult>;
+}
+
+/** Signing in to GitHub is a host concern; the Git app only reads and triggers it. */
+export interface SeroGitHubBridge {
+  status(): Promise<{ authenticated: boolean; username?: string; scopes?: string }>;
+  login(): Promise<void>;
+  onEvent(callback: (event: { type: 'code' | 'polling' | 'success' | 'error' }) => void): () => void;
 }
 
 export interface SeroAppStateBridge {
@@ -50,6 +83,16 @@ export interface SeroAppStateBridge {
 interface SeroGitWindow {
   vcs: SeroVcsBridge;
   appState: SeroAppStateBridge;
+  github?: SeroGitHubBridge;
+}
+
+/**
+ * The GitHub bridge, if the host exposes one. Unlike git itself, signing in is
+ * optional — the Git app works without it, minus pull requests — so this never
+ * throws.
+ */
+export function seroGitHub(): SeroGitHubBridge | null {
+  return (window as unknown as { sero?: Partial<SeroGitWindow> }).sero?.github ?? null;
 }
 
 export function seroBridge(): SeroGitWindow {

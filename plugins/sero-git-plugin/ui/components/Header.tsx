@@ -2,14 +2,18 @@
  * Header bar, repo name, current branch, action buttons.
  */
 
+import { Github } from 'lucide-react';
 import type { GitAppState, GitManagerRequest } from '../../shared/types';
 
 interface HeaderProps {
   state: GitAppState;
   onAction: (action: GitManagerRequest) => void;
+  /** GitHub sign-in lives here, so the PR pane never has to host it (§3). */
+  github: { ready: boolean; authenticated: boolean; username?: string; signIn: () => void };
+  onOpenPullRequest: () => void;
 }
 
-export function Header({ state, onAction }: HeaderProps) {
+export function Header({ state, onAction, github, onOpenPullRequest }: HeaderProps) {
   const { repoName, currentBranch, branches, commitCount, fileChanges } = state;
   const staged = fileChanges.filter((f) => f.staged).length;
   const unstaged = fileChanges.filter((f) => !f.staged).length;
@@ -77,6 +81,10 @@ export function Header({ state, onAction }: HeaderProps) {
 
         <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
+        <GitHubControl github={github} onOpenPullRequest={onOpenPullRequest} />
+
+        <div className="w-px h-4 bg-[var(--border-subtle)]" />
+
         <ActionBtn label="Refresh" icon="refresh" onClick={() => onAction({ action: 'refresh' })} />
         <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction({ action: 'fetch' })} />
         <ActionBtn label="Pull" icon="pull" onClick={() => onAction({ action: 'pull' })} />
@@ -85,6 +93,46 @@ export function Header({ state, onAction }: HeaderProps) {
     </div>
   );
 }
+
+// ── GitHub ──────────────────────────────────────────────────
+
+function GitHubControl({
+  github, onOpenPullRequest,
+}: {
+  github: HeaderProps['github'];
+  onOpenPullRequest: () => void;
+}) {
+  if (!github.ready) return null;
+
+  // Sign-in lives here so the PR pane never has to host it — but the pane is
+  // still reachable when signed out, where it explains why the button is
+  // disabled rather than hiding itself (§3).
+  return (
+    <>
+      {!github.authenticated && (
+        <button type="button"
+          onClick={github.signIn}
+          title="Sign in to GitHub"
+          className={GITHUB_BTN}
+        >
+          <Github className="size-3.5" />
+          Sign in
+        </button>
+      )}
+      <button type="button"
+        onClick={onOpenPullRequest}
+        title={github.username ? `Signed in as ${github.username}` : 'Create a pull request'}
+        className={GITHUB_BTN}
+      >
+        <Github className="size-3.5" />
+        Pull request
+      </button>
+    </>
+  );
+}
+
+const GITHUB_BTN = `flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-subtle)] px-2.5 py-1.5 text-sm font-medium
+  text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]`;
 
 // ── Action button ───────────────────────────────────────────
 

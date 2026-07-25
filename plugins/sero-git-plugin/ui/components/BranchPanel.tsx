@@ -28,6 +28,8 @@ interface BranchPanelProps {
   currentBranch: string;
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
+  /** Lane colours from the graph, so a branch reads the same in both (§3). */
+  branchColours?: Record<string, string>;
 }
 
 export function BranchPanel({
@@ -38,6 +40,7 @@ export function BranchPanel({
   currentBranch,
   defaultBranch,
   onAction,
+  branchColours,
 }: BranchPanelProps) {
   const [localOpen, setLocalOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
@@ -94,6 +97,7 @@ export function BranchPanel({
               currentBranch={currentBranch}
               defaultBranch={defaultBranch}
               onAction={onAction}
+              laneColour={branchColours?.[branch.name]}
             />
           ))}
 
@@ -147,11 +151,14 @@ function BranchBranchRow({
   currentBranch,
   defaultBranch,
   onAction,
+  laneColour,
 }: {
   branch: BranchInfo;
   currentBranch: string;
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
+  /** The colour of this branch's lane in the graph (§3). */
+  laneColour?: string;
 }) {
   const onCheckout = branch.name === currentBranch
     ? undefined
@@ -184,6 +191,7 @@ function BranchBranchRow({
         label={branch.name}
         isCurrent={branch.name === currentBranch}
         onCheckout={onCheckout}
+        laneColour={laneColour}
       />
     </BranchContextMenu>
   );

@@ -22,10 +22,14 @@ export interface GraphEdge {
   color: string;
 }
 
+/** Branch name → the lane colour its tip sits on, so the rail can match. */
+export type BranchLaneColours = Record<string, string>;
+
 export interface GraphLayout {
   nodes: GraphNode[];
   edges: GraphEdge[];
   maxLane: number;
+  branchColours: BranchLaneColours;
 }
 
 const COLORS = [
@@ -43,7 +47,7 @@ const COLORS = [
  * children using that lane.
  */
 export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
-  if (commits.length === 0) return { nodes: [], edges: [], maxLane: 0 };
+  if (commits.length === 0) return { nodes: [], edges: [], maxLane: 0, branchColours: {} };
 
   const hashToRow = new Map<string, number>();
   commits.forEach((c, i) => hashToRow.set(c.hash, i));
@@ -68,6 +72,8 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
     return COLORS[lane % COLORS.length];
   }
 
+  const branchColours: BranchLaneColours = {};
+
   for (let row = 0; row < commits.length; row++) {
     const commit = commits[row];
     let lane: number;
@@ -86,6 +92,12 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
     hashToColor.set(commit.hash, color);
 
     nodes.push({ commit, row, lane, color });
+
+    // A branch takes the colour of the lane its tip commit sits on.
+    for (const ref of commit.refs) {
+      if (ref.type === 'tag') continue;
+      if (branchColours[ref.name] === undefined) branchColours[ref.name] = color;
+    }
 
     const visibleParents = commit.parents.filter((parentHash) => hashToRow.has(parentHash));
 
@@ -139,5 +151,5 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
   }
 
   const maxLane = nodes.reduce((m, n) => Math.max(m, n.lane), 0);
-  return { nodes, edges, maxLane };
+  return { nodes, edges, maxLane, branchColours };
 }
