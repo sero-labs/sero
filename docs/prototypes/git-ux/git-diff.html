@@ -207,20 +207,10 @@ Explorer's Editor view and the git view goes away — they are modes that swap, 
 <p class="note">
 Reached by the Source Control icon that already exists in the activity bar. Changes and history on the left, the diff
 filling the rest — the same two lists agreed in #301, at the same 300px, but the diff is <b>in this view</b> rather
-than in the editor. Sync and the branch live in the header; the real work stays in the Git app.
+than in the editor. No header: the left list <i>is</i> the file list, so the diff runs full width, and quick sync stays
+in the titlebar popover from #301 rather than being repeated here.
 </p>
 <div class="app">
-  <div class="topbar">
-    <div class="repo">orchestrator-demo-1</div>
-    <span class="bchip">main</span>
-    <span class="sync">↑0 ↓0 · 8 changed</span>
-    <span style="flex:1"></span>
-    <span class="tb">Fetch</span>
-    <span class="tb">Pull</span>
-    <span class="tb">Push</span>
-    <span class="tb">Open Git app</span>
-  </div>
-  <div class="hair"></div>
   <div class="body">
     <div class="abar">
       <div class="aico" title="Explorer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg></div>
@@ -271,18 +261,7 @@ than in the editor. Sync and the branch live in the header; the real work stays 
           <div class="ico" title="Unified diff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></div>
         </span>
       </div>
-      <div class="dsplit">
-        <div class="dnav scroller">
-          <div class="nrow on"><span class="dot m"></span><span class="nm">README.md</span></div>
-          <div class="nrow"><span class="dot a"></span><span class="nm">src/lib/parse.ts</span></div>
-          <div class="nrow"><span class="dot m"></span><span class="nm">src/lib/format.ts</span></div>
-          <div class="nrow"><span class="dot m"></span><span class="nm">src/components/Panel.tsx</span></div>
-          <div class="nrow"><span class="dot a"></span><span class="nm">src/components/Row.tsx</span></div>
-          <div class="nrow"><span class="dot d"></span><span class="nm">src/legacy/old-parse.ts</span></div>
-          <div class="nrow"><span class="dot m"></span><span class="nm">package.json</span></div>
-          <div class="nrow"><span class="dot m"></span><span class="nm">docs/reference/api.md</span></div>
-        </div>
-        <div class="dbody">
+      <div class="dbody">
           <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
           <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
           <div class="dl"><span class="ln">12</span><span class="tx"></span></div>
@@ -298,15 +277,14 @@ than in the editor. Sync and the branch live in the header; the real work stays 
           <div class="dl add"><span class="ln">15</span><span class="tx">+ <span class="kw">const</span> scale = opts.scale ?? <span class="str">2</span>;</span></div>
           <div class="dl"><span class="ln">16</span><span class="tx"></span></div>
           <div class="dl"><span class="ln">17</span><span class="tx">  <span class="kw">return</span> rows.<span class="fnn">map</span>((r) => r.<span class="fnn">split</span>(<span class="str">','</span>));</span></div>
-        </div>
       </div>
     </div>
   </div>
 </div>
 <p class="spec" style="max-width:104ch">
 <b>What this view is.</b> #301's two lists, plus the diff they open. It is the cheap way to read what changed —
-no rail, no graph, no commit box, no PR. The header carries the branch, the sync counts and Fetch / Pull / Push so a
-glance-and-sync needs no other surface. Anything more than that is <b>Open Git app</b>.
+no rail, no graph, no commit box, no PR, and no sync buttons: the titlebar popover already owns quick sync from every
+view. Anything more than reading is <b>Open Git app</b>.
 </p>
 
 <div class="arrow"><i>↓</i> Click the file icon on a row — or the file name in the diff — and you leave for the Editor</div>
@@ -318,17 +296,6 @@ The Editor is its own view with its own icon. Opening a file from either git sur
 gone; clicking Source Control again brings it back exactly as it was. One mode at a time, in both directions.
 </p>
 <div class="app">
-  <div class="topbar">
-    <div class="repo">orchestrator-demo-1</div>
-    <span class="bchip">main</span>
-    <span class="sync">↑0 ↓0 · 8 changed</span>
-    <span style="flex:1"></span>
-    <span class="tb">Fetch</span>
-    <span class="tb">Pull</span>
-    <span class="tb">Push</span>
-    <span class="tb">Open Git app</span>
-  </div>
-  <div class="hair"></div>
   <div class="body">
     <div class="abar">
       <div class="aico" title="Explorer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg></div>
@@ -513,7 +480,7 @@ the same component as section 1 at a different width — and that opening a file
 
 <div class="legend">
   <div><span class="mark">1</span><span><b>One diff component, two widths.</b> <code>DiffChangeset</code> is embedded in both git views. Nothing routes a diff into the editor, so <code>DiffTab</code> as a mode over the editor is deleted rather than promoted.</span></div>
-  <div><span class="mark">2</span><span><b>The 220px file list only appears when it earns the space.</b> Section 1 shows it at 8 files; the Git app's narrower pane drops it, because the working-tree column already lists the files.</span></div>
+  <div><span class="mark">2</span><span><b>The diff's own 220px file list appears only where nothing else lists the files.</b> Both git views already have a file list beside the diff, so both drop it and give the width to the code. It survives for a diff opened with no list next to it.</span></div>
   <div><span class="mark">3</span><span><b>The editor never shows a diff, and the git views never show an editable file.</b> That is the whole rule — it removes the vanishing-tab-bar problem instead of solving it.</span></div>
   <div><span class="mark">4</span><span><b>What the host must add:</b> opening a file switches the active view. One change to the existing open-file path, plus the Git app needs a way to say "go to the Editor" — which today it cannot, because <code>openSeroFile</code> opens a tab without changing view.</span></div>
 </div>
