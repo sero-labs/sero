@@ -542,10 +542,16 @@ titlebar slot, including the deliberate handling of an unknown persisted
 `activePanel`. No git code moves yet.
 
 **Step 2 — clear the host's git state consumers.**
-Convert checkpoint restore to call `window.sero.vcs` directly. Delete the status
-bar branch picker ([#304](https://github.com/sero-labs/sero/issues/304)), first
-confirming whether `push()` reads `activePushBranch` before removing the state
-with the UI. `useVcsStore` is now used only by git UI that is about to go.
+Convert checkpoint restore to call `window.sero.vcs` directly. The status bar
+branch picker is **done** ([#304](https://github.com/sero-labs/sero/issues/304),
+`a103dcaab`) — `push()` turned out not to read `activePushBranch` at all, callers
+pass it. `useVcsStore` is then used only by git UI that is about to go.
+
+`activePushBranch` deliberately stays in the store until step 4: `CommitDetail`,
+`BranchesSection` and `VcsPanel` still read it and all three die there. **Do not
+recreate it in the plugin store** — the new design has no active-push-branch
+concept. Push pushes the current branch, and the rail is where you change branch.
+The auto-select-main fallback (`stores/vcs.ts:335-354`) goes with it.
 
 **Step 3 — move the diff into the plugin.**
 Move the five `editor/` diff files and the two `@pierre` dependencies into
