@@ -1,7 +1,4 @@
-import { Badge } from '@sero-ai/ui/components/ui/badge.js';
-import { Button } from '@sero-ai/ui/components/ui/button.js';
-import { Input } from '@sero-ai/ui/components/ui/input.js';
-import { cn } from '@sero-ai/ui/lib/utils.js';
+import { Badge, Button, Input, cn } from '@sero-ai/ui';
 import {
   Check,
   ChevronDown,

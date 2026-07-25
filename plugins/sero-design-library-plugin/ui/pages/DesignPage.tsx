@@ -1,6 +1,4 @@
-import { Badge } from '@sero-ai/ui/components/ui/badge.js';
-import { Button } from '@sero-ai/ui/components/ui/button.js';
-import { cn } from '@sero-ai/ui/lib/utils.js';
+import { Badge, Button, cn } from '@sero-ai/ui';
 import {
   AlertTriangle,
   Check,

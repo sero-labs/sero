@@ -1,5 +1,4 @@
-import { Badge } from '@sero-ai/ui/components/ui/badge.js';
-import { Button } from '@sero-ai/ui/components/ui/button.js';
+import { Badge, Button } from '@sero-ai/ui';
 import { ChevronDown, Copy, ExternalLink, Search, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { ArtworkPreview } from '../components/ArtworkPreview';

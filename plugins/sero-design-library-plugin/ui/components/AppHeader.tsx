@@ -1,5 +1,4 @@
-import { Button } from '@sero-ai/ui/components/ui/button.js';
-import { cn } from '@sero-ai/ui/lib/utils.js';
+import { Button, cn } from '@sero-ai/ui';
 import { ImagePlus, Palette } from 'lucide-react';
 import type { DesignLibraryPage } from '../types';
 

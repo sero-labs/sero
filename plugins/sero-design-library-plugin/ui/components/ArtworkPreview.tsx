@@ -1,4 +1,4 @@
-import { cn } from '@sero-ai/ui/lib/utils.js';
+import { cn } from '@sero-ai/ui';
 import type { PreviewKind } from '../fixtures';
 
 interface ArtworkPreviewProps {

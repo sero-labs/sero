@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui/components/ui/button.js';
+import { Button } from '@sero-ai/ui';
 import { AlertTriangle, CircleX, ImageOff, LoaderCircle } from 'lucide-react';
 
 type SurfaceStateKind = 'empty' | 'loading' | 'warning' | 'error';
