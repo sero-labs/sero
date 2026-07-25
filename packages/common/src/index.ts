@@ -214,6 +214,7 @@ export type {
   FileDiff,
   GitSyncMode,
   GitAppState,
+  GitMergeState,
 } from './git-app';
 export {
   createDefaultGitState,

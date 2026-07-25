@@ -17,6 +17,7 @@ import {
 import { getBranches, getRemoteBranches } from './git-refs';
 import { getDefaultBranch } from './git-default-branch';
 import { canUseQuickRefresh, createGitRefSnapshot, createQuickRefreshState } from './git-refresh';
+import { isDetachedHead, readMergeState } from './git-merge-state';
 import { runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
@@ -73,7 +74,11 @@ async function ensureGitStateIgnored(cwd: string): Promise<void> {
   await fs.writeFile(excludePath, next, 'utf8');
 }
 
-async function createFullRefreshState(cwd: string, syncMode: GitSyncMode): Promise<GitAppState> {
+async function createFullRefreshState(
+  cwd: string,
+  syncMode: GitSyncMode,
+  previousState: GitAppState,
+): Promise<GitAppState> {
   return {
     repoPath: cwd,
     repoName: await getRepoName(cwd),
@@ -87,6 +92,8 @@ async function createFullRefreshState(cwd: string, syncMode: GitSyncMode): Promi
     stashes: await getStashes(cwd),
     fileChanges: await getFileChanges(cwd),
     commitCount: await getCommitCount(cwd),
+    detached: await isDetachedHead(cwd),
+    merge: await readMergeState(cwd, previousState.merge),
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,
@@ -115,8 +122,12 @@ export async function refreshGitState(
 
   await ensureGitStateIgnored(cwd);
 
+  // The previous state is read on every refresh, not just the quick path: a
+  // merge's conflicted-path set is carried forward from it (see
+  // `readMergeState`), and a full refresh must not lose it.
+  const previousState = await readState(statePath);
+
   if (scope === 'auto') {
-    const previousState = await readState(statePath);
     const snapshot = await createGitRefSnapshot(cwd);
 
     if (canUseQuickRefresh(previousState, snapshot)) {
@@ -126,7 +137,7 @@ export async function refreshGitState(
     }
   }
 
-  const state = await createFullRefreshState(cwd, syncMode);
+  const state = await createFullRefreshState(cwd, syncMode, previousState);
   await writeState(statePath, state);
   return state;
 }

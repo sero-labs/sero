@@ -119,7 +119,9 @@ export async function runGitMutationAction(
       if (branch?.checkedOutIn) {
         return err(`Branch ${params.branch} is already checked out in ${branch.checkedOutIn}`);
       }
-      await context.exec(['switch', params.branch]);
+      // `force` throws local modifications away as it switches. Plain `switch`
+      // brings them along, and refuses rather than clobbering when it can't.
+      await context.exec(['switch', ...(params.force ? ['--discard-changes'] : []), params.branch]);
       await context.refresh('full');
       return ok(`Switched to ${params.branch}`);
     }
@@ -169,6 +171,13 @@ export async function runGitMutationAction(
       const result = await context.exec(['merge', params.branch]);
       await context.refresh('full');
       return ok(`Merged ${params.branch}: ${result.split('\n')[0] ?? ''}`);
+    }
+
+    // Leaving a merge, which is the one action that only applies mid-merge.
+    case 'abort_merge': {
+      await context.exec(['merge', '--abort']);
+      await context.refresh('full');
+      return ok('Merge aborted.');
     }
 
     case 'cherry_pick': {

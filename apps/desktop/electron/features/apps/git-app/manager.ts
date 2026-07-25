@@ -330,6 +330,7 @@ function shouldInvalidateAfterAction(action: GitManagerAction): boolean {
     case 'delete_branch':
     case 'remove_worktree':
     case 'merge':
+    case 'abort_merge':
     case 'cherry_pick':
     case 'refresh':
       return true;

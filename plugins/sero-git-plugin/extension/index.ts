@@ -36,6 +36,7 @@ const ACTIONS = [
   'delete_branch',
   'remove_worktree',
   'merge',
+  'abort_merge',
   'cherry_pick',
   'show_commit',
 ] as const;
@@ -70,7 +71,7 @@ export default function (pi: ExtensionAPI) {
     name: 'git_manager',
     label: 'Git',
     description:
-      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch), create_branch (requires branch), delete_branch (requires branch, optional force=true for -D), remove_worktree (requires worktreePath, optional force=true), merge (requires branch), cherry_pick (requires hash, optional all=true to auto-stash a dirty working tree first), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), stash_apply (optional stashIndex to apply without dropping the stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
+      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch, optional force=true to throw away local changes while switching), create_branch (requires branch), delete_branch (requires branch, optional force=true for -D), remove_worktree (requires worktreePath, optional force=true), merge (requires branch), abort_merge (leave a merge that stopped on conflicts, discarding the merge), cherry_pick (requires hash, optional all=true to auto-stash a dirty working tree first), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), stash_apply (optional stashIndex to apply without dropping the stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
     parameters: GitManagerParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
