@@ -410,7 +410,7 @@ loops — is a consumer.
 - New git features extend GitService/GitHubService — never a parallel helper.
 - Repo state reaches UIs only through GitStateService.
 
-## AD-025: Git UI Ownership — Plugin Views, Host Data
+## AD-025: Git UI Ownership — The Plugin Owns Git
 
 **Problem:** AD-024 unified the git *infrastructure*; the UI stayed split. Git
 work is served by four surfaces with three data paths and two visual systems, and
@@ -418,8 +418,9 @@ there is no general way for a plugin to contribute a view to a host surface —
 so git components accumulated in the host by default. Full UX spec: wayfinder
 map `sero-labs/sero#294`.
 
-**Decision:** The **plugin owns every git view; the host owns the git data and
-the extension points those views mount into.** No git UI lives in the host.
+**Decision:** The **plugin owns every git view and the renderer-side repo cache.
+The host owns the git *service* (AD-024) and the extension points views mount
+into.** No git UI and no git state live in `apps/desktop`.
 
 - **Views are contributed, not imported.** Both git surfaces — the full-screen
   Git app and the Explorer's Git view — ship from `sero-git-plugin` and mount
@@ -427,24 +428,32 @@ the extension points those views mount into.** No git UI lives in the host.
   slot, a selector, and a mount that wraps the federated component in
   `AppProvider` + `PluginStyleScope`. The host contributes the *slot*, never the
   content.
-- **One state path: the host store, published.** `useVcsStore` stays in the host
-  and is exposed to plugins through a **narrow hook** in
-  `@sero-ai/app-runtime` — the repo data plus the actions the git views need,
-  not the raw store. The plugin inherits the existing cache, pagination and
-  `undo` rather than reimplementing them, and there is exactly one cache of one
-  repo. `GitApp`'s `gitApp.run` path and `PullRequestComposer`'s direct
-  `window.sero.vcs.pr*` calls both retire into it.
-- **The store is not moved**, because three of its consumers are not git views:
-  the status bar's branch picker, checkpoint restore (undoing a chat turn), and
-  the explorer lifecycle wiring that owns the pushed-state subscription. Moving
-  the store would drag two unrelated features into this work.
+- **One state path: `useVcsStore` moves into the plugin.** The three renderer
+  paths (`useAppState` + `gitApp.run`, `useVcsStore` + `window.sero.vcs`, bare
+  `window.sero.vcs.pr*`) collapse into one store, owned by `sero-git-plugin`,
+  calling `window.sero.vcs` directly. Nothing is published for it: **no vcs hook
+  in `@sero-ai/app-runtime`**, so no public API surface to keep stable and no
+  version floor for repo data.
+- **Nothing is lost by moving it.** Every action outside the cached reads is the
+  same shape — call the bridge, then refresh (`undo`, `restoreCheckpoint`,
+  `createCheckpoint`, `fetch`, `push` …). The pagination, working-copy status,
+  branch/remote lists and diff cache move as-is; the ref-counted pushed-state
+  subscription moves with them, started by the plugin instead of the explorer's
+  lifecycle wiring.
+- **Two host consumers are dealt with, not worked around.** The status bar's
+  branch picker is **deleted** (superseded by the Git app; unused). Checkpoint
+  restore — undoing a chat turn — calls `window.sero.vcs` **directly**: three
+  one-shot calls in a dialog that gain nothing from a cache, and this keeps a
+  host feature from depending on the git plugin being installed.
 - **Views own their own view state.** A contributed view unmounts when hidden.
-  Data survives regardless (it is in the host cache); only position is lost, and
-  the plugin keeps it: the graph divider in the plugin's persisted app state
-  (per workspace, per #302), selection and scroll offset in a memory cache. The
-  host does **not** hold contributed views mounted-while-hidden — that would bind
-  every contributed view of every plugin to staying in memory, keep invisible
-  subscriptions running, and mask staleness bugs until a restart.
+  Data survives it — plugin code runs in the host's JS realm and the federated
+  module stays loaded, so the plugin's store outlives its views exactly as a host
+  store would. Only position is lost, and the plugin keeps it: the graph divider
+  in its persisted app state (per workspace, per #302), selection and scroll
+  offset in a memory cache. The host does **not** hold contributed views
+  mounted-while-hidden — that would bind every contributed view of every plugin
+  to staying in memory, keep invisible subscriptions running, and mask staleness
+  bugs until a restart.
 - **`@pierre/diffs` and `@pierre/trees` move to the plugin** and come out of
   `apps/desktop`. All host usage is five files in one folder
   (`components/apps/explorer/editor/`); nothing else consumes them. The library
@@ -453,13 +462,17 @@ the extension points those views mount into.** No git UI lives in the host.
   still works through inherited custom properties.
 
 **Rules:**
-- Never add a git component to `apps/desktop`. A new git surface is a plugin
-  contribution plus, if no slot fits, a new slot.
-- Plugins read repo state through the published `@sero-ai/app-runtime` hook —
-  never `window.sero.vcs` directly, even though nothing enforces it, and never a
-  second cache.
+- Never add a git component or git state to `apps/desktop`. A new git surface is
+  a plugin contribution plus, if no slot fits, a new slot.
+- **`sero-git-plugin` holds the only renderer-side cache of repo state.** Other
+  renderer code needing a git operation calls `window.sero.vcs` directly for
+  one-shot work and does not cache the result. A second cache is the defect
+  AD-024 removed in main and this decision removes in the renderer.
 - A module-scoped view cache **must** be keyed by workspace or cleared on
   workspace change. The host already discards its diff on workspace change for
-  this reason; an unkeyed cache shows the previous workspace's state.
-- Widening the published vcs hook is an API change: it needs a version bump and
-  a `requiredHostCapabilities` floor, because external plugins pin the package.
+  this reason; an unkeyed cache shows the previous workspace's state
+  (`GraphifySearch`'s is unkeyed — the example of the bug, not the pattern).
+- The `@sero-ai/app-runtime` release for this work carries `editorThemeId` on the
+  plugin context and open-file-**and-switch-view**, and nothing about vcs. Any
+  later addition is a version bump plus a `requiredHostCapabilities` floor,
+  because external plugins pin the package.
