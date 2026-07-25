@@ -9,253 +9,270 @@
   --border-subtle:#27272a; --border-default:#3f3f46;
   --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a;
   --brand-primary:#34d399; --brand-primary-foreground:#052e1c; --brand-secondary:#c4b5fd;
-  --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444;
+  --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444; --status-info:#3b82f6;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{width:1480px;background:#08080a;color:var(--text-primary);padding:40px;
   font:400 0.9rem/1.2rem -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 h1{font-size:1.1rem;font-weight:600;margin-bottom:4px}
-h2{font-size:0.95rem;font-weight:600;margin:46px 0 4px}
-.lede,.note{color:var(--text-muted);font-size:0.87rem;line-height:1.45rem;max-width:100ch}
-.lede{margin-bottom:28px} .note{margin-bottom:16px}
-.spec{color:var(--text-muted);font-size:0.79rem;margin-top:9px;line-height:1.2rem;max-width:104ch}
-.spec b,b{color:var(--text-secondary);font-weight:500}
+h2{font-size:0.95rem;font-weight:600;margin:44px 0 4px}
+.lede,.note{color:var(--text-muted);font-size:0.87rem;line-height:1.45rem;max-width:96ch}
+.lede{margin-bottom:30px} .note{margin-bottom:16px}
+.spec{color:var(--text-muted);font-size:0.78rem;margin-top:10px;line-height:1.22rem}
+.spec b{color:var(--text-secondary);font-weight:500}
+b{color:var(--text-secondary);font-weight:500}
 code{font:0.8rem var(--mono);color:var(--text-secondary)}
-.tagline{font-size:0.79rem;color:var(--text-muted);margin-bottom:9px}
-.tagline b{color:var(--brand-secondary);font-weight:600}
 .hair{height:1px;background:var(--border-subtle);flex:0 0 auto}
 .vhair{width:1px;background:var(--border-subtle);flex:0 0 auto}
 svg{flex:0 0 auto}
-.row{display:flex;gap:26px;align-items:flex-start}
+.scroller{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-muted) transparent}
+.scroller::-webkit-scrollbar{width:8px}
+.scroller::-webkit-scrollbar-thumb{background:var(--bg-muted);border-radius:4px;border:2px solid transparent;background-clip:content-box}
 
-/* ---- window ---- */
-.win{background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:11px;overflow:hidden;display:flex;flex-direction:column}
-.chrome{height:30px;display:flex;align-items:center;gap:8px;padding:0 11px;flex:0 0 auto;font-size:0.79rem;color:var(--text-muted)}
-.dots{display:flex;gap:5px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--bg-muted)}
-.wbody{flex:1;display:flex;min-height:0}
+/* ---- app shell ---- */
+.app{width:1400px;height:560px;background:var(--bg-base);border:1px solid var(--border-subtle);
+  border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.app.tall{height:820px}
+.topbar{height:40px;display:flex;align-items:center;gap:10px;padding:0 12px;flex:0 0 auto}
+.repo{display:flex;align-items:center;gap:7px;font-size:0.9rem;font-weight:600}
+.bchip{display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;border-radius:5px;
+  background:var(--bg-elevated);font:0.78rem/1 var(--mono);color:var(--text-secondary)}
+.sync{font:0.78rem/1 var(--mono);color:var(--text-muted)}
+.tb{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:6px;
+  font-size:0.82rem;color:var(--text-secondary);cursor:pointer;border:1px solid transparent}
+.tb:hover{background:var(--bg-elevated);color:var(--text-primary)}
+.tb.solid{background:var(--brand-primary);color:var(--brand-primary-foreground);font-weight:500}
+.ghchip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;
+  font-size:0.8rem;color:var(--text-muted)}
+.av{width:16px;height:16px;border-radius:50%;background:var(--brand-secondary);flex:0 0 auto}
+.body{flex:1;display:flex;min-height:0}
 
-/* ---- explorer sidebar ---- */
-.side{width:264px;flex:0 0 264px;display:flex;flex-direction:column;min-height:0}
-.side.narrow{width:236px;flex:0 0 236px}
-.ptitle{display:flex;align-items:center;height:26px;padding:0 12px}
-.ptitle span{font-size:0.75rem;font-weight:500;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase}
-.sec{display:flex;align-items:center;gap:7px;padding:9px 12px 5px;font-size:0.76rem;font-weight:500;color:var(--text-muted)}
-.sec .n{opacity:.65}
-.frow{display:flex;align-items:center;gap:8px;height:25px;padding:0 12px;cursor:pointer}
+/* ---- activity bar (host, 40px — ActivityBar.tsx) ---- */
+.abar{width:40px;flex:0 0 40px;background:var(--bg-surface);border-right:1px solid var(--border-default);
+  display:flex;flex-direction:column;align-items:center;padding:4px 0;gap:2px}
+.aico{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);position:relative;cursor:pointer}
+.aico:hover{color:var(--text-secondary)}
+.aico.on{color:var(--brand-primary)}
+.aico.on:before{content:"";position:absolute;left:-5px;top:6px;bottom:6px;width:2px;border-radius:0 2px 2px 0;background:var(--brand-primary)}
+
+/* ---- rail ---- */
+.rail{width:214px;flex:0 0 214px;display:flex;flex-direction:column;min-height:0}
+.grp{display:flex;align-items:center;gap:6px;padding:12px 12px 5px;font-size:0.76rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.04em}
+.grp .n{opacity:.6}
+.rrow{display:flex;align-items:center;gap:7px;height:25px;padding:0 12px;cursor:pointer;font-size:0.83rem;color:var(--text-secondary)}
+.rrow:hover{background:var(--bg-elevated)}
+.rrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.rrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .sw{width:3px;height:13px;border-radius:2px;flex:0 0 auto}
+.rrow .ct{font:0.72rem/1 var(--mono);color:var(--text-muted)}
+.wt{font:0.62rem/1 var(--mono);color:var(--text-muted);border:1px solid var(--border-subtle);
+  border-radius:3px;padding:2px 3px;letter-spacing:.04em}
+
+/* ---- work column ---- */
+.work{width:300px;flex:0 0 300px;display:flex;flex-direction:column;min-height:0}
+.work.wide{width:372px;flex:0 0 372px}
+.sec{display:flex;align-items:center;gap:7px;padding:11px 12px 6px;font-size:0.78rem;font-weight:500;
+  color:var(--text-muted);letter-spacing:.03em}
+.sec .n{opacity:.65} .sec .act{margin-left:auto;font-size:0.78rem;color:var(--text-muted);cursor:pointer}
+.subsec{position:sticky;top:0;z-index:2;background:var(--bg-base);display:flex;align-items:center;gap:7px;
+  padding:8px 12px 5px;font-size:0.76rem;font-weight:500;color:var(--text-muted);letter-spacing:.03em}
+.subsec .n{opacity:.65} .subsec .act{margin-left:auto;font-size:0.76rem;color:var(--text-muted);cursor:pointer}
+.frow{display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer}
 .frow:hover{background:var(--bg-elevated)} .frow.on{background:var(--bg-overlay)}
 .dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
 .dot.m{background:var(--status-warning)} .dot.a{background:var(--status-success)} .dot.d{background:var(--status-error)}
-.fn{flex:1;min-width:0;font-size:0.82rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn{flex:1;min-width:0;font-size:0.84rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fn .dir{color:var(--text-muted)}
-.st{font:0.72rem/1 var(--mono);color:var(--text-muted)}
+.st{font:0.74rem/1 var(--mono);color:var(--text-muted)}
 .st .p{color:var(--status-success)} .st .m{color:var(--status-error)}
-.crow{display:flex;align-items:center;gap:8px;height:25px;padding:0 12px;cursor:pointer}
-.crow:hover{background:var(--bg-elevated)}
+.acts{display:none;align-items:center;gap:1px;flex:0 0 auto}
+.frow.on .acts,.frow:hover .acts{display:flex}
+.frow.on .st,.frow:hover .st{display:none}
+.ab{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);cursor:pointer}
+.ab:hover{background:var(--bg-muted);color:var(--text-primary)}
+.ab.danger:hover{color:var(--status-error)}
+.crow{display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer}
+.crow:hover{background:var(--bg-elevated)} .crow.on{background:var(--bg-overlay)}
 .gdot{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--text-muted);flex:0 0 auto}
 .gdot.hd{background:var(--brand-secondary);border-color:var(--brand-secondary)}
-.cmsg{flex:1;min-width:0;font-size:0.82rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmeta{font:0.71rem/1 var(--mono);color:var(--text-muted)}
+.cmsg{flex:1;min-width:0;font-size:0.84rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmeta{font:0.72rem/1 var(--mono);color:var(--text-muted);flex:0 0 auto}
+.footlink{display:flex;align-items:center;gap:6px;padding:0 12px;height:32px;font-size:0.83rem;color:var(--text-secondary);cursor:pointer}
+.footlink:hover{background:var(--bg-elevated);color:var(--text-primary)}
+.cbox{padding:8px 12px 10px}
+.mw{position:relative}
+.mi{width:100%;height:56px;resize:none;background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:7px;padding:7px 30px 7px 9px;font:400 0.84rem/1.15rem inherit;color:var(--text-muted)}
+.ai{position:absolute;right:5px;top:5px;width:21px;height:21px;border-radius:5px;display:flex;align-items:center;
+  justify-content:center;color:var(--text-muted)}
+.cbtn{margin-top:6px;height:29px;border-radius:7px;background:var(--brand-primary);color:var(--brand-primary-foreground);
+  display:flex;align-items:center;justify-content:center;gap:7px;font-size:0.83rem;font-weight:500}
+.kbd{font:0.72rem/1 var(--mono);opacity:.62;letter-spacing:.05em}
 
-/* ---- editor area ---- */
-.ed{flex:1;min-width:0;display:flex;flex-direction:column}
+/* ---- detail / diff ---- */
+.detail{flex:1;min-width:0;display:flex;flex-direction:column}
+.dbar{height:32px;display:flex;align-items:center;gap:9px;padding:0 12px;flex:0 0 auto;font-size:0.82rem;color:var(--text-secondary)}
+.dbar .mut{color:var(--text-muted);font:0.75rem var(--mono)}
+.dbar .r{margin-left:auto;display:flex;gap:2px}
+.ico{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer}
+.ico:hover{background:var(--bg-elevated);color:var(--text-secondary)}
+.dnav{width:220px;flex:0 0 220px;border-right:1px solid var(--border-subtle);padding:4px 0;min-height:0}
+.nrow{display:flex;align-items:center;gap:7px;height:24px;padding:0 11px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer}
+.nrow:hover{background:var(--bg-elevated)} .nrow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.nrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsplit{flex:1;display:flex;min-height:0}
+.dbody{flex:1;min-height:0;min-width:0;font:0.79rem/1.55 var(--mono);padding:0 0 8px;color:var(--text-muted);overflow:hidden}
+.fh{display:flex;align-items:center;gap:8px;height:28px;padding:0 14px;background:var(--bg-surface);
+  border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);
+  font:0.78rem var(--mono);color:var(--text-secondary)}
+.fh .s{margin-left:auto;font-size:0.74rem}
+.fh .s .p{color:var(--status-success)} .fh .s .m{color:var(--status-error)}
+.dl{display:flex;padding:0 14px}
+.dl .ln{width:66px;flex:0 0 66px;color:var(--text-muted);opacity:.45;text-align:right;padding-right:14px;user-select:none}
+.dl.add{background:rgba(34,197,94,.10)} .dl.add .tx{color:#86efac}
+.dl.del{background:rgba(239,68,68,.10)} .dl.del .tx{color:#fca5a5}
+.dl.hunk{color:var(--text-muted);opacity:.55;padding-top:5px;padding-bottom:5px}
+
+/* ---- editor view ---- */
 .tabs{height:32px;display:flex;align-items:stretch;border-bottom:1px solid var(--border-subtle);flex:0 0 auto;overflow:hidden}
-.tab{display:flex;align-items:center;gap:6px;padding:0 10px;border-right:1px solid var(--border-subtle);
-  font-size:0.77rem;color:var(--text-muted);white-space:nowrap;cursor:pointer;position:relative;flex:0 0 auto}
-.tab:hover{background:var(--bg-elevated)}
+.tab{display:flex;align-items:center;gap:6px;padding:0 11px;border-right:1px solid var(--border-subtle);
+  font-size:0.78rem;color:var(--text-muted);white-space:nowrap;cursor:pointer;position:relative;flex:0 0 auto}
 .tab.on{background:var(--bg-elevated);color:var(--text-primary);font-weight:500}
 .tab.on:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--brand-primary)}
 .tab .x{opacity:.45;font-size:0.95rem;line-height:1;margin-left:2px}
-.tab.diff{color:var(--brand-secondary)}
-.tab.diff.on{color:var(--brand-secondary)}
-.tab.diff.on:after{background:var(--brand-secondary)}
-.tab .sub{font:0.7rem/1 var(--mono);color:var(--text-muted);opacity:.75}
-.fake{height:32px;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--border-subtle);
-  font-size:0.8rem;color:var(--text-muted);flex:0 0 auto}
-.fake .x{margin-left:auto;opacity:.5;font-size:1rem;line-height:1}
+.tree{width:240px;flex:0 0 240px;display:flex;flex-direction:column;min-height:0}
+.trow{display:flex;align-items:center;gap:7px;height:24px;padding:0 12px;font-size:0.83rem;color:var(--text-secondary);cursor:pointer}
+.trow:hover{background:var(--bg-elevated)} .trow.on{background:var(--bg-overlay);color:var(--text-primary)}
+.trow.ind{padding-left:26px} .trow.ind2{padding-left:40px}
+.code{flex:1;min-height:0;font:0.79rem/1.55 var(--mono);padding:8px 0;color:var(--text-muted);overflow:hidden}
+.kw{color:#c4b5fd}.str{color:#86efac}.cm{color:var(--text-muted);opacity:.55}.fnn{color:#7dd3fc}
 
-.ed .dbar .rev{white-space:nowrap}
-.dbar{height:28px;display:flex;align-items:center;gap:9px;padding:0 12px;border-bottom:1px solid var(--border-subtle);
-  flex:0 0 auto;font-size:0.8rem;color:var(--text-muted)}
-.dbar .rev{opacity:.42;font:0.75rem var(--mono)}
-.dbar .r{margin-left:auto;display:flex;gap:8px;opacity:.7}
-.dsplit{flex:1;display:flex;min-height:0}
-.nav{width:220px;flex:0 0 220px;border-right:1px solid var(--border-subtle);padding:4px 0;min-height:0}
-.nrow{display:flex;align-items:center;gap:7px;height:23px;padding:0 11px;font-size:0.79rem;color:var(--text-secondary);cursor:pointer}
-.nrow:hover{background:var(--bg-elevated)} .nrow.on{background:var(--bg-overlay);color:var(--text-primary)}
-.nrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chg{flex:1;min-width:0;font:0.77rem/1.5 var(--mono);color:var(--text-muted);overflow:hidden}
-.fh{display:flex;align-items:center;gap:8px;height:26px;padding:0 13px;background:var(--bg-surface);
-  border-bottom:1px solid var(--border-subtle);font:0.76rem var(--mono);color:var(--text-secondary)}
-.fh .s{margin-left:auto;font-size:0.73rem}
-.fh .s .p{color:var(--status-success)} .fh .s .m{color:var(--status-error)}
-.dl{display:flex;padding:0 13px}
-.dl .ln{width:54px;flex:0 0 54px;color:var(--text-muted);opacity:.4;text-align:right;padding-right:13px;user-select:none}
-.dl.add{background:rgba(34,197,94,.10)} .dl.add .tx{color:#86efac}
-.dl.del{background:rgba(239,68,68,.10)} .dl.del .tx{color:#fca5a5}
-.dl.hunk{opacity:.5;padding-top:4px;padding-bottom:4px}
-.code{padding:8px 0;font:0.77rem/1.5 var(--mono);color:var(--text-muted);flex:1;overflow:hidden}
-.kw{color:#c4b5fd}.str{color:#86efac}.cm{color:var(--text-muted);opacity:.6}
+.ptitle{display:flex;align-items:center;height:28px;padding:0 12px;gap:8px}
+.ptitle span{font-size:0.78rem;font-weight:500;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;flex:1}
 
-/* git app bits */
-.gtop{height:34px;display:flex;align-items:center;gap:9px;padding:0 12px;flex:0 0 auto}
-.repo{display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600}
-.bchip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:var(--bg-elevated);
-  font:0.75rem/1 var(--mono);color:var(--text-secondary)}
-.tb{display:inline-flex;align-items:center;height:23px;padding:0 9px;border-radius:6px;font-size:0.79rem;color:var(--text-secondary)}
-.tb.solid{background:var(--brand-primary);color:var(--brand-primary-foreground);font-weight:500}
-.rail{width:170px;flex:0 0 170px}
-.grp{display:flex;align-items:center;gap:6px;padding:10px 12px 4px;font-size:0.74rem;font-weight:500;color:var(--text-muted)}
-.grp .n{opacity:.6}
-.rrow{display:flex;align-items:center;gap:7px;height:23px;padding:0 12px;font-size:0.81rem;color:var(--text-secondary)}
-.rrow.on{background:var(--bg-overlay);color:var(--text-primary)}
-.rrow .sw{width:3px;height:12px;border-radius:2px}
-.rrow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.work{width:250px;flex:0 0 250px;display:flex;flex-direction:column;min-height:0}
-.cbox{margin-top:auto;padding:7px 12px 9px}
-.mi{width:100%;height:42px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:7px;
-  padding:6px 9px;font:0.81rem/1.1rem inherit;color:var(--text-muted)}
-.cbtn{margin-top:5px;height:26px;border-radius:7px;background:var(--brand-primary);color:var(--brand-primary-foreground);
-  display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:500}
-.gph{flex:0 0 auto;border-top:1px solid var(--border-subtle);padding:6px 0 8px}
-.gr{height:24px;display:flex;align-items:center;gap:9px;padding:0 12px;font-size:0.79rem;color:var(--text-secondary)}
-.gr .sha{font:0.71rem var(--mono);color:var(--text-muted);margin-left:auto}
+/* ---- main column + graph band (#302 v4) ---- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.upper{flex:1;min-height:0;display:flex}
+.split{height:9px;flex:0 0 9px;display:flex;align-items:center;justify-content:center;cursor:row-resize;
+  background:var(--bg-base);border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle)}
+.split .grip{width:38px;height:3px;border-radius:2px;background:var(--border-default)}
+.gwrap{height:206px;flex:0 0 206px;display:flex;flex-direction:column;min-height:0}
+.ghead{height:26px;display:flex;align-items:center;font-size:0.72rem;letter-spacing:.06em;
+  color:var(--text-muted);text-transform:uppercase;flex:0 0 auto}
+.ghead .c1{width:190px;padding-left:14px} .ghead .c2{width:150px} .ghead .c3{flex:1}
+.ghead .c4{width:84px} .ghead .c5{width:104px} .ghead .c6{width:52px;text-align:right;padding-right:14px}
+.chev{margin-left:auto;display:flex;align-items:center;gap:5px;padding-right:14px;cursor:pointer;
+  font-size:0.72rem;letter-spacing:.06em;color:var(--text-muted)}
+.grid{position:relative;flex:1;min-height:0;overflow:hidden}
+.rows{position:absolute;inset:0;z-index:0}
+.grow{height:30px;display:flex;align-items:center;cursor:pointer}
+.grow.on{background:var(--bg-overlay)}
+.c1{width:190px;flex:0 0 190px;padding-left:14px;display:flex;gap:5px;align-items:center;overflow:hidden}
+.c2{width:150px;flex:0 0 150px}
+.c3{flex:1;min-width:0;font-size:0.85rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:12px}
+.c3.merge{color:var(--text-muted)}
+.c4{width:84px;flex:0 0 84px;font:0.74rem/1 var(--mono);color:var(--text-muted)}
+.c5{width:104px;flex:0 0 104px;font-size:0.79rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c6{width:52px;flex:0 0 52px;font:0.74rem/1 var(--mono);color:var(--text-muted);opacity:.7;text-align:right;padding-right:14px}
+.tag{display:inline-flex;align-items:center;gap:4px;height:18px;max-width:120px;padding:0 6px;border-radius:4px;
+  font:0.71rem/1 var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;
+  background:var(--bg-muted);color:var(--text-secondary)}
+.tag i{width:5px;height:5px;border-radius:50%;flex:0 0 auto}
+.tag.head{box-shadow:inset 0 0 0 1px currentColor}
+.lanes{position:absolute;left:190px;top:0;width:150px;height:180px;pointer-events:none;z-index:1}
 
-.blank{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
-.blank p{font-size:0.83rem;line-height:1.3rem;color:var(--text-muted);max-width:38ch}
-.arrow{display:flex;align-items:center;justify-content:center;color:var(--brand-secondary);font-size:1.5rem;flex:0 0 auto;width:34px}
 .mark{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
   background:var(--brand-secondary);color:#1c1230;font:600 0.68rem/1 var(--mono);flex:0 0 auto}
-.legend{margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:0.8rem;color:var(--text-muted);max-width:96ch}
-.legend div{display:flex;align-items:flex-start;gap:8px;line-height:1.18rem}
+.legend{margin-top:13px;display:flex;flex-direction:column;gap:7px;font-size:0.81rem;color:var(--text-muted);max-width:112ch}
+.legend div{display:flex;align-items:flex-start;gap:9px;line-height:1.2rem}
+.arrow{display:flex;align-items:center;gap:9px;margin:22px 0 10px;font-size:0.83rem;color:var(--brand-secondary)}
+.arrow i{font-style:normal;font-size:1.1rem}
 </style>
 </head>
 <body>
 
-<h1>Diff surface — where a diff opens</h1>
+<h1>Diff surface — prototype</h1>
 <p class="lede">
-Drawn from the code as it stands, not from the ticket. Three things to react to: what opening a diff does to your
-open files <b>today</b>, what a diff looks like as a <b>real tab</b>, and whether the Git app <b>keeps its own diff
-pane or throws you out to the editor</b>.
+Corrected model. There are <b>two</b> git surfaces and both contain their own diff: the full-screen Git app, and a
+simpler Source Control view inside the Explorer. Neither contains an editor. Opening a <i>file</i> switches you to the
+Explorer's Editor view and the git view goes away — they are modes that swap, not panes that share the screen.
 </p>
 
-<!-- ============ 1. TODAY ============ -->
-<h2>1 · What happens today</h2>
+<!-- ============ 1 ============ -->
+<h2>1 · Explorer, Source Control view</h2>
 <p class="note">
-<code>ExplorerWorkspace.tsx:235</code> renders the diff <i>instead of</i> the editor — not beside it. Four open files,
-click one changed file in the git panel, and the tab bar itself is replaced by a single grey line with an ×.
-The files are still open; you just can't see or reach them until you close the diff.
+Reached by the Source Control icon that already exists in the activity bar. Changes and history on the left, the diff
+filling the rest — the same two lists agreed in #301, at the same 300px, but the diff is <b>in this view</b> rather
+than in the editor. Sync and the branch live in the header; the real work stays in the Git app.
 </p>
-<div class="row">
-  <div style="flex:0 0 620px">
-    <div class="tagline">Before — four files open</div>
-    <div class="win" style="height:250px">
-      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
-      <div class="hair"></div>
-      <div class="wbody">
-        <div class="side narrow">
-          <div class="ptitle"><span>Git</span></div>
-          <div class="sec">Changes <span class="n">8</span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/</span>Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
-        </div>
-        <div class="vhair"></div>
-        <div class="ed">
-          <div class="tabs">
-            <span class="tab on">Panel.tsx <span class="x">×</span></span>
-            <span class="tab">parse.ts <span class="x">×</span></span>
-            <span class="tab">format.ts <span class="x">×</span></span>
-            <span class="tab">api.md <span class="x">×</span></span>
-          </div>
-          <div class="code" style="padding-left:0">
-            <div class="dl"><span class="ln">18</span><span class="tx"><span class="kw">export function</span> Panel({ items }) {</span></div>
-            <div class="dl"><span class="ln">19</span><span class="tx">  <span class="kw">const</span> [open, setOpen] = useState(<span class="kw">false</span>);</span></div>
-            <div class="dl"><span class="ln">20</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">21</span><span class="tx">  <span class="cm">// bounded, then scrolls</span></span></div>
-            <div class="dl"><span class="ln">22</span><span class="tx">  <span class="kw">return</span> &lt;div className=<span class="str">"panel"</span>&gt;</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
+<div class="app">
+  <div class="topbar">
+    <div class="repo">orchestrator-demo-1</div>
+    <span class="bchip">main</span>
+    <span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span>
+    <span class="tb">Fetch</span>
+    <span class="tb">Pull</span>
+    <span class="tb">Push</span>
+    <span class="tb">Open Git app</span>
   </div>
-  <div class="arrow" style="height:250px">›</div>
-  <div style="flex:1;min-width:0">
-    <div class="tagline">After one click — the tab bar is gone</div>
-    <div class="win" style="height:250px">
-      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
-      <div class="hair"></div>
-      <div class="wbody">
-        <div class="side narrow">
-          <div class="ptitle"><span>Git</span></div>
-          <div class="sec">Changes <span class="n">8</span></div>
-          <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span></span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/</span>Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
-        </div>
-        <div class="vhair"></div>
-        <div class="ed">
-          <div class="fake">Diff: 986300b → working tree, README.md <span class="x">×</span></div>
-          <div class="dbar">8 files changed <span class="rev">986300b → working tree</span></div>
-          <div class="dsplit">
-            <div class="nav">
-              <div class="nrow on"><span class="dot m"></span><span class="nm">README.md</span></div>
-              <div class="nrow"><span class="dot a"></span><span class="nm">parse.ts</span></div>
-              <div class="nrow"><span class="dot m"></span><span class="nm">format.ts</span></div>
-            </div>
-            <div class="chg">
-              <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
-              <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding</span></div>
-              <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
-              <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="spec"><b>Panel.tsx, parse.ts, format.ts and api.md are still open and unreachable.</b> Close the diff to get them
-    back. You also can't have two diffs, and switching workspace silently throws the diff away.</p>
-  </div>
-</div>
-
-<!-- ============ 2. AS A REAL TAB ============ -->
-<h2>2 · The diff as a real tab</h2>
-<p class="note">
-Same tab strip, diffs sitting as peers beside files. Two open at once — one working-tree changeset, one past commit —
-so you can compare what you're about to commit against what you shipped last week. Diff tabs are tinted violet and
-carry the revision, because "README.md" alone wouldn't tell you which of the two you're looking at.
-</p>
-<div class="win" style="height:430px">
-  <div class="chrome"><span class="dots"><i></i><i></i><i></i></span> sero — Explorer</div>
   <div class="hair"></div>
-  <div class="wbody">
-    <div class="side">
-      <div class="ptitle"><span>Git</span></div>
+  <div class="body">
+    <div class="abar">
+      <div class="aico" title="Explorer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg></div>
+      <div class="aico on" title="Source Control"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg></div>
+      <div class="aico" title="Orchestration"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M12 7.2v4M12 11.2 6.5 17M12 11.2 17.5 17"/></svg></div>
+      <div class="aico" title="Browser"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18"/></svg></div>
+      <div style="flex:1"></div>
+      <div class="aico" title="Terminal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8l3 3-3 3M11 14h7"/><rect x="2.5" y="4" width="19" height="16" rx="2"/></svg></div>
+    </div>
+
+    <div class="work">
+      <div class="ptitle"><span>Source Control</span>
+        <div class="ico" title="Refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div>
+      </div>
       <div class="hair"></div>
       <div class="sec">Changes <span class="n">8</span></div>
-      <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-      <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
-      <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
-      <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
-      <div class="hair" style="margin-top:6px"></div>
+      <div class="scroller" style="max-height:200px">
+        <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
+          <span class="acts"><div class="ab" title="Open file in Editor"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div class="ab danger" title="Discard"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div></span></div>
+        <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+        <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+        <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn">package.json</span><span class="st"><span class="p">+3</span> <span class="m">−1</span></span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">docs/reference/</span>api.md</span><span class="st"><span class="p">+18</span> <span class="m">−2</span></span></div>
+      </div>
+      <div class="hair" style="margin-top:8px"></div>
       <div class="sec">History</div>
-      <div class="crow"><span class="gdot hd"></span><span class="cmsg">chore: added CHANGELOG</span><span class="cmeta">986300b</span></div>
-      <div class="crow"><span class="gdot"></span><span class="cmsg">Fix README typo and round shares</span><span class="cmeta">878b180</span></div>
-      <div class="crow"><span class="gdot"></span><span class="cmsg">Add currency option to output</span><span class="cmeta">25b88c6</span></div>
+      <div class="scroller" style="flex:1;min-height:0">
+        <div class="crow"><span class="gdot hd"></span><span class="cmsg">chore: added CHANGELOG</span><span class="cmeta">986300b</span></div>
+        <div class="crow"><span class="gdot"></span><span class="cmsg">Fix README typo and round shares</span><span class="cmeta">878b180</span></div>
+        <div class="crow"><span class="gdot"></span><span class="cmsg">chore: initial commit</span><span class="cmeta">5790fdb</span></div>
+        <div class="crow"><span class="gdot"></span><span class="cmsg">Add currency option to output</span><span class="cmeta">25b88c6</span></div>
+        <div class="crow"><span class="gdot"></span><span class="cmsg">Initial commit</span><span class="cmeta">957a64f</span></div>
+      </div>
+      <div class="hair"></div>
+      <div class="footlink">Open Git app <span style="flex:1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg></div>
     </div>
     <div class="vhair"></div>
-    <div class="ed">
-      <div class="tabs">
-        <span class="tab">Panel.tsx <span class="x">×</span></span>
-        <span class="tab">parse.ts <span class="x">×</span></span>
-        <span class="tab diff on">Changes <span class="sub">986300b → working tree</span> <span class="x">×</span></span>
-        <span class="tab diff">878b180 <span class="sub">Fix README typo…</span> <span class="x">×</span></span>
-        <span class="tab">api.md <span class="x">×</span></span>
+
+    <div class="detail">
+      <div class="dbar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        8 files changed <span class="mut">986300b → working tree</span>
+        <span class="r">
+          <div class="ico" title="Toggle file list"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+          <div class="ico" title="Unified diff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></div>
+        </span>
       </div>
-      <div class="dbar">8 files changed <span class="rev">986300b → working tree</span>
-        <span class="r">split · unified</span></div>
       <div class="dsplit">
-        <div class="nav">
+        <div class="dnav scroller">
           <div class="nrow on"><span class="dot m"></span><span class="nm">README.md</span></div>
           <div class="nrow"><span class="dot a"></span><span class="nm">src/lib/parse.ts</span></div>
           <div class="nrow"><span class="dot m"></span><span class="nm">src/lib/format.ts</span></div>
@@ -265,177 +282,240 @@ carry the revision, because "README.md" alone wouldn't tell you which of the two
           <div class="nrow"><span class="dot m"></span><span class="nm">package.json</span></div>
           <div class="nrow"><span class="dot m"></span><span class="nm">docs/reference/api.md</span></div>
         </div>
-        <div class="chg">
+        <div class="dbody">
           <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
           <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
           <div class="dl"><span class="ln">12</span><span class="tx"></span></div>
           <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding and a currency option</span></div>
           <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
           <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes in diff editor</span></div>
-          <div class="fh" style="margin-top:8px">src/lib/parse.ts <span class="s"><span class="p">+41</span> <span class="m">−3</span></span></div>
+          <div class="fh" style="margin-top:10px">src/lib/parse.ts <span class="s"><span class="p">+41</span> <span class="m">−3</span></span></div>
           <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -12,7 +12,9 @@</span></div>
-          <div class="dl del"><span class="ln">12</span><span class="tx">− export function parse(input) {</span></div>
-          <div class="dl add"><span class="ln">12</span><span class="tx">+ export function parse(input, opts = {}) {</span></div>
-          <div class="dl"><span class="ln">13</span><span class="tx">  const rows = input.split('\n');</span></div>
+          <div class="dl"><span class="ln">12</span><span class="tx">  <span class="cm">/** Parse a CSV table into rows. */</span></span></div>
+          <div class="dl del"><span class="ln">13</span><span class="tx">− <span class="kw">export function</span> <span class="fnn">parse</span>(input) {</span></div>
+          <div class="dl add"><span class="ln">13</span><span class="tx">+ <span class="kw">export function</span> <span class="fnn">parse</span>(input, opts = {}) {</span></div>
+          <div class="dl"><span class="ln">14</span><span class="tx">  <span class="kw">const</span> rows = input.<span class="fnn">split</span>(<span class="str">'\n'</span>);</span></div>
+          <div class="dl add"><span class="ln">15</span><span class="tx">+ <span class="kw">const</span> scale = opts.scale ?? <span class="str">2</span>;</span></div>
+          <div class="dl"><span class="ln">16</span><span class="tx"></span></div>
+          <div class="dl"><span class="ln">17</span><span class="tx">  <span class="kw">return</span> rows.<span class="fnn">map</span>((r) => r.<span class="fnn">split</span>(<span class="str">','</span>));</span></div>
         </div>
       </div>
     </div>
   </div>
 </div>
-<div class="legend">
-  <div><span class="mark">1</span><span><b>Your files stay open and reachable.</b> The diff is one more tab, not a mode.</span></div>
-  <div><span class="mark">2</span><span><b>Two diffs at once</b> — the working tree, and a commit from last week.</span></div>
-  <div><span class="mark">3</span><span><b>What it costs.</b> A tab is a bare path string in six places today, including the state saved to disk
-  (<code>editorTabs: string[]</code>, the drag-reorder ids, the rename and delete remaps). Tab identity has to become
-  "a file <i>or</i> a revision pair" in all of them.</span></div>
-  <div><span class="mark">4</span><span><b>One question it raises:</b> should a diff tab come back when you reopen the workspace? The
-  revision it points at may have been rebased away.</span></div>
-</div>
-
-<!-- ============ 3. A vs B ============ -->
-<h2>3 · Does the Git app keep its own diff?</h2>
-<p class="note">
-The Git app is a full-screen app you opened on purpose to do git work. The question is what happens when you click a
-file in it.
+<p class="spec" style="max-width:104ch">
+<b>What this view is.</b> #301's two lists, plus the diff they open. It is the cheap way to read what changed —
+no rail, no graph, no commit box, no PR. The header carries the branch, the sync counts and Fetch / Pull / Push so a
+glance-and-sync needs no other surface. Anything more than that is <b>Open Git app</b>.
 </p>
-<div class="row" style="gap:22px">
 
-  <div style="flex:1;min-width:0">
-    <div class="tagline"><b>A · Route only</b> — nothing embeds a diff; every click opens a tab in the Explorer</div>
-    <div class="win" style="height:334px">
-      <div class="gtop">
-        <span class="repo">sero</span><span class="bchip">main</span>
-        <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Push</span><span class="tb solid">Create pull request</span>
-      </div>
-      <div class="hair"></div>
-      <div class="wbody">
-        <div class="rail">
-          <div class="grp">Branches <span class="n">4</span></div>
-          <div class="rrow on"><span class="sw" style="background:#c4b5fd"></span><span class="nm">main</span></div>
-          <div class="rrow"><span class="sw" style="background:#38bdf8"></span><span class="nm">feat/git-ux</span></div>
-        </div>
-        <div class="vhair"></div>
-        <div class="work" style="width:250px;flex:0 0 250px">
-          <div class="sec">Staged <span class="n">2</span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span></span></div>
-          <div class="sec">Changes <span class="n">6</span></div>
-          <div class="frow on"><span class="dot m"></span><span class="fn">Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
-          <div class="frow"><span class="dot d"></span><span class="fn">old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
-          <div class="cbox">
-            <div class="mi">feat(parse): support currency output</div>
-            <div class="cbtn">Commit 2 staged</div>
-          </div>
-        </div>
-        <div class="vhair"></div>
-        <div class="blank">
-          <p>Clicking <b>Panel.tsx</b> leaves this app<br>and opens a diff tab in the Explorer.<br><br>
-          Nothing renders here.</p>
-        </div>
-      </div>
-      <div class="gph">
-        <div class="gr"><span class="gdot hd"></span> chore: added CHANGELOG <span class="sha">986300b</span></div>
-        <div class="gr"><span class="gdot"></span> Fix README typo and round shares <span class="sha">878b180</span></div>
-      </div>
-    </div>
-    <p class="spec"><b>One diff implementation, one place diffs live.</b> But you opened the Git app to stage and commit, and
-    reading any file throws you into a different app — then you have to come back to press Commit. The graph, the
-    staged list and the commit box are all gone from view while you read.</p>
-  </div>
+<div class="arrow"><i>↓</i> Click the file icon on a row — or the file name in the diff — and you leave for the Editor</div>
 
-  <div style="flex:1;min-width:0">
-    <div class="tagline"><b>B · Route by default, embed where it earns it</b> — panels route out, the full-screen app embeds</div>
-    <div class="win" style="height:334px">
-      <div class="gtop">
-        <span class="repo">sero</span><span class="bchip">main</span>
-        <span style="flex:1"></span><span class="tb">Fetch</span><span class="tb">Push</span><span class="tb solid">Create pull request</span>
-      </div>
-      <div class="hair"></div>
-      <div class="wbody">
-        <div class="rail">
-          <div class="grp">Branches <span class="n">4</span></div>
-          <div class="rrow on"><span class="sw" style="background:#c4b5fd"></span><span class="nm">main</span></div>
-          <div class="rrow"><span class="sw" style="background:#38bdf8"></span><span class="nm">feat/git-ux</span></div>
-        </div>
-        <div class="vhair"></div>
-        <div class="work" style="width:212px;flex:0 0 212px">
-          <div class="sec">Staged <span class="n">2</span></div>
-          <div class="frow"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span></div>
-          <div class="frow"><span class="dot a"></span><span class="fn">parse.ts</span><span class="st"><span class="p">+41</span></span></div>
-          <div class="sec">Changes <span class="n">6</span></div>
-          <div class="frow on"><span class="dot m"></span><span class="fn">Panel.tsx</span><span class="st"><span class="p">+77</span></span></div>
-          <div class="frow"><span class="dot d"></span><span class="fn">old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
-          <div class="cbox">
-            <div class="mi">feat(parse): support currency output</div>
-            <div class="cbtn">Commit 2 staged</div>
-          </div>
-        </div>
-        <div class="vhair"></div>
-        <div class="ed">
-          <div class="dbar">Panel.tsx <span class="rev">986300b → working tree</span><span class="r">split · unified</span></div>
-          <div class="chg" style="flex:1">
-            <div class="fh">src/components/Panel.tsx <span class="s"><span class="p">+77</span> <span class="m">−14</span></span></div>
-            <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -18,6 +18,9 @@</span></div>
-            <div class="dl"><span class="ln">18</span><span class="tx">function Panel({ items }) {</span></div>
-            <div class="dl del"><span class="ln">19</span><span class="tx">−  const [o, set] = useState(false)</span></div>
-            <div class="dl add"><span class="ln">19</span><span class="tx">+  const [o, set] = useState(init)</span></div>
-            <div class="dl add"><span class="ln">20</span><span class="tx">+  const rows = bounded(items, 8)</span></div>
-            <div class="dl"><span class="ln">21</span><span class="tx"></span></div>
-            <div class="dl"><span class="ln">22</span><span class="tx">  return &lt;div class="panel"&gt;</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="gph">
-        <div class="gr"><span class="gdot hd"></span> chore: added CHANGELOG <span class="sha">986300b</span></div>
-        <div class="gr"><span class="gdot"></span> Fix README typo and round shares <span class="sha">878b180</span></div>
-      </div>
-    </div>
-    <p class="spec"><b>Stage, read, commit without leaving.</b> The commit box and the graph stay on screen while you read the
-    diff — which is the layout #302 already agreed. Cost: the same changeset component is mounted in two places, and
-    the Git app is a plugin that can't reach <code>@pierre/diffs</code> today (it's a dependency of the desktop app only).</p>
-  </div>
-</div>
-
-<!-- ============ 4. ONE FILE ============ -->
-<h2>4 · One file, in a viewer built for changesets</h2>
+<!-- ============ 2 ============ -->
+<h2>2 · Explorer, Editor view — where files open</h2>
 <p class="note">
-The viewer is keyed on a revision pair, not a file — so "show me just README.md" is really "show me this changeset,
-scrolled to README.md". The existing code already handles it: the 220px file list only appears when there is more
-than one file (<code>DiffTab.tsx:98</code>), so a single-file diff is just the diff, full width.
+The Editor is its own view with its own icon. Opening a file from either git surface lands here and the git view is
+gone; clicking Source Control again brings it back exactly as it was. One mode at a time, in both directions.
 </p>
-<div class="row">
-  <div style="flex:0 0 700px">
-    <div class="tagline">One changed file — navigator hidden, full width</div>
-    <div class="win" style="height:210px">
+<div class="app">
+  <div class="topbar">
+    <div class="repo">orchestrator-demo-1</div>
+    <span class="bchip">main</span>
+    <span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span>
+    <span class="tb">Fetch</span>
+    <span class="tb">Pull</span>
+    <span class="tb">Push</span>
+    <span class="tb">Open Git app</span>
+  </div>
+  <div class="hair"></div>
+  <div class="body">
+    <div class="abar">
+      <div class="aico" title="Explorer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg></div>
+      <div class="aico" title="Source Control"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/><circle cx="18" cy="7" r="2.5"/><path d="M18 9.5c0 5-6 3.5-6 8.5"/></svg></div>
+      <div class="aico" title="Orchestration"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M12 7.2v4M12 11.2 6.5 17M12 11.2 17.5 17"/></svg></div>
+      <div class="aico" title="Browser"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18"/></svg></div>
+      <div style="flex:1"></div>
+      <div class="aico" title="Terminal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8l3 3-3 3M11 14h7"/><rect x="2.5" y="4" width="19" height="16" rx="2"/></svg></div>
+    </div>
+
+    <div class="tree">
+      <div class="ptitle"><span>Explorer</span></div>
+      <div class="hair"></div>
+      <div class="trow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg><span>docs</span></div>
+      <div class="trow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg><span>src</span></div>
+      <div class="trow ind"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg><span>lib</span></div>
+      <div class="trow ind2"><span>format.ts</span></div>
+      <div class="trow ind2"><span>parse.ts</span></div>
+      <div class="trow ind"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg><span>components</span></div>
+      <div class="trow on"><span style="width:13px"></span><span>README.md</span></div>
+      <div class="trow"><span style="width:13px"></span><span>package.json</span></div>
+    </div>
+    <div class="vhair"></div>
+
+    <div class="detail">
       <div class="tabs">
+        <span class="tab on">README.md <span class="x">×</span></span>
         <span class="tab">Panel.tsx <span class="x">×</span></span>
-        <span class="tab diff on">README.md <span class="sub">986300b → working tree</span> <span class="x">×</span></span>
+        <span class="tab">parse.ts <span class="x">×</span></span>
       </div>
-      <div class="dbar">1 file changed <span class="rev">986300b → working tree</span><span class="r">split · unified</span></div>
-      <div class="chg" style="flex:1">
+      <div class="code">
+        <div class="dl"><span class="ln">1</span><span class="tx"><span class="cm"># orchestrator-demo-1</span></span></div>
+        <div class="dl"><span class="ln">2</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">3</span><span class="tx">A small worked example used while designing the git surfaces.</span></div>
+        <div class="dl"><span class="ln">4</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">5</span><span class="tx">## Install</span></div>
+        <div class="dl"><span class="ln">6</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">7</span><span class="tx">    pnpm install</span></div>
+        <div class="dl"><span class="ln">8</span><span class="tx">    pnpm dev</span></div>
+        <div class="dl"><span class="ln">9</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">10</span><span class="tx">## Usage</span></div>
+        <div class="dl"><span class="ln">11</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">12</span><span class="tx">    parse(csv, { scale: 2, currency: 'GBP' })</span></div>
+        <div class="dl"><span class="ln">13</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">14</span><span class="tx">Rows come back as arrays of strings. Numbers are left</span></div>
+        <div class="dl"><span class="ln">15</span><span class="tx">alone unless a scale is given.</span></div>
+        <div class="dl"><span class="ln">16</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">17</span><span class="tx">## Status</span></div>
+        <div class="dl"><span class="ln">18</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">19</span><span class="tx">Early prototype: rounding and a currency option</span></div>
+        <div class="dl"><span class="ln">20</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">21</span><span class="tx">Testing changes in diff editor</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="spec" style="max-width:104ch">
+<b>Nothing new is needed for this.</b> <code>openSeroFile</code> is already an <code>@sero-ai/app-runtime</code> export
+(#296), so the Git app can open a file in the Editor today. The only host change is that opening a file must also
+<b>switch the active view</b> — otherwise the file opens behind the git view and nothing appears to happen.
+</p>
+
+<!-- ============ 3 ============ -->
+<h2>3 · The Git app — same diff, more around it</h2>
+<p class="note">
+Unchanged from #302: rail, working tree beside the diff, graph below. Drawn here only to show that the diff pane is
+the same component as section 1 at a different width — and that opening a file leaves for the Editor from here too.
+</p>
+<div class="app tall">
+  <div class="topbar">
+    <div class="repo">orchestrator-demo-1</div>
+    <span class="bchip">main</span>
+    <span class="sync">↑0 ↓0 · 8 changed</span>
+    <span style="flex:1"></span>
+    <span class="ghchip"><span class="av"></span>monobyte</span>
+    <span class="tb">Fetch</span>
+    <span class="tb">Pull</span>
+    <span class="tb">Push</span>
+    <span class="tb solid">Create pull request</span>
+  </div>
+  <div class="hair"></div>
+  <div class="body">
+    <div class="rail">
+      <div class="grp">Branches <span class="n">6</span></div>
+      <div class="rrow on"><span class="sw" style="background:#c4b5fd"></span><span class="nm">main</span></div>
+      <div class="rrow"><span class="sw" style="background:#f59e0b"></span><span class="nm">chore/review-open-…-25cb4</span><span class="wt">WT</span></div>
+      <div class="rrow"><span class="sw" style="background:#38bdf8"></span><span class="nm">feat/create-concise-…-57596</span></div>
+      <div class="rrow"><span class="sw" style="background:#34d399"></span><span class="nm">fix/review-and-handle-…-e644e</span><span class="ct">↓2</span></div>
+      <div class="grp" style="padding-top:16px">origin <span class="n">github.com</span></div>
+      <div class="rrow"><span style="width:12px"></span><span class="nm">main</span></div>
+      <div class="grp" style="padding-top:16px">Stashes <span class="n">0</span></div>
+      <div class="rrow" style="color:var(--text-muted);opacity:.75"><span style="width:12px"></span><span class="nm">Nothing stashed</span></div>
+    </div>
+    <div class="vhair"></div>
+
+    <div class="main">
+     <div class="upper">
+      <div class="work wide">
+      <div class="sec">Working tree <span class="n">8 files</span></div>
+      <div class="scroller" style="max-height:196px">
+        <div class="subsec">Staged <span class="n">2</span><span class="act">Unstage all</span></div>
+        <div class="frow on"><span class="dot m"></span><span class="fn">README.md</span><span class="st"><span class="p">+2</span></span>
+          <span class="acts"><div class="ab" title="Open file in Editor"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div class="ab" title="Unstage"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></div></span></div>
+        <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/lib/</span>parse.ts</span><span class="st"><span class="p">+41</span> <span class="m">−3</span></span></div>
+        <div class="subsec" style="padding-top:11px">Changes <span class="n">6</span><span class="act">Stage all</span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/lib/</span>format.ts</span><span class="st"><span class="p">+12</span> <span class="m">−8</span></span></div>
+        <div class="frow"><span class="dot m"></span><span class="fn"><span class="dir">src/components/</span>Panel.tsx</span><span class="st"><span class="p">+77</span> <span class="m">−14</span></span></div>
+        <div class="frow"><span class="dot a"></span><span class="fn"><span class="dir">src/components/</span>Row.tsx</span><span class="st"><span class="p">+96</span></span></div>
+        <div class="frow"><span class="dot d"></span><span class="fn"><span class="dir">src/legacy/</span>old-parse.ts</span><span class="st"><span class="m">−210</span></span></div>
+      </div>
+      <div class="cbox">
+        <div class="mw">
+          <div class="mi">feat(parse): support currency output</div>
+          <div class="ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/></svg></div>
+        </div>
+        <div class="cbtn">Commit 2 staged <span class="kbd">⌘ ↵</span></div>
+      </div>
+    </div>
+    <div class="vhair"></div>
+
+    <div class="detail">
+      <div class="dbar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        README.md <span class="mut">986300b → working tree</span>
+        <span class="r">
+          <div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+          <div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></div>
+        </span>
+      </div>
+      <div class="dbody">
         <div class="fh">README.md <span class="s"><span class="p">+2</span></span></div>
         <div class="dl"><span class="ln">11</span><span class="tx">## Status</span></div>
         <div class="dl"><span class="ln">12</span><span class="tx"></span></div>
         <div class="dl"><span class="ln">13</span><span class="tx">Early prototype: rounding and a currency option</span></div>
         <div class="dl add"><span class="ln">14</span><span class="tx">+</span></div>
         <div class="dl add"><span class="ln">15</span><span class="tx">+ Testing changes in diff editor</span></div>
+        <div class="fh" style="margin-top:10px">src/lib/parse.ts <span class="s"><span class="p">+41</span> <span class="m">−3</span></span></div>
+        <div class="dl hunk"><span class="ln"></span><span class="tx">@@ -12,7 +12,9 @@</span></div>
+        <div class="dl"><span class="ln">12</span><span class="tx">  <span class="cm">/** Parse a CSV table into rows. */</span></span></div>
+        <div class="dl del"><span class="ln">13</span><span class="tx">− <span class="kw">export function</span> <span class="fnn">parse</span>(input) {</span></div>
+        <div class="dl add"><span class="ln">13</span><span class="tx">+ <span class="kw">export function</span> <span class="fnn">parse</span>(input, opts = {}) {</span></div>
+        <div class="dl"><span class="ln">14</span><span class="tx">  <span class="kw">const</span> rows = input.<span class="fnn">split</span>(<span class="str">'\n'</span>);</span></div>
+        <div class="dl add"><span class="ln">15</span><span class="tx">+ <span class="kw">const</span> scale = opts.scale ?? <span class="str">2</span>;</span></div>
+        <div class="dl"><span class="ln">16</span><span class="tx"></span></div>
+        <div class="dl"><span class="ln">17</span><span class="tx">  <span class="kw">return</span> rows.<span class="fnn">map</span>((r) => r.<span class="fnn">split</span>(<span class="str">','</span>));</span></div>
       </div>
+      </div>
+     </div>
+
+     <div class="split"><span class="grip"></span></div>
+
+     <div class="gwrap">
+      <div class="ghead"><span class="c1">Branch / tag</span><span class="c2">Graph</span><span class="c3">Commit</span><span class="c4">SHA</span><span class="c5">Author</span><span class="c6">When</span>
+        <span class="chev">Collapse <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 15 6-6 6 6"/></svg></span>
+      </div>
+      <div class="grid">
+        <div class="rows">
+          <div class="grow on"><span class="c1"><span class="tag head" style="color:#c4b5fd"><i style="background:#c4b5fd"></i>main</span></span><span class="c2"></span><span class="c3">chore: added CHANGELOG</span><span class="c4">986300b</span><span class="c5">monobyte</span><span class="c6">2h</span></div>
+          <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">Fix README typo and round shares</span><span class="c4">878b180</span><span class="c5">monobyte</span><span class="c6">5h</span></div>
+          <div class="grow"><span class="c1"><span class="tag"><i style="background:#f59e0b"></i>chore/review-…</span></span><span class="c2"></span><span class="c3 merge">Merge branch 'chore/review-open-prs'</span><span class="c4">4d2425c</span><span class="c5">monobyte</span><span class="c6">1d</span></div>
+          <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">Add currency option to output</span><span class="c4">25b88c6</span><span class="c5">monobyte</span><span class="c6">1d</span></div>
+          <div class="grow"><span class="c1"><span class="tag"><i style="background:#38bdf8"></i>feat/create-…</span></span><span class="c2"></span><span class="c3">Bound the list and scroll</span><span class="c4">87bb84a</span><span class="c5">monobyte</span><span class="c6">2d</span></div>
+          <div class="grow"><span class="c1"></span><span class="c2"></span><span class="c3">chore: initial commit</span><span class="c4">5790fdb</span><span class="c5">monobyte</span><span class="c6">3d</span></div>
+        </div>
+        <svg class="lanes" viewBox="0 0 150 180" preserveAspectRatio="none">
+          <path d="M18 0 V180" stroke="#c4b5fd" stroke-width="1.6" fill="none"/>
+          <path d="M42 62 V180" stroke="#f59e0b" stroke-width="1.6" fill="none"/>
+          <path d="M42 62 C42 48 18 48 18 34" stroke="#f59e0b" stroke-width="1.6" fill="none"/>
+          <path d="M66 122 V180" stroke="#38bdf8" stroke-width="1.6" fill="none"/>
+          <circle cx="18" cy="15" r="4.2" fill="#0a0a0b" stroke="#c4b5fd" stroke-width="1.8"/>
+          <circle cx="18" cy="45" r="4.2" fill="#0a0a0b" stroke="#c4b5fd" stroke-width="1.8"/>
+          <circle cx="18" cy="75" r="4.2" fill="#0a0a0b" stroke="#c4b5fd" stroke-width="1.8"/>
+          <circle cx="18" cy="105" r="4.2" fill="#0a0a0b" stroke="#c4b5fd" stroke-width="1.8"/>
+          <circle cx="66" cy="135" r="4.2" fill="#0a0a0b" stroke="#38bdf8" stroke-width="1.8"/>
+          <circle cx="18" cy="165" r="4.2" fill="#0a0a0b" stroke="#c4b5fd" stroke-width="1.8"/>
+        </svg>
+      </div>
+     </div>
     </div>
-    <p class="spec"><b>Nothing new needed.</b> The tab is labelled with the file because there is only one; an eight-file
-    changeset is labelled "Changes". Same component either way.</p>
   </div>
-  <div style="flex:1;min-width:0">
-    <div class="tagline">The one thing that has no answer yet</div>
-    <div class="win" style="padding:16px 18px">
-      <p style="font-size:0.85rem;line-height:1.4rem;color:var(--text-muted)">
-      Click <b>README.md</b> in the panel twice — once from Changes, once from a past commit — and you get
-      <b>two tabs</b>, because they're different revision pairs. Click it twice from the same place and you should get
-      <b>one</b>.<br><br>
-      So a diff tab's identity is the revision pair, and the file is only where it scrolls to. That is different from
-      file tabs, where the path is the identity. Worth stating in the spec, because it decides what happens on the
-      second click.</p>
-    </div>
-  </div>
+</div>
+
+<div class="legend">
+  <div><span class="mark">1</span><span><b>One diff component, two widths.</b> <code>DiffChangeset</code> is embedded in both git views. Nothing routes a diff into the editor, so <code>DiffTab</code> as a mode over the editor is deleted rather than promoted.</span></div>
+  <div><span class="mark">2</span><span><b>The 220px file list only appears when it earns the space.</b> Section 1 shows it at 8 files; the Git app's narrower pane drops it, because the working-tree column already lists the files.</span></div>
+  <div><span class="mark">3</span><span><b>The editor never shows a diff, and the git views never show an editable file.</b> That is the whole rule — it removes the vanishing-tab-bar problem instead of solving it.</span></div>
+  <div><span class="mark">4</span><span><b>What the host must add:</b> opening a file switches the active view. One change to the existing open-file path, plus the Git app needs a way to say "go to the Editor" — which today it cannot, because <code>openSeroFile</code> opens a tab without changing view.</span></div>
 </div>
 
 </body>
