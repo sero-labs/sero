@@ -13,9 +13,8 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
+import { getGitServiceBridge } from '@sero-ai/common';
 import type { GitManagerRequest } from '../shared/types';
-import { refreshGitState, runGitAction } from './git-service';
-import { resolveStatePath } from './state-io';
 
 const ACTIONS = [
   'refresh',
@@ -60,17 +59,11 @@ type ToolResult = {
 };
 
 export default function (pi: ExtensionAPI) {
-  let statePath = '';
   let cwd = '';
 
-  const syncWorkspaceState = async (nextCwd: string) => {
-    cwd = nextCwd;
-    statePath = resolveStatePath(nextCwd);
-    await refreshGitState(nextCwd, statePath);
-  };
-
   pi.on('session_start', async (_event, ctx) => {
-    await syncWorkspaceState(ctx.cwd);
+    cwd = ctx.cwd;
+    await getGitServiceBridge()?.syncState(ctx.cwd);
   });
 
   pi.registerTool({
@@ -82,15 +75,17 @@ export default function (pi: ExtensionAPI) {
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const resolvedCwd = ctx?.cwd ?? cwd;
-      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : statePath;
-      if (!resolvedPath) {
+      if (!resolvedCwd) {
         return toToolResult({ ok: false, message: 'no workspace cwd set' });
       }
 
-      cwd = resolvedCwd;
-      statePath = resolvedPath;
+      const bridge = getGitServiceBridge();
+      if (!bridge) {
+        return toToolResult({ ok: false, message: 'git service unavailable (requires the Sero host)' });
+      }
 
-      return toToolResult(await runGitAction(params as GitManagerRequest, resolvedCwd, resolvedPath));
+      cwd = resolvedCwd;
+      return toToolResult(await bridge.runAction(params as GitManagerRequest, resolvedCwd));
     },
 
     renderCall(args, theme) {

@@ -24,10 +24,11 @@ const mocks = vi.hoisted(() => {
     watcherRecords,
     createWatcher,
     existsSync: vi.fn(() => true),
+    statSync: vi.fn(() => ({ isDirectory: () => true })),
+    readFileSync: vi.fn(() => ''),
     watch: vi.fn((targetPath: string) => createWatcher(targetPath)),
     refreshGitState: vi.fn().mockResolvedValue({ repoName: 'repo' }),
     runGitAction: vi.fn(),
-    runGit: vi.fn(() => '.git'),
     appStateWrite: vi.fn().mockResolvedValue(undefined),
     resolveStatePath: vi.fn((workspacePath: string) => `${workspacePath}/.sero/apps/git/state.json`),
     workspaceFindByPath: vi.fn((workspacePath: string) => (
@@ -41,20 +42,18 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('node:fs', () => ({
   existsSync: mocks.existsSync,
+  statSync: mocks.statSync,
+  readFileSync: mocks.readFileSync,
   watch: mocks.watch,
 }));
 
-vi.mock('@plugins/sero-git-plugin/extension/git-service', () => ({
+vi.mock('@electron/features/git/git-service/git-service', () => ({
   refreshGitState: mocks.refreshGitState,
   runGitAction: mocks.runGitAction,
 }));
 
-vi.mock('@plugins/sero-git-plugin/extension/state-io', () => ({
+vi.mock('@electron/features/git/git-service/state-io', () => ({
   resolveStatePath: mocks.resolveStatePath,
-}));
-
-vi.mock('@plugins/sero-git-plugin/extension/git-exec', () => ({
-  runGit: mocks.runGit,
 }));
 
 vi.mock('@electron/features/apps/state/manager', () => ({
@@ -87,8 +86,6 @@ describe('GitWorkspaceStateManager', () => {
     mocks.refreshGitState.mockReset();
     mocks.refreshGitState.mockResolvedValue({ repoName: 'repo' });
     mocks.runGitAction.mockReset();
-    mocks.runGit.mockReset();
-    mocks.runGit.mockReturnValue('.git');
     mocks.appStateWrite.mockClear();
     mocks.resolveStatePath.mockClear();
     mocks.workspaceFindByPath.mockClear();

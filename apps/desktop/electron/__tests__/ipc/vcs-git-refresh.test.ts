@@ -35,22 +35,19 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
     getStatus: vi.fn(),
     getFileDiffSummary: vi.fn(),
     getFileContent: vi.fn(),
-    describeChange: vi.fn(),
-    listBookmarks: vi.fn(),
-    createBookmark: vi.fn(),
-    deleteBookmark: vi.fn(),
-    moveBookmark: vi.fn(),
+    amendCommitMessage: vi.fn(),
+    createBranch: vi.fn(),
+    deleteBranch: vi.fn(),
+    moveBranch: vi.fn(),
     listRemotes: vi.fn(),
     addRemote: vi.fn(),
     setRemoteUrl: vi.fn(),
     removeRemote: vi.fn(),
+    checkoutRemote: vi.fn(),
     fetch: vi.fn(),
     push: vi.fn(),
-    pushDryRun: vi.fn(),
-    undo: vi.fn(),
-    abandon: vi.fn(),
-    squash: vi.fn(),
-    getOperationLog: vi.fn(),
+    undoLastCommit: vi.fn(),
+    discardCommit: vi.fn(),
   },
   vcsPrOps: {
     getState: vi.fn(),
@@ -66,6 +63,7 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
 vi.mock('@electron/features/apps/git-app/manager', () => ({
   gitWorkspaceStateManager: {
     invalidateWorkspace: mocks.invalidateWorkspace,
+    refreshWorkspace: vi.fn(),
   },
 }));
 
@@ -101,5 +99,46 @@ describe('vcs git refresh invalidation', () => {
 
     expect(mocks.invalidateWorkspace).toHaveBeenNthCalledWith(1, 'ws-1', 'vcs:checkpoint_created');
     expect(mocks.invalidateWorkspace).toHaveBeenNthCalledWith(2, 'ws-1', 'vcs:restored');
+  });
+
+  it('invalidates the repo-state cache after successful mutations', async () => {
+    const { registerVcsHandlers } = await import('@electron/ipc/integrations/vcs');
+    const { IpcChannels } = await import('@/types/ipc-channels');
+
+    registerVcsHandlers();
+
+    const handlerFor = (channel: string) => {
+      const call = mocks.ipcHandle.mock.calls.find(([name]) => name === channel);
+      if (!call) throw new Error(`No handler registered for ${channel}`);
+      return call[1] as (...args: unknown[]) => Promise<unknown>;
+    };
+
+    await handlerFor(IpcChannels.vcs.createBranch)({}, 'ws-1', 'feat');
+    expect(mocks.invalidateWorkspace).toHaveBeenLastCalledWith('ws-1', 'vcs:create-branch');
+
+    await handlerFor(IpcChannels.vcs.amendMessage)({}, 'ws-1', 'abc123', 'better message');
+    expect(mocks.invalidateWorkspace).toHaveBeenLastCalledWith('ws-1', 'vcs:amend-message');
+
+    await handlerFor(IpcChannels.vcs.removeRemote)({}, 'ws-1', 'origin');
+    expect(mocks.invalidateWorkspace).toHaveBeenLastCalledWith('ws-1', 'vcs:remove-remote');
+  });
+
+  it('invalidates after push only when the push succeeds', async () => {
+    const { registerVcsHandlers } = await import('@electron/ipc/integrations/vcs');
+    const { IpcChannels } = await import('@/types/ipc-channels');
+    const { vcsOps } = await import('@electron/shared/infra/shared-infra');
+
+    registerVcsHandlers();
+
+    const pushCall = mocks.ipcHandle.mock.calls.find(([name]) => name === IpcChannels.vcs.push);
+    const pushHandler = pushCall?.[1] as (...args: unknown[]) => Promise<unknown>;
+
+    vi.mocked(vcsOps.push).mockResolvedValueOnce({ success: false, message: 'rejected' });
+    await pushHandler({}, 'ws-1', 'feat');
+    expect(mocks.invalidateWorkspace).not.toHaveBeenCalled();
+
+    vi.mocked(vcsOps.push).mockResolvedValueOnce({ success: true, message: 'ok' });
+    await pushHandler({}, 'ws-1', 'feat');
+    expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'vcs:push');
   });
 });

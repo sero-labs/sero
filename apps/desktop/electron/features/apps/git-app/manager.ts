@@ -1,17 +1,15 @@
-import { existsSync, watch, type FSWatcher } from 'node:fs';
+import { existsSync, readFileSync, statSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
-import type { GitManagerRequest } from '@sero-ai/common';
+import type { GitManagerAction, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { appStateManager } from '../state/manager';
-import { resolveStatePath } from '@plugins/sero-git-plugin/extension/state-io';
-import { runGit } from '@plugins/sero-git-plugin/extension/git-exec';
+import { resolveStatePath } from '@electron/features/git/git-service/state-io';
 import {
   refreshGitState,
   runGitAction,
   type GitActionResult,
-} from '@plugins/sero-git-plugin/extension/git-service';
-import type { GitManagerAction, GitSyncMode } from '@plugins/sero-git-plugin/shared/types';
+} from '@electron/features/git/git-service/git-service';
 import {
   gitRefreshInvalidationCoordinator,
   type GitRefreshInvalidationOptions,
@@ -299,10 +297,21 @@ export class GitWorkspaceStateManager {
   }
 }
 
+/**
+ * Resolve the .git dir without spawning git (the watch path must stay sync):
+ * a directory is the repo's own .git; a file is a worktree pointer
+ * ("gitdir: <path>").
+ */
 function resolveGitDir(workspacePath: string): string | null {
-  const gitDir = runGit(['rev-parse', '--git-dir'], workspacePath, { allowFailure: true });
-  if (!gitDir) return null;
-  return path.isAbsolute(gitDir) ? gitDir : path.join(workspacePath, gitDir);
+  const dotGit = path.join(workspacePath, '.git');
+  try {
+    if (statSync(dotGit).isDirectory()) return dotGit;
+    const pointer = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)?.[1]?.trim();
+    if (!pointer) return null;
+    return path.isAbsolute(pointer) ? pointer : path.join(workspacePath, pointer);
+  } catch {
+    return null;
+  }
 }
 
 function shouldInvalidateAfterAction(action: GitManagerAction): boolean {

@@ -9,7 +9,7 @@
  * path; the host resolves it under the state dir.
  */
 
-import type { DigestLog, Loop, LoopRun, RunDigest, RunDigestStep, StepAttempt, StepStatus } from '../shared/types';
+import type { DigestLog, Loop, LoopRun, RunDigest, RunDigestStep, StepAttempt, StepOutcome, StepStatus } from '../shared/types';
 import type { OrchestratorHost } from './host';
 
 export function digestsPath(loopId: string): string {
@@ -25,9 +25,58 @@ function stepStatusFromAttempt(attempt: StepAttempt): StepStatus {
   return 'failed';
 }
 
+function digestStep(
+  titleOf: (id: string) => string,
+  stepId: string,
+  attempts: StepAttempt[],
+  visitNumber?: number,
+  activationStatus?: StepStatus,
+  activationOutcome?: StepOutcome,
+  fanOutKey?: string,
+): RunDigestStep {
+  const last = attempts[attempts.length - 1];
+  const status = activationStatus ?? (last ? stepStatusFromAttempt(last) : 'pending');
+  const durationMs = attempts.reduce((sum, attempt) => sum + (attempt.usage?.durationMs ?? 0), 0) || undefined;
+  // A fan-out activation is labelled by its item key; a feedback revisit by its visit.
+  const suffix = fanOutKey !== undefined ? ` [${fanOutKey}]` : visitNumber === undefined ? '' : ` #${visitNumber}`;
+  return {
+    id: stepId,
+    title: `${titleOf(stepId)}${suffix}`,
+    visitNumber: fanOutKey === undefined ? visitNumber : undefined,
+    fanOutKey,
+    status,
+    attempts: attempts.length,
+    model: last?.model,
+    durationMs,
+    failureSummary: FAILED_STATUSES.has(status) ? activationOutcome?.summary ?? last?.outcome?.summary ?? last?.error : undefined,
+  };
+}
+
 /** Compacts one finished run (plus the loop's plan, for step titles) into a digest. */
 export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
   const titleOf = (id: string) => loop.plan.steps.find((s) => s.id === id)?.title ?? id;
+  if (run.stepActivations?.length) {
+    return {
+      runNumber: run.runNumber,
+      status: run.status,
+      statusReason: run.statusReason,
+      retryAt: run.retryAt,
+      completion: run.completionSignal?.status,
+      startedAt: run.startedAt,
+      endedAt: run.endedAt,
+      steps: run.stepActivations.map((activation) => digestStep(
+        titleOf,
+        activation.stepId,
+        run.stepAttempts.filter((attempt) => attempt.activationId === activation.id),
+        activation.visitNumber,
+        activation.status === 'cancelled' || activation.status === 'orphaned' ? 'failed' : activation.status,
+        activation.outcome,
+        activation.fanOut?.key,
+      )),
+      recoveries: run.recoveryDecisions.map((decision) => ({ stepId: decision.stepId, decision: decision.decision, reason: decision.reason })),
+      usage: run.usage,
+    };
+  }
   const byStep = new Map<string, StepAttempt[]>();
   for (const attempt of run.stepAttempts) {
     const list = byStep.get(attempt.stepId) ?? [];
@@ -37,18 +86,7 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
 
   const steps: RunDigestStep[] = [];
   for (const [stepId, attempts] of byStep) {
-    const last = attempts[attempts.length - 1];
-    const status = stepStatusFromAttempt(last);
-    const durationMs = attempts.reduce((sum, a) => sum + (a.usage?.durationMs ?? 0), 0) || undefined;
-    steps.push({
-      id: stepId,
-      title: titleOf(stepId),
-      status,
-      attempts: attempts.length,
-      model: last.model,
-      durationMs,
-      failureSummary: FAILED_STATUSES.has(status) ? last.outcome?.summary ?? last.error : undefined,
-    });
+    steps.push(digestStep(titleOf, stepId, attempts));
   }
 
   return {

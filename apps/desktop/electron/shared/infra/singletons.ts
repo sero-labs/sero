@@ -11,8 +11,9 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { FileWatcherManager } from '@electron/features/workspace/watcher';
 import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
-import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
-import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/git';
+import { setWorktreeGitHubAuth } from '@electron/features/git/worktree/exec';
+import { GitHubRepoOps } from '@electron/features/git/github/repos';
 import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { appRuntimeManager } from '@electron/features/apps/runtime/manager';
@@ -26,7 +27,11 @@ export { containerManager };
 // credential config are available in every container command.
 containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
 
-const gitRunner = new GitRunner(workspaceManager, runtimeManager, githubAuth);
+// Path-addressed worktree git/gh (background loops, Agent Board) gets the
+// same auth injection as workspace-routed execution.
+setWorktreeGitHubAuth(githubAuth);
+
+export const gitRunner = new GitRunner(workspaceManager, runtimeManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);

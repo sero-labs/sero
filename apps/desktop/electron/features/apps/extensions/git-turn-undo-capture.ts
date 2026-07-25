@@ -169,8 +169,8 @@ export function registerGitTurnUndoCapture(
 
   pi.on('session_start', async () => {
     try {
-      const changeId = await vcsManager.getCurrentChangeId(workspaceId);
-      entries.appendWorkspaceLink(changeId);
+      const sha = await vcsManager.getCurrentCommitSha(workspaceId);
+      entries.appendWorkspaceLink(sha);
     } catch {
       // Non-fatal: repo may initialize lazily on first action.
     }
@@ -225,13 +225,13 @@ export function registerGitTurnUndoCapture(
         block: true,
         reason:
           'Mutating git commands are managed by Sero — use the sero-cli tool instead:\n' +
-          '  sero vcs status              Working copy status\n' +
-          '  sero vcs checkpoint [msg]    Commit all changes\n' +
-          '  sero vcs push [branch]       Push to remote\n' +
-          '  sero vcs remote              List remotes\n' +
-          '  sero vcs remote add <n> <u>  Add a remote\n' +
-          '  sero vcs log                 Recent commits\n' +
-          '  sero vcs fetch               Fetch from remote\n' +
+          '  sero git status              Working tree status\n' +
+          '  sero git checkpoint [msg]    Commit all changes\n' +
+          '  sero git push [branch]       Push to remote\n' +
+          '  sero git remote              List remotes\n' +
+          '  sero git remote add <n> <u>  Add a remote\n' +
+          '  sero git log                 Recent commits\n' +
+          '  sero git fetch               Fetch from remote\n' +
           'Read-only bash git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.',
       };
     }

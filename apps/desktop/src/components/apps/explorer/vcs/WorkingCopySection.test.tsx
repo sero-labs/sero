@@ -36,7 +36,7 @@ describe('WorkingCopySection', () => {
       },
     ],
     conflictCount: 0,
-    parentChangeIds: [],
+    parentShas: [],
   };
 
   beforeEach(() => {
@@ -62,7 +62,7 @@ describe('WorkingCopySection', () => {
         <WorkingCopySection
           workspaceId="ws-1"
           status={status}
-          currentChangeId="change-1"
+          currentSha="change-1"
         />,
       );
       await Promise.resolve();

@@ -17,6 +17,16 @@ import type {
 import type { OrchestratorHost } from './host';
 import type { LoopLocks } from './locks';
 
+/** The one fan-out item a step attempt is executing (specs/17-dynamic-fan-out.md). */
+export interface FanOutRunContext {
+  activationId: string;
+  key: string;
+  index: number;
+  total: number;
+  itemVariable: string;
+  item: unknown;
+}
+
 export interface StepRunInput {
   host: OrchestratorHost;
   loop: Loop;
@@ -26,6 +36,8 @@ export interface StepRunInput {
   parentSessionId: string;
   workspace?: ResolvedWorkspaceContext;
   signal?: AbortSignal;
+  /** Set when this attempt is one activation of a fan-out step. */
+  fanOut?: FanOutRunContext;
 }
 
 /** Starts one step attempt and returns the recorded attempt (outcome optional). */

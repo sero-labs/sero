@@ -31,6 +31,10 @@ export interface RouteVarRequirement {
   allowed: (string | number | boolean)[];
   /** A sibling guard has a default branch, so an unlisted value still routes somewhere. */
   hasDefault: boolean;
+  /** Values that return through bounded feedback; all other values continue forward. */
+  feedbackValues?: (string | number | boolean)[];
+  /** A fan-out step expands this variable, so it must be recorded as an ARRAY. */
+  fanOutArray?: true;
 }
 
 /** The guard-relevant routing variables a step is expected to record when it runs. */
@@ -40,7 +44,10 @@ export function routeVariableRequirements(loop: Loop, step: LoopStepDefinition):
   const requirements: RouteVarRequirement[] = [];
   for (const name of produced) {
     const guards = loop.plan.steps.filter((s) => s.when?.var === name);
-    if (guards.length === 0) continue; // declared but no guard reads it → advisory only
+    const feedback = step.feedback?.when.var === name ? step.feedback : undefined;
+    // A fan-out step expands this variable, so its producer must record it too.
+    const fanOutArray = loop.plan.steps.some((s) => s.fanOut?.itemsFrom === name);
+    if (guards.length === 0 && !feedback && !fanOutArray) continue; // declared but nothing reads it → advisory only
     const allowed: (string | number | boolean)[] = [];
     const allowedValues = new Set<string | number | boolean>();
     let hasDefault = false;
@@ -52,7 +59,18 @@ export function routeVariableRequirements(loop: Loop, step: LoopStepDefinition):
       }
       if (g.when!.default) hasDefault = true;
     }
-    requirements.push({ name, allowed, hasDefault });
+    for (const value of feedback?.when.in ?? []) {
+      if (allowedValues.has(value)) continue;
+      allowedValues.add(value);
+      allowed.push(value);
+    }
+    requirements.push({
+      name,
+      allowed,
+      hasDefault,
+      ...(feedback ? { feedbackValues: [...feedback.when.in] } : {}),
+      ...(fanOutArray ? { fanOutArray: true as const } : {}),
+    });
   }
   return requirements;
 }
@@ -67,7 +85,11 @@ export function missingRouteVariables(
   const reqs = routeVariableRequirements(loop, step);
   if (reqs.length === 0) return [];
   const recorded = outcome.variables ?? {};
-  return reqs.filter((r) => !Object.prototype.hasOwnProperty.call(recorded, r.name));
+  return reqs.filter(
+    (r) =>
+      !Object.prototype.hasOwnProperty.call(recorded, r.name) ||
+      (r.fanOutArray === true && !Array.isArray(recorded[r.name])),
+  );
 }
 
 /**
@@ -87,6 +109,13 @@ export function enforceRouteContract(loop: Loop, step: LoopStepDefinition, outco
 }
 
 function describeAllowed(req: RouteVarRequirement): string {
+  if (req.fanOutArray) {
+    return 'a JSON ARRAY of the discovered work items (a later fan-out step runs once per item)';
+  }
+  if (req.feedbackValues) {
+    const feedback = req.feedbackValues.map((value) => JSON.stringify(value)).join(', ');
+    return `a primitive route value (${feedback} ${req.feedbackValues.length === 1 ? 'returns' : 'return'} through feedback; any other value continues forward)`;
+  }
   if (req.allowed.length === 0) return 'a value naming the route';
   const list = req.allowed.map((v) => JSON.stringify(v)).join(', ');
   return req.hasDefault ? `one of ${list} (or another value → the default route)` : `one of ${list}`;

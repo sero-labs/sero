@@ -191,6 +191,22 @@ and acyclic dependencies; supported step types; at least one step. An invalid
 plan is repaired once; if it still fails it is saved as a **blocked draft** with
 the errors and cannot be activated.
 
+## Dynamic fan-out
+
+A plan step can run **once per item** of a list an earlier step discovers — for
+example, one scout per codebase area. The plan itself never changes: one run
+may find 3 areas and start 3 scouts, the next run 10 and start 10.
+
+- The earlier step records the list; the fan-out step names it and runs one
+  activation per item, in parallel up to its concurrency setting.
+- The plan always declares a **hard maximum**. A list that comes back larger
+  blocks the step with a clear message — items are never silently dropped.
+- The next step waits until every activation finishes, and receives all their
+  results combined. If one activation fails, recovery retries just that one;
+  finished siblings keep their results.
+- The step card shows one node with a status line ("3 of 3 succeeded") that
+  expands to one row per item.
+
 ## Recovery
 
 When a step fails, the model chooses one action: **retry** the step, **revise**

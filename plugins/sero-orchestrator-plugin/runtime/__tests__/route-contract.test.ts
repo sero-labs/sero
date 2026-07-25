@@ -48,6 +48,21 @@ describe('routeVariableRequirements', () => {
   it('returns nothing for a step that produces nothing', () => {
     expect(routeVariableRequirements(branchedPlan, branchedPlan.plan.steps[3])).toEqual([]);
   });
+
+  it('describes both the feedback value and the forward non-match', () => {
+    const loop = mkLoop([
+      step('implement'),
+      step('verify', {
+        dependsOn: ['implement'],
+        produces: ['route'],
+        feedback: { id: 'fix', toStepId: 'implement', when: { var: 'route', in: ['needs-fix'] }, maxTraversalsPerRun: 2 },
+      }),
+      step('finalise', { dependsOn: ['verify'] }),
+    ]);
+    const requirements = routeVariableRequirements(loop, loop.plan.steps[1]);
+    expect(requirements).toEqual([{ name: 'route', allowed: ['needs-fix'], hasDefault: false, feedbackValues: ['needs-fix'] }]);
+    expect(formatRouteContract(requirements)).toContain('any other value continues forward');
+  });
 });
 
 describe('missingRouteVariables', () => {

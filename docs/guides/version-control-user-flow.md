@@ -7,7 +7,7 @@ This guide explains how users move through the new Source Control section in Ser
 Sero Source Control is Git-backed and organized into these sections:
 
 1. `Working Copy` — current uncommitted file changes and manual checkpoint creation.
-2. `Bookmarks` — branch-like pointers, active push branch selection, fetch/push.
+2. `Branches` — local branches, active push branch selection, fetch/push.
 3. `Pull Request` — PR preparation and creation via GitHub CLI (`gh`).
 4. `Changes` — change history with diff/restore/push actions.
 5. `Remotes` — remote repository configuration.
@@ -18,7 +18,7 @@ Sero Source Control is Git-backed and organized into these sections:
 
 1. Open a workspace in Explorer mode.
 2. Open the `Source Control` panel in the sidebar.
-3. Sero loads current Git state (working copy, bookmarks, change log, remotes).
+3. Sero loads current Git state (working copy, branches, commit log, remotes).
 
 ## 2. Create or Review Working Changes
 
@@ -34,10 +34,10 @@ Notes:
 - Automatic undo snapshots are internal and do not appear as normal visible checkpoint commits.
 - Manual edits can stay grouped in working copy until you explicitly checkpoint.
 
-## 3. Manage Branches with Bookmarks
+## 3. Manage Branches
 
-1. In `Bookmarks`, create a bookmark (for example `feat/my-branch`) if needed.
-2. Set the bookmark as active push branch (star action).
+1. In `Branches`, create a branch (for example `feat/my-branch`) if needed.
+2. Set the branch as active push branch (star action).
 3. Use `Push` to push the active branch, or push a specific change from `Changes`.
 4. Use `Fetch` to refresh remote state when needed.
 
@@ -63,7 +63,7 @@ Result behavior:
 `Pull Request` is disabled when no non-default local source branch exists.
 
 To enable it:
-1. Create a feature bookmark (for example `feat/my-branch`).
+1. Create a feature branch (for example `feat/my-branch`).
 2. Move work onto that branch (or push a change as that branch).
 3. Reopen/use the PR section.
 
@@ -100,8 +100,8 @@ Important distinction:
 
 1. Work on files.
 2. Checkpoint as needed.
-3. Create/select feature bookmark.
-4. Push feature bookmark.
+3. Create/select feature branch.
+4. Push feature branch.
 5. Generate PR draft.
 6. Edit PR text.
 7. Create PR to target branch.

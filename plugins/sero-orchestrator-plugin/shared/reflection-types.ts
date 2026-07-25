@@ -18,6 +18,9 @@ import type {
 export interface RunDigestStep {
   id: string;
   title: string;
+  visitNumber?: number;
+  /** Set on fan-out activations: which item of the expanded collection this row is. */
+  fanOutKey?: string;
   status: StepStatus;
   attempts: number;
   model?: string;

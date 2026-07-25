@@ -2,6 +2,7 @@ import { useAvailableModels, useSubagentContext } from '@sero-ai/app-runtime';
 import type { Loop, LoopStepDefinition, OrchestratorAction } from '../../shared/types';
 import { Card } from '@sero-ai/ui';
 import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
+import { fanOutView } from '../lib/fan-out-summary';
 import { groupStepsByLevel } from '../lib/plan-levels';
 import { StepCard } from './StepCard';
 
@@ -51,6 +52,8 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   }
 
   const levels = groupStepsByLevel(plan.steps);
+  const feedbackSource = plan.steps.find((step) => step.feedback);
+  const feedback = feedbackSource?.feedback;
   const numberOf = new Map(plan.steps.map((s, i) => [s.id, i + 1]));
   // showNumber is off for a lone step (the spine rail shows its number) and on
   // inside a parallel/branch group, whose rail marker is a glyph not a number.
@@ -68,6 +71,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       onSetTools={setStepTools}
       onSetAgent={setStepAgent}
       onRetry={onRetryFor(step)}
+      fanOut={step.fanOut ? fanOutView(loop.runs, step.id) : undefined}
     />
   );
 
@@ -77,6 +81,13 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
         <p className="text-base text-muted-foreground">
           <span className="font-medium text-foreground">Objective: </span>{plan.objective}
         </p>
+      )}
+      {feedbackSource && feedback && (
+        <div className="flex flex-wrap items-center gap-2 border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+          <span className="font-medium">↩ Feedback: {feedbackSource.id} → {feedback.toStepId}</span>
+          <span>when {feedback.when.var} = {feedback.when.in.map(routeText).join(' / ')}</span>
+          <span className="tabular-nums">{runtime.feedbackStates?.[feedback.id]?.traversals ?? 0}/{feedback.maxTraversalsPerRun} traversals</span>
+        </div>
       )}
       <div className="flex flex-col">
         {levels.map((group, i) => {

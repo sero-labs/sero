@@ -57,7 +57,7 @@ function toUsage(durationMs?: number, usage?: { inputTokens: number; outputToken
 
 export async function runStepAttempt(input: StepRunInput, options: RunStepOptions): Promise<StepAttempt> {
   const { host, loop, run, step, attemptNumber, parentSessionId, workspace, signal } = input;
-  const task = buildStepTask(loop, step, run);
+  const task = buildStepTask(loop, step, run, input.fanOut);
 
   // Resolve the step's chosen model. Tiers and "no preference" pass straight
   // through; a pinned model that is no longer available falls back to MED (we
@@ -119,7 +119,9 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     repair: outcomeRepair(loop, step),
   });
 
-  const stored = await storeOutput(host, loop.logPolicy, artifactPath(loop.id, run.id, `${step.id}-a${attemptNumber}.txt`), result.response);
+  // Fan-out activations write per-key artifacts so sibling attempts don't collide.
+  const attemptFile = `${step.id}${input.fanOut ? `-${input.fanOut.key}` : ''}-a${attemptNumber}.txt`;
+  const stored = await storeOutput(host, loop.logPolicy, artifactPath(loop.id, run.id, attemptFile), result.response);
   const parsed = result.error ? undefined : parseStepOutcome(result.response);
   const outcome = options.refineOutcome ? options.refineOutcome(result.response, parsed) : parsed;
 

@@ -14,9 +14,8 @@ import { GitRemotePublishSection } from './GitRemotePublishSection';
 
 const seroBridge = {
   vcs: {
-    addRemote: vi.fn(),
-    setRemoteUrl: vi.fn(),
-    checkoutRemote: vi.fn(),
+    connectRemote: vi.fn(),
+    publishRepo: vi.fn(),
   },
   github: {
     status: vi.fn(),
@@ -87,14 +86,16 @@ describe('GitRemotePublishSection', () => {
     githubStatus = { authenticated: false };
     githubEventListener = null;
 
-    seroBridge.vcs.addRemote.mockResolvedValue(undefined);
-    seroBridge.vcs.setRemoteUrl.mockResolvedValue(undefined);
-    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: true, message: 'checked out origin/main' });
+    seroBridge.vcs.connectRemote.mockImplementation(async (_wsId: string, url: string) => ({
+      ok: true,
+      url,
+      updatedExisting: false,
+      import: { imported: true },
+    }));
     seroBridge.editor.listFiles.mockResolvedValue([]);
     seroBridge.github.status.mockImplementation(async () => githubStatus);
-    seroBridge.github.createRepo.mockResolvedValue({
-      success: true,
-      message: 'created',
+    seroBridge.vcs.publishRepo.mockResolvedValue({
+      ok: true,
       url: 'https://github.com/octocat/workspace-1',
     });
     seroBridge.github.login.mockResolvedValue(undefined);
@@ -187,7 +188,7 @@ describe('GitRemotePublishSection', () => {
       expect(document.body.textContent).toContain('octocat');
     });
 
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
     expect(onPublished).not.toHaveBeenCalled();
   });
 
@@ -209,7 +210,7 @@ describe('GitRemotePublishSection', () => {
     expect(findInput('publish-repo-name').value).toBe('alpha-repo');
     expect(document.body.textContent).not.toContain('sidebar');
     expect(document.body.textContent).not.toContain('Explorer');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
 
     await clickButton('Connect GitHub');
 
@@ -229,7 +230,7 @@ describe('GitRemotePublishSection', () => {
 
     expect(findInput('publish-repo-name').value).toBe('alpha-repo');
     expect(document.body.textContent).toContain('GitHub connection required');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
   });
 
   it('shows a retryable generic auth failure after a blocked publish attempt', async () => {
@@ -274,7 +275,7 @@ describe('GitRemotePublishSection', () => {
     });
 
     expect(findInput('publish-repo-name').value).toBe('alpha-repo');
-    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+    expect(seroBridge.vcs.publishRepo).not.toHaveBeenCalled();
 
     await clickButton('Try again');
 
@@ -318,12 +319,11 @@ describe('GitRemotePublishSection', () => {
     });
 
     await vi.waitFor(() => {
-      expect(seroBridge.github.createRepo).toHaveBeenCalledTimes(1);
-      expect(seroBridge.github.createRepo).toHaveBeenCalledWith('workspace-1', {
+      expect(seroBridge.vcs.publishRepo).toHaveBeenCalledTimes(1);
+      expect(seroBridge.vcs.publishRepo).toHaveBeenCalledWith('workspace-1', {
         name: 'alpha-repo',
         description: undefined,
         visibility: 'public',
-        addRemote: true,
       });
       expect(document.body.textContent).toContain('Repository published and origin connected.');
     });

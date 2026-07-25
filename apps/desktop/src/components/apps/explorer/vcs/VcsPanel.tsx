@@ -11,10 +11,12 @@ import { RefreshCw, Undo2, Loader2 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
 import { WorkingCopySection } from './WorkingCopySection';
-import { BookmarksSection } from './BookmarksSection';
+import { BranchesSection } from './BranchesSection';
 import { GitHubAuthBanner } from './GitHubAuthBanner';
-import { PullRequestSection } from './PullRequestSection';
-import { ChangeLog } from './ChangeLog';
+import { VcsSection } from './VcsSection';
+import { PullRequestComposer } from '@/components/git/PullRequestComposer';
+import { Github } from 'lucide-react';
+import { CommitLog } from './CommitLog';
 import { RemotesSection } from './RemotesSection';
 
 interface VcsPanelProps {
@@ -97,26 +99,36 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
             <WorkingCopySection
               workspaceId={workspaceId}
               status={ws?.wcStatus ?? null}
-              currentChangeId={ws?.currentChangeId ?? null}
+              currentSha={ws?.currentSha ?? null}
               onOpenDiff={onOpenDiff}
             />
 
-            <BookmarksSection
+            <BranchesSection
               workspaceId={workspaceId}
-              bookmarks={ws?.bookmarks ?? []}
+              branches={ws?.branches ?? []}
               remotes={ws?.remotes ?? []}
-              activePushBookmark={ws?.activePushBookmark ?? null}
+              activePushBranch={ws?.activePushBranch ?? null}
             />
 
             <GitHubAuthBanner className="mx-2" />
 
-            <PullRequestSection
-              workspaceId={workspaceId}
-              bookmarks={ws?.bookmarks ?? []}
-              activePushBookmark={ws?.activePushBookmark ?? null}
-            />
+            <VcsSection
+              title="Pull Request"
+              defaultOpen
+              badge={<Github className="ml-1 size-3 text-[var(--text-muted)]/70" />}
+            >
+              <div className="px-2 pb-2">
+                <PullRequestComposer
+                  compact
+                  workspaceId={workspaceId}
+                  hasRemote={(ws?.remotes.length ?? 0) > 0}
+                  preferredSourceBranch={ws?.activePushBranch ?? null}
+                  refreshKey={(ws?.branches ?? []).map((b) => b.name).sort().join('|')}
+                />
+              </div>
+            </VcsSection>
 
-            <ChangeLog
+            <CommitLog
               workspaceId={workspaceId}
               entries={ws?.logEntries ?? []}
               hasMore={ws?.logHasMore ?? false}

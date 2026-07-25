@@ -20,13 +20,13 @@ Sero currently has more than one version-control surface:
 - **Explorer Source Control** is a separate Explorer workflow documented in the
   [Source Control User Flow](https://github.com/sero-labs/sero/blob/main/docs/guides/version-control-user-flow.md).
   That reference covers the Git-backed Explorer Source Control flow: Working
-  Copy, Bookmarks, Pull Request, Changes, and Remotes.
+  Copy, Branches, Pull Request, Commits, and Remotes.
 
-Do not assume actions or wording from one surface apply directly to the other.
-For example, Git Integration talks about Git branches and staging, while the
-Explorer guide talks about bookmarks and manual checkpoints. For the shared
-recovery model across manual checkpoints, chat turn undo, restore checkpoint,
-and source-control operations, see [Checkpoints and Undo](/guide/checkpoints-and-undo).
+Both surfaces read the same repository state cache and use plain Git wording
+(branches, commits, staging). The Explorer adds manual checkpoints on top. For
+the shared recovery model across manual checkpoints, chat turn undo, restore
+checkpoint, and source-control operations, see
+[Checkpoints and Undo](/guide/checkpoints-and-undo).
 
 ## Where you interact with Git Integration
 

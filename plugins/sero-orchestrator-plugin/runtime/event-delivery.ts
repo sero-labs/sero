@@ -19,6 +19,7 @@ import { applyEventFires, rearmLoop } from './scheduler';
 import { codeMatchEventTrigger, EVENT_CHAIN_DEPTH_LIMIT, RECENT_EVENT_KEYS_LIMIT } from './event-match';
 import { evaluateEventCondition } from './event-condition';
 import { enqueuePendingEvent } from './event-queue';
+import { cleanupPreviousWorktree } from './worktree-cleanup';
 
 /** The coordinator internals event delivery needs — nothing else mutates runs. */
 export interface CoordinatorRunSeam {
@@ -201,8 +202,6 @@ async function runEventPass(host: OrchestratorHost, seam: CoordinatorRunSeam, lo
     return { ...state, loops: state.loops.map((l) => (l.id === loopId ? rearmed! : l)) };
   });
   if (!rearmed) return;
-  if (prior?.type === 'managed-worktree') {
-    await host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });
-  }
+  await cleanupPreviousWorktree(host, loopId, prior);
   await seam.runNext(loopId, rearmed);
 }

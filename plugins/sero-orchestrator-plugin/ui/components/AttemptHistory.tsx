@@ -58,6 +58,8 @@ function RunRow({ run }: { run: LoopRunSummary }) {
   const wallMs = run.endedAt ? new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime() : undefined;
   const usage = run.usage;
   const firedBy = firedByLabel(run);
+  const visits = run.steps.filter((step) => step.visitNumber !== undefined)
+    .map((step) => `${step.stepId} #${step.visitNumber}`).join(' → ');
 
   return (
     <div className="flex items-center gap-4 px-3.5 py-3 text-xs">
@@ -77,6 +79,7 @@ function RunRow({ run }: { run: LoopRunSummary }) {
           {run.delivery && <ReceiptBadge receipt={run.delivery} />}
         </div>
         <span className="text-muted-foreground">{formatTime(run.startedAt)} · {summarizeRun(run)}</span>
+        {visits && <span className="text-muted-foreground/80">{visits}</span>}
       </div>
       <span className={`${COL.time} text-right tabular-nums text-foreground/90`}>{wallMs !== undefined ? formatDuration(wallMs) : Dash}</span>
       <span className={`${COL.tokens} text-right tabular-nums text-foreground/90`}>{usage?.totalTokens !== undefined ? formatTokens(usage.totalTokens) : Dash}</span>
