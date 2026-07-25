@@ -47,15 +47,19 @@ describe('Header sync status', () => {
     root = null;
   });
 
-  it('shows Live when file watching is active', async () => {
+  // This used to assert the opposite — that watching showed "Live". Rule 28
+  // rules out a status label for a state with no action, and names this one.
+  it('says nothing while file watching is active', async () => {
     await act(async () => {
       root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
-    expect(container.textContent).toContain('Live');
+    expect(container.textContent).not.toContain('Live');
     expect(container.textContent).not.toContain('Polling');
   });
 
+  // The case the change must not take with it: manual mode means the view will
+  // not update itself, which is something you act on.
   it('shows Manual when the app is running without live watchers', async () => {
     await act(async () => {
       root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
@@ -63,5 +67,23 @@ describe('Header sync status', () => {
 
     expect(container.textContent).toContain('Manual');
     expect(container.textContent).not.toContain('Polling');
+  });
+
+  it('still surfaces a repository-level failure', async () => {
+    await act(async () => {
+      root?.render(<Header state={createState({ syncMode: 'watch', error: 'fatal: not a git repository' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
+    });
+
+    expect(container.textContent).toContain('Issue');
+  });
+
+  // Progress belongs in the control that started it (rules 21 and 23), not in a
+  // label of its own appearing and disappearing beside it.
+  it('does not announce loading in the sync slot', async () => {
+    await act(async () => {
+      root?.render(<Header state={createState({ syncMode: 'watch', loading: true })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
+    });
+
+    expect(container.textContent).not.toContain('Syncing');
   });
 });

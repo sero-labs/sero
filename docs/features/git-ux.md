@@ -852,6 +852,19 @@ plain text, mono where they are machine values (rule 9), and a level branch says
 nothing at all. `MetricCard` stays: it is the shared dashboard set, and §6 rules
 a redesign out.
 
+**The header's `LIVE` chip broke three rules at once** and had survived every
+step since 5. It was an uppercase pill reading *LIVE* beside a timestamp: a
+status label for a state with no action (rule 28, which names this label), a
+pill carrying a number rather than a name (rule 7), and uppercase outside the
+two places rule 8 allows it. Watching now says nothing at all. What is left is
+what you can act on — **Manual**, meaning the view will not refresh itself, and
+**Issue** — as plain text with a mono timestamp. `Syncing` went too: progress
+belongs in the control that started it (rules 21 and 23).
+
+An existing test asserted the old behaviour outright ("shows Live when file
+watching is active"), so the rule went in as the assertion and the case the
+change must not take with it — manual mode — is pinned beside it.
+
 **Every file the branch touches is under 500 lines.** The largest are
 `conflict-run.ts` (456), `GitApp.tsx` (442) and `WorkingTree.tsx` (425);
 `GitApp.tsx` shed its right-pane switch to `DetailPane` in step 8 to stay there.

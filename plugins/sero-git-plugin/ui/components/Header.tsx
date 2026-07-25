@@ -79,18 +79,21 @@ export function Header({ state, onAction, github, onOpenPullRequest, info }: Hea
 
       {/* Right: sync status + action buttons */}
       <div className="flex items-center gap-2">
-        <div
-          className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1"
-          title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
-        >
+        {/* Watching for changes is a state with no action, so it says nothing —
+            rule 28 names this exact label. What is left is what you can act on:
+            that the view will not refresh itself, and when it last did. Plain
+            text and no pill, because a pill carries a name, not a timestamp
+            (rules 7 and 8). */}
+        {syncLabel && (
           <span
-            className={`size-1.5 rounded-full ${syncTone.dot} ${state.syncMode === 'watch' && !state.error ? 'animate-pulse' : ''}`}
-          />
-          <span className={`text-sm font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
-            {syncLabel}
+            className="flex items-center gap-1.5 text-sm"
+            title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
+          >
+            <span className={`size-1.5 rounded-full ${syncTone.dot}`} />
+            <span className={syncTone.text}>{syncLabel}</span>
+            <span className="font-mono text-[var(--text-muted)]">{refreshedAt}</span>
           </span>
-          <span className="text-sm text-[var(--text-muted)]">{refreshedAt}</span>
-        </div>
+        )}
 
         <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
@@ -213,10 +216,14 @@ function ActionIcon({ type }: { type: string }) {
   }
 }
 
+/**
+ * Empty when there is nothing to say. Watching for changes needs no label
+ * (rule 28), and loading does not announce itself in its own slot — progress
+ * belongs in the control that started it (rules 21 and 23).
+ */
 function getSyncLabel(state: GitAppState): string {
-  if (state.loading) return 'Syncing';
   if (state.error) return 'Issue';
-  if (state.syncMode === 'watch') return 'Live';
+  if (state.syncMode === 'watch') return '';
   return 'Manual';
 }
 
