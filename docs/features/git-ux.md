@@ -774,9 +774,59 @@ is the only way to hear about a resolution and disables the built-in row, so
 Sero draws the buttons, writes the file, and stages it — because staged is
 git's own definition of resolved.
 
-**Step 8 — the AI features.**
+**Step 8 — the AI features. Done.**
 Commit-message drafting, then AI conflict resolution with its question loop
 (§10).
+
+Both are verified against a real conflicted repository in
+`e2e/git-ai-resolve.workflow.spec.ts`. **The model is stubbed and everything
+else is real** — the stub replaces the IPC handler in the *main process*,
+because `window.sero` comes from `contextBridge` and is non-configurable, so
+neither assignment nor `defineProperty` can touch it from the page. A live
+model would test the prompt, which unit tests already cover, at the cost of a
+test that fails for unrelated reasons.
+
+**The drafting scope is the surface's own definition of what it commits.** The
+Git app drafts from the staged set, the popover from everything, and a fresh
+repository stages everything on its first commit. Getting this wrong is
+invisible in the same way as step 3's revision pair: it writes a plausible
+message about changes the commit will not contain. An empty draft never reaches
+the field — a fabricated `chore: update files` reads well enough to commit
+unread.
+
+**Indices are against the file's original contents, and every write is a
+rebuild.** Nothing is ever applied on top of an already-rewritten file, so
+conflict indices never drift as resolutions land, order does not matter, and
+`Undo AI resolutions` is the same rebuild with the machine's entries left out
+rather than a reverse patch. That one decision is what makes §7's "reverts only
+the machine's work and leaves your answers alone" a filter rather than a
+feature.
+
+**§7 was wrong that undo only has to write the file.** Git forgets a conflict
+the moment a file is staged, so unstaging returns an *ordinary modified* file,
+not an unmerged one — `git reset` gives ` M`, never `UU`. After an undo the app
+would have offered to conclude the merge over a file full of markers. Sero
+remembers instead, which is the same fix and the same reason as
+`merge.conflictPaths` in step 7.
+
+**Three bugs the screenshots caught**, none of which typecheck or unit tests
+could see — the reason §11's steps are verified against the running app:
+
+- The answered question's box stayed on screen, reading as though it still
+  needed an answer.
+- Undo cleared the run's marks but not their persisted copy, and the fallback
+  read that copy straight back.
+- Files are resolved concurrently, so two `git` commands reached for
+  `.git/index.lock` at once and the second died. It surfaced during undo — the
+  worst place for it, since the file kept looking resolved while its markers
+  were back on disk. Git actions from the run are now serialised.
+
+**One narrowing to record.** §7 says AI-resolved files stay marked "so a week
+later you can tell which resolutions were yours". The marks are kept in the
+plugin's own per-workspace `view.json`, keyed by the merge, so they survive a
+reload but end with the merge. Anything longer-lived would have to be written
+into the commit itself, and §7's drawn finished state shows a plain merge
+message with no trailer.
 
 **Step 9 — sweep.**
 Design rules (§2) across the dashboard widgets and anything missed. Check every
