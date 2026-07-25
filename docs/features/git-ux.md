@@ -132,7 +132,8 @@ of them. ([#297](https://github.com/sero-labs/sero/issues/297))
 17. Violet is identity-and-AI: HEAD, current branch, every AI affordance. AI is
     never green.
 18. File status is one 6px dot — amber modified, green added, red deleted, blue
-    new.
+    new. The dot is the whole story: file rows carry no `+N −N` line counts (see
+    step 4 in §11 for why the prototypes' counts were dropped).
 19. Amber carries five meanings (modified file, behind count, detached-HEAD chip,
     warning banner, lane colour) and that is accepted. Each appears in a different
     place at a different shape; none are confusable in practice. Recorded so it is
@@ -640,9 +641,21 @@ Found while building it:
 - **`PullRequestComposer` is not deleted yet.** §1 lists it among the explorer
   copies to remove, but the titlebar popover still renders it until step 6.
 
-**Known gap against the prototype:** file rows carry no `+N −N` counts. The
-pushed repo state lists changed paths, not per-file line counts, so the numbers
-would need a `--numstat` read per refresh. Deferred rather than faked.
+**Decided during step 4: file rows carry no `+N −N` counts, anywhere.** The
+prototypes draw them; they are removed from the design.
+
+The repo cache is refreshed by one `git status --porcelain` call, which reports
+paths and statuses and no line counts. Real counts mean two more `git diff
+--numstat` calls (staged and unstaged are separate questions) on every refresh —
+and in live mode a refresh fires whenever files change on disk, so git would be
+diffing the contents of every changed file continuously. Three cases have no
+clean answer either: untracked files don't appear in `git diff` at all, binary
+files report a dash, and a partly-staged file has two different sets of numbers
+while the list shows one row per path.
+
+The status dot already says what happened to the file, which is what the list is
+for; the diff itself is one click away. Rule 6 (counts are plain text) still
+governs the counts that remain, such as `Changes 8`.
 
 **Step 5 — rebuild the Git app.**
 Apply §3 inside the plugin: rail, working tree, graph band, draggable divider,

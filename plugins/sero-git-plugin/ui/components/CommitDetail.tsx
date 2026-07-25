@@ -28,8 +28,6 @@ export function CommitDetail({
 
   if (!commit) return null;
 
-  const totalAdd = diffs.reduce((sum, diff) => sum + diff.additions, 0);
-  const totalDel = diffs.reduce((sum, diff) => sum + diff.deletions, 0);
   const date = new Date(commit.authorDate);
 
   const handleCherryPick = () => {
@@ -123,9 +121,6 @@ export function CommitDetail({
           <span className="text-sm text-[var(--g-muted)]">
             {diffs.length} file{diffs.length !== 1 ? 's' : ''} changed
           </span>
-          {totalAdd > 0 && <span className="text-sm text-[var(--g-green)]">+{totalAdd}</span>}
-          {totalDel > 0 && <span className="text-sm text-[var(--g-red)]">-{totalDel}</span>}
-          <StatBar additions={totalAdd} deletions={totalDel} />
         </div>
 
         {diffs.map((diff) => (
@@ -170,30 +165,6 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
         <div className="truncate text-sm text-[var(--g-text)] git-mono">{primaryLabel}</div>
         <div className="truncate text-sm text-[var(--g-dim)] git-mono">{secondaryLabel}</div>
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        {diff.additions > 0 && <span className="text-sm text-[var(--g-green)]">+{diff.additions}</span>}
-        {diff.deletions > 0 && <span className="text-sm text-[var(--g-red)]">-{diff.deletions}</span>}
-      </div>
-    </div>
-  );
-}
-
-function StatBar({ additions, deletions }: { additions: number; deletions: number }) {
-  const total = additions + deletions;
-  if (total === 0) return null;
-  const addPct = (additions / total) * 100;
-  const blocks = 5;
-  const addBlocks = Math.round((addPct / 100) * blocks);
-
-  return (
-    <div className="ml-auto flex gap-0.5">
-      {Array.from({ length: blocks }, (_, index) => (
-        <div
-          key={index}
-          className="size-1.5 rounded-sm"
-          style={{ background: index < addBlocks ? 'var(--g-green)' : 'var(--g-red)', opacity: 0.6 }}
-        />
-      ))}
     </div>
   );
 }
