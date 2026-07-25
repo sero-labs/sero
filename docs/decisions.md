@@ -416,7 +416,7 @@ loops — is a consumer.
 work is served by four surfaces with three data paths and two visual systems, and
 there is no general way for a plugin to contribute a view to a host surface —
 so git components accumulated in the host by default. Full UX spec: wayfinder
-map `sero-labs/sero#294`.
+map `sero-labs/sero#294`. Full UX spec: `docs/features/git-ux.md`.
 
 **Decision:** The **plugin owns every git view and the renderer-side repo cache.
 The host owns the git *service* (AD-024) and the extension points views mount
