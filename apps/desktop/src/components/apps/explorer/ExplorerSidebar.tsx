@@ -1,12 +1,10 @@
 import type { ExplorerPanel } from '@/lib/explorer-panels';
 import type { EditorRoot } from '@/types/ipc';
 import { MultiRootFileTree } from './file-tree/MultiRootFileTree';
-import { VcsPanel } from './vcs/VcsPanel';
 import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
 const panelTitles: Record<string, string> = {
   explorer: 'Explorer',
-  git: 'Source Control',
   orchestration: 'Orchestration',
   browser: 'Browser',
   terminal: 'Terminal',
@@ -25,8 +23,6 @@ interface ExplorerSidebarProps {
     onDeleted?: (path: string) => void;
     onRemoveRoot?: (rootId: string) => void;
   };
-  /** Called when VcsPanel wants to open a diff in the editor area. */
-  onOpenDiff?: (from: string, to: string, path?: string) => void;
 }
 
 /**
@@ -34,13 +30,13 @@ interface ExplorerSidebarProps {
  *
  * Explorer panel renders the FileTree; other panels are placeholders.
  */
-export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpenDiff }: ExplorerSidebarProps) {
+export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps }: ExplorerSidebarProps) {
   const title = panelTitles[activePanel] ?? activePanel;
 
   return (
     <aside className="flex size-full flex-col bg-[var(--bg-surface)]">
-      {/* ── Header (hidden for git/orchestration, they have their own) ── */}
-      {activePanel !== 'git' && activePanel !== 'orchestration' && (
+      {/* ── Header (hidden for orchestration, it has its own) ── */}
+      {activePanel !== 'orchestration' && (
         <div className="flex h-7 shrink-0 items-center px-4">
           <span className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
             {title}
@@ -52,8 +48,6 @@ export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpe
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden" data-testid="explorer-sidebar-content">
         {activePanel === 'explorer' && fileTreeProps ? (
           <MultiRootFileTree {...fileTreeProps} />
-        ) : activePanel === 'git' ? (
-          <VcsPanel workspaceId={workspaceId} onOpenDiff={onOpenDiff} />
         ) : activePanel === 'orchestration' ? (
           <OrchestrationPanel workspaceId={workspaceId} />
         ) : (

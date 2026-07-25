@@ -7,9 +7,11 @@
  * the view comes back when the plugin does (AD-025).
  */
 
+// `git` is deliberately absent: the Git view is contributed by
+// `sero-git-plugin` under its app id, which is also `git`, so a persisted
+// selection survives the move (AD-025).
 export const BUILTIN_EXPLORER_PANELS = [
   'explorer',
-  'git',
   'orchestration',
   'browser',
   'terminal',

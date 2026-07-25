@@ -616,11 +616,33 @@ Three things it turned out to need, none of them optional:
 `editorThemeId`'s shiki mapping moved to `@sero-ai/common` so the plugin's diff
 colours the code exactly like the host editor without a second copy of the table.
 
-**Step 4 — the Explorer Git view, and the cutover.**
+**Step 4 — the Explorer Git view, and the cutover. Done.**
 Build the contributed Git view (§4) with the plugin's own store. Route the
 activity-bar item to it. In one commit: delete `VcsPanel` and its sections,
 `DiffTab` and its render path, and the host `useVcsStore`. This is the only step
 where two implementations exist at once, and it is a single commit.
+
+The panel id stayed `git` — the plugin's app id is also `git`, so a persisted
+selection survives the move with no migration. `git` simply left
+`BUILTIN_EXPLORER_PANELS`, and step 1's rule (a non-built-in panel fills the
+main area) routed it.
+
+Found while building it:
+
+- **An exposed federated module must have a default export.** The host's loader
+  resolves `mod.default` and reports nothing but "failed to load remote"
+  otherwise — a named-only export mounts a blank panel. The other three exposed
+  modules already had one; this is worth knowing before the titlebar
+  contribution in step 6.
+- **`@pierre/trees` stayed in the host.** Neither git view shows a file
+  navigator (§4), so the plugin takes it at step 5, when the working-tree list
+  adopts `FileTree`.
+- **`PullRequestComposer` is not deleted yet.** §1 lists it among the explorer
+  copies to remove, but the titlebar popover still renders it until step 6.
+
+**Known gap against the prototype:** file rows carry no `+N −N` counts. The
+pushed repo state lists changed paths, not per-file line counts, so the numbers
+would need a `--numstat` read per refresh. Deferred rather than faked.
 
 **Step 5 — rebuild the Git app.**
 Apply §3 inside the plugin: rail, working tree, graph band, draggable divider,

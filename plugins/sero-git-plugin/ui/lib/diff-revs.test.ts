@@ -11,13 +11,20 @@ describe('revsFor', () => {
       .toEqual({ fromRev: 'HEAD', toRev: INDEX_REV });
   });
 
+  it('compares the Explorer list against HEAD — it shows staged and unstaged together', () => {
+    expect(revsFor({ kind: 'workingCopy', path: 'a.ts', status: 'modified' }))
+      .toEqual({ fromRev: 'HEAD', toRev: WORKING_TREE_REV });
+  });
+
   it('compares an unstaged file against the index', () => {
     expect(revsFor({ kind: 'working', path: 'a.ts', status: 'modified', staged: false }))
       .toEqual({ fromRev: INDEX_REV, toRev: WORKING_TREE_REV });
   });
 
   it('compares a commit against its parent', () => {
-    expect(revsFor({ kind: 'commit', hash: 'abc1234', path: 'a.ts', status: 'modified' }))
+    expect(revsFor({ kind: 'commitFile', hash: 'abc1234', path: 'a.ts', status: 'modified' }))
+      .toEqual({ fromRev: 'abc1234^', toRev: 'abc1234' });
+    expect(revsFor({ kind: 'commit', hash: 'abc1234' }))
       .toEqual({ fromRev: 'abc1234^', toRev: 'abc1234' });
   });
 });

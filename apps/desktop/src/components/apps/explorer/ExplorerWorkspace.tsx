@@ -11,7 +11,6 @@ import { ExplorerViewMissing, ExplorerViewMount } from './ExplorerViewMount';
 import { TerminalTabs } from './TerminalTabs';
 import { TerminalPanel } from './TerminalPanel';
 import { EditorPanel } from './editor/EditorPanel';
-import { DiffTab } from './editor/DiffTab';
 import { BrowserPanel } from './browser/BrowserPanel';
 import { usePanelOpenSync } from './usePanelOpenSync';
 import { useExplorerRoots } from './useExplorerRoots';
@@ -62,14 +61,11 @@ export function ExplorerWorkspace() {
   const {
     editorTabs,
     activeTab,
-    diffState,
-    closeDiff,
     handleOpenTab,
     handleCloseTab,
     handleCloseOtherTabs,
     handleCloseAllTabs,
     handleReorderTabs,
-    handleOpenDiff,
     handlePathChanged,
     handleDeleted,
   } = useExplorerEditorState(workspaceId);
@@ -219,7 +215,6 @@ export function ExplorerWorkspace() {
                   <ExplorerSidebar
                     activePanel={activePanel}
                     workspaceId={workspaceId}
-                    onOpenDiff={handleOpenDiff}
                     fileTreeProps={{
                       workspaceId,
                       roots,
@@ -247,28 +242,6 @@ export function ExplorerWorkspace() {
                     contributedView
                       ? <ExplorerViewMount manifest={contributedView} />
                       : <ExplorerViewMissing panelId={activePanel} />
-                  ) : diffState ? (
-                    <>
-                      {/* Diff mode: show a minimal tab bar with close action */}
-                      <div className="flex h-8 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2">
-                        <span className="text-sm text-[var(--text-muted)]">
-                          Diff: {diffState.fromRev.slice(0, 8)} → {diffState.toRev.slice(0, 8)}
-                          {diffState.initialPath &&
-                            `, ${diffState.initialPath.split('/').pop()}`}
-                        </span>
-                        <span className="flex-1" />
-                        <button type="button"
-                          onClick={closeDiff}
-                          className="flex size-5 items-center justify-center rounded text-base text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
-                          title="Close diff"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <div className="min-h-0 flex-1">
-                        <DiffTab state={diffState} />
-                      </div>
-                    </>
                   ) : (
                     <EditorPanel
                       workspaceId={workspaceId}

@@ -28,6 +28,11 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GitApp",
       "devPort": 5194,
+      "explorerView": {
+        "component": "ExplorerGitView",
+        "label": "Git",
+        "icon": "git-branch"
+      },
       "widgets": [
         {
           "id": "status",
@@ -87,6 +92,7 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zustand": "catalog:"
   }
 }

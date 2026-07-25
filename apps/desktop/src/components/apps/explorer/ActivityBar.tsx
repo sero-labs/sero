@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Files, GitBranch, Terminal, Network, Globe } from 'lucide-react';
+import { Files, Terminal, Network, Globe } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -20,7 +20,6 @@ interface ActivityItem {
 
 const builtinItems: ActivityItem[] = [
   { id: 'explorer', label: 'Explorer', icon: <Files className="size-[18px]" /> },
-  { id: 'git', label: 'Source Control', icon: <GitBranch className="size-[18px]" /> },
   { id: 'orchestration', label: 'Orchestration', icon: <Network className="size-[18px]" /> },
   { id: 'browser', label: 'Browser', icon: <Globe className="size-[18px]" /> },
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
@@ -55,8 +54,9 @@ interface ActivityBarProps {
 /**
  * ActivityBar, narrow icon strip for the explorer workspace.
  *
- * Explorer, Search, Source Control, Orchestration (top) and Terminal (bottom).
- * Shows a badge on the orchestration icon when subagents are running.
+ * Built-in panels first, then any view an installed app contributes via
+ * `sero.app.explorerView` — the Git view arrives that way. Shows a badge on the
+ * orchestration icon when subagents are running.
  */
 export function ActivityBar({
   activePanel, sidebarOpen, terminalOpen, onPanelClick, workspaceId,
@@ -86,6 +86,8 @@ export function ActivityBar({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label={item.label}
+                data-explorer-panel={item.id}
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
@@ -123,6 +125,8 @@ export function ActivityBar({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label={item.label}
+                data-explorer-panel={item.id}
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',

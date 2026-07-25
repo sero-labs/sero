@@ -105,7 +105,7 @@ export function GitApp() {
   const handleSelectDiffFile = useCallback((diff: FileDiff) => {
     if (!selectedCommit) return;
     setDiffSelection({
-      kind: 'commit',
+      kind: 'commitFile',
       hash: selectedCommit.hash,
       path: diff.path,
       oldPath: diff.oldPath,
@@ -224,8 +224,15 @@ export function GitApp() {
 }
 
 function diffContextLabel(selection: DiffSelection): string {
-  if (selection.kind === 'commit') return selection.hash.slice(0, 8);
-  return selection.staged ? 'staged' : 'working tree';
+  switch (selection.kind) {
+    case 'commit':
+    case 'commitFile':
+      return selection.hash.slice(0, 8);
+    case 'workingCopy':
+      return 'working tree';
+    case 'working':
+      return selection.staged ? 'staged' : 'working tree';
+  }
 }
 
 function DiffPaneHeader({
@@ -237,7 +244,9 @@ function DiffPaneHeader({
 }) {
   return (
     <div className="flex h-8 shrink-0 items-center gap-2 border-b border-[var(--g-border)] bg-[var(--g-surface)] px-3">
-      <span className="truncate text-xs text-[var(--g-text)] git-mono">{selection.path}</span>
+      <span className="truncate text-xs text-[var(--g-text)] git-mono">
+        {selection.kind === 'commit' ? 'Commit' : selection.path}
+      </span>
       <span className="shrink-0 text-xs text-[var(--g-dim)]">{diffContextLabel(selection)}</span>
       <span className="flex-1" />
       <button type="button"
