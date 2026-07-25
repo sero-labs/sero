@@ -833,7 +833,46 @@ the run without the account that explains them are half a state, not a feature.
 The grouping now lives in the run and lasts exactly as long as the merge, which
 is all §7's drawings ever showed.
 
-**Step 9 — sweep.**
+**Step 9 — sweep. Done.**
+
+**§2 rule 17 and the prototype disagree, and the rule won.** `git-states.html`
+draws **Resolve with AI** as `.tb.solid` — brand green — while rule 17 says
+"violet is identity-and-AI … AI is never green", and rule 16 reserves green for
+the one primary action per surface, which mid-merge is *Conclude merge*. The
+button is now violet-outlined, and so are the resolver's running bar and the
+values it offers in a question. The prototype's own AI *marks* were already
+violet (`.sparkmark`, the "Resolved by AI" heading), so the button was the
+inconsistency, not the rule.
+
+**The widgets broke rules 6 and 28**, which is what §6 meant by "apply the
+rules, no redesign": ahead/behind counts and a commit count were rendered as
+`Status variant="pill"` — counts in pills — and a level branch showed a
+**Synced** pill, the status-label-with-no-action rule 28 names. Counts are now
+plain text, mono where they are machine values (rule 9), and a level branch says
+nothing at all. `MetricCard` stays: it is the shared dashboard set, and §6 rules
+a redesign out.
+
+**Every file the branch touches is under 500 lines.** The largest are
+`conflict-run.ts` (456), `GitApp.tsx` (442) and `WorkingTree.tsx` (425);
+`GitApp.tsx` shed its right-pane switch to `DetailPane` in step 8 to stay there.
+Worth flagging for whoever adds the next IPC channel:
+`apps/desktop/src/types/ipc-channels.ts` is at **497**, so the next few lines
+break the rule and it needs splitting rather than appending to.
+
+**`guide/git-integration.md` was rewritten, not patched.** It described the
+pre-step-4 app — a staging area with side-by-side staged/unstaged lists, a
+"Git Integration vs Explorer Source Control" split naming a workflow that step 4
+deleted, and a disclaimer that the surfaces were unverified. Its hero screenshot
+showed the old layout entirely. It now covers the current three-column app, the
+hard states, pull requests and both AI features, with fresh screenshots taken
+from the e2e artifacts (`git-app.jpg`, `git-resolve-ai.jpg`). The stale
+`git-management.jpg` and the Ship-deck image are deleted.
+
+**Rule 30 reached the docs site too.** The nav item, the guide index, the
+checkpoints page, the app-store page and the state reference all said
+"Git Integration"; the invented noun is gone and the thing is called **Git**.
+
+The original note for this step read:
 Design rules (§2) across the dashboard widgets and anything missed. Check every
 touched file against the 500-LOC rule. `apps/docs-site`'s
 `guide/git-integration.md` needs a full pass here: steps 4–6 changed the

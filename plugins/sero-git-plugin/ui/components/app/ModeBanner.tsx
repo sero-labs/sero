@@ -49,7 +49,7 @@ export function ModeBanner({
         </BannerButton>
         {/* An offer, not a replacement — the manual resolver is untouched. */}
         {info.conflicts > 0 && !running && (
-          <BannerButton primary onClick={onResolveWithAi}>
+          <BannerButton tone="ai" onClick={onResolveWithAi}>
             <Sparkles className="size-3.5" />
             Resolve with AI
           </BannerButton>
@@ -134,24 +134,32 @@ function Banner({ tone, children }: { tone: 'error' | 'warning'; children: React
   );
 }
 
+/**
+ * `ai` is violet, not green, and that is rule 17 rather than a preference:
+ * violet is identity-and-AI, and green is the one primary action per surface.
+ * The prototype drew this button green — see step 8's note in §11 of the spec.
+ */
 function BannerButton({
-  children, onClick, primary, disabled,
+  children, onClick, primary, tone, disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   primary?: boolean;
+  tone?: 'ai';
   disabled?: boolean;
 }) {
+  const palette = tone === 'ai'
+    ? 'border border-[var(--brand-secondary)] bg-[var(--brand-secondary-faint)] text-[var(--brand-secondary)] hover:bg-[var(--brand-secondary-muted)]'
+    : primary
+      ? 'bg-[var(--brand-primary)] font-medium text-[var(--brand-primary-foreground)] hover:bg-[var(--brand-primary-hover)]'
+      : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]';
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`ml-1.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 align-middle text-[0.84rem] disabled:opacity-40 ${
-        primary
-          ? 'bg-[var(--brand-primary)] font-medium text-[var(--brand-primary-foreground)] hover:bg-[var(--brand-primary-hover)]'
-          : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
-      }`}
+      className={`ml-1.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 align-middle text-[0.84rem] disabled:opacity-40 ${palette}`}
     >
       {children}
     </button>

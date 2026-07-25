@@ -149,9 +149,9 @@ Examples from the current guides:
 | App | State path |
 | --- | --- |
 | Web | `<workspace>/.sero/apps/web/state.json` |
-| Git Integration | `<workspace>/.sero/apps/git/state.json` |
+| Git | `<workspace>/.sero/apps/git/state.json` |
 
-Git Integration also ignores its state folder with this pattern so the app state does
+The Git app also ignores its state folder with this pattern so the app state does
 not appear as an untracked repository change:
 
 ```text

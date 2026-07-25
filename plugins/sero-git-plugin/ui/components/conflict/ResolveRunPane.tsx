@@ -35,7 +35,7 @@ export function ResolveRunPane({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className={`flex h-8 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 text-[0.84rem] ${
-        finished ? 'text-[var(--status-success)]' : 'text-[var(--text-secondary)]'
+        finished ? 'text-[var(--status-success)]' : 'text-[var(--brand-secondary)]'
       }`}>
         {finished
           ? <Check className="size-3.5 shrink-0" />
@@ -150,7 +150,9 @@ function QuestionBox({
             onClick={() => onChoose(option)}
             className="flex items-center gap-1.5 rounded border border-[var(--border-default)] bg-[var(--bg-base)] px-2 py-1 text-left hover:bg-[var(--bg-elevated)]"
           >
-            <span className="text-[0.84rem] text-[var(--text-primary)] git-mono">{option.label}</span>
+            {/* The value itself is a machine value, so mono, and violet
+                because it is the AI's offer (rules 9 and 17). */}
+            <span className="text-[0.84rem] text-[var(--brand-secondary)] git-mono">{option.label}</span>
             {option.detail && (
               <span className="text-xs text-[var(--text-muted)]">{option.detail}</span>
             )}

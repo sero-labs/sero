@@ -39,7 +39,7 @@ const appsIntegrations = [
   { text: 'Dashboard and Widgets', link: '/guide/dashboard-widgets' },
   { text: 'App Store and Favorites', link: '/guide/app-store-favorites' },
   { text: 'Settings and Admin', link: '/guide/settings-models-admin' },
-  { text: 'Git Integration', link: '/guide/git-integration' },
+  { text: 'Git', link: '/guide/git-integration' },
   { text: 'MCP', link: '/guide/mcp' },
   { text: 'Web', link: '/guide/web' },
   { text: 'Remote Control', link: '/guide/remote-control' }

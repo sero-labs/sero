@@ -20,7 +20,6 @@ import {
   MetricCard,
   Section,
   Stack,
-  Status,
   Text,
   WidgetContent,
   type Tone,
@@ -91,19 +90,21 @@ export function GitStatusWidget() {
                 {state.currentBranch || state.repoName}
               </Text>
             </Inline>
-            {ahead > 0 || behind > 0 ? (
-              <Status
-                tone="info"
-                variant="pill"
+            {/* Counts are plain text, never pills (rule 6), and sync arrows are
+                machine values, so mono (rule 9). Nothing is shown when the
+                branch is level with its remote: that is a state with no action,
+                and "Synced" is the label rule 28 names. */}
+            {(ahead > 0 || behind > 0) && (
+              <Text
+                variant="muted"
+                className="font-mono"
                 title={`${ahead} ahead · ${behind} behind ${current?.remote ?? 'remote'}`}
               >
-                {ahead > 0 ? `↑${ahead}` : ''}
-                {ahead > 0 && behind > 0 ? ' ' : ''}
-                {behind > 0 ? `↓${behind}` : ''}
-              </Status>
-            ) : current?.remote ? (
-              <Status tone="success" variant="pill">Synced</Status>
-            ) : null}
+                {[ahead > 0 ? `↑${ahead}` : '', behind > 0 ? `↓${behind}` : '']
+                  .filter(Boolean)
+                  .join(' ')}
+              </Text>
+            )}
           </Inline>
 
           <Inline gap="sm" wrap>

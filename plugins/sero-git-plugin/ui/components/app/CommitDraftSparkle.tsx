@@ -69,7 +69,9 @@ export function CommitDraftSparkle({
       title="Draft a commit message"
       onClick={onClick}
       disabled={disabled || drafting}
-      className="absolute right-[5px] top-[5px] flex size-[21px] items-center justify-center rounded-[5px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--text-muted)]"
+      // Violet on hover: AI is never green (rule 17). At rest it is muted, so
+      // it never competes with the commit button beneath it (rule 16).
+      className="absolute right-[5px] top-[5px] flex size-[21px] items-center justify-center rounded-[5px] text-[var(--text-muted)] transition-colors hover:bg-[var(--brand-secondary-faint)] hover:text-[var(--brand-secondary)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--text-muted)]"
     >
       {drafting
         ? <Loader2 className="size-3.5 animate-spin" />
