@@ -15,16 +15,10 @@ import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
 import { CommitGraph } from './components/CommitGraph';
-import { DiffViewer } from './components/DiffViewer';
+import { DiffPane, type DiffSelection } from './components/diff/DiffPane';
 import { Header } from './components/Header';
 import { StagingArea } from './components/StagingArea';
 import { GIT_STYLES } from './styles';
-
-interface PendingDiffRequest {
-  path: string;
-  staged: boolean;
-  refreshSnapshot: string;
-}
 
 interface GitActionNoticeState {
   id: number;
@@ -39,7 +33,6 @@ const MemoizedHeader = memo(Header);
 const MemoizedBranchPanel = memo(BranchPanel);
 const MemoizedCommitGraph = memo(CommitGraph);
 const MemoizedCommitDetail = memo(CommitDetail);
-const MemoizedDiffViewer = memo(DiffViewer);
 const MemoizedStagingArea = memo(StagingArea);
 
 export function GitApp() {
@@ -49,9 +42,7 @@ export function GitApp() {
   const { workspaceId, workspacePath } = useAppInfo();
 
   const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
-  const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null);
-  const [pendingDiffRequest, setPendingDiffRequest] = useState<PendingDiffRequest | null>(null);
-  const [showDiffPanel, setShowDiffPanel] = useState(false);
+  const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
   const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,9 +93,7 @@ export function GitApp() {
 
   const handleSelectCommit = useCallback((commit: CommitNode) => {
     setSelectedCommit(commit);
-    setActiveDiff(null);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(false);
+    setDiffSelection(null);
     runAction({ action: 'show_commit', hash: commit.hash });
   }, [runAction]);
 
@@ -112,27 +101,33 @@ export function GitApp() {
     setSelectedCommit(null);
   }, []);
 
+  // A file inside the selected commit — compared against that commit's parent.
   const handleSelectDiffFile = useCallback((diff: FileDiff) => {
-    setActiveDiff(diff);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(true);
-  }, []);
-
-  const handleSelectStagingFile = useCallback((path: string, staged: boolean) => {
-    setActiveDiff(null);
-    setPendingDiffRequest({
-      path,
-      staged,
-      refreshSnapshot: state.lastRefresh,
+    if (!selectedCommit) return;
+    setDiffSelection({
+      kind: 'commit',
+      hash: selectedCommit.hash,
+      path: diff.path,
+      oldPath: diff.oldPath,
+      status: diff.status,
     });
-    setShowDiffPanel(true);
-    runAction({ action: 'diff', file: path, staged });
-  }, [runAction, state.lastRefresh]);
+  }, [selectedCommit]);
+
+  // A working-tree file. The diff renders from the file's own contents, so
+  // there is no round trip through the extension to wait for.
+  const handleSelectStagingFile = useCallback((path: string, staged: boolean) => {
+    const change = state.fileChanges.find((f) => f.path === path && f.staged === staged);
+    setDiffSelection({
+      kind: 'working',
+      path,
+      oldPath: change?.oldPath,
+      status: change?.status ?? 'modified',
+      staged,
+    });
+  }, [state.fileChanges]);
 
   const handleCloseDiff = useCallback(() => {
-    setActiveDiff(null);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(false);
+    setDiffSelection(null);
   }, []);
 
   const commitDiffs = useMemo(() => {
@@ -143,24 +138,11 @@ export function GitApp() {
     return [];
   }, [selectedCommit, state.selectedCommitHash, state.commitDiffs]);
 
-  const requestedStateDiff = useMemo(() => {
-    if (!pendingDiffRequest || !state.activeDiff) return null;
-    if (state.activeDiff.path !== pendingDiffRequest.path) return null;
-    if ((state.activeDiff.staged ?? false) !== pendingDiffRequest.staged) return null;
-    return state.activeDiff;
-  }, [pendingDiffRequest, state.activeDiff]);
-
-  const diffRequestResolved = useMemo(() => {
-    if (!pendingDiffRequest) return false;
-    return state.lastRefresh !== pendingDiffRequest.refreshSnapshot;
-  }, [pendingDiffRequest, state.lastRefresh]);
-
-  const viewDiff = activeDiff ?? requestedStateDiff ?? null;
   const selectedStagingFile = useMemo(
-    () => (showDiffPanel && pendingDiffRequest
-      ? { path: pendingDiffRequest.path, staged: pendingDiffRequest.staged }
+    () => (diffSelection?.kind === 'working'
+      ? { path: diffSelection.path, staged: diffSelection.staged }
       : null),
-    [showDiffPanel, pendingDiffRequest],
+    [diffSelection],
   );
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
@@ -202,13 +184,17 @@ export function GitApp() {
                   onSelectCommit={handleSelectCommit}
                 />
 
-                {showDiffPanel && (
-                  <div className="w-[45%] shrink-0 overflow-y-auto border-l border-[var(--g-border)] p-3 git-scrollbar">
-                    {viewDiff ? (
-                      <MemoizedDiffViewer diff={viewDiff} onClose={handleCloseDiff} />
-                    ) : (
-                      <DiffPlaceholder onClose={handleCloseDiff} resolved={diffRequestResolved} />
-                    )}
+                {diffSelection && (
+                  <div className="flex w-[45%] shrink-0 flex-col overflow-hidden border-l border-[var(--g-border)]">
+                    <DiffPaneHeader selection={diffSelection} onClose={handleCloseDiff} />
+                    <div className="min-h-0 flex-1">
+                      <DiffPane
+                        workspaceId={workspaceId}
+                        repoPath={state.repoPath}
+                        selection={diffSelection}
+                        diffStyle="unified"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -237,34 +223,32 @@ export function GitApp() {
   );
 }
 
-function DiffPlaceholder({
+function diffContextLabel(selection: DiffSelection): string {
+  if (selection.kind === 'commit') return selection.hash.slice(0, 8);
+  return selection.staged ? 'staged' : 'working tree';
+}
+
+function DiffPaneHeader({
+  selection,
   onClose,
-  resolved,
 }: {
+  selection: DiffSelection;
   onClose: () => void;
-  resolved: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-[var(--g-border)] bg-[var(--g-bg)]">
-      <div className="flex items-center justify-between border-b border-[var(--g-border)] bg-[var(--g-surface)] px-3 py-2">
-        <span className="text-xs text-[var(--g-muted)]">
-          {resolved ? 'No diff available' : 'Loading diff…'}
-        </span>
-        <button type="button"
-          aria-label="Close diff"
-          onClick={onClose}
-          className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
-      </div>
-      <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-[var(--g-dim)]">
-        {resolved
-          ? 'This file does not have a displayable diff in the selected state.'
-          : 'Preparing the diff for this file...'}
-      </div>
+    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-[var(--g-border)] bg-[var(--g-surface)] px-3">
+      <span className="truncate text-xs text-[var(--g-text)] git-mono">{selection.path}</span>
+      <span className="shrink-0 text-xs text-[var(--g-dim)]">{diffContextLabel(selection)}</span>
+      <span className="flex-1" />
+      <button type="button"
+        aria-label="Close diff"
+        onClick={onClose}
+        className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M2 2l8 8M10 2l-8 8" />
+        </svg>
+      </button>
     </div>
   );
 }

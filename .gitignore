@@ -13,6 +13,7 @@ dist/
 # Playwright
 test-results/
 playwright-report/
+e2e-artifacts/
 .playwright-cli/
 apps/desktop/.sero-e2e/
 apps/desktop/.sero-layout-test/

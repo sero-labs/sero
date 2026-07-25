@@ -33,7 +33,7 @@ vi.mock('./components/CommitGraph', () => ({
     return null;
   },
 }));
-vi.mock('./components/DiffViewer', () => ({ DiffViewer: () => null }));
+vi.mock('./components/diff/DiffPane', () => ({ DiffPane: () => null }));
 vi.mock('./components/StagingArea', () => ({ StagingArea: () => null }));
 vi.mock('./styles', () => ({ GIT_STYLES: '' }));
 

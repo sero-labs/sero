@@ -71,6 +71,7 @@
   "devDependencies": {
     "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
+    "@pierre/diffs": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
     "@sero-ai/common": "workspace:*",

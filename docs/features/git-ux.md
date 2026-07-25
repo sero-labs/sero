@@ -582,11 +582,39 @@ recreate it in the plugin store** — the new design has no active-push-branch
 concept. Push pushes the current branch, and the rail is where you change branch.
 The auto-select-main fallback (`stores/vcs.ts:335-354`) goes with it.
 
-**Step 3 — move the diff into the plugin.**
+**Step 3 — move the diff into the plugin. Done.**
 Move the five `editor/` diff files and the two `@pierre` dependencies into
 `sero-git-plugin`. The plugin's existing Git app starts rendering `DiffChangeset`
 in place of its hand-rolled `DiffViewer`. The host's `DiffTab` still exists and
 still works — this step adds nothing broken.
+
+Three things it turned out to need, none of them optional:
+
+- **The deps are copied, not moved, until step 4.** The host's `DiffTab` still
+  renders diffs, so `@pierre/diffs` stays in `apps/desktop` until the cutover
+  deletes it. Both now point at one pinned catalog entry, so the two surfaces
+  cannot render diffs with different versions of the library.
+  `@pierre/trees` stays in the host only — the git views show no file navigator
+  (§4), so the plugin takes it at step 5 when the working-tree list adopts
+  `FileTree`.
+- **The diff pane reads the two sides itself.** The extension is no longer asked
+  for a diff, which removes the wait-for-a-refresh dance the old pane needed.
+  The revision pair is the whole design: staged is `HEAD`→index, unstaged is
+  index→working tree, a commit is `hash^`→`hash`. The index is reachable because
+  `getFileContent` runs `git show <rev>:<path>` and an empty rev means the index
+  — no backend change. **Getting this wrong is invisible**: comparing a staged
+  file against the working tree renders a perfectly plausible, wrong diff, so the
+  mapping is unit-tested and screenshot-verified against a real repo
+  (`e2e/git-diff-pane.workflow.spec.ts`).
+- **Git paths are repo-relative; the host's file bridge is workspace-rooted and
+  refuses to read outside the workspace.** Those roots coincide in the normal
+  case and not always. The plugin translates between them
+  (`ui/lib/repo-paths.ts`) and, when a file genuinely lies outside the
+  workspace, says so — an unreadable side is never treated as an empty file,
+  which would render a whole file as deleted.
+
+`editorThemeId`'s shiki mapping moved to `@sero-ai/common` so the plugin's diff
+colours the code exactly like the host editor without a second copy of the table.
 
 **Step 4 — the Explorer Git view, and the cutover.**
 Build the contributed Git view (§4) with the plugin's own store. Route the

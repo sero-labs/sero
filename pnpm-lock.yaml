@@ -18,6 +18,12 @@ catalogs:
     '@module-federation/vite':
       specifier: 1.11.0
       version: 1.11.0
+    '@pierre/diffs':
+      specifier: 1.2.12
+      version: 1.2.12
+    '@pierre/trees':
+      specifier: 1.0.0-beta.5
+      version: 1.0.0-beta.5
     '@sinclair/typebox':
       specifier: ^0.34.49
       version: 0.34.49
@@ -212,10 +218,10 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@pierre/diffs':
-        specifier: 1.2.12
+        specifier: 'catalog:'
         version: 1.2.12(@shikijs/themes@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@pierre/trees':
-        specifier: 1.0.0-beta.5
+        specifier: 'catalog:'
         version: 1.0.0-beta.5(@pierre/theme@1.1.0)(@shikijs/themes@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(shiki@3.23.0)
       '@playwright/test':
         specifier: ^1.59.1
@@ -830,6 +836,9 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@pierre/diffs':
+        specifier: 'catalog:'
+        version: 1.2.12(@shikijs/themes@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
