@@ -192,21 +192,45 @@ The inspector presents:
 Generated analysis and overrides are stored independently:
 
 ```ts
+interface LibrarianUserFacingAnalysis {
+  title: string;
+  notes: string;
+  designTypes: string[];
+  primaryStyle: string;
+  tags: string[];
+  summary: string;
+  designIntent: string;
+  aestheticVocabulary: Array<{ term: string; meaning?: string }>;
+  visualProfile: LibrarianVisualProfile;
+  palette?: Array<{ hex: string; role: string }>;
+  always: string[];
+  never: string[];
+  generationPrompt: string;
+}
+
 type LibrarianField = keyof LibrarianUserFacingAnalysis;
 
-interface FieldOverride<TValue = unknown> {
-  field: LibrarianField;
-  value: TValue;
+interface FieldOverride<TField extends LibrarianField> {
+  field: TField;
+  value: LibrarianUserFacingAnalysis[TField];
   updatedAt: number;
 }
 
+type LibrarianOverrides = {
+  [TField in LibrarianField]?: FieldOverride<TField>;
+};
+
 interface EditableLibrarianProfile {
   generated: LibrarianAnalysis;
-  overrides: Partial<Record<LibrarianField, FieldOverride>>;
+  overrides: LibrarianOverrides;
 }
 ```
 
 Override presence, rather than truthiness, determines whether a field is manual. Reset removes that field's override.
+
+The generated profile supplies a baseline for every editable field. The
+Librarian may propose the title. Generated notes default to an empty string so
+user notes still use the same explicit field-override mechanism.
 
 ### Search and filters
 
@@ -229,28 +253,19 @@ Permanent deletion removes the original and owned asset. Dependent Designs and G
 ## 7. Librarian contract
 
 ```ts
-interface LibrarianAnalysis {
+interface LibrarianVisualProfile {
+  colour: string[];
+  typography: string[];
+  layout: string[];
+  spacingAndDensity: string[];
+  shapeLanguage: string[];
+  surfaces: string[];
+  imagery: string[];
+  motion: string[];
+}
+
+interface LibrarianAnalysis extends LibrarianUserFacingAnalysis {
   schemaVersion: number;
-  designTypes: string[];
-  primaryStyle: string;
-  tags: string[];
-  summary: string;
-  designIntent: string;
-  aestheticVocabulary: Array<{ term: string; meaning?: string }>;
-  visualProfile: {
-    colour: string[];
-    typography: string[];
-    layout: string[];
-    spacingAndDensity: string[];
-    shapeLanguage: string[];
-    surfaces: string[];
-    imagery: string[];
-    motion: string[];
-  };
-  palette?: Array<{ hex: string; role: string }>;
-  always: string[];
-  never: string[];
-  generationPrompt: string;
   confidence: number;
   provenance: {
     providerId?: string;
@@ -469,4 +484,3 @@ The first release is complete when:
 ## 16. Decision authority
 
 `docs/decisions/sero-design-library-first-release-decisions.md` contains the full decision log and intentional deferrals. If older prose conflicts with it, the decision document and this approved specification take precedence.
-

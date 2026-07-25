@@ -87,6 +87,12 @@ Each reference can resolve to:
 
 ## 6. Plugin shape
 
+The following is the target shape across the complete first release. PR 1
+creates only the package, `shared/` domain drafts and fixture-backed `ui/`
+surface. It does not register an extension or background runtime. Those
+surfaces are added by the production PR that first needs them after Gate A has
+resolved their ownership and communication mechanisms.
+
 ```text
 plugins/sero-design-library-plugin/
 ├── package.json
@@ -311,6 +317,32 @@ Reopen restores the source Design at the saved revision. Duplicate or Remix expl
 
 ### PR 1: Approved shell and schemas
 
+Repository-backed execution details:
+
+- Use `docs/prototypes/sero-design-library-plugin.html` as the visual and
+  information-hierarchy reference. It is not a product authority. Where it
+  shows deferred or superseded concepts, including video or webpage items,
+  collections, smart groups, favourites, alternate grid modes, prompt recipes,
+  variation modes, inspiration-strength controls or Sero plugin output, omit
+  them and follow the decision record.
+- Use `packages/templates/skills/sero-plugin/example/sero-notes-plugin` as the
+  canonical scaffold reference, with the current plugin skill's scoped CSS and
+  Module Federation configuration.
+- PR 1 is a UI-only global plugin with fixture data and component-local,
+  in-memory interaction state. Do not add `extension/`, `runtime/`,
+  `useAppState()`, plugin tools, persistence code or required host capabilities.
+  Set `sero.plugin.bridgeTools` to `false`.
+- Use `palette` as the Lucide manifest icon and development port `5190`, which
+  is unused by the in-repository plugins at the start of PR 1.
+- Follow the component-test setup used by existing UI plugins such as
+  `plugins/sero-mcp-plugin`: Vitest with per-file jsdom for rendered component
+  tests.
+- The shared schema drafts in this PR are JSON-serialisable product-domain
+  types and fixtures only. They must not select record ownership,
+  serialisation, asset transport, preview construction, multimodal execution,
+  job recovery or provider-adapter request/result/error contracts. Gate A owns
+  those technical decisions.
+
 Build:
 
 - Canonical plugin scaffold.
@@ -495,4 +527,3 @@ Manual verification covers:
 PR 1 is ready.
 
 PR 2 is not ready until Gate A is complete and its outcomes are reflected in the shared schemas and this plan. A spike may select a mechanism, but it must preserve the approved behaviour in the decision document.
-

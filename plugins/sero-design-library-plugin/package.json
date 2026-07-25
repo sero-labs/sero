@@ -1,0 +1,58 @@
+{
+  "name": "@sero-ai/plugin-design-library",
+  "version": "0.1.0",
+  "description": "Private visual inspiration, design generation and Gallery workspace for Sero",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json",
+    "test": "pnpm exec vitest run --root ."
+  },
+  "sero": {
+    "app": {
+      "id": "design-library",
+      "styleIsolation": "scope",
+      "name": "Design Library",
+      "icon": "palette",
+      "scope": "global",
+      "stateFile": ".sero/apps/design-library/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "DesignLibraryApp",
+      "devPort": 5190
+    },
+    "plugin": {
+      "category": "creative-tools",
+      "tags": [
+        "design",
+        "inspiration",
+        "gallery",
+        "creative"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false,
+      "bridgeTools": false
+    }
+  },
+  "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "^26.1.0",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
