@@ -188,11 +188,10 @@ export function createDefaultGitState(): GitAppState {
     repoName: '',
     currentBranch: '',
     headHash: '',
-    // `defaultBranch` and `merge` are deliberately absent rather than set to
-    // `undefined`. `useAppState` merges the file over this default key by key
-    // and drops any value whose type differs from its default — so an optional
-    // field defaulted to `undefined` can never arrive from the state file. A
-    // missing key is copied through untouched.
+    // `defaultBranch` and `merge` are absent rather than set to `undefined`.
+    // `@sero-ai/app-runtime` 0.2.1 fixed the hook that used to drop any
+    // optional field defaulted to `undefined`, but a host pinned to 0.2.0 still
+    // does — and a missing key is copied through untouched by both.
     branches: [],
     remoteBranches: [],
     remotes: [],

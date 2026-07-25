@@ -80,10 +80,12 @@ describe('deriveRepoMode', () => {
   });
 });
 
-// `useAppState` merges the state file over the default key by key and keeps the
-// default whenever the types differ. `undefined` matches nothing, so any
-// optional field defaulted to `undefined` is silently erased on the way in —
-// which is how the merge state and `defaultBranch` went missing once already.
+// `useAppState` merges the state file over the default key by key. Before
+// `@sero-ai/app-runtime` 0.2.1 it also kept the default whenever the types
+// differed — and `undefined` matches nothing, so any optional field defaulted
+// to `undefined` was erased on the way in. That is how the merge state and
+// `defaultBranch` went missing. The hook is fixed; this keeps the git state
+// safe on a host still pinned to 0.2.0.
 describe('the default state', () => {
   it('holds no undefined values, or optional fields never arrive', () => {
     const undefinedKeys = Object.entries(createDefaultGitState())

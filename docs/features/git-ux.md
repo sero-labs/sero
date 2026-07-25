@@ -468,9 +468,14 @@ Two things verified rather than assumed:
 
 ### Published API changes
 
-One `@sero-ai/app-runtime` release, carrying **one** thing and nothing about vcs:
+Two `@sero-ai/app-runtime` releases, carrying **one** feature each and nothing
+about vcs:
 
-1. `editorThemeId` on the plugin context.
+1. **0.2.0** — `editorThemeId` on the plugin context.
+2. **0.2.1** — `useAppState` stops dropping optional fields (step 7 above).
+
+`@sero-ai/common` **0.7.0** goes with them: the repo state gained `detached` and
+`merge`, and `GitManagerAction` gained `abort_merge`.
 
 ~~2. Open-file-**and-switch-view**.~~ **Corrected during step 1 — this already
 works.** The claim was that `openSeroFile` opens a tab without changing
@@ -747,15 +752,18 @@ state carried no repo modes at all, so this step added them:
   anyone retype what git already wrote.
 
 **A published-runtime trap, found the hard way.** `useAppState` merges the state
-file over the app's default state key by key and keeps the default whenever the
-two types differ. `undefined` matches nothing, so **any optional field whose
-default is `undefined` is silently dropped on the way in** — which is why the
+file over the app's default state key by key and kept the default whenever the
+two types differed. `undefined` matches nothing, so **any optional field whose
+default was `undefined` was silently dropped on the way in** — which is why the
 merge state never arrived, and why `defaultBranch` had been missing all along
-(the detached-HEAD banner said "Return to (not queried)"). The fix is to leave
-those keys out of `createDefaultGitState()` entirely; a test pins it. The
-durable fix is in `@sero-ai/app-runtime` — pass the file's value through when
-there is no default to enforce — and it is not taken here because that is a
-published package with external plugins pinned to it.
+(the detached-HEAD banner said "Return to (not queried)").
+
+Fixed in `@sero-ai/app-runtime` **0.2.1**: an `undefined` default says a field is
+optional, not that it must be absent, so the file's value passes through. The
+git state also leaves those keys out of `createDefaultGitState()`, which is
+belt-and-braces for a host still pinned to 0.2.0. Both are pinned by tests
+(`packages/app-runtime/src/use-app-state.test.ts`, and the default-state guard in
+`plugins/sero-git-plugin/ui/lib/repo-mode.test.ts`).
 
 `(not queried)` was also `getDefaultBranch` returning git's placeholder for a
 remote that does not exist. Fixed at source, with a test.
