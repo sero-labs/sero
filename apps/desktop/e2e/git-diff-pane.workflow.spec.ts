@@ -94,6 +94,12 @@ test('renders a real diff for a changed file', async () => {
   await page.waitForTimeout(2_500);
   await page.screenshot({ path: 'e2e-artifacts/git-diff-staged.png' });
 
+  // Discarding is destructive, so the row asks a second time before it fires.
+  const unstagedRow = page.getByText('README.md', { exact: true }).first();
+  await unstagedRow.hover();
+  await page.getByRole('button', { name: 'Discard changes in README.md' }).click();
+  await expect(page.getByText('Discard?')).toBeVisible();
+
   // The whole app, for a look at the rebuilt layout.
   await page.screenshot({ path: 'e2e-artifacts/git-app-layout.png' });
 });

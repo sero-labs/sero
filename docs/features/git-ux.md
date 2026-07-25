@@ -657,10 +657,35 @@ The status dot already says what happened to the file, which is what the list is
 for; the diff itself is one click away. Rule 6 (counts are plain text) still
 governs the counts that remain, such as `Changes 8`.
 
-**Step 5 — rebuild the Git app.**
+**Step 5 — rebuild the Git app. Mostly done.**
 Apply §3 inside the plugin: rail, working tree, graph band, draggable divider,
 per-row actions, PR compose in the right pane, sign-in in the top bar. Retire the
 `--g-*` theme. Retire `window.sero.gitApp` once nothing calls it.
+
+Done: the layout (rail · working tree + diff · history band under a draggable
+divider that persists per workspace), the working tree with its Staged/Changes
+sections and hover actions, the 214px middle-truncating rail, 30px graph rows
+with capped ref chips, and the death of the `--g-*` theme.
+
+**Discard** is new — §3 notes it was missing entirely. It is a new git action,
+narrow by design: one named file, never an "all" sweep, untracked files
+untouched. Rule 24 reserves dialogs for the dirty branch switch, so the row asks
+a second time in place instead.
+
+Still open:
+
+- **PR compose in the right pane, and sign-in in the top bar.** The host's
+  361-line `PullRequestComposer` has to move into the plugin, where it shares
+  the right column with the diff. Untouched so far, and the titlebar popover
+  still renders the host copy until step 6.
+- **`window.sero.gitApp` cannot be retired yet, and §11 assumes it can.**
+  Staging, committing, stashing, checkout, merge and cherry-pick exist only as
+  `gitApp.run` actions; `window.sero.vcs` has no equivalent. Retiring the bridge
+  means adding those to the vcs surface first, which is net-new backend work §10
+  does not list. The rebuild uses `gitApp.run` for mutations and the plugin
+  store's `window.sero.vcs` for reads, which is one path per concern rather than
+  the three AD-025 set out to remove.
+- **Lane colour is not yet shared between the graph and the rail** (§3).
 
 **Step 6 — the titlebar popover.**
 Move it to a plugin contribution on the titlebar slot from step 1, at 300px, per
