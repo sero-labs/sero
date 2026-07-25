@@ -225,15 +225,6 @@ export function GitApp() {
     setViewState({ graphHeightPct: pct });
   }, [setViewState]);
 
-  // The AI marks live in the same per-workspace view state as the divider, so
-  // they survive a reload in the middle of a merge.
-  const aiResolvedStore = useMemo(() => ({
-    stored: viewState.aiResolved,
-    save: (next: { mergeRef: string; paths: string[] } | undefined) => {
-      setViewState({ aiResolved: next });
-    },
-  }), [setViewState, viewState.aiResolved]);
-
   const commitDiffs = useMemo(() => {
     if (!selectedCommit) return [];
     if (state.selectedCommitHash === selectedCommit.hash && state.commitDiffs) {
@@ -288,9 +279,7 @@ export function GitApp() {
     repoPath: state.repoPath,
     conflictPaths: repoMode.conflictPaths,
     merging: repoMode.mode === 'merging',
-    mergeRef: repoMode.mergeFrom,
     onAction: runActionAsync,
-    aiResolvedStore,
   });
 
   // The account takes the right pane, so starting a run puts it in view.

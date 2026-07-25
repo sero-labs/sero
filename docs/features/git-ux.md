@@ -318,8 +318,12 @@ asks a specific question with the real options.
 - **Stop keeps completed resolutions** — they are ordinary working-tree changes.
 - **`Undo AI resolutions`** reverts only the machine's work and leaves your
   answers alone.
-- **AI-resolved files stay marked**, so a week later you can tell which
-  resolutions were yours.
+- **AI-resolved files are grouped apart while the merge is on**, so the list
+  still reads as a to-do list and you know which files to review.
+  ~~so a week later you can tell which resolutions were yours~~ — **this part
+  was wrong and is not built.** Git history already says who resolved what, and
+  making the marks outlive the merge would mean writing them into the commit.
+  The grouping lasts exactly as long as the merge does.
 - **The model carries your answer forward** to related conflicts. A per-conflict
   review loop structurally cannot do that, and it is the argument for
   automatic-first.
@@ -821,12 +825,13 @@ could see — the reason §11's steps are verified against the running app:
   worst place for it, since the file kept looking resolved while its markers
   were back on disk. Git actions from the run are now serialised.
 
-**One narrowing to record.** §7 says AI-resolved files stay marked "so a week
-later you can tell which resolutions were yours". The marks are kept in the
-plugin's own per-workspace `view.json`, keyed by the merge, so they survive a
-reload but end with the merge. Anything longer-lived would have to be written
-into the commit itself, and §7's drawn finished state shows a plain merge
-message with no trailer.
+**§7's "a week later" was wrong, and the code for it has been removed.** The
+marks were being persisted to the plugin's per-workspace `view.json`, keyed by
+the merge, purely so they survived a reload. Git history already records who
+resolved what, so none of that was earning its keep — and marks that outlived
+the run without the account that explains them are half a state, not a feature.
+The grouping now lives in the run and lasts exactly as long as the merge, which
+is all §7's drawings ever showed.
 
 **Step 9 — sweep.**
 Design rules (§2) across the dashboard widgets and anything missed. Check every
