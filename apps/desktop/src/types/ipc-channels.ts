@@ -325,6 +325,8 @@ export const IpcChannels = {
     prState: 'sero:vcs:pr-state',
     prPreview: 'sero:vcs:pr-preview',
     prGenerateDraft: 'sero:vcs:pr-generate-draft',
+    /** Draft a commit message for what is about to be committed (git-ux §10). */
+    commitDraftMessage: 'sero:vcs:commit-draft-message',
     prCreate: 'sero:vcs:pr-create',
     undo: 'sero:vcs:undo',
     discardCommit: 'sero:vcs:discard-commit',

@@ -59,6 +59,12 @@ export interface SeroVcsBridge {
   prState(workspaceId: string): Promise<PullRequestState>;
   prPreview(workspaceId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(workspaceId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestPreview & { title: string; body: string; model: string }>;
+  /**
+   * A drafted commit message for what is about to be committed. `'staged'` is
+   * what the Git app commits; `'all'` is what the titlebar popover commits.
+   * An empty string means the model had nothing to say — leave the field alone.
+   */
+  commitDraftMessage(workspaceId: string, scope?: 'staged' | 'all'): Promise<string>;
   prCreate(workspaceId: string, input: {
     sourceBranch: string;
     targetBranch: string;

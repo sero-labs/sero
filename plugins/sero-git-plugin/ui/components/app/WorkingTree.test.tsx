@@ -51,6 +51,7 @@ describe('WorkingTree', () => {
     await act(async () => {
       root?.render(
         <WorkingTree
+          workspaceId="ws-test"
           fileChanges={CHANGES}
           onAction={onAction as unknown as (action: GitManagerRequest) => void}
           onSelectFile={vi.fn()}

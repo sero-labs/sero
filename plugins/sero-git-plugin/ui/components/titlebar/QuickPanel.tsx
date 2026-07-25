@@ -18,6 +18,7 @@ import { getSeroApi } from '@sero-ai/app-runtime';
 
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
 import { statusColour } from '../../lib/file-status';
+import { CommitDraftSparkle, useCommitDraft } from '../app/CommitDraftSparkle';
 
 /** Five rows at the one row scale (rule 10). */
 const LIST_MAX_HEIGHT = 5 * 26;
@@ -80,6 +81,9 @@ export function QuickPanel({
     void run('commit', { action: 'commit', all: true, message: trimmed });
   }, [message, run]);
 
+  // `all`, to match the one list this panel commits.
+  const { drafting, error: draftError, draft } = useCommitDraft(workspaceId, 'all', setMessage);
+
   return (
     <div className="flex flex-col text-[var(--text-primary)]">
       {/* ── Where you are ──────────────────────────────────────── */}
@@ -113,16 +117,23 @@ export function QuickPanel({
 
       {/* ── Commit ─────────────────────────────────────────────── */}
       <div className="p-3 pt-2">
-        <input
-          aria-label="Commit message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) commit();
-          }}
-          placeholder="Message"
-          className="h-[30px] w-full rounded-[7px] border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 text-[0.85rem] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
-        />
+        <div className="relative">
+          <input
+            aria-label="Commit message"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) commit();
+            }}
+            placeholder="Message"
+            className="h-[30px] w-full rounded-[7px] border border-[var(--border-subtle)] bg-[var(--bg-base)] pl-2.5 pr-8 text-[0.85rem] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
+          />
+          <CommitDraftSparkle
+            drafting={drafting}
+            disabled={changes.length === 0}
+            onClick={draft}
+          />
+        </div>
         <button
           type="button"
           onClick={commit}
@@ -137,6 +148,7 @@ export function QuickPanel({
         {blockedReason && (
           <p className="mt-1 text-xs text-[var(--status-warning)]">{blockedReason}</p>
         )}
+        {draftError && <FailureNote>{draftError}</FailureNote>}
         {failure?.kind === 'commit' && <FailureNote>{failure.message}</FailureNote>}
       </div>
 

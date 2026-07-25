@@ -317,6 +317,7 @@ export function GitApp() {
 
                 <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
                   <MemoizedWorkingTree
+                    workspaceId={workspaceId}
                     fileChanges={state.fileChanges}
                     onAction={runAction}
                     onSelectFile={handleSelectStagingFile}

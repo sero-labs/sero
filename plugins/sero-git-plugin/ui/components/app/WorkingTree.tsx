@@ -13,6 +13,7 @@ import type { FileChange, GitManagerRequest } from '../../../shared/types';
 import { statusColour } from '../../lib/file-status';
 import { groupForMerge } from '../../lib/merge-groups';
 import type { RepoModeInfo } from '../../lib/repo-mode';
+import { CommitDraftSparkle, useCommitDraft } from './CommitDraftSparkle';
 
 export interface WorkingTreeSelection {
   path: string;
@@ -20,6 +21,7 @@ export interface WorkingTreeSelection {
 }
 
 interface Props {
+  workspaceId: string;
   fileChanges: FileChange[];
   onAction: (action: GitManagerRequest) => void;
   onSelectFile: (path: string, staged: boolean) => void;
@@ -30,7 +32,7 @@ interface Props {
 }
 
 export function WorkingTree({
-  fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, info,
+  workspaceId, fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, info,
 }: Props) {
   // Null means untouched, so git's own merge message can show through without
   // an effect writing it into state behind the user's back.
@@ -61,6 +63,14 @@ export function WorkingTree({
   const canCommit = hasSomethingToCommit
     && message.trim().length > 0
     && !info.commitBlockedReason;
+
+  // The draft describes what this button would commit, which is not always the
+  // staged set — the first commit in a fresh repository stages everything.
+  const { drafting, error: draftError, draft } = useCommitDraft(
+    workspaceId,
+    info.mode === 'unborn' ? 'all' : 'staged',
+    setTypedMessage,
+  );
 
   const rowProps = {
     onSelectFile, onOpenInEditor, selectedFile, onAction, pendingDiscard, setPendingDiscard,
@@ -147,17 +157,24 @@ export function WorkingTree({
 
       {/* ── Commit ─────────────────────────────────────────────── */}
       <div className="shrink-0 border-t border-[var(--border-subtle)] p-2">
-        <textarea
-          aria-label="Commit message"
-          value={message}
-          onChange={(event) => setTypedMessage(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) commit();
-          }}
-          rows={2}
-          placeholder="Message"
-          className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5 text-[0.84rem] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
-        />
+        <div className="relative">
+          <textarea
+            aria-label="Commit message"
+            value={message}
+            onChange={(event) => setTypedMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) commit();
+            }}
+            rows={2}
+            placeholder="Message"
+            className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] py-1.5 pl-2 pr-8 text-[0.84rem] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]"
+          />
+          <CommitDraftSparkle
+            drafting={drafting}
+            disabled={!hasSomethingToCommit}
+            onClick={draft}
+          />
+        </div>
         <button
           type="button"
           onClick={commit}
@@ -170,6 +187,7 @@ export function WorkingTree({
         {info.commitBlockedReason && (
           <p className="mt-1 text-xs text-[var(--status-warning)]">{info.commitBlockedReason}</p>
         )}
+        {draftError && <p className="mt-1 text-xs text-[var(--status-error)]">{draftError}</p>}
       </div>
     </div>
   );

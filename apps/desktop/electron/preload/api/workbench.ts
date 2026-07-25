@@ -101,6 +101,11 @@ export const vcsBridge = {
     targetBranch?: string,
   ): Promise<PullRequestDraft> =>
     ipcRenderer.invoke(IpcChannels.vcs.prGenerateDraft, workspaceId, sourceBranch, targetBranch),
+  commitDraftMessage: (
+    workspaceId: string,
+    scope?: 'staged' | 'all',
+  ): Promise<string> =>
+    ipcRenderer.invoke(IpcChannels.vcs.commitDraftMessage, workspaceId, scope),
   prCreate: (
     workspaceId: string,
     input: CreatePullRequestInput,

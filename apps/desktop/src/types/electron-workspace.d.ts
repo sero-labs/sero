@@ -214,6 +214,8 @@ export interface SeroVcsAPI {
   prState(wsId: string): Promise<PullRequestState>;
   prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
+  /** A drafted commit message for what is about to be committed. `''` means the model had nothing. */
+  commitDraftMessage(wsId: string, scope?: 'staged' | 'all'): Promise<string>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   discardCommit(wsId: string, sha: string): Promise<void>;

@@ -5,8 +5,10 @@ import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
+import { buildCommitMessagePrompt, parseCommitMessage } from '@electron/features/agent/assistants/commit-message';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
-import { githubAuth, githubRepoOps, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { buildCommitDraftContext, type CommitDraftScope } from '@electron/features/git/core/commit-draft';
+import { githubAuth, githubRepoOps, gitRunner, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { connectRemote, publishRepo } from '@electron/features/git/remote-connect';
 import type { PublishRepoInput, RemoteImportMode } from '@sero-ai/common';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
@@ -208,6 +210,22 @@ export function registerVcsHandlers(): void {
       model: generated.model,
     };
     return draft;
+  });
+
+  // The sparkle inside the commit message field (§10). It returns the message
+  // and nothing else — the field owns it from there, and an empty string means
+  // the model had nothing to say rather than "use this".
+  ipcMain.handle(Ch.commitDraftMessage, async (_e, wsId: string, scope: CommitDraftScope = 'staged') => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    if (!workspacePath) throw new Error(`Workspace not found: ${wsId}`);
+
+    const ctx = await buildCommitDraftContext(gitRunner, wsId, scope);
+    const generated = await runAdhocAgent(
+      workspacePath,
+      buildCommitMessagePrompt(ctx.fileSummary, ctx.patch),
+      'low',
+    );
+    return parseCommitMessage(generated.text);
   });
 
   ipcMain.handle(Ch.prCreate, async (_e, wsId: string, input: CreatePullRequestInput) =>
