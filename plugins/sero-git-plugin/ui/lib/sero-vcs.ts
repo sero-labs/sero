@@ -18,6 +18,7 @@ interface SeroVcsSlice {
 interface SeroEditorSlice {
   /** Paths resolve against the workspace root, and may not escape it. */
   readFile(workspaceId: string, filePath: string): Promise<string>;
+  writeFile(workspaceId: string, filePath: string, content: string): Promise<void>;
 }
 
 interface SeroVcsWindow {
@@ -37,6 +38,20 @@ export async function readWorkingTreeFile(workspaceId: string, path: string): Pr
   const editor = bridge().editor;
   if (!editor) throw new Error('The editor bridge is unavailable');
   return editor.readFile(workspaceId, path);
+}
+
+/**
+ * Write a working-tree file. The conflict resolver persists this way because
+ * the library's resolver only ever hands back new contents (§9.1).
+ */
+export async function writeWorkingTreeFile(
+  workspaceId: string,
+  path: string,
+  contents: string,
+): Promise<void> {
+  const editor = bridge().editor;
+  if (!editor) throw new Error('The editor bridge is unavailable');
+  return editor.writeFile(workspaceId, path, contents);
 }
 
 /** File contents at a git revision. */

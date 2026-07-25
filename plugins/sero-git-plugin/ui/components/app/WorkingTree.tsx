@@ -7,10 +7,12 @@
  * green button (rule 16), and the commit button names its object (rule 27).
  */
 
-import { useCallback, useState } from 'react';
-import { FileText, Minus, Plus, Undo2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { AlertCircle, FileText, Minus, Plus, Undo2 } from 'lucide-react';
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
 import { statusColour } from '../../lib/file-status';
+import { groupForMerge } from '../../lib/merge-groups';
+import type { RepoModeInfo } from '../../lib/repo-mode';
 
 export interface WorkingTreeSelection {
   path: string;
@@ -23,32 +25,58 @@ interface Props {
   onSelectFile: (path: string, staged: boolean) => void;
   onOpenInEditor: (path: string) => void;
   selectedFile: WorkingTreeSelection | null;
-  /** Blocks committing, with the reason shown beneath the button (rule 20). */
-  commitBlockedReason?: string | null;
+  /** The repo mode: what the commit button says, and why it may be off. */
+  info: RepoModeInfo;
 }
 
 export function WorkingTree({
-  fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, commitBlockedReason,
+  fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, info,
 }: Props) {
-  const [message, setMessage] = useState('');
+  // Null means untouched, so git's own merge message can show through without
+  // an effect writing it into state behind the user's back.
+  const [typedMessage, setTypedMessage] = useState<string | null>(null);
+  const message = typedMessage ?? info.suggestedMessage ?? '';
   // Discarding is irreversible, and rule 24 reserves dialogs for switching
   // branch, so the row itself asks a second time.
   const [pendingDiscard, setPendingDiscard] = useState<string | null>(null);
   const staged = fileChanges.filter((file) => file.staged);
   const changes = fileChanges.filter((file) => !file.staged);
+  const merging = info.mode === 'merging';
 
   const commit = useCallback(() => {
     const trimmed = message.trim();
     if (!trimmed) return;
-    onAction({ action: 'commit', message: trimmed });
-    setMessage('');
-  }, [message, onAction]);
+    // Nothing is staged in a fresh repository, and asking someone to stage
+    // before their first commit is ceremony; every other mode commits what is
+    // staged, which is what concludes a merge.
+    onAction({ action: 'commit', message: trimmed, all: info.mode === 'unborn' });
+    setTypedMessage(null);
+  }, [info.mode, message, onAction]);
 
-  const canCommit = staged.length > 0 && message.trim().length > 0 && !commitBlockedReason;
+  // Concluding a merge commits what git already staged; an unborn repo has
+  // nothing staged yet, so its first commit stages everything.
+  const hasSomethingToCommit = info.mode === 'unborn'
+    ? fileChanges.length > 0
+    : staged.length > 0;
+  const canCommit = hasSomethingToCommit
+    && message.trim().length > 0
+    && !info.commitBlockedReason;
+
+  const rowProps = {
+    onSelectFile, onOpenInEditor, selectedFile, onAction, pendingDiscard, setPendingDiscard,
+  };
 
   return (
     <div className="flex size-full min-h-0 flex-col bg-[var(--bg-surface)]">
       <div className="min-h-0 flex-1 overflow-y-auto git-scrollbar">
+        {merging ? (
+          <MergeSections
+            fileChanges={fileChanges}
+            conflictPaths={info.conflictPaths}
+            {...rowProps}
+          />
+        ) : (
+        <>
         <Section
           label="Staged"
           count={staged.length}
@@ -113,6 +141,8 @@ export function WorkingTree({
           ))}
           {changes.length === 0 && <EmptyRow>No changes</EmptyRow>}
         </Section>
+        </>
+        )}
       </div>
 
       {/* ── Commit ─────────────────────────────────────────────── */}
@@ -120,7 +150,7 @@ export function WorkingTree({
         <textarea
           aria-label="Commit message"
           value={message}
-          onChange={(event) => setMessage(event.target.value)}
+          onChange={(event) => setTypedMessage(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) commit();
           }}
@@ -134,14 +164,87 @@ export function WorkingTree({
           disabled={!canCommit}
           className="mt-1.5 h-7 w-full rounded-md bg-[var(--brand-primary)] text-[0.84rem] font-medium text-[var(--brand-primary-foreground)] transition-colors hover:bg-[var(--brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {staged.length === 1 ? 'Commit 1 file' : `Commit ${staged.length} files`}
+          {info.commitLabel}
         </button>
         {/* The reason sits with the control, not in a tooltip or a toast. */}
-        {commitBlockedReason && (
-          <p className="mt-1 text-xs text-[var(--status-warning)]">{commitBlockedReason}</p>
+        {info.commitBlockedReason && (
+          <p className="mt-1 text-xs text-[var(--status-warning)]">{info.commitBlockedReason}</p>
         )}
       </div>
     </div>
+  );
+}
+
+/** Mid-merge the list is the to-do list: what conflicts, what you fixed, what merged itself. */
+function MergeSections({
+  fileChanges, conflictPaths, onSelectFile, onOpenInEditor, selectedFile, onAction,
+}: {
+  fileChanges: FileChange[];
+  conflictPaths: string[];
+  onSelectFile: (path: string, staged: boolean) => void;
+  onOpenInEditor: (path: string) => void;
+  selectedFile: WorkingTreeSelection | null;
+  onAction: (action: GitManagerRequest) => void;
+  pendingDiscard: string | null;
+  setPendingDiscard: (path: string | null) => void;
+}) {
+  const groups = useMemo(
+    () => groupForMerge(fileChanges, conflictPaths),
+    [fileChanges, conflictPaths],
+  );
+
+  return (
+    <>
+      <Section label="Conflicts" count={groups.conflicts.length}>
+        {groups.conflicts.map((file) => (
+          <FileRow
+            key={`conflict:${file.path}`}
+            file={file}
+            selected={selectedFile?.path === file.path}
+            onSelect={() => onSelectFile(file.path, false)}
+            onOpenInEditor={() => onOpenInEditor(file.path)}
+            actions={[{
+              // Git's own definition of resolved is "staged", so this is the
+              // escape hatch for anyone who fixed the file in the editor.
+              label: `Mark ${file.path} resolved`,
+              icon: <Plus className="size-3" />,
+              onClick: () => onAction({ action: 'stage', file: file.path }),
+            }]}
+          />
+        ))}
+        {groups.conflicts.length === 0 && <EmptyRow>Nothing left to resolve</EmptyRow>}
+      </Section>
+
+      {groups.resolved.length > 0 && (
+        <Section label="Resolved" count={groups.resolved.length}>
+          {groups.resolved.map((file) => (
+            <FileRow
+              key={`resolved:${file.path}`}
+              file={file}
+              selected={selectedFile?.path === file.path}
+              onSelect={() => onSelectFile(file.path, file.staged)}
+              onOpenInEditor={() => onOpenInEditor(file.path)}
+              actions={[]}
+            />
+          ))}
+        </Section>
+      )}
+
+      {groups.cleanly.length > 0 && (
+        <Section label="Merged cleanly" count={groups.cleanly.length}>
+          {groups.cleanly.map((file) => (
+            <FileRow
+              key={`clean:${file.path}`}
+              file={file}
+              selected={selectedFile?.path === file.path}
+              onSelect={() => onSelectFile(file.path, file.staged)}
+              onOpenInEditor={() => onOpenInEditor(file.path)}
+              actions={[]}
+            />
+          ))}
+        </Section>
+      )}
+    </>
   );
 }
 
@@ -204,10 +307,16 @@ function FileRow({
         selected ? 'bg-[var(--bg-overlay)]' : ''
       }`}
     >
-      <span
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ background: statusColour(file.status) }}
-      />
+      {/* A conflict is the one status that is a job rather than a fact, so it
+          gets the warning mark instead of the 6px dot. */}
+      {file.status === 'conflict' ? (
+        <AlertCircle className="size-3 shrink-0 text-[var(--status-error)]" />
+      ) : (
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ background: statusColour(file.status) }}
+        />
+      )}
       <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
         {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
         {name}

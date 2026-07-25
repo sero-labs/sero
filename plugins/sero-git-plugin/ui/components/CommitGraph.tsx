@@ -39,10 +39,18 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
     [onSelectCommit],
   );
 
+  // Empty is centred and says what comes next, rather than an empty grid
+  // (rule 25, §7).
   if (commits.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-base">
-        No commits to display
+      <div className="flex flex-1 items-center justify-center px-6 text-center">
+        <div className="max-w-xs">
+          <h3 className="text-[0.84rem] text-[var(--text-primary)]">No history yet</h3>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            The graph fills in from your first commit. There is nothing to fetch, push or open a
+            pull request against until then.
+          </p>
+        </div>
       </div>
     );
   }
@@ -216,9 +224,14 @@ function CommitDot({ cx, cy, color, isHead, isSelected }: {
 
 function RefBadge({ name, type, color }: { name: string; type: string; color: string }) {
   const isTag = type === 'tag';
-  const bgColor = isTag ? 'var(--status-warning-faint)' : `${color}18`;
-  const textColor = isTag ? 'var(--status-warning)' : color;
-  const borderColor = isTag ? 'var(--status-warning-border)' : `${color}30`;
+  // A detached HEAD decorates its commit with a bare `HEAD`. It is where you
+  // are, not a branch, so it is marked in warning colour and never mistaken
+  // for one (§7).
+  const isDetachedHead = type === 'local' && name === 'HEAD';
+  const warn = isTag || isDetachedHead;
+  const bgColor = warn ? 'var(--status-warning-faint)' : `${color}18`;
+  const textColor = warn ? 'var(--status-warning)' : color;
+  const borderColor = warn ? 'var(--status-warning-border)' : `${color}30`;
 
   // Shorten remote refs
   const label = name.replace(/^origin\//, '');

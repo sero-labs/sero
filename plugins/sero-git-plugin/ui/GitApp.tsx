@@ -7,16 +7,22 @@
  */
 
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { getSeroApi, openSeroFile, useAppInfo, useAppState } from '@sero-ai/app-runtime';
+import { getSeroApi, openSeroFile, useAppInfo, useAppState, useTheme } from '@sero-ai/app-runtime';
 
 import type { GitActionResult } from '@sero-ai/common';
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
+import { ConflictPane } from './components/diff/ConflictPane';
 import { DiffPane, type DiffSelection } from './components/diff/DiffPane';
+import { toWorkspacePath } from './lib/repo-paths';
 import { GraphBand } from './components/app/GraphBand';
 import { GraphDivider } from './components/app/GraphDivider';
+import { ModeBanner } from './components/app/ModeBanner';
+import { SwitchBranchDialog, type SwitchStrategy } from './components/app/SwitchBranchDialog';
+import { deriveRepoMode } from './lib/repo-mode';
+import { PublishPane } from './components/app/PublishPane';
 import { PullRequestPane } from './components/app/PullRequestPane';
 import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
@@ -45,12 +51,14 @@ const MemoizedBranchPanel = memo(BranchPanel);
 const MemoizedGraphBand = memo(GraphBand);
 const MemoizedCommitDetail = memo(CommitDetail);
 const MemoizedWorkingTree = memo(WorkingTree);
+const MemoizedModeBanner = memo(ModeBanner);
 
 export function GitApp() {
   const initialState = useMemo(() => createDefaultGitState(), []);
   const [rawState] = useAppState<GitAppState>(initialState);
   const state = useMemo(() => normalizeGitState(rawState), [rawState]);
   const { workspaceId, workspacePath } = useAppInfo();
+  const { mode: themeMode, editorThemeId } = useTheme();
 
   const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
   const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
@@ -59,6 +67,8 @@ export function GitApp() {
   const [graphCollapsed, setGraphCollapsed] = useState(false);
   // The right pane is the diff, or the PR composer — never a fourth surface.
   const [composingPr, setComposingPr] = useState(false);
+  /** The branch a dirty working tree is being asked to switch to. */
+  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const github = useGitHubAuth();
   const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,25 +98,57 @@ export function GitApp() {
     }, 5000);
   }, []);
 
-  const runAction = useCallback((params: GitManagerRequest) => {
+  // Resolves false when the action failed, so callers that must sequence —
+  // stash *then* switch — can stop rather than carry on into a broken state.
+  const runActionAsync = useCallback(async (params: GitManagerRequest): Promise<boolean> => {
     const gitApp = getSeroApi().gitApp;
     if (!gitApp) {
       console.warn('[git-app] gitApp bridge unavailable');
       showNotice('Git bridge unavailable', 'Reload Sero or reopen this workspace to restore Git actions.');
-      return;
+      return false;
     }
 
-    void gitApp.run(workspaceId, params).then((actionResult: GitActionResult) => {
+    try {
+      const actionResult: GitActionResult = await gitApp.run(workspaceId, params);
       if (!actionResult.ok) {
         console.error('[git-app] Action failed:', actionResult.message);
         showNotice(getActionFailureTitle(params.action), actionResult.message);
+        return false;
       }
-    }).catch((error) => {
+      return true;
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[git-app] Action failed:', error);
       showNotice(getActionFailureTitle(params.action), message);
-    });
+      return false;
+    }
   }, [showNotice, workspaceId]);
+
+  const runAction = useCallback((params: GitManagerRequest) => {
+    void runActionAsync(params);
+  }, [runActionAsync]);
+
+  // Switching branch with uncommitted changes is the one action that can
+  // destroy work, so it is the one action that asks first (§7).
+  const handleRequestCheckout = useCallback((branch: string) => {
+    if (state.fileChanges.length === 0) {
+      runAction({ action: 'checkout', branch });
+      return;
+    }
+    setSwitchTarget(branch);
+  }, [runAction, state.fileChanges.length]);
+
+  const handleSwitchChoice = useCallback(async (strategy: SwitchStrategy) => {
+    const branch = switchTarget;
+    setSwitchTarget(null);
+    if (!branch) return;
+    if (strategy === 'stash' && !(await runActionAsync({ action: 'stash' }))) return;
+    await runActionAsync({
+      action: 'checkout',
+      branch,
+      force: strategy === 'discard',
+    });
+  }, [runActionAsync, switchTarget]);
 
   const handleSelectCommit = useCallback((commit: CommitNode) => {
     setSelectedCommit(commit);
@@ -156,6 +198,11 @@ export function GitApp() {
 
   const handleClosePullRequest = useCallback(() => setComposingPr(false), []);
 
+  // A new origin changes what every other control can do, so pick it up at once.
+  const handlePublished = useCallback(() => {
+    runAction({ action: 'refresh' });
+  }, [runAction]);
+
   const handleOpenInEditor = useCallback((path: string) => {
     void openSeroFile(workspaceId, path);
   }, [workspaceId]);
@@ -179,6 +226,21 @@ export function GitApp() {
     return [];
   }, [selectedCommit, state.selectedCommitHash, state.commitDiffs]);
 
+  // The selected working-tree file, when it is one git still calls conflicted.
+  const conflictPath = useMemo(() => {
+    if (diffSelection?.kind !== 'working') return null;
+    const conflicted = state.fileChanges.some(
+      (file) => file.path === diffSelection.path && file.status === 'conflict',
+    );
+    return conflicted ? diffSelection.path : null;
+  }, [diffSelection, state.fileChanges]);
+
+  // Git's definition of resolved is staged, so writing the file is only half
+  // of it — the other half is telling git the fight is over.
+  const handleConflictResolved = useCallback((path: string) => {
+    runAction({ action: 'stage', file: path });
+  }, [runAction]);
+
   const selectedStagingFile = useMemo(
     () => (diffSelection?.kind === 'working'
       ? { path: diffSelection.path, staged: diffSelection.staged }
@@ -189,10 +251,9 @@ export function GitApp() {
   // colour in each.
   const graphLayout = useMemo(() => computeGraphLayout(state.commits), [state.commits]);
   const effectiveGraphHeight = graphHeightPct ?? viewState.graphHeightPct;
-  const conflicts = state.fileChanges.filter((file) => file.status === 'conflict').length;
-  const commitBlockedReason = conflicts > 0
-    ? `${conflicts} conflict${conflicts === 1 ? '' : 's'} left to resolve`
-    : null;
+  // The hard states, derived once: the banner, the top bar, the working tree
+  // and the rail all read this rather than each working it out (§7).
+  const repoMode = useMemo(() => deriveRepoMode(state), [state]);
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
   const isNotRepo = state.error === 'Not a git repository' && isWorkspaceStateCurrent;
@@ -206,6 +267,23 @@ export function GitApp() {
           onAction={runAction}
           github={github}
           onOpenPullRequest={handleOpenPullRequest}
+          info={repoMode}
+        />
+
+        {/* A mode you are in, and the way out of it (rule 24). */}
+        <MemoizedModeBanner
+          info={repoMode}
+          defaultBranch={state.defaultBranch}
+          onAction={runAction}
+          onRequestCheckout={handleRequestCheckout}
+        />
+
+        <SwitchBranchDialog
+          branch={switchTarget}
+          currentBranch={state.currentBranch}
+          changedFiles={state.fileChanges.length}
+          onChoose={(strategy) => void handleSwitchChoice(strategy)}
+          onCancel={() => setSwitchTarget(null)}
         />
 
         {notice && (
@@ -232,6 +310,9 @@ export function GitApp() {
                   defaultBranch={state.defaultBranch}
                   onAction={runAction}
                   branchColours={graphLayout.branchColours}
+                  mode={repoMode.mode}
+                  headHash={state.headHash}
+                  onRequestCheckout={handleRequestCheckout}
                 />
 
                 <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
@@ -241,18 +322,37 @@ export function GitApp() {
                     onSelectFile={handleSelectStagingFile}
                     onOpenInEditor={handleOpenInEditor}
                     selectedFile={selectedStagingFile}
-                    commitBlockedReason={commitBlockedReason}
+                    info={repoMode}
                   />
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {composingPr ? (
+                  {composingPr && state.remotes.length === 0 ? (
+                    <PublishPane
+                      workspaceId={workspaceId}
+                      repoName={state.repoName}
+                      authenticated={github.authenticated}
+                      onClose={handleClosePullRequest}
+                      onPublished={handlePublished}
+                    />
+                  ) : composingPr ? (
                     <PullRequestPane
                       workspaceId={workspaceId}
                       hasRemote={state.remotes.length > 0}
                       currentBranch={state.currentBranch}
                       authenticated={github.authenticated}
                       onClose={handleClosePullRequest}
+                    />
+                  ) : conflictPath ? (
+                    // A conflicted file is not a diff of two revisions; it is
+                    // one file with markers in it (§9.3).
+                    <ConflictPane
+                      workspaceId={workspaceId}
+                      path={conflictPath}
+                      diskPath={toWorkspacePath(workspacePath, state.repoPath, conflictPath)}
+                      editorThemeId={editorThemeId}
+                      themeType={themeMode}
+                      onResolved={handleConflictResolved}
                     />
                   ) : diffSelection ? (
                     <>

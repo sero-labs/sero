@@ -17,6 +17,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
   getSeroApi: () => getSeroApiMock(),
   useAppInfo: () => useAppInfoMock(),
   useAppState: (initialState: GitAppState) => useAppStateMock(initialState),
+  useTheme: () => ({ mode: 'dark', presetId: 'default', editorThemeId: 'auto' }),
 }));
 
 vi.mock('./components/Header', () => ({

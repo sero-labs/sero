@@ -4,6 +4,7 @@
 
 import { Github } from 'lucide-react';
 import type { GitAppState, GitManagerRequest } from '../../shared/types';
+import { branchChipLabel, type RepoModeInfo } from '../lib/repo-mode';
 
 interface HeaderProps {
   state: GitAppState;
@@ -11,13 +12,17 @@ interface HeaderProps {
   /** GitHub sign-in lives here, so the PR pane never has to host it (§3). */
   github: { ready: boolean; authenticated: boolean; username?: string; signIn: () => void };
   onOpenPullRequest: () => void;
+  /** Which hard state the repo is in, and what it makes unavailable (§7). */
+  info: RepoModeInfo;
 }
 
-export function Header({ state, onAction, github, onOpenPullRequest }: HeaderProps) {
-  const { repoName, currentBranch, branches, commitCount, fileChanges } = state;
+export function Header({ state, onAction, github, onOpenPullRequest, info }: HeaderProps) {
+  const { repoName, branches, commitCount, fileChanges } = state;
   const staged = fileChanges.filter((f) => f.staged).length;
   const unstaged = fileChanges.filter((f) => !f.staged).length;
   const branch = branches.find((b) => b.current);
+  const currentBranch = branchChipLabel(state, info.mode);
+  const modeWord = MODE_WORD[info.mode];
   const syncLabel = getSyncLabel(state);
   const syncTone = getSyncTone(state);
   const refreshedAt = formatRefreshTime(state.lastRefresh);
@@ -38,9 +43,15 @@ export function Header({ state, onAction, github, onOpenPullRequest }: HeaderPro
           </h1>
         </div>
         {currentBranch && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--brand-secondary-faint)] border border-[var(--border-subtle)]">
-            <BranchIcon />
-            <span className="text-xs font-medium text-[var(--brand-secondary)] git-mono">
+          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[var(--border-subtle)] ${
+            info.mode === 'detached'
+              ? 'bg-[var(--status-warning-faint)]'
+              : 'bg-[var(--brand-secondary-faint)]'
+          }`}>
+            <BranchIcon detached={info.mode === 'detached'} />
+            <span className={`text-xs font-medium git-mono ${
+              info.mode === 'detached' ? 'text-[var(--status-warning)]' : 'text-[var(--brand-secondary)]'
+            }`}>
               {currentBranch}
             </span>
             {branch && (branch.ahead > 0 || branch.behind > 0) && (
@@ -53,6 +64,8 @@ export function Header({ state, onAction, github, onOpenPullRequest }: HeaderPro
           </div>
         )}
         <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+          {/* The mode, in the vocabulary git uses for it. */}
+          {modeWord && <span>{modeWord}</span>}
           {commitCount > 0 && <span>{commitCount} commits</span>}
           {(staged > 0 || unstaged > 0) && (
             <>
@@ -81,14 +94,22 @@ export function Header({ state, onAction, github, onOpenPullRequest }: HeaderPro
 
         <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
-        <GitHubControl github={github} onOpenPullRequest={onOpenPullRequest} />
+        <GitHubControl
+          github={github}
+          onOpenPullRequest={onOpenPullRequest}
+          hasRemote={state.remotes.length > 0}
+          pullRequestBlockedReason={info.pullRequestBlockedReason}
+        />
 
         <div className="w-px h-4 bg-[var(--border-subtle)]" />
 
+        {/* Unavailable actions are disabled, not hidden (rule 20) — the reason
+            is the banner when there is a mode, and the button beside them when
+            the repository simply has no remote. */}
         <ActionBtn label="Refresh" icon="refresh" onClick={() => onAction({ action: 'refresh' })} />
-        <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction({ action: 'fetch' })} />
-        <ActionBtn label="Pull" icon="pull" onClick={() => onAction({ action: 'pull' })} />
-        <ActionBtn label="Push" icon="push" onClick={() => onAction({ action: 'push' })} />
+        <ActionBtn label="Fetch" icon="fetch" blockedReason={info.fetchBlockedReason} onClick={() => onAction({ action: 'fetch' })} />
+        <ActionBtn label="Pull" icon="pull" blockedReason={info.pullBlockedReason} onClick={() => onAction({ action: 'pull' })} />
+        <ActionBtn label="Push" icon="push" blockedReason={info.pushBlockedReason} onClick={() => onAction({ action: 'push' })} />
       </div>
     </div>
   );
@@ -97,10 +118,12 @@ export function Header({ state, onAction, github, onOpenPullRequest }: HeaderPro
 // ── GitHub ──────────────────────────────────────────────────
 
 function GitHubControl({
-  github, onOpenPullRequest,
+  github, onOpenPullRequest, hasRemote, pullRequestBlockedReason,
 }: {
   github: HeaderProps['github'];
   onOpenPullRequest: () => void;
+  hasRemote: boolean;
+  pullRequestBlockedReason: string | null;
 }) {
   if (!github.ready) return null;
 
@@ -119,31 +142,53 @@ function GitHubControl({
           Sign in
         </button>
       )}
+      {/* Without an origin there is nothing to open a pull request against, so
+          the slot offers the step that actually comes first (§7). */}
       <button type="button"
         onClick={onOpenPullRequest}
-        title={github.username ? `Signed in as ${github.username}` : 'Create a pull request'}
-        className={GITHUB_BTN}
+        disabled={hasRemote && Boolean(pullRequestBlockedReason)}
+        title={hasRemote
+          ? pullRequestBlockedReason
+            ?? (github.username ? `Signed in as ${github.username}` : 'Create a pull request')
+          : 'Publish this repository to GitHub'}
+        className={`${GITHUB_BTN} disabled:cursor-not-allowed disabled:opacity-40`}
       >
         <Github className="size-3.5" />
-        Pull request
+        {hasRemote ? 'Pull request' : 'Publish to GitHub'}
       </button>
     </>
   );
 }
+
+const MODE_WORD: Record<RepoModeInfo['mode'], string | null> = {
+  merging: 'merging',
+  detached: 'detached',
+  unborn: 'no commits yet',
+  normal: null,
+};
 
 const GITHUB_BTN = `flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-subtle)] px-2.5 py-1.5 text-sm font-medium
   text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]`;
 
 // ── Action button ───────────────────────────────────────────
 
-function ActionBtn({ label, icon, onClick }: { label: string; icon: string; onClick: () => void }) {
+function ActionBtn({
+  label, icon, onClick, blockedReason,
+}: {
+  label: string;
+  icon: string;
+  onClick: () => void;
+  blockedReason?: string | null;
+}) {
   return (
     <button type="button"
       onClick={onClick}
-      title={label}
+      disabled={Boolean(blockedReason)}
+      title={blockedReason || label}
       className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-md
         text-[var(--text-secondary)] border border-[var(--border-subtle)]
         hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--border-default)]
+        disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent
         transition-all duration-150 cursor-pointer"
     >
       <ActionIcon type={icon} />
@@ -203,9 +248,11 @@ function formatRefreshTime(value: string): string {
   });
 }
 
-function BranchIcon() {
+function BranchIcon({ detached }: { detached?: boolean }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-[var(--brand-secondary)]">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+      className={detached ? 'text-[var(--status-warning)]' : 'text-[var(--brand-secondary)]'}
+    >
       <path d="M5 3v6a3 3 0 003 3h1M11 3v4" />
       <circle cx="5" cy="3" r="1.5" />
       <circle cx="11" cy="3" r="1.5" />

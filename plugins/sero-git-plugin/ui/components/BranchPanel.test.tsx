@@ -85,6 +85,9 @@ describe('BranchPanel', () => {
           currentBranch="main"
           defaultBranch="main"
           onAction={onAction}
+          mode="normal"
+          headHash="abc1234"
+          onRequestCheckout={vi.fn()}
         />, 
       );
     });
@@ -117,6 +120,9 @@ describe('BranchPanel', () => {
           currentBranch="main"
           defaultBranch="main"
           onAction={onAction}
+          mode="normal"
+          headHash="abc1234"
+          onRequestCheckout={vi.fn()}
         />,
       );
     });

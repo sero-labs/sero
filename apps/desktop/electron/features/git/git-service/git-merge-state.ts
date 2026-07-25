@@ -6,6 +6,8 @@
  * refresh and carried on `GitAppState`.
  */
 
+import { promises as fs } from 'node:fs';
+
 import type { GitMergeState } from '@sero-ai/common';
 import { git } from './git-command-support';
 
@@ -37,8 +39,24 @@ export async function readMergeState(
 
   return {
     fromRef: await nameMergeHead(cwd, mergeHead),
+    message: await readMergeMessage(cwd),
     conflictPaths: [...new Set([...(previous?.conflictPaths ?? []), ...unmerged])].sort(),
   };
+}
+
+/**
+ * Git wrote the merge message when the merge began; concluding the merge should
+ * commit with it rather than making someone retype what git already said.
+ */
+async function readMergeMessage(cwd: string): Promise<string> {
+  const messagePath = await git(['rev-parse', '--git-path', 'MERGE_MSG'], cwd);
+  if (!messagePath) return '';
+  const absolute = messagePath.startsWith('/') ? messagePath : `${cwd}/${messagePath}`;
+  return (await fs.readFile(absolute, 'utf8').catch(() => ''))
+    .split('\n')
+    .filter((line) => !line.startsWith('#'))
+    .join('\n')
+    .trim();
 }
 
 /** The branch being merged in, falling back to a short sha when git can't name one. */

@@ -18,7 +18,8 @@ import {
   Section,
   SectionActionButton,
 } from './BranchPanelSections';
-import { BranchRow, StashRow } from './BranchPanelRows';
+import { BranchRow, PositionRow, StashRow } from './BranchPanelRows';
+import type { RepoMode } from '../lib/repo-mode';
 
 interface BranchPanelProps {
   branches: BranchInfo[];
@@ -30,6 +31,15 @@ interface BranchPanelProps {
   onAction: (action: GitManagerRequest) => void;
   /** Lane colours from the graph, so a branch reads the same in both (§3). */
   branchColours?: Record<string, string>;
+  /** Which hard state the repo is in — the rail always says where you are (§7). */
+  mode: RepoMode;
+  /** The commit HEAD sits on when it is not on a branch. */
+  headHash: string;
+  /**
+   * Asks the app to switch branch. Not dispatched here: with uncommitted
+   * changes the app asks what should happen to them first (§7).
+   */
+  onRequestCheckout: (branch: string) => void;
 }
 
 export function BranchPanel({
@@ -41,6 +51,9 @@ export function BranchPanel({
   defaultBranch,
   onAction,
   branchColours,
+  mode,
+  headHash,
+  onRequestCheckout,
 }: BranchPanelProps) {
   const [localOpen, setLocalOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
@@ -90,6 +103,23 @@ export function BranchPanel({
     >
       <div className="min-h-full">
         <Section title="LOCAL" count={localBranches.length} open={localOpen} onToggle={() => setLocalOpen(!localOpen)}>
+          {mode === 'detached' && (
+            <PositionRow
+              label={`HEAD @ ${headHash || 'unknown'}`}
+              tone="warning"
+              title="You are not on a branch"
+            />
+          )}
+          {/* Before the first commit git lists no branches, but the branch
+              exists as a name — saying so beats an empty rail. */}
+          {mode === 'unborn' && localBranches.length === 0 && (
+            <PositionRow
+              label={currentBranch || 'main'}
+              note="unborn"
+              tone="muted"
+              title="This branch starts at your first commit"
+            />
+          )}
           {localBranches.map((branch) => (
             <BranchBranchRow
               key={branch.name}
@@ -97,6 +127,7 @@ export function BranchPanel({
               currentBranch={currentBranch}
               defaultBranch={defaultBranch}
               onAction={onAction}
+              onRequestCheckout={onRequestCheckout}
               laneColour={branchColours?.[branch.name]}
             />
           ))}
@@ -125,7 +156,9 @@ export function BranchPanel({
             />
           ))}
           {remoteGroups.length === 0 && (
-            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">No remote branches</div>
+            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">
+              {remotes.length === 0 ? 'No remote — publish to add one' : 'No remote branches'}
+            </div>
           )}
         </Section>
 
@@ -151,18 +184,20 @@ function BranchBranchRow({
   currentBranch,
   defaultBranch,
   onAction,
+  onRequestCheckout,
   laneColour,
 }: {
   branch: BranchInfo;
   currentBranch: string;
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
+  onRequestCheckout: (branch: string) => void;
   /** The colour of this branch's lane in the graph (§3). */
   laneColour?: string;
 }) {
   const onCheckout = branch.name === currentBranch
     ? undefined
-    : () => onAction({ action: 'checkout', branch: branch.name });
+    : () => onRequestCheckout(branch.name);
   const allowDelete = canDeleteBranch(branch, currentBranch, defaultBranch);
   const onDelete = allowDelete
     ? () => onAction({ action: 'delete_branch', branch: branch.name })

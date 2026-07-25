@@ -138,6 +138,8 @@ export type GitSyncMode = 'manual' | 'watch';
 export interface GitMergeState {
   /** What is being merged in — a branch name where git can name one, else a short sha. */
   fromRef: string;
+  /** Git's own merge message, which is what concluding the merge commits with. */
+  message: string;
   /**
    * Every path that conflicted during this merge, including ones already
    * resolved. Git forgets a conflict the moment the file is staged, so the
@@ -186,7 +188,11 @@ export function createDefaultGitState(): GitAppState {
     repoName: '',
     currentBranch: '',
     headHash: '',
-    defaultBranch: undefined,
+    // `defaultBranch` and `merge` are deliberately absent rather than set to
+    // `undefined`. `useAppState` merges the file over this default key by key
+    // and drops any value whose type differs from its default — so an optional
+    // field defaulted to `undefined` can never arrive from the state file. A
+    // missing key is copied through untouched.
     branches: [],
     remoteBranches: [],
     remotes: [],
@@ -195,7 +201,6 @@ export function createDefaultGitState(): GitAppState {
     fileChanges: [],
     commitCount: 0,
     detached: false,
-    merge: undefined,
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode: 'manual',
@@ -236,6 +241,7 @@ function normalizeMergeState(merge: GitMergeState | undefined): GitMergeState | 
   if (!merge || typeof merge.fromRef !== 'string') return undefined;
   return {
     fromRef: merge.fromRef,
+    message: typeof merge.message === 'string' ? merge.message : '',
     conflictPaths: Array.isArray(merge.conflictPaths) ? merge.conflictPaths : [],
   };
 }

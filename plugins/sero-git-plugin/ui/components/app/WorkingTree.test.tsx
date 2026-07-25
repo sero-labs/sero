@@ -5,12 +5,35 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
+import { createDefaultGitState } from '../../../shared/types';
+import { deriveRepoMode } from '../../lib/repo-mode';
 import { WorkingTree } from './WorkingTree';
 
 const CHANGES: FileChange[] = [
   { path: 'src/edited.ts', status: 'modified', staged: false },
   { path: 'src/ready.ts', status: 'modified', staged: true },
 ];
+
+const MERGE_CHANGES: FileChange[] = [
+  { path: 'src/parse.ts', status: 'conflict', staged: false },
+  { path: 'CHANGELOG.md', status: 'modified', staged: true },
+  { path: 'README.md', status: 'modified', staged: true },
+];
+
+const NORMAL = deriveRepoMode({
+  ...createDefaultGitState(),
+  headHash: 'abc1234',
+  commitCount: 3,
+  fileChanges: CHANGES,
+});
+
+const MERGING = deriveRepoMode({
+  ...createDefaultGitState(),
+  headHash: 'abc1234',
+  commitCount: 3,
+  fileChanges: MERGE_CHANGES,
+  merge: { fromRef: 'feat/changelog', message: 'Merge branch', conflictPaths: ['src/parse.ts', 'CHANGELOG.md'] },
+});
 
 function click(container: HTMLElement, label: string): void {
   const button = Array.from(container.querySelectorAll('button'))
@@ -33,6 +56,7 @@ describe('WorkingTree', () => {
           onSelectFile={vi.fn()}
           onOpenInEditor={vi.fn()}
           selectedFile={null}
+          info={NORMAL}
           {...overrides}
         />,
       );
@@ -73,11 +97,22 @@ describe('WorkingTree', () => {
   });
 
   it('blocks committing while conflicts remain, and says why', async () => {
-    await render({ commitBlockedReason: '2 conflicts left to resolve' });
+    await render({ fileChanges: MERGE_CHANGES, info: MERGING });
 
     const commit = Array.from(container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Commit'));
+      .find((button) => button.textContent?.includes('Conclude merge'));
     expect(commit?.disabled).toBe(true);
-    expect(container.textContent).toContain('2 conflicts left to resolve');
+    expect(container.textContent).toContain('1 conflict left to resolve');
+  });
+
+  // The list is the to-do list: what conflicts, what you fixed, what merged
+  // itself — and a file git already forgot conflicted stays under Resolved.
+  it('groups the working tree by what the merge needs from you', async () => {
+    await render({ fileChanges: MERGE_CHANGES, info: MERGING });
+
+    expect(container.textContent).toContain('Conflicts');
+    expect(container.textContent).toContain('Resolved');
+    expect(container.textContent).toContain('Merged cleanly');
+    expect(container.textContent).not.toContain('Staged');
   });
 });

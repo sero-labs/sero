@@ -725,9 +725,46 @@ Three things worth recording:
 owns commit-message drafting, so the field is built for it and the button
 arrives with its backend rather than as a dead control.
 
-**Step 7 — the hard states.**
+**Step 7 — the hard states. Done.**
 Conflict mode, empty repo, detached HEAD, dirty branch switch (§7), adopting
 `UnresolvedFile` and supplying our own accept buttons.
+
+All four are verified against real repositories in
+`e2e/git-hard-states.workflow.spec.ts` — a stopped merge, a fresh `git init` and
+a detached HEAD each need git in a genuinely awkward state, which no unit test
+reaches.
+
+**§10 was wrong that everything else is a move, a delete or an adoption.** The
+state carried no repo modes at all, so this step added them:
+
+- `GitAppState.merge` and `GitAppState.detached`, plus the `abort_merge` action
+  and `force` on `checkout` (the dialog's discard outcome). Unborn stays
+  derived: a branch name with no head hash.
+- **The merge state remembers which paths conflicted**, because git forgets the
+  moment a file is staged. Without that memory the working tree cannot separate
+  *Resolved* from *Merged cleanly*, and §7's grouping is unbuildable.
+- It also carries git's own merge message, so concluding a merge does not make
+  anyone retype what git already wrote.
+
+**A published-runtime trap, found the hard way.** `useAppState` merges the state
+file over the app's default state key by key and keeps the default whenever the
+two types differ. `undefined` matches nothing, so **any optional field whose
+default is `undefined` is silently dropped on the way in** — which is why the
+merge state never arrived, and why `defaultBranch` had been missing all along
+(the detached-HEAD banner said "Return to (not queried)"). The fix is to leave
+those keys out of `createDefaultGitState()` entirely; a test pins it. The
+durable fix is in `@sero-ai/app-runtime` — pass the file's value through when
+there is no default to enforce — and it is not taken here because that is a
+published package with external plugins pinned to it.
+
+`(not queried)` was also `getDefaultBranch` returning git's placeholder for a
+remote that does not exist. Fixed at source, with a test.
+
+**The resolver is adoption plus our accept row**, exactly as §9.1 said it would
+be: `UnresolvedFile` parses, renders and resolves; `renderMergeConflictUtility`
+is the only way to hear about a resolution and disables the built-in row, so
+Sero draws the buttons, writes the file, and stages it — because staged is
+git's own definition of resolved.
 
 **Step 8 — the AI features.**
 Commit-message drafting, then AI conflict resolution with its question loop

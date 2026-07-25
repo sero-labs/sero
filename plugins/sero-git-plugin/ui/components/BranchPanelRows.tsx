@@ -60,6 +60,38 @@ export function BranchRow({
   );
 }
 
+/**
+ * Where you are when it is not a branch: a detached HEAD, or a branch that
+ * exists as a name with nothing on it yet. The rail always answers "where am
+ * I", so neither is left out (§7).
+ */
+export function PositionRow({
+  label, note, tone, title,
+}: {
+  label: string;
+  note?: string;
+  tone: 'warning' | 'muted';
+  title: string;
+}) {
+  return (
+    <div
+      title={title}
+      className={`flex items-center gap-2 px-3 py-1.5 text-xs ${
+        tone === 'warning'
+          ? 'bg-[var(--status-warning-faint)] text-[var(--status-warning)]'
+          : 'bg-[var(--brand-secondary-faint)] text-[var(--brand-secondary)]'
+      }`}
+    >
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: tone === 'warning' ? 'var(--status-warning)' : 'currentColor' }}
+      />
+      <MiddleTruncate value={label} className="min-w-0 flex-1 git-mono text-sm" />
+      {note && <span className="shrink-0 text-xs opacity-70">{note}</span>}
+    </div>
+  );
+}
+
 export function StashRow({
   stash,
   confirmPop,

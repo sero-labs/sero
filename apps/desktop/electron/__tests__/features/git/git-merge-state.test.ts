@@ -48,6 +48,7 @@ describe('readMergeState', () => {
 
     expect(await readMergeState('/repo')).toEqual({
       fromRef: 'feat/changelog',
+      message: '',
       conflictPaths: ['CHANGELOG.md', 'src/lib/parse.ts'],
     });
   });
@@ -72,6 +73,7 @@ describe('readMergeState', () => {
 
     const state = await readMergeState('/repo', {
       fromRef: 'feat/changelog',
+      message: "Merge branch 'feat/changelog'",
       conflictPaths: ['src/lib/parse.ts'],
     });
 

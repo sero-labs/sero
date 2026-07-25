@@ -103,11 +103,10 @@ test('renders a real diff for a changed file', async () => {
   // The whole app, for a look at the rebuilt layout.
   await page.screenshot({ path: 'e2e-artifacts/git-app-layout.png' });
 
-  // PR compose shares the right column with the diff — never a fourth surface,
-  // and it stays reachable when signed out so it can say why creation is off.
-  await page.getByRole('button', { name: 'Pull request' }).first().click();
-  await expect(page.getByText(/needs a GitHub sign-in|Publish this repository/)).toBeVisible({
-    timeout: 10_000,
-  });
+  // The right column's other pane. This repository has no origin, so the slot
+  // offers the step that comes first instead of a pull request that has
+  // nowhere to go (§7), and it says why the button is off when signed out.
+  await page.getByRole('button', { name: 'Publish to GitHub' }).first().click();
+  await expect(page.getByText(/needs a GitHub sign-in/)).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: 'e2e-artifacts/git-app-pr.png' });
 });

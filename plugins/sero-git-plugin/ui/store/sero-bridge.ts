@@ -72,6 +72,13 @@ export interface SeroGitHubBridge {
   status(): Promise<{ authenticated: boolean; username?: string; scopes?: string }>;
   login(): Promise<void>;
   onEvent(callback: (event: { type: 'code' | 'polling' | 'success' | 'error' }) => void): () => void;
+  /** Creates the repository and adds it as `origin` — the empty repo's next step (§7). */
+  createRepo(workspaceId: string, input: {
+    name: string;
+    description?: string;
+    visibility: 'public' | 'private';
+    addRemote?: boolean;
+  }): Promise<{ success: boolean; message: string; url?: string }>;
 }
 
 export interface SeroAppStateBridge {

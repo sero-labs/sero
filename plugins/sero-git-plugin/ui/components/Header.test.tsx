@@ -6,9 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GitAppState, GitManagerRequest } from '../../shared/types';
 import { DEFAULT_GIT_STATE } from '../../shared/types';
+import { deriveRepoMode } from '../lib/repo-mode';
 import { Header } from './Header';
 
 const GITHUB = { ready: true, authenticated: false, signIn: () => {} };
+const NORMAL_MODE = deriveRepoMode({
+  ...DEFAULT_GIT_STATE,
+  headHash: 'abc1234',
+  commitCount: 2,
+});
 
 function createState(overrides: Partial<GitAppState> = {}): GitAppState {
   return {
@@ -43,7 +49,7 @@ describe('Header sync status', () => {
 
   it('shows Live when file watching is active', async () => {
     await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} />);
+      root?.render(<Header state={createState({ syncMode: 'watch' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
     expect(container.textContent).toContain('Live');
@@ -52,7 +58,7 @@ describe('Header sync status', () => {
 
   it('shows Manual when the app is running without live watchers', async () => {
     await act(async () => {
-      root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} />);
+      root?.render(<Header state={createState({ syncMode: 'manual' })} onAction={onAction} github={GITHUB} onOpenPullRequest={() => {}} info={NORMAL_MODE} />);
     });
 
     expect(container.textContent).toContain('Manual');
