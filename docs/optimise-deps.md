@@ -102,3 +102,27 @@ Repo
 
   Start by reproducing the lean deploy locally, then dig into items 1–3 above (prebuild stripping is the most mechanical win; provider SDK reduction is the most
   upstream and likely the highest payoff if pi-ai can be persuaded to make providers optional).
+
+## Monaco is bundled, not CDN-loaded (Jul 2026)
+
+`@monaco-editor/react` used to fetch Monaco from jsdelivr at runtime, so the
+code editor needed a network connection and its version was chosen by a
+transitive dependency (`@monaco-editor/loader` pins the CDN URL). Both are now
+fixed: `src/components/apps/explorer/editor/monaco-setup.ts` calls
+`loader.config({ monaco })` with the bundled copy and wires the language workers
+through `MonacoEnvironment`.
+
+`monaco-editor` stays a **devDependency** — Vite inlines it into the renderer at
+build time, so it must not move to `dependencies` (see point 3 above). The cost
+is ~13 MB in `dist/renderer` (a lazy Monaco chunk plus five language workers),
+loaded only when a file is opened. `e2e/monaco-bundled.workflow.spec.ts` fails if
+a CDN fetch or a broken worker ever comes back.
+
+**Do not drop the TypeScript worker to save its 6.7 MB.** It looks unused
+because `monaco-setup`'s sibling `useEditorMonacoState` turns Monaco's TS
+diagnostics off, but that only suppresses *squiggles* — the worker still powers
+type-aware completions. Verified by probe: opening a `.ts` file spawns
+`ts.worker` immediately, and completing on a typed value returns
+`(property) User.name: string`. Red squiggles in `.ts` files come from the real
+TypeScript LSP instead (marker owner `lsp`, see `src/lsp/diagnostics.ts`), which
+is why Monaco's own tsconfig-less diagnostics are switched off.

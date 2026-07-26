@@ -27,7 +27,13 @@ import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 
-const Editor = lazy(() => import('@monaco-editor/react'));
+// monaco-setup points the loader at our bundled Monaco; it must run before the
+// editor mounts, and lives in this lazy chunk so Monaco stays out of the
+// initial bundle.
+const Editor = lazy(async () => {
+  await import('./monaco-setup');
+  return import('@monaco-editor/react');
+});
 
 function EmptyEditorState() {
   return (
