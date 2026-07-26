@@ -6,13 +6,13 @@ import type { ImageMetadata } from "astro";
 import seroChat from "@docs-images/sero-chat.jpg";
 import explorerBrowser from "@docs-images/explorer-browser.jpg";
 import explorerDevServers from "@docs-images/explorer-dev-servers.jpg";
-import gitShipDeck from "@docs-images/git-ship-deck.jpg";
+import gitResolveAi from "@docs-images/git-resolve-ai.jpg";
 import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
 import research from "@docs-images/research.jpg";
 import kanban from "@docs-images/kanban.jpg";
 import memory from "@docs-images/memory.jpg";
 import cronJobsEditor from "@docs-images/cron-jobs-editor-crop.jpg";
-import gitManagement from "@docs-images/git-management.jpg";
+import gitApp from "@docs-images/git-app.jpg";
 import mcpManager from "@docs-images/mcp.jpg";
 import adminAgents from "@docs-images/admin-agents.jpg";
 import graphify from "@docs-images/graphify.jpg";
@@ -41,13 +41,13 @@ export const images = {
 	seroChat,
 	explorerBrowser,
 	explorerDevServers,
-	gitShipDeck,
+	gitResolveAi,
 	cronJobs,
 	research,
 	kanban,
 	memory,
 	cronJobsEditor,
-	gitManagement,
+	gitApp,
 	mcpManager,
 	adminAgents,
 	graphify,
@@ -154,7 +154,7 @@ export const become: BecomePanel[] = [
 			"Local runtimes: Apple Container, Docker/Podman, or Host",
 		],
 		mineExample: "“Add a release-checklist app for this monorepo.”",
-		image: images.gitShipDeck,
+		image: images.gitResolveAi,
 	},
 	{
 		id: "assistant",
@@ -225,7 +225,7 @@ export const builtins = [
 	{ name: "Memory", desc: "Identity, profile, long-term facts, daily logs.", img: images.memory },
 	{ name: "Scheduler", desc: "Recurring prompts and reminders.", img: images.cronJobsEditor },
 	{ name: "Web", desc: "Search, fetch, code lookup, bookmarks.", img: images.research },
-	{ name: "Git", desc: "Branches, staging, commits, diffs, history.", img: images.gitManagement },
+	{ name: "Git", desc: "Branches, staging, commits, diffs, history.", img: images.gitApp },
 	{ name: "MCP", desc: "Connect external MCP tools and resources.", img: images.mcpManager },
 	{ name: "Admin", desc: "Edit agents, skills, prompts, plugins, sessions.", img: images.adminAgents },
 ];
