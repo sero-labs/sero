@@ -70,6 +70,7 @@ Included:
 - One chosen output target per Design.
 - One to five variants, default three.
 - Isolated previews with blocked capabilities and warnings.
+- AI-authored, design-specific Tweaks with live CSS editing.
 - Continuous Design autosave and restart recovery.
 - Tool-backed generated artwork through a provider-neutral interface.
 - Immutable Gallery versions and families.
@@ -104,6 +105,14 @@ One independently generated direction within a Design.
 ### Revision
 
 A recoverable state in a variant's history. Replacing visible content moves the current pointer but does not destroy history.
+
+### Tweak manifest
+
+A versioned, AI-authored declaration of the useful CSS controls for one variant revision. It binds generic control types to CSS custom properties emitted by that exact design.
+
+### Tweak override
+
+A user-selected value stored separately from the generated default for one manifest entry.
 
 ### Generated asset
 
@@ -141,7 +150,7 @@ Answers: What visual references do I want to draw from?
 
 ### Design
 
-Answers: What am I currently creating or refining?
+Answers: What am I currently creating, refining or tuning?
 
 ### Gallery
 
@@ -329,6 +338,52 @@ Revision asks whether to replace the visible result or retain a separate visible
 
 Replacement is recoverable. All revisions remain until manually deleted.
 
+### Tweaks
+
+Every successful variant revision includes CSS custom properties and a versioned manifest describing the high-value controls for that exact page. The model chooses the groups, labels, ranges and options from the generated content. It must not mechanically emit a standard set of controls.
+
+The UI uses generic primitives to render the manifest:
+
+```ts
+type TweakValue = string | number | boolean;
+
+type TweakControl =
+  | { type: 'range'; min: number; max: number; step: number; unit?: string }
+  | { type: 'toggle'; offValue: TweakValue; onValue: TweakValue }
+  | { type: 'colour' }
+  | { type: 'choice'; options: Array<{ label: string; value: TweakValue }> };
+
+interface TweakDefinition {
+  id: string;
+  group: string;
+  label: string;
+  cssVariable: `--${string}`;
+  control: TweakControl;
+  defaultValue: TweakValue;
+}
+
+interface TweakManifest {
+  schemaVersion: number;
+  variantRevisionId: string;
+  controls: TweakDefinition[];
+}
+
+interface VariantTweakState {
+  manifest: TweakManifest;
+  overrides: Record<string, TweakValue>;
+}
+```
+
+A manifest may expose typography, colour, spacing, geometry, layout, imagery treatment, motion or another design-specific CSS concern. Font options are limited to approved system or locally bundled fonts available to the Design.
+
+Every definition must bind to a declared CSS custom property and visibly affect the page. The manifest validator removes invalid, duplicate or non-functional controls and reports them without preventing the safe page from rendering.
+
+Changing a control validates and normalises the value, stores it as an override and applies it immediately in the preview. The preview message contains only the manifest identifier and value. It cannot contain selectors, arbitrary CSS or JavaScript.
+
+Each control has Reset, and the panel has Reset all. Copy CSS copies the effective, scoped custom-property override block.
+
+Tweak working state autosaves continuously. A panel editing session is checkpointed as one recoverable revision when the panel closes, the active variant changes, a new revision starts, Gallery saves or Sero shuts down. This retains undo history without creating a revision for every slider event.
+
 ### Persistence
 
 Designs autosave continuously. Navigating away does not stop work while Sero runs. Quit persists recoverable job state, and resumable work continues after restart.
@@ -385,6 +440,8 @@ The boundary blocks:
 - Main-window navigation and uncontrolled pop-ups.
 - Dependencies outside the approved bundle.
 
+The only live-edit input accepted by the frame is a validated value update for a control declared by that revision's tweak manifest. The frame does not receive arbitrary CSS text, selectors or executable code from the host.
+
 When generated code attempts restricted behaviour, the preview blocks that capability, renders the remaining safe output and shows clear warnings.
 
 Warnings never mean the restricted capability is allowed.
@@ -397,7 +454,8 @@ The plugin must prove isolation with hostile fixtures before production preview 
 
 Saving creates an immutable Gallery version containing:
 
-- Exact source files.
+- Exact source files with effective tweak values resolved.
+- Tweak manifest and saved override values.
 - Bundled local assets.
 - Deterministic preview image.
 - Prompt and guardrail snapshot.
@@ -424,7 +482,7 @@ Normal deletion hides versions or families until restore or permanent deletion. 
 
 ### Export
 
-Export reproduces exact saved code, assets and a small metadata manifest. The user chooses Downloads or the active Workspace each time.
+Export reproduces exact saved code, effective tweak values, assets and a small metadata manifest containing the saved tweak state. The exported page does not depend on Sero's Tweaks panel or runtime. The user chooses Downloads or the active Workspace each time.
 
 ## 12. Settings
 
@@ -476,6 +534,8 @@ The first release is complete when:
 - One to five variants survive failure, cancellation and restart independently.
 - fal.ai-generated assets are local, auditable and provider-neutral at the domain boundary.
 - Restricted preview behaviour is blocked and reported.
+- Each generated page exposes relevant AI-authored Tweaks that update the isolated preview live.
+- Tweak overrides reset, autosave, survive restart and remain recoverable without slider-event revision spam.
 - Gallery versions remain unchanged after source deletion.
 - Deletion and revision remain recoverable until explicit permanent deletion.
 - Export reproduces the saved snapshot exactly.
