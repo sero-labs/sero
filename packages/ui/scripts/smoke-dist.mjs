@@ -29,6 +29,9 @@ if (!existsSync(dist)) {
 // The lightweight root must not re-export specialized dependency graphs.
 const rootEntries = ["index.js", "index.cjs", "index.d.ts", "index.d.cts"];
 const forbiddenRootImports = [
+  "@sero-ai/ui/ai-elements",
+  "@sero-ai/ui/model-selection",
+  "@sero-ai/ui/components/context-editor",
   "components/ai-elements",
   "components/model-selection",
   "components/context-editor",

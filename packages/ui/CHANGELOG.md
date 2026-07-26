@@ -1,18 +1,22 @@
 # @sero-ai/ui changelog
 
-## Unreleased
+## 0.5.0
+
+### Breaking
+
+- AI elements and model controls are no longer exported from the package root.
+  Migrate them to `@sero-ai/ui/ai-elements/*` and
+  `@sero-ai/ui/model-selection/*`. Plugins using those component families must
+  also import the matching specialized stylesheet after `styles/plugin.css`.
 
 ### Fixed
 
 - Root imports now expose primitives, dashboard components, hooks and theme
-  utilities without traversing specialized dependency graphs. AI elements use
-  stable `@sero-ai/ui/ai-elements/*` subpaths and model controls use
-  `@sero-ai/ui/model-selection/*`, so a plugin importing `Button` and `cn` no
-  longer emits Mermaid, Shiki or graph-rendering assets or loads their
-  transitive types. Specialized plugin styles opt in through
+  utilities without traversing specialized dependency graphs, so a plugin
+  importing `Button` and `cn` no longer emits Mermaid, Shiki or graph-rendering
+  assets or loads their transitive types. Specialized plugin styles opt in through
   `styles/ai-elements.css`, `styles/model-selection.css`, and
-  `styles/context-editor.css`. Plugins using those component families must
-  import the matching stylesheet after `styles/plugin.css`.
+  `styles/context-editor.css`.
 
 ## 0.4.1
 
