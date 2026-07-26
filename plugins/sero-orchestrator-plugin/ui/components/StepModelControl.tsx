@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isModelTier, MODEL_TIERS } from '@sero-ai/common';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
-import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
+import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { LoopStepDefinition } from '../../shared/types';
 

@@ -9,7 +9,7 @@ import {
   MessageActions,
   MessageContent,
   MessageResponse,
-} from '@sero-ai/ui/components/ai-elements/message';
+} from '@sero-ai/ui/ai-elements/message';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';

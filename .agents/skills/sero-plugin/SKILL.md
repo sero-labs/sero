@@ -210,7 +210,7 @@ Required:
 - Import UI components from `@sero-ai/ui`
 - Import `./styles.css` from **every** exposed MF entry (main app, widgets, etc.)
 - Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
-- `ui/styles.css` should import `@sero-ai/ui/styles/plugin.css` and scan plugin-local files with `@source "./**/*.{ts,tsx}"`
+- `ui/styles.css` should import `@sero-ai/ui/styles/plugin.css` and scan plugin-local files with `@source "./**/*.{ts,tsx}"`. The base stylesheet scans only shared primitives and dashboard components; add `styles/ai-elements.css`, `styles/model-selection.css`, or `styles/context-editor.css` when the UI uses those families.
 - UI plugins must set `sero.app.styleIsolation` to `"scope"` and add `seroPluginCssScope({ pluginId: '<app-id>' })` after Tailwind in `vite.config.ts`.
 - Do not alias `@sero-ai/app-runtime`
 - Scope keyboard listeners to the container (`tabIndex={0}`), never `window`

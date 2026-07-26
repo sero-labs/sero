@@ -562,7 +562,18 @@ export default defineConfig({
 UI plugins must also declare `"styleIsolation": "scope"` beside
 `sero.app.id`. The plugin ID passed to `seroPluginCssScope` must match that
 manifest ID exactly. Import `@sero-ai/ui/styles/plugin.css` from the plugin's
-stylesheet; document resets and theme variables remain owned by the host.
+stylesheet; document resets and theme variables remain owned by the host. That
+base stylesheet scans only shared primitives and dashboard components. If the
+plugin uses specialized components, import the matching source stylesheet after
+it:
+
+```css
+@import "@sero-ai/ui/styles/ai-elements.css";
+@import "@sero-ai/ui/styles/model-selection.css";
+@import "@sero-ai/ui/styles/context-editor.css";
+```
+
+Only import the specialized stylesheets the plugin needs.
 
 ## Publishing
 

@@ -1,4 +1,5 @@
 @import "@sero-ai/ui/styles/plugin.css";
+@import "@sero-ai/ui/styles/model-selection.css";
 
 @source "./**/*.{ts,tsx}";
 

@@ -12,8 +12,8 @@ import {
   resolveSupportedThinkingLevel,
   validateAgentModelConfig,
 } from '@sero-ai/common';
-import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
-import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
+import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
+import { ModelWarningList } from '@sero-ai/ui/model-selection/model-warning-list';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { getSero, type AvailableModelGroupIPC, type GlobalModelConfigStateIPC } from '../hooks/host';

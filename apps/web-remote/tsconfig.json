@@ -18,6 +18,8 @@
       "@/*": ["src/*"],
       "@assets/*": ["../../assets/*"],
       "@sero-ai/ui": ["../../packages/ui/src/index.ts"],
+      "@sero-ai/ui/ai-elements/*": ["../../packages/ui/src/components/ai-elements/*"],
+      "@sero-ai/ui/model-selection/*": ["../../packages/ui/src/components/model-selection/*"],
       "@sero-ai/ui/*": ["../../packages/ui/src/*"]
     }
   },
