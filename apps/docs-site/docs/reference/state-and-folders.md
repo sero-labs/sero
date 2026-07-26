@@ -151,12 +151,17 @@ Examples from the current guides:
 | Web | `<workspace>/.sero/apps/web/state.json` |
 | Git | `<workspace>/.sero/apps/git/state.json` |
 
-The Git app also ignores its state folder with this pattern so the app state does
-not appear as an untracked repository change:
+Sero keeps its own files out of the repositories you work in, so they never show
+up as changes to commit:
 
 ```text
-**/.sero/apps/git/
+**/.sero/
+**/.sero-workspace.json
 ```
+
+These are written to `.git/info/exclude`, which is local to the clone — Sero
+never edits a project's `.gitignore`. Because that only governs *untracked*
+files, anything you deliberately track (`git add -f`) keeps being reported.
 
 ## Memory storage
 

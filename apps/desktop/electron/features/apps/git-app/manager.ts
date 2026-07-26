@@ -16,7 +16,13 @@ import {
 } from './refresh-invalidation';
 
 const GIT_STATE_SUFFIX = path.join('.sero', 'apps', 'git', 'state.json');
-const IGNORED_RELATIVE_PREFIX = '.sero/apps/git/';
+/**
+ * Sero's own directory, which git is told to ignore, so nothing written inside
+ * it can change what `git status` reports. Refreshing because of it would be
+ * pure waste — and it used to name only `.sero/apps/git/`, so another app
+ * writing its state (the orchestrator, say) kicked off a git refresh.
+ */
+const IGNORED_RELATIVE_PREFIX = '.sero/';
 const ACTION_REFRESH_FRESHNESS_MS = 1_000;
 /**
  * How long to wait before trying to watch again, and the ceiling it backs off

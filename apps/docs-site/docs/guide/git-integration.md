@@ -232,14 +232,22 @@ The Git app keeps workspace-local state at:
 
 Both the app and the agent read it, so they share one view of the repository.
 Missing state falls back to an empty default; malformed state may need removing.
-Sero adds an ignore rule so this folder never shows up as an untracked change:
+
+Sero keeps its own files out of your repository, so they never appear as changes
+to commit:
 
 ```text
-**/.sero/apps/git/
+**/.sero/
+**/.sero-workspace.json
 ```
 
-Treat it as local metadata. It can include branch names, file paths, commit
-metadata, status summaries and timestamps.
+These go in `.git/info/exclude`, which is local to your clone — Sero does not
+touch your project's `.gitignore`. If you *want* to track your
+`.sero-workspace.json`, add it deliberately with `git add -f` and Sero will keep
+reporting changes to it as normal.
+
+Treat this state as local metadata. It can include branch names, file paths,
+commit metadata, status summaries and timestamps.
 
 ## Troubleshooting
 

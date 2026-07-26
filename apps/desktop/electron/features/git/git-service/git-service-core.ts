@@ -21,9 +21,28 @@ import { isDetachedHead, readMergeState } from './git-merge-state';
 import { runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
-// Match the Git app state directory anywhere in the repo so nested workspaces
-// (e.g. repo/subdir/.sero/apps/git/state.json) do not show up as untracked.
-const GIT_STATE_IGNORE_RULE = '**/.sero/apps/git/';
+/**
+ * Sero's own footprint inside a user's repository, kept out of their way.
+ *
+ * These are ours, not theirs: per-machine app state and the workspace's local
+ * config. Left alone they show up as untracked changes and get swept into a
+ * "stage all", so the user commits our bookkeeping into their project.
+ *
+ * Matched anywhere in the tree so nested workspaces (`repo/subdir/.sero/…`)
+ * are covered too. Only `.sero/apps/git/` used to be listed, which meant any
+ * *other* app writing state — the orchestrator, say — dragged the whole
+ * `.sero/` directory back into the untracked list.
+ *
+ * This goes in `.git/info/exclude`, never the project's `.gitignore`: it is a
+ * local preference, not a fact about the project, and it is not ours to commit.
+ * It also only affects *untracked* files, so anyone who deliberately tracks
+ * their `.sero-workspace.json` keeps it — git still reports changes to files it
+ * already knows about.
+ */
+const SERO_IGNORE_RULES = [
+  '**/.sero/',
+  '**/.sero-workspace.json',
+];
 
 export type GitRefreshScope = 'auto' | 'full';
 
@@ -63,13 +82,13 @@ async function ensureGitStateIgnored(cwd: string): Promise<void> {
     current = '';
   }
 
-  const existingRules = current
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (existingRules.includes(GIT_STATE_IGNORE_RULE)) return;
+  const existingRules = new Set(
+    current.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+  );
+  const missing = SERO_IGNORE_RULES.filter((rule) => !existingRules.has(rule));
+  if (missing.length === 0) return;
 
-  const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${GIT_STATE_IGNORE_RULE}\n`;
+  const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${missing.join('\n')}\n`;
   await fs.mkdir(path.dirname(excludePath), { recursive: true });
   await fs.writeFile(excludePath, next, 'utf8');
 }
