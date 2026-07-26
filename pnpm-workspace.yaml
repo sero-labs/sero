@@ -19,7 +19,7 @@ catalog:
   # a different react version than the apps, splitting the install into two
   # react copies and breaking hooks at runtime.
   react: "^19.2.4"
-  react-dom: "^19.2.4"
+  react-dom: "^19.2.8"
 
   # Build tooling
   tailwindcss: "4.1.18"
@@ -68,5 +68,5 @@ catalogs:
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.4"
-    react-dom: "^19.2.4"
+    react-dom: "^19.2.8"
     zod: ">=4.0.0"
