@@ -119,6 +119,16 @@ export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => app.manifest?.search && isAppEntrySupported(app));
 }
 
+/** Apps that contribute an Explorer view (`sero.app.explorerView`) and are host-supported. */
+export function getExplorerViewContributionApps(apps: AppEntry[]): AppEntry[] {
+  return apps.filter((app) => app.manifest?.explorerView && isAppEntrySupported(app));
+}
+
+/** Apps that contribute a title-bar control (`sero.app.titlebar`) and are host-supported. */
+export function getTitleBarContributionApps(apps: AppEntry[]): AppEntry[] {
+  return apps.filter((app) => app.manifest?.titlebar && isAppEntrySupported(app));
+}
+
 export function getPriorityPreloadApps(
   manifests: SeroAppManifest[],
   activeApp: string,

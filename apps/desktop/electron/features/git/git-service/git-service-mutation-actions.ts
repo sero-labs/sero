@@ -35,6 +35,16 @@ export async function runGitMutationAction(
       return ok(params.all ? 'Unstaged all.' : `Unstaged ${params.file}`);
     }
 
+    // Throwing away work, so it is deliberately narrow: one named file, never
+    // an "all" sweep, and untracked files are left alone — `git checkout` does
+    // not touch them and removing them is not what "discard changes" means.
+    case 'discard': {
+      if (!params.file) return err('file is required for discard');
+      await context.exec(['checkout', 'HEAD', '--', params.file]);
+      await context.refresh('auto');
+      return ok(`Discarded changes in ${params.file}`);
+    }
+
     case 'commit': {
       if (!params.message) return err('message is required for commit');
       if (params.all) await context.exec(['add', '-A']);
@@ -109,7 +119,9 @@ export async function runGitMutationAction(
       if (branch?.checkedOutIn) {
         return err(`Branch ${params.branch} is already checked out in ${branch.checkedOutIn}`);
       }
-      await context.exec(['switch', params.branch]);
+      // `force` throws local modifications away as it switches. Plain `switch`
+      // brings them along, and refuses rather than clobbering when it can't.
+      await context.exec(['switch', ...(params.force ? ['--discard-changes'] : []), params.branch]);
       await context.refresh('full');
       return ok(`Switched to ${params.branch}`);
     }
@@ -159,6 +171,28 @@ export async function runGitMutationAction(
       const result = await context.exec(['merge', params.branch]);
       await context.refresh('full');
       return ok(`Merged ${params.branch}: ${result.split('\n')[0] ?? ''}`);
+    }
+
+    // Leaving a merge, which is the one action that only applies mid-merge.
+    /**
+     * `checkout -m` rebuilds the conflict from the merge itself, so it works
+     * even after the file was staged and git dropped the index stages. That
+     * matters: the alternative — writing markers into the file and unstaging —
+     * leaves something git reads as your own local edit, which `merge --abort`
+     * deliberately preserves, stranding conflict markers in the working tree
+     * after the merge is over.
+     */
+    case 'restore_conflict': {
+      if (!params.file) return err('file is required for restore_conflict');
+      await context.exec(['checkout', '--merge', '--', params.file]);
+      await context.refresh('auto');
+      return ok(`Restored the conflict in ${params.file}`);
+    }
+
+    case 'abort_merge': {
+      await context.exec(['merge', '--abort']);
+      await context.refresh('full');
+      return ok('Merge aborted.');
     }
 
     case 'cherry_pick': {

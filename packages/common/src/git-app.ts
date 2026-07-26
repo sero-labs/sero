@@ -6,6 +6,7 @@ export type GitManagerAction =
   | 'diff'
   | 'stage'
   | 'unstage'
+  | 'discard'
   | 'commit'
   | 'checkout'
   | 'stash'
@@ -18,6 +19,15 @@ export type GitManagerAction =
   | 'delete_branch'
   | 'remove_worktree'
   | 'merge'
+  | 'abort_merge'
+  /**
+   * Put a file back to the conflicted state git had before it was resolved,
+   * markers and index stages both. Undoing an AI resolution needs it: once a
+   * file is staged git forgets it ever conflicted, and writing markers back by
+   * hand leaves an ordinary modified file that `git merge --abort` then treats
+   * as your own edit and preserves.
+   */
+  | 'restore_conflict'
   | 'cherry_pick'
   | 'show_commit';
 
@@ -129,6 +139,24 @@ export interface FileDiff {
 
 export type GitSyncMode = 'manual' | 'watch';
 
+/**
+ * A merge stopped part-way, which is a mode the app is in rather than a
+ * property of any one file. Present only while `MERGE_HEAD` exists.
+ */
+export interface GitMergeState {
+  /** What is being merged in — a branch name where git can name one, else a short sha. */
+  fromRef: string;
+  /** Git's own merge message, which is what concluding the merge commits with. */
+  message: string;
+  /**
+   * Every path that conflicted during this merge, including ones already
+   * resolved. Git forgets a conflict the moment the file is staged, so the
+   * list is carried forward across refreshes for as long as the merge lasts —
+   * without it the UI cannot tell a resolved file from one that merged cleanly.
+   */
+  conflictPaths: string[];
+}
+
 export interface GitAppState {
   repoPath: string;
   repoName: string;
@@ -144,6 +172,11 @@ export interface GitAppState {
 
   fileChanges: FileChange[];
   commitCount: number;
+
+  /** HEAD is a commit rather than a branch. */
+  detached: boolean;
+  /** Set while a merge is in progress. */
+  merge?: GitMergeState;
 
   /** Currently viewed diff (set by extension on demand) */
   activeDiff?: FileDiff;
@@ -163,7 +196,10 @@ export function createDefaultGitState(): GitAppState {
     repoName: '',
     currentBranch: '',
     headHash: '',
-    defaultBranch: undefined,
+    // `defaultBranch` and `merge` are absent rather than set to `undefined`.
+    // `@sero-ai/app-runtime` 0.2.1 fixed the hook that used to drop any
+    // optional field defaulted to `undefined`, but a host pinned to 0.2.0 still
+    // does — and a missing key is copied through untouched by both.
     branches: [],
     remoteBranches: [],
     remotes: [],
@@ -171,6 +207,7 @@ export function createDefaultGitState(): GitAppState {
     stashes: [],
     fileChanges: [],
     commitCount: 0,
+    detached: false,
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode: 'manual',
@@ -196,12 +233,23 @@ export function normalizeGitState(state: Partial<GitAppState> | null | undefined
     stashes: Array.isArray(state.stashes) ? state.stashes : defaults.stashes,
     fileChanges: Array.isArray(state.fileChanges) ? state.fileChanges : defaults.fileChanges,
     commitDiffs: Array.isArray(state.commitDiffs) ? state.commitDiffs : undefined,
+    detached: typeof state.detached === 'boolean' ? state.detached : defaults.detached,
+    merge: normalizeMergeState(state.merge),
     lastRefresh: typeof state.lastRefresh === 'string' ? state.lastRefresh : defaults.lastRefresh,
     loading: typeof state.loading === 'boolean' ? state.loading : defaults.loading,
     syncMode: state.syncMode === 'watch'
       ? 'watch'
       : 'manual',
     error: typeof state.error === 'string' ? state.error : undefined,
+  };
+}
+
+function normalizeMergeState(merge: GitMergeState | undefined): GitMergeState | undefined {
+  if (!merge || typeof merge.fromRef !== 'string') return undefined;
+  return {
+    fromRef: merge.fromRef,
+    message: typeof merge.message === 'string' ? merge.message : '',
+    conflictPaths: Array.isArray(merge.conflictPaths) ? merge.conflictPaths : [],
   };
 }
 

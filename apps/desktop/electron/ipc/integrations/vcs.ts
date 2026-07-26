@@ -3,10 +3,18 @@ import path from 'node:path';
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
+import type { CreatePullRequestInput, GitManagerRequest, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
+import { buildCommitMessagePrompt, parseCommitMessage } from '@electron/features/agent/assistants/commit-message';
+import {
+  buildConflictPrompt,
+  parseConflictOutcome,
+  type ConflictOutcome,
+  type ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
-import { githubAuth, githubRepoOps, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { buildCommitDraftContext, type CommitDraftScope } from '@electron/features/git/core/commit-draft';
+import { githubAuth, githubRepoOps, gitRunner, runtimeManager, vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { connectRemote, publishRepo } from '@electron/features/git/remote-connect';
 import type { PublishRepoInput, RemoteImportMode } from '@sero-ai/common';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
@@ -210,6 +218,34 @@ export function registerVcsHandlers(): void {
     return draft;
   });
 
+  // The sparkle inside the commit message field (§10). It returns the message
+  // and nothing else — the field owns it from there, and an empty string means
+  // the model had nothing to say rather than "use this".
+  ipcMain.handle(Ch.commitDraftMessage, async (_e, wsId: string, scope: CommitDraftScope = 'staged') => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    if (!workspacePath) throw new Error(`Workspace not found: ${wsId}`);
+
+    const ctx = await buildCommitDraftContext(gitRunner, wsId, scope);
+    const generated = await runAdhocAgent(
+      workspacePath,
+      buildCommitMessagePrompt(ctx.fileSummary, ctx.patch),
+      'low',
+    );
+    return parseCommitMessage(generated.text);
+  });
+
+  // One conflict per call. The run itself lives in the git plugin, which owns
+  // the working tree it writes to (AD-025) — this is only the model call, so a
+  // question blocking one conflict never blocks the process handling the rest.
+  ipcMain.handle(Ch.resolveConflictWithAi, async (_e, wsId: string, input: ConflictResolveInput): Promise<ConflictOutcome> => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    if (!workspacePath) throw new Error(`Workspace not found: ${wsId}`);
+
+    // 'medium' rather than the draft's 'low': this one writes code into files.
+    const generated = await runAdhocAgent(workspacePath, buildConflictPrompt(input), 'medium');
+    return parseConflictOutcome(generated.text);
+  });
+
   ipcMain.handle(Ch.prCreate, async (_e, wsId: string, input: CreatePullRequestInput) =>
     vcsPrOps.create(wsId, input),
   );
@@ -252,4 +288,13 @@ export function registerVcsHandlers(): void {
     const known = roots.some((root) => resolved === root || resolved.startsWith(root + path.sep));
     return known ? getWorktreeDiffStat(resolved) : null;
   });
+
+  // Every write the renderer makes — stage, commit, stash, switch branch — runs
+  // here (AD-025). It shares the action implementations with the agent's
+  // `git_manager` tool, so a guard like "don't delete the branch you're on"
+  // exists once and covers both. Failures come back as `{ ok: false, message }`
+  // rather than throwing: the caller shows the message and stops.
+  ipcMain.handle(Ch.run, async (_e, wsId: string, params: GitManagerRequest) =>
+    gitWorkspaceStateManager.runWorkspaceAction(wsId, params),
+  );
 }

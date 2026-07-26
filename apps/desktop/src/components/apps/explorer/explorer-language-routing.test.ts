@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getMonacoLanguageIdFromPath } from '@/lsp/language-routing';
 import { getLanguage } from './editor/editor-panel-shared';
-import { langFromPath } from './vcs/vcs-utils';
 
 const CASES = [
   '/workspace/src/App.tsx',
@@ -13,10 +12,9 @@ const CASES = [
 ];
 
 describe('explorer language routing', () => {
-  it.each(CASES)('keeps editor + diff inference aligned for %s', (path) => {
+  it.each(CASES)('keeps editor inference aligned with the canonical routing for %s', (path) => {
     const canonicalLanguage = getMonacoLanguageIdFromPath(path);
 
     expect(getLanguage(path)).toBe(canonicalLanguage);
-    expect(langFromPath(path)).toBe(canonicalLanguage);
   });
 });

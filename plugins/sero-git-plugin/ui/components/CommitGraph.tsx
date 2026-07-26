@@ -8,9 +8,16 @@
 import { useMemo, useRef, useCallback } from 'react';
 import type { CommitNode } from '../../shared/types';
 import { computeGraphLayout } from '../lib/graph-layout';
+import { COLUMN } from '../lib/history-columns';
 import type { GraphEdge } from '../lib/graph-layout';
 
-const ROW_HEIGHT = 34;
+// Commit rows are 30px — one row scale everywhere, with the extra 4px over a
+// file row paying for the lane graphic (design rule 10).
+const ROW_HEIGHT = 30;
+/** Ref chips are capped so the commit message is never pushed off the row. */
+const MAX_REF_CHIP_WIDTH = 92;
+/** More refs than this collapse into a `+N` count. */
+const MAX_VISIBLE_REFS = 2;
 const LANE_WIDTH = 20;
 const NODE_RADIUS = 4;
 const GRAPH_PAD_LEFT = 12;
@@ -33,10 +40,18 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
     [onSelectCommit],
   );
 
+  // Empty is centred and says what comes next, rather than an empty grid
+  // (rule 25, §7).
   if (commits.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[var(--g-dim)] text-base">
-        No commits to display
+      <div className="flex flex-1 items-center justify-center px-6 text-center">
+        <div className="max-w-xs">
+          <h3 className="text-[0.84rem] text-[var(--text-primary)]">No history yet</h3>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            The graph fills in from your first commit. There is nothing to fetch, push or open a
+            pull request against until then.
+          </p>
+        </div>
       </div>
     );
   }
@@ -53,8 +68,8 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
             <div
               key={node.commit.hash}
               onClick={() => handleRowClick(node.commit)}
-              className={`graph-row flex items-center cursor-pointer border-b border-[var(--g-border)]
-                ${isSelected ? 'graph-row-selected' : ''}`}
+              className={`flex cursor-pointer items-center border-b border-[var(--border-subtle)]
+                hover:bg-[var(--bg-elevated)] ${isSelected ? 'bg-[var(--bg-overlay)]' : ''}`}
               style={{ height: ROW_HEIGHT }}
             >
               {/* SVG graph column */}
@@ -75,28 +90,38 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
               <div className="flex items-center gap-2 flex-1 min-w-0 pr-4" style={{ paddingLeft: TEXT_PAD }}>
                 {/* Ref labels */}
                 {node.commit.refs.length > 0 && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {node.commit.refs.map((ref) => (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {node.commit.refs.slice(0, MAX_VISIBLE_REFS).map((ref) => (
                       <RefBadge key={ref.name} name={ref.name} type={ref.type} color={node.color} />
                     ))}
+                    {node.commit.refs.length > MAX_VISIBLE_REFS && (
+                      <span
+                        className="shrink-0 text-xs text-[var(--text-muted)]"
+                        title={node.commit.refs.slice(MAX_VISIBLE_REFS).map((ref) => ref.name).join(', ')}
+                      >
+                        +{node.commit.refs.length - MAX_VISIBLE_REFS}
+                      </span>
+                    )}
                   </div>
                 )}
 
                 {/* Subject */}
-                <span className="text-xs text-[var(--g-text)] truncate flex-1">
+                <span className="text-xs text-[var(--text-primary)] truncate flex-1">
                   {node.commit.subject}
                 </span>
 
                 {/* Hash */}
-                <span className="git-mono text-sm text-[var(--g-dim)] shrink-0 ml-2">
+                <span className={`git-mono text-sm text-[var(--text-muted)] shrink-0 text-right ${COLUMN.hash}`}>
                   {node.commit.shortHash}
                 </span>
 
                 {/* Author */}
-                <AuthorAvatar name={node.commit.authorName} email={node.commit.authorEmail} />
+                <div className={`flex shrink-0 justify-end ${COLUMN.author}`}>
+                  <AuthorAvatar name={node.commit.authorName} email={node.commit.authorEmail} />
+                </div>
 
                 {/* Date */}
-                <span className="text-sm text-[var(--g-dim)] shrink-0 tabular-nums ml-1 w-16 text-right">
+                <span className={`text-sm text-[var(--text-muted)] shrink-0 tabular-nums text-right ${COLUMN.when}`}>
                   {formatRelativeDate(node.commit.authorDate)}
                 </span>
               </div>
@@ -202,21 +227,32 @@ function CommitDot({ cx, cy, color, isHead, isSelected }: {
 
 function RefBadge({ name, type, color }: { name: string; type: string; color: string }) {
   const isTag = type === 'tag';
-  const bgColor = isTag ? 'rgba(251, 191, 36, 0.12)' : `${color}18`;
-  const textColor = isTag ? '#fbbf24' : color;
-  const borderColor = isTag ? 'rgba(251, 191, 36, 0.25)' : `${color}30`;
+  // A detached HEAD decorates its commit with a bare `HEAD`. It is where you
+  // are, not a branch, so it is marked in warning colour and never mistaken
+  // for one (§7).
+  const isDetachedHead = type === 'local' && name === 'HEAD';
+  const warn = isTag || isDetachedHead;
+  const bgColor = warn ? 'var(--status-warning-faint)' : `${color}18`;
+  const textColor = warn ? 'var(--status-warning)' : color;
+  const borderColor = warn ? 'var(--status-warning-border)' : `${color}30`;
 
   // Shorten remote refs
   const label = name.replace(/^origin\//, '');
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium git-mono whitespace-nowrap"
-      style={{ background: bgColor, color: textColor, border: `1px solid ${borderColor}` }}
+      className="inline-flex items-center gap-1 truncate whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium git-mono"
+      style={{
+        background: bgColor,
+        color: textColor,
+        border: `1px solid ${borderColor}`,
+        maxWidth: MAX_REF_CHIP_WIDTH,
+      }}
+      title={name}
     >
       {isTag && <TagIcon />}
       {type === 'remote' && <RemoteIcon />}
-      {label}
+      <span className="truncate">{label}</span>
     </span>
   );
 }
@@ -255,7 +291,7 @@ function AuthorAvatar({ name, email }: { name: string; email: string }) {
 
   return (
     <div
-      className="size-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ml-2"
+      className="size-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
       style={{ background: `hsl(${hue}, 50%, 25%)`, color: `hsl(${hue}, 70%, 75%)` }}
       title={`${name} <${email}>`}
     >

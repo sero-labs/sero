@@ -15,8 +15,6 @@ import type {
 } from './ipc';
 import type {
   AppToolResult,
-  GitActionResult,
-  GitManagerRequest,
   WebAppActionResult,
   WebAppRequest,
 } from '@sero-ai/common';
@@ -73,10 +71,6 @@ interface SeroAppAgentAPI {
     toolName: string,
     params: Record<string, unknown>,
   ): Promise<AppToolResult>;
-}
-
-interface SeroGitAppAPI {
-  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 interface SeroWebAppAPI {

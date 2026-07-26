@@ -3,7 +3,29 @@ import type { BranchInfo, RemoteInfo } from '../../shared/types';
 export interface RemoteBranchGroup {
   name: string;
   host: string;
+  /** Where the remote lives on the web, when it can be worked out. */
+  webUrl: string | null;
   branches: BranchInfo[];
+}
+
+/**
+ * The browsable address behind a remote.
+ *
+ * Git remotes are given as `git@host:owner/repo.git` or as an https URL with a
+ * `.git` suffix, and neither opens in a browser as it stands. Anything else —
+ * a local path, an unrecognised scheme — has no web page, so it returns null
+ * and the row simply is not clickable.
+ */
+export function remoteWebUrl(fetchUrl: string): string | null {
+  const url = fetchUrl.trim();
+  if (!url) return null;
+
+  const ssh = /^(?:ssh:\/\/)?(?:git@)([^/:]+)[:/](.+?)(?:\.git)?\/?$/.exec(url);
+  if (ssh) return `https://${ssh[1]}/${ssh[2]}`;
+
+  if (/^https?:\/\//.test(url)) return url.replace(/\.git\/?$/, '');
+
+  return null;
 }
 
 function getBranchTimestamp(branch: BranchInfo): number {
@@ -28,7 +50,7 @@ export function groupRemoteBranches(
   remoteBranches: BranchInfo[],
   remotes: RemoteInfo[],
 ): RemoteBranchGroup[] {
-  const hostByRemote = new Map(remotes.map((remote) => [remote.name, extractHostname(remote.fetchUrl)]));
+  const byName = new Map(remotes.map((remote) => [remote.name, remote]));
   const groups = new Map<string, BranchInfo[]>();
 
   for (const branch of sortBranchesForDisplay(remoteBranches)) {
@@ -40,11 +62,15 @@ export function groupRemoteBranches(
 
   return Array.from(groups.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, branches]) => ({
-      name,
-      host: hostByRemote.get(name) ?? '',
-      branches,
-    }));
+    .map(([name, branches]) => {
+      const fetchUrl = byName.get(name)?.fetchUrl ?? '';
+      return {
+        name,
+        host: fetchUrl ? extractHostname(fetchUrl) : '',
+        webUrl: fetchUrl ? remoteWebUrl(fetchUrl) : null,
+        branches,
+      };
+    });
 }
 
 function extractHostname(url: string): string {

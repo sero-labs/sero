@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 
-import { useVcsStore } from '@/stores/vcs';
 import { summarizeDiffFiles, type RestorePreviewFileChange } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import type { ChatTurnUndoRef } from '@/types/ipc';
 
@@ -29,14 +28,17 @@ interface CheckpointRestoreActions {
  *
  * Falls back to VCS-only restore (file system only, no session branch)
  * when `sessionId` is null (e.g. no active agent session).
+ *
+ * Talks to `window.sero.vcs` directly rather than through a git store: these
+ * are one-shot calls in a dialog that gain nothing from a cache, and it keeps
+ * undoing a chat turn working whether or not the git plugin is installed
+ * (AD-025). Git surfaces refresh themselves — restoring emits a `restored`
+ * event from the main process, which they already listen for.
  */
 export function useCheckpointRestore(
   workspaceId: string | null,
   sessionId: string | null,
 ): CheckpointRestoreState & CheckpointRestoreActions {
-  const restoreCheckpointVcs = useVcsStore((s) => s.restoreCheckpoint);
-  const fetchCheckpointDiff = useVcsStore((s) => s.fetchDiff);
-
   const [dialogOpen, setDialogOpenRaw] = useState(false);
   const [target, setTarget] = useState<ChatTurnUndoRef | null>(null);
   const [previewFiles, setPreviewFiles] = useState<RestorePreviewFileChange[]>([]);
@@ -69,7 +71,7 @@ export function useCheckpointRestore(
       setPreviewLoading(true);
       setDialogOpenRaw(true);
 
-      void fetchCheckpointDiff(workspaceId, checkpoint.snapshotId)
+      void window.sero.vcs.diff(workspaceId, checkpoint.snapshotId)
         .then((diff) => {
           setPreviewFiles(summarizeDiffFiles(diff));
           setPreviewLoading(false);
@@ -79,7 +81,7 @@ export function useCheckpointRestore(
           setPreviewLoading(false);
         });
     },
-    [workspaceId, fetchCheckpointDiff],
+    [workspaceId],
   );
 
   const confirmRestore = useCallback(() => {
@@ -88,10 +90,8 @@ export function useCheckpointRestore(
     setRestoring(true);
 
     const doRestore = sessionId
-      ? window.sero.agent.undoToTurn(sessionId, target)
-          // After session restore, also refresh VCS state so the timeline updates
-          .then(() => useVcsStore.getState().loadWorkspace(workspaceId))
-      : restoreCheckpointVcs(workspaceId, target.snapshotId);
+      ? window.sero.agent.undoToTurn(sessionId, target).then(() => undefined)
+      : window.sero.vcs.restore(workspaceId, target.snapshotId);
 
     void doRestore
       .then(() => {
@@ -105,7 +105,7 @@ export function useCheckpointRestore(
         setRestoring(false);
         setPreviewLoading(false);
       });
-  }, [workspaceId, sessionId, target, restoring, restoreCheckpointVcs, resetState]);
+  }, [workspaceId, sessionId, target, restoring, resetState]);
 
   return {
     dialogOpen,

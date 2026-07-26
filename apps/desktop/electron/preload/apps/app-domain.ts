@@ -21,8 +21,6 @@ import type {
 } from '@/types/ipc';
 import type {
   AppToolResult,
-  GitActionResult,
-  GitManagerRequest,
   WebAppActionResult,
   WebAppRequest,
 } from '@sero-ai/common';
@@ -105,11 +103,6 @@ export const appAgentBridge = {
     params: Record<string, unknown>,
   ): Promise<AppToolResult> =>
     ipcRenderer.invoke(IpcChannels.appAgent.invokeTool, appId, workspaceId, toolName, params),
-};
-
-export const gitAppBridge = {
-  run: (workspaceId: string, params: GitManagerRequest): Promise<GitActionResult> =>
-    ipcRenderer.invoke(IpcChannels.gitApp.run, workspaceId, params),
 };
 
 export const webAppBridge = {

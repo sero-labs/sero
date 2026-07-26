@@ -149,14 +149,24 @@ Examples from the current guides:
 | App | State path |
 | --- | --- |
 | Web | `<workspace>/.sero/apps/web/state.json` |
-| Git Integration | `<workspace>/.sero/apps/git/state.json` |
+| Git | `<workspace>/.sero/apps/git/state.json` |
 
-Git Integration also ignores its state folder with this pattern so the app state does
-not appear as an untracked repository change:
+An app may keep other files alongside its state. Git saves how you left the app
+laid out — which panels are folded, how tall the history is — in
+`<workspace>/.sero/apps/git/view.json`, so it is remembered per repository
+rather than globally.
+
+Sero keeps its own files out of the repositories you work in, so they never show
+up as changes to commit:
 
 ```text
-**/.sero/apps/git/
+**/.sero/
+**/.sero-workspace.json
 ```
+
+These are written to `.git/info/exclude`, which is local to the clone — Sero
+never edits a project's `.gitignore`. Because that only governs *untracked*
+files, anything you deliberately track (`git add -f`) keeps being reported.
 
 ## Memory storage
 

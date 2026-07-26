@@ -20,6 +20,10 @@ export const SERO_HOST_CAPABILITIES = [
   'appAgent.invokeTool',
   'tool.cli',
   'appRuntime.background',
+  /** Host mounts `sero.app.explorerView` as an Explorer view. */
+  'ui.explorerView',
+  /** Host mounts `sero.app.titlebar` as a title-bar control. */
+  'ui.titlebar',
 ] as const;
 
 export type SeroHostCapability = (typeof SERO_HOST_CAPABILITIES)[number];

@@ -18,7 +18,9 @@ import {
   Section,
   SectionActionButton,
 } from './BranchPanelSections';
-import { BranchRow, StashRow } from './BranchPanelRows';
+import { BranchRow, PositionRow, StashRow } from './BranchPanelRows';
+import type { RepoMode } from '../lib/repo-mode';
+import { openInBrowser } from '../store/sero-bridge';
 
 interface BranchPanelProps {
   branches: BranchInfo[];
@@ -28,6 +30,23 @@ interface BranchPanelProps {
   currentBranch: string;
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
+  /** Lane colours from the graph, so a branch reads the same in both (§3). */
+  branchColours?: Record<string, string>;
+  /** Which hard state the repo is in — the rail always says where you are (§7). */
+  mode: RepoMode;
+  /** The commit HEAD sits on when it is not on a branch. */
+  headHash: string;
+  /**
+   * Asks the app to switch branch. Not dispatched here: with uncommitted
+   * changes the app asks what should happen to them first (§7).
+   */
+  onRequestCheckout: (branch: string) => void;
+  /**
+   * Which sections are open. Held by the app rather than here, because it
+   * outlives this component: how you left the rail is remembered per workspace.
+   */
+  sectionsOpen: { local: boolean; remote: boolean; stashes: boolean };
+  onToggleSection: (section: 'local' | 'remote' | 'stashes') => void;
 }
 
 export function BranchPanel({
@@ -38,10 +57,13 @@ export function BranchPanel({
   currentBranch,
   defaultBranch,
   onAction,
+  branchColours,
+  mode,
+  headHash,
+  onRequestCheckout,
+  sectionsOpen,
+  onToggleSection,
 }: BranchPanelProps) {
-  const [localOpen, setLocalOpen] = useState(true);
-  const [remoteOpen, setRemoteOpen] = useState(true);
-  const [stashOpen, setStashOpen] = useState(true);
   const [creatingBranch, setCreatingBranch] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [confirmPopIndex, setConfirmPopIndex] = useState<number | null>(null);
@@ -82,11 +104,28 @@ export function BranchPanel({
 
   return (
     <div
-      className="w-64 min-w-[13rem] max-w-[24rem] shrink-0 resize-x overflow-auto border-r border-[var(--g-border)] bg-[var(--g-surface)] git-scrollbar"
+      className="w-[214px] shrink-0 overflow-auto border-r border-[var(--border-default)] bg-[var(--bg-surface)] git-scrollbar"
       style={{ minHeight: 0 }}
     >
       <div className="min-h-full">
-        <Section title="LOCAL" count={localBranches.length} open={localOpen} onToggle={() => setLocalOpen(!localOpen)}>
+        <Section title="LOCAL" count={localBranches.length} open={sectionsOpen.local} onToggle={() => onToggleSection('local')}>
+          {mode === 'detached' && (
+            <PositionRow
+              label={`HEAD @ ${headHash || 'unknown'}`}
+              tone="warning"
+              title="You are not on a branch"
+            />
+          )}
+          {/* Before the first commit git lists no branches, but the branch
+              exists as a name — saying so beats an empty rail. */}
+          {mode === 'unborn' && localBranches.length === 0 && (
+            <PositionRow
+              label={currentBranch || 'main'}
+              note="unborn"
+              tone="muted"
+              title="This branch starts at your first commit"
+            />
+          )}
           {localBranches.map((branch) => (
             <BranchBranchRow
               key={branch.name}
@@ -94,6 +133,8 @@ export function BranchPanel({
               currentBranch={currentBranch}
               defaultBranch={defaultBranch}
               onAction={onAction}
+              onRequestCheckout={onRequestCheckout}
+              laneColour={branchColours?.[branch.name]}
             />
           ))}
 
@@ -110,22 +151,26 @@ export function BranchPanel({
           )}
         </Section>
 
-        <Section title="REMOTE" count={remoteBranches.length} open={remoteOpen} onToggle={() => setRemoteOpen(!remoteOpen)}>
+        <Section title="REMOTE" count={remoteBranches.length} open={sectionsOpen.remote} onToggle={() => onToggleSection('remote')}>
           {remoteGroups.map((group) => (
             <RemoteBranchGroup
               key={group.name}
               name={group.name}
               host={group.host}
+              webUrl={group.webUrl}
               branches={group.branches}
               formatLabel={formatBranchLabel}
+              onOpenRemote={openInBrowser}
             />
           ))}
           {remoteGroups.length === 0 && (
-            <div className="px-3 py-2 text-sm text-[var(--g-dim)]">No remote branches</div>
+            <div className="px-3 py-2 text-sm text-[var(--text-muted)]">
+              {remotes.length === 0 ? 'No remote — publish to add one' : 'No remote branches'}
+            </div>
           )}
         </Section>
 
-        <Section title="STASHES" count={stashes.length} open={stashOpen} onToggle={() => setStashOpen(!stashOpen)}>
+        <Section title="STASHES" count={stashes.length} open={sectionsOpen.stashes} onToggle={() => onToggleSection('stashes')}>
           {stashes.map((stash) => (
             <StashRow
               key={stash.hash || stash.index}
@@ -147,15 +192,20 @@ function BranchBranchRow({
   currentBranch,
   defaultBranch,
   onAction,
+  onRequestCheckout,
+  laneColour,
 }: {
   branch: BranchInfo;
   currentBranch: string;
   defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
+  onRequestCheckout: (branch: string) => void;
+  /** The colour of this branch's lane in the graph (§3). */
+  laneColour?: string;
 }) {
   const onCheckout = branch.name === currentBranch
     ? undefined
-    : () => onAction({ action: 'checkout', branch: branch.name });
+    : () => onRequestCheckout(branch.name);
   const allowDelete = canDeleteBranch(branch, currentBranch, defaultBranch);
   const onDelete = allowDelete
     ? () => onAction({ action: 'delete_branch', branch: branch.name })
@@ -184,6 +234,7 @@ function BranchBranchRow({
         label={branch.name}
         isCurrent={branch.name === currentBranch}
         onCheckout={onCheckout}
+        laneColour={laneColour}
       />
     </BranchContextMenu>
   );

@@ -11,8 +11,6 @@ import type {
   AppToolResult,
   AvailableContext,
   ContextPreset,
-  GitActionResult,
-  GitManagerRequest,
   SharedAvailableModelGroup,
   SharedModelInfo,
   WebAppActionResult,
@@ -48,10 +46,6 @@ export interface SeroAppControlBridge {
   open(appId: string): Promise<boolean>;
   /** Open a workspace file in the explorer editor. False when unavailable. */
   openFile(workspaceId: string, filePath: string): Promise<boolean>;
-}
-
-export interface SeroGitAppBridge {
-  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 export interface SeroWebAppBridge {
@@ -96,7 +90,6 @@ export interface SeroBridge {
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
   appControl?: SeroAppControlBridge;
-  gitApp?: SeroGitAppBridge;
   webApp?: SeroWebAppBridge;
   editor?: SeroEditorBridge;
   models?: SeroModelsBridge;

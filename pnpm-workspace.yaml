@@ -50,6 +50,12 @@ catalog:
   motion: "^12.34.0"
   streamdown: "^2.5.0"
   vitest: "^4.1.7"
+  zustand: "^5.0.11"
+
+  # Diff rendering — pinned exactly; the desktop app and the git plugin must
+  # not render diffs with two different versions of it.
+  "@pierre/diffs": "1.2.12"
+  "@pierre/trees": "1.0.0-beta.5"
 
 # ── Named catalogs ─────────────────────────────────────────────
 # Use "catalog:peer" in peerDependencies.

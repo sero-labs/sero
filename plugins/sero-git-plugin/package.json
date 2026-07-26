@@ -28,6 +28,14 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GitApp",
       "devPort": 5194,
+      "explorerView": {
+        "component": "ExplorerGitView",
+        "label": "Git",
+        "icon": "git-branch"
+      },
+      "titlebar": {
+        "component": "GitTitleBar"
+      },
       "widgets": [
         {
           "id": "status",
@@ -71,6 +79,7 @@
   "devDependencies": {
     "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
+    "@pierre/diffs": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
     "@sero-ai/common": "workspace:*",
@@ -86,6 +95,7 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zustand": "catalog:"
   }
 }

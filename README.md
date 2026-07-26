@@ -172,7 +172,7 @@ Captured from the current beta on macOS Apple Silicon.
 
 ![App Discovery](./apps/docs-site/docs/assets/images/app-discovery.jpg)
 
-![VCS Management](./apps/docs-site/docs/assets/images/git-management.jpg)
+![VCS Management](./apps/docs-site/docs/assets/images/git-app.jpg)
 
 ![Image Generation](./apps/docs-site/docs/assets/images/imagegen.jpg)
 

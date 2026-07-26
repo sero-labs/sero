@@ -107,6 +107,6 @@ Practical habits:
 
 - [Agent Sessions and Context](/guide/agent-sessions-and-context)
 - [Explorer Workspace](/guide/explorer-workspace)
-- [Git Integration](/guide/git-integration)
+- [Git](/guide/git-integration)
 - [Sero CLI](/reference/sero-cli)
 - [Troubleshooting](/reference/troubleshooting)

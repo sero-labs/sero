@@ -4,23 +4,6 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const store = vi.hoisted(() => {
-  const mocks = {
-    restoreCheckpoint: vi.fn(),
-    fetchDiff: vi.fn(),
-    loadWorkspace: vi.fn(),
-  };
-  const useVcsStore = Object.assign(
-    <T,>(selector: (state: typeof mocks) => T) => selector(mocks),
-    { getState: () => mocks },
-  );
-  return { mocks, useVcsStore };
-});
-
-vi.mock('@/stores/vcs', () => ({
-  useVcsStore: store.useVcsStore,
-}));
-
 import { useCheckpointRestore } from './useCheckpointRestore';
 import type { ChatTurnUndoRef } from '@/types/ipc';
 
@@ -56,15 +39,18 @@ describe('useCheckpointRestore', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    store.mocks.fetchDiff.mockResolvedValue('diff --git a/joke.txt b/joke.txt\n--- a/joke.txt\n+++ /dev/null');
-    store.mocks.restoreCheckpoint.mockResolvedValue(undefined);
-    store.mocks.loadWorkspace.mockResolvedValue(undefined);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     window.sero = {
       agent: {
         undoToTurn: vi.fn().mockResolvedValue([]),
+      },
+      vcs: {
+        diff: vi.fn().mockResolvedValue(
+          'diff --git a/joke.txt b/joke.txt\n--- a/joke.txt\n+++ /dev/null',
+        ),
+        restore: vi.fn().mockResolvedValue(undefined),
       },
     } as never;
   });
@@ -91,7 +77,7 @@ describe('useCheckpointRestore', () => {
       await Promise.resolve();
     });
 
-    expect(store.mocks.fetchDiff).toHaveBeenCalledWith('ws-1', 'snap-1');
+    expect(window.sero.vcs.diff).toHaveBeenCalledWith('ws-1', 'snap-1');
     expect(container.firstElementChild?.getAttribute('data-open')).toBe('true');
 
     await act(async () => {
@@ -100,6 +86,35 @@ describe('useCheckpointRestore', () => {
     });
 
     expect(window.sero.agent.undoToTurn).toHaveBeenCalledWith('session-1', turnUndo);
-    expect(store.mocks.loadWorkspace).toHaveBeenCalledWith('ws-1');
+    expect(container.firstElementChild?.getAttribute('data-open')).toBe('false');
+  });
+
+  it('restores through the vcs bridge when there is no session to branch', async () => {
+    function NoSessionHarness() {
+      const restore = useCheckpointRestore('ws-1', null);
+      return (
+        <div data-open={String(restore.dialogOpen)}>
+          <button type="button" onClick={() => restore.requestRestore(turnUndo)}>request</button>
+          <button type="button" onClick={() => restore.confirmRestore()}>confirm</button>
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root?.render(<NoSessionHarness />);
+    });
+
+    const [requestButton, confirmButton] = Array.from(container.querySelectorAll('button'));
+
+    await act(async () => {
+      requestButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(window.sero.vcs.restore).toHaveBeenCalledWith('ws-1', 'snap-1');
   });
 });

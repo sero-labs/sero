@@ -63,6 +63,8 @@ These values are currently recognized by the host:
 - `appAgent.invokeTool`
 - `tool.cli`
 - `appRuntime.background`
+- `ui.explorerView`
+- `ui.titlebar`
 
 Unknown capability strings are treated as unmet host requirements, so older
 hosts fail closed instead of partially loading the plugin. Downstream plugins
@@ -87,6 +89,17 @@ Declare this when your extension depends on tool-level CLI bridging, including:
 - custom `definition.cli` metadata
 - custom raw-args handlers via `definition.cli.execute`
 - builtin override behavior such as replacing `sero google ...`
+
+### `ui.explorerView`
+
+Declare this when your plugin contributes an Explorer view
+(`sero.app.explorerView`). Hosts without it show no activity-bar entry for the
+view at all.
+
+### `ui.titlebar`
+
+Declare this when your plugin contributes a title-bar control
+(`sero.app.titlebar`).
 
 ### `appRuntime.background`
 

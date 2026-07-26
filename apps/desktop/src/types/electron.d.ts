@@ -425,7 +425,6 @@ export interface SeroAPI {
   apps: SeroAppsAPI;
   appControl: SeroAppControlAPI;
   appAgent: SeroAppAgentAPI;
-  gitApp: SeroGitAppAPI;
   webApp: SeroWebAppAPI;
   browser: SeroBrowserAPI;
   voice: SeroVoiceAPI;

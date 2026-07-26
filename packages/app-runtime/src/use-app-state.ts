@@ -20,7 +20,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * The state file is merged over the app's default state key by key, and the
+ * default wins wherever the two disagree in type — a malformed file cannot
+ * hand an app a number where it expects a string.
+ *
+ * An `undefined` default is the exception: it says the field is optional, not
+ * that it must be absent. Enforcing it would drop the file's value on every
+ * read, which is exactly what used to happen to any optional field an app
+ * declared as `undefined` in its default state.
+ */
 function normalizeStateValue(defaultValue: unknown, currentValue: unknown): unknown {
+  if (defaultValue === undefined) return currentValue;
+
   if (Array.isArray(defaultValue)) {
     return Array.isArray(currentValue) ? currentValue : defaultValue;
   }
@@ -39,7 +51,11 @@ function normalizeStateValue(defaultValue: unknown, currentValue: unknown): unkn
   return typeof currentValue === typeof defaultValue ? currentValue : defaultValue;
 }
 
-function applyDefaultState<T>(defaultState: T, current: unknown): T {
+/**
+ * Merge a state file's contents over an app's default state. Exported for its
+ * tests, not from the package entry point — it is not public API.
+ */
+export function applyDefaultState<T>(defaultState: T, current: unknown): T {
   return normalizeStateValue(defaultState, current) as T;
 }
 

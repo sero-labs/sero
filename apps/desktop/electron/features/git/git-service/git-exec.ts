@@ -62,8 +62,24 @@ function normalizeResult(output: string, trim: boolean): string {
   return trim ? output.trimEnd() : output;
 }
 
+/**
+ * Stops git refreshing its own bookkeeping as a side effect of being asked a
+ * question.
+ *
+ * `git status` and `git diff` rewrite `.git/index` to cache the file stats they
+ * just gathered. We watch the git directory to notice real changes, so that
+ * write looked like one: every refresh triggered another, forever, several a
+ * second, for as long as the Git app was open. It also quietly emptied whatever
+ * the user had open, because each refresh rebuilds the state file.
+ *
+ * The flag only suppresses locks git takes *optionally*, for that caching.
+ * Commands that genuinely change the repository take their locks regardless, so
+ * this is safe everywhere and is what editors do for the same reason.
+ */
+const NO_OPTIONAL_LOCKS = '--no-optional-locks';
+
 export async function runGitAsync(
-  args: string[],
+  rawArgs: string[],
   cwd: string,
   {
     timeout = 15_000,
@@ -72,6 +88,8 @@ export async function runGitAsync(
     trim = true,
   }: RunGitOptions = {},
 ): Promise<string> {
+  const args = rawArgs[0] === NO_OPTIONAL_LOCKS ? rawArgs : [NO_OPTIONAL_LOCKS, ...rawArgs];
+
   try {
     if (executionRouter) {
       const routed = await executionRouter(args, cwd, { timeout, maxBuffer });
