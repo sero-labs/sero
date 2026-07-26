@@ -67,17 +67,25 @@ export function err(message: string): GitActionResult {
 }
 
 async function ensureGitStateIgnored(cwd: string): Promise<void> {
-  const gitDir = await runGitAsync(['rev-parse', '--git-dir'], cwd, { allowFailure: true });
-  if (!gitDir) return;
+  // `--git-path` rather than `--git-dir`: in a linked worktree the git dir is
+  // `.git/worktrees/<name>`, but the exclude file git actually reads lives in
+  // the shared parent. Joining it onto `--git-dir` would write a file in the
+  // worktree that git never looks at, so our own state would keep showing up
+  // as untracked changes there.
+  const excludePath = await runGitAsync(
+    ['rev-parse', '--git-path', 'info/exclude'],
+    cwd,
+    { allowFailure: true },
+  );
+  if (!excludePath) return;
 
-  const resolvedGitDir = path.isAbsolute(gitDir)
-    ? gitDir
-    : path.join(cwd, gitDir);
-  const excludePath = path.join(resolvedGitDir, 'info', 'exclude');
+  const resolvedExcludePath = path.isAbsolute(excludePath)
+    ? excludePath
+    : path.join(cwd, excludePath);
 
   let current = '';
   try {
-    current = await fs.readFile(excludePath, 'utf8');
+    current = await fs.readFile(resolvedExcludePath, 'utf8');
   } catch {
     current = '';
   }
@@ -89,8 +97,8 @@ async function ensureGitStateIgnored(cwd: string): Promise<void> {
   if (missing.length === 0) return;
 
   const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${missing.join('\n')}\n`;
-  await fs.mkdir(path.dirname(excludePath), { recursive: true });
-  await fs.writeFile(excludePath, next, 'utf8');
+  await fs.mkdir(path.dirname(resolvedExcludePath), { recursive: true });
+  await fs.writeFile(resolvedExcludePath, next, 'utf8');
 }
 
 async function createFullRefreshState(
