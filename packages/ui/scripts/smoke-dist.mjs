@@ -14,6 +14,7 @@ import { dirname, resolve } from "node:path";
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = resolve(here, "..", "dist");
+const packageRoot = resolve(here, "..");
 
 const fail = (msg) => {
   console.error(`✗ ${msg}`);
@@ -23,6 +24,39 @@ const fail = (msg) => {
 if (!existsSync(dist)) {
   fail("dist/ is missing — run `pnpm build` first");
   process.exit(1);
+}
+
+// The lightweight root must not re-export specialized dependency graphs.
+const rootEntries = ["index.js", "index.cjs", "index.d.ts", "index.d.cts"];
+const forbiddenRootImports = [
+  "components/ai-elements",
+  "components/model-selection",
+  "mermaid",
+  "shiki",
+  "react-jsx-parser",
+  "streamdown",
+];
+
+for (const file of rootEntries) {
+  const contents = readFileSync(resolve(dist, file), "utf8");
+  const leak = forbiddenRootImports.find((dependency) =>
+    contents.includes(dependency),
+  );
+  if (leak) fail(`${file} exposes unrelated dependency ${leak}`);
+}
+
+// Specialized components remain available through stable public subpaths.
+const packageJson = JSON.parse(
+  readFileSync(resolve(packageRoot, "package.json"), "utf8"),
+);
+for (const [subpath, output] of [
+  ["./ai-elements/*", "components/ai-elements/message.js"],
+  ["./model-selection/*", "components/model-selection/available-model-picker.js"],
+]) {
+  if (!packageJson.publishConfig.exports[subpath]) {
+    fail(`publishConfig is missing ${subpath}`);
+  }
+  if (!existsSync(resolve(dist, output))) fail(`${output} not emitted to dist`);
 }
 
 // 1. Reference entrypoint resolves as ESM and exposes the example widgets.
@@ -64,5 +98,7 @@ else {
 if (process.exitCode) {
   console.error("Smoke test failed.");
 } else {
-  console.log("✓ dist entrypoints resolve (reference esm+cjs, catalog json)");
+  console.log(
+    "✓ dist entrypoints resolve and the root excludes specialized dependencies",
+  );
 }

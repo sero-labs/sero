@@ -4,7 +4,7 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '@sero-ai/ui/components/ai-elements/conversation';
+} from '@sero-ai/ui/ai-elements/conversation';
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedAgent,

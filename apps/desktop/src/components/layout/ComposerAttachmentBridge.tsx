@@ -6,7 +6,7 @@
  */
 
 import { useEffect } from 'react';
-import { usePromptInputAttachments } from '@sero-ai/ui/components/ai-elements/prompt-input-context';
+import { usePromptInputAttachments } from '@sero-ai/ui/ai-elements/prompt-input-context';
 import { useComposerAttachmentQueue } from '@/stores/composer-attachments';
 
 export function ComposerAttachmentBridge() {

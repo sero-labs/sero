@@ -6,7 +6,7 @@ import {
   ToolHeader,
   ToolInput,
   ToolOutput,
-} from '@sero-ai/ui/components/ai-elements/tool';
+} from '@sero-ai/ui/ai-elements/tool';
 import {
   ToolCallProgress,
   buildToolProgressModel,

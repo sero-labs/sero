@@ -20,7 +20,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
   ConversationEmptyState,
-} from '@sero-ai/ui/components/ai-elements/conversation';
+} from '@sero-ai/ui/ai-elements/conversation';
 import { Send, Square, Paperclip, X, MessageSquare } from 'lucide-react';
 
 interface PendingImage {

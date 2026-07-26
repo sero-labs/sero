@@ -3,7 +3,10 @@
 @import "shadcn/tailwind.css";
 @import "./plugin-theme.css";
 
-@source "../components";
+/* Match the lightweight package root. Specialized entrypoints opt into their
+   own source files through styles/ai-elements.css or styles/model-selection.css. */
+@source "../components/ui";
+@source "../components/dashboard";
 
 @custom-variant dark (&:is(.dark *));
 
