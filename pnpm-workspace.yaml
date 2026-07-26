@@ -41,12 +41,12 @@ catalog:
   "@earendil-works/pi-tui": "0.80.6"
 
   # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
-  zod: "^4.3.6"
+  zod: "^4.4.3"
 
   # Shared libraries
   "@sinclair/typebox": "^0.34.49"
   typebox: "^1.1.38"
-  lucide-react: "^0.563.0"
+  lucide-react: "^1.26.0"
   motion: "^12.34.0"
   streamdown: "^2.5.0"
   vitest: "^4.1.7"

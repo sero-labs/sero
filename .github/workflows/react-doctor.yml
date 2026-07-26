@@ -32,11 +32,11 @@ jobs:
       # fetch-depth: 0 gives React Doctor the full git history it needs to find the merge base with the target branch. Without it a shallow checkout has no merge base, so PR runs can't compare against the base and fall back to reporting every issue in the changed files (pre-existing ones included) instead of only the ones the PR introduced.
       # Actions are pinned to full commit SHAs (not mutable tags) so a moved or
       # compromised tag can't gain the write-scoped GITHUB_TOKEN. Comment shows the tag.
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           fetch-depth: 0
 
-      - uses: millionco/react-doctor@938008119a288f2fb47c66a69cd9279a21f31784 # v2
+      - uses: millionco/react-doctor@01820bb4fd4d0a4aebcd8df2b2a143a098649cb2 # v2
         # Advisory by default: React Doctor reports findings on every PR — a
         # sticky summary comment, inline review comments, and a commit status
         # with the health score — but never fails the check, so it won't red-X
