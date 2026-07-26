@@ -4,41 +4,39 @@
  * A GitKraken-inspired interface with a visual commit graph,
  * branch panel, staging area, and diff viewer. Uses useAppState
  * from @sero-ai/app-runtime for file-backed reactive state.
+ *
+ * This file is composition. The behaviour behind it lives in three hooks —
+ * running actions and reporting failures (`useGitActions`), what the panes are
+ * showing (`useGitSelection`), and how the app is laid out (`useGitLayout`).
  */
 
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { openSeroFile, useAppInfo, useAppState, useTheme } from '@sero-ai/app-runtime';
 
-import type { GitActionResult } from '@sero-ai/common';
-import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
+import type { GitAppState } from '../shared/types';
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
 import { useConflictRun } from './store/conflict-run';
 import { useAiResolution } from './store/use-ai-resolution';
 import { DetailPane } from './components/app/DetailPane';
-import { type DiffSelection } from './components/diff/DiffPane';
 import { GraphBand } from './components/app/GraphBand';
 import { GraphDivider } from './components/app/GraphDivider';
 import { ModeBanner } from './components/app/ModeBanner';
-import { SwitchBranchDialog, type SwitchStrategy } from './components/app/SwitchBranchDialog';
+import { SwitchBranchDialog } from './components/app/SwitchBranchDialog';
 import { deriveRepoMode } from './lib/repo-mode';
 import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
 import { computeGraphLayout } from './lib/graph-layout';
-import { runGitAction } from './store/sero-bridge';
+import { useGitActions } from './store/use-git-actions';
+import { useGitLayout } from './store/use-git-layout';
+import { useGitSelection } from './store/use-git-selection';
 import { useGitHubAuth } from './store/useGitHubAuth';
-import {
-  MAX_GRAPH_HEIGHT_PCT,
-  MIN_GRAPH_HEIGHT_PCT,
-  useGitViewState,
-} from './store/ui-state';
+import { MAX_GRAPH_HEIGHT_PCT, MIN_GRAPH_HEIGHT_PCT } from './store/ui-state';
 import {
   EmptyRepoState,
-  getActionFailureTitle,
   GitActionNotice,
   WorkspaceLoadingState,
-  type GitActionNoticeState,
 } from './components/app/GitAppChrome';
 import { GIT_STYLES } from './styles';
 
@@ -59,146 +57,17 @@ export function GitApp() {
   const { workspaceId, workspacePath } = useAppInfo();
   const { mode: themeMode, editorThemeId } = useTheme();
 
-  const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
-  const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
-  const [viewState, setViewState] = useGitViewState(workspacePath);
-  // Only while dragging: the divider updates locally on every move and is
-  // written back once, on release.
-  const [graphHeightPct, setGraphHeightPct] = useState<number | null>(null);
-  // The right pane is the diff, or the PR composer — never a fourth surface.
-  const [composingPr, setComposingPr] = useState(false);
-  /** The branch a dirty working tree is being asked to switch to. */
-  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const github = useGitHubAuth();
+  const { notice, dismissNotice, runAction, runActionAsync } = useGitActions(workspaceId);
+  const selection = useGitSelection({ state, runAction, runActionAsync });
+  const layout = useGitLayout(workspacePath);
+
   // Actions are stable store functions, so reading them here costs no renders.
   const answerQuestion = useConflictRun((run) => run.answer);
   const pauseRun = useConflictRun((run) => run.pause);
   const resumeRun = useConflictRun((run) => run.resume);
   const stopRun = useConflictRun((run) => run.stop);
   const undoAiResolutions = useConflictRun((run) => run.undoAiResolutions);
-  const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
-  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const dismissNotice = useCallback(() => {
-    if (noticeTimerRef.current) {
-      clearTimeout(noticeTimerRef.current);
-      noticeTimerRef.current = null;
-    }
-    setNotice(null);
-  }, []);
-
-  const showNotice = useCallback((title: string, message: string) => {
-    if (noticeTimerRef.current) {
-      clearTimeout(noticeTimerRef.current);
-    }
-
-    const nextNotice: GitActionNoticeState = {
-      id: Date.now(),
-      title,
-      message,
-    };
-    setNotice(nextNotice);
-    noticeTimerRef.current = setTimeout(() => {
-      setNotice((current) => current?.id === nextNotice.id ? null : current);
-      noticeTimerRef.current = null;
-    }, 5000);
-  }, []);
-
-  // Resolves false when the action failed, so callers that must sequence —
-  // stash *then* switch — can stop rather than carry on into a broken state.
-  const runActionAsync = useCallback(async (params: GitManagerRequest): Promise<boolean> => {
-    try {
-      const actionResult: GitActionResult = await runGitAction(workspaceId, params);
-      if (!actionResult.ok) {
-        console.error('[git-app] Action failed:', actionResult.message);
-        showNotice(getActionFailureTitle(params.action), actionResult.message);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('[git-app] Action failed:', error);
-      showNotice(getActionFailureTitle(params.action), message);
-      return false;
-    }
-  }, [showNotice, workspaceId]);
-
-  const runAction = useCallback((params: GitManagerRequest) => {
-    void runActionAsync(params);
-  }, [runActionAsync]);
-
-  // Switching branch with uncommitted changes is the one action that can
-  // destroy work, so it is the one action that asks first (§7).
-  const handleRequestCheckout = useCallback((branch: string) => {
-    if (state.fileChanges.length === 0) {
-      runAction({ action: 'checkout', branch });
-      return;
-    }
-    setSwitchTarget(branch);
-  }, [runAction, state.fileChanges.length]);
-
-  const handleSwitchChoice = useCallback(async (strategy: SwitchStrategy) => {
-    const branch = switchTarget;
-    setSwitchTarget(null);
-    if (!branch) return;
-    if (strategy === 'stash' && !(await runActionAsync({ action: 'stash' }))) return;
-    await runActionAsync({
-      action: 'checkout',
-      branch,
-      force: strategy === 'discard',
-    });
-  }, [runActionAsync, switchTarget]);
-
-  const handleSelectCommit = useCallback((commit: CommitNode) => {
-    setSelectedCommit(commit);
-    setDiffSelection(null);
-    runAction({ action: 'show_commit', hash: commit.hash });
-  }, [runAction]);
-
-  // Going back to the working tree takes the commit's diff with it — leaving it
-  // open would show a file from a commit that is no longer on screen.
-  const handleCloseCommitDetail = useCallback(() => {
-    setSelectedCommit(null);
-    setDiffSelection((current) => current?.kind === 'commitFile' ? null : current);
-  }, []);
-
-  // A file inside the selected commit — compared against that commit's parent.
-  const handleSelectDiffFile = useCallback((diff: FileDiff) => {
-    if (!selectedCommit) return;
-    setComposingPr(false);
-    setDiffSelection({
-      kind: 'commitFile',
-      hash: selectedCommit.hash,
-      path: diff.path,
-      oldPath: diff.oldPath,
-      status: diff.status,
-    });
-  }, [selectedCommit]);
-
-  // A working-tree file. The diff renders from the file's own contents, so
-  // there is no round trip through the extension to wait for.
-  const handleSelectStagingFile = useCallback((path: string, staged: boolean) => {
-    const change = state.fileChanges.find((f) => f.path === path && f.staged === staged);
-    setComposingPr(false);
-    setDiffSelection({
-      kind: 'working',
-      path,
-      oldPath: change?.oldPath,
-      status: change?.status ?? 'modified',
-      staged,
-    });
-  }, [state.fileChanges]);
-
-  const handleCloseDiff = useCallback(() => {
-    setDiffSelection(null);
-  }, []);
-
-  const handleOpenPullRequest = useCallback(() => {
-    setComposingPr(true);
-    setDiffSelection(null);
-  }, []);
-
-  const handleClosePullRequest = useCallback(() => setComposingPr(false), []);
 
   // A new origin changes what every other control can do, so pick it up at once.
   const handlePublished = useCallback(() => {
@@ -209,51 +78,6 @@ export function GitApp() {
     void openSeroFile(workspaceId, path);
   }, [workspaceId]);
 
-  // Stable so the graph band stays memoised — an inline arrow here re-renders
-  // the whole history on every unrelated state change.
-  const handleToggleGraph = useCallback(
-    () => setViewState({ graphCollapsed: !viewState.graphCollapsed }),
-    [setViewState, viewState.graphCollapsed],
-  );
-
-  const sectionsOpen = useMemo(
-    () => ({
-      local: viewState.localOpen,
-      remote: viewState.remoteOpen,
-      stashes: viewState.stashesOpen,
-    }),
-    [viewState.localOpen, viewState.remoteOpen, viewState.stashesOpen],
-  );
-
-  const handleToggleSection = useCallback((section: 'local' | 'remote' | 'stashes') => {
-    if (section === 'local') setViewState({ localOpen: !viewState.localOpen });
-    else if (section === 'remote') setViewState({ remoteOpen: !viewState.remoteOpen });
-    else setViewState({ stashesOpen: !viewState.stashesOpen });
-  }, [setViewState, viewState.localOpen, viewState.remoteOpen, viewState.stashesOpen]);
-
-  const handleDividerMove = useCallback((pct: number) => setGraphHeightPct(pct), []);
-  const handleDividerCommit = useCallback((pct: number) => {
-    setGraphHeightPct(null);
-    setViewState({ graphHeightPct: pct });
-  }, [setViewState]);
-
-  const commitDiffs = useMemo(() => {
-    if (!selectedCommit) return [];
-    if (state.selectedCommitHash === selectedCommit.hash && state.commitDiffs) {
-      return state.commitDiffs;
-    }
-    return [];
-  }, [selectedCommit, state.selectedCommitHash, state.commitDiffs]);
-
-  // The selected working-tree file, when it is one git still calls conflicted.
-  const conflictPath = useMemo(() => {
-    if (diffSelection?.kind !== 'working') return null;
-    const conflicted = state.fileChanges.some(
-      (file) => file.path === diffSelection.path && file.status === 'conflict',
-    );
-    return conflicted ? diffSelection.path : null;
-  }, [diffSelection, state.fileChanges]);
-
   // Git's definition of resolved is staged, so writing the file is only half
   // of it — the other half is telling git the fight is over.
   const handleConflictResolved = useCallback((path: string) => {
@@ -261,20 +85,14 @@ export function GitApp() {
   }, [runAction]);
 
   // Every log line jumps to its file, so the account doubles as a checklist.
+  const selectStagingFile = selection.selectStagingFile;
   const handleSelectRunFile = useCallback((path: string) => {
-    handleSelectStagingFile(path, false);
-  }, [handleSelectStagingFile]);
+    selectStagingFile(path, false);
+  }, [selectStagingFile]);
 
-  const selectedStagingFile = useMemo(
-    () => (diffSelection?.kind === 'working'
-      ? { path: diffSelection.path, staged: diffSelection.staged }
-      : null),
-    [diffSelection],
-  );
   // One layout, read by both the graph and the rail, so a branch is the same
   // colour in each.
   const graphLayout = useMemo(() => computeGraphLayout(state.commits), [state.commits]);
-  const effectiveGraphHeight = graphHeightPct ?? viewState.graphHeightPct;
   // The hard states, derived once: the banner, the top bar, the working tree
   // and the rail all read this rather than each working it out (§7).
   const repoMode = useMemo(() => deriveRepoMode(state), [state]);
@@ -293,23 +111,22 @@ export function GitApp() {
   // The account takes the right pane, so starting a run puts it in view. The
   // selected commit goes too: a run is about the merge, and the middle column
   // has to be the conflict list for the account beside it to mean anything.
+  const clearForRun = selection.clearForRun;
   const handleResolveWithAi = useCallback(() => {
-    setDiffSelection(null);
-    setComposingPr(false);
-    setSelectedCommit(null);
+    clearForRun();
     ai.start();
-  }, [ai]);
+  }, [ai, clearForRun]);
 
   /**
    * The account holds the right pane whenever nothing has been opened into it.
    *
-   * Deliberately **not** conditioned on a selected commit: the commit detail is
-   * its own panel along the bottom, and selecting a commit clears the diff, so
-   * the right pane is idle exactly then. Guarding on it meant clicking a commit
-   * before starting a run made the whole run invisible — the button vanished,
-   * because the run had started, and nothing took its place.
+   * Deliberately **not** conditioned on a selected commit: selecting a commit
+   * clears the diff, so the right pane is idle exactly then. Guarding on it
+   * meant clicking a commit before starting a run made the whole run invisible
+   * — the button vanished, because the run had started, and nothing took its
+   * place.
    */
-  const showRunLog = ai.status !== 'idle' && !diffSelection;
+  const showRunLog = ai.status !== 'idle' && !selection.diffSelection;
 
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
@@ -323,7 +140,7 @@ export function GitApp() {
           state={state}
           onAction={runAction}
           github={github}
-          onOpenPullRequest={handleOpenPullRequest}
+          onOpenPullRequest={selection.openPullRequest}
           info={repoMode}
         />
 
@@ -333,7 +150,7 @@ export function GitApp() {
           {...(isNotRepo || !state.error ? {} : { error: state.error })}
           defaultBranch={state.defaultBranch}
           onAction={runAction}
-          onRequestCheckout={handleRequestCheckout}
+          onRequestCheckout={selection.requestCheckout}
           runStatus={ai.status}
           hasAiResolutions={ai.aiResolvedPaths.length > 0}
           onResolveWithAi={handleResolveWithAi}
@@ -341,11 +158,11 @@ export function GitApp() {
         />
 
         <SwitchBranchDialog
-          branch={switchTarget}
+          branch={selection.switchTarget}
           currentBranch={state.currentBranch}
           changedFiles={state.fileChanges.length}
-          onChoose={(strategy) => void handleSwitchChoice(strategy)}
-          onCancel={() => setSwitchTarget(null)}
+          onChoose={(strategy) => void selection.chooseSwitch(strategy)}
+          onCancel={selection.cancelSwitch}
         />
 
         {notice && (
@@ -359,108 +176,110 @@ export function GitApp() {
         ) : isNotRepo ? (
           <EmptyRepoState workspacePath={workspacePath} />
         ) : (
-          <>
-            {/* Rail · (working tree + diff) above; history below the divider. */}
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex min-h-0 flex-1">
-                <MemoizedBranchPanel
-                  branches={state.branches}
-                  remoteBranches={state.remoteBranches}
-                  remotes={state.remotes}
-                  stashes={state.stashes}
-                  currentBranch={state.currentBranch}
-                  defaultBranch={state.defaultBranch}
-                  onAction={runAction}
-                  branchColours={graphLayout.branchColours}
-                  mode={repoMode.mode}
-                  headHash={state.headHash}
-                  onRequestCheckout={handleRequestCheckout}
-                  sectionsOpen={sectionsOpen}
-                  onToggleSection={handleToggleSection}
-                />
+          /* Rail · (working tree + diff) above; history below the divider. */
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1">
+              <MemoizedBranchPanel
+                branches={state.branches}
+                remoteBranches={state.remoteBranches}
+                remotes={state.remotes}
+                stashes={state.stashes}
+                currentBranch={state.currentBranch}
+                defaultBranch={state.defaultBranch}
+                onAction={runAction}
+                branchColours={graphLayout.branchColours}
+                mode={repoMode.mode}
+                headHash={state.headHash}
+                onRequestCheckout={selection.requestCheckout}
+                sectionsOpen={layout.sectionsOpen}
+                onToggleSection={layout.toggleSection}
+              />
 
-                {/* One column, two lists: the files you are changing, or the
-                    files in the commit you picked out of the history. Both feed
-                    the same diff on the right, so it is the same job. */}
-                <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
-                  {selectedCommit ? (
-                    <MemoizedCommitDetail
-                      key={selectedCommit.hash}
-                      commit={selectedCommit}
-                      diffs={commitDiffs}
-                      loading={state.selectedCommitHash !== selectedCommit.hash}
-                      hasWorkingTreeChanges={state.fileChanges.length > 0}
-                      selectedPath={diffSelection?.kind === 'commitFile' ? diffSelection.path : null}
-                      onSelectFile={handleSelectDiffFile}
-                      onClose={handleCloseCommitDetail}
-                      onAction={runAction}
-                    />
-                  ) : (
-                    <MemoizedWorkingTree
-                      workspaceId={workspaceId}
-                      fileChanges={state.fileChanges}
-                      onAction={runAction}
-                      onSelectFile={handleSelectStagingFile}
-                      onOpenInEditor={handleOpenInEditor}
-                      selectedFile={selectedStagingFile}
-                      info={repoMode}
-                      aiResolvedPaths={ai.aiResolvedPaths}
-                    />
-                  )}
-                </div>
-
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <DetailPane
-                    state={state}
-                    workspaceId={workspaceId}
-                    workspacePath={workspacePath}
-                    editorThemeId={editorThemeId}
-                    themeMode={themeMode}
-                    github={github}
-                    composingPr={composingPr}
-                    onClosePullRequest={handleClosePullRequest}
-                    onPublished={handlePublished}
-                    conflictPath={conflictPath}
-                    onConflictResolved={handleConflictResolved}
-                    diffSelection={diffSelection}
-                    onCloseDiff={handleCloseDiff}
-                    commitSelected={Boolean(selectedCommit)}
-                    showRunLog={showRunLog}
-                    runStatus={ai.status}
-                    runEntries={ai.entries}
-                    onAnswer={answerQuestion}
-                    onPause={pauseRun}
-                    onResume={resumeRun}
-                    onStop={stopRun}
-                    onSelectRunFile={handleSelectRunFile}
+              {/* One column, two lists: the files you are changing, or the
+                  files in the commit you picked out of the history. Both feed
+                  the same diff on the right, so it is the same job. */}
+              <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
+                {selection.selectedCommit ? (
+                  <MemoizedCommitDetail
+                    key={selection.selectedCommit.hash}
+                    commit={selection.selectedCommit}
+                    diffs={selection.commitDiffs}
+                    loading={state.selectedCommitHash !== selection.selectedCommit.hash}
+                    hasWorkingTreeChanges={state.fileChanges.length > 0}
+                    selectedPath={selection.diffSelection?.kind === 'commitFile'
+                      ? selection.diffSelection.path
+                      : null}
+                    onSelectFile={selection.selectCommitFile}
+                    onClose={selection.closeCommitDetail}
+                    onAction={runAction}
                   />
-                </div>
+                ) : (
+                  <MemoizedWorkingTree
+                    workspaceId={workspaceId}
+                    fileChanges={state.fileChanges}
+                    onAction={runAction}
+                    onSelectFile={selection.selectStagingFile}
+                    onOpenInEditor={handleOpenInEditor}
+                    selectedFile={selection.selectedStagingFile}
+                    info={repoMode}
+                    aiResolvedPaths={ai.aiResolvedPaths}
+                  />
+                )}
               </div>
 
-              {!viewState.graphCollapsed && (
-                <GraphDivider
-                  heightPct={effectiveGraphHeight}
-                  onChange={handleDividerMove}
-                  onCommit={handleDividerCommit}
-                  min={MIN_GRAPH_HEIGHT_PCT}
-                  max={MAX_GRAPH_HEIGHT_PCT}
-                />
-              )}
-
-              <div
-                className="shrink-0 border-t border-[var(--border-default)]"
-                style={{ height: viewState.graphCollapsed ? 'auto' : `${effectiveGraphHeight}%` }}
-              >
-                <MemoizedGraphBand
-                  commits={state.commits}
-                  selectedHash={selectedCommit?.hash}
-                  onSelectCommit={handleSelectCommit}
-                  collapsed={viewState.graphCollapsed}
-                  onToggleCollapsed={handleToggleGraph}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <DetailPane
+                  state={state}
+                  workspaceId={workspaceId}
+                  workspacePath={workspacePath}
+                  editorThemeId={editorThemeId}
+                  themeMode={themeMode}
+                  github={github}
+                  composingPr={selection.composingPr}
+                  onClosePullRequest={selection.closePullRequest}
+                  onPublished={handlePublished}
+                  conflictPath={selection.conflictPath}
+                  onConflictResolved={handleConflictResolved}
+                  diffSelection={selection.diffSelection}
+                  onCloseDiff={selection.closeDiff}
+                  commitSelected={Boolean(selection.selectedCommit)}
+                  showRunLog={showRunLog}
+                  runStatus={ai.status}
+                  runEntries={ai.entries}
+                  onAnswer={answerQuestion}
+                  onPause={pauseRun}
+                  onResume={resumeRun}
+                  onStop={stopRun}
+                  onSelectRunFile={handleSelectRunFile}
                 />
               </div>
             </div>
-          </>
+
+            {!layout.viewState.graphCollapsed && (
+              <GraphDivider
+                heightPct={layout.graphHeightPct}
+                onChange={layout.onDividerMove}
+                onCommit={layout.onDividerCommit}
+                min={MIN_GRAPH_HEIGHT_PCT}
+                max={MAX_GRAPH_HEIGHT_PCT}
+              />
+            )}
+
+            <div
+              className="shrink-0 border-t border-[var(--border-default)]"
+              style={{
+                height: layout.viewState.graphCollapsed ? 'auto' : `${layout.graphHeightPct}%`,
+              }}
+            >
+              <MemoizedGraphBand
+                commits={state.commits}
+                selectedHash={selection.selectedCommit?.hash}
+                onSelectCommit={selection.selectCommit}
+                collapsed={layout.viewState.graphCollapsed}
+                onToggleCollapsed={layout.toggleGraph}
+              />
+            </div>
+          </div>
         )}
       </div>
     </>

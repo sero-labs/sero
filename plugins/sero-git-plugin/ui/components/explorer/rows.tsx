@@ -35,28 +35,36 @@ export function FileRow({ file, selected, onSelect, onOpenInEditor }: FileRowPro
   const dir = slash === -1 ? '' : file.path.slice(0, slash + 1);
   const name = slash === -1 ? file.path : file.path.slice(slash + 1);
 
+  // Picking the file is a button, and Open-in-editor is its sibling — a button
+  // cannot contain a button, and a bare div with a click handler cannot be
+  // reached from the keyboard.
   return (
     <div
-      className={`group flex h-[26px] shrink-0 cursor-pointer items-center gap-2 px-3 hover:bg-[var(--bg-elevated)] ${
+      className={`group flex h-[26px] shrink-0 items-center hover:bg-[var(--bg-elevated)] ${
         selected ? 'bg-[var(--bg-overlay)]' : ''
       }`}
-      onClick={onSelect}
-      title={file.path}
     >
-      <span
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ background: statusColour(file.status) }}
-      />
-      <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
-        {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
-        {name}
-      </span>
+      <button
+        type="button"
+        onClick={onSelect}
+        title={file.path}
+        className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left"
+      >
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ background: statusColour(file.status) }}
+        />
+        <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
+          {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
+          {name}
+        </span>
+      </button>
       {/* Opening the file is the Editor's job, so it switches views (§1). */}
       <button
         type="button"
         aria-label={`Open ${name} in the editor`}
-        onClick={(event) => { event.stopPropagation(); onOpenInEditor(); }}
-        className="hidden size-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-secondary)] group-hover:flex"
+        onClick={onOpenInEditor}
+        className="mr-3 ml-2 hidden size-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-overlay)] hover:text-[var(--text-secondary)] group-hover:flex"
       >
         <FileText className="size-3" />
       </button>
@@ -72,8 +80,9 @@ interface CommitRowProps {
 
 export function CommitRow({ commit, selected, onSelect }: CommitRowProps) {
   return (
-    <div
-      className={`flex h-[26px] shrink-0 cursor-pointer items-center gap-2 px-3 hover:bg-[var(--bg-elevated)] ${
+    <button
+      type="button"
+      className={`flex h-[26px] w-full shrink-0 items-center gap-2 px-3 text-left hover:bg-[var(--bg-elevated)] ${
         selected ? 'bg-[var(--bg-overlay)]' : ''
       }`}
       onClick={onSelect}
@@ -89,6 +98,6 @@ export function CommitRow({ commit, selected, onSelect }: CommitRowProps) {
       </span>
       {/* Monospace is for machine values only (rule 9). */}
       <span className="shrink-0 font-mono text-[0.72rem] text-[var(--text-muted)]">{commit.sha}</span>
-    </div>
+    </button>
   );
 }

@@ -65,7 +65,7 @@ function parseFile(contents: string): ParsedFile {
       continue;
     }
 
-    const block = readBlock(lines, cursor);
+    const block = readBlock(lines, cursor, (startMatch[1] ?? '').trim());
     if (!block) {
       // Unterminated: not a conflict, just text that looks like one.
       cursor += 1;
@@ -79,11 +79,13 @@ function parseFile(contents: string): ParsedFile {
   return { lines, regions, newline };
 }
 
+// The caller has already matched the opening marker, so it hands the label
+// over rather than this re-running the same regex and asserting it matched.
 function readBlock(
   lines: string[],
   startLine: number,
+  currentLabel: string,
 ): { region: Omit<ConflictRegion, 'index'>; nextLine: number } | null {
-  const currentLabel = lines[startLine]!.match(START)![1]!.trim();
   const current: string[] = [];
   const base: string[] = [];
   const incoming: string[] = [];

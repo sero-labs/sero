@@ -150,7 +150,7 @@ const MODE_WORD: Record<RepoModeInfo['mode'], string | null> = {
 };
 
 const GITHUB_BTN = `flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-subtle)] px-2.5 py-1.5 text-sm font-medium
-  text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]`;
+  text-[var(--text-secondary)] transition-colors duration-150 hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]`;
 
 // ── Action button ───────────────────────────────────────────
 
@@ -171,7 +171,7 @@ function ActionBtn({
         text-[var(--text-secondary)] border border-[var(--border-subtle)]
         hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--border-default)]
         disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent
-        transition-all duration-150 cursor-pointer"
+        transition-colors duration-150 cursor-pointer"
     >
       <ActionIcon type={icon} />
       {label}

@@ -343,37 +343,45 @@ function FileRow({
   const dir = slash === -1 ? '' : file.path.slice(0, slash + 1);
   const name = slash === -1 ? file.path : file.path.slice(slash + 1);
 
+  // Picking the row is a button, and the row's own actions are its siblings —
+  // a button cannot contain a button, and a bare div with a click handler is
+  // invisible to anyone not using a mouse.
   return (
     <div
-      onClick={() => { onCancelDiscard?.(); onSelect(); }}
-      title={file.path}
-      className={`group flex h-[26px] cursor-pointer items-center gap-2 px-3 hover:bg-[var(--bg-elevated)] ${
+      className={`group flex h-[26px] items-center hover:bg-[var(--bg-elevated)] ${
         selected ? 'bg-[var(--bg-overlay)]' : ''
       }`}
     >
-      {/* A conflict is the one status that is a job rather than a fact, so it
-          gets the warning mark instead of the 6px dot. */}
-      {file.status === 'conflict' ? (
-        <AlertCircle className="size-3 shrink-0 text-[var(--status-error)]" />
-      ) : mark === 'ai' ? (
-        <Sparkles
-          aria-label="Resolved by AI"
-          className="size-3 shrink-0 text-[var(--brand-secondary)]"
-        />
-      ) : (
-        <span
-          className="size-1.5 shrink-0 rounded-full"
-          style={{ background: statusColour(file.status) }}
-        />
-      )}
-      <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
-        {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
-        {name}
-      </span>
+      <button
+        type="button"
+        onClick={() => { onCancelDiscard?.(); onSelect(); }}
+        title={file.path}
+        className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left"
+      >
+        {/* A conflict is the one status that is a job rather than a fact, so it
+            gets the warning mark instead of the 6px dot. */}
+        {file.status === 'conflict' ? (
+          <AlertCircle className="size-3 shrink-0 text-[var(--status-error)]" />
+        ) : mark === 'ai' ? (
+          <Sparkles
+            aria-label="Resolved by AI"
+            className="size-3 shrink-0 text-[var(--brand-secondary)]"
+          />
+        ) : (
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: statusColour(file.status) }}
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
+          {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
+          {name}
+        </span>
+      </button>
       {confirmingDiscard && (
-        <span className="shrink-0 text-xs text-[var(--status-error)]">Discard?</span>
+        <span className="shrink-0 pl-2 text-xs text-[var(--status-error)]">Discard?</span>
       )}
-      <div className={`shrink-0 items-center gap-0.5 ${confirmingDiscard ? 'flex' : 'hidden group-hover:flex'}`}>
+      <div className={`shrink-0 items-center gap-0.5 pl-2 pr-3 ${confirmingDiscard ? 'flex' : 'hidden group-hover:flex'}`}>
         <RowButton label={`Open ${name} in the editor`} onClick={onOpenInEditor}>
           <FileText className="size-3" />
         </RowButton>
@@ -404,7 +412,7 @@ function RowButton({
     <button
       type="button"
       aria-label={label}
-      onClick={(event) => { event.stopPropagation(); onClick(); }}
+      onClick={onClick}
       className={`flex size-5 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-overlay)] ${
         destructive ? 'hover:text-[var(--status-error)]' : 'hover:text-[var(--text-secondary)]'
       }`}
