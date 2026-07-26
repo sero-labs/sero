@@ -7,6 +7,7 @@ export function BranchRow({
   isCurrent,
   onCheckout,
   laneColour,
+  dense,
 }: {
   branch: BranchInfo;
   label: string;
@@ -14,6 +15,8 @@ export function BranchRow({
   onCheckout?: () => void;
   /** The colour of this branch's lane in the graph, so the two agree (§3). */
   laneColour?: string;
+  /** Tighter rows, for the remote list where the names are read, not acted on. */
+  dense?: boolean;
 }) {
   const checkedOutElsewhere = Boolean(branch.checkedOutIn);
   const rowTitle = checkedOutElsewhere
@@ -28,7 +31,7 @@ export function BranchRow({
     <div
       onClick={!isCurrent && !checkedOutElsewhere ? onCheckout : undefined}
       title={rowTitle}
-      className={`flex items-center gap-2 px-3 py-1.5 text-xs transition-colors
+      className={`flex items-center gap-2 px-3 text-xs transition-colors ${dense ? 'py-0.5' : 'py-1.5'}
         ${isCurrent
           ? 'bg-[var(--brand-secondary-faint)] text-[var(--brand-secondary)]'
           : checkedOutElsewhere

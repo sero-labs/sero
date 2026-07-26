@@ -37,6 +37,8 @@ interface Props {
 
   diffSelection: DiffSelection | null;
   onCloseDiff: () => void;
+  /** A commit is open in the middle column, so the prompt names its files. */
+  commitSelected: boolean;
 
   showRunLog: boolean;
   runStatus: RunStatus;
@@ -52,7 +54,7 @@ export function DetailPane({
   state, workspaceId, workspacePath, editorThemeId, themeMode, github,
   composingPr, onClosePullRequest, onPublished,
   conflictPath, onConflictResolved,
-  diffSelection, onCloseDiff,
+  diffSelection, onCloseDiff, commitSelected,
   showRunLog, runStatus, runEntries, onAnswer, onPause, onResume, onStop, onSelectRunFile,
 }: Props) {
   if (composingPr) {
@@ -128,7 +130,9 @@ export function DetailPane({
   return (
     <div className="flex h-full items-center justify-center px-6 text-center">
       <p className="max-w-xs text-xs text-[var(--text-muted)]">
-        Pick a file or a commit to see what changed.
+        {commitSelected
+          ? 'Pick a file from the commit to see what changed.'
+          : 'Pick a file or a commit to see what changed.'}
       </p>
     </div>
   );

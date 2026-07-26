@@ -20,6 +20,7 @@ import {
 } from './BranchPanelSections';
 import { BranchRow, PositionRow, StashRow } from './BranchPanelRows';
 import type { RepoMode } from '../lib/repo-mode';
+import { openInBrowser } from '../store/sero-bridge';
 
 interface BranchPanelProps {
   branches: BranchInfo[];
@@ -151,8 +152,10 @@ export function BranchPanel({
               key={group.name}
               name={group.name}
               host={group.host}
+              webUrl={group.webUrl}
               branches={group.branches}
               formatLabel={formatBranchLabel}
+              onOpenRemote={openInBrowser}
             />
           ))}
           {remoteGroups.length === 0 && (

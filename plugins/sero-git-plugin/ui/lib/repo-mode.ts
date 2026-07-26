@@ -106,11 +106,13 @@ export function deriveRepoMode(state: GitAppState): RepoModeInfo {
         commitLabel: commitCountLabel(staged),
         suggestedMessage: null,
         // A conflict outside a merge (a cherry-pick, say) still blocks.
+        //
+        // Nothing staged is *not* a reason worth printing: the list directly
+        // above already says "Nothing staged" and offers "Stage all", so a
+        // third sentence saying the same thing is noise under the button.
         commitBlockedReason: conflicts > 0
           ? `${conflicts} conflict${conflicts === 1 ? '' : 's'} left to resolve`
-          : staged === 0
-            ? 'Stage something to commit'
-            : null,
+          : null,
         fetchBlockedReason: noRemote,
         pullBlockedReason: noRemote,
         pushBlockedReason: noRemote,

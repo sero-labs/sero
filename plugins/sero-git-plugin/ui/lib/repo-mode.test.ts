@@ -46,6 +46,21 @@ describe('deriveRepoMode', () => {
     expect(info.commitBlockedReason).toBeNull();
   });
 
+  /**
+   * Nothing staged is not worth a sentence. The list above the button already
+   * says "Nothing staged" and offers "Stage all", so a warning under the button
+   * repeating it was noise. The button is still off — that comes from having
+   * nothing to commit, not from a reason string.
+   */
+  it('says nothing under the commit button when the only problem is that nothing is staged', () => {
+    const info = deriveRepoMode(state({
+      fileChanges: [{ path: 'README.md', status: 'modified', staged: false }],
+    }));
+
+    expect(info.mode).toBe('normal');
+    expect(info.commitBlockedReason).toBeNull();
+  });
+
   // The state most likely to lose work silently, so committing is off with the
   // reason attached rather than quietly creating an orphan.
   it('blocks committing on a detached HEAD but leaves fetch alone', () => {

@@ -160,8 +160,11 @@ export function GitApp() {
     runAction({ action: 'show_commit', hash: commit.hash });
   }, [runAction]);
 
+  // Going back to the working tree takes the commit's diff with it — leaving it
+  // open would show a file from a commit that is no longer on screen.
   const handleCloseCommitDetail = useCallback(() => {
     setSelectedCommit(null);
+    setDiffSelection((current) => current?.kind === 'commitFile' ? null : current);
   }, []);
 
   // A file inside the selected commit — compared against that commit's parent.
@@ -275,10 +278,13 @@ export function GitApp() {
     onAction: runActionAsync,
   });
 
-  // The account takes the right pane, so starting a run puts it in view.
+  // The account takes the right pane, so starting a run puts it in view. The
+  // selected commit goes too: a run is about the merge, and the middle column
+  // has to be the conflict list for the account beside it to mean anything.
   const handleResolveWithAi = useCallback(() => {
     setDiffSelection(null);
     setComposingPr(false);
+    setSelectedCommit(null);
     ai.start();
   }, [ai]);
 
@@ -359,17 +365,34 @@ export function GitApp() {
                   onRequestCheckout={handleRequestCheckout}
                 />
 
+                {/* One column, two lists: the files you are changing, or the
+                    files in the commit you picked out of the history. Both feed
+                    the same diff on the right, so it is the same job. */}
                 <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
-                  <MemoizedWorkingTree
-                    workspaceId={workspaceId}
-                    fileChanges={state.fileChanges}
-                    onAction={runAction}
-                    onSelectFile={handleSelectStagingFile}
-                    onOpenInEditor={handleOpenInEditor}
-                    selectedFile={selectedStagingFile}
-                    info={repoMode}
-                    aiResolvedPaths={ai.aiResolvedPaths}
-                  />
+                  {selectedCommit ? (
+                    <MemoizedCommitDetail
+                      key={selectedCommit.hash}
+                      commit={selectedCommit}
+                      diffs={commitDiffs}
+                      loading={state.selectedCommitHash !== selectedCommit.hash}
+                      hasWorkingTreeChanges={state.fileChanges.length > 0}
+                      selectedPath={diffSelection?.kind === 'commitFile' ? diffSelection.path : null}
+                      onSelectFile={handleSelectDiffFile}
+                      onClose={handleCloseCommitDetail}
+                      onAction={runAction}
+                    />
+                  ) : (
+                    <MemoizedWorkingTree
+                      workspaceId={workspaceId}
+                      fileChanges={state.fileChanges}
+                      onAction={runAction}
+                      onSelectFile={handleSelectStagingFile}
+                      onOpenInEditor={handleOpenInEditor}
+                      selectedFile={selectedStagingFile}
+                      info={repoMode}
+                      aiResolvedPaths={ai.aiResolvedPaths}
+                    />
+                  )}
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
@@ -387,6 +410,7 @@ export function GitApp() {
                     onConflictResolved={handleConflictResolved}
                     diffSelection={diffSelection}
                     onCloseDiff={handleCloseDiff}
+                    commitSelected={Boolean(selectedCommit)}
                     showRunLog={showRunLog}
                     runStatus={ai.status}
                     runEntries={ai.entries}
@@ -422,16 +446,6 @@ export function GitApp() {
                 />
               </div>
             </div>
-
-            <MemoizedCommitDetail
-              key={selectedCommit?.hash ?? 'none'}
-              commit={selectedCommit}
-              diffs={commitDiffs}
-              hasWorkingTreeChanges={state.fileChanges.length > 0}
-              onSelectFile={handleSelectDiffFile}
-              onClose={handleCloseCommitDetail}
-              onAction={runAction}
-            />
           </>
         )}
       </div>

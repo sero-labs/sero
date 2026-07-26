@@ -8,6 +8,7 @@
 import { useMemo, useRef, useCallback } from 'react';
 import type { CommitNode } from '../../shared/types';
 import { computeGraphLayout } from '../lib/graph-layout';
+import { COLUMN } from '../lib/history-columns';
 import type { GraphEdge } from '../lib/graph-layout';
 
 // Commit rows are 30px — one row scale everywhere, with the extra 4px over a
@@ -110,15 +111,17 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
                 </span>
 
                 {/* Hash */}
-                <span className="git-mono text-sm text-[var(--text-muted)] shrink-0 ml-2">
+                <span className={`git-mono text-sm text-[var(--text-muted)] shrink-0 text-right ${COLUMN.hash}`}>
                   {node.commit.shortHash}
                 </span>
 
                 {/* Author */}
-                <AuthorAvatar name={node.commit.authorName} email={node.commit.authorEmail} />
+                <div className={`flex shrink-0 justify-end ${COLUMN.author}`}>
+                  <AuthorAvatar name={node.commit.authorName} email={node.commit.authorEmail} />
+                </div>
 
                 {/* Date */}
-                <span className="text-sm text-[var(--text-muted)] shrink-0 tabular-nums ml-1 w-16 text-right">
+                <span className={`text-sm text-[var(--text-muted)] shrink-0 tabular-nums text-right ${COLUMN.when}`}>
                   {formatRelativeDate(node.commit.authorDate)}
                 </span>
               </div>
@@ -288,7 +291,7 @@ function AuthorAvatar({ name, email }: { name: string; email: string }) {
 
   return (
     <div
-      className="size-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ml-2"
+      className="size-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
       style={{ background: `hsl(${hue}, 50%, 25%)`, color: `hsl(${hue}, 70%, 75%)` }}
       title={`${name} <${email}>`}
     >

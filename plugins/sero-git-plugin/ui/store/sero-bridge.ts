@@ -142,6 +142,17 @@ interface SeroGitWindow {
   vcs: SeroVcsBridge;
   appState: SeroAppStateBridge;
   github?: SeroGitHubBridge;
+  shell?: { openExternal(url: string): Promise<void> };
+}
+
+/**
+ * Hand a URL to the user's browser. Nothing in the Git app depends on this
+ * working, so an older host without the shell bridge just does nothing rather
+ * than breaking the row that called it.
+ */
+export function openInBrowser(url: string): void {
+  const shell = (window as unknown as { sero?: Partial<SeroGitWindow> }).sero?.shell;
+  void shell?.openExternal(url);
 }
 
 /**

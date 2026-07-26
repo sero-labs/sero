@@ -116,6 +116,16 @@ async function createFullRefreshState(
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,
+    // What the user has open, carried across the refresh. These are answers to
+    // a question they asked — "show me this commit", "show me this file" — and
+    // rebuilding the repository's state is no reason to take them away. A
+    // commit's diff cannot change, so the carried copy stays correct.
+    //
+    // Dropping them meant any background refresh landing after a commit was
+    // opened emptied its file list, and the panel sat there with nothing in it.
+    commitDiffs: previousState.commitDiffs,
+    selectedCommitHash: previousState.selectedCommitHash,
+    activeDiff: previousState.activeDiff,
   };
 }
 

@@ -4,9 +4,20 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { GitAppState, GitManagerRequest } from '../shared/types';
+import type { CommitNode, GitAppState, GitManagerRequest } from '../shared/types';
 import { DEFAULT_GIT_STATE } from '../shared/types';
 import { GitApp } from './GitApp';
+
+const COMMIT: CommitNode = {
+  hash: 'abc123456789',
+  shortHash: 'abc1234',
+  parents: [],
+  authorName: 'Sero Dev',
+  authorEmail: 'dev@example.com',
+  authorDate: '2026-04-14T12:00:00.000Z',
+  subject: 'Move the commit detail into the column',
+  refs: [],
+};
 
 const getSeroApiMock = vi.fn();
 const useAppInfoMock = vi.fn();
@@ -27,12 +38,21 @@ vi.mock('./components/Header', () => ({
 }));
 
 vi.mock('./components/BranchPanel', () => ({ BranchPanel: () => null }));
-vi.mock('./components/app/WorkingTree', () => ({ WorkingTree: () => null }));
-vi.mock('./components/CommitDetail', () => ({ CommitDetail: () => null }));
+vi.mock('./components/app/WorkingTree', () => ({ WorkingTree: () => <div>working tree</div> }));
+vi.mock('./components/CommitDetail', () => ({
+  CommitDetail: ({ commit, onClose }: { commit: CommitNode; onClose: () => void }) => (
+    <div>
+      commit {commit.subject}
+      <button type="button" onClick={onClose}>Working tree</button>
+    </div>
+  ),
+}));
 vi.mock('./components/CommitGraph', () => ({
-  CommitGraph: () => {
+  CommitGraph: ({ onSelectCommit }: { onSelectCommit: (commit: CommitNode) => void }) => {
     commitGraphRenderMock();
-    return null;
+    return (
+      <button type="button" onClick={() => onSelectCommit(COMMIT)}>Pick a commit</button>
+    );
   },
 }));
 vi.mock('./components/diff/DiffPane', () => ({ DiffPane: () => null }));
@@ -129,5 +149,34 @@ describe('GitApp', () => {
     await act(async () => {
       clickButton(container, 'Dismiss git action notice');
     });
+  });
+
+  /**
+   * The commit you picked out of the history takes the middle column, in place
+   * of the working tree. It used to be a band across the foot of the app, which
+   * squeezed everything above it and could not grow with the commit.
+   */
+  it('shows the picked commit in place of the working tree, and gives it back', async () => {
+    vi.useFakeTimers();
+    getSeroApiMock.mockReturnValue({ gitApp: { run: vi.fn().mockResolvedValue({ ok: true }) } });
+
+    await act(async () => {
+      root?.render(<GitApp />);
+    });
+    expect(container.textContent).toContain('working tree');
+
+    await act(async () => {
+      clickButton(container, 'Pick a commit');
+    });
+
+    expect(container.textContent).toContain('Move the commit detail into the column');
+    expect(container.textContent).not.toContain('working tree');
+
+    await act(async () => {
+      clickButton(container, 'Working tree');
+    });
+
+    expect(container.textContent).toContain('working tree');
+    expect(container.textContent).not.toContain('Move the commit detail into the column');
   });
 });

@@ -153,4 +153,62 @@ describe('BranchPanel', () => {
     });
     expect(onAction).toHaveBeenLastCalledWith({ action: 'stash_pop', stashIndex: 0 });
   });
+
+  // The remote row names where the code lives, so it is also the way there.
+  it('opens the remote in the browser from its row', async () => {
+    const openExternal = vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined);
+    Reflect.set(window, 'sero', { shell: { openExternal } });
+
+    await act(async () => {
+      root?.render(
+        <BranchPanel
+          branches={[{ name: 'main', current: true, ahead: 0, behind: 0 }]}
+          remoteBranches={[{ name: 'origin/main', current: false, ahead: 0, behind: 0 }]}
+          remotes={[{
+            name: 'origin',
+            fetchUrl: 'git@github.com:sero-ai/sero.git',
+            pushUrl: 'git@github.com:sero-ai/sero.git',
+          }]}
+          stashes={[]}
+          currentBranch="main"
+          defaultBranch="main"
+          onAction={onAction}
+          mode="normal"
+          headHash="abc1234"
+          onRequestCheckout={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      clickButton(container, 'github.com');
+    });
+
+    expect(openExternal).toHaveBeenCalledWith('https://github.com/sero-ai/sero');
+    Reflect.deleteProperty(window, 'sero');
+  });
+
+  // A remote with no web page must not look clickable.
+  it('leaves a remote with no browsable address inert', async () => {
+    await act(async () => {
+      root?.render(
+        <BranchPanel
+          branches={[{ name: 'main', current: true, ahead: 0, behind: 0 }]}
+          remoteBranches={[{ name: 'origin/main', current: false, ahead: 0, behind: 0 }]}
+          remotes={[{ name: 'origin', fetchUrl: '/Users/dan/mirror.git', pushUrl: '/Users/dan/mirror.git' }]}
+          stashes={[]}
+          currentBranch="main"
+          defaultBranch="main"
+          onAction={onAction}
+          mode="normal"
+          headHash="abc1234"
+          onRequestCheckout={vi.fn()}
+        />,
+      );
+    });
+
+    const remoteRow = Array.from(container.querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.trim().startsWith('origin'));
+    expect(remoteRow?.disabled).toBe(true);
+  });
 });

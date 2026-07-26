@@ -1,16 +1,28 @@
 /**
- * Commit detail panel, shown when a commit is selected.
+ * The selected commit, shown in the middle column in place of the working tree.
  *
- * Displays commit metadata, stats, and changed files.
+ * It used to be a band pinned across the whole foot of the app, which squeezed
+ * everything above it and could not grow: a commit touching thirty files got
+ * the same 12 lines as one touching two. Here it has a full column of height,
+ * and its file list behaves exactly like the working tree's — click a file, see
+ * the diff on the right — because it is doing the same job.
+ *
+ * The column shows one or the other, never both, so closing it is how you get
+ * back to what you were working on.
  */
 
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import type { CommitNode, FileDiff, GitManagerRequest } from '../../shared/types';
+import { statusColour } from '../lib/file-status';
 
 interface CommitDetailProps {
-  commit: CommitNode | null;
+  commit: CommitNode;
   diffs: FileDiff[];
+  /** The files are still being fetched, as opposed to there being none. */
+  loading: boolean;
   hasWorkingTreeChanges: boolean;
+  selectedPath?: string | null;
   onSelectFile: (diff: FileDiff) => void;
   onClose: () => void;
   onAction: (action: GitManagerRequest) => void;
@@ -19,18 +31,19 @@ interface CommitDetailProps {
 export function CommitDetail({
   commit,
   diffs,
+  loading,
   hasWorkingTreeChanges,
+  selectedPath,
   onSelectFile,
   onClose,
   onAction,
 }: CommitDetailProps) {
   const [confirmCherryPick, setConfirmCherryPick] = useState(false);
 
-  if (!commit) return null;
-
   const date = new Date(commit.authorDate);
 
   const handleCherryPick = () => {
+    // Cherry-picking over uncommitted work can lose it, so it asks first.
     if (hasWorkingTreeChanges) {
       setConfirmCherryPick(true);
       return;
@@ -44,127 +57,137 @@ export function CommitDetail({
   };
 
   return (
-    <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-      <div className="flex items-start justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="rounded border border-[var(--border-subtle)] bg-[var(--brand-secondary-faint)] px-1.5 py-0.5 text-xs text-[var(--brand-secondary)] git-mono">
-              {commit.shortHash}
-            </span>
-            {commit.refs.map((ref) => (
-              <span
-                key={ref.name}
-                className="rounded px-1.5 py-0.5 text-xs font-medium git-mono"
-                style={{
-                  background: ref.type === 'tag' ? 'rgba(251,191,36,0.12)' : 'rgba(129,140,248,0.12)',
-                  color: ref.type === 'tag' ? '#fbbf24' : '#818cf8',
-                  border: `1px solid ${ref.type === 'tag' ? 'rgba(251,191,36,0.25)' : 'rgba(129,140,248,0.25)'}`,
-                }}
-              >
-                {ref.name}
-              </span>
-            ))}
-          </div>
-          <p className="text-base font-medium leading-snug text-[var(--text-primary)]">{commit.subject}</p>
-          <div className="mt-2 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
-            <span className="font-medium text-[var(--text-primary)]">{commit.authorName}</span>
-            <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
-          </div>
-          {confirmCherryPick && (
-            <div className="mt-3 rounded-md border border-[var(--status-warning)]/25 bg-[var(--bg-base)] px-3 py-2">
-              <div className="text-sm font-medium text-[var(--text-primary)]">
-                Your working tree has uncommitted changes.
-              </div>
-              <div className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
-                Auto-stash your current changes before cherry-picking this commit. If the cherry-pick conflicts,
-                the error toast will include next-step guidance.
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <button type="button"
-                  onClick={handleAutoStashCherryPick}
-                  className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)]"
-                >
-                  Auto-stash + cherry-pick
-                </button>
-                <button type="button"
-                  onClick={() => setConfirmCherryPick(false)}
-                  className="rounded px-2 py-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="ml-4 flex shrink-0 items-center gap-2">
-          <button type="button"
-            onClick={handleCherryPick}
-            className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-secondary)]
-              transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-          >
-            {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
-          </button>
-          <button type="button"
-            aria-label="Close commit details"
-            onClick={onClose}
-            className="cursor-pointer p-1 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M3 3l8 8M11 3l-8 8" />
-            </svg>
-          </button>
-        </div>
+    <div className="flex size-full min-h-0 flex-col bg-[var(--bg-surface)]">
+      {/* The way back to the working tree, in the place the panel replaced. */}
+      <div className="flex h-6 shrink-0 items-center gap-1.5 px-3">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close commit details"
+          className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+        >
+          <ArrowLeft className="size-3" />
+          Working tree
+        </button>
       </div>
 
-      <div className="max-h-48 overflow-y-auto git-scrollbar">
-        <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 py-2">
-          <span className="text-sm text-[var(--text-secondary)]">
-            {diffs.length} file{diffs.length !== 1 ? 's' : ''} changed
-          </span>
+      <div className="shrink-0 border-b border-[var(--border-subtle)] px-3 pb-2">
+        <p className="text-[0.84rem] leading-snug text-[var(--text-primary)]">{commit.subject}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
+          <span className="git-mono text-[var(--brand-secondary)]">{commit.shortHash}</span>
+          <span className="text-[var(--text-secondary)]">{commit.authorName}</span>
+          <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
         </div>
+        {commit.refs.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {commit.refs.map((ref) => (
+              <RefChip key={ref.name} name={ref.name} isTag={ref.type === 'tag'} />
+            ))}
+          </div>
+        )}
 
+        <button
+          type="button"
+          onClick={handleCherryPick}
+          className="mt-2 rounded border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--text-secondary)]
+            transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+        >
+          {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
+        </button>
+
+        {confirmCherryPick && (
+          <div className="mt-2 rounded-md border border-[var(--status-warning)]/25 bg-[var(--bg-base)] px-2 py-1.5">
+            <div className="text-xs leading-relaxed text-[var(--text-secondary)]">
+              You have uncommitted changes. They can be stashed first, and put back afterwards.
+            </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAutoStashCherryPick}
+                className="rounded border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+              >
+                Auto-stash + cherry-pick
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmCherryPick(false)}
+                className="px-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="sticky top-0 flex h-6 shrink-0 items-center gap-1.5 px-3">
+        <span className="text-xs font-medium tracking-wide text-[var(--text-muted)]">Files</span>
+        {!loading && <span className="text-xs text-[var(--text-muted)]/70">{diffs.length}</span>}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto git-scrollbar">
         {diffs.map((diff) => (
-          <FileRow key={`${diff.oldPath ?? diff.path}:${diff.path}`} diff={diff} onClick={() => onSelectFile(diff)} />
+          <FileRow
+            key={`${diff.oldPath ?? diff.path}:${diff.path}`}
+            diff={diff}
+            selected={selectedPath === diff.path}
+            onClick={() => onSelectFile(diff)}
+          />
         ))}
+        {diffs.length === 0 && (
+          <div className="flex h-[26px] items-center px-3 text-xs text-[var(--text-muted)]">
+            {loading ? 'Reading this commit…' : 'This commit changed no files'}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
-  const statusColor = {
-    added: 'var(--status-success)',
-    modified: 'var(--status-warning)',
-    deleted: 'var(--status-error)',
-    renamed: 'var(--status-info)',
-    copied: 'var(--status-info)',
-    untracked: 'var(--text-muted)',
-    conflict: 'var(--status-error)',
-  }[diff.status];
+function RefChip({ name, isTag }: { name: string; isTag: boolean }) {
+  return (
+    <span
+      className="truncate rounded px-1.5 py-0.5 text-xs git-mono"
+      title={name}
+      style={{
+        background: isTag ? 'var(--status-warning-faint)' : 'var(--brand-secondary-faint)',
+        color: isTag ? 'var(--status-warning)' : 'var(--brand-secondary)',
+      }}
+    >
+      {name}
+    </span>
+  );
+}
 
-  const statusLabel = diff.status[0].toUpperCase();
-  const primaryLabel = diff.path.includes('/')
-    ? diff.path.substring(diff.path.lastIndexOf('/') + 1)
-    : diff.path;
-  const secondaryLabel = diff.oldPath && diff.oldPath !== diff.path
-    ? `${diff.oldPath} → ${diff.path}`
-    : diff.path;
+/** The same row the working tree uses, so the two lists read as one thing. */
+function FileRow({
+  diff, selected, onClick,
+}: {
+  diff: FileDiff;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const renamed = diff.oldPath && diff.oldPath !== diff.path;
+  const slash = diff.path.lastIndexOf('/');
+  const dir = slash === -1 ? '' : diff.path.slice(0, slash + 1);
+  const name = slash === -1 ? diff.path : diff.path.slice(slash + 1);
 
   return (
     <div
       onClick={onClick}
-      className="flex cursor-pointer items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-1.5 hover:bg-[var(--bg-elevated)] last:border-b-0"
+      title={renamed ? `${diff.oldPath} → ${diff.path}` : diff.path}
+      className={`flex h-[26px] cursor-pointer items-center gap-2 px-3 hover:bg-[var(--bg-elevated)] ${
+        selected ? 'bg-[var(--bg-overlay)]' : ''
+      }`}
     >
       <span
-        className="flex size-4 shrink-0 items-center justify-center rounded text-xs font-bold"
-        style={{ background: `${statusColor}18`, color: statusColor }}
-      >
-        {statusLabel}
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: statusColour(diff.status) }}
+      />
+      <span className="min-w-0 flex-1 truncate text-[0.84rem] text-[var(--text-secondary)]">
+        {dir && <span className="text-[var(--text-muted)]">{dir}</span>}
+        {name}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-[var(--text-primary)] git-mono">{primaryLabel}</div>
-        <div className="truncate text-sm text-[var(--text-muted)] git-mono">{secondaryLabel}</div>
-      </div>
     </div>
   );
 }

@@ -944,6 +944,64 @@ replacing it.
 Steps 1–2 can run in parallel with each other. Steps 7 and 8 depend only on
 step 5.
 
+**Step 10 — the review after the sweep. Done.**
+
+Four things came out of looking at the finished app, and the second one led
+somewhere much larger than itself.
+
+**The history band's column headings did not sit over their columns.** The
+headings and the rows are separate components and each carried its own widths,
+so they drifted. The widths now live in one place
+(`ui/lib/history-columns.ts`) and both read them, and the collapse chevron moved
+to the *left* of "History" so expanding the band cannot shift a column sideways.
+
+**The commit detail is no longer a band across the foot of the app.** It was
+pinned below everything, squeezing the whole app upward, and it could not grow:
+a commit touching thirty files got the same twelve lines as one touching two.
+It now takes the middle column, in place of the working tree, and closing it
+gives the working tree back. That column is "the files in view" either way, and
+both feed the same diff on the right — one interaction, not two. Starting an AI
+resolution closes it, because a run is about the merge and the account beside it
+only means something next to the conflict list.
+
+**"Stage something to commit" is gone.** The list directly above already says
+*Nothing staged* and offers *Stage all*; a warning under the button repeating it
+was noise. The button is still off — that follows from having nothing to commit,
+not from a reason string. Rule 20's "say why" applies to states the user cannot
+read off the surface, and this was not one.
+
+**The remote list is condensed, and the remote row opens the remote.** Its rows
+were as tall as the branch rows you act on, for names you only read. The
+`origin · github.com` row is now a button: SSH addresses and `.git` suffixes are
+turned into a web address, and a remote with no web page (a local mirror) is
+left visibly inert rather than pretending to be a link.
+
+### The commit panel did not work, and the reason was not in the panel
+
+Moving the file list into a full-height column made an existing defect
+impossible to miss: the list appeared and then emptied itself. Two host bugs,
+one behind the other.
+
+**Reading the repository was changing it.** `git status` and `git diff` rewrite
+`.git/index` to cache the file stats they just gathered. Step 9 had started
+watching the git directory to notice real changes — so that write looked like
+one. Every refresh triggered another: 83 refreshes in 15 seconds of an idle app,
+forever, for as long as the Git app was open. `--no-optional-locks` stops git
+taking the locks it only wants for that caching; commands that genuinely change
+the repository take theirs regardless. This is a **strictly worse version of
+the same class of bug step 9 fixed** — that one was a watcher that went deaf,
+this one a watcher listening to itself.
+
+**A refresh threw away what the user had open.** The full rebuild constructed
+the state from git alone, dropping the opened commit's file list and the open
+diff. Those are answers to a question the user asked — "show me this commit" —
+and rebuilding the repository's state is no reason to take them away. A commit's
+diff cannot change, so carrying it across is always correct.
+
+The polling loop was the reason the second bug was fatal rather than
+theoretical: with a refresh always in flight, the write that dropped the
+selection always won.
+
 ---
 
 ## Out of scope
