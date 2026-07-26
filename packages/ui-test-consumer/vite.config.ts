@@ -1,7 +1,7 @@
 import { federation } from "@module-federation/vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
 const forbiddenOutput = [
@@ -11,6 +11,9 @@ const forbiddenOutput = [
   /react-jsx-parser/i,
   /streamdown/i,
 ];
+const publishedUiEntry = fileURLToPath(
+  new URL("../ui/dist/index.js", import.meta.url),
+);
 
 function assertMinimalUiBundle(): Plugin {
   return {
@@ -57,7 +60,7 @@ export default defineConfig(({ mode }) => ({
         ? [
             {
               find: /^@sero-ai\/ui$/,
-              replacement: resolve("../ui/dist/index.js"),
+              replacement: publishedUiEntry,
             },
           ]
         : [],

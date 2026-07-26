@@ -3,8 +3,8 @@
 @import "shadcn/tailwind.css";
 @import "./plugin-theme.css";
 
-/* Match the lightweight package root. Specialized entrypoints opt into their
-   own source files through styles/ai-elements.css or styles/model-selection.css. */
+/* Match the lightweight package root. Specialized components opt into their
+   own source files through a matching stylesheet under styles/. */
 @source "../components/ui";
 @source "../components/dashboard";
 

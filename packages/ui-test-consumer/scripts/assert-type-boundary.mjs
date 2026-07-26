@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +8,7 @@ const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 const tsc = require.resolve("typescript/bin/tsc");
+const publishedTypes = resolve(root, "../ui/dist/index.d.ts");
 const forbidden = [
   /components\/ai-elements/,
   /node_modules\/react-jsx-parser/,
@@ -16,6 +18,12 @@ const forbidden = [
 ];
 
 for (const config of ["tsconfig.json", "tsconfig.published.json"]) {
+  if (config === "tsconfig.published.json" && !existsSync(publishedTypes)) {
+    throw new Error(
+      "Published UI types are missing; run `pnpm --filter @sero-ai/ui build` first",
+    );
+  }
+
   const result = spawnSync(
     process.execPath,
     [tsc, "--project", config, "--listFiles", "--pretty", "false"],

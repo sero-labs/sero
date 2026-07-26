@@ -10,7 +10,9 @@
   `@sero-ai/ui/model-selection/*`, so a plugin importing `Button` and `cn` no
   longer emits Mermaid, Shiki or graph-rendering assets or loads their
   transitive types. Specialized plugin styles opt in through
-  `styles/ai-elements.css` and `styles/model-selection.css`.
+  `styles/ai-elements.css`, `styles/model-selection.css`, and
+  `styles/context-editor.css`. Plugins using those component families must
+  import the matching stylesheet after `styles/plugin.css`.
 
 ## 0.4.1
 

@@ -82,9 +82,14 @@ export function ChatPanel() {
   const clearComposerPrefill = useAgentStore((s) => s.clearComposerPrefill);
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
-  const persistCollaborationSize = useDebouncedCallback((pct: number) => {
-    setChatCollaborationSizePct(Math.round(pct * 10) / 10);
-  }, 300);
+  const updateCollaborationSize = useCallback(
+    (pct: number) => setChatCollaborationSizePct(Math.round(pct * 10) / 10),
+    [setChatCollaborationSizePct],
+  );
+  const persistCollaborationSize = useDebouncedCallback(
+    updateCollaborationSize,
+    300,
+  );
 
   const handleCollaborationResize = useCallback(
     ({ asPercentage }: { inPixels: number; asPercentage: number }) => {
