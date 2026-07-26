@@ -19,6 +19,12 @@ updates:
     rebase-strategy: auto
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Module Federation packages are version-locked to @module-federation/vite
+      # (pinned in the pnpm catalog). Bumping them independently breaks the
+      # runtime import chain in apps/desktop — see the note in
+      # apps/desktop/src/lib/federation-registry.ts. Upgrade them together, by hand.
+      - dependency-name: "@module-federation/*"
     groups:
       production-minor-and-patch:
         applies-to: version-updates

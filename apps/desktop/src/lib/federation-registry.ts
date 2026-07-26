@@ -21,6 +21,13 @@
  */
 
 import { lazy } from 'react';
+// NOTE: @module-federation/enhanced is pinned to the version line that matches
+// @module-federation/vite (pnpm catalog). The vite plugin aliases
+// '@module-federation/runtime' to its own CommonJS build, so this entry point
+// must stay CommonJS too. Versions that added an ESM `import` condition here
+// re-export the aliased CJS module via `export *`, which esbuild pre-bundles
+// into a module with no named exports — every import below fails at runtime
+// with "does not provide an export named ...". Upgrade both packages together.
 import {
   getInstance,
   loadRemote,
