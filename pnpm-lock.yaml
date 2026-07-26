@@ -104,7 +104,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.80.6(ws@8.20.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@release-it/conventional-changelog':
         specifier: ^11.0.0
         version: 11.0.0(conventional-commits-filter@5.0.0)(conventional-commits-parser@6.4.0)(release-it@20.0.1(@types/node@26.1.1)(magicast@0.5.3))
@@ -116,7 +116,7 @@ importers:
         version: 9.1.7
       promptfoo:
         specifier: 0.121.12
-        version: 0.121.12(@cfworker/json-schema@4.1.1)(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0))(@libsql/client-wasm@0.17.2)(@swc/helpers@0.5.21)(@types/json-schema@7.0.15)(@types/node@26.1.1)(babel-plugin-macros@3.1.0)(encoding@0.1.13)(pg@8.21.0)(playwright-core@1.60.0)(socks@2.8.9)
+        version: 0.121.12(@cfworker/json-schema@4.1.1)(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1))(@libsql/client-wasm@0.17.2)(@swc/helpers@0.5.21)(@types/json-schema@7.0.15)(@types/node@26.1.1)(babel-plugin-macros@3.1.0)(encoding@0.1.13)(pg@8.21.0)(playwright-core@1.60.0)(socks@2.8.9)
       release-it:
         specifier: ^20.0.1
         version: 20.0.1(@types/node@26.1.1)(magicast@0.5.3)
@@ -131,13 +131,13 @@ importers:
     dependencies:
       '@earendil-works/pi-agent-core':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -182,7 +182,7 @@ importers:
         version: 1.1.38
       ws:
         specifier: ^8.21.0
-        version: 8.21.0
+        version: 8.21.1
     devDependencies:
       '@discordjs/rest':
         specifier: ^2.6.1
@@ -394,8 +394,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       lucide-react:
-        specifier: ^0.563.0
-        version: 0.563.0(react@19.2.5)
+        specifier: ^1.26.0
+        version: 1.27.0(react@19.2.5)
       react:
         specifier: 'catalog:'
         version: 19.2.5
@@ -463,7 +463,7 @@ importers:
     dependencies:
       '@earendil-works/pi-agent-core':
         specifier: 0.80.6
-        version: 0.80.6(ws@8.20.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -473,13 +473,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-agent-core':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.15
@@ -679,10 +679,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -749,10 +749,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -819,10 +819,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -895,10 +895,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -965,10 +965,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -1044,13 +1044,13 @@ importers:
     dependencies:
       '@earendil-works/pi-agent-core':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -1087,10 +1087,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -1157,10 +1157,10 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -1227,7 +1227,7 @@ importers:
     dependencies:
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(ws@8.20.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -1294,13 +1294,13 @@ importers:
     dependencies:
       '@earendil-works/pi-agent-core':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: catalog:peer
         version: 0.80.6
@@ -10490,11 +10490,6 @@ packages:
   lru_map@0.4.1:
     resolution: {integrity: sha512-I+lBvqMMFfqaV8CJCISjI3wbjmwVu/VyOoU7+qtu9d7ioW5klMgsTTiUOUp+DJvfTTzKXoPbyC6YfgkNcyPSOg==}
 
-  lucide-react@0.563.0:
-    resolution: {integrity: sha512-8dXPB2GI4dI8jV4MgUDGBeLdGk8ekfqVZ0BdLcrRzocGgG75ltNEmWS+gE7uokKF/0oSUuczNDT+g9hFJ23FkA==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   lucide-react@1.27.0:
     resolution: {integrity: sha512-rJicGl/3Fly/E0rOH1YmPZ6e49JCnKknh1ox1vpHnkfjujAkKA6sqUZvH3MTAaXXjgexyUwgNwTJzTtYuAFYJw==}
     peerDependencies:
@@ -14304,18 +14299,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.20.0:
-    resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.20.1:
     resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
@@ -14328,8 +14311,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.21.0:
-    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
+  ws@8.21.1:
+    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -15354,7 +15337,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@azure/ai-projects@2.1.1(ws@8.20.0)(zod@4.4.3)':
+  '@azure/ai-projects@2.1.1(ws@8.21.1)(zod@4.4.3)':
     dependencies:
       '@azure-rest/core-client': 2.6.0
       '@azure/abort-controller': 2.1.2
@@ -15368,7 +15351,7 @@ snapshots:
       '@azure/identity': 4.13.1
       '@azure/logger': 1.3.0
       '@azure/storage-blob': 12.31.0
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
@@ -16014,7 +15997,7 @@ snapshots:
       '@vladfrangu/async_event_emitter': 2.4.7
       discord-api-types: 0.38.48
       tslib: 2.8.1
-      ws: 8.21.0
+      ws: 8.21.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -16056,9 +16039,9 @@ snapshots:
       picomatch: 4.0.4
       which: 4.0.0
 
-  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -16070,9 +16053,9 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -16084,9 +16067,9 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -16098,21 +16081,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-agent-core@0.80.6(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@earendil-works/pi-ai': 0.80.6(ws@8.20.0)(zod@4.4.3)
-      ignore: 7.0.5
-      typebox: 1.1.38
-      yaml: 2.9.0
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -16122,7 +16091,7 @@ snapshots:
       '@smithy/node-http-handler': 4.7.3
       http-proxy-agent: 7.0.2(supports-color@7.2.0)
       https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.26.0(ws@8.21.1)(zod@4.4.3)
       partial-json: 0.1.7
       typebox: 1.1.38
     transitivePeerDependencies:
@@ -16133,7 +16102,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -16143,7 +16112,7 @@ snapshots:
       '@smithy/node-http-handler': 4.7.3
       http-proxy-agent: 7.0.2(supports-color@7.2.0)
       https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.26.0(ws@8.21.1)(zod@4.4.3)
       partial-json: 0.1.7
       typebox: 1.1.38
     transitivePeerDependencies:
@@ -16154,7 +16123,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -16164,7 +16133,7 @@ snapshots:
       '@smithy/node-http-handler': 4.7.3
       http-proxy-agent: 7.0.2(supports-color@7.2.0)
       https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.26.0(ws@8.21.1)(zod@4.4.3)
       partial-json: 0.1.7
       typebox: 1.1.38
     transitivePeerDependencies:
@@ -16175,31 +16144,10 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.80.6(ws@8.20.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
-      '@aws-sdk/client-bedrock-runtime': 3.1048.0
-      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
-      '@mistralai/mistralai': 2.2.6(@opentelemetry/api@1.9.0)
-      '@opentelemetry/api': 1.9.0
-      '@smithy/node-http-handler': 4.7.3
-      http-proxy-agent: 7.0.2(supports-color@7.2.0)
-      https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      openai: 6.26.0(ws@8.20.0)(zod@4.4.3)
-      partial-json: 0.1.7
-      typebox: 1.1.38
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui': 0.80.6
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -16226,10 +16174,10 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui': 0.80.6
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -16256,40 +16204,10 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui': 0.80.6
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cross-spawn: 7.0.6
-      diff: 8.0.4
-      glob: 13.0.6
-      highlight.js: 10.7.3
-      hosted-git-info: 9.0.3
-      ignore: 7.0.5
-      jiti: 2.7.0
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      semver: 7.8.0
-      typebox: 1.1.38
-      undici: 8.5.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.9
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@earendil-works/pi-coding-agent@0.80.6(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@earendil-works/pi-agent-core': 0.80.6(ws@8.20.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.80.6(ws@8.20.0)(zod@4.4.3)
+      '@earendil-works/pi-agent-core': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-tui': 0.80.6
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -16827,7 +16745,7 @@ snapshots:
       google-auth-library: 10.6.2(supports-color@7.2.0)
       p-retry: 4.6.2
       protobufjs: 7.5.4
-      ws: 8.21.0
+      ws: 8.21.1
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.4.3)
     transitivePeerDependencies:
@@ -16840,7 +16758,7 @@ snapshots:
       google-auth-library: 10.6.2(supports-color@7.2.0)
       p-retry: 4.6.2
       protobufjs: 7.5.4
-      ws: 8.21.0
+      ws: 8.21.1
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
     transitivePeerDependencies:
@@ -16853,7 +16771,7 @@ snapshots:
       google-auth-library: 10.6.2(supports-color@7.2.0)
       p-retry: 4.6.2
       protobufjs: 7.5.4
-      ws: 8.21.0
+      ws: 8.21.1
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
     transitivePeerDependencies:
@@ -16911,7 +16829,7 @@ snapshots:
       - supports-color
     optional: true
 
-  '@ibm-generative-ai/node-sdk@3.2.4(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0))(encoding@0.1.13)':
+  '@ibm-generative-ai/node-sdk@3.2.4(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1))(encoding@0.1.13)':
     dependencies:
       '@ai-zen/node-fetch-event-source': 2.1.4(encoding@0.1.13)
       fetch-retry: 5.0.6
@@ -16920,7 +16838,7 @@ snapshots:
       p-queue-compat: 1.0.225
       yaml: 2.9.0
     optionalDependencies:
-      '@langchain/core': 1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0)
+      '@langchain/core': 1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1)
     transitivePeerDependencies:
       - encoding
     optional: true
@@ -17488,7 +17406,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0)':
+  '@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
@@ -17496,7 +17414,7 @@ snapshots:
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.8.7(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0)
+      langsmith: 0.8.7(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1)
       mustache: 4.2.0
       p-queue: 6.6.2
       uuid: 11.1.1
@@ -17620,7 +17538,7 @@ snapshots:
   '@mistralai/mistralai@2.2.6(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/semantic-conventions': 1.43.0
-      ws: 8.21.0
+      ws: 8.21.1
       zod: 4.4.3
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     optionalDependencies:
@@ -18311,10 +18229,10 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
-  '@openai/agents-core@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)':
+  '@openai/agents-core@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
       debug: 4.4.3(supports-color@7.2.0)
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
       zod: 4.4.3
@@ -18323,23 +18241,11 @@ snapshots:
       - supports-color
       - ws
 
-  '@openai/agents-core@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.0)(zod@4.4.3)':
+  '@openai/agents-openai@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
+      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)
       debug: 4.4.3(supports-color@7.2.0)
-      openai: 6.39.0(ws@8.21.0)(zod@4.4.3)
-    optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
-      zod: 4.4.3
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - supports-color
-      - ws
-
-  '@openai/agents-openai@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)
-      debug: 4.4.3(supports-color@7.2.0)
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
       zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -18348,10 +18254,10 @@ snapshots:
 
   '@openai/agents-realtime@0.11.5(@cfworker/json-schema@4.1.1)(zod@4.4.3)':
     dependencies:
-      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.0)(zod@4.4.3)
+      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)
       '@types/ws': 8.18.1
       debug: 4.4.3(supports-color@7.2.0)
-      ws: 8.21.0
+      ws: 8.21.1
       zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -18359,13 +18265,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@openai/agents@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)':
+  '@openai/agents@0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)':
     dependencies:
-      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)
-      '@openai/agents-openai': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)
+      '@openai/agents-core': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)
+      '@openai/agents-openai': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)
       '@openai/agents-realtime': 0.11.5(@cfworker/json-schema@4.1.1)(zod@4.4.3)
       debug: 4.4.3(supports-color@7.2.0)
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
       zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -24594,7 +24500,7 @@ snapshots:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.21.0
+      ws: 8.21.1
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -24743,14 +24649,14 @@ snapshots:
       langfuse-core: 3.38.20
     optional: true
 
-  langsmith@0.8.7(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0):
+  langsmith@0.8.7(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/sdk-trace-base': 2.9.0(@opentelemetry/api@1.9.0)
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
-      ws: 8.20.0
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
+      ws: 8.21.1
     optional: true
 
   layout-base@1.0.2: {}
@@ -25010,10 +24916,6 @@ snapshots:
   lru-cache@7.18.3: {}
 
   lru_map@0.4.1: {}
-
-  lucide-react@0.563.0(react@19.2.5):
-    dependencies:
-      react: 19.2.5
 
   lucide-react@1.27.0(react@19.2.5):
     dependencies:
@@ -26502,24 +26404,14 @@ snapshots:
       powershell-utils: 0.1.0
       wsl-utils: 0.3.1
 
-  openai@6.26.0(ws@8.20.0)(zod@4.4.3):
+  openai@6.26.0(ws@8.21.1)(zod@4.4.3):
     optionalDependencies:
-      ws: 8.20.0
+      ws: 8.21.1
       zod: 4.4.3
 
-  openai@6.26.0(ws@8.21.0)(zod@4.4.3):
+  openai@6.39.0(ws@8.21.1)(zod@4.4.3):
     optionalDependencies:
-      ws: 8.21.0
-      zod: 4.4.3
-
-  openai@6.39.0(ws@8.20.0)(zod@4.4.3):
-    optionalDependencies:
-      ws: 8.20.0
-      zod: 4.4.3
-
-  openai@6.39.0(ws@8.21.0)(zod@4.4.3):
-    optionalDependencies:
-      ws: 8.21.0
+      ws: 8.21.1
       zod: 4.4.3
 
   openapi-fetch@0.8.2:
@@ -27027,7 +26919,7 @@ snapshots:
       err-code: 2.0.3
       retry: 0.12.0
 
-  promptfoo@0.121.12(@cfworker/json-schema@4.1.1)(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0))(@libsql/client-wasm@0.17.2)(@swc/helpers@0.5.21)(@types/json-schema@7.0.15)(@types/node@26.1.1)(babel-plugin-macros@3.1.0)(encoding@0.1.13)(pg@8.21.0)(playwright-core@1.60.0)(socks@2.8.9):
+  promptfoo@0.121.12(@cfworker/json-schema@4.1.1)(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1))(@libsql/client-wasm@0.17.2)(@swc/helpers@0.5.21)(@types/json-schema@7.0.15)(@types/node@26.1.1)(babel-plugin-macros@3.1.0)(encoding@0.1.13)(pg@8.21.0)(playwright-core@1.60.0)(socks@2.8.9):
     dependencies:
       '@anthropic-ai/sdk': 0.97.1(zod@4.4.3)
       '@apidevtools/json-schema-ref-parser': 15.3.5(@types/json-schema@7.0.15)
@@ -27040,7 +26932,7 @@ snapshots:
       '@inquirer/search': 4.1.9(@types/node@26.1.1)
       '@inquirer/select': 5.1.5(@types/node@26.1.1)
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
-      '@openai/agents': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.20.0)(zod@4.4.3)
+      '@openai/agents': 0.11.5(@cfworker/json-schema@4.1.1)(ws@8.21.1)(zod@4.4.3)
       '@opencode-ai/sdk': 1.15.11
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/core': 2.7.1(@opentelemetry/api@1.9.0)
@@ -27091,7 +26983,7 @@ snapshots:
       mathjs: 15.2.0
       minimatch: 10.2.4
       nunjucks: 3.2.4(chokidar@5.0.0)
-      openai: 6.39.0(ws@8.20.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.1)(zod@4.4.3)
       opener: 1.5.2
       ora: 9.3.0
       parse5: 8.0.1
@@ -27111,7 +27003,7 @@ snapshots:
       tsx: 4.21.0
       undici: 7.26.0
       winston: 3.19.0
-      ws: 8.20.0
+      ws: 8.21.1
       zod: 4.4.3
     optionalDependencies:
       '@anthropic-ai/claude-agent-sdk': 0.2.141(@cfworker/json-schema@4.1.1)(zod@4.4.3)
@@ -27120,14 +27012,14 @@ snapshots:
       '@aws-sdk/client-s3': 3.1054.0
       '@aws-sdk/client-sagemaker-runtime': 3.1054.0
       '@aws-sdk/credential-provider-sso': 3.972.38
-      '@azure/ai-projects': 2.1.1(ws@8.20.0)(zod@4.4.3)
+      '@azure/ai-projects': 2.1.1(ws@8.21.1)(zod@4.4.3)
       '@azure/identity': 4.13.1
       '@azure/msal-node': 5.2.2
       '@azure/openai-assistants': 1.0.0-beta.6
       '@fal-ai/client': 1.10.1
       '@huggingface/transformers': 4.2.0
       '@ibm-cloud/watsonx-ai': 1.7.12
-      '@ibm-generative-ai/node-sdk': 3.2.4(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.20.0)(zod@4.4.3))(ws@8.20.0))(encoding@0.1.13)
+      '@ibm-generative-ai/node-sdk': 3.2.4(@langchain/core@1.1.39(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.0))(openai@6.39.0(ws@8.21.1)(zod@4.4.3))(ws@8.21.1))(encoding@0.1.13)
       '@openai/codex-sdk': 0.130.0
       '@playwright/browser-chromium': 1.60.0
       '@rollup/rollup-linux-x64-gnu': 4.60.4
@@ -30088,11 +29980,9 @@ snapshots:
 
   ws@8.18.3: {}
 
-  ws@8.20.0: {}
-
   ws@8.20.1: {}
 
-  ws@8.21.0: {}
+  ws@8.21.1: {}
 
   wsl-utils@0.1.0:
     dependencies:
