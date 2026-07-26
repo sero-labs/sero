@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { Github } from 'lucide-react';
+import { GitFork } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   Dialog,
@@ -120,7 +120,7 @@ export function GitHubAuthDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Github className="size-5" />
+            <GitFork className="size-5" />
             Connect GitHub
           </DialogTitle>
           <DialogDescription>

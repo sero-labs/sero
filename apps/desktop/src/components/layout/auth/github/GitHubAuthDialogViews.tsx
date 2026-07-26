@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AlertCircle, Check, Copy, ExternalLink, Github, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, Copy, ExternalLink, GitFork, Loader2 } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { GitHubAuthSource } from '@/stores/github-auth';
@@ -82,7 +82,7 @@ export function GitHubAuthReadyView({
 }) {
   return (
     <GitHubAuthStateFrame
-      icon={<Github className="size-4 text-[var(--text-primary)]" />}
+      icon={<GitFork className="size-4 text-[var(--text-primary)]" />}
       iconClassName="border-[var(--border-subtle)] bg-[var(--bg-elevated)]"
       title="Connect GitHub"
       description="Use one shared GitHub login flow for publishing, remote setup, and Explorer actions."
@@ -96,7 +96,7 @@ export function GitHubAuthReadyView({
           Cancel
         </Button>
         <Button onClick={onConnect}>
-          <Github className="mr-2 size-4" />
+          <GitFork className="mr-2 size-4" />
           Connect GitHub
         </Button>
       </div>
@@ -121,7 +121,7 @@ export function GitHubAuthCodeView({
 }) {
   return (
     <GitHubAuthStateFrame
-      icon={<Github className="size-4 text-status-info" />}
+      icon={<GitFork className="size-4 text-status-info" />}
       iconClassName="border-status-info-border bg-status-info-muted"
       title="Authorize in GitHub"
       description="Enter this one-time code at GitHub, then come back here. Sero will finish the connection automatically."

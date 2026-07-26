@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { GitBranch, Github, Loader2, Sparkles } from 'lucide-react';
+import { GitBranch, GitFork, Loader2, Sparkles } from 'lucide-react';
 import type { CreatePullRequestResult, PullRequestPreview, PullRequestState } from '@sero-ai/common';
 import { seroBridge } from '../../store/sero-bridge';
 
@@ -245,7 +245,7 @@ export function PullRequestPane({
               >
                 {action === 'pr'
                   ? <Loader2 className="size-3.5 animate-spin" />
-                  : <Github className="size-3.5" />}
+                  : <GitFork className="size-3.5" />}
                 Create pull request
               </button>
             </div>
@@ -274,7 +274,7 @@ function messageOf(error: unknown, fallback: string): string {
 function PaneHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex h-8 shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3">
-      <Github className="size-3.5 text-[var(--text-muted)]" />
+      <GitFork className="size-3.5 text-[var(--text-muted)]" />
       <span className="text-[0.84rem] text-[var(--text-primary)]">Pull request</span>
       <span className="flex-1" />
       <button
