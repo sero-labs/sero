@@ -1002,6 +1002,20 @@ The polling loop was the reason the second bug was fatal rather than
 theoretical: with a refresh always in flight, the write that dropped the
 selection always won.
 
+### The layout is a choice, so it is remembered
+
+The rail's three sections and the history band were plain component state, so
+every visit reopened everything and put the history back at its default height
+— including sections someone had deliberately folded away. `view.json` already
+held the divider position; it now holds all of it, per workspace.
+
+Two things fell out of doing it properly. The rail's open/closed state moved out
+of `BranchPanel` and into the app, because it outlives the component. And the
+setter takes a *partial* update: with one field a whole-object setter was fine,
+with five it is an invitation to reset the other four by accident. Every field
+also falls back on its own, so a `view.json` written before this existed keeps
+the height it does have rather than being discarded whole.
+
 ---
 
 ## Out of scope

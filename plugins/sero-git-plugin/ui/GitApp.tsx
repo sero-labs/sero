@@ -61,8 +61,9 @@ export function GitApp() {
   const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
   const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
   const [viewState, setViewState] = useGitViewState(workspacePath);
+  // Only while dragging: the divider updates locally on every move and is
+  // written back once, on release.
   const [graphHeightPct, setGraphHeightPct] = useState<number | null>(null);
-  const [graphCollapsed, setGraphCollapsed] = useState(false);
   // The right pane is the diff, or the PR composer — never a fourth surface.
   const [composingPr, setComposingPr] = useState(false);
   /** The branch a dirty working tree is being asked to switch to. */
@@ -216,9 +217,26 @@ export function GitApp() {
 
   // Stable so the graph band stays memoised — an inline arrow here re-renders
   // the whole history on every unrelated state change.
-  const handleToggleGraph = useCallback(() => setGraphCollapsed((value) => !value), []);
+  const handleToggleGraph = useCallback(
+    () => setViewState({ graphCollapsed: !viewState.graphCollapsed }),
+    [setViewState, viewState.graphCollapsed],
+  );
 
-  // Dragging updates locally on every move and persists once, on release.
+  const sectionsOpen = useMemo(
+    () => ({
+      local: viewState.localOpen,
+      remote: viewState.remoteOpen,
+      stashes: viewState.stashesOpen,
+    }),
+    [viewState.localOpen, viewState.remoteOpen, viewState.stashesOpen],
+  );
+
+  const handleToggleSection = useCallback((section: 'local' | 'remote' | 'stashes') => {
+    if (section === 'local') setViewState({ localOpen: !viewState.localOpen });
+    else if (section === 'remote') setViewState({ remoteOpen: !viewState.remoteOpen });
+    else setViewState({ stashesOpen: !viewState.stashesOpen });
+  }, [setViewState, viewState.localOpen, viewState.remoteOpen, viewState.stashesOpen]);
+
   const handleDividerMove = useCallback((pct: number) => setGraphHeightPct(pct), []);
   const handleDividerCommit = useCallback((pct: number) => {
     setGraphHeightPct(null);
@@ -363,6 +381,8 @@ export function GitApp() {
                   mode={repoMode.mode}
                   headHash={state.headHash}
                   onRequestCheckout={handleRequestCheckout}
+                  sectionsOpen={sectionsOpen}
+                  onToggleSection={handleToggleSection}
                 />
 
                 {/* One column, two lists: the files you are changing, or the
@@ -423,7 +443,7 @@ export function GitApp() {
                 </div>
               </div>
 
-              {!graphCollapsed && (
+              {!viewState.graphCollapsed && (
                 <GraphDivider
                   heightPct={effectiveGraphHeight}
                   onChange={handleDividerMove}
@@ -435,13 +455,13 @@ export function GitApp() {
 
               <div
                 className="shrink-0 border-t border-[var(--border-default)]"
-                style={{ height: graphCollapsed ? 'auto' : `${effectiveGraphHeight}%` }}
+                style={{ height: viewState.graphCollapsed ? 'auto' : `${effectiveGraphHeight}%` }}
               >
                 <MemoizedGraphBand
                   commits={state.commits}
                   selectedHash={selectedCommit?.hash}
                   onSelectCommit={handleSelectCommit}
-                  collapsed={graphCollapsed}
+                  collapsed={viewState.graphCollapsed}
                   onToggleCollapsed={handleToggleGraph}
                 />
               </div>

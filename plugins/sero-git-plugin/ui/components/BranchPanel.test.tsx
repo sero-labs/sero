@@ -88,6 +88,8 @@ describe('BranchPanel', () => {
           mode="normal"
           headHash="abc1234"
           onRequestCheckout={vi.fn()}
+          sectionsOpen={{ local: true, remote: true, stashes: true }}
+          onToggleSection={vi.fn()}
         />, 
       );
     });
@@ -123,6 +125,8 @@ describe('BranchPanel', () => {
           mode="normal"
           headHash="abc1234"
           onRequestCheckout={vi.fn()}
+          sectionsOpen={{ local: true, remote: true, stashes: true }}
+          onToggleSection={vi.fn()}
         />,
       );
     });
@@ -176,6 +180,8 @@ describe('BranchPanel', () => {
           mode="normal"
           headHash="abc1234"
           onRequestCheckout={vi.fn()}
+          sectionsOpen={{ local: true, remote: true, stashes: true }}
+          onToggleSection={vi.fn()}
         />,
       );
     });
@@ -203,6 +209,8 @@ describe('BranchPanel', () => {
           mode="normal"
           headHash="abc1234"
           onRequestCheckout={vi.fn()}
+          sectionsOpen={{ local: true, remote: true, stashes: true }}
+          onToggleSection={vi.fn()}
         />,
       );
     });

@@ -41,6 +41,12 @@ interface BranchPanelProps {
    * changes the app asks what should happen to them first (§7).
    */
   onRequestCheckout: (branch: string) => void;
+  /**
+   * Which sections are open. Held by the app rather than here, because it
+   * outlives this component: how you left the rail is remembered per workspace.
+   */
+  sectionsOpen: { local: boolean; remote: boolean; stashes: boolean };
+  onToggleSection: (section: 'local' | 'remote' | 'stashes') => void;
 }
 
 export function BranchPanel({
@@ -55,10 +61,9 @@ export function BranchPanel({
   mode,
   headHash,
   onRequestCheckout,
+  sectionsOpen,
+  onToggleSection,
 }: BranchPanelProps) {
-  const [localOpen, setLocalOpen] = useState(true);
-  const [remoteOpen, setRemoteOpen] = useState(true);
-  const [stashOpen, setStashOpen] = useState(true);
   const [creatingBranch, setCreatingBranch] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [confirmPopIndex, setConfirmPopIndex] = useState<number | null>(null);
@@ -103,7 +108,7 @@ export function BranchPanel({
       style={{ minHeight: 0 }}
     >
       <div className="min-h-full">
-        <Section title="LOCAL" count={localBranches.length} open={localOpen} onToggle={() => setLocalOpen(!localOpen)}>
+        <Section title="LOCAL" count={localBranches.length} open={sectionsOpen.local} onToggle={() => onToggleSection('local')}>
           {mode === 'detached' && (
             <PositionRow
               label={`HEAD @ ${headHash || 'unknown'}`}
@@ -146,7 +151,7 @@ export function BranchPanel({
           )}
         </Section>
 
-        <Section title="REMOTE" count={remoteBranches.length} open={remoteOpen} onToggle={() => setRemoteOpen(!remoteOpen)}>
+        <Section title="REMOTE" count={remoteBranches.length} open={sectionsOpen.remote} onToggle={() => onToggleSection('remote')}>
           {remoteGroups.map((group) => (
             <RemoteBranchGroup
               key={group.name}
@@ -165,7 +170,7 @@ export function BranchPanel({
           )}
         </Section>
 
-        <Section title="STASHES" count={stashes.length} open={stashOpen} onToggle={() => setStashOpen(!stashOpen)}>
+        <Section title="STASHES" count={stashes.length} open={sectionsOpen.stashes} onToggle={() => onToggleSection('stashes')}>
           {stashes.map((stash) => (
             <StashRow
               key={stash.hash || stash.index}
