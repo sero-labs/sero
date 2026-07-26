@@ -24,7 +24,18 @@
 import { create } from 'zustand';
 import { countConflicts } from '../lib/conflict-markers';
 import { parseConflictRegions, rebuildWithResolutions } from '../lib/conflict-regions';
-import { readWorkingTreeFile, writeWorkingTreeFile } from '../lib/sero-vcs';
+import { readWorkingTreeFile } from '../lib/sero-vcs';
+import {
+  beginRun,
+  currentRun,
+  drainWrites,
+  endRun,
+  isCurrent,
+  isSameRun,
+  isStopped,
+  queueGit,
+  writeTracked,
+} from './conflict-run-safety';
 import type {
   ConflictAnswer,
   ConflictQuestionOption,
@@ -76,22 +87,6 @@ export interface RunContext {
   onRestoreConflict: (path: string) => Promise<void>;
 }
 
-/**
- * Git actions run one at a time, whatever else is going on.
- *
- * Files are resolved concurrently, so without this two `git` processes reach
- * for `.git/index.lock` at once and the second dies with "File exists". It
- * surfaced as a failed unstage during undo, which is the worst place for it:
- * the file would keep looking resolved while its markers were back on disk.
- */
-let gitQueue: Promise<unknown> = Promise.resolve();
-
-function queueGit(run: () => Promise<void>): Promise<void> {
-  const next = gitQueue.then(run, run);
-  gitQueue = next.catch(() => {});
-  return next;
-}
-
 interface ConflictRunState {
   status: RunStatus;
   entries: RunEntry[];
@@ -113,7 +108,6 @@ interface ConflictRunState {
 let files = new Map<string, FileRun>();
 let answers: ConflictAnswer[] = [];
 let context: RunContext | null = null;
-let stopped = false;
 let paused = false;
 let resumeWaiters: Array<() => void> = [];
 /** Woken by `stop()`, so a file waiting on a question is released rather than polled. */
@@ -133,14 +127,14 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
     files = new Map();
     answers = [];
     context = runContext;
-    stopped = false;
     paused = false;
     resumeWaiters = [];
     stopWaiters = [];
     answerWaiters = new Map();
+    const runId = beginRun();
     set({ status: 'running', entries: [], error: null });
 
-    void runFiles(conflictPaths, set, get);
+    void runFiles(runId, conflictPaths, set, get);
   },
 
   answer: (entryId, option) => {
@@ -168,8 +162,8 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
   // Everything already resolved stays: it is in the working tree, and it is
   // ordinary work whether or not the rest of the run happened.
   stop: () => {
-    stopped = true;
     paused = false;
+    endRun();
     for (const wake of resumeWaiters) wake();
     resumeWaiters = [];
     for (const wake of stopWaiters) wake();
@@ -182,7 +176,7 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
   },
 
   reset: () => {
-    stopped = true;
+    endRun();
     for (const wake of resumeWaiters) wake();
     for (const wake of stopWaiters) wake();
     files = new Map();
@@ -198,30 +192,35 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
 type Set = (partial: Partial<ConflictRunState>) => void;
 type Get = () => ConflictRunState;
 
-async function runFiles(conflictPaths: string[], set: Set, get: Get): Promise<void> {
+async function runFiles(runId: number, conflictPaths: string[], set: Set, get: Get): Promise<void> {
+  // Before anything is read: a write left over from the run you stopped must
+  // land first, or this run reads a file that is about to change underneath it.
+  await drainWrites();
+  if (!isCurrent(runId)) return;
+
   const queue = [...conflictPaths];
   const workers = Array.from(
     { length: Math.min(FILE_CONCURRENCY, queue.length) },
     async () => {
-      while (!stopped) {
+      while (isCurrent(runId)) {
         const path = queue.shift();
         if (path === undefined) return;
-        await runOneFile(path, set, get);
+        await runOneFile(runId, path, set, get);
       }
     },
   );
 
   await Promise.all(workers);
-  if (!stopped) set({ status: 'finished' });
+  if (isCurrent(runId)) set({ status: 'finished' });
 }
 
-async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
+async function runOneFile(runId: number, path: string, set: Set, get: Get): Promise<void> {
   const ctx = context;
   if (!ctx) return;
 
   const diskPath = ctx.toDiskPath(path);
   if (diskPath === null) {
-    addEntry(set, get, {
+    addEntry(runId, set, get, {
       id: `${path}:outside`,
       path,
       conflictNumber: 1,
@@ -235,7 +234,7 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
   try {
     original = await readWorkingTreeFile(ctx.workspaceId, diskPath);
   } catch (cause) {
-    addEntry(set, get, {
+    addEntry(runId, set, get, {
       id: `${path}:unreadable`,
       path,
       conflictNumber: 1,
@@ -248,12 +247,16 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
   const regions = parseConflictRegions(original);
   if (regions.length === 0) return;
 
+  // The read above was awaited, so the run may be over — and `files` is shared,
+  // meaning a stale entry here would be picked up by whatever runs next.
+  if (!isCurrent(runId)) return;
+
   const file: FileRun = { original, diskPath, resolutions: new Map() };
   files.set(path, file);
 
   // Every line appears at once, so the pane is the to-do list from the start.
   for (const region of regions) {
-    addEntry(set, get, {
+    addEntry(runId, set, get, {
       id: entryId(path, region.index),
       path,
       conflictNumber: region.index + 1,
@@ -262,12 +265,12 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
   }
 
   for (const region of regions) {
-    if (stopped) return;
+    if (!isCurrent(runId)) return;
     await waitWhilePaused();
-    if (stopped) return;
+    if (!isCurrent(runId)) return;
 
     const id = entryId(path, region.index);
-    updateEntry(set, get, id, { state: 'working' });
+    updateEntry(runId, set, get, id, { state: 'working' });
 
     try {
       const outcome = await seroBridge().vcs.resolveConflictWithAi(ctx.workspaceId, {
@@ -283,19 +286,24 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
         answers: [...answers],
       } satisfies ConflictResolveInput);
 
+      // The model was thinking while you pressed Stop. Its answer is no longer
+      // wanted: dropping it here is what stops the file being written after the
+      // run ended.
+      if (!isCurrent(runId)) return;
+
       if (outcome.decision === 'resolve') {
-        await applyResolution(path, region.index, outcome.content, 'ai', set, get);
-        updateEntry(set, get, id, { state: 'done', why: outcome.why, source: 'ai' });
+        await applyResolution(runId, path, region.index, outcome.content, 'ai', set, get);
+        updateEntry(runId, set, get, id, { state: 'done', why: outcome.why, source: 'ai' });
         continue;
       }
 
       if (outcome.decision === 'decline') {
-        updateEntry(set, get, id, { state: 'declined', why: outcome.why });
+        updateEntry(runId, set, get, id, { state: 'declined', why: outcome.why });
         continue;
       }
 
       // A question suspends this file only. Everything else carries on.
-      updateEntry(set, get, id, {
+      updateEntry(runId, set, get, id, {
         state: 'asked',
         question: {
           question: outcome.question,
@@ -305,28 +313,28 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
       });
 
       const chosen = await waitForAnswer(id);
-      if (chosen === null) return; // stopped while waiting
+      if (chosen === null || !isCurrent(runId)) return; // stopped while waiting
 
       answers.push({ question: outcome.question, answer: chosen.label });
 
       if (chosen.content === undefined) {
         // "Let me edit it" — the markers stay, and the resolver pane is where
         // that happens. The run does not pretend this one is finished.
-        updateEntry(set, get, id, {
+        updateEntry(runId, set, get, id, {
           state: 'declined',
           why: `left for you to edit — you chose "${chosen.label}"`,
         });
         continue;
       }
 
-      await applyResolution(path, region.index, chosen.content, 'answer', set, get);
-      updateEntry(set, get, id, {
+      await applyResolution(runId, path, region.index, chosen.content, 'answer', set, get);
+      updateEntry(runId, set, get, id, {
         state: 'done',
         why: `you chose ${chosen.label}${chosen.detail ? ` (${chosen.detail})` : ''}`,
         source: 'answer',
       });
     } catch (cause) {
-      updateEntry(set, get, id, { state: 'failed', why: messageOf(cause, 'The model could not resolve this one.') });
+      updateEntry(runId, set, get, id, { state: 'failed', why: messageOf(cause, 'The model could not resolve this one.') });
     }
   }
 }
@@ -337,6 +345,7 @@ async function runOneFile(path: string, set: Set, get: Get): Promise<void> {
  * is what keeps the conflict indices meaningful and makes undo possible.
  */
 async function applyResolution(
+  runId: number,
   path: string,
   index: number,
   content: string,
@@ -346,25 +355,51 @@ async function applyResolution(
 ): Promise<void> {
   const ctx = context;
   const file = files.get(path);
-  if (!ctx || !file) return;
+  // Checked again here rather than trusted from the caller: this is the only
+  // place that writes to the working tree, so it is the one that has to be
+  // certain the run is still live.
+  if (!ctx || !file || !isCurrent(runId)) return;
 
   file.resolutions.set(index, { content, source });
   const next = rebuildWithResolutions(file.original, contentsOf(file.resolutions));
-  await writeWorkingTreeFile(ctx.workspaceId, file.diskPath, next);
+  await writeTracked(ctx.workspaceId, file.diskPath, next);
+
+  // The write is the one step that cannot be taken back. Everything after it
+  // can be, so the run is checked again here: a Stop landing mid-write must not
+  // then go on to mark the file AI-resolved or stage it.
+  if (!isCurrent(runId)) return;
 
   if (source === 'ai' && !get().aiResolvedPaths.includes(path)) {
     set({ aiResolvedPaths: [...get().aiResolvedPaths, path] });
   }
   // Staged is git's own definition of resolved, so only a file with nothing
   // left in it gets staged.
-  if (countConflicts(next) === 0) await queueGit(() => ctx.onStage(path));
+  if (countConflicts(next) === 0) {
+    await queueGit(async () => {
+      // Checked inside the queue, not before it: this can sit behind another
+      // file's git call for long enough that the run ends while it waits.
+      if (!isCurrent(runId)) return;
+      await ctx.onStage(path);
+    });
+  }
 }
 
 async function undoAi(set: Set, get: Get): Promise<void> {
   const ctx = context;
   if (!ctx) return;
 
+  /*
+   * Undo belongs to the run that has just finished or stopped, so it cannot ask
+   * `isCurrent` — that is already false the moment you press Stop, which is
+   * precisely when undo is offered. Identity is what matters here: undo must
+   * not survive a *different* run starting underneath it, rebuilding files from
+   * an original that is no longer the one on disk.
+   */
+  const runId = currentRun();
+
   for (const [path, file] of files) {
+    if (!isSameRun(runId)) return;
+
     const kept = new Map(
       [...file.resolutions].filter(([, resolution]) => resolution.source === 'answer'),
     );
@@ -378,14 +413,20 @@ async function undoAi(set: Set, get: Get): Promise<void> {
       // answered, goes on top. Doing it the other way round would throw the
       // answers away.
       if (countConflicts(reverted) > 0) {
-        await queueGit(() => ctx.onRestoreConflict(path));
+        await queueGit(async () => {
+          if (!isSameRun(runId)) return;
+          await ctx.onRestoreConflict(path);
+        });
       }
-      await writeWorkingTreeFile(ctx.workspaceId, file.diskPath, reverted);
+      if (!isSameRun(runId)) return;
+      await writeTracked(ctx.workspaceId, file.diskPath, reverted);
     } catch (cause) {
       set({ error: messageOf(cause, `Could not undo ${path}.`) });
       continue;
     }
   }
+
+  if (!isSameRun(runId)) return;
 
   set({
     aiResolvedPaths: [],
@@ -412,7 +453,7 @@ function waitWhilePaused(): Promise<void> {
  * a question has to be woken, or the run never settles.
  */
 function waitForAnswer(id: string): Promise<ConflictQuestionOption | null> {
-  if (stopped) return Promise.resolve(null);
+  if (isStopped()) return Promise.resolve(null);
   return new Promise((resolve) => {
     answerWaiters.set(id, resolve);
     stopWaiters.push(() => {
@@ -433,11 +474,16 @@ function entryId(path: string, index: number): string {
   return `${path}:${index}`;
 }
 
-function addEntry(set: Set, get: Get, entry: RunEntry): void {
+// Both take the run id for the same reason: the entries list belongs to the
+// run on screen, and a straggler from the last one must not append to it or
+// rewrite a line that now means something else.
+function addEntry(runId: number, set: Set, get: Get, entry: RunEntry): void {
+  if (!isCurrent(runId)) return;
   set({ entries: [...get().entries, entry] });
 }
 
-function updateEntry(set: Set, get: Get, id: string, patch: Partial<RunEntry>): void {
+function updateEntry(runId: number, set: Set, get: Get, id: string, patch: Partial<RunEntry>): void {
+  if (!isCurrent(runId)) return;
   set({
     entries: get().entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
   });

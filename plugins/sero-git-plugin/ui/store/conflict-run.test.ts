@@ -18,16 +18,31 @@ import type { ConflictOutcome, ConflictResolveInput } from './sero-bridge';
 const files = new Map<string, string>();
 const resolveConflictWithAi = vi.fn<(ws: string, input: ConflictResolveInput) => Promise<ConflictOutcome>>();
 
+/**
+ * Lets a test hold a write open. The timing bugs here all live in the window
+ * between a write being sent and it landing, which is otherwise too short to
+ * aim at.
+ */
+const writeDelay: { value: Promise<void> | undefined } = { value: undefined };
+const writeStarted: string[] = [];
+/** Ordered log of disk touches, so a test can assert what happened before what. */
+const events: string[] = [];
+
 vi.mock('../lib/sero-vcs', () => ({
   readWorkingTreeFile: (_ws: string, path: string) => {
     const contents = files.get(path);
+    events.push(`read ${path}`);
     return contents === undefined
       ? Promise.reject(new Error(`no such file: ${path}`))
       : Promise.resolve(contents);
   },
-  writeWorkingTreeFile: (_ws: string, path: string, contents: string) => {
+  writeWorkingTreeFile: async (_ws: string, path: string, contents: string) => {
+    writeStarted.push(path);
+    // Captured now: releasing one write must not hold up the next.
+    const held = writeDelay.value;
+    if (held) await held;
     files.set(path, contents);
-    return Promise.resolve();
+    events.push(`wrote ${path}`);
   },
 }));
 
@@ -76,6 +91,9 @@ describe('the AI resolution run', () => {
     files.clear();
     staged.length = 0;
     restored.length = 0;
+    writeStarted.length = 0;
+    writeDelay.value = undefined;
+    events.length = 0;
     resolveConflictWithAi.mockReset();
   });
 
@@ -201,6 +219,139 @@ describe('the AI resolution run', () => {
     useConflictRun.getState().stop();
     expect(useConflictRun.getState().status).toBe('stopped');
     expect(files.get('a.ts')).toContain('kept');
+  });
+
+  /**
+   * Stop cannot recall a request already sent to the model, so the reply lands
+   * on a run that is over. It used to be applied anyway: the file was written
+   * and staged after Stop, which is the one thing Stop promises not to do.
+   */
+  it('drops a resolution that arrives after you stop', async () => {
+    const original = conflicted(['one', 'two']);
+    files.set('a.ts', original);
+    let reply: ((outcome: ConflictOutcome) => void) | undefined;
+    resolveConflictWithAi.mockImplementation(() => new Promise((resolve) => { reply = resolve; }));
+
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => reply !== undefined, 'the model to be asked');
+
+    useConflictRun.getState().stop();
+    reply!({ decision: 'resolve', content: 'too late', why: 'still thinking when you stopped' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(files.get('a.ts')).toBe(original);
+    expect(staged).toEqual([]);
+    expect(useConflictRun.getState().aiResolvedPaths).toEqual([]);
+  });
+
+  /**
+   * The nastier half of the same bug: everything here is module-scoped, so a
+   * straggler from the stopped run could splice its content into the file the
+   * *new* run is working on, at an index that no longer means the same thing.
+   */
+  it('does not let a stopped run\'s late reply touch the next run', async () => {
+    files.set('a.ts', conflicted(['one', 'two']));
+    const replies: Array<(outcome: ConflictOutcome) => void> = [];
+    resolveConflictWithAi.mockImplementation(() => new Promise((resolve) => { replies.push(resolve); }));
+
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => replies.length === 1, 'the first run to ask');
+    useConflictRun.getState().stop();
+
+    // A second run over the same file, which answers properly.
+    resolveConflictWithAi.mockResolvedValue({ decision: 'resolve', content: 'the new run', why: 'clear' });
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => useConflictRun.getState().status === 'finished', 'the second run to finish');
+
+    // The abandoned first run finally replies.
+    replies[0]!({ decision: 'resolve', content: 'the stale run', why: 'from a run that ended' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(files.get('a.ts')).toBe('the new run');
+    expect(useConflictRun.getState().entries.map((entry) => entry.state)).toEqual(['done']);
+  });
+
+  /**
+   * The window after the write. The write itself cannot be recalled, but
+   * marking the file AI-resolved and staging it both can — and staging is git's
+   * word for "this conflict is settled", which a stopped run has no business
+   * saying.
+   */
+  it('does not stage or claim a file when you stop during the write', async () => {
+    files.set('a.ts', conflicted(['one', 'two']));
+    resolveConflictWithAi.mockResolvedValue({ decision: 'resolve', content: 'written', why: 'clear' });
+
+    let releaseWrite: (() => void) | undefined;
+    const slowWrite = new Promise<void>((resolve) => { releaseWrite = () => resolve(); });
+    writeDelay.value = slowWrite;
+
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => releaseWrite !== undefined && writeStarted.length === 1, 'the write to begin');
+
+    // Stop lands while the write is in the air, then the write completes.
+    useConflictRun.getState().stop();
+    releaseWrite!();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(staged).toEqual([]);
+    expect(useConflictRun.getState().aiResolvedPaths).toEqual([]);
+  });
+
+  /**
+   * A write already sent still lands. If the next run has read the file by
+   * then, that straggler silently overwrites it — so a new run waits for the
+   * previous one's writes before it reads anything.
+   */
+  it('waits for a stopped run\'s write before the next run reads the file', async () => {
+    files.set('a.ts', conflicted(['one', 'two'], ['three', 'four']));
+    // The first run resolves conflict 1 and is still writing it when you stop.
+    resolveConflictWithAi.mockResolvedValue({ decision: 'resolve', content: 'first', why: 'clear' });
+
+    let releaseWrite: (() => void) | undefined;
+    writeDelay.value = new Promise<void>((resolve) => { releaseWrite = () => resolve(); });
+
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => releaseWrite !== undefined && writeStarted.length === 1, 'the write to begin');
+    useConflictRun.getState().stop();
+
+    // A second run starts while that write is still in the air, then it lands.
+    writeDelay.value = undefined;
+    resolveConflictWithAi.mockResolvedValue({ decision: 'resolve', content: 'second', why: 'clear' });
+    useConflictRun.getState().start(context(), ['a.ts']);
+    releaseWrite!();
+    await waitFor(() => useConflictRun.getState().status === 'finished', 'the second run to finish');
+
+    // The ordering is the whole point, so assert on it rather than on the
+    // contents, which a lucky interleaving could produce either way: the
+    // straggler must land before the second run reads. The other way round it
+    // drops back on top afterwards, putting the markers the second run had just
+    // resolved back on disk.
+    const staleWrite = events.indexOf('wrote a.ts');
+    const secondRunRead = events.indexOf('read a.ts', events.indexOf('read a.ts') + 1);
+    expect(staleWrite).toBeGreaterThan(-1);
+    expect(secondRunRead).toBeGreaterThan(staleWrite);
+    expect(files.get('a.ts')).not.toContain('<<<<<<<');
+  });
+
+  // Undo runs on a stopped run, so it cannot check "is the run live?" — but it
+  // must still not rebuild files underneath a run that has since started.
+  it('abandons an undo when a new run starts underneath it', async () => {
+    const original = conflicted(['one', 'two']);
+    files.set('a.ts', original);
+    resolveConflictWithAi.mockResolvedValue({ decision: 'resolve', content: 'machine work', why: 'clear' });
+
+    useConflictRun.getState().start(context(), ['a.ts']);
+    await waitFor(() => useConflictRun.getState().status === 'finished', 'the first run');
+    expect(files.get('a.ts')).toBe('machine work');
+
+    // Undo is asked for, then a new run begins before it can write.
+    useConflictRun.getState().undoAiResolutions();
+    useConflictRun.getState().reset();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // The undo let go rather than rewriting a file the reset disowned.
+    expect(files.get('a.ts')).toBe('machine work');
+    expect(restored).toEqual([]);
   });
 
   it('releases a file sitting on a question when you stop', async () => {
