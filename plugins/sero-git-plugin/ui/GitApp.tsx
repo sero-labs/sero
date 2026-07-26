@@ -7,7 +7,7 @@
  */
 
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { getSeroApi, openSeroFile, useAppInfo, useAppState, useTheme } from '@sero-ai/app-runtime';
+import { openSeroFile, useAppInfo, useAppState, useTheme } from '@sero-ai/app-runtime';
 
 import type { GitActionResult } from '@sero-ai/common';
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
@@ -26,6 +26,7 @@ import { deriveRepoMode } from './lib/repo-mode';
 import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
 import { computeGraphLayout } from './lib/graph-layout';
+import { runGitAction } from './store/sero-bridge';
 import { useGitHubAuth } from './store/useGitHubAuth';
 import {
   MAX_GRAPH_HEIGHT_PCT,
@@ -106,15 +107,8 @@ export function GitApp() {
   // Resolves false when the action failed, so callers that must sequence —
   // stash *then* switch — can stop rather than carry on into a broken state.
   const runActionAsync = useCallback(async (params: GitManagerRequest): Promise<boolean> => {
-    const gitApp = getSeroApi().gitApp;
-    if (!gitApp) {
-      console.warn('[git-app] gitApp bridge unavailable');
-      showNotice('Git bridge unavailable', 'Reload Sero or reopen this workspace to restore Git actions.');
-      return false;
-    }
-
     try {
-      const actionResult: GitActionResult = await gitApp.run(workspaceId, params);
+      const actionResult: GitActionResult = await runGitAction(workspaceId, params);
       if (!actionResult.ok) {
         console.error('[git-app] Action failed:', actionResult.message);
         showNotice(getActionFailureTitle(params.action), actionResult.message);

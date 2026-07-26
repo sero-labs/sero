@@ -14,9 +14,9 @@
 
 import { useCallback, useState } from 'react';
 import { ArrowUpRight, GitBranch, Loader2 } from 'lucide-react';
-import { getSeroApi } from '@sero-ai/app-runtime';
 
 import type { FileChange, GitManagerRequest } from '../../../shared/types';
+import { runGitAction } from '../../store/sero-bridge';
 import { statusColour } from '../../lib/file-status';
 import { CommitDraftSparkle, useCommitDraft } from '../app/CommitDraftSparkle';
 
@@ -44,15 +44,10 @@ export function QuickPanel({
   const [failure, setFailure] = useState<{ kind: ActionKind; message: string } | null>(null);
 
   const run = useCallback(async (kind: ActionKind, request: GitManagerRequest) => {
-    const gitApp = getSeroApi().gitApp;
-    if (!gitApp) {
-      setFailure({ kind, message: 'Git actions are unavailable. Reload Sero.' });
-      return;
-    }
     setBusy(kind);
     setFailure(null);
     try {
-      const result = await gitApp.run(workspaceId, request);
+      const result = await runGitAction(workspaceId, request);
       if (!result.ok) {
         setFailure({ kind, message: result.message });
         return;

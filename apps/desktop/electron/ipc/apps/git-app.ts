@@ -1,16 +1,12 @@
-import { ipcMain } from 'electron';
-
-import { IpcChannels } from '@/types/ipc-channels';
-import type { GitManagerRequest } from '@sero-ai/common';
-import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { registerGitServiceBridge } from '@electron/features/apps/git-app/service-bridge';
 
+/**
+ * The Git app's main-process wiring.
+ *
+ * Only the extension's side is registered here. The renderer reaches git
+ * through `window.sero.vcs` — including the writes, which used to have their
+ * own `sero:git-app:run` channel (AD-025, issue #305).
+ */
 export function registerGitAppHandlers(): void {
   registerGitServiceBridge();
-  ipcMain.handle(
-    IpcChannels.gitApp.run,
-    async (_event, workspaceId: string, params: GitManagerRequest) => {
-      return gitWorkspaceStateManager.runWorkspaceAction(workspaceId, params);
-    },
-  );
 }

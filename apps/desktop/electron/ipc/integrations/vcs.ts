@@ -3,7 +3,7 @@ import path from 'node:path';
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
+import type { CreatePullRequestInput, GitManagerRequest, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildCommitMessagePrompt, parseCommitMessage } from '@electron/features/agent/assistants/commit-message';
 import {
@@ -288,4 +288,13 @@ export function registerVcsHandlers(): void {
     const known = roots.some((root) => resolved === root || resolved.startsWith(root + path.sep));
     return known ? getWorktreeDiffStat(resolved) : null;
   });
+
+  // Every write the renderer makes — stage, commit, stash, switch branch — runs
+  // here (AD-025). It shares the action implementations with the agent's
+  // `git_manager` tool, so a guard like "don't delete the branch you're on"
+  // exists once and covers both. Failures come back as `{ ok: false, message }`
+  // rather than throwing: the caller shows the message and stops.
+  ipcMain.handle(Ch.run, async (_e, wsId: string, params: GitManagerRequest) =>
+    gitWorkspaceStateManager.runWorkspaceAction(wsId, params),
+  );
 }

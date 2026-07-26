@@ -11,6 +11,8 @@ import type {
   CommitEntry,
   CreatePullRequestResult,
   FileDiffEntry,
+  GitActionResult,
+  GitManagerRequest,
   PullRequestPreview,
   PullRequestState,
   Remote,
@@ -116,6 +118,14 @@ export interface SeroVcsBridge {
     title: string;
     body: string;
   }): Promise<CreatePullRequestResult>;
+
+  /**
+   * Every write: stage, commit, stash, switch branch (AD-025). One entry
+   * carrying the action name, so the app and the agent's git tool share a
+   * single implementation of each action and its guards. A refused action
+   * resolves `{ ok: false, message }` — it does not throw.
+   */
+  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 /** Signing in to GitHub is a host concern; the Git app only reads and triggers it. */
@@ -162,6 +172,24 @@ export function openInBrowser(url: string): void {
  */
 export function seroGitHub(): SeroGitHubBridge | null {
   return (window as unknown as { sero?: Partial<SeroGitWindow> }).sero?.github ?? null;
+}
+
+/**
+ * Run one git action against the workspace.
+ *
+ * A host too old to carry `run` on the vcs bridge answers with a message
+ * instead of a `TypeError` from calling something that isn't there — the
+ * caller shows it the same way it shows any other refusal.
+ */
+export async function runGitAction(
+  workspaceId: string,
+  params: GitManagerRequest,
+): Promise<GitActionResult> {
+  const { vcs } = seroBridge();
+  if (typeof vcs.run !== 'function') {
+    return { ok: false, message: 'This version of Sero cannot run Git actions. Update Sero.' };
+  }
+  return vcs.run(workspaceId, params);
 }
 
 export function seroBridge(): SeroGitWindow {

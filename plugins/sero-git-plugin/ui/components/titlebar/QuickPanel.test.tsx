@@ -9,8 +9,8 @@ import { QuickPanel } from './QuickPanel';
 
 const run = vi.fn();
 
-vi.mock('@sero-ai/app-runtime', () => ({
-  getSeroApi: () => ({ gitApp: { run } }),
+vi.mock('../../store/sero-bridge', () => ({
+  runGitAction: (workspaceId: string, params: unknown) => run(workspaceId, params),
 }));
 
 const CHANGES: FileChange[] = [

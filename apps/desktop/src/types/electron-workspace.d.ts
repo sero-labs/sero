@@ -38,7 +38,9 @@ import type {
   PullRequestDraft,
   CreatePullRequestInput,
   CreatePullRequestResult,
+  GitActionResult,
   GitDiffStat,
+  GitManagerRequest,
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
   OrchestratorBoardAction,
@@ -233,6 +235,13 @@ export interface SeroVcsAPI {
   openPrs(wsId: string): Promise<AppRuntimePullRequestSummary[]>;
   /** Aggregate +adds −dels of a checkout's branch work vs its base. Null when not a repo. */
   diffStat(checkoutPath: string): Promise<GitDiffStat | null>;
+
+  /**
+   * Run one named git action — stage, commit, stash, switch branch (AD-025).
+   * Resolves `{ ok: false, message }` when the action refused, rather than
+   * throwing, so the caller can show the reason and stop.
+   */
+  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 export interface SeroOrchestratorAPI {

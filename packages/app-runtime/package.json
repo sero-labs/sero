@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/app-runtime",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Hooks for Sero federated app modules — useAppState, useAppInfo, useAgentPrompt, useAppTools",
   "type": "module",
   "main": "./src/index.ts",

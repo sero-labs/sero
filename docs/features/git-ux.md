@@ -690,19 +690,9 @@ renders it until step 6 deletes that form.
 **Lane colour is shared.** One graph layout is computed in the app and read by
 both surfaces, so a branch is the same colour in the rail and in the graph.
 
-Still open:
-
-- **`window.sero.gitApp` cannot be retired yet, and §11 assumes it can.**
-  Tracked as [#305](https://github.com/sero-labs/sero/issues/305), to be done
-  after the UI refactor lands.
-  Staging, committing, stashing, checkout, merge and cherry-pick exist only as
-  `gitApp.run` actions; `window.sero.vcs` has no equivalent. Retiring the bridge
-  means adding those to the vcs surface first, which is net-new backend work §10
-  does not list. The rebuild uses `gitApp.run` for mutations and the plugin
-  store's `window.sero.vcs` for reads, which is one path per concern rather than
-  the three AD-025 set out to remove.
-That is the only part of §3 not delivered, and it is a backend gap rather than
-a UI one.
+One gap was left open here and closed in step 11 (below): the rebuild read
+through `window.sero.vcs` but wrote through `window.sero.gitApp`, which is one
+path per concern rather than the single path AD-025 asked for.
 
 **Step 6 — the titlebar popover. Done.**
 Move it to a plugin contribution on the titlebar slot from step 1, at 300px, per
@@ -1028,3 +1018,32 @@ the height it does have rather than being discarded whole.
   `PluginStyleScope`, runtime-registered widgets never do, and only `SeroAppMount`
   reads `styleIsolation`. Settled for git by using manifest slots; still a trap
   for the next surface that moves between mechanisms.
+
+---
+
+## Step 11 — one door into git. Done. ([#305](https://github.com/sero-labs/sero/issues/305))
+
+The app read the repository through `window.sero.vcs` and changed it through
+`window.sero.gitApp`. Two doors, each consistent in itself, neither broken —
+but not the one path AD-025 set out.
+
+**Where the spec was wrong.** #305 said to give the vcs bridge a named method
+per write, matching its thirty existing ones. Reading the code, the renderer
+uses **19 of the 22 actions**, so that meant 19 new channels, 19 preload entries
+and 19 handlers — each either a second copy of guards that already exist
+(`delete_branch`'s three checks, `cherry_pick`'s auto-stash, `remove_worktree`'s
+path check) or a one-line hop to the code we already have. It would also have
+pushed `ipc-channels.ts` past the 500-line rule.
+
+**What was built instead.** The single `run(workspaceId, action)` call moved
+onto the vcs bridge as `sero:vcs:run`, and the `gitApp` bridge is deleted from
+the renderer, the preload, the channel table and `@sero-ai/app-runtime`. One
+door, one implementation of every action, no new surface. The plugin calls it
+through `runGitAction()` in `ui/store/sero-bridge.ts`, which answers a host too
+old to carry `run` with a readable message rather than a `TypeError`.
+
+The agent's `git_manager` tool and `/git` are untouched — they reach the same
+actions through the extension's service bridge, not the renderer's.
+
+`@sero-ai/app-runtime` goes to **0.3.0**: `SeroGitAppBridge` and the optional
+`gitApp` field are gone from `SeroBridge`.

@@ -19,16 +19,23 @@ const COMMIT: CommitNode = {
   refs: [],
 };
 
-const getSeroApiMock = vi.fn();
+const runGitActionMock = vi.fn();
 const useAppInfoMock = vi.fn();
 const useAppStateMock = vi.fn();
 const commitGraphRenderMock = vi.fn();
 
 vi.mock('@sero-ai/app-runtime', () => ({
-  getSeroApi: () => getSeroApiMock(),
   useAppInfo: () => useAppInfoMock(),
   useAppState: (initialState: GitAppState) => useAppStateMock(initialState),
   useTheme: () => ({ mode: 'dark', presetId: 'default', editorThemeId: 'auto' }),
+}));
+
+// Only the write path is stubbed — the rest of the bridge (the GitHub sign-in
+// the header reads, for one) stays real.
+vi.mock('./store/sero-bridge', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./store/sero-bridge')>()),
+  runGitAction: (workspaceId: string, params: GitManagerRequest) =>
+    runGitActionMock(workspaceId, params),
 }));
 
 vi.mock('./components/Header', () => ({
@@ -99,42 +106,20 @@ describe('GitApp', () => {
     });
     container.remove();
     root = null;
-    getSeroApiMock.mockReset();
+    runGitActionMock.mockReset();
     useAppInfoMock.mockReset();
     useAppStateMock.mockReset();
     vi.useRealTimers();
   });
 
-  it('shows a notice when the host git bridge is unavailable', async () => {
-    vi.useFakeTimers();
-    getSeroApiMock.mockReturnValue({ gitApp: undefined });
-
-    await act(async () => {
-      root?.render(<GitApp />);
-    });
-    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      clickButton(container, 'Trigger fetch');
-    });
-
-    expect(container.textContent).toContain('Git bridge unavailable');
-    expect(container.textContent).toContain('Reload Sero or reopen this workspace');
-    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      clickButton(container, 'Dismiss git action notice');
-    });
-  });
-
   it('surfaces host action failures with action-specific copy', async () => {
     vi.useFakeTimers();
-    const run = vi.fn().mockResolvedValue({ ok: false, message: 'Remote rejected fetch' });
-    getSeroApiMock.mockReturnValue({ gitApp: { run } });
+    runGitActionMock.mockResolvedValue({ ok: false, message: 'Remote rejected fetch' });
 
     await act(async () => {
       root?.render(<GitApp />);
     });
+    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       clickButton(container, 'Trigger fetch');
@@ -142,9 +127,11 @@ describe('GitApp', () => {
       await Promise.resolve();
     });
 
-    expect(run).toHaveBeenCalledWith('ws-1', { action: 'fetch' });
+    expect(runGitActionMock).toHaveBeenCalledWith('ws-1', { action: 'fetch' });
     expect(container.textContent).toContain('Could not fetch remotes');
     expect(container.textContent).toContain('Remote rejected fetch');
+    // The notice is app chrome: showing it must not redraw the graph.
+    expect(commitGraphRenderMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       clickButton(container, 'Dismiss git action notice');
@@ -158,7 +145,7 @@ describe('GitApp', () => {
    */
   it('shows the picked commit in place of the working tree, and gives it back', async () => {
     vi.useFakeTimers();
-    getSeroApiMock.mockReturnValue({ gitApp: { run: vi.fn().mockResolvedValue({ ok: true }) } });
+    runGitActionMock.mockResolvedValue({ ok: true });
 
     await act(async () => {
       root?.render(<GitApp />);
