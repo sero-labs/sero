@@ -151,6 +151,11 @@ Examples from the current guides:
 | Web | `<workspace>/.sero/apps/web/state.json` |
 | Git | `<workspace>/.sero/apps/git/state.json` |
 
+An app may keep other files alongside its state. Git saves how you left the app
+laid out — which panels are folded, how tall the history is — in
+`<workspace>/.sero/apps/git/view.json`, so it is remembered per repository
+rather than globally.
+
 Sero keeps its own files out of the repositories you work in, so they never show
 up as changes to commit:
 
