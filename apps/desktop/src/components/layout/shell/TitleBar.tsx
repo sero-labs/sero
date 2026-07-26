@@ -4,10 +4,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
-import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBarControls';
 import { NavButtons } from '@/components/layout/titlebar/NavButtons';
 import { ShortcutChips } from '@/components/layout/titlebar/ShortcutChips';
 import { TitleBarBreadcrumb } from '@/components/layout/titlebar/TitleBarBreadcrumb';
+import { TitleBarContributions } from '@/components/layout/titlebar/TitleBarContributions';
 import { WindowControls } from '@/components/layout/titlebar/WindowControls';
 import { UpdateIndicator } from '@/components/layout/shell/UpdateIndicator';
 
@@ -90,7 +90,7 @@ export const TitleBar = memo(function TitleBar() {
       <div className="no-drag flex shrink-0 items-center gap-2 pr-3">
         <UpdateIndicator />
 
-        <GitTitleBarControls />
+        <TitleBarContributions />
 
         <ProfileSwitcher />
 

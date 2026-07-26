@@ -4,164 +4,130 @@
  * A GitKraken-inspired interface with a visual commit graph,
  * branch panel, staging area, and diff viewer. Uses useAppState
  * from @sero-ai/app-runtime for file-backed reactive state.
+ *
+ * This file is composition. The behaviour behind it lives in three hooks —
+ * running actions and reporting failures (`useGitActions`), what the panes are
+ * showing (`useGitSelection`), and how the app is laid out (`useGitLayout`).
  */
 
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
+import { memo, useCallback, useMemo } from 'react';
+import { openSeroFile, useAppInfo, useAppState, useTheme } from '@sero-ai/app-runtime';
 
-import type { GitActionResult } from '@sero-ai/common';
-import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
+import type { GitAppState } from '../shared/types';
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
-import { CommitGraph } from './components/CommitGraph';
-import { DiffViewer } from './components/DiffViewer';
+import { useConflictRun } from './store/conflict-run';
+import { useAiResolution } from './store/use-ai-resolution';
+import { DetailPane } from './components/app/DetailPane';
+import { GraphBand } from './components/app/GraphBand';
+import { GraphDivider } from './components/app/GraphDivider';
+import { ModeBanner } from './components/app/ModeBanner';
+import { SwitchBranchDialog } from './components/app/SwitchBranchDialog';
+import { deriveRepoMode } from './lib/repo-mode';
+import { WorkingTree } from './components/app/WorkingTree';
 import { Header } from './components/Header';
-import { StagingArea } from './components/StagingArea';
+import { computeGraphLayout } from './lib/graph-layout';
+import { useGitActions } from './store/use-git-actions';
+import { useGitLayout } from './store/use-git-layout';
+import { useGitSelection } from './store/use-git-selection';
+import { useGitHubAuth } from './store/useGitHubAuth';
+import { MAX_GRAPH_HEIGHT_PCT, MIN_GRAPH_HEIGHT_PCT } from './store/ui-state';
+import {
+  EmptyRepoState,
+  GitActionNotice,
+  WorkspaceLoadingState,
+} from './components/app/GitAppChrome';
 import { GIT_STYLES } from './styles';
-
-interface PendingDiffRequest {
-  path: string;
-  staged: boolean;
-  refreshSnapshot: string;
-}
-
-interface GitActionNoticeState {
-  id: number;
-  title: string;
-  message: string;
-}
 
 // Git state refreshes and transient app UI (notices, open diffs, selections)
 // update independently. Keep the large, otherwise unchanged renderer sections
 // out of those unrelated commits.
 const MemoizedHeader = memo(Header);
 const MemoizedBranchPanel = memo(BranchPanel);
-const MemoizedCommitGraph = memo(CommitGraph);
+const MemoizedGraphBand = memo(GraphBand);
 const MemoizedCommitDetail = memo(CommitDetail);
-const MemoizedDiffViewer = memo(DiffViewer);
-const MemoizedStagingArea = memo(StagingArea);
+const MemoizedWorkingTree = memo(WorkingTree);
+const MemoizedModeBanner = memo(ModeBanner);
 
 export function GitApp() {
   const initialState = useMemo(() => createDefaultGitState(), []);
   const [rawState] = useAppState<GitAppState>(initialState);
   const state = useMemo(() => normalizeGitState(rawState), [rawState]);
   const { workspaceId, workspacePath } = useAppInfo();
+  const { mode: themeMode, editorThemeId } = useTheme();
 
-  const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
-  const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null);
-  const [pendingDiffRequest, setPendingDiffRequest] = useState<PendingDiffRequest | null>(null);
-  const [showDiffPanel, setShowDiffPanel] = useState(false);
-  const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
-  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const github = useGitHubAuth();
+  const { notice, dismissNotice, runAction, runActionAsync } = useGitActions(workspaceId);
+  const selection = useGitSelection({ state, runAction, runActionAsync });
+  const layout = useGitLayout(workspacePath);
 
-  const dismissNotice = useCallback(() => {
-    if (noticeTimerRef.current) {
-      clearTimeout(noticeTimerRef.current);
-      noticeTimerRef.current = null;
-    }
-    setNotice(null);
-  }, []);
+  // Actions are stable store functions, so reading them here costs no renders.
+  const answerQuestion = useConflictRun((run) => run.answer);
+  const pauseRun = useConflictRun((run) => run.pause);
+  const resumeRun = useConflictRun((run) => run.resume);
+  const stopRun = useConflictRun((run) => run.stop);
+  const undoAiResolutions = useConflictRun((run) => run.undoAiResolutions);
 
-  const showNotice = useCallback((title: string, message: string) => {
-    if (noticeTimerRef.current) {
-      clearTimeout(noticeTimerRef.current);
-    }
-
-    const nextNotice: GitActionNoticeState = {
-      id: Date.now(),
-      title,
-      message,
-    };
-    setNotice(nextNotice);
-    noticeTimerRef.current = setTimeout(() => {
-      setNotice((current) => current?.id === nextNotice.id ? null : current);
-      noticeTimerRef.current = null;
-    }, 5000);
-  }, []);
-
-  const runAction = useCallback((params: GitManagerRequest) => {
-    const gitApp = getSeroApi().gitApp;
-    if (!gitApp) {
-      console.warn('[git-app] gitApp bridge unavailable');
-      showNotice('Git bridge unavailable', 'Reload Sero or reopen this workspace to restore Git actions.');
-      return;
-    }
-
-    void gitApp.run(workspaceId, params).then((actionResult: GitActionResult) => {
-      if (!actionResult.ok) {
-        console.error('[git-app] Action failed:', actionResult.message);
-        showNotice(getActionFailureTitle(params.action), actionResult.message);
-      }
-    }).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('[git-app] Action failed:', error);
-      showNotice(getActionFailureTitle(params.action), message);
-    });
-  }, [showNotice, workspaceId]);
-
-  const handleSelectCommit = useCallback((commit: CommitNode) => {
-    setSelectedCommit(commit);
-    setActiveDiff(null);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(false);
-    runAction({ action: 'show_commit', hash: commit.hash });
+  // A new origin changes what every other control can do, so pick it up at once.
+  const handlePublished = useCallback(() => {
+    runAction({ action: 'refresh' });
   }, [runAction]);
 
-  const handleCloseCommitDetail = useCallback(() => {
-    setSelectedCommit(null);
-  }, []);
+  const handleOpenInEditor = useCallback((path: string) => {
+    void openSeroFile(workspaceId, path);
+  }, [workspaceId]);
 
-  const handleSelectDiffFile = useCallback((diff: FileDiff) => {
-    setActiveDiff(diff);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(true);
-  }, []);
+  // Git's definition of resolved is staged, so writing the file is only half
+  // of it — the other half is telling git the fight is over.
+  const handleConflictResolved = useCallback((path: string) => {
+    runAction({ action: 'stage', file: path });
+  }, [runAction]);
 
-  const handleSelectStagingFile = useCallback((path: string, staged: boolean) => {
-    setActiveDiff(null);
-    setPendingDiffRequest({
-      path,
-      staged,
-      refreshSnapshot: state.lastRefresh,
-    });
-    setShowDiffPanel(true);
-    runAction({ action: 'diff', file: path, staged });
-  }, [runAction, state.lastRefresh]);
+  // Every log line jumps to its file, so the account doubles as a checklist.
+  const selectStagingFile = selection.selectStagingFile;
+  const handleSelectRunFile = useCallback((path: string) => {
+    selectStagingFile(path, false);
+  }, [selectStagingFile]);
 
-  const handleCloseDiff = useCallback(() => {
-    setActiveDiff(null);
-    setPendingDiffRequest(null);
-    setShowDiffPanel(false);
-  }, []);
+  // One layout, read by both the graph and the rail, so a branch is the same
+  // colour in each.
+  const graphLayout = useMemo(() => computeGraphLayout(state.commits), [state.commits]);
+  // The hard states, derived once: the banner, the top bar, the working tree
+  // and the rail all read this rather than each working it out (§7).
+  const repoMode = useMemo(() => deriveRepoMode(state), [state]);
 
-  const commitDiffs = useMemo(() => {
-    if (!selectedCommit) return [];
-    if (state.selectedCommitHash === selectedCommit.hash && state.commitDiffs) {
-      return state.commitDiffs;
-    }
-    return [];
-  }, [selectedCommit, state.selectedCommitHash, state.commitDiffs]);
+  // The AI resolver (§7). It writes through the same seam the manual resolver
+  // does — file contents, then stage — so nothing about it is a special path.
+  const ai = useAiResolution({
+    workspaceId,
+    workspacePath,
+    repoPath: state.repoPath,
+    conflictPaths: repoMode.conflictPaths,
+    merging: repoMode.mode === 'merging',
+    onAction: runActionAsync,
+  });
 
-  const requestedStateDiff = useMemo(() => {
-    if (!pendingDiffRequest || !state.activeDiff) return null;
-    if (state.activeDiff.path !== pendingDiffRequest.path) return null;
-    if ((state.activeDiff.staged ?? false) !== pendingDiffRequest.staged) return null;
-    return state.activeDiff;
-  }, [pendingDiffRequest, state.activeDiff]);
+  // The account takes the right pane, so starting a run puts it in view. The
+  // selected commit goes too: a run is about the merge, and the middle column
+  // has to be the conflict list for the account beside it to mean anything.
+  const clearForRun = selection.clearForRun;
+  const handleResolveWithAi = useCallback(() => {
+    clearForRun();
+    ai.start();
+  }, [ai, clearForRun]);
 
-  const diffRequestResolved = useMemo(() => {
-    if (!pendingDiffRequest) return false;
-    return state.lastRefresh !== pendingDiffRequest.refreshSnapshot;
-  }, [pendingDiffRequest, state.lastRefresh]);
+  /**
+   * The account holds the right pane whenever nothing has been opened into it.
+   *
+   * Deliberately **not** conditioned on a selected commit: selecting a commit
+   * clears the diff, so the right pane is idle exactly then. Guarding on it
+   * meant clicking a commit before starting a run made the whole run invisible
+   * — the button vanished, because the run had started, and nothing took its
+   * place.
+   */
+  const showRunLog = ai.status !== 'idle' && !selection.diffSelection;
 
-  const viewDiff = activeDiff ?? requestedStateDiff ?? null;
-  const selectedStagingFile = useMemo(
-    () => (showDiffPanel && pendingDiffRequest
-      ? { path: pendingDiffRequest.path, staged: pendingDiffRequest.staged }
-      : null),
-    [showDiffPanel, pendingDiffRequest],
-  );
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;
   const isNotRepo = state.error === 'Not a git repository' && isWorkspaceStateCurrent;
@@ -170,7 +136,34 @@ export function GitApp() {
     <>
       <style>{GIT_STYLES}</style>
       <div className="git-root relative flex size-full flex-col overflow-hidden">
-        <MemoizedHeader state={state} onAction={runAction} />
+        <MemoizedHeader
+          state={state}
+          onAction={runAction}
+          github={github}
+          onOpenPullRequest={selection.openPullRequest}
+          info={repoMode}
+        />
+
+        {/* A mode you are in, and the way out of it (rule 24). */}
+        <MemoizedModeBanner
+          info={repoMode}
+          {...(isNotRepo || !state.error ? {} : { error: state.error })}
+          defaultBranch={state.defaultBranch}
+          onAction={runAction}
+          onRequestCheckout={selection.requestCheckout}
+          runStatus={ai.status}
+          hasAiResolutions={ai.aiResolvedPaths.length > 0}
+          onResolveWithAi={handleResolveWithAi}
+          onUndoAiResolutions={undoAiResolutions}
+        />
+
+        <SwitchBranchDialog
+          branch={selection.switchTarget}
+          currentBranch={state.currentBranch}
+          changedFiles={state.fileChanges.length}
+          onChoose={(strategy) => void selection.chooseSwitch(strategy)}
+          onCancel={selection.cancelSwitch}
+        />
 
         {notice && (
           <div className="pointer-events-none absolute right-4 top-14 z-30 flex w-[min(30rem,calc(100%-2rem))] justify-end">
@@ -183,8 +176,9 @@ export function GitApp() {
         ) : isNotRepo ? (
           <EmptyRepoState workspacePath={workspacePath} />
         ) : (
-          <>
-            <div className="flex flex-1 overflow-hidden">
+          /* Rail · (working tree + diff) above; history below the divider. */
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1">
               <MemoizedBranchPanel
                 branches={state.branches}
                 remoteBranches={state.remoteBranches}
@@ -193,198 +187,104 @@ export function GitApp() {
                 currentBranch={state.currentBranch}
                 defaultBranch={state.defaultBranch}
                 onAction={runAction}
+                branchColours={graphLayout.branchColours}
+                mode={repoMode.mode}
+                headHash={state.headHash}
+                onRequestCheckout={selection.requestCheckout}
+                sectionsOpen={layout.sectionsOpen}
+                onToggleSection={layout.toggleSection}
               />
 
-              <div className="flex flex-1 overflow-hidden">
-                <MemoizedCommitGraph
-                  commits={state.commits}
-                  selectedHash={selectedCommit?.hash}
-                  onSelectCommit={handleSelectCommit}
-                />
-
-                {showDiffPanel && (
-                  <div className="w-[45%] shrink-0 overflow-y-auto border-l border-[var(--g-border)] p-3 git-scrollbar">
-                    {viewDiff ? (
-                      <MemoizedDiffViewer diff={viewDiff} onClose={handleCloseDiff} />
-                    ) : (
-                      <DiffPlaceholder onClose={handleCloseDiff} resolved={diffRequestResolved} />
-                    )}
-                  </div>
+              {/* One column, two lists: the files you are changing, or the
+                  files in the commit you picked out of the history. Both feed
+                  the same diff on the right, so it is the same job. */}
+              <div className="flex w-[300px] shrink-0 border-r border-[var(--border-default)]">
+                {selection.selectedCommit ? (
+                  <MemoizedCommitDetail
+                    key={selection.selectedCommit.hash}
+                    commit={selection.selectedCommit}
+                    diffs={selection.commitDiffs}
+                    loading={state.selectedCommitHash !== selection.selectedCommit.hash}
+                    hasWorkingTreeChanges={state.fileChanges.length > 0}
+                    selectedPath={selection.diffSelection?.kind === 'commitFile'
+                      ? selection.diffSelection.path
+                      : null}
+                    onSelectFile={selection.selectCommitFile}
+                    onClose={selection.closeCommitDetail}
+                    onAction={runAction}
+                  />
+                ) : (
+                  <MemoizedWorkingTree
+                    workspaceId={workspaceId}
+                    fileChanges={state.fileChanges}
+                    onAction={runAction}
+                    onSelectFile={selection.selectStagingFile}
+                    onOpenInEditor={handleOpenInEditor}
+                    selectedFile={selection.selectedStagingFile}
+                    info={repoMode}
+                    aiResolvedPaths={ai.aiResolvedPaths}
+                  />
                 )}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                <DetailPane
+                  state={state}
+                  workspaceId={workspaceId}
+                  workspacePath={workspacePath}
+                  editorThemeId={editorThemeId}
+                  themeMode={themeMode}
+                  github={github}
+                  composingPr={selection.composingPr}
+                  onClosePullRequest={selection.closePullRequest}
+                  onPublished={handlePublished}
+                  conflictPath={selection.conflictPath}
+                  onConflictResolved={handleConflictResolved}
+                  diffSelection={selection.diffSelection}
+                  onCloseDiff={selection.closeDiff}
+                  commitSelected={Boolean(selection.selectedCommit)}
+                  showRunLog={showRunLog}
+                  runStatus={ai.status}
+                  runEntries={ai.entries}
+                  onAnswer={answerQuestion}
+                  onPause={pauseRun}
+                  onResume={resumeRun}
+                  onStop={stopRun}
+                  onSelectRunFile={handleSelectRunFile}
+                />
               </div>
             </div>
 
-            <MemoizedCommitDetail
-              key={selectedCommit?.hash ?? 'none'}
-              commit={selectedCommit}
-              diffs={commitDiffs}
-              hasWorkingTreeChanges={state.fileChanges.length > 0}
-              onSelectFile={handleSelectDiffFile}
-              onClose={handleCloseCommitDetail}
-              onAction={runAction}
-            />
+            {!layout.viewState.graphCollapsed && (
+              <GraphDivider
+                heightPct={layout.graphHeightPct}
+                onChange={layout.onDividerMove}
+                onCommit={layout.onDividerCommit}
+                min={MIN_GRAPH_HEIGHT_PCT}
+                max={MAX_GRAPH_HEIGHT_PCT}
+              />
+            )}
 
-            <MemoizedStagingArea
-              fileChanges={state.fileChanges}
-              onAction={runAction}
-              onSelectFile={handleSelectStagingFile}
-              selectedFile={selectedStagingFile}
-            />
-          </>
+            <div
+              className="shrink-0 border-t border-[var(--border-default)]"
+              style={{
+                height: layout.viewState.graphCollapsed ? 'auto' : `${layout.graphHeightPct}%`,
+              }}
+            >
+              <MemoizedGraphBand
+                commits={state.commits}
+                selectedHash={selection.selectedCommit?.hash}
+                onSelectCommit={selection.selectCommit}
+                collapsed={layout.viewState.graphCollapsed}
+                onToggleCollapsed={layout.toggleGraph}
+              />
+            </div>
+          </div>
         )}
       </div>
     </>
   );
 }
 
-function DiffPlaceholder({
-  onClose,
-  resolved,
-}: {
-  onClose: () => void;
-  resolved: boolean;
-}) {
-  return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-[var(--g-border)] bg-[var(--g-bg)]">
-      <div className="flex items-center justify-between border-b border-[var(--g-border)] bg-[var(--g-surface)] px-3 py-2">
-        <span className="text-xs text-[var(--g-muted)]">
-          {resolved ? 'No diff available' : 'Loading diff…'}
-        </span>
-        <button type="button"
-          aria-label="Close diff"
-          onClick={onClose}
-          className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
-      </div>
-      <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-[var(--g-dim)]">
-        {resolved
-          ? 'This file does not have a displayable diff in the selected state.'
-          : 'Preparing the diff for this file...'}
-      </div>
-    </div>
-  );
-}
-
-function GitActionNotice({
-  notice,
-  onClose,
-}: {
-  notice: GitActionNoticeState;
-  onClose: () => void;
-}) {
-  return (
-    <div className="pointer-events-auto w-full rounded-lg border border-[var(--g-red)]/30 bg-[var(--g-surface)] shadow-2xl shadow-black/30 backdrop-blur-sm">
-      <div className="flex items-start gap-3 px-3 py-2.5">
-        <div className="mt-0.5 shrink-0 rounded-full bg-[var(--g-red)]/12 p-1 text-[var(--g-red)]">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M6 3.2v3.2" />
-            <path d="M6 8.8h.01" />
-            <circle cx="6" cy="6" r="4.5" />
-          </svg>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-[var(--g-text)]">{notice.title}</div>
-          <div className="mt-0.5 text-sm leading-relaxed text-[var(--g-muted)]">
-            {notice.message}
-          </div>
-        </div>
-        <button type="button"
-          onClick={onClose}
-          className="shrink-0 p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
-          aria-label="Dismiss git action notice"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceLoadingState({ workspacePath }: { workspacePath: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="flex max-w-sm flex-col items-center text-center">
-        <div className="git-loading mb-4 flex size-16 items-center justify-center rounded-full bg-[var(--g-elevated)] text-[var(--g-accent)]">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M9 3v12a3 3 0 003 3h0a3 3 0 003-3V9" />
-            <circle cx="9" cy="3" r="2" />
-            <circle cx="15" cy="9" r="2" />
-            <circle cx="12" cy="21" r="2" />
-          </svg>
-        </div>
-        <h2 className="text-base font-medium text-[var(--g-text)]">Loading repository</h2>
-        <p className="mt-2 text-base leading-relaxed text-[var(--g-muted)]">
-          Syncing Git state for <span className="git-mono text-[var(--g-text)]">{workspacePath}</span>.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyRepoState({ workspacePath }: { workspacePath: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="flex max-w-sm flex-col items-center text-center">
-        <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-[var(--g-elevated)]">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--g-dim)" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M9 3v12a3 3 0 003 3h0a3 3 0 003-3V9" />
-            <circle cx="9" cy="3" r="2" />
-            <circle cx="15" cy="9" r="2" />
-            <circle cx="12" cy="21" r="2" />
-          </svg>
-        </div>
-        <h2 className="text-base font-medium text-[var(--g-text)]">Not a Git repository</h2>
-        <p className="mt-2 text-base leading-relaxed text-[var(--g-muted)]">
-          <span className="git-mono text-[var(--g-text)]">{workspacePath}</span> does not contain a Git repository.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function getActionFailureTitle(action: GitManagerRequest['action']): string {
-  switch (action) {
-    case 'checkout':
-      return 'Could not switch branch';
-    case 'create_branch':
-      return 'Could not create branch';
-    case 'delete_branch':
-      return 'Could not delete branch';
-    case 'remove_worktree':
-      return 'Could not remove worktree';
-    case 'stage':
-      return 'Could not stage changes';
-    case 'unstage':
-      return 'Could not unstage changes';
-    case 'commit':
-      return 'Could not create commit';
-    case 'push':
-      return 'Could not push changes';
-    case 'pull':
-      return 'Could not pull changes';
-    case 'fetch':
-      return 'Could not fetch remotes';
-    case 'stash':
-    case 'stash_pop':
-    case 'stash_apply':
-      return 'Could not update stashes';
-    case 'cherry_pick':
-      return 'Could not cherry-pick commit';
-    case 'merge':
-      return 'Could not merge branch';
-    case 'diff':
-      return 'Could not load diff';
-    case 'show_commit':
-      return 'Could not load commit details';
-    default:
-      return 'Git action failed';
-  }
-}
-
+// The host's federation loader resolves exposed modules by default export.
 export default GitApp;

@@ -14,6 +14,7 @@ import {
 } from './git-commands';
 import { getDefaultBranch } from './git-default-branch';
 import { getBranches, getRemoteBranches } from './git-refs';
+import { isDetachedHead, readMergeState } from './git-merge-state';
 
 interface GitRefSnapshot {
   currentBranch: string;
@@ -90,6 +91,8 @@ export async function createQuickRefreshState(
     remotes: snapshot.remotes,
     fileChanges: await getFileChanges(cwd),
     stashes: await getStashes(cwd),
+    detached: await isDetachedHead(cwd),
+    merge: await readMergeState(cwd, previousState.merge),
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,

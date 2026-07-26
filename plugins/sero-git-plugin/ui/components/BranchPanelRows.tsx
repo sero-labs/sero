@@ -1,15 +1,22 @@
 import type { BranchInfo, StashEntry } from '../../shared/types';
+import { MiddleTruncate } from './MiddleTruncate';
 
 export function BranchRow({
   branch,
   label,
   isCurrent,
   onCheckout,
+  laneColour,
+  dense,
 }: {
   branch: BranchInfo;
   label: string;
   isCurrent: boolean;
   onCheckout?: () => void;
+  /** The colour of this branch's lane in the graph, so the two agree (§3). */
+  laneColour?: string;
+  /** Tighter rows, for the remote list where the names are read, not acted on. */
+  dense?: boolean;
 }) {
   const checkedOutElsewhere = Boolean(branch.checkedOutIn);
   const rowTitle = checkedOutElsewhere
@@ -24,31 +31,66 @@ export function BranchRow({
     <div
       onClick={!isCurrent && !checkedOutElsewhere ? onCheckout : undefined}
       title={rowTitle}
-      className={`flex items-center gap-2 px-3 py-1.5 text-xs transition-colors
+      className={`flex items-center gap-2 px-3 text-xs transition-colors ${dense ? 'py-0.5' : 'py-1.5'}
         ${isCurrent
-          ? 'bg-[var(--g-glow)] text-[var(--g-accent)]'
+          ? 'bg-[var(--brand-secondary-faint)] text-[var(--brand-secondary)]'
           : checkedOutElsewhere
-            ? 'cursor-default text-[var(--g-dim)] opacity-70'
+            ? 'cursor-default text-[var(--text-muted)] opacity-70'
             : onCheckout
-              ? 'cursor-pointer text-[var(--g-muted)] hover:bg-[var(--g-hover)] hover:text-[var(--g-text)]'
-              : 'text-[var(--g-muted)]'
+              ? 'cursor-pointer text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
+              : 'text-[var(--text-secondary)]'
         }`}
     >
-      <BranchIcon active={isCurrent} />
-      <span className="min-w-0 flex-1 truncate git-mono text-sm">{label}</span>
+      {/* The lane colour is the link between the rail and the graph. */}
+      {laneColour
+        ? <span className="size-1.5 shrink-0 rounded-full" style={{ background: laneColour }} />
+        : <BranchIcon active={isCurrent} />}
+      <MiddleTruncate value={label} className="min-w-0 flex-1 git-mono text-sm" />
       <div className="flex shrink-0 items-center gap-1">
         {checkedOutElsewhere && (
-          <span className="rounded bg-[var(--g-elevated)] px-1 py-0.5 text-xs uppercase tracking-wider text-[var(--g-dim)]">
+          <span className="rounded bg-[var(--bg-elevated)] px-1 py-0.5 text-xs uppercase tracking-wider text-[var(--text-muted)]">
             WT
           </span>
         )}
         {(branch.ahead > 0 || branch.behind > 0) && (
           <div className="flex items-center gap-1 text-xs">
-            {branch.ahead > 0 && <span className="text-[var(--g-green)]">+{branch.ahead}</span>}
-            {branch.behind > 0 && <span className="text-[var(--g-red)]">-{branch.behind}</span>}
+            {branch.ahead > 0 && <span className="text-[var(--status-success)]">+{branch.ahead}</span>}
+            {branch.behind > 0 && <span className="text-[var(--status-error)]">-{branch.behind}</span>}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Where you are when it is not a branch: a detached HEAD, or a branch that
+ * exists as a name with nothing on it yet. The rail always answers "where am
+ * I", so neither is left out (§7).
+ */
+export function PositionRow({
+  label, note, tone, title,
+}: {
+  label: string;
+  note?: string;
+  tone: 'warning' | 'muted';
+  title: string;
+}) {
+  return (
+    <div
+      title={title}
+      className={`flex items-center gap-2 px-3 py-1.5 text-xs ${
+        tone === 'warning'
+          ? 'bg-[var(--status-warning-faint)] text-[var(--status-warning)]'
+          : 'bg-[var(--brand-secondary-faint)] text-[var(--brand-secondary)]'
+      }`}
+    >
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: tone === 'warning' ? 'var(--status-warning)' : 'currentColor' }}
+      />
+      <MiddleTruncate value={label} className="min-w-0 flex-1 git-mono text-sm" />
+      {note && <span className="shrink-0 text-xs opacity-70">{note}</span>}
     </div>
   );
 }
@@ -65,29 +107,29 @@ export function StashRow({
   onPop: () => void;
 }) {
   return (
-    <div className="group border-t border-[var(--g-border)] first:border-t-0 px-3 py-1.5">
+    <div className="group border-t border-[var(--border-subtle)] first:border-t-0 px-3 py-1.5">
       <div className="flex items-center gap-2">
         <StashIcon />
-        <span className="min-w-0 flex-1 truncate text-xs text-[var(--g-muted)]">{stash.message}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">{stash.message}</span>
         <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
           <button type="button"
             onClick={onApply}
-            className="rounded border border-[var(--g-border)] px-1.5 py-0.5 text-xs text-[var(--g-muted)] transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
+            className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-default)] hover:text-[var(--text-primary)]"
           >
             Apply
           </button>
           <button type="button"
             onClick={onPop}
             className={`rounded border px-1.5 py-0.5 text-xs transition-colors ${confirmPop
-              ? 'border-[var(--g-red)] text-[var(--g-red)] hover:bg-[var(--g-red)]/10'
-              : 'border-[var(--g-border)] text-[var(--g-muted)] hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]'
+              ? 'border-[var(--status-error)] text-[var(--status-error)] hover:bg-[var(--status-error)]/10'
+              : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
             {confirmPop ? 'Confirm pop' : 'Pop'}
           </button>
         </div>
       </div>
-      <div className="mt-1 flex items-center justify-between text-sm text-[var(--g-dim)]">
+      <div className="mt-1 flex items-center justify-between text-sm text-[var(--text-muted)]">
         <span className="git-mono">{`stash@{${stash.index}}`}</span>
         {stash.date && <span>{formatRelativeDate(stash.date)}</span>}
       </div>
@@ -98,7 +140,7 @@ export function StashRow({
 function BranchIcon({ active }: { active: boolean }) {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" strokeWidth="1.5" strokeLinecap="round"
-      stroke={active ? 'var(--g-accent)' : 'currentColor'}>
+      stroke={active ? 'var(--brand-secondary)' : 'currentColor'}>
       <circle cx="5" cy="4" r="1.5" />
       <circle cx="5" cy="12" r="1.5" />
       <circle cx="11" cy="8" r="1.5" />

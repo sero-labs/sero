@@ -15,7 +15,6 @@ import {
   Icon,
   Inline,
   Stack,
-  Status,
   Text,
   WidgetContent,
 } from '@sero-ai/ui';
@@ -43,10 +42,9 @@ export function GitCommitsWidget() {
               {state.currentBranch || state.repoName}
             </Text>
           </Inline>
+          {/* A count is plain text, never a pill (rule 6). */}
           {state.commitCount > 0 && (
-            <Status tone="neutral" variant="pill">
-              {state.commitCount} commits
-            </Status>
+            <Text variant="muted">{state.commitCount} commits</Text>
           )}
         </Inline>
 

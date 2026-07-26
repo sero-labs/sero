@@ -16,6 +16,10 @@ import type {
 } from '@sero-ai/common';
 import type { LspNotification } from '@/lsp/lsp-protocol';
 import type {
+  ConflictOutcome,
+  ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
+import type {
   VcsCheckpoint,
   VcsEvent,
   VcsWorkspaceState,
@@ -34,7 +38,9 @@ import type {
   PullRequestDraft,
   CreatePullRequestInput,
   CreatePullRequestResult,
+  GitActionResult,
   GitDiffStat,
+  GitManagerRequest,
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
   OrchestratorBoardAction,
@@ -214,6 +220,10 @@ export interface SeroVcsAPI {
   prState(wsId: string): Promise<PullRequestState>;
   prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
+  /** A drafted commit message for what is about to be committed. `''` means the model had nothing. */
+  commitDraftMessage(wsId: string, scope?: 'staged' | 'all'): Promise<string>;
+  /** Resolve one merge conflict — or ask about it, or decline it. Rejects on a malformed reply. */
+  resolveConflictWithAi(wsId: string, input: ConflictResolveInput): Promise<ConflictOutcome>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   discardCommit(wsId: string, sha: string): Promise<void>;
@@ -225,6 +235,13 @@ export interface SeroVcsAPI {
   openPrs(wsId: string): Promise<AppRuntimePullRequestSummary[]>;
   /** Aggregate +adds −dels of a checkout's branch work vs its base. Null when not a repo. */
   diffStat(checkoutPath: string): Promise<GitDiffStat | null>;
+
+  /**
+   * Run one named git action — stage, commit, stash, switch branch (AD-025).
+   * Resolves `{ ok: false, message }` when the action refused, rather than
+   * throwing, so the caller can show the reason and stop.
+   */
+  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 export interface SeroOrchestratorAPI {

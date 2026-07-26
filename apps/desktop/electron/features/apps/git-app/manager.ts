@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync, watch, type FSWatcher } from 'node:fs';
+import { readFileSync, statSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
 import type { GitManagerAction, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
@@ -16,10 +16,24 @@ import {
 } from './refresh-invalidation';
 
 const GIT_STATE_SUFFIX = path.join('.sero', 'apps', 'git', 'state.json');
-const IGNORED_RELATIVE_PREFIX = '.sero/apps/git/';
+/**
+ * Sero's own directory, which git is told to ignore, so nothing written inside
+ * it can change what `git status` reports. Refreshing because of it would be
+ * pure waste — and it used to name only `.sero/apps/git/`, so another app
+ * writing its state (the orchestrator, say) kicked off a git refresh.
+ */
+const IGNORED_RELATIVE_PREFIX = '.sero/';
 const ACTION_REFRESH_FRESHNESS_MS = 1_000;
+/**
+ * How long to wait before trying to watch again, and the ceiling it backs off
+ * to. A watch can fail for reasons that pass on their own — too many open file
+ * handles, a directory that is briefly gone mid-rebase, a mounted volume that
+ * blinks — so failing is a retry, never a verdict.
+ */
+const WATCH_RETRY_MS = 1_000;
+const WATCH_RETRY_CEILING_MS = 30_000;
 
-type WatcherSource = 'workspace' | 'git-dir' | 'git-refs' | 'git-head' | 'git-index' | 'git-packed-refs';
+type WatcherSource = 'workspace' | 'git-dir' | 'git-refs';
 
 interface GitWorkspaceWatchEntry {
   workspaceId: string;
@@ -28,6 +42,9 @@ interface GitWorkspaceWatchEntry {
   refCount: number;
   syncMode: GitSyncMode;
   watchers: FSWatcher[];
+  /** Pending re-arm, if watching is currently down. */
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  retryDelayMs: number;
 }
 
 export class GitWorkspaceStateManager {
@@ -62,6 +79,8 @@ export class GitWorkspaceStateManager {
       refCount: 1,
       syncMode: 'manual',
       watchers: [],
+      retryTimer: null,
+      retryDelayMs: WATCH_RETRY_MS,
     };
 
     this.watches.set(filePath, entry);
@@ -173,6 +192,16 @@ export class GitWorkspaceStateManager {
       });
   }
 
+  /**
+   * Start watching, and keep trying until it works.
+   *
+   * `.git/HEAD`, `.git/index` and `.git/packed-refs` are deliberately **not**
+   * watched individually. Git never edits them in place — it writes a lock file
+   * and renames it over the top — so a watch on the path is left holding the
+   * replaced file and goes silent after the first commit. The non-recursive
+   * watch on the git directory sees those same writes as directory entries
+   * changing, which survives the rename and covers all three.
+   */
   private startLiveWatch(entry: GitWorkspaceWatchEntry): void {
     this.stopLiveWatch(entry);
 
@@ -180,22 +209,48 @@ export class GitWorkspaceStateManager {
       this.watchWorkspace(entry);
       const gitDir = resolveGitDir(entry.workspacePath);
       if (!gitDir) {
-        entry.syncMode = 'manual';
+        // A repository can arrive after the workspace does — `git init`, or a
+        // clone finishing — so this is a "not yet", not a "no".
+        this.scheduleWatchRetry(entry, 'no git directory yet');
         return;
       }
 
       this.watchGitPath(entry, gitDir, 'git-dir', { recursive: false });
       this.watchGitPath(entry, path.join(gitDir, 'refs'), 'git-refs', { recursive: true });
-      this.watchGitFile(entry, path.join(gitDir, 'HEAD'), 'git-head');
-      this.watchGitFile(entry, path.join(gitDir, 'index'), 'git-index');
-      this.watchGitFile(entry, path.join(gitDir, 'packed-refs'), 'git-packed-refs');
 
       entry.syncMode = 'watch';
+      entry.retryDelayMs = WATCH_RETRY_MS;
     } catch (error) {
-      console.warn('[git-app] Live Git watch setup failed; using manual refresh instead:', error);
-      this.stopLiveWatch(entry);
-      entry.syncMode = 'manual';
+      this.scheduleWatchRetry(entry, String(error));
     }
+  }
+
+  /**
+   * Watching stays down only until the next attempt. Giving up permanently is
+   * what used to leave a workspace showing stale data for the rest of the
+   * session, with a Refresh button as the only way back.
+   */
+  private scheduleWatchRetry(entry: GitWorkspaceWatchEntry, reason: string): void {
+    this.stopLiveWatch(entry);
+    entry.syncMode = 'manual';
+
+    if (entry.retryTimer) return;
+    const delay = entry.retryDelayMs;
+    console.warn(`[git-app] Git watch unavailable (${reason}); retrying in ${delay}ms`);
+
+    entry.retryTimer = setTimeout(() => {
+      entry.retryTimer = null;
+      // Dropped between scheduling and firing.
+      if (!this.watches.has(entry.stateFilePath)) return;
+
+      entry.retryDelayMs = Math.min(entry.retryDelayMs * 2, WATCH_RETRY_CEILING_MS);
+      this.startLiveWatch(entry);
+      // Whatever changed while nothing was watching is caught up here.
+      if (entry.syncMode === 'watch') {
+        this.invalidateWorkspace(entry.workspaceId, 'watch-recovered', { delayMs: 0 });
+      }
+    }, delay);
+    entry.retryTimer.unref?.();
   }
 
   private stopLiveWatch(entry: GitWorkspaceWatchEntry): void {
@@ -203,6 +258,10 @@ export class GitWorkspaceStateManager {
       watcher.close();
     }
     entry.watchers = [];
+    if (entry.retryTimer) {
+      clearTimeout(entry.retryTimer);
+      entry.retryTimer = null;
+    }
   }
 
   private watchWorkspace(entry: GitWorkspaceWatchEntry): void {
@@ -237,28 +296,6 @@ export class GitWorkspaceStateManager {
     );
   }
 
-  private watchGitFile(
-    entry: GitWorkspaceWatchEntry,
-    filePath: string,
-    source: Extract<WatcherSource, 'git-head' | 'git-index' | 'git-packed-refs'>,
-  ): void {
-    const targetPath = existsSync(filePath) ? filePath : path.dirname(filePath);
-    this.watchPath(
-      entry,
-      targetPath,
-      source,
-      { recursive: false },
-      (_eventType, filename) => {
-        if (targetPath !== filePath) {
-          const changedName = typeof filename === 'string' ? filename : filename?.toString('utf8') ?? '';
-          if (changedName && changedName !== path.basename(filePath)) return;
-        }
-        this.invalidateWorkspace(entry.workspaceId, source);
-      },
-      false,
-    );
-  }
-
   private watchPath(
     entry: GitWorkspaceWatchEntry,
     targetPath: string,
@@ -275,10 +312,8 @@ export class GitWorkspaceStateManager {
           watcher.close();
           return;
         }
-        console.warn(`[git-app] Required watcher ${source} failed for ${targetPath}:`, error);
-        this.stopLiveWatch(entry);
-        entry.syncMode = 'manual';
         this.invalidateWorkspace(entry.workspaceId, `watcher-failed:${source}`, { delayMs: 0 });
+        this.scheduleWatchRetry(entry, `${source} failed for ${targetPath}: ${String(error)}`);
       });
       entry.watchers.push(watcher);
     } catch (error) {
@@ -330,6 +365,7 @@ function shouldInvalidateAfterAction(action: GitManagerAction): boolean {
     case 'delete_branch':
     case 'remove_worktree':
     case 'merge':
+    case 'abort_merge':
     case 'cherry_pick':
     case 'refresh':
       return true;

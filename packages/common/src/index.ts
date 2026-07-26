@@ -214,6 +214,7 @@ export type {
   FileDiff,
   GitSyncMode,
   GitAppState,
+  GitMergeState,
 } from './git-app';
 export {
   createDefaultGitState,
@@ -375,3 +376,11 @@ export type {
   SeroEditorBridge,
   SeroWebHostBridge,
 } from './admin-bridge';
+
+export {
+  AUTO_EDITOR_THEME_ID,
+  SHIKI_THEME_PAIRS,
+  resolveShikiThemePair,
+} from './editor-themes';
+
+export type { ShikiThemeName, ShikiThemePair } from './editor-themes';

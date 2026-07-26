@@ -64,6 +64,7 @@ describe('CommitDetail', () => {
         <CommitDetail
           commit={commit}
           diffs={diffs}
+          loading={false}
           hasWorkingTreeChanges
           onSelectFile={() => undefined}
           onClose={() => undefined}
@@ -76,7 +77,7 @@ describe('CommitDetail', () => {
       clickButton(container, 'Cherry-pick');
     });
 
-    expect(container.textContent).toContain('Auto-stash your current changes before cherry-picking this commit');
+    expect(container.textContent).toContain('You have uncommitted changes');
     expect(onAction).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -92,6 +93,7 @@ describe('CommitDetail', () => {
         <CommitDetail
           commit={commit}
           diffs={diffs}
+          loading={false}
           hasWorkingTreeChanges={false}
           onSelectFile={() => undefined}
           onClose={() => undefined}

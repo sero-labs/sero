@@ -371,6 +371,52 @@ search logic stays inside the plugin.
 The component is wrapped in `AppProvider` like the main app component, so all
 `@sero-ai/app-runtime` hooks (`useAppState`, `useAppTools`, …) work as usual.
 
+#### `sero.app.explorerView` (optional)
+
+Contribute a view to the Explorer. The host adds an activity-bar entry and
+mounts the named component in the Explorer's main area, where it gets the full
+width — the host's file-tree sidebar is hidden while your view is showing.
+
+```json
+"explorerView": {
+  "component": "MyExplorerView",
+  "label": "Git",
+  "icon": "git-branch"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `component` | string | Yes | Exported component name from the module federation remote. |
+| `label` | string | No | Activity-bar label. Defaults to the app's name. |
+| `icon` | string | No | Lucide icon name. Defaults to the app's icon. |
+
+The view is identified by your app id, and unmounts when the user switches
+away, so keep any state you want to survive that in your own store rather than
+in component state. If your plugin isn't loaded, the host keeps the selection
+and shows a placeholder — the view comes back when the plugin does.
+
+Declare `"requiredHostCapabilities": ["ui.explorerView"]` so older hosts report
+the plugin as unsupported instead of silently dropping the view.
+
+#### `sero.app.titlebar` (optional)
+
+Contribute a control to the right side of the window title bar.
+
+```json
+"titlebar": { "component": "MyTitleBarControl" }
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `component` | string | Yes | Exported component name from the module federation remote. |
+
+Keep it small — a button or two. The title bar is 40px tall and shared with the
+host's own controls. A popover built from `@sero-ai/ui` works here: it portals
+into your plugin's style scope, so it stays correctly themed.
+
+Declare `"requiredHostCapabilities": ["ui.titlebar"]`.
+
 ### `sero.plugin` (required for plugins)
 
 See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for

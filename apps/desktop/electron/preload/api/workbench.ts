@@ -11,7 +11,9 @@ import type {
   CreatePullRequestInput,
   CreatePullRequestResult,
   FileDiffEntry,
+  GitActionResult,
   GitDiffStat,
+  GitManagerRequest,
   PullRequestDraft,
   PullRequestPreview,
   PullRequestState,
@@ -22,6 +24,10 @@ import type {
   VcsWorkspaceState,
 } from '@sero-ai/common';
 import type { EditorRoot, TerminalCreateResult } from '@/types/ipc';
+import type {
+  ConflictOutcome,
+  ConflictResolveInput,
+} from '@electron/features/agent/assistants/conflict-resolve';
 
 export const vcsBridge = {
   listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
@@ -101,6 +107,16 @@ export const vcsBridge = {
     targetBranch?: string,
   ): Promise<PullRequestDraft> =>
     ipcRenderer.invoke(IpcChannels.vcs.prGenerateDraft, workspaceId, sourceBranch, targetBranch),
+  commitDraftMessage: (
+    workspaceId: string,
+    scope?: 'staged' | 'all',
+  ): Promise<string> =>
+    ipcRenderer.invoke(IpcChannels.vcs.commitDraftMessage, workspaceId, scope),
+  resolveConflictWithAi: (
+    workspaceId: string,
+    input: ConflictResolveInput,
+  ): Promise<ConflictOutcome> =>
+    ipcRenderer.invoke(IpcChannels.vcs.resolveConflictWithAi, workspaceId, input),
   prCreate: (
     workspaceId: string,
     input: CreatePullRequestInput,
@@ -117,6 +133,11 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.openPrs, workspaceId),
   diffStat: (checkoutPath: string): Promise<GitDiffStat | null> =>
     ipcRenderer.invoke(IpcChannels.vcs.diffStat, checkoutPath),
+  // Writes — stage, commit, stash, switch branch. One entry carrying the action
+  // name rather than a method each, so the renderer and the agent's git tool
+  // share a single implementation of every action and its guards (AD-025).
+  run: (workspaceId: string, params: GitManagerRequest): Promise<GitActionResult> =>
+    ipcRenderer.invoke(IpcChannels.vcs.run, workspaceId, params),
 };
 
 export const terminalBridge = {

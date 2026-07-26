@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditorBridge } from '@/stores/editor-bridge';
-import type { DiffTabState } from './editor/DiffTab';
 
 function mergePendingOpen(
   workspaceId: string,
@@ -20,8 +19,9 @@ function mergePendingOpen(
 }
 
 /**
- * Owns editor tabs, persisted editor state, diff mode, and file-open bridge sync
- * for the active explorer workspace.
+ * Owns editor tabs, persisted editor state, and file-open bridge sync for the
+ * active explorer workspace. Diffs are not its business — they live in the git
+ * views, which the git plugin contributes (AD-025).
  */
 export function useExplorerEditorState(workspaceId: string) {
   // Tracks whether the editor state for the CURRENT workspaceId has loaded.
@@ -31,16 +31,11 @@ export function useExplorerEditorState(workspaceId: string) {
 
   const [editorTabs, setEditorTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  // Diff tab state — when set, renders DiffTab instead of EditorPanel.
-  const [diffState, setDiffState] = useState<DiffTabState | null>(null);
 
   // Runs on every workspaceId change. Cancels stale loads so fast
   // workspace transitions don't apply stale results to the new workspace.
   useEffect(() => {
     editorReadyRef.current = false;
-    // A diff tab belongs to the workspace it was opened in — close it so it
-    // can't render another workspace's changes over this one.
-    setDiffState(null);
     let cancelled = false;
 
     (async () => {
@@ -139,19 +134,6 @@ export function useExplorerEditorState(workspaceId: string) {
     setEditorTabs(newOrder);
   }, []);
 
-  const handleOpenDiff = useCallback(
-    (fromRev: string, toRev: string, path?: string) => {
-      setDiffState({
-        type: 'diff',
-        workspaceId,
-        fromRev,
-        toRev,
-        initialPath: path,
-      });
-    },
-    [workspaceId],
-  );
-
   const handlePathChanged = useCallback((oldPath: string, newPath: string) => {
     const remapPath = (path: string): string | null => {
       if (path === oldPath) {
@@ -194,21 +176,14 @@ export function useExplorerEditorState(workspaceId: string) {
     });
   }, []);
 
-  const closeDiff = useCallback(() => {
-    setDiffState(null);
-  }, []);
-
   return {
     editorTabs,
     activeTab,
-    diffState,
-    closeDiff,
     handleOpenTab,
     handleCloseTab,
     handleCloseOtherTabs,
     handleCloseAllTabs,
     handleReorderTabs,
-    handleOpenDiff,
     handlePathChanged,
     handleDeleted,
   };

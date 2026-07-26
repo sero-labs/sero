@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { Files, GitBranch, Terminal, Network, Globe } from 'lucide-react';
+import { Files, Terminal, Network, Globe } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { getAppIcon } from '@/lib/app-icons';
+import { getExplorerViewContributionApps, useAppStore } from '@/stores/app';
 import { useSubagentStore } from '@/stores/subagent';
+import type { ExplorerPanel } from '@/lib/explorer-panels';
 
-// ── Types ──────────────────────────────────────────────────────
-export type ExplorerPanel = 'explorer' | 'git' | 'orchestration' | 'browser' | 'terminal';
+export type { ExplorerPanel };
 
 interface ActivityItem {
   id: ExplorerPanel;
@@ -16,13 +18,29 @@ interface ActivityItem {
   bottom?: boolean;
 }
 
-const items: ActivityItem[] = [
+const builtinItems: ActivityItem[] = [
   { id: 'explorer', label: 'Explorer', icon: <Files className="size-[18px]" /> },
-  { id: 'git', label: 'Source Control', icon: <GitBranch className="size-[18px]" /> },
   { id: 'orchestration', label: 'Orchestration', icon: <Network className="size-[18px]" /> },
   { id: 'browser', label: 'Browser', icon: <Globe className="size-[18px]" /> },
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
 ];
+
+/** Activity-bar entries for apps declaring `sero.app.explorerView`. */
+function useContributedItems(): ActivityItem[] {
+  const apps = useAppStore((s) => s.apps);
+  return useMemo(
+    () => getExplorerViewContributionApps(apps).map((app) => {
+      const view = app.manifest!.explorerView!;
+      const Icon = getAppIcon(view.icon ?? app.icon);
+      return {
+        id: app.id,
+        label: view.label ?? app.label,
+        icon: <Icon className="size-[18px]" />,
+      };
+    }),
+    [apps],
+  );
+}
 
 // ── Component ──────────────────────────────────────────────────
 interface ActivityBarProps {
@@ -36,13 +54,15 @@ interface ActivityBarProps {
 /**
  * ActivityBar, narrow icon strip for the explorer workspace.
  *
- * Explorer, Search, Source Control, Orchestration (top) and Terminal (bottom).
- * Shows a badge on the orchestration icon when subagents are running.
+ * Built-in panels first, then any view an installed app contributes via
+ * `sero.app.explorerView` — the Git view arrives that way. Shows a badge on the
+ * orchestration icon when subagents are running.
  */
 export function ActivityBar({
   activePanel, sidebarOpen, terminalOpen, onPanelClick, workspaceId,
 }: ActivityBarProps) {
   const entries = useSubagentStore((s) => s.entries);
+  const contributedItems = useContributedItems();
 
   const runningCount = useMemo(() => {
     if (!workspaceId) return 0;
@@ -51,8 +71,8 @@ export function ActivityBar({
     ).length;
   }, [entries, workspaceId]);
 
-  const topItems = items.filter((i) => !i.bottom);
-  const bottomItems = items.filter((i) => i.bottom);
+  const topItems = [...builtinItems.filter((i) => !i.bottom), ...contributedItems];
+  const bottomItems = builtinItems.filter((i) => i.bottom);
 
   return (
     <nav className="flex w-10 shrink-0 flex-col items-center border-r border-[var(--border-default)] bg-[var(--bg-surface)] py-1">
@@ -66,6 +86,8 @@ export function ActivityBar({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label={item.label}
+                data-explorer-panel={item.id}
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
@@ -103,6 +125,8 @@ export function ActivityBar({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label={item.label}
+                data-explorer-panel={item.id}
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',

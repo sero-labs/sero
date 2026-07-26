@@ -12,6 +12,12 @@
 
 import type * as monacoApi from 'monaco-editor';
 import type { ThemeInput } from '@streamdown/code';
+import { AUTO_EDITOR_THEME_ID, resolveShikiThemePair, type ShikiThemeName } from '@sero-ai/common';
+
+// The id→shiki-name map lives in @sero-ai/common so the git plugin's diff pane
+// colours code from the same setting without duplicating the table.
+export { AUTO_EDITOR_THEME_ID, resolveShikiThemePair };
+export type { ShikiThemeName, ShikiThemePair } from '@sero-ai/common';
 
 export type EditorThemeKind = 'light' | 'dark';
 
@@ -33,7 +39,6 @@ export interface EditorThemePalette {
   foreground: string;
 }
 
-export const AUTO_EDITOR_THEME_ID = 'auto';
 export const DEFAULT_EDITOR_THEME_ID = AUTO_EDITOR_THEME_ID;
 
 /** Built-in monaco themes — no `defineTheme` call needed. */
@@ -340,38 +345,11 @@ export function resolveEditorThemePalette(
   };
 }
 
-/** Bundled shiki theme name (the string half of ThemeInput). */
-export type ShikiThemeName = Extract<ThemeInput, string>;
-
-export interface ShikiThemePair {
-  light: ShikiThemeName;
-  dark: ShikiThemeName;
-}
-
-/**
- * Editor theme id → shiki theme names. Non-auto themes use the same shiki
- * theme in both slots so code colors follow the editor theme regardless of
- * the app's light/dark mode. Shared by markdown code blocks and the diff view.
- */
-const SHIKI_THEME_PAIRS: Record<string, ShikiThemePair> = {
-  vs: { light: 'light-plus', dark: 'light-plus' },
-  'vs-dark': { light: 'dark-plus', dark: 'dark-plus' },
-  'hc-light': { light: 'github-light-high-contrast', dark: 'github-light-high-contrast' },
-  'hc-black': { light: 'github-dark-high-contrast', dark: 'github-dark-high-contrast' },
-  'one-dark': { light: 'one-dark-pro', dark: 'one-dark-pro' },
-  'github-light': { light: 'github-light', dark: 'github-light' },
-  'github-dark': { light: 'github-dark', dark: 'github-dark' },
-  dracula: { light: 'dracula', dark: 'dracula' },
-  monokai: { light: 'monokai', dark: 'monokai' },
-  'solarized-light': { light: 'solarized-light', dark: 'solarized-light' },
-  'solarized-dark': { light: 'solarized-dark', dark: 'solarized-dark' },
-  nord: { light: 'nord', dark: 'nord' },
-  [AUTO_EDITOR_THEME_ID]: { light: 'github-light', dark: 'github-dark' },
-};
-
-export function resolveShikiThemePair(id: string): ShikiThemePair {
-  return SHIKI_THEME_PAIRS[id] ?? SHIKI_THEME_PAIRS[AUTO_EDITOR_THEME_ID];
-}
+// Every shared theme name must be one shiki actually bundles. This fails the
+// build if a name added to @sero-ai/common isn't a valid `ThemeInput`.
+type ShikiNamesAreBundled = ShikiThemeName extends Extract<ThemeInput, string> ? true : never;
+const shikiNamesAreBundled: ShikiNamesAreBundled = true;
+void shikiNamesAreBundled;
 
 export function resolveMarkdownCodeThemes(id: string): [ThemeInput, ThemeInput] {
   const { light, dark } = resolveShikiThemePair(id);

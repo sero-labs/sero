@@ -4,6 +4,7 @@ import type { BranchInfo, RemoteInfo } from '../../shared/types';
 import {
   formatBranchLabel,
   groupRemoteBranches,
+  remoteWebUrl,
   sortBranchesForDisplay,
 } from './branch-groups';
 
@@ -62,5 +63,30 @@ describe('branch group helpers', () => {
   it('formats remote branch labels without the remote prefix', () => {
     expect(formatBranchLabel('origin/feature/test')).toBe('feature/test');
     expect(formatBranchLabel('main')).toBe('main');
+  });
+
+  // The rail's remote row opens the remote in a browser, so a git address has
+  // to become a web address first: neither the SSH form nor the `.git` suffix
+  // opens as it stands.
+  it('turns a git remote address into one a browser can open', () => {
+    expect(remoteWebUrl('git@github.com:sero-ai/sero.git')).toBe('https://github.com/sero-ai/sero');
+    expect(remoteWebUrl('ssh://git@github.com/sero-ai/sero.git')).toBe('https://github.com/sero-ai/sero');
+    expect(remoteWebUrl('https://github.com/sero-ai/sero.git')).toBe('https://github.com/sero-ai/sero');
+    expect(remoteWebUrl('https://gitlab.com/group/sub/repo')).toBe('https://gitlab.com/group/sub/repo');
+  });
+
+  // Nothing to open, so the row must not pretend to be a link.
+  it('has no web address for a remote that is not on the web', () => {
+    expect(remoteWebUrl('/Users/dan/repos/mirror.git')).toBeNull();
+    expect(remoteWebUrl('')).toBeNull();
+  });
+
+  it('carries the browsable address onto the group', () => {
+    const groups = groupRemoteBranches(
+      [{ name: 'origin/main', current: false, ahead: 0, behind: 0 }],
+      [{ name: 'origin', fetchUrl: 'git@github.com:sero-ai/sero.git', pushUrl: 'git@github.com:sero-ai/sero.git' }],
+    );
+
+    expect(groups[0]?.webUrl).toBe('https://github.com/sero-ai/sero');
   });
 });

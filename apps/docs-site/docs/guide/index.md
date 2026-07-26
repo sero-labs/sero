@@ -37,7 +37,7 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Dashboard and Widgets](/guide/dashboard-widgets) — add, remove, move, resize, and troubleshoot dashboard widgets.
 - [App Store and Favorites](/guide/app-store-favorites) — discover plugins, manage installed apps, and edit sidebar favorites.
 - [Settings and Admin](/guide/settings-models-admin) — use Admin configuration, agents, skills, prompts, sessions, plugin, and provider surfaces.
-- [Git Integration](/guide/git-integration) — inspect repository status, manage changes, and stay inside safety limits.
+- [Git](/guide/git-integration) — branches, changes, commits and diffs, including merge conflicts and the AI resolver.
 - [MCP](/guide/mcp) — manage MCP servers and sensitive server configuration.
 - [Web](/guide/web) — add web search, content fetch, bookmarks, and history to agent sessions.
 - [Remote Control](/guide/remote-control) — enable optional trusted-device access to a local Sero session.

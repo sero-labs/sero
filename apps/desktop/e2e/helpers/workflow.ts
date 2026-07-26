@@ -119,3 +119,12 @@ export async function closeApp(app: ElectronApplication | undefined): Promise<vo
     if (timeout) clearTimeout(timeout);
   }
 }
+
+/**
+ * Collapse the main sidebar and the chat panel so an app under test gets the
+ * full window width — worth it when screenshotting a dense layout.
+ */
+export async function collapseShellPanels(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+  await page.getByRole('button', { name: 'Toggle agent' }).click();
+}

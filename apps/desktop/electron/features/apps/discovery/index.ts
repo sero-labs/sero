@@ -10,7 +10,14 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { SeroAppManifest, SeroSearchManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
+import type {
+  SeroAppManifest,
+  SeroExplorerViewManifest,
+  SeroSearchManifest,
+  SeroTitleBarManifest,
+  SeroWidgetManifest,
+  SettingsPackageSource,
+} from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
 import { buildCacheBustedRemoteEntryOverride } from '@electron/features/plugins/dev-sessions/remote-entry';
 import { readPluginDevSessionRecords } from '@electron/features/plugins/dev-sessions/settings';
@@ -41,6 +48,16 @@ interface PkgSearchDef {
   description?: string;
 }
 
+interface PkgExplorerViewDef {
+  component?: string;
+  label?: string;
+  icon?: string;
+}
+
+interface PkgTitleBarDef {
+  component?: string;
+}
+
 interface PkgSeroApp {
   id: string;
   styleIsolation?: 'scope';
@@ -55,6 +72,8 @@ interface PkgSeroApp {
   devPort?: number;
   widgets?: PkgWidgetDef[];
   search?: PkgSearchDef;
+  explorerView?: PkgExplorerViewDef;
+  titlebar?: PkgTitleBarDef;
 }
 
 interface PkgJson {
@@ -159,6 +178,20 @@ function parseSearch(app: PkgSeroApp): SeroSearchManifest | null {
   };
 }
 
+function parseExplorerView(app: PkgSeroApp): SeroExplorerViewManifest | null {
+  if (typeof app.explorerView?.component !== 'string' || !app.explorerView.component) return null;
+  return {
+    component: app.explorerView.component,
+    label: typeof app.explorerView.label === 'string' ? app.explorerView.label : undefined,
+    icon: typeof app.explorerView.icon === 'string' ? app.explorerView.icon : undefined,
+  };
+}
+
+function parseTitleBar(app: PkgSeroApp): SeroTitleBarManifest | null {
+  if (typeof app.titlebar?.component !== 'string' || !app.titlebar.component) return null;
+  return { component: app.titlebar.component };
+}
+
 function buildManifest(
   pkgJson: PkgJson,
   packagePath: string,
@@ -214,6 +247,8 @@ function buildManifest(
       : null,
     widgets: parseWidgets(app),
     search: suppressUi ? null : parseSearch(app),
+    explorerView: suppressUi ? null : parseExplorerView(app),
+    titlebar: suppressUi ? null : parseTitleBar(app),
   };
 }
 

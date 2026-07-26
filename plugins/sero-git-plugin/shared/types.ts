@@ -22,6 +22,7 @@ export type {
   FileDiff,
   GitSyncMode,
   GitAppState,
+  GitMergeState,
 } from '@sero-ai/common';
 
 export {

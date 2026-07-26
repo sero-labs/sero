@@ -119,10 +119,6 @@ export const IpcChannels = {
     newAppDetected: 'sero:apps:new-app-detected',
   },
   appAgent: appAgentIpcChannels,
-  gitApp: {
-    /** Run a direct Git app action for a workspace. */
-    run: 'sero:git-app:run',
-  },
   webApp: {
     /** Run a direct Web app action for a workspace. */
     run: 'sero:web-app:run',
@@ -325,6 +321,10 @@ export const IpcChannels = {
     prState: 'sero:vcs:pr-state',
     prPreview: 'sero:vcs:pr-preview',
     prGenerateDraft: 'sero:vcs:pr-generate-draft',
+    /** Draft a commit message for what is about to be committed (git-ux §10). */
+    commitDraftMessage: 'sero:vcs:commit-draft-message',
+    /** Resolve one merge conflict, or ask about it, or decline it (git-ux §7). */
+    resolveConflictWithAi: 'sero:vcs:resolve-conflict-ai',
     prCreate: 'sero:vcs:pr-create',
     undo: 'sero:vcs:undo',
     discardCommit: 'sero:vcs:discard-commit',
@@ -335,6 +335,13 @@ export const IpcChannels = {
     openPrs: 'sero:vcs:open-prs',
     /** Aggregate +adds −dels of a checkout (workspace root or loop worktree). */
     diffStat: 'sero:vcs:diff-stat',
+    /**
+     * Run one named git action against a workspace — staging, committing,
+     * stashing, switching branch (AD-025). Every write the renderer makes goes
+     * through here, sharing one implementation with the agent's `git_manager`
+     * tool rather than a second copy of each action's guards.
+     */
+    run: 'sero:vcs:run',
   },
   orchestrator: {
     /** Route an Agent Board action to a workspace's orchestrator coordinator. */

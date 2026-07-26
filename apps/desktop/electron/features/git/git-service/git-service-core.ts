@@ -17,12 +17,32 @@ import {
 import { getBranches, getRemoteBranches } from './git-refs';
 import { getDefaultBranch } from './git-default-branch';
 import { canUseQuickRefresh, createGitRefSnapshot, createQuickRefreshState } from './git-refresh';
+import { isDetachedHead, readMergeState } from './git-merge-state';
 import { runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
-// Match the Git app state directory anywhere in the repo so nested workspaces
-// (e.g. repo/subdir/.sero/apps/git/state.json) do not show up as untracked.
-const GIT_STATE_IGNORE_RULE = '**/.sero/apps/git/';
+/**
+ * Sero's own footprint inside a user's repository, kept out of their way.
+ *
+ * These are ours, not theirs: per-machine app state and the workspace's local
+ * config. Left alone they show up as untracked changes and get swept into a
+ * "stage all", so the user commits our bookkeeping into their project.
+ *
+ * Matched anywhere in the tree so nested workspaces (`repo/subdir/.sero/…`)
+ * are covered too. Only `.sero/apps/git/` used to be listed, which meant any
+ * *other* app writing state — the orchestrator, say — dragged the whole
+ * `.sero/` directory back into the untracked list.
+ *
+ * This goes in `.git/info/exclude`, never the project's `.gitignore`: it is a
+ * local preference, not a fact about the project, and it is not ours to commit.
+ * It also only affects *untracked* files, so anyone who deliberately tracks
+ * their `.sero-workspace.json` keeps it — git still reports changes to files it
+ * already knows about.
+ */
+const SERO_IGNORE_RULES = [
+  '**/.sero/',
+  '**/.sero-workspace.json',
+];
 
 export type GitRefreshScope = 'auto' | 'full';
 
@@ -47,33 +67,45 @@ export function err(message: string): GitActionResult {
 }
 
 async function ensureGitStateIgnored(cwd: string): Promise<void> {
-  const gitDir = await runGitAsync(['rev-parse', '--git-dir'], cwd, { allowFailure: true });
-  if (!gitDir) return;
+  // `--git-path` rather than `--git-dir`: in a linked worktree the git dir is
+  // `.git/worktrees/<name>`, but the exclude file git actually reads lives in
+  // the shared parent. Joining it onto `--git-dir` would write a file in the
+  // worktree that git never looks at, so our own state would keep showing up
+  // as untracked changes there.
+  const excludePath = await runGitAsync(
+    ['rev-parse', '--git-path', 'info/exclude'],
+    cwd,
+    { allowFailure: true },
+  );
+  if (!excludePath) return;
 
-  const resolvedGitDir = path.isAbsolute(gitDir)
-    ? gitDir
-    : path.join(cwd, gitDir);
-  const excludePath = path.join(resolvedGitDir, 'info', 'exclude');
+  const resolvedExcludePath = path.isAbsolute(excludePath)
+    ? excludePath
+    : path.join(cwd, excludePath);
 
   let current = '';
   try {
-    current = await fs.readFile(excludePath, 'utf8');
+    current = await fs.readFile(resolvedExcludePath, 'utf8');
   } catch {
     current = '';
   }
 
-  const existingRules = current
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (existingRules.includes(GIT_STATE_IGNORE_RULE)) return;
+  const existingRules = new Set(
+    current.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+  );
+  const missing = SERO_IGNORE_RULES.filter((rule) => !existingRules.has(rule));
+  if (missing.length === 0) return;
 
-  const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${GIT_STATE_IGNORE_RULE}\n`;
-  await fs.mkdir(path.dirname(excludePath), { recursive: true });
-  await fs.writeFile(excludePath, next, 'utf8');
+  const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${missing.join('\n')}\n`;
+  await fs.mkdir(path.dirname(resolvedExcludePath), { recursive: true });
+  await fs.writeFile(resolvedExcludePath, next, 'utf8');
 }
 
-async function createFullRefreshState(cwd: string, syncMode: GitSyncMode): Promise<GitAppState> {
+async function createFullRefreshState(
+  cwd: string,
+  syncMode: GitSyncMode,
+  previousState: GitAppState,
+): Promise<GitAppState> {
   return {
     repoPath: cwd,
     repoName: await getRepoName(cwd),
@@ -87,9 +119,21 @@ async function createFullRefreshState(cwd: string, syncMode: GitSyncMode): Promi
     stashes: await getStashes(cwd),
     fileChanges: await getFileChanges(cwd),
     commitCount: await getCommitCount(cwd),
+    detached: await isDetachedHead(cwd),
+    merge: await readMergeState(cwd, previousState.merge),
     lastRefresh: new Date().toISOString(),
     loading: false,
     syncMode,
+    // What the user has open, carried across the refresh. These are answers to
+    // a question they asked — "show me this commit", "show me this file" — and
+    // rebuilding the repository's state is no reason to take them away. A
+    // commit's diff cannot change, so the carried copy stays correct.
+    //
+    // Dropping them meant any background refresh landing after a commit was
+    // opened emptied its file list, and the panel sat there with nothing in it.
+    commitDiffs: previousState.commitDiffs,
+    selectedCommitHash: previousState.selectedCommitHash,
+    activeDiff: previousState.activeDiff,
   };
 }
 
@@ -115,8 +159,12 @@ export async function refreshGitState(
 
   await ensureGitStateIgnored(cwd);
 
+  // The previous state is read on every refresh, not just the quick path: a
+  // merge's conflicted-path set is carried forward from it (see
+  // `readMergeState`), and a full refresh must not lose it.
+  const previousState = await readState(statePath);
+
   if (scope === 'auto') {
-    const previousState = await readState(statePath);
     const snapshot = await createGitRefSnapshot(cwd);
 
     if (canUseQuickRefresh(previousState, snapshot)) {
@@ -126,7 +174,7 @@ export async function refreshGitState(
     }
   }
 
-  const state = await createFullRefreshState(cwd, syncMode);
+  const state = await createFullRefreshState(cwd, syncMode, previousState);
   await writeState(statePath, state);
   return state;
 }
