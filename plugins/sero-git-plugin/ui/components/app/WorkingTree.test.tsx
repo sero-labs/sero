@@ -59,7 +59,6 @@ describe('WorkingTree', () => {
           selectedFile={null}
           info={NORMAL}
           aiResolvedPaths={[]}
-          unresolvedPaths={[]}
           {...overrides}
         />,
       );

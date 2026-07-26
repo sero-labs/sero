@@ -33,7 +33,6 @@ export function useAiResolution({
   const status = useConflictRun((state) => state.status);
   const entries = useConflictRun((state) => state.entries);
   const aiResolvedPaths = useConflictRun((state) => state.aiResolvedPaths);
-  const unresolvedPaths = useConflictRun((state) => state.unresolvedPaths);
   const reset = useConflictRun((state) => state.reset);
 
   // The run belongs to one merge. When the merge ends — concluded or aborted —
@@ -49,11 +48,13 @@ export function useAiResolution({
         workspaceId,
         toDiskPath: (path) => toWorkspacePath(workspacePath, repoPath, path),
         onStage: async (path) => { await onAction({ action: 'stage', file: path }); },
-        onUnstage: async (path) => { await onAction({ action: 'unstage', file: path }); },
+        onRestoreConflict: async (path) => {
+          await onAction({ action: 'restore_conflict', file: path });
+        },
       },
       conflictPaths,
     );
   }, [conflictPaths, onAction, repoPath, workspaceId, workspacePath]);
 
-  return { status, entries, aiResolvedPaths, unresolvedPaths, start };
+  return { status, entries, aiResolvedPaths, start };
 }

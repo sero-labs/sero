@@ -20,6 +20,14 @@ export type GitManagerAction =
   | 'remove_worktree'
   | 'merge'
   | 'abort_merge'
+  /**
+   * Put a file back to the conflicted state git had before it was resolved,
+   * markers and index stages both. Undoing an AI resolution needs it: once a
+   * file is staged git forgets it ever conflicted, and writing markers back by
+   * hand leaves an ordinary modified file that `git merge --abort` then treats
+   * as your own edit and preserves.
+   */
+  | 'restore_conflict'
   | 'cherry_pick'
   | 'show_commit';
 

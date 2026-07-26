@@ -44,14 +44,20 @@ function conflicted(...bodies: Array<[string, string]>): string {
 }
 
 const staged: string[] = [];
-const unstaged: string[] = [];
+const restored: string[] = [];
 
 function context(): RunContext {
   return {
     workspaceId: 'ws',
     toDiskPath: (path) => path,
     onStage: (path) => { staged.push(path); return Promise.resolve(); },
-    onUnstage: (path) => { unstaged.push(path); return Promise.resolve(); },
+    // Stand-in for `git checkout --merge`, which rewrites the file with git's
+    // own markers before our rebuilt version goes on top.
+    onRestoreConflict: (path) => {
+      restored.push(path);
+      files.set(path, conflicted(['git wrote this', 'and this']));
+      return Promise.resolve();
+    },
   };
 }
 
@@ -69,7 +75,7 @@ describe('the AI resolution run', () => {
     useConflictRun.getState().reset();
     files.clear();
     staged.length = 0;
-    unstaged.length = 0;
+    restored.length = 0;
     resolveConflictWithAi.mockReset();
   });
 
@@ -239,7 +245,7 @@ describe('the AI resolution run', () => {
     // Wait on the store, not the file: undo waits for git before it publishes,
     // so the contents change first and the assertions below would race it.
     await waitFor(
-      () => useConflictRun.getState().unresolvedPaths.includes('a.ts'),
+      () => restored.includes('a.ts'),
       'the undo to land',
     );
 
@@ -247,8 +253,9 @@ describe('the AI resolution run', () => {
     expect(reverted).toContain('you chose this');
     expect(reverted).toContain('<<<<<<< HEAD');
     expect(useConflictRun.getState().aiResolvedPaths).toEqual([]);
-    // It is conflicted again, so it must stop counting as resolved.
-    expect(unstaged).toEqual(['a.ts']);
+    // Genuinely conflicted again, git's way — not unstaged into something git
+    // reads as your own edit, which `merge --abort` would then preserve.
+    expect(restored).toEqual(['a.ts']);
   });
 
   /**

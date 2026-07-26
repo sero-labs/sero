@@ -19,24 +19,17 @@ export interface MergeGroups {
   cleanly: FileChange[];
 }
 
-/**
- * `unresolvedPaths` are files Sero knows are conflicted again although git no
- * longer says so — an undone AI resolution puts the markers back, but git
- * forgot the conflict when the file was staged.
- */
 export function groupForMerge(
   fileChanges: FileChange[],
   conflictPaths: string[],
   aiResolvedPaths: string[] = [],
-  unresolvedPaths: string[] = [],
 ): MergeGroups {
   const conflicted = new Set(conflictPaths);
   const byAi = new Set(aiResolvedPaths);
-  const stillConflicted = new Set(unresolvedPaths);
   const groups: MergeGroups = { conflicts: [], resolvedByAi: [], resolved: [], cleanly: [] };
 
   for (const file of oneRowPerPath(fileChanges)) {
-    if (file.status === 'conflict' || stillConflicted.has(file.path)) groups.conflicts.push(file);
+    if (file.status === 'conflict') groups.conflicts.push(file);
     else if (byAi.has(file.path)) groups.resolvedByAi.push(file);
     else if (conflicted.has(file.path)) groups.resolved.push(file);
     else groups.cleanly.push(file);

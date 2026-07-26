@@ -68,8 +68,12 @@ export interface RunContext {
   toDiskPath: (repoRelativePath: string) => string | null;
   /** Staging is git's own definition of resolved. */
   onStage: (path: string) => Promise<void>;
-  /** A file that goes back to conflicted must stop counting as resolved. */
-  onUnstage: (path: string) => Promise<void>;
+  /**
+   * Put the file back to genuinely conflicted — index stages and all — rather
+   * than merely unstaging it. Unstaging leaves something git reads as your own
+   * edit, which `merge --abort` then keeps, stranding markers after the merge.
+   */
+  onRestoreConflict: (path: string) => Promise<void>;
 }
 
 /**
@@ -93,12 +97,6 @@ interface ConflictRunState {
   entries: RunEntry[];
   /** Files this run resolved at least one conflict in, for the sparkle marks. */
   aiResolvedPaths: string[];
-  /**
-   * Files an undo put markers back into. Git forgets a conflict the moment a
-   * file is staged, so it reports these as ordinary modified files — Sero has
-   * to remember, exactly as it does for `merge.conflictPaths`.
-   */
-  unresolvedPaths: string[];
   error: string | null;
 
   start: (context: RunContext, conflictPaths: string[]) => void;
@@ -127,7 +125,6 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
   status: 'idle',
   entries: [],
   aiResolvedPaths: [],
-  unresolvedPaths: [],
   error: null,
 
   start: (runContext, conflictPaths) => {
@@ -141,7 +138,7 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
     resumeWaiters = [];
     stopWaiters = [];
     answerWaiters = new Map();
-    set({ status: 'running', entries: [], unresolvedPaths: [], error: null });
+    set({ status: 'running', entries: [], error: null });
 
     void runFiles(conflictPaths, set, get);
   },
@@ -194,7 +191,7 @@ export const useConflictRun = create<ConflictRunState>((set, get) => ({
     answerWaiters = new Map();
     resumeWaiters = [];
     stopWaiters = [];
-    set({ status: 'idle', entries: [], aiResolvedPaths: [], unresolvedPaths: [], error: null });
+    set({ status: 'idle', entries: [], aiResolvedPaths: [], error: null });
   },
 }));
 
@@ -358,9 +355,6 @@ async function applyResolution(
   if (source === 'ai' && !get().aiResolvedPaths.includes(path)) {
     set({ aiResolvedPaths: [...get().aiResolvedPaths, path] });
   }
-  if (countConflicts(next) === 0 && get().unresolvedPaths.includes(path)) {
-    set({ unresolvedPaths: get().unresolvedPaths.filter((entry) => entry !== path) });
-  }
   // Staged is git's own definition of resolved, so only a file with nothing
   // left in it gets staged.
   if (countConflicts(next) === 0) await queueGit(() => ctx.onStage(path));
@@ -370,7 +364,6 @@ async function undoAi(set: Set, get: Get): Promise<void> {
   const ctx = context;
   if (!ctx) return;
 
-  const unresolved: string[] = [];
   for (const [path, file] of files) {
     const kept = new Map(
       [...file.resolutions].filter(([, resolution]) => resolution.source === 'answer'),
@@ -380,23 +373,22 @@ async function undoAi(set: Set, get: Get): Promise<void> {
     file.resolutions = kept;
     const reverted = rebuildWithResolutions(file.original, contentsOf(kept));
     try {
+      // Order matters: git rebuilds the conflict first — which rewrites the
+      // file with its own markers — and our version, carrying whatever you
+      // answered, goes on top. Doing it the other way round would throw the
+      // answers away.
+      if (countConflicts(reverted) > 0) {
+        await queueGit(() => ctx.onRestoreConflict(path));
+      }
       await writeWorkingTreeFile(ctx.workspaceId, file.diskPath, reverted);
     } catch (cause) {
       set({ error: messageOf(cause, `Could not undo ${path}.`) });
       continue;
     }
-    // It is conflicted again, so it must stop counting as resolved. Unstaging
-    // is not enough on its own: git no longer knows the file ever conflicted,
-    // so the path is remembered here too.
-    if (countConflicts(reverted) > 0) {
-      unresolved.push(path);
-      await queueGit(() => ctx.onUnstage(path));
-    }
   }
 
   set({
     aiResolvedPaths: [],
-    unresolvedPaths: unresolved,
     entries: get().entries.map((entry) => (
       entry.source === 'ai' ? { ...entry, state: 'queued' as EntryState, why: undefined, source: undefined } : entry
     )),

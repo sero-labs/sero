@@ -31,13 +31,11 @@ interface Props {
   info: RepoModeInfo;
   /** Files the AI resolver resolved, so its work stays identifiable (§7). */
   aiResolvedPaths: string[];
-  /** Files an undo put markers back into, which git no longer calls conflicted. */
-  unresolvedPaths: string[];
 }
 
 export function WorkingTree({
   workspaceId, fileChanges, onAction, onSelectFile, onOpenInEditor, selectedFile, info,
-  aiResolvedPaths, unresolvedPaths,
+  aiResolvedPaths,
 }: Props) {
   // Null means untouched, so git's own merge message can show through without
   // an effect writing it into state behind the user's back.
@@ -89,7 +87,6 @@ export function WorkingTree({
             fileChanges={fileChanges}
             conflictPaths={info.conflictPaths}
             aiResolvedPaths={aiResolvedPaths}
-            unresolvedPaths={unresolvedPaths}
             {...rowProps}
           />
         ) : (
@@ -202,13 +199,12 @@ export function WorkingTree({
 
 /** Mid-merge the list is the to-do list: what conflicts, what you fixed, what merged itself. */
 function MergeSections({
-  fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths,
+  fileChanges, conflictPaths, aiResolvedPaths,
   onSelectFile, onOpenInEditor, selectedFile, onAction,
 }: {
   fileChanges: FileChange[];
   conflictPaths: string[];
   aiResolvedPaths: string[];
-  unresolvedPaths: string[];
   onSelectFile: (path: string, staged: boolean) => void;
   onOpenInEditor: (path: string) => void;
   selectedFile: WorkingTreeSelection | null;
@@ -217,8 +213,8 @@ function MergeSections({
   setPendingDiscard: (path: string | null) => void;
 }) {
   const groups = useMemo(
-    () => groupForMerge(fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths),
-    [fileChanges, conflictPaths, aiResolvedPaths, unresolvedPaths],
+    () => groupForMerge(fileChanges, conflictPaths, aiResolvedPaths),
+    [fileChanges, conflictPaths, aiResolvedPaths],
   );
 
   return (

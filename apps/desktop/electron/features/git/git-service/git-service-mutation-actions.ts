@@ -174,6 +174,21 @@ export async function runGitMutationAction(
     }
 
     // Leaving a merge, which is the one action that only applies mid-merge.
+    /**
+     * `checkout -m` rebuilds the conflict from the merge itself, so it works
+     * even after the file was staged and git dropped the index stages. That
+     * matters: the alternative — writing markers into the file and unstaging —
+     * leaves something git reads as your own local edit, which `merge --abort`
+     * deliberately preserves, stranding conflict markers in the working tree
+     * after the merge is over.
+     */
+    case 'restore_conflict': {
+      if (!params.file) return err('file is required for restore_conflict');
+      await context.exec(['checkout', '--merge', '--', params.file]);
+      await context.refresh('auto');
+      return ok(`Restored the conflict in ${params.file}`);
+    }
+
     case 'abort_merge': {
       await context.exec(['merge', '--abort']);
       await context.refresh('full');

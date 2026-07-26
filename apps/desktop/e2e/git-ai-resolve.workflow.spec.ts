@@ -191,10 +191,25 @@ test('resolves what it can, asks about what it cannot, and undoes only its own w
     .toBeDisabled({ timeout: 20_000 });
   await expect(page.getByText('Resolved by AI')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Undo AI resolutions' })).toBeHidden();
-  // Git no longer calls the file conflicted — it forgot when the file was
-  // staged — so the count here is Sero's own memory, and without it the app
-  // would offer to conclude the merge over a file full of markers.
+  // Genuinely conflicted again as far as git is concerned, so the count comes
+  // from `git status` rather than from a memory of our own.
   await expect(page.getByText('1 conflict left to resolve')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resolve with AI' })).toBeVisible();
   await page.screenshot({ path: 'e2e-artifacts/git-ai-undone.png' });
+
+  /**
+   * Aborting has to leave nothing behind. Undo used to write markers into the
+   * file and unstage it, which git reads as your own edit and `merge --abort`
+   * therefore *preserves* — so the merge ended with conflict markers still in
+   * the working tree. Restoring the real conflicted state lets git clean up.
+   */
+  await page.getByRole('button', { name: 'Abort merge' }).click();
+  await expect(page.getByText(/Merging feature in\./)).toBeHidden({ timeout: 20_000 });
+
+  const afterAbort = fs.readFileSync(path.join(dir, 'src/parse.ts'), 'utf8');
+  expect(afterAbort).not.toContain('<<<<<<<');
+  expect(afterAbort).toContain('export const precision = 3;');
+  expect(afterAbort).toContain('export const currency = "EUR";');
+  expect(execFileSync('git', ['status', '--porcelain=v1'], { cwd: dir, encoding: 'utf8' }).trim())
+    .toBe('');
 });

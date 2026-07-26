@@ -74,9 +74,6 @@ export function GitApp() {
   const resumeRun = useConflictRun((run) => run.resume);
   const stopRun = useConflictRun((run) => run.stop);
   const undoAiResolutions = useConflictRun((run) => run.undoAiResolutions);
-  // Read straight from the store: the repo mode needs it, and the resolution
-  // hook is built *from* the repo mode.
-  const unresolvedPaths = useConflictRun((run) => run.unresolvedPaths);
   const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,11 +262,7 @@ export function GitApp() {
   const effectiveGraphHeight = graphHeightPct ?? viewState.graphHeightPct;
   // The hard states, derived once: the banner, the top bar, the working tree
   // and the rail all read this rather than each working it out (§7).
-  // Empty until an undo, so the mode is unaffected in every other case.
-  const repoMode = useMemo(
-    () => deriveRepoMode(state, unresolvedPaths),
-    [state, unresolvedPaths],
-  );
+  const repoMode = useMemo(() => deriveRepoMode(state), [state]);
 
   // The AI resolver (§7). It writes through the same seam the manual resolver
   // does — file contents, then stage — so nothing about it is a special path.
@@ -376,7 +369,6 @@ export function GitApp() {
                     selectedFile={selectedStagingFile}
                     info={repoMode}
                     aiResolvedPaths={ai.aiResolvedPaths}
-                    unresolvedPaths={unresolvedPaths}
                   />
                 </div>
 

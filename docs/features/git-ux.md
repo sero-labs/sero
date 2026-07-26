@@ -806,12 +806,27 @@ rather than a reverse patch. That one decision is what makes §7's "reverts only
 the machine's work and leaves your answers alone" a filter rather than a
 feature.
 
-**§7 was wrong that undo only has to write the file.** Git forgets a conflict
-the moment a file is staged, so unstaging returns an *ordinary modified* file,
-not an unmerged one — `git reset` gives ` M`, never `UU`. After an undo the app
-would have offered to conclude the merge over a file full of markers. Sero
-remembers instead, which is the same fix and the same reason as
-`merge.conflictPaths` in step 7.
+**§7 was wrong that undo only has to write the file — twice over.** Git forgets
+a conflict the moment a file is staged, so unstaging returns an *ordinary
+modified* file, not an unmerged one: `git reset` gives ` M`, never `UU`.
+
+The first attempt worked around that by remembering the paths in the plugin, as
+`merge.conflictPaths` does. That was wrong, and manual testing found why:
+`git merge --abort` reads an unstaged modification as **your** edit and
+deliberately preserves it, so aborting after an undo left conflict markers in
+the working tree with the merge already over.
+
+The fix is to stop imitating a conflict and restore the real one.
+`git checkout --merge -- <path>` rebuilds it from the merge itself — index
+stages and all — and works even after the file was staged. The undo now does
+that first and writes its rebuilt contents (original plus your answers) on top.
+Git then reports `UU` on its own, so the remembered-paths workaround is deleted:
+the mode, the grouping and the blocked commit all derive from `git status`
+again, and abort cleans up because there is nothing unusual left to clean.
+
+It is a new `restore_conflict` action rather than a widening of `unstage`,
+because "unstage" must keep meaning what it says — a manual resolution you
+unstage should not have its markers forced back over your work.
 
 **Three bugs the screenshots caught**, none of which typecheck or unit tests
 could see — the reason §11's steps are verified against the running app:

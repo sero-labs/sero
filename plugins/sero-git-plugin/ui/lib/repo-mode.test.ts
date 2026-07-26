@@ -105,18 +105,17 @@ describe('branchChipLabel', () => {
 });
 
 /**
- * Staging a file makes git forget it ever conflicted, so undoing an AI
- * resolution puts markers back on disk while `git status` reports an ordinary
- * modified file. Without Sero's own memory the app would offer to conclude the
- * merge over a file full of markers.
+ * Undoing an AI resolution puts the file back to genuinely conflicted — git's
+ * own index stages, not a marker-shaped imitation — so the mode is derived from
+ * `git status` alone and needs no memory of its own.
  */
-describe('a file Sero knows is conflicted again', () => {
+describe('a file that is conflicted again after an undo', () => {
   const merging = {
     ...createDefaultGitState(),
     headHash: 'abc1234',
     commitCount: 3,
     fileChanges: [
-      { path: 'src/parse.ts', status: 'modified' as const, staged: false },
+      { path: 'src/parse.ts', status: 'conflict' as const, staged: false },
       { path: 'README.md', status: 'modified' as const, staged: true },
     ],
     merge: {
@@ -126,19 +125,22 @@ describe('a file Sero knows is conflicted again', () => {
     },
   };
 
-  it('reads as resolved when nothing says otherwise', () => {
+  it('blocks the merge, because git reports it as unmerged', () => {
     const info = deriveRepoMode(merging);
-    expect(info.conflicts).toBe(0);
-    expect(info.commitBlockedReason).toBeNull();
-  });
-
-  it('blocks the merge again once it is named', () => {
-    const info = deriveRepoMode(merging, ['src/parse.ts']);
     expect(info.conflicts).toBe(1);
     expect(info.commitBlockedReason).toBe('1 conflict left to resolve');
   });
 
-  it('ignores a named path that is not in the working tree', () => {
-    expect(deriveRepoMode(merging, ['src/gone.ts']).conflicts).toBe(0);
+  it('lets the merge conclude once git stops calling it conflicted', () => {
+    const resolved = {
+      ...merging,
+      fileChanges: [
+        { path: 'src/parse.ts', status: 'modified' as const, staged: true },
+        { path: 'README.md', status: 'modified' as const, staged: true },
+      ],
+    };
+    const info = deriveRepoMode(resolved);
+    expect(info.conflicts).toBe(0);
+    expect(info.commitBlockedReason).toBeNull();
   });
 });
