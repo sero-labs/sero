@@ -3,7 +3,7 @@ import {
   Download,
   Loader2,
   Star,
-  Github,
+  GitFork,
   Package,
   Trash2,
 } from 'lucide-react';
@@ -121,7 +121,7 @@ export function DiscoverPluginCard({
               variant="outline"
               className="gap-1 border-[var(--border-default)] text-sm text-[var(--text-muted)]"
             >
-              <Github className="size-3" />
+              <GitFork className="size-3" />
               GitHub
             </Badge>
           ) : null}

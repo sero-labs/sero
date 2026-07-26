@@ -2,7 +2,7 @@
  * Header bar, repo name, current branch, action buttons.
  */
 
-import { Github } from 'lucide-react';
+import { GitFork } from 'lucide-react';
 import type { GitAppState, GitManagerRequest } from '../../shared/types';
 import { branchChipLabel, type RepoModeInfo } from '../lib/repo-mode';
 
@@ -120,7 +120,7 @@ function GitHubControl({
           title="Sign in to GitHub"
           className={GITHUB_BTN}
         >
-          <Github className="size-3.5" />
+          <GitFork className="size-3.5" />
           Sign in
         </button>
       )}
@@ -135,7 +135,7 @@ function GitHubControl({
           : 'Publish this repository to GitHub'}
         className={`${GITHUB_BTN} disabled:cursor-not-allowed disabled:opacity-40`}
       >
-        <Github className="size-3.5" />
+        <GitFork className="size-3.5" />
         {hasRemote ? 'Pull request' : 'Publish to GitHub'}
       </button>
     </>

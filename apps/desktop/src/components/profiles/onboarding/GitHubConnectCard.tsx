@@ -1,4 +1,4 @@
-import { Github } from 'lucide-react';
+import { GitFork } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { GitHubAuthStatus } from '@/types/electron-services';
 import { GitHubAuthOutcomeNote } from '@/components/layout/auth/github/GitHubAuthOutcomeNote';
@@ -38,7 +38,7 @@ export function GitHubConnectCard({
             connected ? 'bg-status-success-muted/70' : 'bg-[var(--bg-elevated)]',
           )}
         >
-          <Github
+          <GitFork
             className={cn(
               'size-4',
               connected ? 'text-status-success' : 'text-[var(--text-primary)]',

@@ -1,4 +1,4 @@
-import { Github, Loader2 } from 'lucide-react';
+import { GitFork, Loader2 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { GitHubAuthStatus } from '@/types/electron-services';
 
@@ -47,7 +47,7 @@ export function GitHubAuthSummary({
         )}
       >
         <span className="flex min-w-0 items-center gap-1.5 text-sm text-status-success">
-          <Github className="size-3 shrink-0" />
+          <GitFork className="size-3 shrink-0" />
           <span className="truncate">
             Connected as <strong>{authStatus.username ?? 'GitHub user'}</strong>
           </span>
@@ -84,7 +84,7 @@ export function GitHubAuthSummary({
         )}
       >
         <span className="flex items-center gap-1">
-          <Github className="size-3" />
+          <GitFork className="size-3" />
           {connectLabel}
         </span>
       </button>

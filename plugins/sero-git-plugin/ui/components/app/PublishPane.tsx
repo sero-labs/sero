@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Github, Loader2 } from 'lucide-react';
+import { GitFork, Loader2 } from 'lucide-react';
 import { seroGitHub } from '../../store/sero-bridge';
 
 interface Props {
@@ -55,7 +55,7 @@ export function PublishPane({
   return (
     <div className="flex size-full min-h-0 flex-col bg-[var(--bg-base)]">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3">
-        <Github className="size-3.5 text-[var(--text-muted)]" />
+        <GitFork className="size-3.5 text-[var(--text-muted)]" />
         <span className="text-[0.84rem] text-[var(--text-primary)]">Publish to GitHub</span>
         <span className="flex-1" />
         <button
@@ -102,7 +102,7 @@ export function PublishPane({
           disabled={!authenticated || !name.trim() || busy}
           className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md bg-[var(--brand-primary)] text-[0.84rem] font-medium text-[var(--brand-primary-foreground)] hover:bg-[var(--brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Github className="size-3.5" />}
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <GitFork className="size-3.5" />}
           Create repository and push
         </button>
 
