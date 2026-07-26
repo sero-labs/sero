@@ -81,7 +81,7 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "recharts": "3.9.2",
+    "recharts": "3.10.0",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

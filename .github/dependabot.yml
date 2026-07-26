@@ -13,7 +13,9 @@ updates:
     # Dependabot does not apply this routine-update cooldown to security fixes.
     cooldown:
       default-days: 2
-    open-pull-requests-limit: 5
+    # Every workspace update rewrites the shared root lockfile. Keep one npm
+    # update in flight so Dependabot branches never conflict with each other.
+    open-pull-requests-limit: 1
     rebase-strategy: auto
     commit-message:
       prefix: "chore(deps)"
