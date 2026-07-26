@@ -91,7 +91,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Linux display dependencies
         if: ${{ matrix.os == 'linux' }}
@@ -114,7 +114,7 @@ jobs:
         with:
           run_install: false
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -244,7 +244,7 @@ jobs:
       RELEASE_DRAFT: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
       RELEASE_ARTIFACT_RUN_ID: ${{ inputs.publish_run_id || github.run_id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
 
       - name: Check release token before downloading artifacts
         run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
