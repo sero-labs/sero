@@ -63,13 +63,13 @@
     }
   },
   "dependencies": {
-    "@mozilla/readability": "^0.5.0",
+    "@mozilla/readability": "^0.6.0",
     "typebox": "catalog:",
     "better-sqlite3": "^12.10.0",
-    "linkedom": "^0.16.0",
+    "linkedom": "^0.18.13",
     "p-limit": "^6.1.0",
     "turndown": "^7.2.4",
-    "unpdf": "^1.4.0"
+    "unpdf": "^1.7.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "catalog:peer",
