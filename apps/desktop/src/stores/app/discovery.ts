@@ -62,6 +62,19 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   }
 }
 
+/**
+ * Refresh the set of app IDs the federation registry refuses to mount.
+ * Derived from manifests, so it has to be recomputed wherever the manifest set
+ * changes — including the in-place dev-session path, which never re-discovers.
+ */
+function applyIncompatibleApps(manifests: readonly SeroAppManifest[]): void {
+  setIncompatibleApps(
+    manifests
+      .filter((manifest) => manifest.hostCompatibility?.supported === false)
+      .map((manifest) => manifest.id),
+  );
+}
+
 function getPluginChangeAppId(event: PluginChangeEvent): string | null {
   if (event.type === 'installed') return event.manifest.id;
   return event.pluginId;
@@ -95,11 +108,7 @@ export async function discoverAndRegisterApps(): Promise<void> {
     const discovered = manifests.map(manifestToEntry);
 
     // Block incompatible plugins before anything can preload or mount them.
-    setIncompatibleApps(
-      manifests
-        .filter((manifest: SeroAppManifest) => manifest.hostCompatibility?.supported === false)
-        .map((manifest: SeroAppManifest) => manifest.id),
-    );
+    applyIncompatibleApps(manifests);
 
     // Register app entries immediately (needed for sidebar rendering) and
     // reconcile favourites / active app if a plugin was removed.
@@ -161,11 +170,14 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
     const appState = useAppStore.getState();
     const appAlreadyRegistered = appState.apps.some((entry) => entry.id === appId);
     if (event.reason === 'dev-session-ui-changed' || appAlreadyRegistered) {
-      useAppStore.setState({
-        apps: appState.apps.map((entry) => (
-          entry.id === appId ? manifestToEntry(manifest) : entry
-        )),
-      });
+      const nextApps = appState.apps.map((entry) => (
+        entry.id === appId ? manifestToEntry(manifest) : entry
+      ));
+      useAppStore.setState({ apps: nextApps });
+      // A rebuild can flip compatibility either way, and this path never
+      // re-discovers: without this the widget/explorer surfaces would keep
+      // mounting a now-incompatible remote, or keep refusing one just fixed.
+      applyIncompatibleApps(nextApps.flatMap((entry) => entry.manifest ?? []));
       if (appState.activeApp === appId) {
         useAppStore.getState().reloadApp(appId);
       }

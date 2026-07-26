@@ -7,6 +7,7 @@ import {
   evaluatePluginCompatibility,
   type SeroHostCompatibilityContext,
 } from '@electron/features/plugins/compatibility';
+import { extractPluginCompatibilityRequirements } from '@electron/features/apps/discovery/plugin-meta';
 
 function makeContext(overrides?: Partial<SeroHostCompatibilityContext>): SeroHostCompatibilityContext {
   return {
@@ -120,6 +121,33 @@ describe('plugin compatibility', () => {
       kind: 'pluginRuntimeAbi',
       actual: String(SERO_PLUGIN_RUNTIME_ABI + 1),
     }));
+  });
+
+  // The contract every caller depends on: `sero.plugin` is optional, so an
+  // absent or malformed block must still yield an ABI requirement for a plugin
+  // that ships a UI. Returning null here is what let unmarked bundles mount.
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    ['a string', 'nonsense'],
+    ['an array', []],
+  ])('derives an ABI requirement for a federated UI whose sero.plugin is %s', (_label, plugin) => {
+    const requirements = extractPluginCompatibilityRequirements(plugin, {
+      expectsFederatedUi: true,
+    });
+
+    expect(requirements?.federatedUi).toBeDefined();
+    expect(requirements?.federatedUi?.runtimeAbi).toBeUndefined();
+    expect(evaluatePluginCompatibility(requirements, makeContext())?.supported).toBe(false);
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+  ])('derives no requirement for a UI-less plugin whose sero.plugin is %s', (_label, plugin) => {
+    expect(
+      extractPluginCompatibilityRequirements(plugin, { expectsFederatedUi: false }),
+    ).toBeNull();
   });
 
   it('exempts plugins with no federated UI from the ABI check', () => {

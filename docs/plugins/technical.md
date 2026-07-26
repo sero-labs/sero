@@ -387,7 +387,9 @@ Because of that:
 
 The host refuses to mount a UI whose declared ABI does not match, showing
 "reinstall the plugin to update it" instead of letting it crash. A missing
-`runtimeAbi` counts as a mismatch, so bundles predating the ABI are caught too.
+`runtimeAbi` counts as a mismatch, so bundles predating the ABI are caught too —
+including a package with no `sero.plugin` block at all, which is legal (the block
+is optional for install) and would otherwise slip past the check unmarked.
 The check is evaluated on **every mount**, not just at install, because a Sero
 update can strand an already-installed plugin. Plugins with no federated UI are
 exempt, and a stale UI never disables a plugin's extension, tools, skills,

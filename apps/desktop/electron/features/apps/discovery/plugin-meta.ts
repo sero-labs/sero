@@ -40,7 +40,11 @@ export function extractPluginCompatibilityRequirements(
   options: { expectsFederatedUi: boolean },
 ): PluginCompatibilityRequirements | null {
   if (!isRecord(plugin)) {
-    return null;
+    // Absent or malformed `sero.plugin` is itself the "predates the ABI" signal,
+    // so a plugin that ships a UI still has to be checked — `sero.plugin` is
+    // optional for install, and failing open here would mount the very bundle
+    // the ABI check exists to refuse.
+    return options.expectsFederatedUi ? { federatedUi: {} } : null;
   }
 
   const requirements: PluginCompatibilityRequirements = {};

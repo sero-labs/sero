@@ -405,6 +405,54 @@ describe('discoverAndRegisterApps', () => {
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(false);
   });
+
+  it('refreshes the incompatible-app set when a dev-session rebuild changes plugin compatibility', async () => {
+    const compatible = createManifest('todo', 'TodoApp', 4101, {
+      hostCompatibility: { supported: true, hostVersion: '0.5.0', issues: [] },
+    });
+    const incompatible = createManifest('todo', 'TodoApp', 4101, {
+      hostCompatibility: {
+        supported: false,
+        hostVersion: '0.5.0',
+        issues: [{
+          kind: 'pluginRuntimeAbi',
+          expected: '2',
+          actual: 'none',
+          message: 'Built for an older version of Sero. Reinstall the plugin to update it.',
+        }],
+      },
+    });
+
+    discover.mockResolvedValue([compatible]);
+    await handlePluginChange({ type: 'installed', manifest: compatible });
+    expect(federationMocks.setIncompatibleApps).toHaveBeenLastCalledWith([]);
+
+    const discoverCallsBeforeRefresh = discover.mock.calls.length;
+
+    // A rebuild that strands the plugin has to block it here: the in-place path
+    // never re-discovers, so a stale set would keep letting widgets and explorer
+    // views mount a remote that will die in its first hook.
+    await handlePluginChange({
+      type: 'changed',
+      pluginId: 'todo',
+      manifest: incompatible,
+      reason: 'dev-session-refreshed',
+    });
+
+    expect(discover.mock.calls.length).toBe(discoverCallsBeforeRefresh);
+    expect(federationMocks.setIncompatibleApps).toHaveBeenLastCalledWith(['todo']);
+
+    // The reverse direction matters just as much — a plugin the developer has
+    // just fixed must stop resolving null.
+    await handlePluginChange({
+      type: 'changed',
+      pluginId: 'todo',
+      manifest: compatible,
+      reason: 'dev-session-refreshed',
+    });
+
+    expect(federationMocks.setIncompatibleApps).toHaveBeenLastCalledWith([]);
+  });
 });
 
 describe('toggleChromeShortcut', () => {
