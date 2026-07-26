@@ -289,8 +289,16 @@ export function GitApp() {
     ai.start();
   }, [ai]);
 
-  // It holds the pane while there is one and nothing else was asked for.
-  const showRunLog = ai.status !== 'idle' && !diffSelection && !selectedCommit;
+  /**
+   * The account holds the right pane whenever nothing has been opened into it.
+   *
+   * Deliberately **not** conditioned on a selected commit: the commit detail is
+   * its own panel along the bottom, and selecting a commit clears the diff, so
+   * the right pane is idle exactly then. Guarding on it meant clicking a commit
+   * before starting a run made the whole run invisible — the button vanished,
+   * because the run had started, and nothing took its place.
+   */
+  const showRunLog = ai.status !== 'idle' && !diffSelection;
 
   const isWorkspaceStateCurrent = state.repoPath === workspacePath;
   const showWorkspaceLoading = Boolean(workspacePath) && !isWorkspaceStateCurrent && !state.error;

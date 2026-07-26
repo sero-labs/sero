@@ -129,7 +129,16 @@ test('resolves what it can, asks about what it cannot, and undoes only its own w
         }));
   });
 
+  // Select a commit in the history first. The commit detail is its own panel
+  // along the bottom, so the right-hand pane is idle and the account belongs
+  // there — but a guard on "nothing is selected" used to suppress it, and the
+  // run went invisible: the button vanished and nothing else appeared.
+  await page.getByText('initial commit', { exact: true }).first().click();
+
   await page.getByRole('button', { name: 'Resolve with AI' }).click();
+
+  // The run is visible even with a commit selected.
+  await expect(page.getByText('Resolving conflicts')).toBeVisible({ timeout: 20_000 });
 
   // The account says what it did and why, in one line.
   await expect(page.getByText('took incoming — it supersedes the nudge on main'))
