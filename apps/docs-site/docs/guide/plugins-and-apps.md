@@ -241,6 +241,19 @@ In public beta docs, prefer conservative wording:
 - avoid promising every plugin works identically in every profile, workspace, or
   runtime configuration
 
+### Plugins that need reinstalling after a Sero update
+
+A Sero update can occasionally change how plugin interfaces are loaded. When
+that happens, a plugin installed before the update shows **Unsupported host** in
+the App Store with a note asking you to reinstall it. Reinstalling from the same
+source picks up a build that matches your Sero version.
+
+While a plugin is in that state:
+
+- its interface does not open, so nothing crashes mid-use
+- its tools, skills, prompts, and themes keep working, so agent commands that
+  rely on it still run
+
 ## What not to assume during beta
 
 Avoid these claims unless a later product decision and runtime test confirm them:
