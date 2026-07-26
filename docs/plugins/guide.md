@@ -192,6 +192,7 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
       "category": "productivity",
       "tags": ["my-app", "example"],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "requiredHostCapabilities": ["appAgent.invokeTool"],
       "preBuilt": true
     }
@@ -288,6 +289,15 @@ Sero also enforces `minSeroVersion` plus any declared
 with the current host build, the install fails closed (or an already-installed
 plugin is kept out of the active package list) until the host becomes
 compatible.
+
+A plugin with a UI must also declare `runtimeAbi`, and it must match the host's
+`SERO_PLUGIN_RUNTIME_ABI`. Module Federation's remote bundle format is a private
+contract, so a UI built against a different version cannot share React with the
+host — instead of crashing, Sero shows "reinstall the plugin to update it" and
+leaves the plugin's tools and skills working. When the ABI changes, pin the
+`@module-federation/vite` version the host uses (see the pnpm catalog), rebuild,
+bump `runtimeAbi`, and republish. Always pin it exactly — a caret range resolves
+to a newer line on a fresh install and silently breaks React sharing.
 
 For a downstream-friendly migration checklist covering host capabilities,
 bridged CLI behavior, and manifest examples, see
@@ -427,6 +437,7 @@ when to declare `requiredHostCapabilities` and how the host enforces them.
 | `category` | string | Yes | Plugin category for browsing. See [categories](#categories) below. |
 | `tags` | string[] | Yes | Search and filter tags. |
 | `minSeroVersion` | string | No | Minimum compatible Sero version (semver). Enforced during install/load. |
+| `runtimeAbi` | number | Yes, if the plugin has a UI | The federated-UI contract this bundle was built against. Must be `SERO_PLUGIN_RUNTIME_ABI` from `@sero-ai/common` (currently `2`), and must be rebuilt and re-declared whenever that number changes. Plugins with no UI omit it. |
 | `requiredHostCapabilities` | string[] | No | Explicit host seams the plugin depends on, such as `appAgent.invokeTool` or `tool.cli`. Enforced during install/load. |
 | `preBuilt` | boolean | No | Controls install behavior for git/local plugins. Set `true` only when the package already ships a valid `dist/ui/` bundle and should be installed without rebuilding. Set `false` or omit it for source repos that Sero should build locally on install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |

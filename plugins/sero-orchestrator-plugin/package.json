@@ -50,6 +50,7 @@
       "category": "developer-tools",
       "tags": ["orchestration", "loops", "automation"],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "preBuilt": false,
       "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"]
     }

@@ -20,10 +20,11 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     ignore:
-      # Module Federation packages are version-locked to @module-federation/vite
-      # (pinned in the pnpm catalog). Bumping them independently breaks the
-      # runtime import chain in apps/desktop — see the note in
-      # apps/desktop/src/lib/federation-registry.ts. Upgrade them together, by hand.
+      # Module Federation's generated remoteEntry is a private contract with every
+      # plugin bundle, so moving the host alone strands installed plugins (they
+      # get a null React and are refused by the ABI guard). Upgrade the host, the
+      # in-repo plugins, and every external plugin together, bump
+      # SERO_PLUGIN_RUNTIME_ABI, and republish — see docs/plugins/technical.md.
       - dependency-name: "@module-federation/*"
     groups:
       production-minor-and-patch:

@@ -78,7 +78,7 @@
     "@emotion/is-prop-valid": "^1.4.0",
     "@headless-tree/core": "^1.7.0",
     "@headless-tree/react": "^1.7.0",
-    "@module-federation/enhanced": "2.2.2",
+    "@module-federation/enhanced": "2.8.0",
     "@module-federation/vite": "catalog:",
     "@monaco-editor/react": "^4.7.0",
     "@playwright/test": "^1.61.1",

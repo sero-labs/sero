@@ -34,6 +34,7 @@
       "category": "developer-tools",
       "tags": ["knowledge-graph", "search", "context", "graphify"],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "preBuilt": false,
       "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"]
     }

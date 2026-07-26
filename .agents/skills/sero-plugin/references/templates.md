@@ -65,7 +65,8 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
     "plugin": {
       "category": "productivity",
       "tags": ["myapp", "example"],
-      "minSeroVersion": "0.1.0"
+      "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2
     }
   },
   "dependencies": {

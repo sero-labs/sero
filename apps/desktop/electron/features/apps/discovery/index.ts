@@ -210,7 +210,9 @@ function buildManifest(
   const pluginDeclared = hasPluginDeclaration(pkgJson);
   const parsedPlugin = parsePluginMeta(pkgJson.sero?.plugin);
   const compatibilityRequirements = pluginDeclared
-    ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin)
+    ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin, {
+        expectsFederatedUi: Boolean(app.ui),
+      })
     : null;
   const suppressUi = options.suppressUi === true;
 

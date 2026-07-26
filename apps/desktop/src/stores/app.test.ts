@@ -18,6 +18,7 @@ const federationMocks = vi.hoisted(() => ({
   invalidateRemote: vi.fn<(appId: string) => void>(),
   refreshTransientRemote: vi.fn<(appId: string) => void>(),
   hasTransientRemote: vi.fn<(appId: string) => boolean>(),
+  setIncompatibleApps: vi.fn<(appIds: Iterable<string>) => void>(),
 }));
 
 vi.mock('@/lib/federation-registry', () => ({
@@ -26,6 +27,7 @@ vi.mock('@/lib/federation-registry', () => ({
   invalidateRemote: federationMocks.invalidateRemote,
   refreshTransientRemote: federationMocks.refreshTransientRemote,
   hasTransientRemote: federationMocks.hasTransientRemote,
+  setIncompatibleApps: federationMocks.setIncompatibleApps,
 }));
 
 import {

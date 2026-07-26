@@ -4,6 +4,7 @@ import {
   invalidateRemote,
   preloadFederatedModule,
   registerDynamicRemote,
+  setIncompatibleApps,
 } from '@/lib/federation-registry';
 import {
   areStringArraysEqual,
@@ -92,6 +93,13 @@ export async function discoverAndRegisterApps(): Promise<void> {
   try {
     const manifests = await window.sero.apps.discover();
     const discovered = manifests.map(manifestToEntry);
+
+    // Block incompatible plugins before anything can preload or mount them.
+    setIncompatibleApps(
+      manifests
+        .filter((manifest: SeroAppManifest) => manifest.hostCompatibility?.supported === false)
+        .map((manifest: SeroAppManifest) => manifest.id),
+    );
 
     // Register app entries immediately (needed for sidebar rendering) and
     // reconcile favourites / active app if a plugin was removed.

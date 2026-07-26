@@ -21,13 +21,11 @@
  */
 
 import { lazy } from 'react';
-// NOTE: @module-federation/enhanced is pinned to the version line that matches
-// @module-federation/vite (pnpm catalog). The vite plugin aliases
-// '@module-federation/runtime' to its own CommonJS build, so this entry point
-// must stay CommonJS too. Versions that added an ESM `import` condition here
-// re-export the aliased CJS module via `export *`, which esbuild pre-bundles
-// into a module with no named exports — every import below fails at runtime
-// with "does not provide an export named ...". Upgrade both packages together.
+// NOTE: keep @module-federation/enhanced on the same version line as
+// @module-federation/vite (pnpm catalog). The two share a runtime, and mixing
+// lines breaks this import: the vite plugin aliases '@module-federation/runtime'
+// to its own build, and if that resolves to CommonJS while enhanced re-exports it
+// as ESM, esbuild pre-bundles a module with no named exports at all.
 import {
   getInstance,
   loadRemote,
@@ -54,6 +52,9 @@ const accessOrder: string[] = [];
 
 /** App IDs that are pinned (background apps) — exempt from eviction. */
 const pinnedApps = new Set<string>();
+
+/** App IDs the host refuses to mount — see setIncompatibleApps. */
+const incompatibleApps = new Set<string>();
 
 /** Track the currently registered remote entry for each app. */
 const registeredEntries = new Map<string, string>();
@@ -374,6 +375,23 @@ export async function registerDynamicRemote(
   registerRemoteEntry(appId, entry);
 }
 
+/**
+ * Record which apps the host must not mount, from each discovery pass.
+ *
+ * A plugin built against a different Module Federation line cannot share React
+ * with this host, so loading its remote throws inside its first hook. Blocking
+ * it here keeps every mount surface safe, and dropping any cached wrapper means
+ * a plugin that becomes compatible again (reinstalled) loads without a restart.
+ */
+export function setIncompatibleApps(appIds: Iterable<string>): void {
+  const next = new Set(appIds);
+  for (const appId of next) {
+    if (!incompatibleApps.has(appId)) invalidateRemote(appId);
+  }
+  incompatibleApps.clear();
+  for (const appId of next) incompatibleApps.add(appId);
+}
+
 /** Invalidate a dynamically-installed plugin's cache entries. */
 export function invalidateRemote(appId: string): void {
   transientApps.delete(appId);
@@ -413,6 +431,8 @@ export async function preloadFederatedModule(
   devPort: number | undefined,
   remoteEntryOverride: string | null = null,
 ): Promise<void> {
+  if (incompatibleApps.has(appId)) return;
+
   const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
   if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
 
@@ -434,6 +454,12 @@ export function getFederatedComponent(
   remoteEntryOverride: string | null = null,
 ): LazyComponent | null {
   if (!component) return null;
+  // Fail closed for a plugin the host cannot mount. Loading its remote would
+  // hand it a null React and throw inside its first hook, which takes out
+  // whatever rendered it — the app panel shows an explanation, but widgets,
+  // explorer views and title-bar controls all resolve components through here
+  // too, so the block has to live at this choke point rather than per surface.
+  if (incompatibleApps.has(appId)) return null;
 
   const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
 

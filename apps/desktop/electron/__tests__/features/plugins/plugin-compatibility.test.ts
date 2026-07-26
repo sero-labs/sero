@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
-import type { PluginMeta } from '@sero-ai/common';
+import { SERO_PLUGIN_RUNTIME_ABI, type PluginMeta } from '@sero-ai/common';
 
 import {
   evaluatePluginCompatibility,
@@ -84,6 +84,51 @@ describe('plugin compatibility', () => {
       hostVersion: '0.1.0',
       issues: [],
     });
+  });
+
+  it('accepts a UI plugin built against the current federated-UI ABI', () => {
+    const compatibility = evaluatePluginCompatibility(
+      { minSeroVersion: '0.1.0', federatedUi: { runtimeAbi: SERO_PLUGIN_RUNTIME_ABI } },
+      makeContext(),
+    );
+
+    expect(compatibility?.supported).toBe(true);
+  });
+
+  it('fails closed when a UI plugin predates the federated-UI ABI', () => {
+    const compatibility = evaluatePluginCompatibility(
+      { minSeroVersion: '0.1.0', federatedUi: { runtimeAbi: undefined } },
+      makeContext(),
+    );
+
+    expect(compatibility?.supported).toBe(false);
+    expect(compatibility?.issues).toContainEqual(expect.objectContaining({
+      kind: 'pluginRuntimeAbi',
+      expected: String(SERO_PLUGIN_RUNTIME_ABI),
+      actual: 'none',
+    }));
+  });
+
+  it('fails closed when a UI plugin was built against a different federated-UI ABI', () => {
+    const compatibility = evaluatePluginCompatibility(
+      { federatedUi: { runtimeAbi: SERO_PLUGIN_RUNTIME_ABI + 1 } },
+      makeContext(),
+    );
+
+    expect(compatibility?.supported).toBe(false);
+    expect(compatibility?.issues).toContainEqual(expect.objectContaining({
+      kind: 'pluginRuntimeAbi',
+      actual: String(SERO_PLUGIN_RUNTIME_ABI + 1),
+    }));
+  });
+
+  it('exempts plugins with no federated UI from the ABI check', () => {
+    const compatibility = evaluatePluginCompatibility(
+      { minSeroVersion: '0.1.0' },
+      makeContext(),
+    );
+
+    expect(compatibility?.supported).toBe(true);
   });
 
   it('fails closed when a plugin requires a newer Sero version', () => {

@@ -42,6 +42,16 @@ export const SeroAppMount = memo(function SeroAppMount({ manifest }: SeroAppMoun
     return <AppPlaceholder name={manifest.name} reason="No workspace selected" />;
   }
 
+  // Mounting an incompatible bundle would crash inside the plugin's first hook,
+  // so stop here and say what to do instead. Checked on every mount, not just at
+  // install, because a Sero update can strand an already-installed plugin.
+  const blocker = manifest.hostCompatibility?.supported === false
+    ? manifest.hostCompatibility.issues[0]?.message
+    : null;
+  if (blocker) {
+    return <AppPlaceholder name={manifest.name} reason={blocker} />;
+  }
+
   if (!manifest.component) {
     return <AppPlaceholder name={manifest.name} reason="No UI module registered" />;
   }

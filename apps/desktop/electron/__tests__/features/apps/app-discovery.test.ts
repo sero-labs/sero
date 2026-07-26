@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
+import { SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const originalNodeEnv = process.env.NODE_ENV;
@@ -207,6 +208,7 @@ describe('app discovery devPort handling', () => {
         category: 'utilities',
         tags: ['test', ' utilities '],
         minSeroVersion: '0.1.0',
+        runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
         requiredHostCapabilities: [' appAgent.invokeTool ', 'tool.cli', ' appRuntime.background '],
         preBuilt: false,
         bridgeTools: [' tool_a ', 'tool_b'],
@@ -227,6 +229,7 @@ describe('app discovery devPort handling', () => {
           category: 'utilities',
           tags: ['test', 'utilities'],
           minSeroVersion: '0.1.0',
+          runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
           requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli', 'appRuntime.background'],
           preBuilt: false,
           bridgeTools: ['tool_a', 'tool_b'],
