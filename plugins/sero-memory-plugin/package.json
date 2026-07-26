@@ -16,8 +16,8 @@
     ]
   },
   "dependencies": {
-    "@tobilu/qmd": "^2.5.2",
-    "date-fns": "^4.1.0",
+    "@tobilu/qmd": "^2.5.3",
+    "date-fns": "^4.4.0",
     "typebox": "catalog:"
   },
   "peerDependencies": {
