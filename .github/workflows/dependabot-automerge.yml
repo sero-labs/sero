@@ -13,6 +13,11 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
+      - name: Approve Dependabot update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr review "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --approve --body "Automated Dependabot approval"
       - name: Enable squash auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
