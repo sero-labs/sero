@@ -46,7 +46,7 @@ catalog:
   # Shared libraries
   "@sinclair/typebox": "^0.34.49"
   typebox: "^1.1.38"
-  lucide-react: "^0.563.0"
+  lucide-react: "^1.26.0"
   motion: "^12.34.0"
   streamdown: "^2.5.0"
   vitest: "^4.1.7"
