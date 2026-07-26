@@ -185,6 +185,10 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'esnext',
   },
+  // Monaco's language workers are ES modules and are too big to inline as IIFE.
+  worker: {
+    format: 'es',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

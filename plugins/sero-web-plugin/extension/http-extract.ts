@@ -163,7 +163,7 @@ export async function extractViaHttp(
 		const reader = new Readability(document as ConstructorParameters<typeof Readability>[0]);
 		const article = reader.parse();
 
-		if (!article) {
+		if (!article?.content) {
 			const rscResult = extractRSCContent(text);
 			if (rscResult) {
 				activityMonitor.logComplete(activityId, response.status);

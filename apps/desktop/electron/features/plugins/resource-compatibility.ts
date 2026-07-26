@@ -59,7 +59,14 @@ function readPackageCompatibility(packageRoot: string): PluginCompatibilityStatu
       return null;
     }
 
-    const requirements = extractPluginCompatibilityRequirements(pkg.sero?.plugin);
+    // Deliberately exempt from the federated-UI ABI check: extensions, skills,
+    // prompts and themes are plain Node/data and work regardless of which
+    // Module Federation line the plugin's UI bundle was built against. A stale
+    // UI is disabled at mount time on its own; it must not also silently strip
+    // the plugin's tools.
+    const requirements = extractPluginCompatibilityRequirements(pkg.sero?.plugin, {
+      expectsFederatedUi: false,
+    });
     const compatibility = requirements ? evaluatePluginCompatibility(requirements) : null;
     packageCompatibilityCache.set(resolvedRoot, compatibility);
     return compatibility;

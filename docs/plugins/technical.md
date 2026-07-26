@@ -364,6 +364,43 @@ its `package.json`. This lets the renderer distinguish core apps from plugins
 the MF remotes config. Plugins installed at `~/.sero-ui/agent/plugins/`
 are NOT known at build time — they use pre-built bundles.
 
+### Version coupling and the federated-UI ABI
+
+Module Federation's generated `remoteEntry.js` is a **private contract between
+the host and every plugin bundle**, not a stable public interface. A plugin built
+against a different MF version cannot share React with the host: it resolves a
+null React and dies inside its first hook. This has nothing to do with semver —
+1.11 and 1.19 share React through entirely different mechanisms (runtime
+negotiation vs a `globalThis.__mf_module_cache__` share cache).
+
+Because of that:
+
+- `@module-federation/vite` is pinned **exactly** in the pnpm catalog, and every
+  plugin — in-repo and external — pins the same version. Never a caret range: a
+  caret silently resolves to a newer line on a fresh install and the plugin then
+  cannot share React with the host.
+- `@module-federation/enhanced` (host only) must stay on the same version line as
+  the Vite plugin, since they share a runtime.
+- `SERO_PLUGIN_RUNTIME_ABI` in `@sero-ai/common` names the current contract.
+  Every plugin that ships a UI declares the ABI it was built against as
+  `sero.plugin.runtimeAbi`.
+
+The host refuses to mount a UI whose declared ABI does not match, showing
+"reinstall the plugin to update it" instead of letting it crash. A missing
+`runtimeAbi` counts as a mismatch, so bundles predating the ABI are caught too —
+including a package with no `sero.plugin` block at all, which is legal (the block
+is optional for install) and would otherwise slip past the check unmarked.
+The check is evaluated on **every mount**, not just at install, because a Sero
+update can strand an already-installed plugin. Plugins with no federated UI are
+exempt, and a stale UI never disables a plugin's extension, tools, skills,
+prompts or themes — those are plain Node/data and keep working.
+
+**Upgrading Module Federation is therefore a coordinated breaking release:** bump
+the catalog and `enhanced` together, rebuild the in-repo plugins, bump
+`SERO_PLUGIN_RUNTIME_ABI`, then rebuild, re-pin and republish every external
+plugin. Dependabot is configured to ignore `@module-federation/*` so it can never
+move one side on its own.
+
 ### Runtime (federation-registry.ts)
 
 The federation registry lazily registers MF remotes via `ensureRemoteRegistered()`.

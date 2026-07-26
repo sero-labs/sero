@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
+import { SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const originalNodeEnv = process.env.NODE_ENV;
@@ -207,6 +208,7 @@ describe('app discovery devPort handling', () => {
         category: 'utilities',
         tags: ['test', ' utilities '],
         minSeroVersion: '0.1.0',
+        runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
         requiredHostCapabilities: [' appAgent.invokeTool ', 'tool.cli', ' appRuntime.background '],
         preBuilt: false,
         bridgeTools: [' tool_a ', 'tool_b'],
@@ -227,6 +229,7 @@ describe('app discovery devPort handling', () => {
           category: 'utilities',
           tags: ['test', 'utilities'],
           minSeroVersion: '0.1.0',
+          runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
           requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli', 'appRuntime.background'],
           preBuilt: false,
           bridgeTools: ['tool_a', 'tool_b'],
@@ -239,6 +242,83 @@ describe('app discovery devPort handling', () => {
           issues: [],
         },
       });
+
+      unregisterAppPath(packageDir);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  // `sero.plugin` is optional for install, so gating the ABI check on its
+  // presence would let an unmarked federated bundle mount and crash the shell.
+  it.each([
+    ['no sero.plugin block', 'omit' as const],
+    ['a null sero.plugin block', null],
+    ['a non-object sero.plugin block', 'nonsense'],
+  ])('fails closed for a federated UI declared with %s', async (_label, plugin) => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-abi-unmarked-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const packageDir = path.join(tempRoot, 'unmarked-ui-plugin');
+      // Written inline rather than through writeManifestPackage: passing
+      // `undefined` there hits its default and writes a *valid* plugin block, so
+      // the omitted-block case has to build the package.json itself.
+      const app = {
+        id: 'unmarked-ui-plugin',
+        name: 'Unmarked UI Plugin',
+        icon: 'box',
+        stateFile: '.sero/apps/unmarked-ui-plugin/state.json',
+        ui: './dist/ui/remoteEntry.js',
+      };
+      await mkdir(packageDir, { recursive: true });
+      await writeFile(
+        path.join(packageDir, 'package.json'),
+        JSON.stringify({
+          name: 'unmarked-ui-plugin-plugin',
+          version: '1.0.0',
+          sero: plugin === 'omit' ? { app } : { app, plugin },
+        }, null, 2),
+      );
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'unmarked-ui-plugin');
+
+      expect(manifest?.hostCompatibility?.supported).toBe(false);
+      expect(manifest?.hostCompatibility?.issues).toEqual([
+        expect.objectContaining({
+          kind: 'pluginRuntimeAbi',
+          expected: String(SERO_PLUGIN_RUNTIME_ABI),
+          actual: 'none',
+        }),
+      ]);
+
+      unregisterAppPath(packageDir);
+    } finally {
+      warnSpy.mockRestore();
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('exempts an app with no federated UI from the ABI check', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-abi-no-ui-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'uiless-app');
+      await writeManifestPackage(packageDir, 'uiless-app', 'UIless App', undefined);
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'uiless-app');
+
+      expect(manifest?.hostCompatibility?.supported).toBe(true);
+      expect(manifest?.hostCompatibility?.issues).toEqual([]);
 
       unregisterAppPath(packageDir);
     } finally {

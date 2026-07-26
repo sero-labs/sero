@@ -104,7 +104,7 @@
     "electron-builder": "^26.15.3",
     "jsdom": "^26.1.0",
     "lucide-react": "catalog:",
-    "monaco-editor": "^0.56.0",
+    "monaco-editor": "0.55.1",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

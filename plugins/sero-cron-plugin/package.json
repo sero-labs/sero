@@ -58,6 +58,7 @@
         "jobs"
       ],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "preBuilt": false
     }
   },
