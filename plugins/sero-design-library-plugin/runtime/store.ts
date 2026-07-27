@@ -5,7 +5,7 @@ import type { DesignLibraryPaths } from '../shared/paths';
 import { itemDir, itemRecordFile, jobFile } from '../shared/paths';
 import type { ItemRecord, JobRecord } from '../shared/records';
 import { normalizeItemRecord, normalizeJobRecord } from '../shared/records';
-import { readJsonFile, updateState, writeJsonFile } from '../shared/state-io';
+import { readJsonFile, updateState, withRecordLock, writeJsonFile } from '../shared/state-io';
 import type { DesignLibraryState } from '../shared/types';
 import { projectItem, projectJob } from './projection';
 
@@ -71,8 +71,11 @@ export function originalPathFor(item: ItemRecord): string {
   return `items/${item.id}/${item.asset.originalFile}`;
 }
 
-/** Write a record and project it into the index in one step. */
-export async function saveItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<void> {
+/**
+ * Write a record and project it into the index. Assumes the caller holds the
+ * record lock — `saveItem` and `mutateItem` are the entry points that take it.
+ */
+async function writeItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<ItemRecord> {
   const next: ItemRecord = { ...item, updatedAt: Date.now() };
   await writeJsonFile(itemRecordFile(paths, next.id), next);
   const summary = projectItem(next, previewPathFor(next));
@@ -80,33 +83,52 @@ export async function saveItem(paths: DesignLibraryPaths, item: ItemRecord): Pro
     ...current,
     items: [...current.items.filter((entry) => entry.id !== next.id), summary],
   }));
+  return next;
+}
+
+/** Write a record and project it into the index in one step. */
+export async function saveItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<void> {
+  await withRecordLock(itemRecordFile(paths, item.id), async () => {
+    await writeItem(paths, item);
+  });
 }
 
 /**
  * Read, transform and save one record. Returns null when the record is gone,
  * so callers can treat a request for a deleted item as a no-op rather than an
  * error — requests are applied asynchronously and the world may have moved on.
+ *
+ * The read and the write happen under one lock. Without that, an analysis
+ * result and a user edit landing together would each read the same record and
+ * the later writer would silently drop the other's change.
  */
 export async function mutateItem(
   paths: DesignLibraryPaths,
   itemId: string,
   mutate: (item: ItemRecord) => ItemRecord | null,
 ): Promise<ItemRecord | null> {
-  const current = await readItem(paths, itemId);
-  if (!current) return null;
-  const next = mutate(current);
-  if (!next) return null;
-  await saveItem(paths, next);
-  return next;
+  return withRecordLock(itemRecordFile(paths, itemId), async () => {
+    const current = await readItem(paths, itemId);
+    if (!current) return null;
+    const next = mutate(current);
+    if (!next) return null;
+    return writeItem(paths, next);
+  });
 }
 
-/** Permanent deletion: the record, the original and the preview all go. */
+/**
+ * Permanent deletion: the record, the original and the preview all go. Taken
+ * under the record lock so a concurrent mutation cannot write the record back
+ * out after the directory has been removed.
+ */
 export async function destroyItem(paths: DesignLibraryPaths, itemId: string): Promise<void> {
-  await rm(itemDir(paths, itemId), { recursive: true, force: true });
-  await updateState(paths, (current) => ({
-    ...current,
-    items: current.items.filter((entry) => entry.id !== itemId),
-  }));
+  await withRecordLock(itemRecordFile(paths, itemId), async () => {
+    await rm(itemDir(paths, itemId), { recursive: true, force: true });
+    await updateState(paths, (current) => ({
+      ...current,
+      items: current.items.filter((entry) => entry.id !== itemId),
+    }));
+  });
 }
 
 export async function readJob(paths: DesignLibraryPaths, jobId: string): Promise<JobRecord | null> {
@@ -125,25 +147,34 @@ export async function listJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> 
   return jobs.filter((job): job is JobRecord => job !== null);
 }
 
-export async function saveJob(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
+/** Assumes the caller holds the job's record lock. */
+async function writeJob(paths: DesignLibraryPaths, job: JobRecord): Promise<JobRecord> {
   await writeJsonFile(jobFile(paths, job.id), job);
   const summary = projectJob(job);
   await updateState(paths, (current) => ({
     ...current,
     jobs: [...current.jobs.filter((entry) => entry.id !== job.id), summary],
   }));
+  return job;
 }
 
+export async function saveJob(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
+  await withRecordLock(jobFile(paths, job.id), async () => {
+    await writeJob(paths, job);
+  });
+}
+
+/** Read and write under one lock, for the same reason as `mutateItem`. */
 export async function mutateJob(
   paths: DesignLibraryPaths,
   jobId: string,
   mutate: (job: JobRecord) => JobRecord,
 ): Promise<JobRecord | null> {
-  const current = await readJob(paths, jobId);
-  if (!current) return null;
-  const next = mutate(current);
-  await saveJob(paths, next);
-  return next;
+  return withRecordLock(jobFile(paths, jobId), async () => {
+    const current = await readJob(paths, jobId);
+    if (!current) return null;
+    return writeJob(paths, mutate(current));
+  });
 }
 
 /**

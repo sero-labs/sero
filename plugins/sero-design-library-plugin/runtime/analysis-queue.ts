@@ -53,15 +53,25 @@ export class AnalysisQueue {
     void this.pump();
   }
 
-  /** Abort a running job, or drop it from the queue if it never started. */
-  cancel(jobId: string): void {
+  /**
+   * Abort a running job, or drop it from the queue if it never started.
+   *
+   * A job that never started has no run to report its own cancellation, so
+   * dropping it from `pending` is only half the job: without the write below
+   * the job record stays `queued` and the item stays `pending`, and the item
+   * keeps its spinner for the rest of the session.
+   */
+  async cancel(jobId: string): Promise<void> {
     const inFlight = this.running.get(jobId);
     if (inFlight) {
       inFlight.controller.abort();
       return;
     }
     const index = this.pending.indexOf(jobId);
-    if (index !== -1) this.pending.splice(index, 1);
+    if (index === -1) return;
+    this.pending.splice(index, 1);
+    const job = await readJob(this.context.paths, jobId);
+    if (job) await this.finishCancelled(job);
   }
 
   /** Resolves once the job is no longer writing — immediately if it never was. */

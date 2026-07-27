@@ -275,7 +275,7 @@ export class Coordinator {
     const jobId = item?.analysis.jobId;
     if (jobId === undefined) return;
     await requestCancel(this.context.paths, jobId);
-    this.queue.cancel(jobId);
+    await this.queue.cancel(jobId);
     if (options.wait === true) await this.queue.settled(jobId);
   }
 

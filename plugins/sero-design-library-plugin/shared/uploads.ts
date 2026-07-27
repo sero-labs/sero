@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { DesignLibraryPaths } from './paths';
@@ -81,9 +81,79 @@ export async function writeUploadChunk(
   return bytes.byteLength;
 }
 
+interface RoleParts {
+  /** Ascending chunk indices actually present on disk. */
+  indices: number[];
+  bytes: number;
+}
+
+async function inspectRole(
+  paths: DesignLibraryPaths,
+  uploadId: string,
+  role: UploadRole,
+): Promise<RoleParts> {
+  const dir = roleDir(paths, uploadId, role);
+  const entries = await readdir(dir).catch(() => []);
+  const indices = entries
+    .flatMap((entry) => {
+      if (!entry.endsWith('.part')) return [];
+      const index = Number.parseInt(entry.slice(0, -'.part'.length), 10);
+      return Number.isInteger(index) ? [index] : [];
+    })
+    .sort((a, b) => a - b);
+  const sizes = await Promise.all(
+    indices.map((index) => stat(path.join(dir, `${index}.part`)).then((info) => info.size)),
+  );
+  return { indices, bytes: sizes.reduce((total, size) => total + size, 0) };
+}
+
+/**
+ * Everything that would stop this upload assembling into an item, checked
+ * before it is marked complete rather than after ingestion has already been
+ * queued against it.
+ */
+export async function verifyUpload(
+  paths: DesignLibraryPaths,
+  manifest: UploadManifest,
+): Promise<string[]> {
+  const roles: UploadRole[] = ['original', 'preview'];
+  const parts = await Promise.all(roles.map((role) => inspectRole(paths, manifest.id, role)));
+
+  const problems = roles.flatMap((role, position) => {
+    const expected = manifest.chunkCounts[role];
+    const { indices } = parts[position] ?? { indices: [], bytes: 0 };
+    if (indices.length !== expected) {
+      return [`${role}: the manifest promised ${expected} chunk(s) but ${indices.length} arrived`];
+    }
+    // Contiguous from zero, because assembly concatenates in index order and a
+    // gap would silently produce a truncated file rather than an error.
+    return indices.every((index, slot) => index === slot)
+      ? []
+      : [`${role}: chunk indices are not contiguous from 0`];
+  });
+
+  const total = parts.reduce((sum, role) => sum + role.bytes, 0);
+  if (total > MAX_UPLOAD_BYTES) {
+    problems.push(`the upload is ${total} bytes, over the ${MAX_UPLOAD_BYTES} byte limit`);
+  }
+  return problems;
+}
+
+/**
+ * Mark an upload ready for ingestion, but only once it can actually be
+ * assembled. An upload that fails here is discarded on the spot: pruning
+ * deliberately spares completed uploads, so one marked complete and then found
+ * unusable would keep its chunks on disk for good.
+ */
 export async function completeUpload(paths: DesignLibraryPaths, uploadId: string): Promise<void> {
   const manifest = await readUploadManifest(paths, uploadId);
   if (!manifest) throw new Error(`Unknown upload ${uploadId}`);
+
+  const problems = await verifyUpload(paths, manifest);
+  if (problems.length > 0) {
+    await discardUpload(paths, uploadId);
+    throw new Error(`Upload ${uploadId} cannot be assembled — ${problems.join('; ')}`);
+  }
   await writeJsonFile(uploadManifestFile(paths, uploadId), { ...manifest, complete: true });
 }
 
@@ -118,7 +188,14 @@ export async function discardUpload(paths: DesignLibraryPaths, uploadId: string)
   await rm(uploadDir(paths, uploadId), { recursive: true, force: true });
 }
 
-/** Uploads abandoned before completion are cleaned up on runtime start. */
+/**
+ * Uploads abandoned before completion are cleaned up on runtime start.
+ *
+ * Age is the only test, including for completed uploads. Sparing those was a
+ * leak: an upload completed just as the runtime went down is never ingested, so
+ * nothing ever discards it. Ingestion follows completion within moments, so
+ * anything still complete-but-unconsumed once the window has passed is debris.
+ */
 export async function pruneStaleUploads(
   paths: DesignLibraryPaths,
   olderThanMs: number,
@@ -136,7 +213,7 @@ export async function pruneStaleUploads(
           // A manifest that never appeared belongs to an upload that died
           // before it began; treat it as stale rather than leaving it forever.
           const age = manifest ? now - manifest.createdAt : olderThanMs + 1;
-          if (manifest?.complete === true || age <= olderThanMs) return null;
+          if (age <= olderThanMs) return null;
           await discardUpload(paths, entry.name);
           return entry.name;
         })(),

@@ -7,6 +7,7 @@ import { deriveFacets, selectItems } from '../../shared/search';
 import type { DesignLibrarySettings } from '../../shared/settings';
 import type { DesignLibraryState, LibraryFilters, LibraryScope, LibrarySort, ViewPreferences } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
+import { mergeView, outstandingView, viewSignature } from '../lib/view-sync';
 
 /**
  * One place the whole app reads state and asks for changes.
@@ -57,10 +58,23 @@ export function useLibrary(): Library {
   // Local view state leads; the persisted copy follows. `null` means "nothing
   // changed locally yet", so a view restored from state on load still wins.
   const [localView, setLocalView] = useState<Partial<ViewPreferences> | null>(null);
-  const view = useMemo<ViewPreferences>(
-    () => ({ ...state.view, ...(localView ?? {}) }),
-    [state.view, localView],
-  );
+
+  // Retire optimistic keys the moment state reports them. Merging alone is not
+  // enough: a key that stays forever also outranks any *later* value the
+  // runtime picks — which is how selecting a duplicate on re-import stopped
+  // working after the first navigation. Adjusting state during render is the
+  // supported way to react to changed input without an effect.
+  const signature = viewSignature(state.view);
+  const [acknowledged, setAcknowledged] = useState(signature);
+  if (signature !== acknowledged) {
+    setAcknowledged(signature);
+    setLocalView((current) => {
+      const outstanding = outstandingView(current, state.view);
+      return Object.keys(outstanding).length === 0 ? null : outstanding;
+    });
+  }
+
+  const view = useMemo<ViewPreferences>(() => mergeView(localView, state.view), [state.view, localView]);
 
   // Built once, lazily. `useRef(createDebouncedFn(...))` keeps the first value
   // but still *calls* the factory on every render, allocating a timer-holding

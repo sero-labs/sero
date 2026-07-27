@@ -18,6 +18,17 @@ import { DEFAULT_STATE, normalizeState } from './types';
  *    from the host runtime and cannot see the queue.
  * 3. A revision compare-and-swap, so a writer holding state it read earlier —
  *    outside any lock — is rejected rather than silently clobbering newer work.
+ *
+ * Layers 1 and 2 are not exclusive to reactive state. Item and job records are
+ * separate files with the same read-modify-write hazard — an analysis result
+ * landing while the user edits the same item — so `withRecordLock` below gives
+ * them the identical treatment, keyed per record. Records need no revision
+ * counter: unlike reactive state they are never read, held and committed later,
+ * so there is no stale-writer case for layer 3 to catch.
+ *
+ * Lock ordering is record-then-state, always. Record writers call `updateState`
+ * to project themselves into the index while holding their record lock; nothing
+ * acquires a record lock from inside a state updater.
  */
 
 export class StaleStateError extends Error {
@@ -51,9 +62,20 @@ async function readRaw(stateFile: string): Promise<DesignLibraryState | null> {
   return normalizeState(JSON.parse(raw) as unknown);
 }
 
+/**
+ * A temp path no concurrent write can collide with. The pid alone is not
+ * enough — two writes to one file from the same process would share it — and
+ * neither is a timestamp, which repeats within a millisecond.
+ */
+let tempSequence = 0;
+function tempPathFor(filePath: string): string {
+  tempSequence += 1;
+  return path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${tempSequence}.tmp`);
+}
+
 async function writeAtomic(stateFile: string, state: DesignLibraryState): Promise<void> {
   await mkdir(path.dirname(stateFile), { recursive: true });
-  const temp = path.join(path.dirname(stateFile), `.state.${process.pid}.${Date.now()}.tmp`);
+  const temp = tempPathFor(stateFile);
   await writeFile(temp, JSON.stringify(state, null, 2), 'utf8');
   await rename(temp, stateFile);
 }
@@ -166,7 +188,33 @@ export async function readJsonFile<T>(filePath: string): Promise<T | null> {
 
 export async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
-  const temp = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.tmp`);
+  const temp = tempPathFor(filePath);
   await writeFile(temp, JSON.stringify(value, null, 2), 'utf8');
   await rename(temp, filePath);
+}
+
+/** The lock guarding one record file. A sibling directory, so it is removed with the record. */
+export function recordLockDir(filePath: string): string {
+  return `${filePath}.lock`;
+}
+
+/**
+ * Serialise a whole read-transform-write on one record file.
+ *
+ * The atomic rename in `writeJsonFile` makes a single write safe; it does
+ * nothing for two writers that each read the same record and then write back
+ * what they computed. The later write simply wins, and whatever the earlier one
+ * changed — a favourite, a field override, a `deletedAt` — is gone with no
+ * error anywhere. That is reachable in ordinary use: an analysis result lands
+ * through the queue while the coordinator applies a user request for the same
+ * item.
+ *
+ * Not reentrant. Callers holding the lock must use the unlocked write helpers.
+ */
+export async function withRecordLock<T>(
+  filePath: string,
+  fn: () => Promise<T>,
+  options: FileLockOptions = {},
+): Promise<T> {
+  return enqueue(filePath, () => withLock(recordLockDir(filePath), fn, options));
 }

@@ -48,7 +48,29 @@ function initialTitle(fileName: string): string {
   return base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ');
 }
 
+/**
+ * Ingest, then clear the staging area whatever happened.
+ *
+ * Staging is scratch that only this function consumes, so once it has run the
+ * chunks have no further use — including when assembly threw. Leaving them
+ * behind on the failure paths was a permanent leak, because pruning is the only
+ * other collector and it does not run again for an upload already consumed.
+ */
 export async function ingestUpload(
+  paths: DesignLibraryPaths,
+  uploadId: string,
+): Promise<IngestOutcome> {
+  const outcome = await assembleItem(paths, uploadId).catch(
+    (error: unknown): IngestOutcome => ({
+      status: 'failed',
+      reason: error instanceof Error ? error.message : String(error),
+    }),
+  );
+  await discardUpload(paths, uploadId);
+  return outcome;
+}
+
+async function assembleItem(
   paths: DesignLibraryPaths,
   uploadId: string,
 ): Promise<IngestOutcome> {
@@ -58,7 +80,6 @@ export async function ingestUpload(
 
   const original = await assembleUpload(paths, uploadId, 'original');
   if (!original || original.byteLength === 0) {
-    await discardUpload(paths, uploadId);
     return { status: 'failed', reason: `Upload ${uploadId} carried no data` };
   }
 
@@ -67,7 +88,6 @@ export async function ingestUpload(
   if (existing) {
     // Importing an exact duplicate opens the existing item rather than
     // creating a second one (spec §5.2).
-    await discardUpload(paths, uploadId);
     return { status: 'duplicate', item: existing };
   }
 
@@ -114,6 +134,5 @@ export async function ingestUpload(
   };
 
   await saveItem(paths, item);
-  await discardUpload(paths, uploadId);
   return { status: 'created', item };
 }

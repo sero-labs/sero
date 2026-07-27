@@ -150,7 +150,13 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
         case 'complete': {
           const checked = checkId(params.uploadId, 'upload id');
           if ('error' in checked) return checked.error;
-          await completeUpload(paths, checked.id);
+          // An upload that cannot be assembled must not queue an import that is
+          // certain to fail, so completion is what gates the request.
+          const rejected = await completeUpload(paths, checked.id).then(
+            () => null,
+            (error: unknown) => (error instanceof Error ? error.message : String(error)),
+          );
+          if (rejected !== null) return failure(rejected);
           const requestId = await appendRequest(paths, { kind: 'ingest', uploadId: checked.id });
           return text('Upload complete; import queued.', { requestId });
         }
