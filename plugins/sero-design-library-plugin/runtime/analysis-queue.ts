@@ -41,6 +41,13 @@ interface InFlight {
 export class AnalysisQueue {
   private readonly pending: string[] = [];
   private readonly running = new Map<string, InFlight>();
+  /**
+   * Cancelling a job that never started still writes — to the job and to its
+   * target — and those writes are not owned by any entry in `running`. Tracked
+   * here so `dispose` waits for them too; returning while one is still in flight
+   * lets a disposed runtime write over a restarted one.
+   */
+  private readonly cancelling = new Set<Promise<void>>();
   private disposed = false;
 
   constructor(private readonly context: AnalysisQueueContext) {}
@@ -70,8 +77,23 @@ export class AnalysisQueue {
     const index = this.pending.indexOf(jobId);
     if (index === -1) return;
     this.pending.splice(index, 1);
-    const job = await readJob(this.context.paths, jobId);
-    if (job?.target.kind === 'item') await this.finishCancelled(job, job.target.itemId);
+    await this.track(async () => {
+      const job = await readJob(this.context.paths, jobId);
+      if (job?.target.kind === 'item') await this.finishCancelled(job, job.target.itemId);
+    });
+  }
+
+  /** Run a write that no `running` entry owns, so `dispose` can wait for it. */
+  private async track(write: () => Promise<void>): Promise<void> {
+    const pending = write().catch((error: unknown) =>
+      this.context.onError('A cancellation write failed', error),
+    );
+    this.cancelling.add(pending);
+    try {
+      await pending;
+    } finally {
+      this.cancelling.delete(pending);
+    }
   }
 
   /** Resolves once the job is no longer writing — immediately if it never was. */
@@ -91,7 +113,7 @@ export class AnalysisQueue {
     this.pending.length = 0;
     const inFlight = [...this.running.values()];
     for (const entry of inFlight) entry.controller.abort();
-    await Promise.allSettled(inFlight.map((entry) => entry.done));
+    await Promise.allSettled([...inFlight.map((entry) => entry.done), ...this.cancelling]);
     this.running.clear();
   }
 

@@ -305,3 +305,67 @@ describe('the Design projection', () => {
     expect(variant?.revisionCount).toBe(2);
   });
 });
+
+describe('creating the same Design twice', () => {
+  it('keeps the record that already exists rather than replacing it', async () => {
+    // Tested at the store, not only through the coordinator: the two guards are
+    // deliberate, and the one that has to hold under a concurrent applicator is
+    // this one — a sequential test passes with either alone.
+    await seedItem(paths, 'itm-a', { status: 'ready' });
+    const input = {
+      designId: 'dsn-1',
+      title: 'First',
+      brief: BRIEF,
+      referenceItemIds: ['itm-a'],
+      resolutions: [],
+    };
+
+    const first = await createDesign(paths, input);
+    if (first.status !== 'created') throw new Error('seed failed');
+    await mutateVariant(paths, 'dsn-1', first.design.variants[0]!.id, (variant) => ({
+      ...variant,
+      status: 'ready',
+      revisions: [
+        {
+          id: 'rev-1',
+          createdAt: 1,
+          jobId: 'job-1',
+          files: [{ name: 'index.html', bytes: 4 }],
+          buildWarnings: [],
+          summary: 'kept',
+        },
+      ],
+    }));
+
+    const replay = await createDesign(paths, { ...input, title: 'Second' });
+
+    expect(replay.status).toBe('created');
+    const stored = await readDesign(paths, 'dsn-1');
+    expect(stored?.title).toBe('First');
+    expect(stored?.variants[0]?.revisions).toHaveLength(1);
+  });
+
+  it('is a no-op even when a reference has since been deleted', async () => {
+    await seedItem(paths, 'itm-a', { status: 'ready' });
+    await createDesign(paths, {
+      designId: 'dsn-1',
+      title: 'Made earlier',
+      brief: BRIEF,
+      referenceItemIds: ['itm-a'],
+      resolutions: [],
+    });
+    await seedItem(paths, 'itm-a', { status: 'ready', deleted: true });
+
+    const replay = await createDesign(paths, {
+      designId: 'dsn-1',
+      title: 'Made earlier',
+      brief: BRIEF,
+      referenceItemIds: ['itm-a'],
+      resolutions: [],
+    });
+
+    // Reporting "that reference is in Trash" would bury the fact that the
+    // Design already exists and is perfectly fine.
+    expect(replay.status).toBe('created');
+  });
+});

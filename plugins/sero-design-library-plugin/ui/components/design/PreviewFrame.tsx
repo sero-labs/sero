@@ -6,6 +6,7 @@ import {
   isPreviewMessage,
   type PreviewMessage,
 } from '../../../shared/preview-message';
+import { decidePreviewLoad } from '../../lib/preview-navigation';
 import { usePreviewDocument, type PreviewTarget } from '../../hooks/usePreviewDocument';
 
 /**
@@ -35,10 +36,18 @@ export interface PreviewFrameProps {
 export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
-  const frame = useRef<HTMLIFrameElement>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   // Counted rather than flagged: the first load is the document being put there,
   // and any load after it is the page navigating itself somewhere else.
   const loads = useRef(0);
+
+  // Reset when the element itself is created, not from an effect. `key={url}`
+  // mounts a fresh iframe whose first load can land before an effect has run,
+  // and a counter reset afterwards would read that load as a navigation.
+  const attachFrame = (element: HTMLIFrameElement | null) => {
+    if (element !== frame.current) loads.current = 0;
+    frame.current = element;
+  };
 
   const report = (message: PreviewMessage) =>
     setRuntimeMessages((current) =>
@@ -53,7 +62,6 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
   // which is a genuine external event source rather than derived state.
   useEffect(() => {
     setRuntimeMessages([]);
-    loads.current = 0;
     const onMessage = (event: MessageEvent) => {
       // Bound to this frame's own window. Anything else that can post into this
       // renderer could otherwise fabricate a warning — or, worse, suppress one
@@ -68,22 +76,21 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
 
   /**
    * The backstop for the one escape in-page code cannot block: `window.location`
-   * is [Unforgeable], so a page can always assign to it and replace itself. The
-   * navigated document keeps the sandbox flags — no Sero, no storage, no
-   * filesystem — but it would have a network and would no longer carry this
-   * document's policy. So the frame is put back, and the attempt is reported
-   * rather than passing unnoticed.
+   * is [Unforgeable], so a page can always replace itself. Noticing is all the
+   * surface can do — the load has already committed by the time this runs — and
+   * `decidePreviewLoad` holds the rule about what to do with that.
    */
   const onLoad = () => {
     loads.current += 1;
-    if (loads.current <= 1 || url === null) return;
+    const outcome = decidePreviewLoad(loads.current);
+    if (outcome.action !== 'blank') return;
     report({
       source: PREVIEW_MESSAGE_SOURCE,
       kind: 'blocked',
       capability: 'navigation',
-      detail: 'the page tried to load a different document',
+      detail: outcome.reason,
     });
-    if (frame.current) frame.current.src = url;
+    if (frame.current) frame.current.src = 'about:blank';
   };
 
   const warnings = [
@@ -105,7 +112,7 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
         ) : (
           <iframe
             key={url}
-            ref={frame}
+            ref={attachFrame}
             src={url}
             onLoad={onLoad}
             title={title}

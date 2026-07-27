@@ -135,8 +135,24 @@ async function rewindTarget(paths: DesignLibraryPaths, job: JobRecord): Promise<
 }
 
 /**
- * A replacement job for a target still claiming a terminal job is running.
- * Returns null when the target has already moved on, which is the normal case.
+ * Statuses a target can be left in when its own job has already finished — the
+ * crash window between the job's terminal write and the target's.
+ *
+ * `pending` belongs here as much as `running` does. A cancel that never reached
+ * its target leaves it exactly there, and repairing only `running` left an item
+ * spinning with no job that would ever look at it again.
+ */
+const UNFINISHED: readonly string[] = ['pending', 'running'];
+
+/**
+ * Repair a target whose own job has finished without it hearing.
+ *
+ * A cancelled job finishes its target rather than replacing it: re-running would
+ * resurrect work the user had already stopped. A succeeded or failed job means
+ * the crash happened before the result was written, so there is nothing to show
+ * and the work runs again — a replacement job is created and returned, because a
+ * target left waiting with no job owning it is the stuck spinner this exists to
+ * prevent. Returns null when the target has moved on, which is the normal case.
  */
 async function replaceOrphan(
   paths: DesignLibraryPaths,
@@ -144,7 +160,15 @@ async function replaceOrphan(
 ): Promise<JobRecord | null> {
   if (job.target.kind === 'item') {
     const item = await readItem(paths, job.target.itemId);
-    if (item?.analysis.jobId !== job.id || item.analysis.status !== 'running') return null;
+    if (item?.analysis.jobId !== job.id || !UNFINISHED.includes(item.analysis.status)) return null;
+
+    if (job.status === 'cancelled') {
+      await mutateItem(paths, job.target.itemId, (current) => ({
+        ...current,
+        analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() },
+      }));
+      return null;
+    }
 
     const replacement = await createJob(paths, 'analysis', job.target);
     await mutateItem(paths, job.target.itemId, (current) => ({
@@ -157,7 +181,16 @@ async function replaceOrphan(
   const { designId, variantId } = job.target;
   const design = await readDesign(paths, designId);
   const variant = design?.variants.find((entry) => entry.id === variantId);
-  if (!variant || variant.jobId !== job.id || variant.status !== 'running') return null;
+  if (!variant || variant.jobId !== job.id || !UNFINISHED.includes(variant.status)) return null;
+
+  if (job.status === 'cancelled') {
+    await mutateVariant(paths, designId, variantId, (current) => ({
+      ...current,
+      status: 'cancelled',
+      completedAt: Date.now(),
+    }));
+    return null;
+  }
 
   const replacement = await createJob(paths, 'generate', job.target);
   await mutateVariant(paths, designId, variantId, (current) => ({

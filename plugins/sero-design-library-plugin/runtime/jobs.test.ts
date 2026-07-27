@@ -9,7 +9,14 @@ import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION, itemTarget, variantTarget } from '../shared/records';
 import { readState } from '../shared/state-io';
 import { mutateVariant, readDesign } from './design-store';
-import { createJob, markFailed, markRunning, markSucceeded, reconcileJobs } from './jobs';
+import {
+  createJob,
+  markCancelled,
+  markFailed,
+  markRunning,
+  markSucceeded,
+  reconcileJobs,
+} from './jobs';
 import { mutateItem, readItem, reindex, saveItem } from './store';
 import { seedDesign } from './test-fixtures';
 
@@ -243,5 +250,61 @@ describe('a variant orphaned or interrupted by its generation job', () => {
     const after = await readDesign(paths, design.id);
     expect(after?.variants.find((entry) => entry.id === variantId)?.status).toBe('ready');
     expect(after?.variants.find((entry) => entry.id === variantId)?.jobId).toBe(job.id);
+  });
+});
+
+describe('a target left behind by a job that finished without it', () => {
+  it('re-queues an item still pending, not only one still running', async () => {
+    // The crash window is between the job's terminal write and its target's, and
+    // a cancel that never reached its target leaves it `pending`. Repairing only
+    // `running` left this item spinning with no job that would ever revisit it.
+    const item = await seedItem('itm-pending-orphan', 'pending');
+    const job = await createJob(paths, 'analysis', itemTarget(item.id));
+    await mutateItem(paths, item.id, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'pending', jobId: job.id },
+    }));
+    await markSucceeded(paths, job.id);
+
+    const resumable = await reconcileJobs(paths);
+
+    const repaired = await readItem(paths, item.id);
+    expect(repaired?.analysis.jobId).not.toBe(job.id);
+    expect(resumable.map((entry) => entry.id)).toContain(repaired?.analysis.jobId);
+  });
+
+  it('finishes a cancelled job’s target rather than running it again', async () => {
+    const item = await seedItem('itm-cancelled-orphan', 'running');
+    const job = await createJob(paths, 'analysis', itemTarget(item.id));
+    await mutateItem(paths, item.id, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'running', jobId: job.id },
+    }));
+    await markCancelled(paths, job.id);
+
+    const resumable = await reconcileJobs(paths);
+
+    // Re-running would resurrect work the user had already stopped.
+    const repaired = await readItem(paths, item.id);
+    expect(repaired?.analysis.status).toBe('cancelled');
+    expect(repaired?.analysis.jobId).toBe(job.id);
+    expect(resumable).toEqual([]);
+  });
+
+  it('finishes a cancelled variant rather than starting it again', async () => {
+    const design = await seedDesign(paths, 'dsn-cancel-orphan');
+    const variantId = design.variants[0]!.id;
+    const job = await createJob(paths, 'generate', variantTarget(design.id, variantId));
+    await mutateVariant(paths, design.id, variantId, (variant) => ({
+      ...variant,
+      status: 'running',
+      jobId: job.id,
+    }));
+    await markCancelled(paths, job.id);
+
+    await reconcileJobs(paths);
+
+    const repaired = await readDesign(paths, design.id);
+    expect(repaired?.variants.find((entry) => entry.id === variantId)?.status).toBe('cancelled');
   });
 });
