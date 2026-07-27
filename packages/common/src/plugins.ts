@@ -20,6 +20,13 @@ export const SERO_HOST_CAPABILITIES = [
   'appAgent.invokeTool',
   'tool.cli',
   'appRuntime.background',
+  /**
+   * `host.media.prepareImage` is available to background runtimes. Declare this
+   * only if your runtime cannot work without it — a runtime that can fall back
+   * to sending the original image should check for the method instead, so it
+   * stays installable on older hosts.
+   */
+  'appRuntime.media',
   /** Host mounts `sero.app.explorerView` as an Explorer view. */
   'ui.explorerView',
   /** Host mounts `sero.app.titlebar` as a title-bar control. */

@@ -1,0 +1,67 @@
+{
+  "name": "@sero-ai/plugin-design-library",
+  "version": "0.1.0",
+  "description": "Sero Design Library — visual reference memory and creative workbench",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm exec vitest run --root .",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "design-library",
+      "styleIsolation": "scope",
+      "name": "Design Library",
+      "icon": "palette",
+      "scope": "global",
+      "stateFile": ".sero/apps/design-library/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "DesignLibraryApp",
+      "devPort": 5190,
+      "runtime": "./runtime/index.ts"
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": ["design", "references", "inspiration", "generation"],
+      "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
+      "preBuilt": false,
+      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
+      "bridgeTools": ["design_library_items", "design_library_analysis"]
+    }
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

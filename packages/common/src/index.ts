@@ -95,6 +95,8 @@ export type {
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
   AppRuntimeToolchainsApi,
+  AppRuntimePreparedImage,
+  AppRuntimeMediaApi,
   AppRuntimeActiveSession,
   AppRuntimeSessionState,
   AppRuntimeTurnStatus,
