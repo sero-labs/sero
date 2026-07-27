@@ -15,12 +15,12 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  cn,
 } from '@sero-ai/ui';
-import { ImagePlus } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 import { MAX_DESIGN_REFERENCES } from '../../shared/defaults';
 import { collectFacets, filterLibraryItems } from '../../shared/search';
-import type { LibraryFilters } from '../../shared/state';
+import { DEFAULT_LIBRARY_FILTERS, type LibraryFilters } from '../../shared/state';
 import type { AnalysisStatus, LibraryItemSummary } from '../../shared/types';
 import { LibraryCard } from '../components/LibraryCard';
 import { ItemInspector, type ResolvedItem } from '../components/ItemInspector';
@@ -51,6 +51,11 @@ export function LibraryPage(props: LibraryPageProps) {
   const [dropping, setDropping] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [inspected, setInspected] = useState<ResolvedItem | null>(null);
+
+  const activeFilterCount = filters.tags.length + filters.colours.length
+    + filters.sources.length + filters.analysisStatuses.length
+    + (filters.createdAfter !== undefined ? 1 : 0)
+    + (filters.includeDeleted ? 1 : 0);
 
   const loadImage = useCallback(
     (params: Record<string, unknown>) => actions.call('design_library_assets', params),
@@ -162,6 +167,18 @@ export function LibraryPage(props: LibraryPageProps) {
             <Label htmlFor="dl-show-deleted">Deleted</Label>
           </div>
 
+          {activeFilterCount > 0 ? (
+            <Button
+              className="dl-filter-clear"
+              onClick={() => props.onFilters(DEFAULT_LIBRARY_FILTERS)}
+              size="sm"
+              variant="ghost"
+            >
+              <X aria-hidden="true" size={13} />
+              Clear {activeFilterCount}
+            </Button>
+          ) : null}
+
           <div className="dl-canvas-toolbar__right">
             <Button onClick={() => fileInput.current?.click()} size="sm">
               <ImagePlus aria-hidden="true" size={15} />
@@ -183,6 +200,7 @@ export function LibraryPage(props: LibraryPageProps) {
           />
         </div>
 
+        <div className="dl-page-body">
         {importMessage ? <p className="dl-inline-notice">{importMessage}</p> : null}
 
         {dropping ? (
@@ -201,7 +219,9 @@ export function LibraryPage(props: LibraryPageProps) {
           />
         ) : visible.length === 0 ? (
           <SurfaceState
-            detail="No inspiration matches this search and filter combination."
+            detail={activeFilterCount > 0
+              ? `Filters are hiding all ${items.length} items. Clear them to see the Library again.`
+              : 'No inspiration matches this search.'}
             kind="empty"
             title="No inspiration found"
           />
@@ -220,6 +240,8 @@ export function LibraryPage(props: LibraryPageProps) {
           </div>
         )}
 
+        </div>
+
         {selection.length > 0 ? (
           <div className="dl-selection-bar">
             <span>{selection.length} of {MAX_DESIGN_REFERENCES} references selected · first is Primary</span>
@@ -232,6 +254,7 @@ export function LibraryPage(props: LibraryPageProps) {
         <ItemInspector
           deleted={deleted}
           item={inspected}
+          onClose={() => openItem(undefined)}
           onDelete={() => void actions.itemLifecycle(inspected.id, 'soft_delete')}
           onPurge={() => {
             void actions.itemLifecycle(inspected.id, 'purge');
@@ -259,17 +282,24 @@ function FacetSelect({
   onChange: (value: string) => void;
 }) {
   const ANY = '__any__';
+  const active = value !== '';
 
   return (
     <Select
       onValueChange={(next) => onChange(next === ANY ? '' : next)}
-      value={value === '' ? ANY : value}
+      value={active ? value : ANY}
     >
-      <SelectTrigger aria-label={label} className="dl-facet" size="sm">
-        <SelectValue placeholder={label} />
+      {/* The trigger states the facet as well as its value, so a filter that
+          is doing something is obvious without opening it. */}
+      <SelectTrigger
+        aria-label={label}
+        className={cn('dl-facet', active && 'dl-facet--active')}
+        size="sm"
+      >
+        <span>{label}: {active ? value : 'any'}</span>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ANY}>{label}: any</SelectItem>
+        <SelectItem value={ANY}>Any {label.toLowerCase()}</SelectItem>
         {options.map((option) => (
           <SelectItem key={option} value={option}>{option}</SelectItem>
         ))}

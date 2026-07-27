@@ -1,5 +1,5 @@
 import { Badge, cn } from '@sero-ai/ui';
-import { AlertTriangle, Check, ImageOff, LoaderCircle } from 'lucide-react';
+import { Check, ImageOff } from 'lucide-react';
 import type { LibraryItemSummary } from '../../shared/types';
 import { useItemImage, type ImageLoader } from '../hooks/useItemImage';
 
@@ -11,12 +11,16 @@ export interface LibraryCardProps {
   onOpen: (itemId: string) => void;
 }
 
-const STATUS_LABELS: Record<LibraryItemSummary['analysisStatus'], string> = {
-  queued: 'Waiting for the Librarian',
-  analysing: 'Librarian analysing',
-  ready: 'Analysed',
-  failed: 'Analysis needs attention',
-};
+/**
+ * The style line doubles as the analysis state, so the card never says the
+ * same thing twice.
+ */
+function styleLine(item: LibraryItemSummary): string {
+  if (item.analysisStatus === 'ready') return item.primaryStyle || 'Unclassified';
+  if (item.analysisStatus === 'analysing') return 'Analysing…';
+  if (item.analysisStatus === 'failed') return 'Analysis needs attention';
+  return 'Waiting for the Librarian';
+}
 
 export function LibraryCard({
   item,
@@ -44,7 +48,7 @@ export function LibraryCard({
       >
         {preview
           ? <img alt="" className="dl-library-card__image" src={preview} />
-          : <span className="dl-library-card__placeholder"><ImageOff aria-hidden="true" size={18} /></span>}
+          : <span className="dl-library-card__placeholder"><ImageOff aria-hidden="true" size={20} /></span>}
       </button>
 
       <button
@@ -54,33 +58,25 @@ export function LibraryCard({
         onClick={() => onToggleSelection(item.id)}
         type="button"
       >
-        <Check aria-hidden="true" size={13} />
+        {selected
+          ? <span className="dl-library-card__order">{selectionOrder + 1}</span>
+          : <Check aria-hidden="true" size={12} />}
       </button>
-
-      {selected ? <span className="dl-library-card__order">{selectionOrder + 1}</span> : null}
 
       <div className="dl-library-card__copy">
         <div className="dl-library-card__title">
           <span className={cn('dl-dot', `dl-dot--${item.analysisStatus}`)} />
           <strong>{item.title}</strong>
         </div>
-        <span>{item.primaryStyle || 'Awaiting analysis'}</span>
+        <span>{styleLine(item)}</span>
 
-        <div className="dl-tag-row">
-          {item.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary">{tag}</Badge>
-          ))}
-        </div>
-
-        <p className="dl-library-card__status">
-          {item.analysisStatus === 'analysing'
-            ? <LoaderCircle aria-hidden="true" className="dl-spin" size={12} />
-            : null}
-          {item.analysisStatus === 'failed'
-            ? <AlertTriangle aria-hidden="true" size={12} />
-            : null}
-          {STATUS_LABELS[item.analysisStatus]}
-        </p>
+        {item.tags.length > 0 ? (
+          <div className="dl-tag-row">
+            {item.tags.slice(0, 3).map((tag) => (
+              <Badge key={tag} variant="secondary">{tag}</Badge>
+            ))}
+          </div>
+        ) : null}
       </div>
     </article>
   );

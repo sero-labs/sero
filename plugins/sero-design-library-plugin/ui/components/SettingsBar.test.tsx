@@ -25,34 +25,19 @@ afterEach(async () => {
 });
 
 describe('SettingsBar', () => {
-  it('offers only the approved first-release settings', async () => {
-    const onChange = vi.fn();
+  it('is a single labelled control until it is opened', async () => {
     await act(async () => {
       root?.render(
         <SettingsBar
-          onChange={onChange}
+          onChange={vi.fn()}
           settings={{ variantCount: 3, revisionBehaviour: 'replace' }}
         />,
       );
     });
 
-    expect(container.textContent).toContain('Variants per run');
-    expect(container.textContent).toContain('Revision result');
-    expect(container.querySelectorAll('[data-slot="select-trigger"]')).toHaveLength(2);
-  });
-
-  it('shows the current profile settings on its triggers', async () => {
-    await act(async () => {
-      root?.render(
-        <SettingsBar
-          onChange={vi.fn()}
-          settings={{ variantCount: 5, revisionBehaviour: 'retain' }}
-        />,
-      );
-    });
-
-    const triggers = container.querySelectorAll('[data-slot="select-trigger"]');
-    expect(triggers[0].textContent).toContain('5');
-    expect(triggers[1].textContent).toContain('Retain both results');
+    const trigger = container.querySelector('button[aria-label="Design Library settings"]');
+    expect(trigger).not.toBeNull();
+    // Nothing is mounted until the user asks for it.
+    expect(container.querySelectorAll('[data-slot="select-trigger"]')).toHaveLength(0);
   });
 });

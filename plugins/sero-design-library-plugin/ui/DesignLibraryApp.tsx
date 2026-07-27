@@ -80,6 +80,12 @@ export function DesignLibraryApp() {
           gallery: liveFamilies.length,
         }}
         onNavigate={navigate}
+        settings={
+          <SettingsBar
+            onChange={(settings) => void actions.updateSettings(settings)}
+            settings={state.settings}
+          />
+        }
       />
 
       <NoticeBar notices={state.notices} onDismiss={(id) => void actions.dismissNotice(id)} />
@@ -124,11 +130,6 @@ export function DesignLibraryApp() {
           />
         ) : null}
       </div>
-
-      <SettingsBar
-        onChange={(settings) => void actions.updateSettings(settings)}
-        settings={state.settings}
-      />
     </div>
   );
 }

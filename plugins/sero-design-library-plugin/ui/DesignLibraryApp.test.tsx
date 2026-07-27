@@ -124,8 +124,11 @@ describe('DesignLibraryApp', () => {
     await render();
 
     expect(container.querySelectorAll('.dl-library-card')).toHaveLength(3);
-    expect(container.textContent).toContain('Librarian analysing');
+    // The state is stated once, in place of the style line — never twice.
+    expect(container.textContent).toContain('Analysing…');
     expect(container.textContent).toContain('Analysis needs attention');
+    expect(container.querySelectorAll('.dl-dot--analysing')).toHaveLength(1);
+    expect(container.querySelectorAll('.dl-dot--failed')).toHaveLength(1);
   });
 
   it('filters the grid by keyword search', async () => {
@@ -204,16 +207,14 @@ describe('DesignLibraryApp', () => {
     expect(toolCalls.some((entry) => entry.params.action === 'dismiss_notice')).toBe(true);
   });
 
-  it('shows the profile settings from reactive state', async () => {
-    currentState = {
-      ...currentState,
-      settings: { variantCount: 5, revisionBehaviour: 'retain' },
-    };
+  it('keeps profile settings out of the standing chrome', async () => {
     await render();
 
-    const bar = container.querySelector('.dl-settings-bar');
-    expect(bar?.textContent).toContain('Variants per run');
-    expect(bar?.textContent).toContain('5');
-    expect(bar?.textContent).toContain('Retain both results');
+    // Two settings do not deserve a permanent bar; they sit behind the header
+    // control instead.
+    expect(container.querySelector('.dl-settings-bar')).toBeNull();
+    expect(
+      container.querySelector('.dl-header__actions button[aria-label="Design Library settings"]'),
+    ).not.toBeNull();
   });
 });

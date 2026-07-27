@@ -1,11 +1,23 @@
+/**
+ * Profile settings.
+ *
+ * Two settings do not deserve permanent chrome, so they live behind the
+ * header's settings control rather than a standing footer bar.
+ */
+
 import {
+  Button,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@sero-ai/ui';
+import { Settings2 } from 'lucide-react';
 import type { DesignLibraryProfileSettings, RevisionBehaviour } from '../../shared/types';
 
 export function SettingsBar({
@@ -16,39 +28,46 @@ export function SettingsBar({
   onChange: (settings: { variantCount?: number; revisionBehaviour?: RevisionBehaviour }) => void;
 }) {
   return (
-    <footer className="dl-settings-bar">
-      <div className="dl-settings-bar__field">
-        <Label htmlFor="dl-variant-count">Variants per run</Label>
-        <Select
-          onValueChange={(value) => onChange({ variantCount: Number(value) })}
-          value={String(settings.variantCount)}
-        >
-          <SelectTrigger className="dl-settings-bar__trigger" id="dl-variant-count" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[1, 2, 3, 4, 5].map((count) => (
-              <SelectItem key={count} value={String(count)}>{count}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button aria-label="Design Library settings" size="sm" variant="ghost">
+          <Settings2 aria-hidden="true" size={15} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="dl-settings-bar">
+        <div className="dl-settings-bar__field">
+          <Label htmlFor="dl-variant-count">Variants per run</Label>
+          <Select
+            onValueChange={(value) => onChange({ variantCount: Number(value) })}
+            value={String(settings.variantCount)}
+          >
+            <SelectTrigger className="dl-settings-bar__trigger" id="dl-variant-count" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 2, 3, 4, 5].map((count) => (
+                <SelectItem key={count} value={String(count)}>{count}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <div className="dl-settings-bar__field">
-        <Label htmlFor="dl-revision-behaviour">Revision result</Label>
-        <Select
-          onValueChange={(value) => onChange({ revisionBehaviour: value as RevisionBehaviour })}
-          value={settings.revisionBehaviour}
-        >
-          <SelectTrigger className="dl-settings-bar__trigger" id="dl-revision-behaviour" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="replace">Replace the visible result</SelectItem>
-            <SelectItem value="retain">Retain both results</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </footer>
+        <div className="dl-settings-bar__field">
+          <Label htmlFor="dl-revision-behaviour">Revision result</Label>
+          <Select
+            onValueChange={(value) => onChange({ revisionBehaviour: value as RevisionBehaviour })}
+            value={settings.revisionBehaviour}
+          >
+            <SelectTrigger className="dl-settings-bar__trigger" id="dl-revision-behaviour" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="replace">Replace the visible result</SelectItem>
+              <SelectItem value="retain">Retain both results</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

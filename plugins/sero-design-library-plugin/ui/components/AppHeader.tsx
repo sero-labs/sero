@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '@sero-ai/ui';
 import { Palette } from 'lucide-react';
 import type { DesignLibraryPageId } from '../../shared/state';
@@ -6,11 +7,13 @@ interface AppHeaderProps {
   activePage: DesignLibraryPageId;
   counts: Record<DesignLibraryPageId, number>;
   onNavigate: (page: DesignLibraryPageId) => void;
+  /** Trailing chrome — the profile settings control. */
+  settings?: ReactNode;
 }
 
 const PAGES: DesignLibraryPageId[] = ['library', 'design', 'gallery'];
 
-export function AppHeader({ activePage, counts, onNavigate }: AppHeaderProps) {
+export function AppHeader({ activePage, counts, onNavigate, settings }: AppHeaderProps) {
   return (
     <header className="dl-header">
       <div className="dl-brand">
@@ -32,6 +35,8 @@ export function AppHeader({ activePage, counts, onNavigate }: AppHeaderProps) {
           </button>
         ))}
       </nav>
+
+      <div className="dl-header__actions">{settings}</div>
     </header>
   );
 }
