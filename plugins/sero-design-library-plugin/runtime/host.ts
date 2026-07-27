@@ -12,7 +12,11 @@ import { DEFAULT_STATE, type DesignLibraryState } from '../shared/state';
 
 export interface ModelRunParams {
   task: string;
-  systemPrompt?: string;
+  /**
+   * The ad-hoc agent body. Required: the subagent runner needs either this or
+   * a named agent, and the Design Library uses no named agents.
+   */
+  systemPrompt: string;
   /** Absolute directory the run's read tool works from. */
   cwd?: string;
   /** 'readOnly' gives the run Pi's read tool, which attaches images. */
@@ -64,7 +68,7 @@ export function createRuntimeHost(ctx: AppRuntimeContext, secret: (name: string)
     async runModel(params) {
       const result = await ctx.host.subagents.runStructured({
         task: params.task,
-        ...(params.systemPrompt ? { appendSystemPrompt: [params.systemPrompt] } : {}),
+        systemPrompt: params.systemPrompt,
         parentSessionId: `design-library:${ctx.workspaceId}:${params.sessionKey}`,
         workspaceId: ctx.workspaceId,
         cwd: params.cwd ?? ctx.workspacePath,
