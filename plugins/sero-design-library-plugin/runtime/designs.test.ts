@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { designLibraryPathsFromHome, revisionDir, type DesignLibraryPaths } from '../shared/paths';
 import { readState } from '../shared/state-io';
-import { mutateVariant, pruneOrphanRevisions, readDesign } from './design-store';
+import {
+  createDesignRecord,
+  mutateVariant,
+  pruneOrphanRevisions,
+  readDesign,
+} from './design-store';
 import { cancelVariant, createDesign, retryVariant } from './designs';
 import { TEST_BRIEF as BRIEF, seedItem } from './test-fixtures';
 
@@ -308,9 +313,6 @@ describe('the Design projection', () => {
 
 describe('creating the same Design twice', () => {
   it('keeps the record that already exists rather than replacing it', async () => {
-    // Tested at the store, not only through the coordinator: the two guards are
-    // deliberate, and the one that has to hold under a concurrent applicator is
-    // this one — a sequential test passes with either alone.
     await seedItem(paths, 'itm-a', { status: 'ready' });
     const input = {
       designId: 'dsn-1',
@@ -343,6 +345,53 @@ describe('creating the same Design twice', () => {
     const stored = await readDesign(paths, 'dsn-1');
     expect(stored?.title).toBe('First');
     expect(stored?.variants[0]?.revisions).toHaveLength(1);
+  });
+
+  it('refuses to overwrite at the store, not only at the caller', async () => {
+    // The two guards are deliberate, but only this one holds when two
+    // applicators reach the same id at once — and a test that goes through
+    // `createDesign` passes with either of them alone, so it proves neither.
+    await seedItem(paths, 'itm-a', { status: 'ready' });
+    const created = await createDesign(paths, {
+      designId: 'dsn-1',
+      title: 'First',
+      brief: BRIEF,
+      referenceItemIds: ['itm-a'],
+      resolutions: [],
+    });
+    if (created.status !== 'created') throw new Error('seed failed');
+
+    const second = await createDesignRecord(paths, {
+      ...created.design,
+      title: 'Second',
+      variants: [],
+    });
+
+    expect(second.created).toBe(false);
+    expect(second.design.title).toBe('First');
+    expect((await readDesign(paths, 'dsn-1'))?.title).toBe('First');
+  });
+
+  it('converges when two writers create the same id at once', async () => {
+    await seedItem(paths, 'itm-a', { status: 'ready' });
+    const created = await createDesign(paths, {
+      designId: 'dsn-race',
+      title: 'Original',
+      brief: BRIEF,
+      referenceItemIds: ['itm-a'],
+      resolutions: [],
+    });
+    if (created.status !== 'created') throw new Error('seed failed');
+
+    // Both start before either has finished, which is the case the caller-side
+    // read cannot cover.
+    const [a, b] = await Promise.all([
+      createDesignRecord(paths, { ...created.design, title: 'A' }),
+      createDesignRecord(paths, { ...created.design, title: 'B' }),
+    ]);
+
+    expect([a.created, b.created]).toEqual([false, false]);
+    expect((await readDesign(paths, 'dsn-race'))?.title).toBe('Original');
   });
 
   it('is a no-op even when a reference has since been deleted', async () => {

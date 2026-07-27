@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   PREVIEW_MESSAGE_SOURCE,
@@ -41,13 +41,21 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
   // and any load after it is the page navigating itself somewhere else.
   const loads = useRef(0);
 
-  // Reset when the element itself is created, not from an effect. `key={url}`
-  // mounts a fresh iframe whose first load can land before an effect has run,
-  // and a counter reset afterwards would read that load as a navigation.
-  const attachFrame = (element: HTMLIFrameElement | null) => {
-    if (element !== frame.current) loads.current = 0;
+  /**
+   * Reset when the element itself is created, not from an effect: `key={url}`
+   * mounts a fresh iframe whose first load can land before an effect has run, and
+   * a reset afterwards would read that load as a navigation.
+   *
+   * Stable, and deliberately so. A callback rebuilt each render makes React
+   * detach the old one with `null` and reattach the same element, so any ordinary
+   * re-render — a warning arriving, the parent updating — would zero the counter
+   * and the next load would look like the expected first one. The null guard
+   * covers the detach that React 19's StrictMode adds on top.
+   */
+  const attachFrame = useCallback((element: HTMLIFrameElement | null) => {
+    if (element !== null && element !== frame.current) loads.current = 0;
     frame.current = element;
-  };
+  }, []);
 
   const report = (message: PreviewMessage) =>
     setRuntimeMessages((current) =>

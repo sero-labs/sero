@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { DesignLibraryPaths } from '../shared/paths';
 import type { JobKind, JobRecord, JobTarget } from '../shared/records';
 import { mutateVariant, readDesign } from './design-store';
-import { listJobs, mutateItem, mutateJob, readItem, saveJob } from './store';
+import { listJobs, mutateItem, mutateJob, saveJob } from './store';
 
 /**
  * The persisted job contract.
@@ -158,46 +158,62 @@ async function replaceOrphan(
   paths: DesignLibraryPaths,
   job: JobRecord,
 ): Promise<JobRecord | null> {
+  // A replacement has to exist before the target can point at it — a target
+  // naming a job that does not exist has nothing to run it and nothing to repair
+  // it. So one is created up front and retired below if the claim fails.
+  const replacement =
+    job.status === 'cancelled'
+      ? null
+      : await createJob(paths, job.kind, job.target);
+
+  // Every condition is re-tested inside the mutation, under the record lock.
+  // Reading them first and acting afterwards leaves a window in which a retry
+  // installs a newer job, and this stale terminal one would then cancel or
+  // replace work that had already moved on.
+  const claim = (current: { jobId?: string; status: string }) =>
+    current.jobId === job.id && UNFINISHED.includes(current.status);
+
+  let claimed = false;
+
   if (job.target.kind === 'item') {
-    const item = await readItem(paths, job.target.itemId);
-    if (item?.analysis.jobId !== job.id || !UNFINISHED.includes(item.analysis.status)) return null;
-
-    if (job.status === 'cancelled') {
-      await mutateItem(paths, job.target.itemId, (current) => ({
-        ...current,
-        analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() },
-      }));
-      return null;
-    }
-
-    const replacement = await createJob(paths, 'analysis', job.target);
-    await mutateItem(paths, job.target.itemId, (current) => ({
-      ...current,
-      analysis: { ...current.analysis, status: 'pending', jobId: replacement.id, error: undefined },
-    }));
-    return replacement;
+    await mutateItem(paths, job.target.itemId, (item) => {
+      if (!claim({ ...(item.analysis.jobId === undefined ? {} : { jobId: item.analysis.jobId }), status: item.analysis.status })) {
+        return null;
+      }
+      claimed = true;
+      return replacement === null
+        ? {
+            ...item,
+            analysis: { ...item.analysis, status: 'cancelled', completedAt: Date.now() },
+          }
+        : {
+            ...item,
+            analysis: {
+              ...item.analysis,
+              status: 'pending',
+              jobId: replacement.id,
+              error: undefined,
+            },
+          };
+    });
+  } else {
+    const { designId, variantId } = job.target;
+    await mutateVariant(paths, designId, variantId, (variant) => {
+      if (!claim(variant)) return null;
+      claimed = true;
+      return replacement === null
+        ? { ...variant, status: 'cancelled', completedAt: Date.now() }
+        : { ...variant, status: 'pending', jobId: replacement.id, error: undefined };
+    });
   }
 
-  const { designId, variantId } = job.target;
-  const design = await readDesign(paths, designId);
-  const variant = design?.variants.find((entry) => entry.id === variantId);
-  if (!variant || variant.jobId !== job.id || !UNFINISHED.includes(variant.status)) return null;
-
-  if (job.status === 'cancelled') {
-    await mutateVariant(paths, designId, variantId, (current) => ({
-      ...current,
-      status: 'cancelled',
-      completedAt: Date.now(),
-    }));
+  if (replacement === null) return null;
+  if (!claimed) {
+    // The target moved on between creating this and trying to claim it. The
+    // unused job is retired rather than left queued, where it would start a run
+    // that could only discover the same thing and cancel itself.
+    await markCancelled(paths, replacement.id);
     return null;
   }
-
-  const replacement = await createJob(paths, 'generate', job.target);
-  await mutateVariant(paths, designId, variantId, (current) => ({
-    ...current,
-    status: 'pending',
-    jobId: replacement.id,
-    error: undefined,
-  }));
   return replacement;
 }

@@ -16,6 +16,7 @@ import {
   writeDesignFiles,
 } from '../coordinator-harness';
 import { mutateVariant, readDesign } from '../design-store';
+import { VariantQueue } from './queue';
 import { reconcileJobs } from '../jobs';
 import { listJobs, saveJob } from '../store';
 
@@ -419,5 +420,29 @@ describe('durability across restart and replay', () => {
     const after = await readDesign(harness.paths, designId);
     expect(after?.variants[0]?.status).toBe('cancelled');
     expect(after?.variants[0]?.revisions).toEqual([]);
+  });
+});
+
+describe('disposal waits for writes it does not own', () => {
+  it('waits for a queued job cancellation, and terminates if that write fails', async () => {
+    const designId = await createDesign({ variantCount: 1 });
+    await settled(designId);
+
+    // Cancelling a job that never started writes to the job and to its target,
+    // and neither write belongs to a running entry. Disposing while one is in
+    // flight is how a torn-down runtime writes over a restarted one.
+    const queue = new VariantQueue({
+      host: {} as never,
+      paths: harness.paths,
+      workspaceId: 'ws',
+      sessionId: 'session',
+      onError: () => undefined,
+    });
+
+    // A job id that does not resolve: the tracked write still has to be awaited,
+    // and a rejection inside it must not leave dispose hanging.
+    queue.enqueue('no-such-job');
+    const cancelling = queue.cancel('no-such-job');
+    await expect(Promise.all([cancelling, queue.dispose()])).resolves.toBeDefined();
   });
 });

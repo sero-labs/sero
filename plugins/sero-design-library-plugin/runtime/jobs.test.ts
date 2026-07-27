@@ -17,7 +17,7 @@ import {
   markSucceeded,
   reconcileJobs,
 } from './jobs';
-import { mutateItem, readItem, reindex, saveItem } from './store';
+import { listJobs, mutateItem, readItem, reindex, saveItem } from './store';
 import { seedDesign } from './test-fixtures';
 
 let home: string;
@@ -306,5 +306,41 @@ describe('a target left behind by a job that finished without it', () => {
 
     const repaired = await readDesign(paths, design.id);
     expect(repaired?.variants.find((entry) => entry.id === variantId)?.status).toBe('cancelled');
+  });
+});
+
+describe('reconciliation racing a retry', () => {
+  it('leaves a target alone once a newer job owns it', async () => {
+    // The window: reconciliation reads the target, a retry installs a newer job,
+    // and the stale terminal job then writes anyway. Checking inside the mutation
+    // is what closes it; here the newer job is installed first, which is the same
+    // state the race arrives at.
+    const design = await seedDesign(paths, 'dsn-retry-race');
+    const variantId = design.variants[0]!.id;
+    const stale = await createJob(paths, 'generate', variantTarget(design.id, variantId));
+    await mutateVariant(paths, design.id, variantId, (variant) => ({
+      ...variant,
+      status: 'pending',
+      jobId: stale.id,
+    }));
+    await markSucceeded(paths, stale.id);
+
+    const newer = await createJob(paths, 'generate', variantTarget(design.id, variantId));
+    await mutateVariant(paths, design.id, variantId, (variant) => ({
+      ...variant,
+      status: 'pending',
+      jobId: newer.id,
+    }));
+
+    const resumable = await reconcileJobs(paths);
+
+    const repaired = await readDesign(paths, design.id);
+    expect(repaired?.variants.find((entry) => entry.id === variantId)?.jobId).toBe(newer.id);
+    // And no third job is left queued to run against a variant that has moved on.
+    const generate = (await listJobs(paths)).filter(
+      (job) => job.kind === 'generate' && job.status === 'queued',
+    );
+    expect(generate.map((job) => job.id)).toEqual([newer.id]);
+    expect(resumable.map((job) => job.id)).toContain(newer.id);
   });
 });
