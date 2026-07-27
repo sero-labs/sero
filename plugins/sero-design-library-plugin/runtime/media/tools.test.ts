@@ -1,0 +1,230 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { assetCostUsd, currentAttempt, designCostUsd } from '../../shared/media';
+import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
+import type { DesignAsset } from '../../shared/media';
+import { readDesign } from '../design-store';
+import { invokeTool } from '../librarian/test-support';
+import { seedDesign } from '../test-fixtures';
+import { readAssetBytes } from './assets';
+import { MediaBudget } from './budget';
+import { MediaError } from './contract';
+import { createFakeProvider } from './providers/fake';
+import { createMediaTools, generateAsset, retryAsset, type MediaToolContext } from './tools';
+
+const DESIGN_ID = 'media-design';
+
+/** Unwrap a generation that was meant to succeed, failing loudly when it did not. */
+function expectAsset(outcome: { asset: DesignAsset } | { refused: string }): DesignAsset {
+  if ('refused' in outcome) throw new Error(`Expected an asset, but it was refused: ${outcome.refused}`);
+  return outcome.asset;
+}
+
+describe('media tools', () => {
+  let paths: DesignLibraryPaths;
+
+  beforeEach(async () => {
+    paths = designLibraryPathsFromHome(await mkdtemp(path.join(tmpdir(), 'design-library-tools-')));
+    await seedDesign(paths, DESIGN_ID);
+  });
+
+  afterEach(async () => {
+    await rm(paths.home, { recursive: true, force: true });
+  });
+
+  const context = (overrides: Partial<MediaToolContext> = {}): MediaToolContext => ({
+    paths,
+    designId: DESIGN_ID,
+    provider: createFakeProvider({ costUsd: 0.02 }),
+    budget: new MediaBudget({ callsPerRun: 4, confirmVideo: async () => true }),
+    signal: new AbortController().signal,
+    ...overrides,
+  });
+
+  it('exposes one tool per capability', () => {
+    const tools = createMediaTools(context());
+
+    expect(tools.map((tool) => tool.name)).toEqual([
+      'design_library_generate_image',
+      'design_library_restyle_image',
+      'design_library_upscale_image',
+      'design_library_generate_video',
+    ]);
+  });
+
+  it('records a generated asset on the Design with its provenance', async () => {
+    const outcome = await generateAsset(
+      'text-to-image',
+      { capability: 'text-to-image', prompt: 'a wide hero' },
+      context(),
+    );
+
+    expect('asset' in outcome).toBe(true);
+    const design = await readDesign(paths, DESIGN_ID);
+    const [asset] = design?.assets ?? [];
+    expect(asset.request.prompt).toBe('a wide hero');
+    expect(currentAttempt(asset)?.outcome).toBe('ready');
+    expect(currentAttempt(asset)?.provenance?.providerId).toBe('fake');
+    // The job that produced it is released once an attempt has landed, so
+    // reconciliation does not mistake a finished asset for an abandoned one.
+    expect(asset.jobId).toBeUndefined();
+  });
+
+  it('keeps a failed asset as a retryable placeholder rather than losing it', async () => {
+    const outcome = await generateAsset(
+      'text-to-image',
+      { capability: 'text-to-image', prompt: 'a wide hero' },
+      context({ provider: createFakeProvider({ failWith: new MediaError('provider', 'boom', true) }) }),
+    );
+
+    expect('asset' in outcome).toBe(true);
+    const design = await readDesign(paths, DESIGN_ID);
+    const [asset] = design?.assets ?? [];
+    expect(currentAttempt(asset)?.outcome).toBe('failed');
+    expect(currentAttempt(asset)?.error?.retryable).toBe(true);
+    // A page pointing at it renders a placeholder, so the reference still exists.
+    expect(asset.reference).toMatch(/^assets\//);
+  });
+
+  it('preserves the failure when a retry succeeds', async () => {
+    // Fails once, then succeeds — so one asset carries both outcomes.
+    const shared = context({ provider: createFakeProvider({ failFirst: 1 }) });
+
+    const first = expectAsset(
+      await generateAsset(
+        'text-to-image',
+        { capability: 'text-to-image', prompt: 'a wide hero' },
+        shared,
+      ),
+    );
+    expect(currentAttempt(first)?.outcome).toBe('failed');
+
+    const asset = expectAsset(await retryAsset(first, shared));
+
+    expect(asset.attempts).toHaveLength(2);
+    expect(asset.attempts[0].outcome).toBe('failed');
+    expect(currentAttempt(asset)?.outcome).toBe('ready');
+    // The reference never moved, so the page written against it still resolves
+    // — which is the whole point of retrying the asset rather than replacing it.
+    expect(asset.reference).toBe(first.reference);
+  });
+
+  it('replays the original request on retry rather than rebuilding it', async () => {
+    const shared = context({ provider: createFakeProvider({ failFirst: 1 }) });
+
+    const first = expectAsset(
+      await generateAsset(
+        'text-to-image',
+        { capability: 'text-to-image', prompt: 'a wide hero', aspectRatio: '16:9', seed: 7 },
+        shared,
+      ),
+    );
+    await retryAsset(first, shared);
+
+    const design = await readDesign(paths, DESIGN_ID);
+    const provenance = currentAttempt(design!.assets[0])?.provenance;
+    expect(provenance?.prompt).toBe('a wide hero');
+    expect(provenance?.seed).toBe(7);
+  });
+
+  it('refuses a call past the per-run cap without failing anything', async () => {
+    const budget = new MediaBudget({ callsPerRun: 1, confirmVideo: async () => true });
+    const shared = context({ budget });
+
+    await generateAsset('text-to-image', { capability: 'text-to-image', prompt: 'one' }, shared);
+    const refused = await generateAsset(
+      'text-to-image',
+      { capability: 'text-to-image', prompt: 'two' },
+      shared,
+    );
+
+    expect('refused' in refused).toBe(true);
+    const design = await readDesign(paths, DESIGN_ID);
+    // Nothing was reserved for the refused call: a placeholder for artwork that
+    // was never attempted would offer a retry the cap would refuse again.
+    expect(design?.assets).toHaveLength(1);
+  });
+
+  it('refuses video the user declined, and spends nothing on it', async () => {
+    const budget = new MediaBudget({ callsPerRun: 3, confirmVideo: async () => false });
+
+    const refused = await generateAsset(
+      'text-to-video',
+      { capability: 'text-to-video', prompt: 'a slow pan' },
+      context({ budget }),
+    );
+
+    expect(refused).toMatchObject({ refused: expect.stringContaining('not approved') });
+    expect(budget.callsUsed).toBe(0);
+    expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(0);
+  });
+
+  it('totals reported cost per asset and per Design', async () => {
+    const shared = context();
+    await generateAsset('text-to-image', { capability: 'text-to-image', prompt: 'one' }, shared);
+    await generateAsset('text-to-image', { capability: 'text-to-image', prompt: 'two' }, shared);
+
+    const design = await readDesign(paths, DESIGN_ID);
+    expect(assetCostUsd(design!.assets[0])).toBeCloseTo(0.02);
+    expect(designCostUsd(design!.assets)).toBeCloseTo(0.04);
+  });
+
+  it('offers only ready assets to the build', async () => {
+    const shared = context();
+    await generateAsset('text-to-image', { capability: 'text-to-image', prompt: 'good' }, shared);
+    await generateAsset(
+      'text-to-image',
+      { capability: 'text-to-image', prompt: 'bad' },
+      context({ provider: createFakeProvider({ failWith: new MediaError('provider', 'boom', true) }) }),
+    );
+
+    const design = await readDesign(paths, DESIGN_ID);
+    const forBuild = await readAssetBytes(paths, design!);
+
+    expect(design?.assets).toHaveLength(2);
+    // The failed one is absent, so the page gets a placeholder rather than a
+    // reference to a file with nothing behind it.
+    expect(forBuild).toHaveLength(1);
+    expect(forBuild[0].reference).toBe(design?.assets[0].reference);
+  });
+
+  it('tells the model where the artwork went, in terms it can use', async () => {
+    const [imageTool] = createMediaTools(context());
+
+    const result = await invokeTool(imageTool, { prompt: 'a wide hero' });
+
+    const details = result.details as { ok: boolean; reference: string };
+    expect(details.ok).toBe(true);
+    expect(details.reference).toMatch(/^assets\//);
+    expect(result.content[0]).toMatchObject({ text: expect.stringContaining('assets/') });
+  });
+
+  it('reports a provider failure to the model as something to carry on past', async () => {
+    const [imageTool] = createMediaTools(
+      context({ provider: createFakeProvider({ failWith: new MediaError('provider', 'boom', true) }) }),
+    );
+
+    const result = await invokeTool(imageTool, { prompt: 'a wide hero' });
+
+    expect(result.details).toMatchObject({ ok: false });
+    expect(result.content[0]).toMatchObject({
+      text: expect.stringContaining('carry on with the design'),
+    });
+  });
+
+  it('refuses a source-consuming call with no source before spending a slot', async () => {
+    const budget = new MediaBudget({ callsPerRun: 2, confirmVideo: async () => true });
+    const tools = createMediaTools(context({ budget }));
+    const upscale = tools.find((tool) => tool.name === 'design_library_upscale_image');
+
+    const result = await invokeTool(upscale!);
+
+    expect(result.details).toMatchObject({ ok: false });
+    // Checked before the budget is touched, so a malformed call costs nothing.
+    expect(budget.callsUsed).toBe(0);
+  });
+});

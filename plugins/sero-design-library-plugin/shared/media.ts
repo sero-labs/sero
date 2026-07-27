@@ -129,6 +129,15 @@ export interface DesignAsset {
   createdAt: number;
   updatedAt: number;
   originVariantId?: string;
+  /**
+   * The job currently responsible for producing it.
+   *
+   * An asset with no attempts and a live job is generating; one with no attempts
+   * and no live job belonged to a process that died, and reconciliation turns it
+   * into a retryable failure. The same shape the variants use, for the same
+   * reason: a spinner nobody owns never stops on its own.
+   */
+  jobId?: string;
   /** Set once Copy to Library has made an independent item from it. */
   copiedItemId?: string;
   deletedAt?: number;
@@ -141,6 +150,11 @@ export function currentAttempt(asset: DesignAsset): MediaAttempt | undefined {
 
 export function assetIsReady(asset: DesignAsset): boolean {
   return currentAttempt(asset)?.outcome === 'ready';
+}
+
+/** Nothing has come back yet — either still running, or abandoned by a dead run. */
+export function assetIsPending(asset: DesignAsset): boolean {
+  return asset.attempts.length === 0;
 }
 
 /** Reported cost across every attempt — a failed one that still billed counts. */
@@ -282,6 +296,7 @@ export function normalizeDesignAsset(value: unknown): DesignAsset | null {
     createdAt: optionalNumber(value.createdAt) ?? 0,
     updatedAt: optionalNumber(value.updatedAt) ?? 0,
     ...withOptional('originVariantId', optionalString(value.originVariantId)),
+    ...withOptional('jobId', optionalString(value.jobId)),
     ...withOptional('copiedItemId', optionalString(value.copiedItemId)),
     ...withOptional('deletedAt', optionalNumber(value.deletedAt)),
   };

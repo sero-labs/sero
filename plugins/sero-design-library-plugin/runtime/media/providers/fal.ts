@@ -85,7 +85,9 @@ function outputFiles(data: unknown): FalOutputFile[] {
   for (const key of ['image', 'video', 'file', 'output']) {
     if (isObject(data[key])) candidates.push(data[key]);
   }
-  return candidates.filter(isObject).filter((entry) => typeof entry.url === 'string');
+  return candidates.filter(
+    (entry): entry is FalOutputFile => isObject(entry) && typeof entry.url === 'string',
+  );
 }
 
 function optionalNumber(value: unknown): number | undefined {

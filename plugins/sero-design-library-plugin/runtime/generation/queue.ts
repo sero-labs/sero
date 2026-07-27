@@ -1,3 +1,4 @@
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { AppRuntimeHost } from '@sero-ai/common';
 
 import type {
@@ -8,8 +9,14 @@ import type {
 } from '../../shared/design';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { JobRecord } from '../../shared/records';
+import type { MediaSettings } from '../../shared/settings';
 import { readState } from '../../shared/state-io';
 import type { EmittedFile } from '../../shared/targets';
+import { readAssetBytes } from '../media/assets';
+import { MediaBudget, createVideoConfirmer } from '../media/budget';
+import { resolveFalKey } from '../media/credentials';
+import { createMediaProviderForRun } from '../media/provider';
+import { createMediaTools } from '../media/tools';
 import {
   applyRevisionBehaviour,
   readRevisionSource,
@@ -230,6 +237,10 @@ export class VariantQueue {
       return;
     }
 
+    // Media rides in as `customTools` (D5). The budget is per run, so it is
+    // built here and lives exactly as long as this generation does.
+    const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller);
+
     const outcome = await runGeneration(
       design,
       variant,
@@ -242,6 +253,7 @@ export class VariantQueue {
         parentSessionId: this.context.sessionId,
         model: state.settings.designModel,
         signal: controller.signal,
+        mediaTools: media.tools,
       },
       revise ?? undefined,
     );
@@ -277,6 +289,49 @@ export class VariantQueue {
       tweaks: outcome.tweaks,
       ...(revise === null ? {} : { revision: variant.pendingRevision }),
     });
+
+    // The cap is reported after the fact, never as a failure: a design that got
+    // three of the four images it wanted is still a design (spec §8.4).
+    const capped = media.budget.summary();
+    if (capped !== null) this.context.onError(capped, null);
+  }
+
+  /**
+   * The media surface for one run.
+   *
+   * Absent — not merely refusing — when there is no key or the cap is zero. A
+   * model handed tools that fail every call spends the run arguing with them
+   * instead of writing the page, so the run is told in its task that it has none
+   * and what to do instead.
+   */
+  private async mediaTools(
+    design: DesignRecord,
+    settings: MediaSettings,
+    jobId: string,
+    variantId: string,
+    controller: AbortController,
+  ): Promise<{ tools: ToolDefinition[]; budget: MediaBudget }> {
+    const budget = new MediaBudget({
+      callsPerRun: settings.callsPerRun,
+      confirmVideo: createVideoConfirmer(this.context.host.notifications, {
+        designTitle: design.title,
+      }),
+    });
+
+    const key = await resolveFalKey(this.context.paths);
+    if (key === undefined || settings.callsPerRun === 0) return { tools: [], budget };
+
+    const provider = await createMediaProviderForRun(this.context.paths, settings);
+    const tools = createMediaTools({
+      paths: this.context.paths,
+      designId: design.id,
+      provider,
+      budget,
+      signal: controller.signal,
+      jobId,
+      originVariantId: variantId,
+    });
+    return { tools, budget };
   }
 
   /**

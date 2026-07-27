@@ -1,3 +1,4 @@
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import type { DesignRecord, DesignVariant } from '../../shared/design';
@@ -40,6 +41,15 @@ export interface GenerationRunContext {
   parentSessionId: string;
   model: ModelSelection;
   signal: AbortSignal;
+  /**
+   * The media capabilities this run may call (spec §6.6, §8.4).
+   *
+   * Empty when there is no provider key or the per-run cap is zero, and the run
+   * is told as much in its task rather than being handed tools that refuse
+   * everything — a model that keeps trying a tool that always fails spends the
+   * run arguing with it instead of writing the page.
+   */
+  mediaTools?: ToolDefinition[];
 }
 
 /**
@@ -109,12 +119,14 @@ export async function runGeneration(
   const namer = createNameDesignTool();
   const tweaker = createDeclareTweaksTool(emitter.files);
 
+  const mediaTools = context.mediaTools ?? [];
   const task = buildGenerationTask({
     brief: design.brief,
     guardrails: design.appliedGuardrails,
     references,
     variant,
     variantCount: design.variants.length,
+    mediaAvailable: mediaTools.length > 0,
     ...(recipe === undefined ? {} : { recipe }),
     ...(revision === undefined ? {} : { revision }),
   });
@@ -125,7 +137,7 @@ export async function runGeneration(
     parentSessionId: context.parentSessionId,
     workspaceId: context.workspaceId,
     platformTools: 'none',
-    customTools: [emitter.definition, namer.definition, tweaker.definition],
+    customTools: [emitter.definition, namer.definition, tweaker.definition, ...mediaTools],
     timeoutMs: RUN_TIMEOUT_MS,
     signal: context.signal,
     repair: {

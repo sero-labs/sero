@@ -115,6 +115,31 @@ function targetRules(brief: DesignBrief): string {
  * told only to declare controls at the end will declare them over a page whose
  * values are all hard-coded, and every one of them will be dropped.
  */
+/**
+ * What the run may do about imagery (spec §6.6).
+ *
+ * Stated in both directions on purpose. When the tools are absent the run is
+ * told so and told what to do instead, because a model that assumes it can
+ * generate a hero image writes markup pointing at one that never arrives — and
+ * the page ships with a placeholder where its focal point should be.
+ */
+function mediaRules(available: boolean): string {
+  if (!available) {
+    return [
+      '## Imagery',
+      '',
+      'You cannot generate imagery in this run. Build any illustrative artwork out of CSS — gradients, shapes, layered blends — or inline SVG you write yourself. Do not reference an image file: nothing will resolve it.',
+    ].join('\n');
+  }
+  return [
+    '## Imagery',
+    '',
+    'You can generate illustrative artwork — a hero image, a texture, an abstract graphic — with the media tools. Each returns a reference like `assets/<id>.png`; use it as the `src` or in `url()` and it resolves in the preview and in the export.',
+    '',
+    'Generate sparingly and only where artwork is the point. Routine interface icons come from inline SVG you write yourself, never from the media tools. If a tool refuses — a limit reached, a video declined — carry on and finish the page without it rather than asking again.',
+  ].join('\n');
+}
+
 function tweakRules(): string {
   const rules = [
     'Route the decisions worth revisiting through CSS custom properties: declare them once at the top (`:root { --display-scale: 34px; }`) and read them everywhere else with `var(--display-scale)`.',
@@ -152,6 +177,8 @@ export interface GenerationTaskInput {
   variant: DesignVariant;
   /** Total variants in this Design, so the run knows how to differ from siblings. */
   variantCount: number;
+  /** Whether the media tools are on this run's tool surface (spec §6.6). */
+  mediaAvailable?: boolean;
   recipe?: PromptRecipe;
   /** Present when this run is a revise rather than a first attempt. */
   revision?: { instruction: string; files: EmittedFile[] };
@@ -218,6 +245,7 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
     guardrailBlock(input.guardrails),
     targetRules(brief),
     tweakRules(),
+    mediaRules(input.mediaAvailable === true),
     // Only for a first attempt: a revise has siblings it already differs from,
     // and telling it to diverge again would undo the design it is editing.
     diversity === '' || input.revision !== undefined ? '' : `## This variant\n\n${diversity}`,
