@@ -54,14 +54,14 @@ export function matchesFilters(item: ItemSummary, filters: LibraryFilters): bool
 }
 
 export function sortItems(items: ItemSummary[], sort: LibrarySort): ItemSummary[] {
-  const sorted = [...items];
+  // `toSorted` returns a new array, so the copy-then-sort dance is unnecessary.
   switch (sort) {
     case 'oldest':
-      return sorted.sort((a, b) => a.createdAt - b.createdAt);
+      return items.toSorted((a, b) => a.createdAt - b.createdAt);
     case 'title':
-      return sorted.sort((a, b) => a.title.localeCompare(b.title));
+      return items.toSorted((a, b) => a.title.localeCompare(b.title));
     case 'newest':
-      return sorted.sort((a, b) => b.createdAt - a.createdAt);
+      return items.toSorted((a, b) => b.createdAt - a.createdAt);
   }
 }
 
@@ -98,8 +98,7 @@ export function deriveStyleGroups(items: ItemSummary[], minimumMembers = 2): Sty
     counts.set(style, (counts.get(style) ?? 0) + 1);
   }
   return [...counts.entries()]
-    .filter(([, count]) => count >= minimumMembers)
-    .map(([style, count]) => ({ style, count }))
+    .flatMap(([style, count]) => (count >= minimumMembers ? [{ style, count }] : []))
     .sort((a, b) => b.count - a.count || a.style.localeCompare(b.style));
 }
 

@@ -181,21 +181,19 @@ export function normalizeAnalysis(value: unknown): LibrarianAnalysis {
     summary: typeof value.summary === 'string' ? value.summary : '',
     designIntent: typeof value.designIntent === 'string' ? value.designIntent : '',
     aestheticVocabulary: Array.isArray(value.aestheticVocabulary)
-      ? value.aestheticVocabulary.filter(isObject).flatMap((entry) =>
-          typeof entry.term === 'string'
+      ? value.aestheticVocabulary.flatMap((entry) =>
+          isObject(entry) && typeof entry.term === 'string'
             ? [{ term: entry.term, ...(typeof entry.meaning === 'string' ? { meaning: entry.meaning } : {}) }]
             : [],
         )
       : [],
     visualProfile,
     palette: Array.isArray(value.palette)
-      ? value.palette
-          .filter(isObject)
-          .flatMap((entry) =>
-            typeof entry.hex === 'string'
-              ? [{ hex: entry.hex, role: typeof entry.role === 'string' ? entry.role : '' }]
-              : [],
-          )
+      ? value.palette.flatMap((entry) =>
+          isObject(entry) && typeof entry.hex === 'string'
+            ? [{ hex: entry.hex, role: typeof entry.role === 'string' ? entry.role : '' }]
+            : [],
+        )
       : [],
     always: stringsOf(value.always),
     never: stringsOf(value.never),

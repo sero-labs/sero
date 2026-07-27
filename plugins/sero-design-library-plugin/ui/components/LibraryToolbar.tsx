@@ -41,6 +41,8 @@ interface FacetMenuProps {
 
 function FacetMenu({ label, options, selected, onToggle }: FacetMenuProps) {
   if (options.length === 0) return null;
+  // Checked once per option, so membership is a Set lookup.
+  const chosen = new Set(selected);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -55,7 +57,7 @@ function FacetMenu({ label, options, selected, onToggle }: FacetMenuProps) {
         {options.map((option) => (
           <DropdownMenuCheckboxItem
             key={option}
-            checked={selected.includes(option)}
+            checked={chosen.has(option)}
             onCheckedChange={() => onToggle(option)}
           >
             {option}

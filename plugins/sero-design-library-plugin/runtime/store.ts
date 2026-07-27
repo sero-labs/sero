@@ -31,7 +31,7 @@ export async function readItem(paths: DesignLibraryPaths, itemId: string): Promi
 
 export async function listItemIds(paths: DesignLibraryPaths): Promise<string[]> {
   const entries = await readdir(paths.itemsDir, { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  return entries.flatMap((entry) => (entry.isDirectory() ? [entry.name] : []));
 }
 
 export interface ItemScan {
@@ -116,11 +116,11 @@ export async function readJob(paths: DesignLibraryPaths, jobId: string): Promise
 export async function listJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> {
   const entries = await readdir(paths.jobsDir).catch(() => []);
   const jobs = await Promise.all(
-    entries
-      .filter((entry) => entry.endsWith('.json'))
-      .map(async (entry) =>
-        normalizeJobRecord(await readJsonFile<unknown>(path.join(paths.jobsDir, entry))),
-      ),
+    entries.flatMap((entry) =>
+      entry.endsWith('.json')
+        ? [readJsonFile<unknown>(path.join(paths.jobsDir, entry)).then(normalizeJobRecord)]
+        : [],
+    ),
   );
   return jobs.filter((job): job is JobRecord => job !== null);
 }
@@ -153,17 +153,14 @@ export async function mutateJob(
 export async function reindex(paths: DesignLibraryPaths): Promise<ItemScan['unreadable']> {
   const [{ items, unreadable }, jobs] = await Promise.all([scanItems(paths), listJobs(paths)]);
   const cutoff = Date.now() - FINISHED_JOB_RETENTION_MS;
-  const liveJobs = jobs.filter(
-    (job) =>
-      job.status === 'queued' ||
-      job.status === 'running' ||
-      (job.completedAt ?? job.createdAt) > cutoff,
-  );
+  const isLive = (job: JobRecord) =>
+    job.status === 'queued' || job.status === 'running' || (job.completedAt ?? job.createdAt) > cutoff;
+  const liveJobs = jobs.filter(isLive);
 
+  // Partitioning by the predicate rather than by membership of the kept list:
+  // `liveJobs.includes(job)` re-scanned the whole array for every job.
   await Promise.all(
-    jobs
-      .filter((job) => !liveJobs.includes(job))
-      .map((job) => rm(jobFile(paths, job.id), { force: true })),
+    jobs.flatMap((job) => (isLive(job) ? [] : [rm(jobFile(paths, job.id), { force: true })])),
   );
 
   await updateState(paths, (current: DesignLibraryState) => ({

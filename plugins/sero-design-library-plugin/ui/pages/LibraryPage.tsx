@@ -1,6 +1,6 @@
 import { Button, Progress, ScrollArea } from '@sero-ai/ui';
 import { ImagePlus, Upload } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { filesFromClipboard, importableFiles } from '../lib/import';
 import { ItemCard } from '../components/ItemCard';
@@ -47,7 +47,12 @@ export function LibraryPage({
   const [dragging, setDragging] = useState(false);
 
   const inTrash = view.scope.kind === 'trash';
-  const pickedItems = state.items.filter((item) => picked.includes(item.id));
+  // A Set because both of these are consulted once per card in the grid.
+  const pickedIds = useMemo(() => new Set(picked), [picked]);
+  const pickedItems = useMemo(
+    () => state.items.filter((item) => pickedIds.has(item.id)),
+    [state.items, pickedIds],
+  );
 
   const togglePicked = useCallback((itemId: string) => {
     setPicked((current) =>
@@ -165,7 +170,7 @@ export function LibraryPage({
                   <ItemCard
                     key={item.id}
                     item={item}
-                    selected={picked.includes(item.id)}
+                    selected={pickedIds.has(item.id)}
                     {...(item.id === transitioningItemId ? { transitionName } : {})}
                     onOpen={() => onOpenItem(item.id)}
                     onToggleSelect={() => togglePicked(item.id)}

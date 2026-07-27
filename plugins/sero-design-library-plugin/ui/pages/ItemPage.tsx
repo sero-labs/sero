@@ -46,7 +46,8 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
   const src = useAssetSrc(item.id, 'original');
 
   // The first collection the reference belongs to, purely as a breadcrumb hint.
-  const collection = collections.find((entry) => item.collectionIds.includes(entry.id));
+  const memberOf = new Set(item.collectionIds);
+  const collection = collections.find((entry) => memberOf.has(entry.id));
 
   const facts = [
     detail?.fileName,

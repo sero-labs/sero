@@ -96,21 +96,20 @@ export async function assembleUpload(
   const dir = roleDir(paths, uploadId, role);
   const entries = await readdir(dir).catch(() => []);
   const indices = entries
-    .filter((entry) => entry.endsWith('.part'))
-    .map((entry) => Number.parseInt(entry.slice(0, -'.part'.length), 10))
-    .filter((index) => Number.isInteger(index))
+    .flatMap((entry) => {
+      if (!entry.endsWith('.part')) return [];
+      const index = Number.parseInt(entry.slice(0, -'.part'.length), 10);
+      return Number.isInteger(index) ? [index] : [];
+    })
     .sort((a, b) => a - b);
   if (indices.length === 0) return null;
 
-  const chunks: Buffer[] = [];
-  let total = 0;
-  for (const index of indices) {
-    const bytes = await readFile(path.join(dir, `${index}.part`));
-    total += bytes.byteLength;
-    if (total > MAX_UPLOAD_BYTES) {
-      throw new Error(`Upload ${uploadId} exceeds the ${MAX_UPLOAD_BYTES} byte limit`);
-    }
-    chunks.push(bytes);
+  // Read in parallel, concatenate in index order — the chunks all end up in
+  // memory for the concat anyway, so reading them one at a time bought nothing.
+  const chunks = await Promise.all(indices.map((index) => readFile(path.join(dir, `${index}.part`))));
+  const total = chunks.reduce((sum, bytes) => sum + bytes.byteLength, 0);
+  if (total > MAX_UPLOAD_BYTES) {
+    throw new Error(`Upload ${uploadId} exceeds the ${MAX_UPLOAD_BYTES} byte limit`);
   }
   return Buffer.concat(chunks);
 }
@@ -126,16 +125,23 @@ export async function pruneStaleUploads(
   now = Date.now(),
 ): Promise<string[]> {
   const entries = await readdir(paths.uploadsDir, { withFileTypes: true }).catch(() => []);
-  const removed: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const manifest = await readUploadManifest(paths, entry.name);
-    // A manifest that never appeared belongs to an upload that died before it
-    // began; treat it as stale immediately rather than leaving it forever.
-    const age = manifest ? now - manifest.createdAt : olderThanMs + 1;
-    if (manifest?.complete === true || age <= olderThanMs) continue;
-    await discardUpload(paths, entry.name);
-    removed.push(entry.name);
-  }
-  return removed;
+
+  // Uploads are independent, so they are inspected and removed concurrently.
+  const outcomes = await Promise.all(
+    entries.flatMap((entry) => {
+      if (!entry.isDirectory()) return [];
+      return [
+        (async () => {
+          const manifest = await readUploadManifest(paths, entry.name);
+          // A manifest that never appeared belongs to an upload that died
+          // before it began; treat it as stale rather than leaving it forever.
+          const age = manifest ? now - manifest.createdAt : olderThanMs + 1;
+          if (manifest?.complete === true || age <= olderThanMs) return null;
+          await discardUpload(paths, entry.name);
+          return entry.name;
+        })(),
+      ];
+    }),
+  );
+  return outcomes.filter((name): name is string => name !== null);
 }

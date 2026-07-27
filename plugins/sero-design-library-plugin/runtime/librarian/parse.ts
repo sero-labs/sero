@@ -49,7 +49,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Pull the JSON body out of a reply that may be fenced or prefaced with prose. */
 export function extractJson(reply: string): unknown | null {
   const fenced = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidates = [fenced?.[1], reply].filter((value): value is string => typeof value === 'string');
+  const candidates = [fenced?.[1], reply].filter((value) => typeof value === 'string');
   for (const candidate of candidates) {
     const start = candidate.indexOf('{');
     const end = candidate.lastIndexOf('}');

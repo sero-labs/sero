@@ -286,15 +286,22 @@ export function normalizeState(value: unknown): DesignLibraryState {
     schemaVersion: num(value.schemaVersion, STATE_SCHEMA_VERSION),
     revision: num(value.revision, 0),
     items: Array.isArray(value.items)
-      ? value.items.map(normalizeItem).filter((item): item is ItemSummary => item !== null)
+      ? value.items.flatMap((entry) => {
+          const item = normalizeItem(entry);
+          return item === null ? [] : [item];
+        })
       : [],
     collections: Array.isArray(value.collections)
-      ? value.collections
-          .map(normalizeCollection)
-          .filter((entry): entry is Collection => entry !== null)
+      ? value.collections.flatMap((entry) => {
+          const collection = normalizeCollection(entry);
+          return collection === null ? [] : [collection];
+        })
       : [],
     jobs: Array.isArray(value.jobs)
-      ? value.jobs.map(normalizeJob).filter((job): job is JobSummary => job !== null)
+      ? value.jobs.flatMap((entry) => {
+          const job = normalizeJob(entry);
+          return job === null ? [] : [job];
+        })
       : [],
     settings: normalizeSettings(value.settings),
     view: normalizeView(value.view),

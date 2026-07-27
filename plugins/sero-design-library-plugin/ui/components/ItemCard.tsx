@@ -57,55 +57,81 @@ export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelec
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      aria-label={`Select ${item.title}`}
-      onClick={onToggleSelect}
-      onKeyDown={(event) => {
-        // The card is the selection control, so both keys do the one thing it
-        // does. Opening has its own button, with its own focus stop.
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onToggleSelect();
-        }
-      }}
-      className={`group border-border bg-card focus-visible:ring-ring relative cursor-pointer overflow-hidden rounded-lg border transition-colors focus-visible:ring-2 focus-visible:outline-none ${
+      className={`group border-border bg-card focus-within:ring-ring relative overflow-hidden rounded-lg border transition-colors focus-within:ring-2 ${
         selected ? 'border-primary' : 'hover:border-muted-foreground/40'
       }`}
     >
-      <div className="bg-muted aspect-4/3 w-full overflow-hidden">
-        {src ? (
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            className="size-full object-cover"
-            {...(transitionName === undefined ? {} : { style: { viewTransitionName: transitionName } })}
-          />
-        ) : (
-          <span className="text-muted-foreground flex size-full items-center justify-center">
-            <ImageOff className="size-5" />
-          </span>
+      {/* The selection control covers the whole card, and the open button sits
+          beside it rather than inside it. Nesting one interactive element in
+          another leaves assistive technology with no way to reach the inner
+          one, and gives the keyboard a control it cannot describe. */}
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`Select ${item.title}`}
+        onClick={onToggleSelect}
+        className="absolute inset-0 z-0 cursor-pointer rounded-lg focus:outline-none"
+      />
+
+      {/* Presentation only: clicks fall through to the selection control. */}
+      <div className="pointer-events-none relative z-10">
+        <div className="bg-muted aspect-4/3 w-full overflow-hidden">
+          {src ? (
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              className="size-full object-cover"
+              {...(transitionName === undefined ? {} : { style: { viewTransitionName: transitionName } })}
+            />
+          ) : (
+            <span className="text-muted-foreground flex size-full items-center justify-center">
+              <ImageOff className="size-5" />
+            </span>
+          )}
+        </div>
+
+        <span
+          aria-hidden
+          className={`absolute top-2 left-2 flex size-5 items-center justify-center rounded border transition-opacity ${
+            selected
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-background/80 text-transparent opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <Check className="size-3" />
+        </span>
+
+        {item.kind === 'video' && (
+          <Badge variant="secondary" className="absolute right-2 bottom-2 text-xs">
+            Video
+          </Badge>
         )}
+
+        <div className="space-y-1.5 p-2.5">
+          <div className="flex items-center gap-1.5">
+            <StatusMark status={item.analysisStatus} />
+            <span className="truncate text-sm font-medium">{item.title}</span>
+          </div>
+          <div className="text-muted-foreground truncate text-xs" title={statusLabel(item)}>
+            {statusLabel(item)}
+          </div>
+          {item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {item.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag} variant="outline" className="text-xs font-normal">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <span
-        aria-hidden
-        className={`absolute top-2 left-2 flex size-5 items-center justify-center rounded border transition-opacity ${
-          selected
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-background/80 text-transparent opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        <Check className="size-3" />
-      </span>
-
-      {/* Opening is the one action that needs to survive being drawn over an
-          arbitrary image, so it carries its own surface rather than relying on
-          the photo behind it being dark enough. */}
-      <div className="absolute top-2 right-2 flex items-center gap-1">
+      {/* Siblings of the selection control, not children of it. Opening needs
+          its own surface to stay legible over an arbitrary image. */}
+      <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
         {item.favourite && (
           <span
             className="bg-background/85 flex size-6 items-center justify-center rounded-md backdrop-blur-sm"
@@ -118,41 +144,11 @@ export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelec
           type="button"
           aria-label={`Open ${item.title}`}
           title="Open"
-          onClick={(event) => {
-            // Without this the click also lands on the card and toggles
-            // selection on the way out.
-            event.stopPropagation();
-            onOpen();
-          }}
+          onClick={onOpen}
           className="bg-background/85 text-foreground hover:bg-background focus-visible:ring-ring flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           <Pencil className="size-3.5" />
         </button>
-      </div>
-
-      {item.kind === 'video' && (
-        <Badge variant="secondary" className="absolute right-2 bottom-2 text-xs">
-          Video
-        </Badge>
-      )}
-
-      <div className="space-y-1.5 p-2.5">
-        <div className="flex items-center gap-1.5">
-          <StatusMark status={item.analysisStatus} />
-          <span className="truncate text-sm font-medium">{item.title}</span>
-        </div>
-        <div className="text-muted-foreground truncate text-xs" title={statusLabel(item)}>
-          {statusLabel(item)}
-        </div>
-        {item.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {item.tags.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs font-normal">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
     </article>
   );

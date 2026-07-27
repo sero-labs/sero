@@ -39,6 +39,9 @@ async function loadBitmap(file: File): Promise<ImageBitmap | null> {
 interface Preview {
   bytes: Uint8Array;
   mediaType: string;
+  /** The source image's own dimensions, taken while it was already decoded. */
+  width: number;
+  height: number;
 }
 
 /**
@@ -50,6 +53,8 @@ async function buildPreview(file: File): Promise<Preview | null> {
   const bitmap = await loadBitmap(file);
   if (!bitmap) return null;
 
+  const sourceWidth = bitmap.width;
+  const sourceHeight = bitmap.height;
   const scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -69,7 +74,12 @@ async function buildPreview(file: File): Promise<Preview | null> {
     canvas.toBlob(resolve, 'image/webp', PREVIEW_QUALITY),
   );
   if (!blob) return null;
-  return { bytes: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type };
+  return {
+    bytes: new Uint8Array(await blob.arrayBuffer()),
+    mediaType: blob.type,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
 }
 
 async function sendChunks(
@@ -108,11 +118,13 @@ export async function importFile(
   sourceKind: ImportSourceKind,
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<ImportResult> {
-  const original = new Uint8Array(await file.arrayBuffer());
-  const preview = await buildPreview(file);
-  const bitmap = await loadBitmap(file);
-  const dimensions = bitmap ? { width: bitmap.width, height: bitmap.height } : {};
-  bitmap?.close();
+  // One decode, not two: the preview pass already knows the source dimensions,
+  // and decoding a second time just to read them doubles the work per import.
+  const [original, preview] = await Promise.all([
+    file.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
+    buildPreview(file),
+  ]);
+  const dimensions = preview ? { width: preview.width, height: preview.height } : {};
 
   const totalBytes = original.length + (preview?.bytes.length ?? 0);
   let sent = 0;
@@ -171,9 +183,10 @@ export function importableFiles(files: Iterable<File>): File[] {
 export function filesFromClipboard(data: DataTransfer | null): File[] {
   if (!data) return [];
   return importableFiles(
-    [...data.items]
-      .filter((item) => item.kind === 'file')
-      .map((item) => item.getAsFile())
-      .filter((file): file is File => file !== null),
+    [...data.items].flatMap((item) => {
+      if (item.kind !== 'file') return [];
+      const file = item.getAsFile();
+      return file === null ? [] : [file];
+    }),
   );
 }

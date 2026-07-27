@@ -62,11 +62,14 @@ export function useLibrary(): Library {
     [state.view, localView],
   );
 
-  const persistView = useRef(
-    createDebouncedFn((patch: Partial<ViewPreferences>) => {
-      void tools.run('design_library_settings', { action: 'set-view', view: patch });
-    }, VIEW_PERSIST_MS),
-  ).current;
+  // Built once, lazily. `useRef(createDebouncedFn(...))` keeps the first value
+  // but still *calls* the factory on every render, allocating a timer-holding
+  // closure each time only to discard it.
+  const persistRef = useRef<((patch: Partial<ViewPreferences>) => void) | null>(null);
+  persistRef.current ??= createDebouncedFn((patch: Partial<ViewPreferences>) => {
+    void tools.run('design_library_settings', { action: 'set-view', view: patch });
+  }, VIEW_PERSIST_MS);
+  const persistView = persistRef.current;
 
   const patchView = useCallback(
     (patch: Partial<ViewPreferences>) => {

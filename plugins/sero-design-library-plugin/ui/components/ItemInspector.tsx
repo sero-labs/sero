@@ -70,6 +70,8 @@ function Sections({
   itemId: string;
   actions: LibraryActions;
 }) {
+  // Consulted once per field, so it is a Set rather than a repeated scan.
+  const overridden = new Set(detail.overridden);
   return (
     <>
       {SECTIONS.map((section) => (
@@ -83,7 +85,7 @@ function Sections({
               key={field}
               field={field}
               value={detail.analysis[field]}
-              overridden={detail.overridden.includes(field)}
+              overridden={overridden.has(field)}
               {...(label === undefined ? {} : { label })}
               {...(tone === undefined ? {} : { tone })}
               onSave={(value) => void actions.setField(itemId, field, value)}
