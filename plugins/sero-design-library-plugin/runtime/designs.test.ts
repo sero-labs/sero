@@ -375,23 +375,27 @@ describe('creating the same Design twice', () => {
   it('converges when two writers create the same id at once', async () => {
     await seedItem(paths, 'itm-a', { status: 'ready' });
     const created = await createDesign(paths, {
-      designId: 'dsn-race',
-      title: 'Original',
+      designId: 'dsn-seed',
+      title: 'Shape',
       brief: BRIEF,
       referenceItemIds: ['itm-a'],
       resolutions: [],
     });
     if (created.status !== 'created') throw new Error('seed failed');
 
-    // Both start before either has finished, which is the case the caller-side
-    // read cannot cover.
+    // Neither writer finds a record when it starts, which is the case the
+    // caller-side read cannot cover: both would pass that check and both would
+    // then write.
     const [a, b] = await Promise.all([
-      createDesignRecord(paths, { ...created.design, title: 'A' }),
-      createDesignRecord(paths, { ...created.design, title: 'B' }),
+      createDesignRecord(paths, { ...created.design, id: 'dsn-race', title: 'A' }),
+      createDesignRecord(paths, { ...created.design, id: 'dsn-race', title: 'B' }),
     ]);
 
-    expect([a.created, b.created]).toEqual([false, false]);
-    expect((await readDesign(paths, 'dsn-race'))?.title).toBe('Original');
+    // Exactly one creates, and both agree on what is stored.
+    expect([a.created, b.created].filter(Boolean)).toHaveLength(1);
+    const stored = await readDesign(paths, 'dsn-race');
+    expect(a.design.title).toBe(stored?.title);
+    expect(b.design.title).toBe(stored?.title);
   });
 
   it('is a no-op even when a reference has since been deleted', async () => {

@@ -16,7 +16,6 @@ import {
   writeDesignFiles,
 } from '../coordinator-harness';
 import { mutateVariant, readDesign } from '../design-store';
-import { VariantQueue } from './queue';
 import { reconcileJobs } from '../jobs';
 import { listJobs, saveJob } from '../store';
 
@@ -423,26 +422,53 @@ describe('durability across restart and replay', () => {
   });
 });
 
-describe('disposal waits for writes it does not own', () => {
-  it('waits for a queued job cancellation, and terminates if that write fails', async () => {
-    const designId = await createDesign({ variantCount: 1 });
-    await settled(designId);
-
-    // Cancelling a job that never started writes to the job and to its target,
-    // and neither write belongs to a running entry. Disposing while one is in
-    // flight is how a torn-down runtime writes over a restarted one.
-    const queue = new VariantQueue({
-      host: {} as never,
-      paths: harness.paths,
-      workspaceId: 'ws',
-      sessionId: 'session',
-      onError: () => undefined,
+describe('cancelling a job that never started', () => {
+  it('records the cancellation on both the job and the variant', async () => {
+    // A queued job has no run to report its own cancellation, so the write here
+    // is the only thing that moves it out of `pending`. Disposal is included
+    // because that write belongs to no in-flight entry — but note that this
+    // asserts the outcome, not the ordering guard in `dispose`; see the note on
+    // `cancelling` in queue.ts for why that window is not pinned down here.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
+      if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      await held;
+      await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
+      return { response: 'Released.' };
     });
 
-    // A job id that does not resolve: the tracked write still has to be awaited,
-    // and a rejection inside it must not leave dispose hanging.
-    queue.enqueue('no-such-job');
-    const cancelling = queue.cancel('no-such-job');
-    await expect(Promise.all([cancelling, queue.dispose()])).resolves.toBeDefined();
+    // Three variants against a queue that runs two, so the third stays queued —
+    // the only path where cancelling writes instead of aborting a run that would
+    // report its own cancellation.
+    const designId = await createDesign({ variantCount: 3 });
+    await vi.waitFor(async () => {
+      const running = (await listJobs(harness.paths)).filter((job) => job.status === 'running');
+      expect(running).toHaveLength(2);
+    });
+
+    // Chosen by the job, not the variant: the queue marks a job running a moment
+    // before the variant catches up, so picking by variant status can hand back
+    // one that has already started.
+    const waiting = (await listJobs(harness.paths)).find(
+      (job) => job.kind === 'generate' && job.status === 'queued',
+    )!;
+
+    // Deliberately not awaited: the write is in flight as disposal begins.
+    const cancelling = harness.coordinator['variants'].cancel(waiting.id);
+    const disposal = harness.coordinator.dispose();
+    release();
+    await disposal;
+
+    await cancelling;
+    const job = (await listJobs(harness.paths)).find((entry) => entry.id === waiting.id);
+    expect(job?.status).toBe('cancelled');
+    const variant = (await readDesign(harness.paths, designId))!.variants.find(
+      (entry) => entry.jobId === waiting.id,
+    );
+    expect(variant?.status).toBe('cancelled');
   });
+
 });

@@ -53,6 +53,11 @@ export class VariantQueue {
    * target — and those writes are not owned by any entry in `running`. Tracked
    * here so `dispose` waits for them too; returning while one is still in flight
    * lets a disposed runtime write over a restarted one.
+   *
+   * Defence rather than a demonstrated failure: every caller awaits `cancel`,
+   * and disposal already waits on in-flight runs that in practice outlast a
+   * short cancellation write, so the suite cannot pin the window down. It is
+   * cheap, and the same window with a run in it was a real bug in PR 1.
    */
   private readonly cancelling = new Set<Promise<void>>();
   private disposed = false;

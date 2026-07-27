@@ -18,6 +18,7 @@ import {
   reconcileJobs,
 } from './jobs';
 import { listJobs, mutateItem, readItem, reindex, saveItem } from './store';
+import { retryVariant } from './designs';
 import { seedDesign } from './test-fixtures';
 
 let home: string;
@@ -310,6 +311,39 @@ describe('a target left behind by a job that finished without it', () => {
 });
 
 describe('reconciliation racing a retry', () => {
+  it('never leaves a variant owned by a job nobody will run', async () => {
+    // Run genuinely at the same time, so reconciliation's read of the variant and
+    // the retry's claim on it interleave however the event loop chooses. Which
+    // one wins is not the point; the invariant is.
+    const design = await seedDesign(paths, 'dsn-retry-race');
+    const variantId = design.variants[0]!.id;
+    const stale = await createJob(paths, 'generate', variantTarget(design.id, variantId));
+    await mutateVariant(paths, design.id, variantId, (variant) => ({
+      ...variant,
+      status: 'failed',
+      jobId: stale.id,
+    }));
+    await markFailed(paths, stale.id, 'earlier attempt');
+
+    await Promise.all([reconcileJobs(paths), retryVariant(paths, design.id, variantId)]);
+
+    const repaired = await readDesign(paths, design.id);
+    const variant = repaired!.variants.find((entry) => entry.id === variantId)!;
+    const jobs = await listJobs(paths);
+    const owner = jobs.find((job) => job.id === variant.jobId);
+
+    // Whoever won, the variant points at a job that exists and is still live —
+    // never at one the other party retired, which is the stuck spinner.
+    expect(owner).toBeDefined();
+    expect(['queued', 'running']).toContain(owner?.status);
+    // And no second live job is left to run against the same variant.
+    const live = jobs.filter(
+      (job) =>
+        job.kind === 'generate' && (job.status === 'queued' || job.status === 'running'),
+    );
+    expect(live.map((job) => job.id)).toEqual([variant.jobId]);
+  });
+
   it('leaves a target alone once a newer job owns it', async () => {
     // The window: reconciliation reads the target, a retry installs a newer job,
     // and the stale terminal job then writes anyway. Checking inside the mutation
