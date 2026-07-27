@@ -145,6 +145,11 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
           { description: 'One entry per conflict reported by `synthesis`' },
         ),
       ),
+      sessionRules: Type.Optional(
+        Type.Array(Type.String(), {
+          description: 'Extra rules for this Design alone, on top of the references\' guardrails',
+        }),
+      ),
       includeDeleted: Type.Optional(Type.Boolean({ description: 'Include Designs in Trash in `list`' })),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
@@ -216,7 +221,8 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
 
           const synthesis = synthesizeGuardrails(guardrailsOf(references.items));
           const resolutions: ConflictResolution[] = params.resolutions ?? [];
-          if (!applyResolutions(synthesis, resolutions)) {
+          const sessionRules = params.sessionRules ?? [];
+          if (!applyResolutions(synthesis, resolutions, sessionRules)) {
             return failure(
               `Resolve these guardrail conflicts first (pass \`resolutions\`): ${synthesis.conflicts
                 .map((conflict) => `"${conflict.rule}"`)
@@ -232,6 +238,7 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
             brief,
             referenceItemIds: references.items.map((item) => item.id),
             resolutions,
+            sessionRules,
           });
           const count = plannedVariantCount(brief, references.items.length);
           return text(

@@ -25,6 +25,7 @@ describe('starting a Design', () => {
       brief: BRIEF,
       referenceItemIds: [itemId],
       resolutions: [],
+    sessionRules: [],
     });
     await harness.coordinator.drain();
 
@@ -47,6 +48,7 @@ describe('starting a Design', () => {
       brief: { ...BRIEF, variantCount: 1 },
       referenceItemIds: ['itm-nope'],
       resolutions: [],
+    sessionRules: [],
     });
     await appendRequest(harness.paths, {
       kind: 'collection.create',
@@ -72,6 +74,7 @@ describe('starting a Design', () => {
       brief: { ...BRIEF, variantCount: 1 },
       referenceItemIds: [itemId],
       resolutions: [],
+    sessionRules: [],
     });
     await harness.coordinator.drain();
 

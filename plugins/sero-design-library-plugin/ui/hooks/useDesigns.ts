@@ -26,6 +26,8 @@ export interface CreateDesignInput {
   variantCount: number;
   inspirationStrength: DesignBrief['inspirationStrength'];
   resolutions: ConflictResolution[];
+  /** Rules the user added for this Design alone. */
+  sessionRules: string[];
 }
 
 export interface DesignActions {

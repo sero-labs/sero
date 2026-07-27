@@ -175,3 +175,38 @@ describe('resolving before generation starts', () => {
     expect(applied).not.toBeNull();
   });
 });
+
+describe('rules the user adds for one Design', () => {
+  const plain = () =>
+    synthesizeGuardrails([reference('a', 0, ['Drop shadows'], ['Flat colour'])]);
+
+  it('puts a session rule in force alongside the references\' own', () => {
+    const applied = applyResolutions(plain(), [], ['Keep the palette to two colours']);
+
+    // In `always` because that is what the generation prompt reads, and in
+    // `session` because the record has to be able to say the user asked for it.
+    expect(applied?.always).toContain('Keep the palette to two colours');
+    expect(applied?.session).toEqual(['Keep the palette to two colours']);
+  });
+
+  it('drops a session rule the references already state', () => {
+    // Repeating it would read to the run as emphasis nobody gave it.
+    const applied = applyResolutions(plain(), [], ['  drop shadows.  ']);
+
+    expect(applied?.session).toEqual([]);
+    expect(applied?.always.filter((rule) => /drop shadows/i.test(rule))).toHaveLength(1);
+  });
+
+  it('ignores blank rules and does not repeat itself', () => {
+    const applied = applyResolutions(plain(), [], ['   ', 'Two columns', 'Two columns']);
+
+    expect(applied?.session).toEqual(['Two columns']);
+  });
+
+  it('will not smuggle in a rule the references forbid', () => {
+    const applied = applyResolutions(plain(), [], ['Flat colour']);
+
+    expect(applied?.session).toEqual([]);
+    expect(applied?.always).not.toContain('Flat colour');
+  });
+});

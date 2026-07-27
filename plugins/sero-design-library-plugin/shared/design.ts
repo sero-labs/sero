@@ -152,6 +152,14 @@ export interface AppliedGuardrails {
   always: string[];
   never: string[];
   /**
+   * Rules the user added for this Design alone, already merged into `always`.
+   * Kept separately so the record can say which rules came from the references
+   * and which the user asked for on the day — a session rule is an override,
+   * and an override that cannot be told apart from a reference's own guardrail
+   * is indistinguishable from the Librarian having read it that way.
+   */
+  session: string[];
+  /**
    * Conflicts the user resolved before generation could start, with the side
    * they kept. Recorded because "why is this Design ignoring that rule" is
    * otherwise unanswerable.

@@ -54,6 +54,7 @@ export function CreateDesignDialog({
     variationMode: 'blend',
     variantCount: settings.generation.variantCount,
     strengthIndex: 1,
+    sessionRules: [],
   });
   const [synthesis, setSynthesis] = useState<GuardrailSynthesis | null>(null);
   const [resolutions, setResolutions] = useState<ConflictResolution[]>([]);
@@ -96,6 +97,7 @@ export function CreateDesignDialog({
       variantCount: brief.variantCount,
       inspirationStrength: STRENGTHS[brief.strengthIndex] ?? 'balanced',
       resolutions,
+      sessionRules: brief.sessionRules,
       ...(brief.recipeId === '' ? {} : { recipeId: brief.recipeId }),
     };
     const outcome = await actions.create(input);
@@ -111,7 +113,7 @@ export function CreateDesignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-4xl">
+      <DialogContent className="gap-0 p-0 sm:max-w-5xl">
         <DialogHeader className="border-border space-y-1 border-b px-6 py-4">
           <DialogTitle>Create a new design</DialogTitle>
           <DialogDescription>
@@ -126,7 +128,6 @@ export function CreateDesignDialog({
               settings={settings}
               synthesis={synthesis}
               referenceCount={references.length}
-              outputs={outputs}
               onChange={(patch) => setBrief((current) => ({ ...current, ...patch }))}
               onSubmit={() => void submit()}
             />

@@ -65,7 +65,11 @@ The dialog is one decision:
 | Variants | 1–5 directions, generated independently |
 | Inspiration strength | How closely the result follows the references rather than the request |
 
-The panel beside it shows what your references agree on — the Always and Never rules the Librarian wrote for each of them, combined.
+Under the brief, **Applied guardrails** lists every rule the run will be held to — the Always and Never rules the Librarian wrote for your references, combined. Only rules in force are shown.
+
+**Session rule** adds one of your own for this design alone. It carries the same weight as the references' rules and is recorded on the design as yours, so a rule you asked for on the day is never mistaken for something the Librarian read in a reference. Adding a rule the references already state changes nothing.
+
+The panel beside it names the references in order and says whether the synthesis is ready or blocked.
 
 ### When references disagree
 

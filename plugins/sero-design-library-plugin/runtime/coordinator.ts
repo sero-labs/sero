@@ -262,6 +262,7 @@ export class Coordinator {
           brief: body.brief,
           referenceItemIds: body.referenceItemIds,
           resolutions: body.resolutions,
+          sessionRules: body.sessionRules ?? [],
         });
         // A refusal is thrown rather than swallowed so it reaches the runtime's
         // error reporting; the request log has no channel back to the caller,

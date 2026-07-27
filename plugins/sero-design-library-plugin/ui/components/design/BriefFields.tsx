@@ -11,13 +11,13 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@sero-ai/ui';
-import { Ban, Check, Minus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
 
 import type { DesignBrief } from '../../../shared/design';
 import { MAX_VARIANTS, MIN_VARIANTS } from '../../../shared/design';
 import type { GuardrailSynthesis } from '../../../shared/synthesis';
 import type { DesignLibrarySettings, PromptRecipe } from '../../../shared/settings';
+import { GuardrailChips } from './GuardrailChips';
 
 /**
  * The brief: what to make, and how much freedom the run has making it.
@@ -29,9 +29,6 @@ import type { DesignLibrarySettings, PromptRecipe } from '../../../shared/settin
 
 const STRENGTHS: DesignBrief['inspirationStrength'][] = ['light', 'balanced', 'strong'];
 
-/** Enough to see what the run is held to; the rest is one click away. */
-const VISIBLE_GUARDRAILS = 4;
-
 /** Stands in for "no recipe", which the brief stores as an empty string. */
 const NO_RECIPE = 'none';
 
@@ -42,6 +39,8 @@ export interface Brief {
   variationMode: DesignBrief['variationMode'];
   variantCount: number;
   strengthIndex: number;
+  /** Extra rules for this Design alone, added from the guardrail row. */
+  sessionRules: string[];
 }
 
 export interface BriefFieldsProps {
@@ -50,7 +49,6 @@ export interface BriefFieldsProps {
   /** Null while the runtime is still synthesising; guardrails stay hidden. */
   synthesis: GuardrailSynthesis | null;
   referenceCount: number;
-  outputs: number;
   onChange(patch: Partial<Brief>): void;
   onSubmit(): void;
 }
@@ -60,7 +58,6 @@ export function BriefFields({
   settings,
   synthesis,
   referenceCount,
-  outputs,
   onChange,
   onSubmit,
 }: BriefFieldsProps) {
@@ -76,7 +73,10 @@ export function BriefFields({
         <Textarea
           id="design-request"
           value={brief.request}
-          rows={4}
+          // `field-sizing-content` makes `rows` inert, so the resting height is
+          // set here: the request is the one field worth writing properly in.
+          className="min-h-36"
+          rows={7}
           autoFocus
           placeholder="A responsive analytics dashboard for monitoring agent tasks, failures and token usage."
           onChange={(event) => onChange({ request: event.target.value })}
@@ -140,10 +140,7 @@ export function BriefFields({
           </ToggleGroup>
         </Field>
 
-        <Field
-          label="Variants"
-          hint={`${outputs} output${outputs === 1 ? '' : 's'} total`}
-        >
+        <Field label="Variants">
           <VariantStepper
             value={perReference ? referenceCount : brief.variantCount}
             // One variant per reference: the count is the reference list, and a
@@ -178,7 +175,13 @@ export function BriefFields({
         </div>
       </section>
 
-      {synthesis !== null && <AppliedGuardrails synthesis={synthesis} />}
+      {synthesis !== null && (
+        <GuardrailChips
+          synthesis={synthesis}
+          sessionRules={brief.sessionRules}
+          onChangeSessionRules={(sessionRules) => onChange({ sessionRules })}
+        />
+      )}
     </div>
   );
 }
@@ -270,56 +273,5 @@ function StepButton({
     >
       {children}
     </Button>
-  );
-}
-
-/**
- * The rules this run will be held to, as one glanceable row. They are the
- * references' words, shown verbatim: paraphrasing them into short chips would
- * change what the design is being generated under.
- */
-function AppliedGuardrails({ synthesis }: { synthesis: GuardrailSynthesis }) {
-  const [expanded, setExpanded] = useState(false);
-  const rules = [
-    ...synthesis.always.map((rule) => ({ rule, keep: 'always' as const })),
-    ...synthesis.never.map((rule) => ({ rule, keep: 'never' as const })),
-  ];
-  if (rules.length === 0) return null;
-  const shown = expanded ? rules : rules.slice(0, VISIBLE_GUARDRAILS);
-
-  return (
-    <section className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <Label asChild>
-          <span>Applied guardrails</span>
-        </Label>
-        {rules.length > shown.length ? (
-          <button
-            type="button"
-            className="text-muted-foreground text-sm underline underline-offset-2"
-            onClick={() => setExpanded(true)}
-          >
-            Show all {rules.length}
-          </button>
-        ) : (
-          <span className="text-muted-foreground text-sm">from the references</span>
-        )}
-      </div>
-      <ul className="flex flex-wrap gap-1.5">
-        {shown.map(({ rule, keep }) => (
-          <li
-            key={`${keep}:${rule}`}
-            className="border-border text-muted-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm"
-          >
-            {keep === 'always' ? (
-              <Check className="size-3 shrink-0" />
-            ) : (
-              <Ban className="size-3 shrink-0" />
-            )}
-            {rule}
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

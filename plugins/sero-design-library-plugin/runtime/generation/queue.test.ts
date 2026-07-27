@@ -45,6 +45,7 @@ async function createDesign(brief: Partial<DesignBrief> = {}): Promise<string> {
     brief: { ...BRIEF, ...brief },
     referenceItemIds: [itemId],
     resolutions: [],
+    sessionRules: [],
   });
   await harness.coordinator.drain();
   return 'dsn-1';
@@ -311,6 +312,7 @@ describe('durability across restart and replay', () => {
       brief: { ...BRIEF, variantCount: 1 },
       referenceItemIds: before.references.map((reference) => reference.itemId),
       resolutions: [],
+    sessionRules: [],
     });
     await harness.coordinator.drain();
 

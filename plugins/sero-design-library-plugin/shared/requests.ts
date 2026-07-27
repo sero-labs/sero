@@ -43,6 +43,8 @@ export type LibraryRequestBody =
       /** Ordered; position 0 is primary (spec §6.1). */
       referenceItemIds: string[];
       resolutions: ConflictResolution[];
+      /** Rules the user set for this Design alone (spec §6.2). */
+      sessionRules: string[];
     }
   | { kind: 'design.rename'; designId: string; title: string }
   | { kind: 'design.retry-variant'; designId: string; variantId: string }

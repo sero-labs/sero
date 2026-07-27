@@ -155,6 +155,8 @@ export interface ConflictResolution {
 export function applyResolutions(
   synthesis: GuardrailSynthesis,
   resolutions: ConflictResolution[],
+  /** Extra rules the user set for this Design alone; merged into `always`. */
+  sessionRules: string[] = [],
 ): AppliedGuardrails | null {
   const chosen = new Map(resolutions.map((resolution) => [comparable(resolution.rule), resolution.keep]));
   if (synthesis.conflicts.some((conflict) => !chosen.has(comparable(conflict.rule)))) return null;
@@ -175,5 +177,17 @@ export function applyResolutions(
     });
   }
 
-  return { always, never, resolved };
+  // A session rule the references already state is not added twice: the run
+  // would read the repetition as emphasis it was never given.
+  const stated = new Set([...always, ...never].map(comparable));
+  const session: string[] = [];
+  for (const rule of sessionRules) {
+    const text = rule.trim();
+    if (text === '' || stated.has(comparable(text))) continue;
+    stated.add(comparable(text));
+    session.push(text);
+    always.push(text);
+  }
+
+  return { always, never, session, resolved };
 }

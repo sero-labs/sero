@@ -168,10 +168,11 @@ function normalizeConflict(value: unknown): ResolvedConflict | null {
 }
 
 function normalizeGuardrails(value: unknown): AppliedGuardrails {
-  if (!isRecordObject(value)) return { always: [], never: [], resolved: [] };
+  if (!isRecordObject(value)) return { always: [], never: [], session: [], resolved: [] };
   return {
     always: stringList(value.always),
     never: stringList(value.never),
+    session: stringList(value.session),
     resolved: Array.isArray(value.resolved)
       ? value.resolved.flatMap((entry) => {
           const conflict = normalizeConflict(entry);

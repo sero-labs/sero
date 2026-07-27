@@ -42,6 +42,8 @@ export interface DesignCreateInput {
   /** Ordered; position 0 is primary. */
   referenceItemIds: string[];
   resolutions: ConflictResolution[];
+  /** Extra rules for this Design alone, on top of the references' own. */
+  sessionRules?: string[];
 }
 
 export type DesignCreateOutcome =
@@ -136,7 +138,11 @@ export async function createDesign(
   // caller. The dialog's view of the conflicts may be minutes old, and a
   // reference's guardrails are editable in the meantime.
   const synthesis = synthesizeGuardrails(referenceGuardrails(items));
-  const appliedGuardrails = applyResolutions(synthesis, input.resolutions);
+  const appliedGuardrails = applyResolutions(
+    synthesis,
+    input.resolutions,
+    input.sessionRules ?? [],
+  );
   if (!appliedGuardrails) {
     const unresolved = synthesis.conflicts.map((conflict) => conflict.rule).join('; ');
     return {
