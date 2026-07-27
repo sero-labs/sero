@@ -24,6 +24,12 @@ catalog:
   # Build tooling
   tailwindcss: "4.1.18"
   "@tailwindcss/vite": "4.1.18"
+  # Tailwind's browser build, inlined into Design Library previews (no network
+  # inside the sandboxed frame, so the compiler has to travel with the page).
+  "@tailwindcss/browser": "4.1.18"
+  # Used at runtime by the Design Library plugin to bundle a generated React
+  # page into one self-contained document. Kept external in the plugin bundle.
+  esbuild: "0.28.1"
   typescript: "^5.9.3"
   vite: "6.4.3"
   "@vitejs/plugin-react": "^4.7.0"

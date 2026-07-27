@@ -216,15 +216,19 @@ describe('variant lifecycle', () => {
       ],
     }));
 
-    expect(await retryVariant(paths, designId, variantId)).toBe(true);
+    const jobId = await retryVariant(paths, designId, variantId);
+    expect(jobId).not.toBeNull();
+
     const retried = await readDesign(paths, designId);
     const variant = retried?.variants.find((entry) => entry.id === variantId);
     expect(variant?.status).toBe('pending');
     expect(variant?.error).toBeUndefined();
+    // The variant claims the new job, so an earlier run's late write is refused.
+    expect(variant?.jobId).toBe(jobId);
     expect(variant?.revisions).toHaveLength(1);
 
     // A pending variant is already going to run; retrying it again is a no-op.
-    expect(await retryVariant(paths, designId, variantId)).toBe(false);
+    expect(await retryVariant(paths, designId, variantId)).toBeNull();
   });
 
   it('removes a revision directory the record does not name', async () => {

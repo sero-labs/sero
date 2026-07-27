@@ -60,9 +60,55 @@ export async function viewReference(params: AppRuntimeSubagentRunParams): Promis
   if (viewer) await invokeTool(viewer);
 }
 
-/** A stub that behaves like a model that does its job. */
+function toolNamed(params: AppRuntimeSubagentRunParams, name: string): ToolDefinition | undefined {
+  return ((params.customTools ?? []) as ToolDefinition[]).find((tool) => tool.name === name);
+}
+
+/** True when this run is generating a design rather than analysing a reference. */
+export function isGenerationRun(params: AppRuntimeSubagentRunParams): boolean {
+  return toolNamed(params, 'design_library_write_file') !== undefined;
+}
+
+/**
+ * The analysis half of the stub, for tests that replace only the generation half.
+ * A Design cannot exist without an analysed reference, so every one of them still
+ * needs this to behave.
+ */
+export async function stubAnalysisRun(params: AppRuntimeSubagentRunParams) {
+  await viewReference(params);
+  return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
+}
+
+/**
+ * The default generated page: enough to build and render, small enough to read in
+ * a failure message.
+ */
+export const STUB_PAGE = '<body><main id="generated">Generated page</main></body>';
+
+/**
+ * Write files the way a generation run does. Nothing is accepted from a run that
+ * never called the tool, so a stub has to call it for the variant to succeed.
+ */
+export async function writeDesignFiles(
+  params: AppRuntimeSubagentRunParams,
+  files: Array<{ name: string; content: string }>,
+): Promise<void> {
+  const writer = toolNamed(params, 'design_library_write_file');
+  if (!writer) return;
+  for (const file of files) await invokeTool(writer, file);
+}
+
+/**
+ * A stub that behaves like a model that does its job, for both kinds of run: it
+ * looks at the reference before analysing, and writes a file before describing a
+ * design. Which run it is answering is decided by the tool it was handed.
+ */
 function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi.fn> } {
   const runStructured = vi.fn(async (params: AppRuntimeSubagentRunParams) => {
+    if (toolNamed(params, 'design_library_write_file')) {
+      await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
+      return { response: 'Typography-led panel.', modelId: 'stub-model', providerId: 'stub' };
+    }
     await viewReference(params);
     return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
   });
