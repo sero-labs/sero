@@ -18,28 +18,9 @@
  * document that has no module graph and no network to fetch one over.
  */
 
-export const PREVIEW_MESSAGE_SOURCE = 'sero-design-preview';
+import { PREVIEW_MESSAGE_SOURCE } from '../../shared/preview-message';
 
-/** Messages the frame sends out. Nothing is ever sent back except a tweak value. */
-export interface PreviewMessage {
-  source: typeof PREVIEW_MESSAGE_SOURCE;
-  kind: 'ready' | 'blocked' | 'error';
-  /** What was attempted: `fetch`, `window.open`, `navigation`, `script`. */
-  capability: string;
-  /** The argument or message, truncated. Empty for `ready`. */
-  detail: string;
-}
-
-export function isPreviewMessage(value: unknown): value is PreviewMessage {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    candidate.source === PREVIEW_MESSAGE_SOURCE &&
-    (candidate.kind === 'ready' || candidate.kind === 'blocked' || candidate.kind === 'error') &&
-    typeof candidate.capability === 'string' &&
-    typeof candidate.detail === 'string'
-  );
-}
+export { PREVIEW_MESSAGE_SOURCE, isPreviewMessage, type PreviewMessage } from '../../shared/preview-message';
 
 /**
  * `default-src 'none'` with the two exceptions a self-contained document cannot

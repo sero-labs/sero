@@ -7,7 +7,7 @@ import { Type } from 'typebox';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { DesignLibrarySettings, PromptRecipe } from '../../shared/settings';
 import { appendRequest, readState } from '../../shared/state-io';
-import type { ViewPreferences } from '../../shared/types';
+import type { ViewPatch } from '../../shared/types';
 import { failure, text, type ToolResult } from './result';
 
 /**
@@ -160,7 +160,7 @@ export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths
           // unknown key cannot corrupt the stored preferences.
           await appendRequest(paths, {
             kind: 'view.set',
-            patch: params.view as Partial<ViewPreferences>,
+            patch: params.view as ViewPatch,
           });
           return text('View preferences saved.');
         }

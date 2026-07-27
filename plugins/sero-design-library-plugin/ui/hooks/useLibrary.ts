@@ -5,7 +5,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from '../../shared/librarian';
 import { deriveFacets, selectItems } from '../../shared/search';
 import type { DesignLibrarySettings } from '../../shared/settings';
-import type { DesignLibraryState, LibraryFilters, LibraryScope, LibrarySort, ViewPreferences } from '../../shared/types';
+import type {
+  DesignLibraryState,
+  LibraryFilters,
+  LibraryScope,
+  LibrarySort,
+  ViewPatch,
+  ViewPreferences,
+} from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { mergeView, outstandingView, viewSignature } from '../lib/view-sync';
 
@@ -57,7 +64,7 @@ export function useLibrary(): Library {
 
   // Local view state leads; the persisted copy follows. `null` means "nothing
   // changed locally yet", so a view restored from state on load still wins.
-  const [localView, setLocalView] = useState<Partial<ViewPreferences> | null>(null);
+  const [localView, setLocalView] = useState<ViewPatch | null>(null);
 
   // Retire optimistic keys the moment state reports them. Merging alone is not
   // enough: a key that stays forever also outranks any *later* value the
@@ -79,14 +86,14 @@ export function useLibrary(): Library {
   // Built once, lazily. `useRef(createDebouncedFn(...))` keeps the first value
   // but still *calls* the factory on every render, allocating a timer-holding
   // closure each time only to discard it.
-  const persistRef = useRef<((patch: Partial<ViewPreferences>) => void) | null>(null);
-  persistRef.current ??= createDebouncedFn((patch: Partial<ViewPreferences>) => {
+  const persistRef = useRef<((patch: ViewPatch) => void) | null>(null);
+  persistRef.current ??= createDebouncedFn((patch: ViewPatch) => {
     void tools.run('design_library_settings', { action: 'set-view', view: patch });
   }, VIEW_PERSIST_MS);
   const persistView = persistRef.current;
 
   const patchView = useCallback(
-    (patch: Partial<ViewPreferences>) => {
+    (patch: ViewPatch) => {
       setLocalView((current) => ({ ...(current ?? {}), ...patch }));
       persistView(patch);
     },
@@ -106,7 +113,9 @@ export function useLibrary(): Library {
       setQuery: (query) => patchView({ query }),
       setFilters: (filters) => patchView({ filters }),
       setSort: (sort) => patchView({ sort }),
-      select: (selectedItemId) => patchView({ selectedItemId }),
+      // `null`, not `undefined`: the patch travels as JSON, and an undefined
+      // value is dropped on the way — so a clear would never reach the runtime.
+      select: (itemId) => patchView({ selectedItemId: itemId ?? null }),
 
       setField: (itemId, field, value) =>
         run('design_library_items', { action: 'set-field', itemId, field, value }),

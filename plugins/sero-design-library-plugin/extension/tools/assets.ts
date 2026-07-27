@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
@@ -8,7 +8,7 @@ import { Type } from 'typebox';
 
 import { effectiveField } from '../../shared/librarian';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { itemRecordFile, resolveInsideHome } from '../../shared/paths';
+import { isSafeId, itemRecordFile, resolveInsideHome, revisionDir } from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
 import { appendRequest, readJsonFile } from '../../shared/state-io';
 import type { UploadManifest, UploadRole } from '../../shared/uploads';
@@ -38,7 +38,42 @@ const ACTIONS = [
   'abort',
   'preview',
   'original',
+  'design-file',
 ] as const;
+
+/**
+ * Generated files are text, and the built preview document runs to hundreds of
+ * kilobytes once React and Tailwind are inlined. Reading it as base64 through a
+ * tool result would inflate it by a third for no reason, so it comes back as
+ * text and the UI turns it into a blob itself.
+ */
+const MAX_DESIGN_FILE_BYTES = 4 * 1024 * 1024;
+
+async function readDesignFile(
+  paths: DesignLibraryPaths,
+  designId: string,
+  variantId: string,
+  revisionId: string,
+  fileName: string,
+): Promise<ToolResult> {
+  if (!isSafeId(fileName)) return failure(`${JSON.stringify(fileName)} is not a valid file name.`);
+
+  // Built from checked ids rather than a caller-supplied path, then checked
+  // again on the way out — the UI names every part of this and none of it is
+  // trusted.
+  const file = path.join(revisionDir(paths, designId, variantId, revisionId), fileName);
+  const resolved = resolveInsideHome(paths, path.relative(paths.home, file));
+  if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
+
+  const stats = await stat(resolved).catch(() => null);
+  if (!stats?.isFile()) return failure(`No file ${fileName} in that revision.`);
+  if (stats.size > MAX_DESIGN_FILE_BYTES) {
+    return failure(`${fileName} is ${Math.round(stats.size / 1024)} KB, too large to read.`);
+  }
+
+  const content = await readFile(resolved, 'utf8');
+  return text(content, { name: fileName, bytes: stats.size });
+}
 
 const MEDIA_TYPES: Record<string, string> = {
   png: 'image/png',
@@ -98,6 +133,9 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       role: Type.Optional(StringEnum(['original', 'preview'] as const)),
       index: Type.Optional(Type.Number({ description: 'Zero-based chunk index' })),
       data: Type.Optional(Type.String({ description: 'Base64 chunk payload' })),
+      designId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      variantId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      revisionId: Type.Optional(Type.String({ description: 'Required by design-file' })),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       switch (params.action) {
@@ -173,6 +211,17 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           const checked = checkId(params.itemId, 'item id');
           if ('error' in checked) return checked.error;
           return readItemAsset(paths, checked.id, params.action);
+        }
+
+        case 'design-file': {
+          const design = checkId(params.designId, 'design id');
+          if ('error' in design) return design.error;
+          const variant = checkId(params.variantId, 'variant id');
+          if ('error' in variant) return variant.error;
+          const revision = checkId(params.revisionId, 'revision id');
+          if ('error' in revision) return revision.error;
+          if (params.fileName === undefined) return failure('`design-file` needs a fileName.');
+          return readDesignFile(paths, design.id, variant.id, revision.id, params.fileName);
         }
       }
     },

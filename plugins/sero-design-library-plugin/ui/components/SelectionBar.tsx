@@ -1,5 +1,7 @@
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@sero-ai/ui';
-import { FolderPlus, RotateCw, Star, Trash2, X } from 'lucide-react';
+import { FolderPlus, RotateCw, Sparkles, Star, Trash2, X } from 'lucide-react';
+
+import { MAX_REFERENCES } from '../../shared/design';
 
 import type { Collection } from '../../shared/records';
 import type { ItemSummary } from '../../shared/types';
@@ -23,6 +25,7 @@ interface SelectionBarProps {
   onDelete(): void;
   onRestore(): void;
   onPurge(): void;
+  onCreateDesign(): void;
 }
 
 export function SelectionBar({
@@ -36,6 +39,7 @@ export function SelectionBar({
   onDelete,
   onRestore,
   onPurge,
+  onCreateDesign,
 }: SelectionBarProps) {
   if (selected.length === 0) return null;
   const count = `${selected.length} reference${selected.length === 1 ? '' : 's'} selected`;
@@ -59,6 +63,21 @@ export function SelectionBar({
           </>
         ) : (
           <>
+            <Button
+              type="button"
+              size="sm"
+              // A Design is generated from the Librarian's reading of a
+              // reference, so one without analysis has nothing to contribute and
+              // the runtime would refuse the whole Design over it.
+              disabled={
+                selected.length > MAX_REFERENCES ||
+                selected.some((item) => item.analysisStatus !== 'ready')
+              }
+              onClick={onCreateDesign}
+            >
+              <Sparkles className="size-3.5" />
+              Create design
+            </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onFavourite}>
               <Star className="size-3.5" />
               Favourite

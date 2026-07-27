@@ -178,3 +178,62 @@ describe('the item tool validates field values', () => {
     expect(request?.body).toMatchObject({ kind: 'item.set-field', field: 'tags' });
   });
 });
+
+describe('the asset tool guards design files', () => {
+  it('refuses a traversal in any id or the file name', async () => {
+    const valid = { designId: 'dsn-1', variantId: 'var-1', revisionId: 'rev-1', fileName: 'preview.html' };
+
+    for (const key of ['designId', 'variantId', 'revisionId'] as const) {
+      const result = await call('design_library_assets', {
+        action: 'design-file',
+        ...valid,
+        [key]: TRAVERSAL,
+      });
+      expect(textOf(result), key).toMatch(/not a valid (design|variant|revision) id/);
+    }
+
+    const named = await call('design_library_assets', {
+      action: 'design-file',
+      ...valid,
+      fileName: '../../../state.json',
+    });
+    expect(textOf(named)).toContain('not a valid file name');
+  });
+
+  it('reads a file the runtime wrote into a revision', async () => {
+    const directory = path.join(
+      paths.home,
+      'designs',
+      'dsn-1',
+      'variants',
+      'var-1',
+      'rev-1',
+    );
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, 'preview.html'), '<!doctype html><body>ok</body>', 'utf8');
+
+    const result = await call('design_library_assets', {
+      action: 'design-file',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      revisionId: 'rev-1',
+      fileName: 'preview.html',
+    });
+
+    // Text, not base64: an inlined React page runs to hundreds of kilobytes and
+    // base64 would inflate it by a third for nothing.
+    expect(textOf(result)).toContain('<body>ok</body>');
+  });
+
+  it('reports a file that is not there rather than returning nothing', async () => {
+    const result = await call('design_library_assets', {
+      action: 'design-file',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      revisionId: 'rev-nope',
+      fileName: 'preview.html',
+    });
+
+    expect(textOf(result)).toContain('No file preview.html');
+  });
+});

@@ -8,6 +8,7 @@ import { itemTarget } from '../shared/records';
 import type { LibraryRequest, LibraryRequestBody } from '../shared/requests';
 import { pendingRequests, readState, updateState, writeJsonFile } from '../shared/state-io';
 import type { DesignLibraryState } from '../shared/types';
+import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
 import { readDesign } from './design-store';
 import {
@@ -322,7 +323,7 @@ export class Coordinator {
       case 'view.set': {
         await updateState(paths, (current) => ({
           ...current,
-          view: { ...current.view, ...body.patch },
+          view: applyViewPatch(current.view, body.patch),
         }));
         return;
       }

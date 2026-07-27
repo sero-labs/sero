@@ -123,6 +123,26 @@ export interface ViewPreferences {
   activeVariantId?: string;
 }
 
+/**
+ * A change to the view, where `null` means "clear this".
+ *
+ * `undefined` cannot express it: the patch travels through the request log as
+ * JSON, and `JSON.stringify` drops an undefined value entirely — so leaving a
+ * Design or a reference would merge an empty object and the old selection would
+ * survive, invisibly, until the next restart brought it back.
+ */
+export type ViewPatch = { [K in keyof ViewPreferences]?: ViewPreferences[K] | null };
+
+/** Apply a patch, turning an explicit `null` into an absent key. */
+export function applyViewPatch(view: ViewPreferences, patch: ViewPatch): ViewPreferences {
+  const next: Record<string, unknown> = { ...view };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete next[key];
+    else next[key] = value;
+  }
+  return next as unknown as ViewPreferences;
+}
+
 export interface DesignLibraryState {
   schemaVersion: number;
   /** Bumped on every write. Writers compare-and-swap against it. */

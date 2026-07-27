@@ -12,7 +12,7 @@ import type { DesignBrief } from './design';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
 import type { DesignLibrarySettings } from './settings';
 import type { ConflictResolution } from './synthesis';
-import type { ViewPreferences } from './types';
+import type { ViewPatch } from './types';
 
 export type LibraryRequestBody =
   /** An upload finished assembling; turn it into a Library item. */
@@ -55,7 +55,7 @@ export type LibraryRequestBody =
    * responsiveness and persists them through the same single-writer path as
    * everything else, rather than writing state behind the runtime's back.
    */
-  | { kind: 'view.set'; patch: Partial<ViewPreferences> };
+  | { kind: 'view.set'; patch: ViewPatch };
 
 export interface LibraryRequest {
   id: number;

@@ -85,3 +85,22 @@ describe('the persisted-view signature', () => {
     expect(viewSignature({ ...base, query: 'grid' })).not.toBe(viewSignature(base));
   });
 });
+
+describe('clearing a selection', () => {
+  it('treats null as a request to remove the key', () => {
+    const persisted = { ...base, selectedItemId: 'itm-1' };
+
+    // `undefined` cannot express this: JSON drops it, so the clear never
+    // reaches the runtime and the old selection survives a restart.
+    expect(mergeView({ selectedItemId: null }, persisted).selectedItemId).toBeUndefined();
+  });
+
+  it('keeps the clear outstanding until state catches up', () => {
+    const persisted = { ...base, selectedItemId: 'itm-1' };
+
+    expect(outstandingView({ selectedItemId: null }, persisted)).toEqual({ selectedItemId: null });
+    // Once the runtime has applied it the key is retired, so a *later* selection
+    // the runtime makes is not outranked by a stale local one.
+    expect(outstandingView({ selectedItemId: null }, base)).toEqual({});
+  });
+});
