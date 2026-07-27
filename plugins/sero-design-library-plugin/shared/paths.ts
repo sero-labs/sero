@@ -16,6 +16,14 @@ export interface DesignLibraryPaths {
   home: string;
   stateFile: string;
   lockDir: string;
+  /**
+   * Record locks, deliberately outside the directories they guard: permanent
+   * deletion removes an item's whole directory, and a lock kept inside it would
+   * be destroyed while still held — releasing the mutex to another process
+   * mid-transaction, and leaving this process to later delete that successor's
+   * lock on the way out.
+   */
+  recordLocksDir: string;
   itemsDir: string;
   jobsDir: string;
   uploadsDir: string;
@@ -27,6 +35,7 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     home,
     stateFile: path.join(home, 'state.json'),
     lockDir: path.join(home, '.state.lock'),
+    recordLocksDir: path.join(home, '.record-locks'),
     itemsDir: path.join(home, 'items'),
     jobsDir: path.join(home, 'jobs'),
     uploadsDir: path.join(home, 'uploads'),

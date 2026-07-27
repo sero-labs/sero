@@ -193,9 +193,24 @@ export async function writeJsonFile(filePath: string, value: unknown): Promise<v
   await rename(temp, filePath);
 }
 
-/** The lock guarding one record file. A sibling directory, so it is removed with the record. */
-export function recordLockDir(filePath: string): string {
-  return `${filePath}.lock`;
+/**
+ * The lock guarding one record file, held in a directory of its own rather than
+ * beside the record.
+ *
+ * Permanent deletion removes an item's whole directory. A lock stored inside it
+ * would be deleted while still held, which is worse than leaking one: another
+ * process could immediately acquire the "free" lock and start writing, and this
+ * process would then delete *that* lock when it released. Keeping locks apart
+ * from the data they guard means a transaction owns its mutex for its whole
+ * life, however the data is disposed of.
+ *
+ * The name is derived from the record's path within the home directory, so two
+ * records never collide and the mapping needs no bookkeeping.
+ */
+export function recordLockDir(paths: DesignLibraryPaths, filePath: string): string {
+  const relative = path.relative(paths.home, filePath);
+  const key = relative.replace(/[^A-Za-z0-9._-]/g, '_');
+  return path.join(paths.recordLocksDir, `${key}.lock`);
 }
 
 /**
@@ -212,9 +227,10 @@ export function recordLockDir(filePath: string): string {
  * Not reentrant. Callers holding the lock must use the unlocked write helpers.
  */
 export async function withRecordLock<T>(
+  paths: DesignLibraryPaths,
   filePath: string,
   fn: () => Promise<T>,
   options: FileLockOptions = {},
 ): Promise<T> {
-  return enqueue(filePath, () => withLock(recordLockDir(filePath), fn, options));
+  return enqueue(filePath, () => withLock(recordLockDir(paths, filePath), fn, options));
 }

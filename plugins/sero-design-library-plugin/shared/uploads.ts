@@ -191,15 +191,21 @@ export async function discardUpload(paths: DesignLibraryPaths, uploadId: string)
 /**
  * Uploads abandoned before completion are cleaned up on runtime start.
  *
- * Age is the only test, including for completed uploads. Sparing those was a
- * leak: an upload completed just as the runtime went down is never ingested, so
- * nothing ever discards it. Ingestion follows completion within moments, so
- * anything still complete-but-unconsumed once the window has passed is debris.
+ * Age alone decides, including for completed uploads. Sparing those outright
+ * was a leak: an upload completed just as the runtime went down is never
+ * ingested, so nothing else would ever discard it.
+ *
+ * Age alone is not sufficient either, though. Pruning runs at startup, before
+ * requests are drained, so an upload whose import is still queued — the app was
+ * closed overnight between completing and ingesting — would have its chunks
+ * deleted moments before the import went looking for them. `keep` carries the
+ * ids those queued imports name, and they survive regardless of age.
  */
 export async function pruneStaleUploads(
   paths: DesignLibraryPaths,
   olderThanMs: number,
   now = Date.now(),
+  keep: ReadonlySet<string> = new Set(),
 ): Promise<string[]> {
   const entries = await readdir(paths.uploadsDir, { withFileTypes: true }).catch(() => []);
 
@@ -207,6 +213,7 @@ export async function pruneStaleUploads(
   const outcomes = await Promise.all(
     entries.flatMap((entry) => {
       if (!entry.isDirectory()) return [];
+      if (keep.has(entry.name)) return [];
       return [
         (async () => {
           const manifest = await readUploadManifest(paths, entry.name);

@@ -144,4 +144,30 @@ describe('pruning staging', () => {
     expect(await pruneStaleUploads(paths, 5_000)).toEqual([]);
     expect(await uploadExists('u-fresh')).toBe(true);
   });
+
+  it('spares an upload a queued import is still waiting on', async () => {
+    // Pruning runs at startup, before requests are drained. Closing the app
+    // between completing an upload and importing it must not lose the file,
+    // however long ago the upload started.
+    await beginUpload(paths, {
+      ...manifest('u-queued', { original: 1, preview: 0 }),
+      createdAt: Date.now() - 10_000,
+    });
+    await chunk('u-queued', 0, 'bytes');
+    await completeUpload(paths, 'u-queued');
+
+    expect(await pruneStaleUploads(paths, 5_000, Date.now(), new Set(['u-queued']))).toEqual([]);
+    expect(await uploadExists('u-queued')).toBe(true);
+  });
+
+  it('still collects an old upload nothing is waiting on', async () => {
+    await beginUpload(paths, {
+      ...manifest('u-unclaimed', { original: 1, preview: 0 }),
+      createdAt: Date.now() - 10_000,
+    });
+
+    expect(await pruneStaleUploads(paths, 5_000, Date.now(), new Set(['other-id']))).toEqual([
+      'u-unclaimed',
+    ]);
+  });
 });

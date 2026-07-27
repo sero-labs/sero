@@ -88,7 +88,7 @@ async function writeItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<I
 
 /** Write a record and project it into the index in one step. */
 export async function saveItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<void> {
-  await withRecordLock(itemRecordFile(paths, item.id), async () => {
+  await withRecordLock(paths, itemRecordFile(paths, item.id), async () => {
     await writeItem(paths, item);
   });
 }
@@ -107,7 +107,7 @@ export async function mutateItem(
   itemId: string,
   mutate: (item: ItemRecord) => ItemRecord | null,
 ): Promise<ItemRecord | null> {
-  return withRecordLock(itemRecordFile(paths, itemId), async () => {
+  return withRecordLock(paths, itemRecordFile(paths, itemId), async () => {
     const current = await readItem(paths, itemId);
     if (!current) return null;
     const next = mutate(current);
@@ -122,7 +122,7 @@ export async function mutateItem(
  * out after the directory has been removed.
  */
 export async function destroyItem(paths: DesignLibraryPaths, itemId: string): Promise<void> {
-  await withRecordLock(itemRecordFile(paths, itemId), async () => {
+  await withRecordLock(paths, itemRecordFile(paths, itemId), async () => {
     await rm(itemDir(paths, itemId), { recursive: true, force: true });
     await updateState(paths, (current) => ({
       ...current,
@@ -159,7 +159,7 @@ async function writeJob(paths: DesignLibraryPaths, job: JobRecord): Promise<JobR
 }
 
 export async function saveJob(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
-  await withRecordLock(jobFile(paths, job.id), async () => {
+  await withRecordLock(paths, jobFile(paths, job.id), async () => {
     await writeJob(paths, job);
   });
 }
@@ -170,7 +170,7 @@ export async function mutateJob(
   jobId: string,
   mutate: (job: JobRecord) => JobRecord,
 ): Promise<JobRecord | null> {
-  return withRecordLock(jobFile(paths, jobId), async () => {
+  return withRecordLock(paths, jobFile(paths, jobId), async () => {
     const current = await readJob(paths, jobId);
     if (!current) return null;
     return writeJob(paths, mutate(current));

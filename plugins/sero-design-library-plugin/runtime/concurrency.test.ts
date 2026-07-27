@@ -4,7 +4,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { emptyAnalysis } from '../shared/librarian';
-import { designLibraryPathsFromHome, itemDir, type DesignLibraryPaths } from '../shared/paths';
+import { designLibraryPathsFromHome, itemDir, itemRecordFile, type DesignLibraryPaths } from '../shared/paths';
+import { withRecordLock } from '../shared/state-io';
 import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION } from '../shared/records';
 import { mutateItem, readItem, saveItem } from './store';
@@ -119,6 +120,21 @@ describe('concurrent writes to one item record', () => {
     // A shared temp name lets one write rename a file another is still filling.
     const entries = await readdir(itemDir(paths, 'itm-4'));
     expect(entries.filter((entry) => entry.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('keeps the lock outside the directory it guards', async () => {
+    await saveItem(paths, item('itm-lock'));
+
+    // A lock stored inside the item directory is destroyed by a permanent
+    // delete while its holder is still mid-transaction — which hands the mutex
+    // to another process and leaves this one to delete that successor's lock.
+    let heldDuringDelete: string[] = [];
+    await withRecordLock(paths, itemRecordFile(paths, 'itm-lock'), async () => {
+      await rm(itemDir(paths, 'itm-lock'), { recursive: true, force: true });
+      heldDuringDelete = await readdir(paths.recordLocksDir).catch(() => []);
+    });
+
+    expect(heldDuringDelete.length).toBeGreaterThan(0);
   });
 
   it('reports a record that disappeared rather than recreating it', async () => {

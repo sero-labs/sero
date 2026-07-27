@@ -9,7 +9,7 @@ import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION } from '../shared/records';
 import { readState } from '../shared/state-io';
 import { createJob, markFailed, markRunning, markSucceeded, reconcileJobs } from './jobs';
-import { readItem, reindex, saveItem } from './store';
+import { mutateItem, readItem, reindex, saveItem } from './store';
 
 let home: string;
 let paths: DesignLibraryPaths;
@@ -122,5 +122,64 @@ describe('reindex', () => {
     const summary = (await readState(paths)).items.find((entry) => entry.id === 'item-1');
     expect(summary?.title).toBe('My own title');
     expect(summary?.edited).toBe(true);
+  });
+});
+
+describe('an item orphaned by a finished job', () => {
+  it('is re-queued with a fresh job after a crash between the two writes', async () => {
+    // A job and its item are separate files. A crash between marking the job
+    // done and writing the item leaves the item claiming to run a job that
+    // finished — and nothing else ever looks at it again.
+    const item = await seedItem('itm-orphan', 'running');
+    const job = await createJob(paths, 'analysis', item.id);
+    await markRunning(paths, job.id);
+    await mutateItem(paths, item.id, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'running', jobId: job.id },
+    }));
+    await markSucceeded(paths, job.id);
+
+    const resumable = await reconcileJobs(paths);
+
+    const repaired = await readItem(paths, item.id);
+    expect(repaired?.analysis.status).toBe('pending');
+    // Pending with no job owning it is the stuck spinner, so a replacement
+    // must exist and be handed back for the queue to run.
+    expect(repaired?.analysis.jobId).toBeDefined();
+    expect(repaired?.analysis.jobId).not.toBe(job.id);
+    expect(resumable.map((entry) => entry.id)).toContain(repaired?.analysis.jobId);
+  });
+
+  it('leaves an item alone when its own job is the one that finished cleanly', async () => {
+    const item = await seedItem('itm-clean', 'ready');
+    const job = await createJob(paths, 'analysis', item.id);
+    await mutateItem(paths, item.id, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'ready', jobId: job.id },
+    }));
+    await markSucceeded(paths, job.id);
+
+    await reconcileJobs(paths);
+
+    const after = await readItem(paths, item.id);
+    expect(after?.analysis.status).toBe('ready');
+    expect(after?.analysis.jobId).toBe(job.id);
+  });
+
+  it('ignores a finished job the item has already moved on from', async () => {
+    const item = await seedItem('itm-moved', 'running');
+    const stale = await createJob(paths, 'analysis', item.id);
+    const current = await createJob(paths, 'analysis', item.id);
+    await mutateItem(paths, item.id, (entry) => ({
+      ...entry,
+      analysis: { ...entry.analysis, status: 'running', jobId: current.id },
+    }));
+    await markSucceeded(paths, stale.id);
+
+    await reconcileJobs(paths);
+
+    // The item points at `current`, so the older job's completion is none of
+    // its business and must not trigger a re-run.
+    expect((await readItem(paths, item.id))?.analysis.jobId).toBe(current.id);
   });
 });

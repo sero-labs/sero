@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DesignLibraryPaths } from '../shared/paths';
 import type { JobKind, JobRecord } from '../shared/records';
-import { listJobs, mutateItem, mutateJob, saveJob } from './store';
+import { listJobs, mutateItem, mutateJob, readItem, saveJob } from './store';
 
 /**
  * The persisted job contract.
@@ -75,11 +75,20 @@ export async function requestCancel(paths: DesignLibraryPaths, jobId: string): P
   await mutateJob(paths, jobId, (job) => ({ ...job, cancelRequested: true }));
 }
 
+/** Job states that mean the run is over, whatever the item still says. */
+const TERMINAL: readonly JobRecord['status'][] = ['succeeded', 'failed', 'cancelled'];
+
 /**
  * Restart recovery. A job left `running` belonged to a process that died, and
  * a dead process cannot be trusted to have finished its work — so it goes back
  * to `queued` and runs again. Its item goes back to `pending` to match, which
  * is what stops the UI showing a spinner for a run nobody is doing.
+ *
+ * The reverse mismatch has to be repaired too. A job and its item are two files
+ * and cannot be written atomically, so a crash between the two leaves a
+ * finished job pointing at an item that still claims to be running. Repairing
+ * only the running-job case left that item spinning for good: nothing else ever
+ * revisits it.
  */
 export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> {
   const jobs = await listJobs(paths);
@@ -94,5 +103,23 @@ export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecor
     );
   }
 
-  return [...jobs.filter((job) => job.status === 'queued'), ...interrupted];
+  // A finished job whose item never heard about it. The analysis is run again
+  // rather than the item declared ready: the crash happened before the profile
+  // was written, so there is no result to show. A replacement job is created
+  // and returned, because an item left `pending` with no job owning it is
+  // exactly the stuck spinner this is here to prevent.
+  const orphaned: JobRecord[] = [];
+  for (const job of jobs.filter((entry) => TERMINAL.includes(entry.status))) {
+    const item = await readItem(paths, job.itemId);
+    if (item?.analysis.jobId !== job.id || item.analysis.status !== 'running') continue;
+
+    const replacement = await createJob(paths, 'analysis', job.itemId);
+    await mutateItem(paths, job.itemId, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'pending', jobId: replacement.id, error: undefined },
+    }));
+    orphaned.push(replacement);
+  }
+
+  return [...jobs.filter((job) => job.status === 'queued'), ...interrupted, ...orphaned];
 }

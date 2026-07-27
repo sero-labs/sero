@@ -1,6 +1,7 @@
 import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/common';
 
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
+import { pendingRequests, readState } from '../shared/state-io';
 import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { reindex } from './store';
@@ -34,7 +35,18 @@ class DesignLibraryRuntime implements AppRuntime {
     // fails to start consumes no requests at all, so the UI goes quietly dead
     // — every button appears to do nothing. Startup chores are therefore
     // best-effort, and the coordinator is created either way.
-    await this.attempt('prune stale uploads', () => pruneStaleUploads(paths, STALE_UPLOAD_MS));
+    // Pruning runs before the coordinator drains, so it is told which uploads
+    // a queued import is still waiting on. Without that, closing the app
+    // between completing an upload and importing it loses the file.
+    await this.attempt('prune stale uploads', async () => {
+      const state = await readState(paths);
+      const awaited = new Set(
+        pendingRequests(state).flatMap((request) =>
+          request.body.kind === 'ingest' ? [request.body.uploadId] : [],
+        ),
+      );
+      return pruneStaleUploads(paths, STALE_UPLOAD_MS, Date.now(), awaited);
+    });
 
     // Rebuild the index from the records: an index write interrupted by a
     // crash is a cache miss, not data loss, and this is where it heals.

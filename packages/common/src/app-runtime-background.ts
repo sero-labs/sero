@@ -473,7 +473,12 @@ export interface AppRuntimeHost {
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
   models: AppRuntimeModelsApi;
-  media: AppRuntimeMediaApi;
+  /**
+   * Optional so a runtime built against this type still compiles — and runs —
+   * against a host that predates the capability. Call it with `?.` and fall
+   * back; declare `appRuntime.media` only if you truly cannot.
+   */
+  media?: AppRuntimeMediaApi;
   session: AppRuntimeSessionHost;
 }
 
