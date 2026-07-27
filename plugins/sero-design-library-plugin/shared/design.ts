@@ -49,16 +49,44 @@ export interface DesignReference {
 export type VariantStatus = 'pending' | 'running' | 'ready' | 'failed' | 'cancelled';
 
 /**
+ * One file the model authored, as stored in the revision directory.
+ *
+ * A revision is a small file tree, not a single string: the HTML target emits
+ * markup, styles and script separately, and the React target may split
+ * components. Keeping them as files rather than inline in the record is what
+ * stops `record.json` growing to hundreds of kilobytes — it is read and
+ * rewritten under a lock on every variant transition.
+ */
+export interface DesignRevisionFile {
+  /** Name inside the revision directory, e.g. `index.html`. Never a path. */
+  name: string;
+  bytes: number;
+}
+
+/**
  * One generated result. Revisions are append-only within a variant: replacing
  * the visible result moves a pointer, it does not destroy what was there.
  */
 export interface DesignRevision {
   id: string;
   createdAt: number;
-  /** Source for the chosen output target — TSX for react, a document for html. */
-  code: string;
-  /** Present once the runtime has built this revision into a preview document. */
+  /** The generation job that produced it. Provenance for the History tab. */
+  jobId: string;
+  /** Files the model authored, in the order it wrote them. */
+  files: DesignRevisionFile[];
+  /**
+   * The assembled, self-contained preview document inside the revision
+   * directory. Present once the build has run; absent means the files exist but
+   * nothing renderable was produced.
+   */
   builtFile?: string;
+  /**
+   * What the build refused or dropped — an import outside the approved set, a
+   * stylesheet that could not be inlined. Recorded on the revision so the
+   * warning survives a restart and is never mistaken for the capability having
+   * been allowed (spec §7).
+   */
+  buildWarnings: string[];
   /** Emitted with the revision and bound to it; see the note at the top. */
   tweakManifestFile?: string;
   /** What the model said it was going for, for the revision selector. */
@@ -148,6 +176,19 @@ export function orderedReferences(design: DesignRecord): DesignReference[] {
 /** The reference that leads the visual direction (spec §6.1). */
 export function primaryReference(design: DesignRecord): DesignReference | undefined {
   return orderedReferences(design)[0];
+}
+
+/**
+ * How many variants a Design actually runs.
+ *
+ * `per-reference` gives each reference its own variant (spec §6.2), so the
+ * requested count does not apply — one reference means one variant, however
+ * many the dialog asked for. Deriving it here rather than at the call site
+ * keeps the create path and the display of "n variants" from disagreeing.
+ */
+export function plannedVariantCount(brief: DesignBrief, referenceCount: number): number {
+  const clamp = (value: number) => Math.min(MAX_VARIANTS, Math.max(MIN_VARIANTS, value));
+  return brief.variationMode === 'per-reference' ? clamp(referenceCount) : clamp(brief.variantCount);
 }
 
 export function visibleRevision(variant: DesignVariant): DesignRevision | undefined {

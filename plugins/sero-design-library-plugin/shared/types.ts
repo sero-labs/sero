@@ -8,7 +8,9 @@
  * recoverable: the projection can always be rebuilt from the records.
  */
 
-import type { AnalysisStatus, Collection, JobKind, JobStatus, MediaKind } from './records';
+import type { OutputTarget, VariantStatus, VariationMode } from './design';
+import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
+import { normalizeJobRecord } from './records';
 import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
 import type { DesignLibrarySettings } from './settings';
@@ -47,9 +49,44 @@ export interface JobSummary {
   id: string;
   kind: JobKind;
   status: JobStatus;
-  itemId: string;
+  target: JobTarget;
   createdAt: number;
   error?: string;
+}
+
+/**
+ * One variant, as the sessions rail and the variant tabs need it.
+ *
+ * No code and no file contents: reactive state carries summaries only, and a
+ * generated page runs to tens of kilobytes. The UI reads the built document
+ * through the asset tool using `previewPath`.
+ */
+export interface DesignVariantSummary {
+  id: string;
+  index: number;
+  status: VariantStatus;
+  error?: string;
+  /** Home-relative path to the visible revision's built document, when built. */
+  previewPath?: string;
+  /** Non-empty means the build refused something; the detail is on the record. */
+  warningCount: number;
+  revisionCount: number;
+  visibleRevisionId?: string;
+  /** For `per-reference` mode: the reference this variant came from. */
+  referenceItemId?: string;
+}
+
+export interface DesignSummary {
+  id: string;
+  title: string;
+  target: OutputTarget;
+  variationMode: VariationMode;
+  /** Ordered; position 0 is primary. */
+  referenceItemIds: string[];
+  variants: DesignVariantSummary[];
+  createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
 }
 
 export type LibraryScope =
@@ -80,6 +117,10 @@ export interface ViewPreferences {
   filters: LibraryFilters;
   sort: LibrarySort;
   selectedItemId?: string;
+  /** The Design on screen. Set by opening one, cleared by leaving the surface. */
+  selectedDesignId?: string;
+  /** Which variant tab is active within the open Design. */
+  activeVariantId?: string;
 }
 
 export interface DesignLibraryState {
@@ -87,6 +128,7 @@ export interface DesignLibraryState {
   /** Bumped on every write. Writers compare-and-swap against it. */
   revision: number;
   items: ItemSummary[];
+  designs: DesignSummary[];
   collections: Collection[];
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
@@ -110,6 +152,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   schemaVersion: STATE_SCHEMA_VERSION,
   revision: 0,
   items: [],
+  designs: [],
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
@@ -179,17 +222,62 @@ function normalizeCollection(value: unknown): Collection | null {
 
 function normalizeJob(value: unknown): JobSummary | null {
   if (!isRecord(value) || typeof value.id !== 'string') return null;
+  const target = normalizeJobRecord({ ...value, id: value.id })?.target;
+  if (!target) return null;
   const status = value.status;
   return {
     id: value.id,
-    kind: value.kind === 'ingest' ? 'ingest' : 'analysis',
+    kind: value.kind === 'ingest' || value.kind === 'generate' ? value.kind : 'analysis',
     status:
       status === 'running' || status === 'succeeded' || status === 'failed' || status === 'cancelled'
         ? status
         : 'queued',
-    itemId: typeof value.itemId === 'string' ? value.itemId : '',
+    target,
     createdAt: num(value.createdAt, 0),
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
+  };
+}
+
+function normalizeVariantSummary(value: unknown, fallbackIndex: number): DesignVariantSummary | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') return null;
+  const status = value.status;
+  return {
+    id: value.id,
+    index: num(value.index, fallbackIndex),
+    status:
+      status === 'running' || status === 'ready' || status === 'failed' || status === 'cancelled'
+        ? status
+        : 'pending',
+    ...(typeof value.error === 'string' ? { error: value.error } : {}),
+    ...(typeof value.previewPath === 'string' ? { previewPath: value.previewPath } : {}),
+    warningCount: num(value.warningCount, 0),
+    revisionCount: num(value.revisionCount, 0),
+    ...(typeof value.visibleRevisionId === 'string'
+      ? { visibleRevisionId: value.visibleRevisionId }
+      : {}),
+    ...(typeof value.referenceItemId === 'string'
+      ? { referenceItemId: value.referenceItemId }
+      : {}),
+  };
+}
+
+function normalizeDesignSummary(value: unknown): DesignSummary | null {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') return null;
+  return {
+    id: value.id,
+    title: typeof value.title === 'string' ? value.title : 'Untitled design',
+    target: value.target === 'html' ? 'html' : 'react',
+    variationMode: value.variationMode === 'per-reference' ? 'per-reference' : 'blend',
+    referenceItemIds: stringArray(value.referenceItemIds),
+    variants: Array.isArray(value.variants)
+      ? value.variants.flatMap((entry, index) => {
+          const variant = normalizeVariantSummary(entry, index);
+          return variant === null ? [] : [variant];
+        })
+      : [],
+    createdAt: num(value.createdAt, 0),
+    updatedAt: num(value.updatedAt, 0),
+    ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
   };
 }
 
@@ -238,6 +326,10 @@ function normalizeView(value: unknown): ViewPreferences {
     filters: normalizeFilters(value.filters),
     sort: sort === 'oldest' || sort === 'title' ? sort : 'newest',
     ...(typeof value.selectedItemId === 'string' ? { selectedItemId: value.selectedItemId } : {}),
+    ...(typeof value.selectedDesignId === 'string'
+      ? { selectedDesignId: value.selectedDesignId }
+      : {}),
+    ...(typeof value.activeVariantId === 'string' ? { activeVariantId: value.activeVariantId } : {}),
   };
 }
 
@@ -295,6 +387,12 @@ export function normalizeState(value: unknown): DesignLibraryState {
       ? value.items.flatMap((entry) => {
           const item = normalizeItem(entry);
           return item === null ? [] : [item];
+        })
+      : [],
+    designs: Array.isArray(value.designs)
+      ? value.designs.flatMap((entry) => {
+          const design = normalizeDesignSummary(entry);
+          return design === null ? [] : [design];
         })
       : [],
     collections: Array.isArray(value.collections)

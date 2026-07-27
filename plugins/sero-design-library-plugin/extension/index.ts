@@ -14,6 +14,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { resolveDesignLibraryPaths } from '../shared/paths';
 import { registerAnalysisTool } from './tools/analysis';
 import { registerAssetTool } from './tools/assets';
+import { registerDesignTool } from './tools/designs';
 import { registerItemTool } from './tools/items';
 import { registerSettingsTool } from './tools/settings';
 
@@ -23,5 +24,6 @@ export default function designLibraryExtension(pi: ExtensionAPI): void {
   registerAssetTool(pi, paths);
   registerItemTool(pi, paths);
   registerAnalysisTool(pi, paths);
+  registerDesignTool(pi, paths);
   registerSettingsTool(pi, paths);
 }

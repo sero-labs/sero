@@ -88,7 +88,7 @@ describe('reading a Design record', () => {
 });
 
 describe('reading variants and revisions', () => {
-  it('drops a revision with no code', () => {
+  it('drops a revision with no files', () => {
     // It cannot render, and it would sit in the revision selector as an empty
     // entry that does nothing when chosen.
     const design = normalizeDesignRecord(
@@ -100,7 +100,7 @@ describe('reading variants and revisions', () => {
             status: 'ready',
             attempts: 1,
             revisions: [
-              { id: 'rev-1', code: '<div />', createdAt: 1, summary: 'one' },
+              { id: 'rev-1', files: [{ name: 'index.html', bytes: 8 }], createdAt: 1, summary: 'one' },
               { id: 'rev-2', createdAt: 2, summary: 'two' },
             ],
           },
@@ -121,7 +121,9 @@ describe('reading variants and revisions', () => {
             status: 'ready',
             attempts: 1,
             visibleRevisionId: 'rev-missing',
-            revisions: [{ id: 'rev-1', code: '<div />', createdAt: 1, summary: 'one' }],
+            revisions: [
+              { id: 'rev-1', files: [{ name: 'index.html', bytes: 8 }], createdAt: 1, summary: 'one' },
+            ],
           },
         ],
       }),
@@ -165,8 +167,8 @@ describe('reading a Design', () => {
       status: 'ready' as const,
       attempts: 1,
       revisions: [
-        { id: 'rev-1', code: 'a', createdAt: 1, summary: '' },
-        { id: 'rev-2', code: 'b', createdAt: 2, summary: '' },
+        { id: 'rev-1', jobId: 'job-1', files: [], buildWarnings: [], createdAt: 1, summary: '' },
+        { id: 'rev-2', jobId: 'job-2', files: [], buildWarnings: [], createdAt: 2, summary: '' },
       ],
     };
 

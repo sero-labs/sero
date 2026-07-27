@@ -71,7 +71,7 @@ export class AnalysisQueue {
     if (index === -1) return;
     this.pending.splice(index, 1);
     const job = await readJob(this.context.paths, jobId);
-    if (job) await this.finishCancelled(job);
+    if (job?.target.kind === 'item') await this.finishCancelled(job, job.target.itemId);
   }
 
   /** Resolves once the job is no longer writing — immediately if it never was. */
@@ -134,20 +134,28 @@ export class AnalysisQueue {
     const { paths } = this.context;
     const job = await readJob(paths, jobId);
     if (!job) return;
+    // This queue only runs analysis, which always belongs to an item. Anything
+    // else reaching it is a routing mistake, and failing the job says so rather
+    // than leaving it queued forever.
+    if (job.target.kind !== 'item') {
+      await markFailed(paths, jobId, 'An analysis job was queued without an item to analyse.');
+      return;
+    }
+    const itemId = job.target.itemId;
     // A cancel that arrived while the job was still queued.
     if (job.cancelRequested === true) {
-      await this.finishCancelled(job);
+      await this.finishCancelled(job, itemId);
       return;
     }
 
-    const item = await readItem(paths, job.itemId);
+    const item = await readItem(paths, itemId);
     if (!item) {
       await markFailed(paths, jobId, 'The item was removed before analysis started.');
       return;
     }
 
     await markRunning(paths, jobId);
-    const claimed = await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+    const claimed = await this.applyIfCurrent(jobId, itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'running', jobId, startedAt: Date.now(), error: undefined },
     }));
@@ -168,13 +176,13 @@ export class AnalysisQueue {
     });
 
     if (outcome.status === 'cancelled') {
-      await this.finishCancelled(job);
+      await this.finishCancelled(job, itemId);
       return;
     }
 
     if (outcome.status === 'failed') {
       await markFailed(paths, jobId, outcome.reason);
-      await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+      await this.applyIfCurrent(jobId, itemId, (current) => ({
         ...current,
         analysis: {
           ...current.analysis,
@@ -195,7 +203,7 @@ export class AnalysisQueue {
     await markSucceeded(paths, jobId);
 
     // Reanalysis replaces the generated profile only — manual fields survive.
-    await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+    await this.applyIfCurrent(jobId, itemId, (current) => ({
       ...current,
       profile: replaceGenerated(current.profile, outcome.analysis),
       analysis: {
@@ -208,9 +216,9 @@ export class AnalysisQueue {
     }));
   }
 
-  private async finishCancelled(job: JobRecord): Promise<void> {
+  private async finishCancelled(job: JobRecord, itemId: string): Promise<void> {
     await markCancelled(this.context.paths, job.id);
-    await this.applyIfCurrent(job.id, job.itemId, (current) => ({
+    await this.applyIfCurrent(job.id, itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() },
     }));

@@ -4,10 +4,19 @@ import { clearOverride, effectiveField, setOverride, validateFieldValue } from '
 import type { DesignLibraryPaths } from '../shared/paths';
 import { tombstoneFile } from '../shared/paths';
 import type { TombstonedProvenance } from '../shared/records';
+import { itemTarget } from '../shared/records';
 import type { LibraryRequest, LibraryRequestBody } from '../shared/requests';
 import { pendingRequests, readState, updateState, writeJsonFile } from '../shared/state-io';
 import type { DesignLibraryState } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
+import {
+  cancelVariant,
+  createDesign,
+  deleteDesign,
+  renameDesign,
+  restoreDesign,
+  retryVariant,
+} from './designs';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
 import { destroyItem, mutateItem, readItem } from './store';
@@ -226,6 +235,54 @@ export class Coordinator {
         return;
       }
 
+      case 'design.create': {
+        const outcome = await createDesign(paths, {
+          designId: body.designId,
+          title: body.title,
+          brief: body.brief,
+          referenceItemIds: body.referenceItemIds,
+          resolutions: body.resolutions,
+        });
+        // A refusal is thrown rather than swallowed so it reaches the runtime's
+        // error reporting; the request log has no channel back to the caller,
+        // and the tool has already checked the same conditions synchronously.
+        if (outcome.status === 'refused') throw new Error(outcome.reason);
+        await updateState(paths, (current) => ({
+          ...current,
+          view: {
+            ...current.view,
+            selectedDesignId: outcome.design.id,
+            activeVariantId: outcome.design.variants[0]?.id,
+          },
+        }));
+        return;
+      }
+
+      case 'design.rename': {
+        await renameDesign(paths, body.designId, body.title);
+        return;
+      }
+
+      case 'design.retry-variant': {
+        await retryVariant(paths, body.designId, body.variantId);
+        return;
+      }
+
+      case 'design.cancel-variant': {
+        await cancelVariant(paths, body.designId, body.variantId);
+        return;
+      }
+
+      case 'design.delete': {
+        await deleteDesign(paths, body.designId);
+        return;
+      }
+
+      case 'design.restore': {
+        await restoreDesign(paths, body.designId);
+        return;
+      }
+
       case 'settings.update': {
         await updateState(paths, (current) => ({
           ...current,
@@ -260,7 +317,7 @@ export class Coordinator {
     if (!force && (item.analysis.status === 'ready' || busy)) return;
     if (busy) await this.cancelAnalysis(itemId, { wait: true });
 
-    const job = await createJob(this.context.paths, 'analysis', itemId);
+    const job = await createJob(this.context.paths, 'analysis', itemTarget(itemId));
     // Claiming the item for this job is what makes the queue's completion
     // check meaningful: a superseded job no longer matches and cannot write.
     await mutateItem(this.context.paths, itemId, (current) => ({

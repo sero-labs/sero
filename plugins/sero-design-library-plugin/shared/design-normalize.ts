@@ -12,6 +12,7 @@ import type {
   DesignRecord,
   DesignReference,
   DesignRevision,
+  DesignRevisionFile,
   DesignVariant,
   InspirationStrength,
   OutputTarget,
@@ -26,6 +27,7 @@ import {
   MAX_VARIANTS,
   MIN_VARIANTS,
 } from './design';
+import { isSafeId } from './paths';
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -82,17 +84,38 @@ function normalizeReference(value: unknown, fallbackOrder: number): DesignRefere
   };
 }
 
+function normalizeRevisionFile(value: unknown): DesignRevisionFile | null {
+  if (!isRecordObject(value) || typeof value.name !== 'string' || value.name === '') return null;
+  // The name is joined onto a directory path, so a separator or a traversal
+  // segment makes the entry unusable rather than merely odd.
+  if (!isSafeId(value.name)) return null;
+  return { name: value.name, bytes: num(value.bytes, 0) };
+}
+
 function normalizeRevision(value: unknown): DesignRevision | null {
   if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
-  // A revision with no code is not a revision — it cannot render, and keeping
-  // it would put an empty entry in the revision selector.
-  if (typeof value.code !== 'string' || value.code === '') return null;
+
+  const files = Array.isArray(value.files)
+    ? value.files.flatMap((entry) => {
+        const file = normalizeRevisionFile(entry);
+        return file === null ? [] : [file];
+      })
+    : [];
+  // A revision with no files is not a revision — nothing can render or be
+  // exported from it, and keeping it would put an empty entry in the revision
+  // selector.
+  if (files.length === 0) return null;
+
   return {
     id: value.id,
     createdAt: num(value.createdAt, 0),
-    code: value.code,
-    ...(typeof value.builtFile === 'string' ? { builtFile: value.builtFile } : {}),
-    ...(typeof value.tweakManifestFile === 'string'
+    jobId: str(value.jobId),
+    files,
+    ...(typeof value.builtFile === 'string' && isSafeId(value.builtFile)
+      ? { builtFile: value.builtFile }
+      : {}),
+    buildWarnings: stringList(value.buildWarnings),
+    ...(typeof value.tweakManifestFile === 'string' && isSafeId(value.tweakManifestFile)
       ? { tweakManifestFile: value.tweakManifestFile }
       : {}),
     summary: str(value.summary),
@@ -158,7 +181,12 @@ function normalizeGuardrails(value: unknown): AppliedGuardrails {
   };
 }
 
-function normalizeBrief(value: unknown): DesignBrief {
+/**
+ * Coerce a brief to the shape the runtime will act on. Exported because a brief
+ * also arrives from a tool caller through the request log, and the request log
+ * is a file — anything that can write it reaches the create handler.
+ */
+export function normalizeDesignBrief(value: unknown): DesignBrief {
   const source = isRecordObject(value) ? value : {};
   return {
     request: str(source.request),
@@ -196,7 +224,7 @@ export function normalizeDesignRecord(value: unknown): DesignRecord | null {
     createdAt: num(value.createdAt, 0),
     updatedAt: num(value.updatedAt, 0),
     title: str(value.title, 'Untitled design'),
-    brief: normalizeBrief(value.brief),
+    brief: normalizeDesignBrief(value.brief),
     references,
     variants: Array.isArray(value.variants)
       ? value.variants.flatMap((entry, index) => {

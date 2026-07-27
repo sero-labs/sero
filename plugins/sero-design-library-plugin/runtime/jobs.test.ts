@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
-import { ITEM_SCHEMA_VERSION } from '../shared/records';
+import { ITEM_SCHEMA_VERSION, itemTarget, variantTarget } from '../shared/records';
 import { readState } from '../shared/state-io';
+import { mutateVariant, readDesign } from './design-store';
 import { createJob, markFailed, markRunning, markSucceeded, reconcileJobs } from './jobs';
 import { mutateItem, readItem, reindex, saveItem } from './store';
+import { seedDesign } from './test-fixtures';
 
 let home: string;
 let paths: DesignLibraryPaths;
@@ -51,7 +53,7 @@ async function seedItem(id: string, status: ItemRecord['analysis']['status'] = '
 describe('restart recovery', () => {
   it('requeues a job whose process died mid-run', async () => {
     await seedItem('item-1');
-    const job = await createJob(paths, 'analysis', 'item-1');
+    const job = await createJob(paths, 'analysis', itemTarget('item-1'));
     await markRunning(paths, job.id);
 
     // The process dies here. On the next start, reconcile runs.
@@ -64,7 +66,7 @@ describe('restart recovery', () => {
 
   it('puts the item back to pending so the UI does not show a spinner for nobody', async () => {
     await seedItem('item-1', 'running');
-    const job = await createJob(paths, 'analysis', 'item-1');
+    const job = await createJob(paths, 'analysis', itemTarget('item-1'));
     await markRunning(paths, job.id);
 
     await reconcileJobs(paths);
@@ -75,8 +77,8 @@ describe('restart recovery', () => {
   it('leaves finished jobs alone', async () => {
     await seedItem('item-1');
     await seedItem('item-2');
-    const succeeded = await createJob(paths, 'analysis', 'item-1');
-    const failed = await createJob(paths, 'analysis', 'item-2');
+    const succeeded = await createJob(paths, 'analysis', itemTarget('item-1'));
+    const failed = await createJob(paths, 'analysis', itemTarget('item-2'));
     await markSucceeded(paths, succeeded.id);
     await markFailed(paths, failed.id, 'provider error');
 
@@ -86,7 +88,7 @@ describe('restart recovery', () => {
 
   it('resumes a job that was still queued when the process stopped', async () => {
     await seedItem('item-1');
-    const job = await createJob(paths, 'analysis', 'item-1');
+    const job = await createJob(paths, 'analysis', itemTarget('item-1'));
 
     const resumable = await reconcileJobs(paths);
     expect(resumable.map((entry) => entry.id)).toEqual([job.id]);
@@ -131,7 +133,7 @@ describe('an item orphaned by a finished job', () => {
     // done and writing the item leaves the item claiming to run a job that
     // finished — and nothing else ever looks at it again.
     const item = await seedItem('itm-orphan', 'running');
-    const job = await createJob(paths, 'analysis', item.id);
+    const job = await createJob(paths, 'analysis', itemTarget(item.id));
     await markRunning(paths, job.id);
     await mutateItem(paths, item.id, (current) => ({
       ...current,
@@ -152,7 +154,7 @@ describe('an item orphaned by a finished job', () => {
 
   it('leaves an item alone when its own job is the one that finished cleanly', async () => {
     const item = await seedItem('itm-clean', 'ready');
-    const job = await createJob(paths, 'analysis', item.id);
+    const job = await createJob(paths, 'analysis', itemTarget(item.id));
     await mutateItem(paths, item.id, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'ready', jobId: job.id },
@@ -168,8 +170,8 @@ describe('an item orphaned by a finished job', () => {
 
   it('ignores a finished job the item has already moved on from', async () => {
     const item = await seedItem('itm-moved', 'running');
-    const stale = await createJob(paths, 'analysis', item.id);
-    const current = await createJob(paths, 'analysis', item.id);
+    const stale = await createJob(paths, 'analysis', itemTarget(item.id));
+    const current = await createJob(paths, 'analysis', itemTarget(item.id));
     await mutateItem(paths, item.id, (entry) => ({
       ...entry,
       analysis: { ...entry.analysis, status: 'running', jobId: current.id },
@@ -181,5 +183,65 @@ describe('an item orphaned by a finished job', () => {
     // The item points at `current`, so the older job's completion is none of
     // its business and must not trigger a re-run.
     expect((await readItem(paths, item.id))?.analysis.jobId).toBe(current.id);
+  });
+});
+
+describe('a variant orphaned or interrupted by its generation job', () => {
+  async function claimFirstVariant(designId: string, jobId: string, status: 'running' | 'pending') {
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    await mutateVariant(paths, designId, variantId, (variant) => ({ ...variant, status, jobId }));
+    return variantId;
+  }
+
+  it('rewinds a running variant when its process died mid-run', async () => {
+    const design = await seedDesign(paths, 'dsn-interrupted', { variantCount: 2 });
+    const job = await createJob(paths, 'generate', variantTarget(design.id, design.variants[0]!.id));
+    await markRunning(paths, job.id);
+    const variantId = await claimFirstVariant(design.id, job.id, 'running');
+
+    const resumable = await reconcileJobs(paths);
+
+    const repaired = await readDesign(paths, design.id);
+    expect(repaired?.variants.find((entry) => entry.id === variantId)?.status).toBe('pending');
+    expect(resumable.map((entry) => entry.id)).toContain(job.id);
+    // The sibling never had a job and must be left exactly as it was.
+    expect(repaired?.variants[1]?.status).toBe('pending');
+    expect(repaired?.variants[1]?.jobId).toBeUndefined();
+  });
+
+  it('replaces a finished job whose variant never heard about it', async () => {
+    const design = await seedDesign(paths, 'dsn-orphan');
+    const job = await createJob(paths, 'generate', variantTarget(design.id, design.variants[0]!.id));
+    await markRunning(paths, job.id);
+    const variantId = await claimFirstVariant(design.id, job.id, 'running');
+    await markSucceeded(paths, job.id);
+
+    const resumable = await reconcileJobs(paths);
+
+    const repaired = await readDesign(paths, design.id);
+    const variant = repaired?.variants.find((entry) => entry.id === variantId);
+    expect(variant?.status).toBe('pending');
+    expect(variant?.jobId).toBeDefined();
+    expect(variant?.jobId).not.toBe(job.id);
+    expect(resumable.map((entry) => entry.id)).toContain(variant?.jobId);
+  });
+
+  it('leaves a variant alone once it has moved past the finished job', async () => {
+    const design = await seedDesign(paths, 'dsn-done');
+    const job = await createJob(paths, 'generate', variantTarget(design.id, design.variants[0]!.id));
+    const variantId = design.variants[0]!.id;
+    await mutateVariant(paths, design.id, variantId, (variant) => ({
+      ...variant,
+      status: 'ready',
+      jobId: job.id,
+    }));
+    await markSucceeded(paths, job.id);
+
+    await reconcileJobs(paths);
+
+    const after = await readDesign(paths, design.id);
+    expect(after?.variants.find((entry) => entry.id === variantId)?.status).toBe('ready');
+    expect(after?.variants.find((entry) => entry.id === variantId)?.jobId).toBe(job.id);
   });
 });

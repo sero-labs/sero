@@ -9,7 +9,7 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, itemDir, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord, JobRecord } from '../shared/records';
-import { ITEM_SCHEMA_VERSION } from '../shared/records';
+import { ITEM_SCHEMA_VERSION, itemTarget } from '../shared/records';
 import { AnalysisQueue } from './analysis-queue';
 import { createJob } from './jobs';
 import { invokeTool } from './librarian/test-support';
@@ -98,7 +98,7 @@ async function queuedAnalysis(id: string): Promise<JobRecord> {
   // model actually viewing the image, and the viewer reads this file.
   await mkdir(itemDir(paths, id), { recursive: true });
   await writeFile(path.join(itemDir(paths, id), 'original.png'), Buffer.from('image-bytes'));
-  const job = await createJob(paths, 'analysis', id);
+  const job = await createJob(paths, 'analysis', itemTarget(id));
   await mutateItem(paths, id, (current) => ({
     ...current,
     analysis: { ...current.analysis, status: 'pending', jobId: job.id },

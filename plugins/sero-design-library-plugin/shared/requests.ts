@@ -8,8 +8,10 @@
  * nothing.
  */
 
+import type { DesignBrief } from './design';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
 import type { DesignLibrarySettings } from './settings';
+import type { ConflictResolution } from './synthesis';
 import type { ViewPreferences } from './types';
 
 export type LibraryRequestBody =
@@ -27,6 +29,26 @@ export type LibraryRequestBody =
   | { kind: 'collection.create'; collectionId: string; name: string; colour: string }
   | { kind: 'collection.rename'; collectionId: string; name: string }
   | { kind: 'collection.delete'; collectionId: string }
+  /**
+   * Start a Design. The runtime re-derives the guardrail synthesis from the
+   * reference records and applies these resolutions itself — the caller's view
+   * of the conflicts is never taken as settled, because a reference's guardrails
+   * may have been edited between the dialog opening and this request landing.
+   */
+  | {
+      kind: 'design.create';
+      designId: string;
+      title: string;
+      brief: DesignBrief;
+      /** Ordered; position 0 is primary (spec §6.1). */
+      referenceItemIds: string[];
+      resolutions: ConflictResolution[];
+    }
+  | { kind: 'design.rename'; designId: string; title: string }
+  | { kind: 'design.retry-variant'; designId: string; variantId: string }
+  | { kind: 'design.cancel-variant'; designId: string; variantId: string }
+  | { kind: 'design.delete'; designId: string }
+  | { kind: 'design.restore'; designId: string }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -57,6 +79,12 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'collection.create',
   'collection.rename',
   'collection.delete',
+  'design.create',
+  'design.rename',
+  'design.retry-variant',
+  'design.cancel-variant',
+  'design.delete',
+  'design.restore',
   'settings.update',
   'view.set',
 ] as const;

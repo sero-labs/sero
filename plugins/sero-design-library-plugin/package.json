@@ -33,7 +33,7 @@
       "runtimeAbi": 2,
       "preBuilt": false,
       "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
-      "bridgeTools": ["design_library_items", "design_library_analysis"]
+      "bridgeTools": ["design_library_items", "design_library_analysis", "design_library_designs"]
     }
   },
   "dependencies": {
