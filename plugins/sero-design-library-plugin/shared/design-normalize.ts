@@ -29,6 +29,7 @@ import {
   MAX_VARIANTS,
   MIN_VARIANTS,
 } from './design';
+import { normalizeDesignAsset } from './media';
 import { isSafeId } from './paths';
 import type { RevisionTweakState } from './design';
 import type { TweakCheckpoint } from './tweaks';
@@ -314,6 +315,12 @@ export function normalizeDesignRecord(value: unknown): DesignRecord | null {
         })
       : [],
     appliedGuardrails: normalizeGuardrails(value.appliedGuardrails),
+    assets: Array.isArray(value.assets)
+      ? value.assets.flatMap((entry) => {
+          const asset = normalizeDesignAsset(entry);
+          return asset === null ? [] : [asset];
+        })
+      : [],
     ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
   };
 }

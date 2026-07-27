@@ -1,8 +1,12 @@
 /**
  * Everything on the Settings surface (spec §10). All of it persists to plugin
- * state. Media provider configuration lands here in PR 3; the shape is kept
- * open so adding it does not migrate the settings record.
+ * state.
+ *
+ * The provider key is the one exception and deliberately not here: it lives in a
+ * `0600` file, because state is read by the UI (spec §8.3).
  */
+
+import type { MediaCapability } from './media';
 
 export interface PromptRecipe {
   id: string;
@@ -34,10 +38,32 @@ export interface LayoutSettings {
   sessionsRailCollapsed: boolean;
 }
 
+/**
+ * Media generation (spec §8, D7 and D10).
+ *
+ * One editable model id per capability, because the provider exposes hundreds of
+ * endpoints and a live browser would need a catalogue API and network at
+ * settings time for marginal benefit. The agent chooses a *capability*; it never
+ * chooses an endpoint.
+ */
+export interface MediaSettings {
+  /** Opaque provider model ids. An empty string means the adapter's default. */
+  models: Record<MediaCapability, string>;
+  /**
+   * How many media calls one generation run may make (D10). Small by default:
+   * an agent able to call video generation autonomously inside a multi-variant
+   * run makes "rely on the account limit" a way to find out after paying.
+   */
+  callsPerRun: number;
+}
+
+export const MAX_CALLS_PER_RUN = 20;
+
 export interface DesignLibrarySettings {
   librarianModel: ModelSelection;
   designModel: ModelSelection;
   generation: GenerationSettings;
+  media: MediaSettings;
   layout: LayoutSettings;
 }
 
@@ -74,6 +100,17 @@ export const DEFAULT_SETTINGS: DesignLibrarySettings = {
     variantCount: 3,
     revisionBehaviour: 'replace',
     recipes: BUILT_IN_RECIPES,
+  },
+  media: {
+    // Empty means "whatever the adapter defaults to", so a change of default
+    // endpoint reaches every profile that never edited it.
+    models: {
+      'text-to-image': '',
+      'image-to-image': '',
+      upscale: '',
+      'text-to-video': '',
+    },
+    callsPerRun: 4,
   },
   layout: {
     inspectorWidth: 352,

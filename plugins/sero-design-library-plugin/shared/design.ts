@@ -10,6 +10,7 @@
  * make sense for the CSS that revision actually emitted.
  */
 
+import type { DesignAsset } from './media';
 import type { TombstonedProvenance } from './records';
 import type { RevisionBehaviour } from './settings';
 import type { TweakCheckpoint, TweakOverrides } from './tweaks';
@@ -220,7 +221,20 @@ export interface DesignRecord {
    * under, which is exactly the provenance this is for.
    */
   appliedGuardrails: AppliedGuardrails;
+  /**
+   * Generated media belonging to this Design (spec §6.6).
+   *
+   * On the Design rather than on a variant, because that is what "reusable
+   * across variants and stays in the tray until deleted" means: an asset
+   * outlives the run that asked for it and any variant that failed after it.
+   */
+  assets: DesignAsset[];
   deletedAt?: number;
+}
+
+/** Assets still in the tray — deletion is recoverable, so it hides rather than removes. */
+export function liveAssets(design: DesignRecord): DesignAsset[] {
+  return design.assets.filter((asset) => asset.deletedAt === undefined);
 }
 
 /**

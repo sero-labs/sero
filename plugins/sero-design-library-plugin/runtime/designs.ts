@@ -171,6 +171,7 @@ export async function createDesign(
     references,
     variants: planVariants(brief, references),
     appliedGuardrails,
+    assets: [],
   };
 
   // Create-if-absent rather than save: two requests carrying the same id must

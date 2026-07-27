@@ -1,0 +1,288 @@
+/**
+ * Media as the rest of the plugin sees it (spec §8).
+ *
+ * Everything here is capability-shaped and vendor-neutral: a capability name, an
+ * opaque model id and a record of what was asked for. The provider contract and
+ * the adapter that speaks to fal live in `runtime/media/`, and nothing from
+ * there — no client type, no endpoint id, no response shape — is allowed to
+ * reach the UI, the domain or a persisted record (spec §8.1).
+ */
+
+import type { MediaKind } from './records';
+
+export type MediaCapability = 'text-to-image' | 'image-to-image' | 'upscale' | 'text-to-video';
+
+export const MEDIA_CAPABILITIES: readonly MediaCapability[] = [
+  'text-to-image',
+  'image-to-image',
+  'upscale',
+  'text-to-video',
+] as const;
+
+export function isMediaCapability(value: unknown): value is MediaCapability {
+  return typeof value === 'string' && (MEDIA_CAPABILITIES as readonly string[]).includes(value);
+}
+
+/** Capabilities that consume local source assets, so callers can check before asking. */
+export const SOURCE_CAPABILITIES: readonly MediaCapability[] = ['image-to-image', 'upscale'] as const;
+
+export function needsSource(capability: MediaCapability): boolean {
+  return (SOURCE_CAPABILITIES as readonly string[]).includes(capability);
+}
+
+/** The one capability that always costs a confirmation before it runs (D10). */
+export function needsConfirmation(capability: MediaCapability): boolean {
+  return capability === 'text-to-video';
+}
+
+export function kindFor(capability: MediaCapability): MediaKind {
+  return capability === 'text-to-video' ? 'video' : 'image';
+}
+
+export type MediaErrorCode =
+  | 'auth'
+  | 'rate-limit'
+  | 'invalid-request'
+  | 'provider'
+  | 'network'
+  | 'cancelled';
+
+/**
+ * What produced an asset, in the plugin's own vocabulary (spec §8.4).
+ *
+ * `parameters` is a plain bag rather than a typed shape because what a capability
+ * accepts differs per model, and pinning it here would put vendor knowledge in a
+ * persisted record. Domain code displays it and never reads a key out of it.
+ */
+export interface MediaProvenance {
+  providerId: string;
+  capability: MediaCapability;
+  /** Opaque model id. Never parsed, never mapped back to an endpoint here. */
+  model: string;
+  prompt: string;
+  parameters: Record<string, unknown>;
+  seed?: number;
+  costUsd?: number;
+  startedAt: number;
+  completedAt: number;
+}
+
+/**
+ * A generation request as it is stored — enough to repeat it exactly.
+ *
+ * An asset-only retry replays this rather than re-deriving it from the page or
+ * the prompt that once asked for it, so a retry months later produces the thing
+ * that was originally asked for (spec §6.6).
+ */
+export interface StoredMediaRequest {
+  capability: MediaCapability;
+  prompt: string;
+  model?: string;
+  /** Library item ids or sibling asset ids used as sources. */
+  sourceAssetIds?: string[];
+  aspectRatio?: string;
+  seed?: number;
+  durationSeconds?: number;
+}
+
+/**
+ * One attempt at producing an asset.
+ *
+ * Attempts accumulate rather than overwrite. A failed attempt shows a placeholder
+ * with retry, and a successful retry replaces what the tray shows while the
+ * failure stays on the record — "preserves history" (spec §6.6) is only true if
+ * the attempt that failed is still something you can look at.
+ */
+export interface MediaAttempt {
+  id: string;
+  outcome: 'ready' | 'failed';
+  startedAt: number;
+  completedAt: number;
+  /** File name inside the asset directory. Present on a `ready` attempt. */
+  file?: string;
+  /** Still frame for a video, so a tray of assets does not decode video to paint. */
+  posterFile?: string;
+  mediaType?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
+  durationMs?: number;
+  provenance?: MediaProvenance;
+  error?: { code: MediaErrorCode; message: string; retryable: boolean };
+}
+
+/**
+ * One asset in a Design's tray (spec §6.6).
+ *
+ * Assets belong to the Design, not to a variant: the same artwork is reusable
+ * across variants and stays until it is deleted. `originVariantId` records which
+ * variant's run asked for it, for display only.
+ */
+export interface DesignAsset {
+  id: string;
+  kind: MediaKind;
+  /** How the page refers to it, e.g. `assets/hero.png`. Stable across retries. */
+  reference: string;
+  request: StoredMediaRequest;
+  /** Oldest first; the last one is what the tray shows. */
+  attempts: MediaAttempt[];
+  createdAt: number;
+  updatedAt: number;
+  originVariantId?: string;
+  /** Set once Copy to Library has made an independent item from it. */
+  copiedItemId?: string;
+  deletedAt?: number;
+}
+
+/** The attempt the tray renders: the most recent one, whatever it did. */
+export function currentAttempt(asset: DesignAsset): MediaAttempt | undefined {
+  return asset.attempts[asset.attempts.length - 1];
+}
+
+export function assetIsReady(asset: DesignAsset): boolean {
+  return currentAttempt(asset)?.outcome === 'ready';
+}
+
+/** Reported cost across every attempt — a failed one that still billed counts. */
+export function assetCostUsd(asset: DesignAsset): number {
+  return asset.attempts.reduce((total, attempt) => total + (attempt.provenance?.costUsd ?? 0), 0);
+}
+
+export function designCostUsd(assets: DesignAsset[]): number {
+  return assets.reduce((total, asset) => total + assetCostUsd(asset), 0);
+}
+
+/**
+ * What the UI is allowed to know about the provider key (spec §8.3).
+ *
+ * Never the key itself: the resolved value stays in the runtime, out of reactive
+ * state and out of every tool result.
+ */
+export type CredentialStatus = 'env' | 'stored' | 'missing';
+
+export const ASSETS_REFERENCE_PREFIX = 'assets/';
+
+/** Reference a generated page uses, and the name the file takes on disk. */
+export function assetReference(fileName: string): string {
+  return `${ASSETS_REFERENCE_PREFIX}${fileName}`;
+}
+
+export function isAssetReference(value: string): boolean {
+  return value.startsWith(ASSETS_REFERENCE_PREFIX);
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+function withOptional<T>(key: string, value: T | undefined): Record<string, T> {
+  return value === undefined ? {} : ({ [key]: value } as Record<string, T>);
+}
+
+function normalizeProvenance(value: unknown): MediaProvenance | undefined {
+  if (!isRecordObject(value)) return undefined;
+  if (!isMediaCapability(value.capability)) return undefined;
+  return {
+    providerId: typeof value.providerId === 'string' ? value.providerId : 'unknown',
+    capability: value.capability,
+    model: typeof value.model === 'string' ? value.model : '',
+    prompt: typeof value.prompt === 'string' ? value.prompt : '',
+    parameters: isRecordObject(value.parameters) ? value.parameters : {},
+    ...withOptional('seed', optionalNumber(value.seed)),
+    ...withOptional('costUsd', optionalNumber(value.costUsd)),
+    startedAt: optionalNumber(value.startedAt) ?? 0,
+    completedAt: optionalNumber(value.completedAt) ?? 0,
+  };
+}
+
+function normalizeError(value: unknown): MediaAttempt['error'] {
+  if (!isRecordObject(value)) return undefined;
+  const code = value.code;
+  const known =
+    code === 'auth' ||
+    code === 'rate-limit' ||
+    code === 'invalid-request' ||
+    code === 'provider' ||
+    code === 'network' ||
+    code === 'cancelled';
+  return {
+    code: known ? code : 'provider',
+    message: typeof value.message === 'string' ? value.message : 'The provider failed.',
+    retryable: value.retryable === true,
+  };
+}
+
+export function normalizeStoredRequest(value: unknown): StoredMediaRequest | null {
+  if (!isRecordObject(value) || !isMediaCapability(value.capability)) return null;
+  return {
+    capability: value.capability,
+    prompt: typeof value.prompt === 'string' ? value.prompt : '',
+    ...withOptional('model', optionalString(value.model)),
+    ...(Array.isArray(value.sourceAssetIds)
+      ? {
+          sourceAssetIds: value.sourceAssetIds.filter(
+            (entry): entry is string => typeof entry === 'string',
+          ),
+        }
+      : {}),
+    ...withOptional('aspectRatio', optionalString(value.aspectRatio)),
+    ...withOptional('seed', optionalNumber(value.seed)),
+    ...withOptional('durationSeconds', optionalNumber(value.durationSeconds)),
+  };
+}
+
+function normalizeAttempt(value: unknown): MediaAttempt | null {
+  if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  return {
+    id: value.id,
+    outcome: value.outcome === 'ready' ? 'ready' : 'failed',
+    startedAt: optionalNumber(value.startedAt) ?? 0,
+    completedAt: optionalNumber(value.completedAt) ?? 0,
+    ...withOptional('file', optionalString(value.file)),
+    ...withOptional('posterFile', optionalString(value.posterFile)),
+    ...withOptional('mediaType', optionalString(value.mediaType)),
+    ...withOptional('bytes', optionalNumber(value.bytes)),
+    ...withOptional('width', optionalNumber(value.width)),
+    ...withOptional('height', optionalNumber(value.height)),
+    ...withOptional('durationMs', optionalNumber(value.durationMs)),
+    ...withOptional('provenance', normalizeProvenance(value.provenance)),
+    ...withOptional('error', normalizeError(value.error)),
+  };
+}
+
+/**
+ * Validate an asset read from disk, on the same contract as every other record:
+ * an entry this version cannot read resolves to null and is skipped, rather than
+ * being handed back unchecked to code that will dereference it.
+ */
+export function normalizeDesignAsset(value: unknown): DesignAsset | null {
+  if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  const request = normalizeStoredRequest(value.request);
+  if (!request) return null;
+  const attempts = Array.isArray(value.attempts)
+    ? value.attempts.flatMap((entry) => {
+        const attempt = normalizeAttempt(entry);
+        return attempt === null ? [] : [attempt];
+      })
+    : [];
+  return {
+    id: value.id,
+    kind: value.kind === 'video' ? 'video' : 'image',
+    reference: typeof value.reference === 'string' ? value.reference : assetReference(value.id),
+    request,
+    attempts,
+    createdAt: optionalNumber(value.createdAt) ?? 0,
+    updatedAt: optionalNumber(value.updatedAt) ?? 0,
+    ...withOptional('originVariantId', optionalString(value.originVariantId)),
+    ...withOptional('copiedItemId', optionalString(value.copiedItemId)),
+    ...withOptional('deletedAt', optionalNumber(value.deletedAt)),
+  };
+}

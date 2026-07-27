@@ -9,12 +9,13 @@
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
+import { MEDIA_CAPABILITIES } from './media';
 import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
 import { normalizeJobRecord } from './records';
 import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
-import type { DesignLibrarySettings } from './settings';
-import { DEFAULT_SETTINGS } from './settings';
+import type { DesignLibrarySettings, MediaSettings } from './settings';
+import { DEFAULT_SETTINGS, MAX_CALLS_PER_RUN } from './settings';
 
 export const STATE_SCHEMA_VERSION = 1;
 
@@ -382,10 +383,31 @@ function normalizeSettings(value: unknown): DesignLibrarySettings {
       revisionBehaviour: generation.revisionBehaviour === 'retain' ? 'retain' : 'replace',
       recipes: recipes.filter((recipe) => recipe.id !== ''),
     },
+    media: normalizeMedia(value.media),
     layout: {
       inspectorWidth: Math.min(720, Math.max(280, num(layout.inspectorWidth, 352))),
       sessionsRailCollapsed: layout.sessionsRailCollapsed === true,
     },
+  };
+}
+
+function normalizeMedia(value: unknown): MediaSettings {
+  const media = isRecord(value) ? value : {};
+  const stored = isRecord(media.models) ? media.models : {};
+  const models = Object.fromEntries(
+    MEDIA_CAPABILITIES.map((capability) => [
+      capability,
+      typeof stored[capability] === 'string' ? stored[capability] : '',
+    ]),
+  ) as MediaSettings['models'];
+  return {
+    models,
+    // Clamped rather than trusted: the cap is the whole spend protection, and a
+    // state file edited to zero or to a million is a file, not an impossibility.
+    callsPerRun: Math.min(
+      MAX_CALLS_PER_RUN,
+      Math.max(0, Math.round(num(media.callsPerRun, DEFAULT_SETTINGS.media.callsPerRun))),
+    ),
   };
 }
 
