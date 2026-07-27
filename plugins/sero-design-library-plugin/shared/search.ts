@@ -122,7 +122,9 @@ export function deriveFacets(items: ItemSummary[]): LibraryFacets {
     item.colours.forEach((colour) => colours.add(colour));
     sourceKinds.add(item.sourceKind);
   }
-  const sorted = (values: Set<string>) => [...values].sort((a, b) => a.localeCompare(b));
+  // `Array.from` rather than a spread: this materialises a Set, it is not a
+  // defensive copy of an array that `toSorted` would replace.
+  const sorted = (values: Set<string>) => Array.from(values).sort((a, b) => a.localeCompare(b));
   return {
     styles: sorted(styles),
     tags: sorted(tags),

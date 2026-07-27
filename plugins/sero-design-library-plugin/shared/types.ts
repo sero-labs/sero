@@ -246,12 +246,18 @@ function normalizeSettings(value: unknown): DesignLibrarySettings {
   const generation = isRecord(value.generation) ? value.generation : {};
   const layout = isRecord(value.layout) ? value.layout : {};
   const recipes = Array.isArray(generation.recipes)
-    ? generation.recipes.filter(isRecord).map((recipe) => ({
-        id: typeof recipe.id === 'string' ? recipe.id : '',
-        name: typeof recipe.name === 'string' ? recipe.name : '',
-        instruction: typeof recipe.instruction === 'string' ? recipe.instruction : '',
-        builtIn: recipe.builtIn === true,
-      }))
+    ? generation.recipes.flatMap((recipe) =>
+        isRecord(recipe)
+          ? [
+              {
+                id: typeof recipe.id === 'string' ? recipe.id : '',
+                name: typeof recipe.name === 'string' ? recipe.name : '',
+                instruction: typeof recipe.instruction === 'string' ? recipe.instruction : '',
+                builtIn: recipe.builtIn === true,
+              },
+            ]
+          : [],
+      )
     : DEFAULT_SETTINGS.generation.recipes;
   return {
     librarianModel: normalizeModel(value.librarianModel),

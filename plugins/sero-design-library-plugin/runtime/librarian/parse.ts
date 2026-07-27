@@ -65,10 +65,11 @@ export function extractJson(reply: string): unknown | null {
 
 function strings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '');
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'string') return [];
+    const trimmed = entry.trim();
+    return trimmed === '' ? [] : [trimmed];
+  });
 }
 
 function vocabulary(value: unknown): LibrarianVocabularyTerm[] {
