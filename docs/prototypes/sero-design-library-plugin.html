@@ -220,6 +220,86 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .family-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}
 .design-card{border:1px solid var(--line);background:var(--surface);border-radius:8px;overflow:hidden}.design-preview{height:153px;position:relative;overflow:hidden}.design-preview .version{position:absolute;top:9px;left:9px;height:20px;padding:0 6px;display:flex;align-items:center;border-radius:4px;background:rgba(8,8,10,.75);color:#bcbcc5;font:8px var(--mono)}.design-preview .heart{position:absolute;top:9px;right:9px;color:#fff}.design-copy{padding:10px}.design-title{display:flex;font-size:11px;color:#d3d3d9}.design-title span{margin-left:auto;color:var(--text-3)}.design-meta{display:flex;gap:7px;margin-top:7px;color:#666670;font-size:8px}.design-meta b{font-weight:400;color:#8c8c96}.design-card.featured{border-color:#46464d}.saved-preview{position:absolute;inset:0;background:#f1efe9;color:#151515;padding:14px}.saved-preview.dark{background:#0c1014;color:#f5f5f5}.saved-preview.soft{background:#e9ddda}.saved-preview .sp-nav{height:13px;border-bottom:1px solid currentColor;opacity:.48}.saved-preview .sp-title{margin-top:15px;width:80%;font-size:19px;line-height:.98;letter-spacing:-.05em}.saved-preview .sp-boxes{display:grid;grid-template-columns:1.5fr 1fr;gap:6px;margin-top:14px;height:71px}.saved-preview .sp-boxes i{display:block;border:1px solid currentColor;opacity:.38}.saved-preview.dark .sp-title em{color:var(--emerald);font-style:normal}.saved-preview.soft:after{content:"";position:absolute;right:15px;bottom:12px;width:68px;height:68px;border-radius:50%;background:#cd695d}.saved-preview.blue{background:#dce8ed}.saved-preview.blue:before{content:"";position:absolute;inset:29px 17px 17px;border:1px solid #668797;box-shadow:10px 10px 0 #224554}
 
+/* tweaks */
+.tweak-scroll{padding:11px;overflow:hidden}
+.tweak-intro{margin-bottom:11px;color:#6f6f7a;font-size:9px;line-height:1.5}
+.tweak-group{margin-bottom:13px}
+.tweak-group>b{display:flex;align-items:center;color:#8e8e99;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.tweak-group>b:after{content:"";flex:1;height:1px;margin-left:9px;background:var(--line)}
+.tweak{margin-bottom:9px}
+.tweak-label{display:flex;align-items:center;color:#b4b4be;font-size:10px;margin-bottom:6px}
+.tweak-label .val{margin-left:auto;color:#70707b;font:9px var(--mono)}
+.tweak-label .reset{margin-left:7px;color:#4e4e58;font-size:10px}
+.tweak-label .edited{width:5px;height:5px;margin-left:6px;border-radius:50%;background:var(--emerald)}
+.trk{height:3px;border-radius:2px;background:#2b2b31;position:relative}
+.trk i{display:block;height:100%;border-radius:2px;background:#5a5a66}
+.trk:after{content:"";position:absolute;top:50%;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#d6d6dc;transform:translateY(-50%)}
+.trk.on i{background:var(--emerald)}.trk.on:after{background:var(--emerald)}
+.trk.p30:after{left:30%}.trk.p46:after{left:46%}.trk.p58:after{left:58%}.trk.p72:after{left:72%}.trk.p88:after{left:88%}
+.swatches{display:flex;gap:5px}
+.sw{width:23px;height:23px;border-radius:5px;border:1px solid rgba(255,255,255,.13)}
+.sw.sel{box-shadow:0 0 0 2px var(--emerald),0 0 0 3px #0e0e10}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{height:22px;padding:0 8px;border-radius:5px;border:1px solid var(--line);background:#141418;color:#82828d;display:flex;align-items:center;font-size:9px}
+.chip.on{border-color:rgba(52,211,153,.4);background:var(--emerald-wash);color:#93e8c6}
+.sw-toggle{width:34px;height:19px;border-radius:10px;background:#2b2b31;position:relative}
+.sw-toggle:after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#75757f}
+.sw-toggle.on{background:rgba(52,211,153,.3)}.sw-toggle.on:after{left:17px;background:var(--emerald)}
+.tweak-foot{padding:9px 11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:7px}
+.tweak-foot span{color:#5e5e68;font-size:9px}
+.tweak-warn{margin:0 11px 9px;padding:6px 9px;border:1px solid rgba(251,191,36,.18);background:rgba(251,191,36,.05);border-radius:6px;color:#c4a55f;font-size:9px;display:flex;align-items:center;gap:8px}
+.tweak-warn span{margin-left:auto;color:#8a7a4c;text-decoration:underline}
+.tweak-side{width:300px;border-right:1px solid var(--line);background:#0e0e10;display:flex;flex-direction:column;flex:0 0 auto}
+.tweak-side .detail-head{padding:13px}
+.rail-collapsed{width:46px;border-right:1px solid var(--line);padding:13px 0;display:flex;flex-direction:column;align-items:center;gap:11px;flex:0 0 auto}
+.rail-collapsed i{width:22px;height:22px;border-radius:6px;background:#1c1c21;display:block}
+.rail-collapsed i.on{background:var(--raised);box-shadow:inset 0 0 0 1px #3a3a42}
+.rail-collapsed i.add{background:transparent;box-shadow:inset 0 0 0 1px #2c2c33;color:#5c5c66;font-style:normal;font-size:12px;line-height:22px;text-align:center}
+.rail-toggle{width:22px;height:22px;margin-bottom:3px;border-radius:6px;display:grid;place-items:center;color:#5c5c66;font-size:11px}
+.grip{width:5px;align-self:stretch;background:var(--line);position:relative;flex:0 0 auto;display:grid;place-items:center}
+.grip i{display:block;width:3px;height:22px;border-radius:2px;background:#4a4a53}
+
+/* settings */
+.settings-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.settings-body{padding:24px 28px;overflow:hidden}
+.settings-block{max-width:600px;margin-bottom:26px}
+.settings-block>h4{margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.settings-block>p{margin:0 0 13px;color:var(--text-3);font-size:10px;line-height:1.5}
+.field{margin-bottom:12px}
+.field>label{display:flex;align-items:center;margin-bottom:6px;color:#a2a2ac;font-size:10px;font-weight:550}
+.field>label span{margin-left:auto;color:var(--text-3);font-weight:400}
+.model-pick{height:44px;padding:0 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);display:flex;align-items:center;gap:9px}
+.model-pick .logo{width:17px;height:17px;border-radius:4px;background:linear-gradient(140deg,#e8e8ee,#a9a9b4);flex:0 0 auto}
+.model-pick b{display:block;font-size:11px;font-weight:550;color:var(--text)}
+.model-pick small{display:block;margin-top:2px;color:var(--text-3);font-size:9px}
+.model-pick .chev{margin-left:auto;color:#5f5f69}
+.text-field{height:33px;padding:0 10px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);color:#b9b9c3;display:flex;align-items:center;font:10px var(--mono)}
+.cap-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.status-pill{height:21px;padding:0 8px;border-radius:11px;display:inline-flex;align-items:center;gap:6px;font-size:9px}
+.status-pill.ok{background:rgba(52,211,153,.1);color:#8ce7c5}
+.status-pill.ok:before{content:"";width:5px;height:5px;border-radius:50%;background:var(--emerald)}
+.row-split{display:flex;align-items:center;gap:11px}
+.row-split .grow{flex:1}
+.recipe-row{height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);display:flex;align-items:center;gap:9px;margin-bottom:6px;font-size:10px;color:#bdbdc6}
+.recipe-row span{margin-left:auto;color:var(--text-3);font-size:9px}
+
+/* media generation */
+.gen-tabs{display:flex;gap:4px;margin-bottom:13px}
+.gen-tab{height:28px;padding:0 11px;border-radius:6px;border:1px solid var(--line);color:#74747f;display:flex;align-items:center;gap:6px;font-size:10px}
+.gen-tab.on{border-color:rgba(52,211,153,.32);background:var(--emerald-wash);color:#8ce7c5}
+.cost-note{display:flex;align-items:center;gap:7px;color:#6d6d77;font-size:9px}
+.cost-note b{color:#a5a5af;font-weight:500}
+.asset-tray{border-top:1px solid var(--line);padding:10px 12px}
+.tray-head{display:flex;align-items:center;color:#8e8e99;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.tray-head span{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;color:#6a6a74;font-family:var(--mono)}
+.tray{display:flex;gap:6px}
+.tray-item{width:48px;height:38px;border-radius:5px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.tray-item.a{background:radial-gradient(circle at 30% 30%,#f0a06a,#8c3a1e)}
+.tray-item.b{background:linear-gradient(140deg,#2c3f6b,#101827)}
+.tray-item.c{background:#141418;display:grid;place-items:center;color:#5c5c66;font-size:13px}
+.tray-item.fail{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.06);display:grid;place-items:center;color:#d9909c;font-size:11px}
+.tray-item .vid{position:absolute;right:3px;bottom:3px;padding:1px 3px;border-radius:3px;background:rgba(0,0,0,.6);color:#d3d3d9;font:7px var(--mono)}
+
 /* shared small visuals */
 .mini-thumb.shot-dashboard,.source-thumb.shot-dashboard{position:relative;background:linear-gradient(140deg,#101218,#0a0b10)}
 .mini-thumb.shot-editorial,.source-thumb.shot-editorial{position:relative;background:#e6dfd3}
@@ -238,6 +318,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
   <div class="intro">
     <h1>Design Library plugin — prototype</h1>
     <p class="lede">A private visual memory and creative workbench for Sero. <b>Library captures design DNA, Design turns it into new work, and Gallery preserves the results.</b> The imagery leads throughout; analysis appears exactly where it helps selection, generation, or reuse.</p>
+    <p class="lede">States 5A and 5B are two placements for the same Tweaks panel — the AI-authored CSS controls that belong to one specific generated page. Everything else is settled.</p>
   </div>
 
   <section class="state">
@@ -384,7 +465,79 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
   </section>
 
   <section class="state">
-    <h2>5 · Gallery — a permanent creative archive, grouped by family</h2>
+    <h2>5 · Tweaks — a fourth inspector tab in a resizable panel</h2>
+    <p class="note">The model authors controls for <b>this specific page</b> — display scale, metric density, signal accent — never a generic slider set. They live in the existing inspector, so no new chrome appears. The inspector is <b>drag-resizable and its width persists</b>, so the panel can be widened for a control-heavy design and narrowed again for the canvas.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Tweaks option A primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab active">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Compare</button><button type="button" class="btn">Export files</button><button type="button" class="btn primary">Save to Gallery</button><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="rail-collapsed" aria-label="Sessions rail, collapsed"><span class="rail-toggle">»</span><i class="on" title="Agent operations"></i><i title="Portfolio overview"></i><i title="Command palette study"></i><i class="add">＋</i></aside>
+        <div class="workbench">
+          <div class="variant-tabs"><div class="variant active"><span class="state-dot"></span>01 Signal ledger <span class="unsaved"></span></div><div class="variant"><span class="state-dot"></span>02 Operational field</div><div class="variant"><span class="state-dot"></span>03 Glass telemetry</div><div class="variant">＋</div></div>
+          <div class="canvas-bar"><span class="zoom">Fit · 81%</span><div class="devices"><span class="device on">▰</span><span class="device">▯</span><span class="device">▯</span><span class="device">Fit</span></div><span>↻ &nbsp; ⛶</span></div>
+          <div class="canvas-and-inspector">
+            <div class="canvas"><div class="prototype-frame"><div class="proto-top"><b>AXIS</b><span>Overview</span><span>Workloads</span><span>Incidents</span><span>Usage</span></div><div class="proto-body"><div class="proto-kicker">OPERATIONS / LIVE SYSTEM STATUS</div><div class="proto-title" style="font-size:37px">CONTROL THE WORK.<br><i>SEE THE SIGNAL.</i></div><div class="proto-metrics" style="gap:12px"><div class="proto-metric" style="padding:14px"><small>Active tasks</small><strong>1,284</strong></div><div class="proto-metric" style="padding:14px"><small>Success rate</small><strong>98.7%</strong></div><div class="proto-metric" style="padding:14px"><small>Incidents</small><strong>07</strong></div><div class="proto-metric" style="padding:14px"><small>Token spend</small><strong>£842</strong></div></div><div class="proto-grid" style="gap:12px;height:225px"><div class="proto-chart"><b>Throughput / 24 hours</b><div class="chart-area" style="background:none"><svg viewBox="0 0 500 160" preserveAspectRatio="none"><path d="M0 132 C41 118 68 125 94 86 S151 118 187 101 S246 41 287 76 S353 103 393 48 S458 68 500 18" fill="none" stroke="#16805f" stroke-width="2"/></svg></div></div><div class="proto-feed"><b>Incident feed</b><div class="feed-row"><i></i><span><b>Queue latency recovered</b>planner-eu · 2m ago</span></div><div class="feed-row"><i style="background:#c45b4c"></i><span><b>Tool execution failed</b>research-08 · 7m ago</span></div><div class="feed-row"><i style="background:#cf9c3a"></i><span><b>Budget threshold</b>content-pipeline · 14m ago</span></div></div></div></div></div></div>
+            <span class="grip" aria-hidden="true"><i></i></span>
+            <aside class="work-inspector" style="width:352px" aria-label="Variant inspector with tweaks">
+              <div class="detail-head" style="padding-bottom:11px"><div class="eyebrow">Variant 01 · completed</div><div class="title-row"><h3 style="font-size:14px">Signal ledger</h3><span>•••</span></div><div class="detail-sub">11 controls authored for this page</div></div>
+              <div class="inspect-tabs"><div class="inspect-tab">Design</div><div class="inspect-tab">Files</div><div class="inspect-tab">History</div><div class="inspect-tab on">Tweaks</div></div>
+              <div class="tweak-scroll">
+                <div class="tweak-group"><b>Typography</b>
+                  <div class="tweak"><div class="tweak-label">Display scale <span class="val">37px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p72"><i style="width:72%"></i></div></div>
+                  <div class="tweak"><div class="tweak-label">Heading weight <span class="val">680</span></div><div class="chips"><span class="chip">600</span><span class="chip on">680</span><span class="chip">760</span></div></div>
+                  <div class="tweak"><div class="tweak-label">Label tracking <span class="val">.08em</span></div><div class="trk p46"><i style="width:46%"></i></div></div>
+                </div>
+                <div class="tweak-group"><b>Density</b>
+                  <div class="tweak"><div class="tweak-label">Metric padding <span class="val">14px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p58"><i style="width:58%"></i></div></div>
+                  <div class="tweak"><div class="tweak-label">Grid gap <span class="val">12px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p46"><i style="width:46%"></i></div></div>
+                </div>
+                <div class="tweak-group"><b>Colour</b>
+                  <div class="tweak"><div class="tweak-label">Signal accent</div><div class="swatches"><span class="sw sel" style="background:#16805f"></span><span class="sw" style="background:#2f6fb5"></span><span class="sw" style="background:#b4562f"></span><span class="sw" style="background:#6d5ce7"></span><span class="sw" style="background:#1c1c1c"></span></div></div>
+                  <div class="tweak"><div class="tweak-label">Paper tone</div><div class="swatches"><span class="sw" style="background:#ffffff"></span><span class="sw sel" style="background:#f2f0ea"></span><span class="sw" style="background:#e6e2d8"></span><span class="sw" style="background:#dfe3e2"></span></div></div>
+                </div>
+                <div class="tweak-group"><b>Structure</b>
+                  <div class="tweak"><div class="tweak-label">Chart gridlines</div><div class="row-split"><span class="sw-toggle"></span><span style="color:#6d6d77;font-size:9px">Hidden</span></div></div>
+                  <div class="tweak"><div class="tweak-label">Panel borders</div><div class="row-split"><span class="sw-toggle on"></span><span style="color:#6d6d77;font-size:9px">Hairline</span></div></div>
+                </div>
+              </div>
+              <div class="tweak-warn">⚠ 2 controls omitted <span>Why</span></div>
+              <div class="tweak-foot"><button type="button" class="btn ghost">Reset all</button><button type="button" class="btn ghost">Copy CSS</button><span style="margin-left:auto">3 edited</span></div>
+            </aside>
+          </div>
+          <div class="revise"><div class="revise-box">Ask Sero to revise this variant…</div><button type="button" class="btn">Revise ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>6 · Generate inspiration — the same capabilities the agent gets</h2>
+    <p class="note">Media generation has two entry points and one implementation. The agent calls these capabilities while building a design; you call them directly from here. The provider is never named in the flow — you choose a <b>capability</b> and a model, and video always asks before it spends.</p>
+    <div class="app" style="position:relative">
+      <div class="dimmed" style="position:absolute;inset:0">
+        <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Generate dialog dimmed navigation"><div class="tab active">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav></header>
+        <div class="shell"><aside class="side" aria-label="Dimmed library navigation"></aside><div class="main"><div class="toolbar"></div><div class="content"><div class="grid"><div class="card"><div class="shot shot-dashboard tall"></div></div><div class="card"><div class="shot shot-editorial"></div></div><div class="card"><div class="shot shot-glass"></div></div><div class="card"><div class="shot shot-brutal tall"></div></div></div></div></div></div>
+      </div>
+      <div class="scrim">
+        <div class="dialog" style="width:640px">
+          <div class="dialog-head"><div><h3>Generate inspiration</h3><p>New references enter the Library and are analysed automatically.</p></div><span class="close">×</span></div>
+          <div class="dialog-body" style="grid-template-columns:1fr;min-height:400px">
+            <div class="form" style="border-right:0">
+              <div class="gen-tabs"><span class="gen-tab on">✦ New image</span><span class="gen-tab">↺ Restyle existing</span><span class="gen-tab">⤢ Upscale</span><span class="gen-tab">▶ Video</span></div>
+              <div class="label">Describe the reference</div>
+              <div class="textarea" style="height:76px">A dark luxury product page with metallic surfaces, restrained gold accents, and enormous quiet space around a single object.</div>
+              <div class="form-row"><div><div class="label">Model</div><div class="selectbox">Image · default <span>⌄</span></div></div><div><div class="label">Aspect</div><div class="selectbox">16 : 9 <span>⌄</span></div></div></div>
+              <div class="form-row"><div><div class="label">Count</div><div class="count-control"><div class="counter"><b>−</b><span>2</span><b>＋</b></div></div></div><div><div class="label">Add to</div><div class="selectbox">Luxury products <span>⌄</span></div></div></div>
+              <div class="section" style="margin-top:15px"><div class="section-head">Analysis</div><div class="summary" style="font-size:10px">Generated references run through the Librarian like any import, and keep their generation prompt as provenance.</div></div>
+            </div>
+          </div>
+          <div class="dialog-foot"><span class="cost-note">Estimated <b>$0.06</b> · <b>4 of 6</b> media calls left this run</span><button type="button" class="btn primary">Generate ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>7 · Gallery — a permanent creative archive, grouped by family</h2>
     <p class="note">Gallery feels like a private portfolio rather than a file manager. Family grouping makes iterations legible, while version, provenance, format, and dates stay quiet until needed. Experiments only arrive here when deliberately saved.</p>
     <div class="app">
       <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Gallery prototype primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab active">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Select</button><button type="button" class="btn primary">Open Design</button><span class="avatar"></span></div></header>
@@ -407,6 +560,62 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
               <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#d6ff46"><div class="sp-nav"></div><div class="sp-title" style="font-weight:800">LOUD /<br>ORDER</div><div class="sp-boxes"><i style="background:#111"></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Hard copy <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>2 inspirations</span><span>·</span><span>23 Jul</span></div></div></article>
               <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#151515;color:#eee"><div class="sp-nav"></div><div class="sp-title" style="font-family:Georgia,serif;font-weight:400">Quiet form,<br>clear intent.</div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Quiet editorial <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>1 inspiration</span><span>·</span><span>22 Jul</span></div></div></article>
               <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#ef4f38;color:#161616"><div class="sp-nav"></div><div class="sp-title" style="font-weight:800">PORTFOLIO<br>NO. 04</div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Chromatic folio <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>3 inspirations</span><span>·</span><span>21 Jul</span></div></div></article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>8 · Settings — models, media and generation defaults</h2>
+    <p class="note">Analysis and generation are different jobs, so they get different models. Media is configured by <b>capability</b>, never by provider — the endpoint ids are editable text, the credential is read from the environment, and the spend limits are plain numbers. Everything here persists to plugin state.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Settings prototype primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="side" aria-label="Settings navigation"><div class="side-title">Settings</div><div class="side-row active">◇ Models</div><div class="side-row">✦ Media generation</div><div class="side-row">⌁ Generation defaults</div><div class="side-row">▤ Prompt recipes</div><div class="side-row">⛶ Storage</div></aside>
+        <div class="settings-main">
+          <div class="gallery-hero"><div><h3 style="font-size:20px">Models</h3><p>Which model does the thinking on each side of the loop.</p></div></div>
+          <div class="settings-body">
+            <div class="settings-block">
+              <div class="field"><label>Librarian model <span>Reads references and writes their design language</span></label>
+                <div class="model-pick"><span class="logo"></span><div><b>Claude Sonnet 5</b><small>Anthropic</small></div><span class="chev">⌄</span></div>
+              </div>
+              <div class="field"><label>Design model <span>Generates, revises and authors tweaks</span></label>
+                <div class="model-pick"><span class="logo"></span><div><b>Claude Opus 5</b><small>Anthropic</small></div><span class="chev">⌄</span></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Media generation</h4>
+              <p>Configured per capability. The model asks for a capability; it never picks an endpoint.</p>
+              <div class="field"><label>Credential <span>Read from the Sero environment</span></label><div class="row-split"><span class="status-pill ok">FAL_KEY · environment</span><span style="color:#5f5f69;font-size:9px">Use a stored key instead</span></div></div>
+              <div class="cap-grid">
+                <div class="field"><label>Image</label><div class="text-field">fal-ai/flux/dev</div></div>
+                <div class="field"><label>Image editing</label><div class="text-field">fal-ai/flux-pro/kontext</div></div>
+                <div class="field"><label>Upscale</label><div class="text-field">fal-ai/topaz/upscale</div></div>
+                <div class="field"><label>Video</label><div class="text-field">fal-ai/kling-video/v3</div></div>
+              </div>
+              <div class="cap-grid" style="margin-top:3px">
+                <div class="field"><label>Media calls per run</label><div class="counter" style="height:33px"><b>−</b><span>6</span><b>＋</b></div></div>
+                <div class="field"><label>Confirm before video</label><div class="row-split" style="height:33px"><span class="sw-toggle on"></span><span style="color:#6d6d77;font-size:9px">Always ask — video is the expensive one</span></div></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Generation defaults</h4>
+              <div class="cap-grid">
+                <div class="field"><label>Variants per run</label><div class="counter" style="height:33px"><b>−</b><span>3</span><b>＋</b></div></div>
+                <div class="field"><label>When revising</label><div class="segmented" style="height:33px"><div class="seg on">Replace</div><div class="seg">Keep both</div></div></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Prompt recipes</h4>
+              <div class="recipe-row">Default web prototype <span>Built in</span></div>
+              <div class="recipe-row">Dense operations console <span>Edited 21 Jul</span></div>
+              <div class="recipe-row">Editorial long-form <span>Edited 19 Jul</span></div>
+              <div class="recipe-row" style="border-style:dashed;color:var(--text-3)">＋ New recipe</div>
             </div>
           </div>
         </div>

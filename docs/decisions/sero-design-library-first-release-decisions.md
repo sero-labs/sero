@@ -1,338 +1,179 @@
-# Sero Design Library: Implementation-Shaping Decisions
+# Sero Design Library: Decision Log
 
-**Status:** Draft
-**Decision date:** 2026-07-25
-**Applies to:** First usable release of `@sero-ai/plugin-design-library`
-**Branch:** `feat/design-library-plugin`
+**Status:** Current
+**Latest revision:** 2026-07-27
+**Applies to:** first usable release of `@sero-ai/plugin-design-library`
+**Branch:** `feat/design-library-plugin-v2`
 
-## 1. Purpose
+This document records *what was decided and why*. The specification records *what the product does*. Where a decision here is more recent than prose elsewhere, this document wins.
 
-This document records the product and architecture decisions made before implementation. It is the authoritative resolution of earlier ambiguities in the specification and plan.
+---
 
-Where a technical mechanism still requires evidence, this document marks the behaviour as decided and the implementation mechanism as a required spike. Those spikes must not change the approved product behaviour without a new decision.
+## Revision 2 — 2026-07-27
 
-## 2. Release boundary
+Eleven decisions taken in review. Several reverse revision 1; those are marked and the superseded text is kept at the bottom so the reasoning trail survives.
 
-### First usable release
+### D1 · The prototype is the UX authority
 
-The first release is an image-only vertical slice supporting:
+`docs/prototypes/sero-design-library-plugin.html` defines layout, hierarchy and visual language. Features it *shows* are in scope unless explicitly deferred below.
 
-- Image import through file picker, drag-and-drop and clipboard paste.
-- Automatic Librarian analysis.
-- Keyword search, tags and basic filters.
-- Design creation from up to six Library references.
-- A choice of one output target per Design:
-  - Self-contained HTML, CSS and JavaScript.
-  - React, TypeScript and Tailwind.
-- Runnable, isolated previews.
-- An AI-authored Tweaks panel for live, design-specific CSS adjustment.
-- Revision and recovery.
-- Explicit save to Gallery.
-- Exact export to Downloads or the active Workspace.
+**Reverses R1-§2**, which told the implementer to omit collections, favourites, prompt recipes, variation mode and inspiration strength because they were deferred. That instruction would have shipped an app noticeably barer than the agreed design for no architectural benefit — these are cheap, and they are what makes the surface feel like a studio rather than a database.
 
-Video, URL capture, clipboard HTML capture, collections, smart groups, pinning and archiving are deferred until after the image-only loop is proven.
+Still deferred: importing your own video files, URL/webpage capture, clipboard HTML, embedding-based search, and Sero-plugin output as a generation target.
 
-### Library layout
+**Consequence.** Smart groups return, but without machine learning. They group by the Librarian's own `primaryStyle` and frequent vocabulary terms — which is literally what the prototype's group names are. Zero extra model calls, no embeddings, and the deferral of *semantic* grouping is unaffected.
 
-The canonical Library layout is a uniform, equal-width visual grid. Masonry and justified layouts are not first-release alternatives.
+### D2 · Both output targets ship, previewed from a self-contained frame
 
-## 3. Library decisions
+HTML/CSS/JS and React/TypeScript/Tailwind are both in the first release.
 
-### Import and duplicates
+**Considered and rejected: a real project plus a managed Vite dev server.** This was raised because it mirrors how Sero builds and previews apps today, and it is technically available — `devServers.start` is `true` on the host runtime, not just containers, and the renderer CSP already permits `frame-src http://localhost:*`. It was rejected on four grounds:
 
-- Librarian analysis starts automatically after import.
-- Exact duplicate images are detected by content checksum.
-- Importing an exact duplicate opens the existing item instead of creating another item.
-- Imported images appear immediately while analysis runs in the background.
+1. `startManagedDevServer` refuses any cwd outside a workspace root. Design Library is a **global** app; its state lives in `$SERO_HOME/apps/design-library/`. Every design would have to be materialised into one of the user's workspaces, which is not where designs belong.
+2. It requires an open workspace to preview anything.
+3. `pnpm install` per design costs minutes and hundreds of megabytes each.
+4. A dev server has full network and Node access, so every isolation guarantee in §7 of the spec would be void.
 
-### Analysis and editing
+**Rejected the plan's own framing too.** Revision 1 described the alternative as a "local esbuild + offline Tailwind compile pipeline", implying a subsystem. It is not one: esbuild transforms TSX in-process in tens of milliseconds, React is bundled from the plugin's own dependencies, and Tailwind compiles inside the frame from a locally bundled browser build. Two small files.
 
-- Generated analysis and manual overrides are stored separately.
-- Users may edit all user-facing fields.
-- System provenance is immutable.
-- A manual edit overrides the whole field.
-- Every overridable field has an individual reset action.
-- Reanalysis replaces generated values but preserves manual overrides.
-- Untouched fields refresh from the new analysis.
+**Consequence.** Previews are instant, work offline, need no workspace, and keep the isolation boundary. The cost is that generated code can only import what the plugin bundles. For design prototypes that is not a real constraint.
 
-The persistence model must represent field-level override presence explicitly. A generic nested `Partial<T>` is not sufficient.
+### D3 · Four media capabilities
 
-### Search and filters
+`text-to-image`, `image-to-image`, `upscale`, `text-to-video`.
 
-First-release search is keyword-based across:
+**Extends R1-§5**, which covered illustrative artwork only. Generating inspiration directly into the Library and restyling existing items are both natural to the loop and use the same contract.
 
-- Name or title.
-- Tags.
-- Notes.
-- User-visible Librarian analysis.
+### D4 · Generated video yes, video import no
 
-First-release filters are:
+Video generation implies the Library can store, thumbnail and play video, and that the Librarian analyses motion. Importing the user's own video files stays deferred, so we avoid arbitrary container/codec handling while keeping the capability.
 
-- Tags.
-- Colours.
-- Source.
-- Analysis status.
-- Date.
+**Partially reverses R1-§10**, which deferred video wholesale.
 
-Semantic search is deferred.
+### D5 · Media is triggered by the agent *and* by explicit actions
 
-### Deletion
+**Reverses R1-§5**, which stated media generation "is never directly invoked by the user".
 
-- Normal deletion hides the Library item and remains recoverable until manually permanently deleted.
-- Referenced assets remain available while a deleted item is recoverable.
-- Permanent deletion removes the original item and its owned asset.
-- Referencing Designs and Gallery versions remain intact.
-- Dependants retain tombstoned provenance containing stable identity and the metadata needed to explain the missing source.
-- Permanent deletion never cascades into dependent content.
+Agent-only invocation means no way to force a generation, which is wrong for a creative tool where the user often knows exactly what they want. Both routes call one implementation, so there is no divergence risk.
 
-## 4. Design decisions
+### D6 · Provider abstraction is retained; its ceremony is not
 
-### References and synthesis
+The application talks in capabilities and opaque model ids. `@fal-ai/client` is imported in exactly one file. No vendor type appears in UI, domain, state or persisted records.
 
-- One Design supports up to six Library references.
-- The first selected reference is always the primary reference.
-- The primary reference leads the visual direction.
-- Secondary references contribute compatible characteristics.
-- Style differences may be blended.
-- Only incompatible guardrails block generation.
-- Blocking conflicts must be explicitly resolved before generation.
-- Source reference images are inspiration-only and must never be copied into generated output.
+**Retains R1-§5's intent.** What is dropped is the requirement that "a second, fal-free adapter passes the same contract tests" as an *architectural* obligation. A deterministic fake adapter exists, but as a test double so the contract can be exercised without network or spend — not as evidence of pluggability.
 
-### Output targets
-
-- The plugin supports HTML/CSS/JavaScript and React/TypeScript/Tailwind in the first release.
-- Each Design chooses exactly one target.
-- A Design does not automatically maintain matching implementations in both formats.
-- React output may use only a bundled, approved dependency set.
-- Interface icons come from approved bundled icon libraries.
-- Generated designs may use the Sero theme system's supported sans-serif and monospace stacks.
-- Any non-system font file used by a preview or export must be bundled locally because previews have no network access.
-
-### Variants
-
-- The default is three variants per run.
-- Profile settings allow a count from one to five variants.
-- The active model decides how different the variants should be based on the request.
-- Successful variants survive partial failure.
-- Failed variants can be retried independently.
-- Cancelling a run preserves completed variants and permits cancelled variants to retry.
-- Each variant is an independently cancellable job.
-
-### Revisions
-
-- When revising a variant, the user may replace the visible variant or retain the result as a separate visible revision.
-- The initial choice can be saved as a profile default and changed later.
-- Visible replacement always retains recoverable history.
-- All revision history is retained until manually deleted.
-- A successful asset retry replaces the visible placeholder while retaining recoverable history.
-
-### Persistence and recovery
-
-- Designs autosave continuously.
-- Reopening Sero restores the user to the previous working position.
-- Generation continues when the user navigates away while Sero is running.
-- If Sero quits, durable job state is persisted and resumable work continues after restart.
-
-### Tweaks
-
-- Every successful web variant revision includes an AI-authored, versioned tweak manifest and matching CSS custom properties.
-- The active model chooses only controls that are useful for that specific design. Groups and parameters are derived from the generated page and are not selected from a pre-canned category list.
-- The UI renders the manifest through generic range, toggle, colour and choice controls. Font choices are limited to approved bundled or system fonts already available to the Design.
-- Every control must change a declared custom property in the generated output. Invalid, duplicate or non-functional definitions are omitted and reported.
-- Tweaks can cover typography, colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS value that can be expressed safely through the manifest.
-- Changes apply immediately in the isolated preview through a value-only message channel. The channel accepts only a declared tweak identifier and a schema-valid value; it cannot carry selectors, arbitrary CSS or JavaScript.
-- Generated defaults and user overrides are stored separately. Each control and the whole panel can be reset.
-- Tweak changes autosave as working state. One editing session is checkpointed as one recoverable revision when the panel closes, the active variant changes, another revision starts, Gallery saves or Sero shuts down. Continuous slider input must not create revision spam.
-- Copy CSS returns the effective scoped custom-property override block.
-- Gallery save and export use the exact effective tweak values. Exported output contains the resolved CSS and does not depend on Sero's tweak UI or runtime.
-
-## 5. Generated asset decisions
-
-### Provider-neutral architecture
-
-- Asset generation is exposed to the LLM through stable, provider-neutral tools.
-- fal.ai is the first adapter behind that contract.
-- fal.ai types, client calls and provider-specific request shapes must not leak into Design, Gallery, preview or UI domain code.
-- Changing provider should require implementing or selecting another adapter, not rewriting the generation workflow.
-
-### Invocation and credentials
-
-- Asset generation is not a fixed workflow step and is never directly invoked by the user.
-- The active model decides whether to call the provided asset tools.
-- fal.ai credentials are stored per profile through Sero's existing secret mechanism.
-- The plugin adds no spending limit and relies on fal.ai account controls.
+### D7 · Curated per-capability model defaults, editable
 
-### Asset lifecycle
+The provider exposes hundreds of endpoints. Settings expose one editable model id per capability with a sensible default. The agent chooses a *capability*; it never chooses an endpoint.
 
-- fal.ai is reserved for illustrative artwork, not routine interface icons.
-- Successful assets are downloaded and stored locally.
-- Assets may be reused across variants in the same Design.
-- Unused generated assets remain in the Design asset tray until deleted.
-- Wider reuse requires an explicit Copy to Library action.
-- Copy to Library creates an independent item, retains generation provenance and starts automatic Librarian analysis.
-- If fal.ai is unavailable, the variant uses a local placeholder and exposes asset-only retry.
-- Gallery snapshots bundle their own immutable copies of used assets.
-- Deleting a Design-owned asset cannot alter an existing Gallery version.
+Rejected: a live model browser, which would need a catalogue API and network at settings time for marginal benefit.
 
-### Provenance
+### D8 · Two model pickers
 
-Each generated asset retains:
+Librarian and Design are separate settings, both defaulting to Sero's configured model, both persisted in plugin state, both using `AvailableModelPicker` fed by `useAvailableModels()`.
 
-- Tool identifier.
-- Provider and model.
-- Prompt.
-- Parameters.
-- Seed when available.
-- Reported cost when available.
-- Started and completed timestamps.
+**Reverses R1-§8**, which fixed models and exposed no picker. Analysis is a cheap vision task and generation wants the strongest available coding model; forcing them to be the same model is either wasteful or weak. Per-surface pickers (revise, tweaks) were rejected as unnecessary settings surface.
 
-Provider-specific provenance may be stored in an adapter-owned extension object, while common provenance remains provider-neutral.
+### D9 · Credentials: environment first, stored fallback
 
-## 6. Preview decisions
+`FAL_KEY` from the process environment first; a user-supplied key second, written `0600` into the plugin's global state directory.
 
-- Generated code runs in an isolated preview frame.
-- Network access is blocked.
-- Access to Sero APIs, application state, secrets, filesystem, Node.js and Electron is blocked.
-- Browser cookies and normal persistent storage are unavailable.
-- Navigation of the main Sero window and uncontrolled pop-ups are blocked.
-- Dependencies outside the approved bundle are blocked.
-- The preview accepts only validated tweak value messages for controls declared by its own manifest.
-- Safe portions of the preview still render when restricted behaviour is detected.
-- The UI shows clear warnings describing each blocked capability.
-- Validation warnings do not weaken the isolation boundary.
+**Known limitation, accepted.** `AppRuntimeCredentialsApi.getProviderApiKey` resolves *model* providers only, so there is no encrypted store available to a plugin. A stored key therefore sits at the same protection level as `auth.json`. The key never enters reactive state and is never returned to the UI, which sees only `env | stored | missing`. The environment path is preferred and labelled as such.
 
-## 7. Gallery decisions
+### D10 · Spend is capped per run, video is confirmed, cost is visible
 
-### Snapshots and families
+**Reverses R1-§5**, which added no limits and relied on account controls.
 
-- A Gallery version is an immutable snapshot of exact code, assets, tweak manifest, effective tweak values and provenance.
-- Saving a revised variant adds a version to the existing family.
-- New families are created only through an explicit action.
-- Duplicate or Remix creates a new linked Design family.
-- A family appears as one Gallery card.
-- Older versions are available through a revision selector.
-- One version is featured.
-- The featured version provides the family card preview.
-- The latest saved version becomes featured by default.
-- Changing the featured version preserves all history.
+That stance predated D3 and D5. With an agent able to call video generation autonomously inside a multi-variant run, "rely on the account limit" is a way to discover a problem after paying for it. A per-run call cap, mandatory confirmation for video, and per-asset and per-Design cost display are cheap and sufficient. Exceeding the cap stops further calls and reports it; it does not fail the run.
 
-### Reopening
+### D11 · The main Sero agent gets read and create access
 
-- Reopening a Gallery version restores its source Design at that exact revision.
-- Subsequent edits create new recoverable Design revisions.
-- The Gallery snapshot itself is never edited.
+Exposed through `sero.plugin.bridgeTools`. Being able to say "build a settings page from my three dashboard references" from any chat is most of the value of living inside Sero.
 
-### Deletion
+**Reverses R1's Phase 1 instruction** to set `bridgeTools: false`.
 
-- Deleted Gallery versions and families are hidden but recoverable until manually permanently deleted.
-- Permanent deletion removes the selected Gallery snapshot or family only.
-- It does not cascade to the source Design, Library items or linked families.
+### D13 · Tweaks is a fourth inspector tab, in a resizable panel
 
-### Export
+Decided by comparing both placements rendered at full size in the prototype rather than in prose.
 
-- Export reproduces the exact saved code, effective tweak values and bundled assets.
-- Export includes a small metadata manifest containing the saved tweak manifest and values.
-- The user chooses Downloads or the active Workspace for each export.
-- Export never regenerates the Design.
+A dedicated 300px left panel was drawn and rejected: it fits every control without scrolling, but it permanently costs canvas width and duplicates chrome that the inspector already provides. The inspector tab keeps the workbench as it is.
 
-## 8. Model and settings decisions
+Its known weakness — a fixed 274px is cramped for a control-heavy page — is solved by making the inspector **drag-resizable with a persisted width**, using `ResizablePanel` from `@sero-ai/ui` (`react-resizable-panels`), the same control the desktop shell already uses. The sessions rail collapses to icons, which pays for the extra inspector width.
 
-- Librarian analysis and Design generation use Sero's configured models automatically.
-- The profile settings exposed in the first release are:
-  - Variant count from one to five.
-  - Default revision behaviour: replace or retain.
-- Other model, preview and export defaults remain fixed in the first release.
+Rendering the comparison also surfaced a real UI problem: a permanent multi-line "controls omitted" warning box pushed a whole control group off-screen. It collapses to one line that expands on demand.
 
-## 9. Required technical decisions delegated to spikes
+### D12 · Three PRs, not one
 
-The following product behaviour is settled, but the implementation mechanism requires a spike before its production phase.
+**Reverses R1-§11**, which required the complete first release in a single PR.
 
-### Authoritative state mutation
+Revision 1's scope has since gained video, four media capabilities, a second output target, model settings and agent bridging. One PR at that size is not reviewable. Split:
 
-Requirement:
+1. **Library** — import, Librarian, grid, search, filters, favourites, collections, style groups, settings and model pickers.
+2. **Design** — create dialog, generation, variants, preview, Tweaks, revisions, autosave and recovery.
+3. **Media and Gallery** — capability contract, adapter, video, asset tray, snapshots, families and export.
 
-- No extension/runtime lost updates.
-- One authoritative serialisation path for each mutable record and index.
-- Atomic file replacement alone is not accepted as concurrency control.
+Each is independently reviewable and usable. PR 1 is a working tool on its own.
 
-Spike outcome:
+---
 
-- Prove a Sero-native single-writer or compare-and-swap design.
-- Document record ownership and recovery behaviour.
-- Block persistence implementation until this is resolved.
+## Carried forward from revision 1 (unchanged)
 
-### Asset transfer and preview delivery
+These decisions were reviewed and stand.
 
-Requirement:
+**Import and duplicates.** Analysis starts automatically. Exact duplicates are detected by content checksum, and importing one opens the existing item. Images appear immediately while analysis runs.
 
-- File picker, drag-and-drop and clipboard images use one bounded ingestion pipeline.
-- Large binaries do not live in reactive state.
-- Thousands of previews remain practical.
+**Analysis editing.** Generated values and manual overrides are stored separately. Every user-facing field is editable and individually resettable; a manual edit overrides the whole field; reanalysis replaces generated values and preserves overrides. Field-level override *presence* must be explicit in the persistence model — a nested `Partial<T>` is not sufficient. System provenance is immutable.
 
-Spike outcome:
+**Deletion.** Normal deletion is recoverable until manual purge. Permanent deletion removes the item and its owned asset, leaves dependants intact with tombstoned provenance, and never cascades.
 
-- Prove upload, cancellation, preview reads, caching and memory limits through existing generic plugin contracts.
-- No bespoke preload API, desktop IPC or Design Library host change.
+**References.** Up to six per Design; the first is primary and leads; secondaries contribute compatible traits; differences may be blended; only incompatible guardrails block, and blocking conflicts must be resolved explicitly. Reference pixels never reach generated output.
 
-### Multimodal Librarian input
+**Output rules.** One target per Design, no automatic parity between targets. Only approved bundled dependencies and icons. Sero theme sans/mono stacks, or locally bundled font files — previews have no network.
 
-Requirement:
+**Variants.** Default three, range one to five. The model decides how different they should be. Each is an independently cancellable job; successes survive partial failure; failures and cancellations retry independently.
 
-- The Librarian can analyse bounded image input through Sero's configured model.
+**Revisions.** Replace or retain, defaultable and changeable. Replacement always retains recoverable history. History persists until manually deleted.
 
-Spike outcome:
+**Persistence.** Continuous autosave; generation continues when the user navigates away; durable job state survives quit and resumes on restart; reopening restores the previous working position.
 
-- Prove structured multimodal execution and retry/repair using the existing subagent contract.
+**Tweaks.** AI-authored per revision, never from a pre-canned category list. Rendered through generic range/toggle/colour/choice primitives. Every control must change a declared custom property; invalid, duplicate or inert controls are omitted and reported. The preview channel accepts only a declared id and a schema-valid value — never selectors, CSS text or JavaScript. Defaults and overrides stored separately, each resettable. One editing session checkpoints as one revision. Copy CSS returns the effective scoped block. Gallery and export use resolved effective values and do not depend on the Tweaks runtime.
 
-### Isolated preview and preview capture
+**Media lifecycle.** Illustrative artwork, not routine icons. Results downloaded and stored locally. Reusable across variants in one Design; wider reuse requires explicit Copy to Library, which creates an independent item with retained generation provenance and automatic analysis. Provider unavailability yields a local placeholder with asset-only retry. Gallery snapshots bundle their own copies, so deleting a Design asset cannot alter a saved version.
 
-Requirement:
+**Preview isolation.** Blocked: network, Sero APIs/state/secrets, filesystem, Node, Electron, cookies and persistent storage, host navigation, uncontrolled pop-ups, and unapproved dependencies. Safe output still renders when a violation is detected, and warnings never weaken the boundary.
 
-- Restricted capabilities are blocked while safe output still renders.
-- Gallery receives a deterministic preview image for each immutable version.
+**Gallery.** Immutable versions; saving a revised variant adds to the existing family; new families only via explicit Duplicate or Remix; one card per family with a revision selector; newest save featured by default; changing the featured pointer preserves history. Reopening restores the source Design at that revision and never edits the snapshot. Deletion is recoverable and never cascades. Export reproduces exact code, effective tweak values and assets plus a metadata manifest, to Downloads or the active workspace, and never regenerates.
 
-Spike outcome:
+---
 
-- Prove CSP and frame isolation with hostile fixtures.
-- Prove HTML and React preview construction from the approved local dependency set.
-- Select a deterministic Gallery screenshot mechanism that requires no Design Library-specific host API.
+## Technical mechanisms (resolved)
 
-### Provider-neutral generated assets
+Selected from evidence already in this repository. None introduces a Design Library-specific host API.
 
-Requirement:
+**Authoritative state.** `AppRuntimeStateApi.update` serialises writes only within the host process, and Pi tool calls run in a separate process — so atomic replacement alone can lose an update. Therefore: extension tools are read-and-intent only, and the background runtime is the single authoritative writer for every record and the index. Writes go through an in-process queue per path, a cross-process exclusive lock directory, and a revision compare-and-swap. Requests are append-only and consumed by a monotonic watermark, so an append racing a consume cannot be dropped. The index is a pure projection of the records, which makes an interrupted index write recoverable. Pattern precedent: `plugins/sero-graphify-plugin`.
 
-- fal.ai is replaceable through an adapter.
+**Bounded ingestion.** `AppToolResult` carries text, `details` JSON and image content blocks, and the desktop passes image blocks through to the renderer unchanged. All three import methods stream base64 chunks of at most 512 KiB per call into `uploads/<id>/`, then queue one ingest request. Previews are read back as image content blocks into a bounded renderer cache. No binary enters reactive state; no preload API is added.
 
-Spike outcome:
+**Multimodal Librarian.** Pi's read tool sends images as model attachments with bounded resizing, and `platformTools: 'readOnly'` gives a run exactly that tool. The Librarian runs with `platformTools: 'readOnly'` and a `cwd` of the item's directory, and is asked to read the stored original; structured output uses the existing `repair` contract. Design generation runs with `platformTools: 'none'`, so reference pixels can never reach it.
 
-- Define the provider-neutral request, result, error, retry and provenance contracts.
-- Prove the fal.ai JavaScript adapter, local download and placeholder retry.
+**Preview isolation.** `HtmlPreview.tsx` already renders untrusted HTML from a `blob:` URL in an `allow-scripts`-only iframe, yielding an opaque origin with no access to the host renderer, cookies or storage. Previews use the same boundary plus a strict document CSP (`default-src 'none'`) and a guard harness that reports blocked attempts. React is transpiled by esbuild in the runtime with React bundled from the plugin's dependencies and Tailwind compiled in-frame from a bundled browser build; imports outside the approved set are refused and reported.
 
-## 10. Explicit deferrals
+**Gallery previews.** A version never changes, so a headless-browser raster capture buys nothing and costs a machine dependency. Each version stores a script-free, animation-free rendering of its own snapshot, rendered in a scaled `sandbox=""` iframe mounted only when scrolled into view.
 
-The following are intentionally deferred beyond the first release:
+**Media tools to the model.** `AppRuntimeSubagentRunParams.customTools` accepts Pi `ToolDefinition[]` executed in-process by the plugin runtime — the same seam `sero-kanban-plugin` uses to hand its planner a submission tool. Media tools ride there for design generation, and through `bridgeTools` for the main agent.
 
-- Video import and analysis.
-- URL and webpage capture.
-- Clipboard HTML capture.
-- Manual collections.
-- Smart groups.
-- Pinning and archiving.
-- Semantic search.
-- Arbitrary generated package installation.
-- Multiple output targets within one Design.
-- A second generated-asset provider.
-- Plugin-level asset-generation budgeting.
-- Free-form selector editing or arbitrary CSS/JavaScript injection through Tweaks.
+---
 
-## 11. Readiness rule
+## Superseded (revision 1, 2026-07-25)
 
-A single PR should contain the complete first release. Its fixture-backed shell phase may proceed using the approved terminology and schemas.
+Kept for the reasoning trail. **Do not implement from this section.**
 
-Production persistence and AI phases within that PR must not begin until Gate A has resolved:
-
-- Authoritative state mutation.
-- Asset transfer and preview delivery.
-- Multimodal Librarian input.
-- Preview isolation and Gallery preview capture.
-- Provider-neutral asset generation.
+- *Library layout:* uniform grid only, with collections, smart groups, favourites, recipes, variation mode and inspiration strength omitted from the first release. → Reversed by **D1**.
+- *Video, URL capture and clipboard HTML:* deferred wholesale. → Video partially restored by **D4**; the rest still deferred.
+- *Media invocation:* "never directly invoked by the user"; the model alone decides. → Reversed by **D5**.
+- *Media scope:* illustrative artwork only. → Extended by **D3**.
+- *Spend:* no plugin-level limit; rely on the provider account. → Reversed by **D10**.
+- *Provider proof:* "a second, fal-free adapter passes the same contract tests" as an architectural requirement. → Downgraded to a test double by **D6**.
+- *Models:* fixed to Sero's configured model, no picker; profile settings limited to variant count and revision behaviour. → Reversed by **D8**.
+- *Agent bridging:* `bridgeTools: false`. → Reversed by **D11**.
+- *Delivery:* a single PR containing the complete first release, gated on spikes. → Reversed by **D12**; the spikes are resolved above.
