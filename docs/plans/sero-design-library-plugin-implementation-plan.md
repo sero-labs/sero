@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b — the working surface — in progress.
-**Branch:** `feat/design-library-working-surface` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320)
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3 — Media and Gallery — in progress.
+**Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
