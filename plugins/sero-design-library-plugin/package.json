@@ -9,8 +9,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json",
     "test": "pnpm exec vitest run --root ."
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
   },
   "sero": {
     "app": {
@@ -22,7 +27,12 @@
       "stateFile": ".sero/apps/design-library/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "DesignLibraryApp",
-      "devPort": 5190
+      "devPort": 5190,
+      "runtime": "./runtime/index.ts",
+      "runtimeExternals": [
+        "esbuild",
+        "tailwindcss"
+      ]
     },
     "plugin": {
       "category": "creative-tools",
@@ -33,13 +43,32 @@
         "creative"
       ],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "preBuilt": false,
-      "bridgeTools": false
+      "bridgeTools": false,
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "appRuntime.background"
+      ]
     }
   },
+  "dependencies": {
+    "@fal-ai/client": "^1.10.1",
+    "esbuild": "^0.28.1",
+    "tailwindcss": "catalog:",
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
   "devDependencies": {
-    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/plugin-vite": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
@@ -50,7 +79,6 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
