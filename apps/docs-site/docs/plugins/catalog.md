@@ -16,6 +16,7 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 | Plugin | Package | Docs | Notes |
 | --- | --- | --- | --- |
 | Admin | `@sero-ai/plugin-admin` | [Guide](/guide/settings-models-admin) | Config editor, logs, sessions, agents/skills/prompts; global state file declared by manifest. |
+| Design Library | `@sero-ai/plugin-design-library` | [Docs](/plugins/design-library) | Visual inspiration, AI design generation with live Tweaks, and an immutable Gallery; global app with a background runtime. |
 | Scheduler | `@sero-ai/plugin-cron` | [Guide](/guide/scheduler-reminders) | Reminders and recurring jobs; dashboard widget manifest. |
 | Git | `@sero-ai/plugin-git` | [Guide](/guide/git-integration) | Visual Git workspace manager. |
 | MCP | `@sero-ai/plugin-mcp` | [Guide](/guide/mcp) | MCP manager app; manifest bridges selected `mcp` tool behavior. |

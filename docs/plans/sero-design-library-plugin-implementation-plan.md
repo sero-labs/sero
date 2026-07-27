@@ -1,6 +1,6 @@
 # Sero Design Library Plugin Implementation Plan
 
-**Status:** Approved for single-PR delivery; production phases blocked by Gate A
+**Status:** Approved for single-PR delivery; Gate A resolved and phases 1–8 implemented
 **Target branch:** `feat/design-library-plugin`
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library`
@@ -382,18 +382,97 @@ Acceptance:
 - Build, typecheck and component tests pass.
 - No persistence, AI, preview execution or provider integration exists.
 
-### Gate A: Required spikes
+### Gate A: Required spikes — RESOLVED
 
-Complete and document:
+Each mechanism below was selected from evidence already in this repository. No
+spike changed approved product behaviour, and none introduced a Design
+Library-specific host API.
 
-1. Authoritative state mutation.
-2. Bounded upload and preview delivery.
-3. Multimodal structured Librarian input.
-4. HTML and React preview isolation.
-5. Deterministic Gallery preview capture.
-6. Provider-neutral asset contract with fal.ai proof.
+#### 1. Authoritative state mutation
 
-Phase 2 is blocked until Gate A passes.
+**Evidence.** `plugins/sero-graphify-plugin` shows the established shape for a
+global plugin: extension tools append intent requests to the reactive state and
+a background runtime consumes them (`shared/state-io.ts`, `runtime/indexer.ts`).
+`AppRuntimeStateApi.update` serialises writes only within the host process, and
+Pi CLI tool calls run in a separate process, so atomic replacement alone can
+still lose an update.
+
+**Conclusion.** Extension tools are read-and-intent only; the runtime is the
+single authoritative writer for every record and for the index. Every write goes
+through `shared/state-io.ts`, which combines an in-process queue per path, a
+cross-process exclusive lock directory (`shared/file-lock.ts`), and a
+revision compare-and-swap. Requests are append-only and consumed by a monotonic
+watermark, so an append that races a consume cannot be dropped. The index is a
+pure projection of the records (`runtime/projection.ts`), which is what makes an
+interrupted index write recoverable. Proven by the concurrency tests in
+`shared/state-io.test.ts`.
+
+#### 2. Bounded upload and preview delivery
+
+**Evidence.** `AppToolResult` (`packages/common/src/app-tools.ts`) carries text,
+arbitrary `details` JSON and image content blocks, and
+`electron/ipc/agent/handlers/app-agent-tools.ts` passes image blocks through to
+the renderer unchanged.
+
+**Conclusion.** File picker, drag-and-drop and clipboard paste all call
+`design_library_assets`, which streams base64 chunks of at most 512 KiB per call
+into `uploads/<id>/` and then queues one ingest request. Previews are read back
+as image content blocks and held in a bounded renderer cache
+(`ui/hooks/useItemImage.ts`). No binary enters reactive state and no preload API
+is added.
+
+#### 3. Multimodal structured Librarian input
+
+**Evidence.** Pi's own read tool sends images as model attachments with bounded
+resizing (`@earendil-works/pi-coding-agent`, `dist/core/tools/read.js`), and
+`AppRuntimeSubagentRunParams.platformTools: 'readOnly'` gives a run exactly that
+tool.
+
+**Conclusion.** The Librarian runs with `platformTools: 'readOnly'` and a `cwd`
+of the item's directory, and is asked to read the stored original. Structured
+output uses the existing `repair` contract. Design generation runs with
+`platformTools: 'none'`, so reference pixels can never reach it.
+
+#### 4. HTML and React preview isolation
+
+**Evidence.** `apps/desktop/src/components/apps/explorer/editor/HtmlPreview.tsx`
+already renders untrusted HTML from a `blob:` URL in an
+`allow-scripts`-only iframe, which yields an opaque origin with no access to the
+host renderer, cookies or storage.
+
+**Conclusion.** Previews use the same blob + `sandbox="allow-scripts"` boundary,
+plus a strict document CSP (`default-src 'none'`) that blocks network, workers
+and framing, and a guard harness that reports blocked attempts. The React target
+is compiled locally by the runtime with esbuild (React bundled from the plugin's
+own dependencies) and Tailwind's offline `compile()` API; imports outside the
+approved bundle are refused and reported. Both are declared in
+`sero.app.runtimeExternals`.
+
+#### 5. Deterministic Gallery preview capture
+
+**Evidence.** A Gallery version is immutable, and a raster capture would require
+a headless browser — a machine dependency with no benefit for content that never
+changes.
+
+**Conclusion.** Each saved version stores a script-free, animation-free
+rendering of its own snapshot (`buildDeterministicPreviewDocument`). Cards render
+it in a scaled `sandbox=""` iframe mounted only when scrolled into view, so the
+same bytes always paint the same picture, no host API is involved, and a large
+Gallery stays practical.
+
+#### 6. Provider-neutral asset contract with fal.ai proof
+
+**Evidence.** `AppRuntimeCredentialsApi.getProviderApiKey` resolves model
+providers only, but Sero already stores provider credentials in
+`<SERO_HOME>/agent/auth.json`.
+
+**Conclusion.** `runtime/asset-generation/contract.ts` defines the neutral
+capability, request, result, error and provenance types. The fal.ai adapter uses
+the official `@fal-ai/client` package and stops all provider specifics at its own
+boundary; results are downloaded locally so no remote URL reaches a preview or an
+export. Credentials come from `FAL_KEY` or the existing `auth.json` store, so no
+host change is required. A second, fal-free adapter passes the same contract
+tests.
 
 ### Phase 2: Durable image Library
 
@@ -560,4 +639,12 @@ Manual verification covers:
 
 PR #306 is the single delivery PR.
 
-Phase 1 is ready. Phases 2 through 8 are not ready until Gate A is complete and its outcomes are reflected in the shared schemas and this plan. A spike may select a mechanism, but it must preserve the approved behaviour in the decision document.
+Gate A is resolved (section 16) and phases 1 through 8 are implemented in that
+PR. Every spike selected a mechanism from existing repository evidence and
+preserved the approved behaviour in the decision document.
+
+Remaining verification is manual and needs a running Sero profile with model
+access and a fal.ai credential: the three import paths against real files, a
+live Librarian analysis, a live generation run for both output targets, hostile
+preview fixtures, fal.ai failure and asset-only retry, and export to Downloads
+and to a workspace.
