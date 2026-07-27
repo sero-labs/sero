@@ -173,6 +173,7 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
         <PreviewControls
           viewport={viewport}
           scale={scale}
+          paneWidth={pane.width}
           onViewport={setViewport}
           onReload={() => setReloads((count) => count + 1)}
         />

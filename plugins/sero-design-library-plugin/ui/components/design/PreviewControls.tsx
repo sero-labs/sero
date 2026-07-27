@@ -21,11 +21,18 @@ export interface Viewport {
 }
 
 export const VIEWPORTS: Viewport[] = [
-  { id: 'fit', label: 'Fit' },
+  { id: 'fit', label: 'Pane width' },
   { id: 'desktop', label: 'Desktop', width: 1280 },
   { id: 'tablet', label: 'Tablet', width: 834 },
   { id: 'mobile', label: 'Mobile', width: 390 },
 ];
+
+const TITLES: Record<ViewportId, string> = {
+  fit: 'Pane width — the page reflows as the pane changes',
+  desktop: 'Desktop — 1280 px',
+  tablet: 'Tablet — 834 px',
+  mobile: 'Phone — 390 px',
+};
 
 const ICONS: Record<ViewportId, React.ComponentType<{ className?: string }>> = {
   fit: Maximize2,
@@ -38,18 +45,29 @@ export interface PreviewControlsProps {
   viewport: Viewport;
   /** 1 when the page fits; below 1 when it is being scaled down to fit. */
   scale: number;
+  /** How wide the pane itself is, which is the width used in `fit`. */
+  paneWidth: number;
   onViewport(viewport: Viewport): void;
   onReload(): void;
 }
 
-export function PreviewControls({ viewport, scale, onViewport, onReload }: PreviewControlsProps) {
+export function PreviewControls({
+  viewport,
+  scale,
+  paneWidth,
+  onViewport,
+  onReload,
+}: PreviewControlsProps) {
+  // Always the width the page is actually being rendered at. Naming the mode
+  // instead — "fits the pane" — said nothing you could act on.
+  const readout =
+    viewport.width === undefined
+      ? `${Math.round(paneWidth)} px`
+      : `${viewport.width} px · ${Math.round(scale * 100)}%`;
+
   return (
     <div className="border-border flex items-center gap-2 border-t px-2 py-1.5">
-      <span className="text-muted-foreground w-28 shrink-0 text-sm tabular-nums">
-        {viewport.width === undefined
-          ? 'Fits the pane'
-          : `${viewport.width} px · ${Math.round(scale * 100)}%`}
-      </span>
+      <span className="text-muted-foreground w-28 shrink-0 text-sm tabular-nums">{readout}</span>
 
       <div className="mx-auto flex items-center gap-1" role="group" aria-label="Preview width">
         {VIEWPORTS.map((entry) => {
@@ -61,7 +79,7 @@ export function PreviewControls({ viewport, scale, onViewport, onReload }: Previ
               variant={entry.id === viewport.id ? 'secondary' : 'ghost'}
               size="sm"
               aria-pressed={entry.id === viewport.id}
-              title={entry.width === undefined ? entry.label : `${entry.label} — ${entry.width} px`}
+              title={TITLES[entry.id]}
               onClick={() => onViewport(entry)}
             >
               <Icon className="size-3.5" />
