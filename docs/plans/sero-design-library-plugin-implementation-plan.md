@@ -1,6 +1,6 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged. PR 2a complete and awaiting review; PR 2b next.
+**Status:** PR 1 merged (#318). PR 2a open for review (#320); PR 2b next.
 **Branch:** `feat/design-library-design` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
