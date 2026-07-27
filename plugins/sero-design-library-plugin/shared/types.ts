@@ -93,6 +93,15 @@ export interface LibraryItemSummary {
   analysisStatus: AnalysisStatus;
   createdAt: EpochMilliseconds;
   deletedAt?: EpochMilliseconds;
+  /**
+   * Flattened user-visible analysis used by keyword search, so the grid never
+   * has to read full records.
+   */
+  searchText?: string;
+  /** Content checksum of the original asset — exact duplicate detection. */
+  checksum?: string;
+  /** Reason the last analysis failed, shown on the card and in the inspector. */
+  analysisError?: string;
 }
 
 export interface LiveLibraryReference {
