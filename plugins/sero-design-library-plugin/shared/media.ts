@@ -201,7 +201,7 @@ function withOptional<T>(key: string, value: T | undefined): Record<string, T> {
   return value === undefined ? {} : ({ [key]: value } as Record<string, T>);
 }
 
-function normalizeProvenance(value: unknown): MediaProvenance | undefined {
+export function normalizeProvenance(value: unknown): MediaProvenance | undefined {
   if (!isRecordObject(value)) return undefined;
   if (!isMediaCapability(value.capability)) return undefined;
   return {

@@ -11,6 +11,7 @@ import { appendRequest, readState } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { invokeTool } from './librarian/test-support';
+import { createFakeProvider } from './media/providers/fake';
 import { readItem } from './store';
 
 /**
@@ -140,7 +141,20 @@ function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi
     await viewReference(params);
     return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
   });
-  return { host: { subagents: { runStructured } } as unknown as AppRuntimeHost, runStructured };
+
+  // Media generation asks before it spends on video. The stub declines, which
+  // is the right default for a test: an approval nobody wrote is exactly the
+  // thing the confirmation exists to prevent, so a test that wants video has to
+  // say so.
+  const notifications = {
+    notify: () => undefined,
+    requestChoice: async () => ({ choiceId: 'skip', timedOut: false }),
+  };
+
+  return {
+    host: { subagents: { runStructured }, notifications } as unknown as AppRuntimeHost,
+    runStructured,
+  };
 }
 
 /**
@@ -165,6 +179,9 @@ export function useCoordinator(label: string): CoordinatorHarness {
       workspaceId: 'ws',
       sessionId: 'session',
       onError: () => undefined,
+      // Deterministic media, so the request → job → record path is exercised
+      // without network or spend.
+      createMediaProvider: async () => createFakeProvider({ costUsd: 0.01 }),
     });
   });
 

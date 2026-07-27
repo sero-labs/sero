@@ -14,7 +14,7 @@ import { readAssetBytes } from './assets';
 import { MediaBudget } from './budget';
 import { MediaError } from './contract';
 import { createFakeProvider } from './providers/fake';
-import { createMediaTools, generateAsset, retryAsset, type MediaToolContext } from './tools';
+import { createMediaTools, generateAsset, generateForAsset, type MediaToolContext } from './tools';
 
 const DESIGN_ID = 'media-design';
 
@@ -103,7 +103,7 @@ describe('media tools', () => {
     );
     expect(currentAttempt(first)?.outcome).toBe('failed');
 
-    const asset = expectAsset(await retryAsset(first, shared));
+    const asset = expectAsset(await generateForAsset(first, shared));
 
     expect(asset.attempts).toHaveLength(2);
     expect(asset.attempts[0].outcome).toBe('failed');
@@ -123,7 +123,7 @@ describe('media tools', () => {
         shared,
       ),
     );
-    await retryAsset(first, shared);
+    await generateForAsset(first, shared);
 
     const design = await readDesign(paths, DESIGN_ID);
     const provenance = currentAttempt(design!.assets[0])?.provenance;

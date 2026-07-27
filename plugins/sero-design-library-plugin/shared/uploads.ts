@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import type { MediaProvenance } from './media';
 import type { DesignLibraryPaths } from './paths';
 import { uploadDir, uploadManifestFile } from './paths';
 import { readJsonFile, writeJsonFile } from './state-io';
@@ -35,7 +37,19 @@ export interface UploadManifest {
   previewMediaType: string;
   width?: number;
   height?: number;
+  durationMs?: number;
   parentItemId?: string;
+  /**
+   * Present when the bytes were generated rather than imported, so the item this
+   * becomes keeps its provenance (spec §6.6).
+   */
+  generation?: MediaProvenance;
+  /**
+   * A generated video whose frames have not been extracted yet. Video is decoded
+   * in the renderer, so the item is created before there is anything to
+   * thumbnail or analyse.
+   */
+  awaitingFrames?: boolean;
   createdAt: number;
   complete: boolean;
 }
@@ -155,6 +169,38 @@ export async function completeUpload(paths: DesignLibraryPaths, uploadId: string
     throw new Error(`Upload ${uploadId} cannot be assembled — ${problems.join('; ')}`);
   }
   await writeJsonFile(uploadManifestFile(paths, uploadId), { ...manifest, complete: true });
+}
+
+/**
+ * Stage bytes the runtime already holds, as one complete upload.
+ *
+ * Generated media takes the same route into the Library as an import rather than
+ * writing an item directly, and deliberately: duplicate detection, asset layout
+ * and the automatic analysis kick-off are defined once in `ingestUpload`, and a
+ * second path to creating an item is a second place for them to drift. The
+ * chunking is skipped because there is no process boundary to cross — the bytes
+ * are already here.
+ */
+export async function stageGeneratedUpload(
+  paths: DesignLibraryPaths,
+  bytes: Uint8Array,
+  details: Omit<UploadManifest, 'id' | 'chunkCounts' | 'createdAt' | 'complete'>,
+): Promise<string> {
+  const id = randomUUID();
+  const manifest: UploadManifest = {
+    ...details,
+    id,
+    chunkCounts: { original: 1, preview: 0 },
+    createdAt: Date.now(),
+    complete: false,
+  };
+  await beginUpload(paths, manifest);
+
+  // Written directly rather than through `writeUploadChunk`, which caps a chunk
+  // at the size the tool boundary needs; there is no such boundary here.
+  await writeFile(path.join(roleDir(paths, id, 'original'), '0.part'), bytes);
+  await completeUpload(paths, id);
+  return id;
 }
 
 /** Assemble one role's chunks in index order. Returns null when nothing was sent. */

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DesignLibraryPaths } from '../shared/paths';
 import type { JobKind, JobRecord, JobTarget } from '../shared/records';
-import { mutateVariant, readDesign } from './design-store';
+import { mutateDesign, mutateVariant, readDesign } from './design-store';
 import { listJobs, mutateItem, mutateJob, saveJob } from './store';
 
 /**
@@ -118,6 +118,48 @@ export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecor
   return [...jobs.filter((job) => job.status === 'queued'), ...interrupted, ...orphaned];
 }
 
+/**
+ * Turn an asset whose job died into a retryable placeholder.
+ *
+ * Written as a real failed attempt rather than left with none, because "no
+ * attempts" is how the tray says *generating* — and an asset left saying that,
+ * owned by a job that will never run again, is a spinner nobody stops.
+ */
+async function abandonAsset(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
+  if (job.target.kind !== 'asset') return;
+  const { designId, assetId } = job.target;
+  await mutateDesign(paths, designId, (design) => {
+    const asset = design.assets.find((entry) => entry.id === assetId);
+    if (!asset || asset.jobId !== job.id || asset.attempts.length > 0) return null;
+    const now = Date.now();
+    return {
+      ...design,
+      assets: design.assets.map((entry) =>
+        entry.id === assetId
+          ? {
+              ...entry,
+              jobId: undefined,
+              updatedAt: now,
+              attempts: [
+                {
+                  id: `${job.id}-abandoned`,
+                  outcome: 'failed' as const,
+                  startedAt: job.startedAt ?? job.createdAt,
+                  completedAt: now,
+                  error: {
+                    code: 'provider' as const,
+                    message: 'Sero closed while this was generating, so it never finished.',
+                    retryable: true,
+                  },
+                },
+              ],
+            }
+          : entry,
+      ),
+    };
+  });
+}
+
 /** Put the work this job owns back into a state a fresh run can pick up. */
 async function rewindTarget(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
   if (job.target.kind === 'item') {
@@ -128,10 +170,16 @@ async function rewindTarget(paths: DesignLibraryPaths, job: JobRecord): Promise<
     );
     return;
   }
-  const { designId, variantId } = job.target;
-  await mutateVariant(paths, designId, variantId, (variant) =>
-    variant.status === 'running' ? { ...variant, status: 'pending', jobId: job.id } : variant,
-  );
+  if (job.target.kind === 'variant') {
+    const { designId, variantId } = job.target;
+    await mutateVariant(paths, designId, variantId, (variant) =>
+      variant.status === 'running' ? { ...variant, status: 'pending', jobId: job.id } : variant,
+    );
+    return;
+  }
+  // An asset and a Library slot carry no status of their own to rewind: an asset
+  // with no attempts *is* the pending state, and the Library job holds
+  // everything it needs. Re-queuing the job is the whole repair.
 }
 
 /**
@@ -158,6 +206,17 @@ async function replaceOrphan(
   paths: DesignLibraryPaths,
   job: JobRecord,
 ): Promise<JobRecord | null> {
+  // Media is the exception to "run it again". Re-running spends money the user
+  // did not ask to spend a second time, and they cannot have seen a result — so
+  // an interrupted media job comes back as a placeholder with a retry button and
+  // waits to be asked. Silently regenerating would be the one behaviour D10
+  // exists to prevent.
+  if (job.target.kind === 'asset') {
+    await abandonAsset(paths, job);
+    return null;
+  }
+  if (job.target.kind === 'library') return null;
+
   // A replacement has to exist before the target can point at it — a target
   // naming a job that does not exist has nothing to run it and nothing to repair
   // it. So one is created up front and retired below if the claim fails.
@@ -196,7 +255,7 @@ async function replaceOrphan(
             },
           };
     });
-  } else {
+  } else if (job.target.kind === 'variant') {
     const { designId, variantId } = job.target;
     await mutateVariant(paths, designId, variantId, (variant) => {
       if (!claim(variant)) return null;

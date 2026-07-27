@@ -149,15 +149,19 @@ export async function generateAsset(
 }
 
 /**
- * Try again for an asset that already exists (spec §6.6).
+ * Run an attempt against an asset that already exists (spec §6.6).
+ *
+ * Covers both the first attempt on an asset an explicit action reserved and
+ * every retry after a failure — they are the same operation, and treating them
+ * as one is what stops a retry reserving a second asset.
  *
  * Deliberately not "generate a replacement": the asset keeps its id, its
- * reference and its failed attempt, so a page already pointing at it picks the
+ * reference and its failed attempts, so a page already pointing at it picks the
  * new artwork up without being rewritten, and the history of what went wrong
  * survives. The stored request is replayed rather than rebuilt, so a retry
  * months later produces what was originally asked for.
  */
-export async function retryAsset(
+export async function generateForAsset(
   asset: DesignAsset,
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {

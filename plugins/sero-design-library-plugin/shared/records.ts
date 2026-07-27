@@ -6,6 +6,8 @@
 
 import type { EditableLibrarianProfile } from './librarian';
 import { normalizeAnalysis, normalizeOverrides } from './librarian';
+import type { MediaCapability, MediaProvenance } from './media';
+import { isMediaCapability, normalizeProvenance } from './media';
 import { isSafeId } from './paths';
 
 export type MediaKind = 'image' | 'video';
@@ -69,6 +71,25 @@ export interface ItemRecord {
   analysis: ItemAnalysisState;
   favourite: boolean;
   collectionIds: string[];
+  /**
+   * How it was generated, when it was (spec §6.6, §8.4).
+   *
+   * Present on an item that came from Generate inspiration, Restyle/vary or
+   * Copy to Library, and absent on one that was imported. Kept on the item
+   * rather than derived from its source, because Copy to Library makes an
+   * *independent* item — the Design it came from can be deleted and this must
+   * still be able to say what produced it.
+   */
+  generation?: MediaProvenance;
+  /**
+   * Frames still owed for a generated video (D4, and the UI-decode decision).
+   *
+   * Video is decoded in the renderer, so a video that finished while the app was
+   * closed has no thumbnail and nothing for the Librarian to look at. The flag
+   * is what the open UI looks for, and what stops analysis from running on a
+   * video it cannot see.
+   */
+  awaitingFrames?: boolean;
   /** Set by normal deletion; cleared by restore. Absent means live. */
   deletedAt?: number;
 }
@@ -115,6 +136,7 @@ export function normalizeItemRecord(value: unknown): ItemRecord | null {
   const status = analysis.status;
   const known = status === 'pending' || status === 'running' || status === 'ready' ||
     status === 'failed' || status === 'cancelled';
+  const generation = normalizeProvenance(value.generation);
 
   return {
     id: value.id,
@@ -157,11 +179,13 @@ export function normalizeItemRecord(value: unknown): ItemRecord | null {
     },
     favourite: value.favourite === true,
     collectionIds: stringList(value.collectionIds),
+    ...(generation === undefined ? {} : { generation }),
+    ...(value.awaitingFrames === true ? { awaitingFrames: true } : {}),
     ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
   };
 }
 
-export type JobKind = 'ingest' | 'analysis' | 'generate';
+export type JobKind = 'ingest' | 'analysis' | 'generate' | 'media';
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
@@ -176,7 +200,17 @@ export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancell
  */
 export type JobTarget =
   | { kind: 'item'; itemId: string }
-  | { kind: 'variant'; designId: string; variantId: string };
+  | { kind: 'variant'; designId: string; variantId: string }
+  /** One asset in a Design's tray, generating or being retried (spec §6.6). */
+  | { kind: 'asset'; designId: string; assetId: string }
+  /**
+   * A Library generation with nothing to point at yet.
+   *
+   * Generate inspiration produces an item that does not exist until the bytes
+   * arrive, so the job carries a caller-allocated slot id instead. The grid
+   * renders a pending tile against it, and the finished item replaces the tile.
+   */
+  | { kind: 'library'; slotId: string };
 
 export function itemTarget(itemId: string): JobTarget {
   return { kind: 'item', itemId };
@@ -184,6 +218,14 @@ export function itemTarget(itemId: string): JobTarget {
 
 export function variantTarget(designId: string, variantId: string): JobTarget {
   return { kind: 'variant', designId, variantId };
+}
+
+export function assetTarget(designId: string, assetId: string): JobTarget {
+  return { kind: 'asset', designId, assetId };
+}
+
+export function libraryTarget(slotId: string): JobTarget {
+  return { kind: 'library', slotId };
 }
 
 /**
@@ -196,7 +238,7 @@ export interface JobRecord {
   id: string;
   kind: JobKind;
   status: JobStatus;
-  /** The item or variant the job belongs to. */
+  /** The item, variant, asset or Library slot the job belongs to. */
   target: JobTarget;
   createdAt: number;
   startedAt?: number;
@@ -205,10 +247,50 @@ export interface JobRecord {
   error?: string;
   /** Set by a cancel request; the run checks it and aborts. */
   cancelRequested?: boolean;
+  /**
+   * What a `library` media job was asked to generate.
+   *
+   * On the job *record* — a file — rather than in memory, so a generation
+   * interrupted by a restart can be resumed rather than failed with "the details
+   * were lost". Deliberately not projected into `JobSummary`: the prompt is the
+   * user's text and reactive state is read by every surface, so it stays in the
+   * file the runtime alone reads.
+   */
+  media?: MediaJobRequest;
+}
+
+/** The parameters of a Library generation, as the job remembers them. */
+export interface MediaJobRequest {
+  capability: MediaCapability;
+  prompt: string;
+  sourceItemId?: string;
+  aspectRatio?: string;
+  seed?: number;
+  durationSeconds?: number;
+}
+
+function normalizeMediaJobRequest(value: unknown): MediaJobRequest | undefined {
+  if (!isRecordObject(value) || !isMediaCapability(value.capability)) return undefined;
+  const optionalNumber = (candidate: unknown) =>
+    typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
+  const optionalString = (candidate: unknown) =>
+    typeof candidate === 'string' && candidate !== '' ? candidate : undefined;
+  const sourceItemId = optionalString(value.sourceItemId);
+  const aspectRatio = optionalString(value.aspectRatio);
+  const seed = optionalNumber(value.seed);
+  const durationSeconds = optionalNumber(value.durationSeconds);
+  return {
+    capability: value.capability,
+    prompt: typeof value.prompt === 'string' ? value.prompt : '',
+    ...(sourceItemId === undefined ? {} : { sourceItemId }),
+    ...(aspectRatio === undefined ? {} : { aspectRatio }),
+    ...(seed === undefined ? {} : { seed }),
+    ...(durationSeconds === undefined ? {} : { durationSeconds }),
+  };
 }
 
 function normalizeJobKind(value: unknown): JobKind {
-  return value === 'ingest' || value === 'generate' ? value : 'analysis';
+  return value === 'ingest' || value === 'generate' || value === 'media' ? value : 'analysis';
 }
 
 /**
@@ -229,6 +311,14 @@ function normalizeJobTarget(value: Record<string, unknown>): JobTarget | null {
         ? { kind: 'variant', designId: target.designId, variantId: target.variantId }
         : null;
     }
+    if (target.kind === 'asset') {
+      return id(target.designId) && id(target.assetId)
+        ? { kind: 'asset', designId: target.designId, assetId: target.assetId }
+        : null;
+    }
+    if (target.kind === 'library') {
+      return id(target.slotId) ? { kind: 'library', slotId: target.slotId } : null;
+    }
     if (id(target.itemId)) return { kind: 'item', itemId: target.itemId };
     return null;
   }
@@ -246,6 +336,7 @@ export function normalizeJobRecord(value: unknown): JobRecord | null {
   const status = value.status;
   const known = status === 'queued' || status === 'running' || status === 'succeeded' ||
     status === 'failed' || status === 'cancelled';
+  const media = normalizeMediaJobRequest(value.media);
 
   return {
     id: value.id,
@@ -258,5 +349,6 @@ export function normalizeJobRecord(value: unknown): JobRecord | null {
     attempts: typeof value.attempts === 'number' ? value.attempts : 0,
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     ...(value.cancelRequested === true ? { cancelRequested: true } : {}),
+    ...(media === undefined ? {} : { media }),
   };
 }

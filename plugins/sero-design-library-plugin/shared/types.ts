@@ -250,7 +250,10 @@ function normalizeJob(value: unknown): JobSummary | null {
   const status = value.status;
   return {
     id: value.id,
-    kind: value.kind === 'ingest' || value.kind === 'generate' ? value.kind : 'analysis',
+    kind:
+      value.kind === 'ingest' || value.kind === 'generate' || value.kind === 'media'
+        ? value.kind
+        : 'analysis',
     status:
       status === 'running' || status === 'succeeded' || status === 'failed' || status === 'cancelled'
         ? status

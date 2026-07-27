@@ -15,6 +15,8 @@ import { resumePendingVariants, startPendingVariants } from './designs';
 import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
+import { MediaQueue, type MediaQueueContext } from './media/queue';
+import { MediaRequests, isMediaRequest } from './media/requests';
 import { destroyItem, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
@@ -33,12 +35,16 @@ export interface CoordinatorContext {
   workspaceId: string;
   sessionId: string;
   onError(message: string, error: unknown): void;
+  /** Test and fault-injection seam; defaults to the shipped fal adapter. */
+  createMediaProvider?: MediaQueueContext['createProvider'];
 }
 
 export class Coordinator {
   private readonly queue: AnalysisQueue;
   private readonly variants: VariantQueue;
   private readonly designs: DesignRequests;
+  private readonly mediaQueue: MediaQueue;
+  private readonly media: MediaRequests;
   private draining = false;
   private drainAgain = false;
 
@@ -53,6 +59,19 @@ export class Coordinator {
     this.queue = new AnalysisQueue(shared);
     this.variants = new VariantQueue(shared);
     this.designs = new DesignRequests(context.paths, this.variants);
+    this.mediaQueue = new MediaQueue({
+      host: context.host,
+      paths: context.paths,
+      onError: context.onError,
+      // A generated Library item starts analysing itself, as an imported one
+      // does. The kick-off stays here rather than in the queue, so there is one
+      // place that decides when a new item starts being looked at.
+      onItemCreated: (itemId) => this.startAnalysis(itemId, true),
+      ...(context.createMediaProvider === undefined
+        ? {}
+        : { createProvider: context.createMediaProvider }),
+    });
+    this.media = new MediaRequests(context.paths, this.mediaQueue);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -72,12 +91,13 @@ export class Coordinator {
   }
 
   async dispose(): Promise<void> {
-    await Promise.all([this.queue.dispose(), this.variants.dispose()]);
+    await Promise.all([this.queue.dispose(), this.variants.dispose(), this.mediaQueue.dispose()]);
   }
 
   private route(kind: JobKind, jobId: string): void {
     if (kind === 'analysis') this.queue.enqueue(jobId);
     if (kind === 'generate') this.variants.enqueue(jobId);
+    if (kind === 'media') this.mediaQueue.enqueue(jobId);
   }
 
   /**
@@ -142,6 +162,14 @@ export class Coordinator {
     // own module; everything else is here.
     if (isDesignRequest(body)) {
       await this.designs.apply(body, requestId);
+      return;
+    }
+
+    // Media has its own module for the same reason the Design surface does, and
+    // hands back any item it created so the analysis kick-off stays in one place.
+    if (isMediaRequest(body)) {
+      const { analyse } = await this.media.apply(body);
+      if (analyse !== undefined) await this.startAnalysis(analyse, true);
       return;
     }
 

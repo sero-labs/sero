@@ -34,8 +34,17 @@ export async function reserveAsset(
   designId: string,
   request: StoredMediaRequest,
   context: { jobId?: string; originVariantId?: string } = {},
+  /**
+   * The id to use, when the caller allocated one.
+   *
+   * An explicit action allocates it before the request is logged, so applying
+   * that request twice finds the asset already there instead of reserving a
+   * second one — and paying for it. A tool call inside a run has no such
+   * problem and lets one be minted here.
+   */
+  assetId?: string,
 ): Promise<DesignAsset | null> {
-  const id = randomUUID();
+  const id = assetId ?? randomUUID();
   const now = Date.now();
   const asset: DesignAsset = {
     id,

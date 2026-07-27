@@ -10,6 +10,7 @@
 
 import type { DesignBrief } from './design';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
+import type { MediaCapability, StoredMediaRequest } from './media';
 import type { DesignLibrarySettings, RevisionBehaviour } from './settings';
 import type { ConflictResolution } from './synthesis';
 import type { ViewPatch } from './types';
@@ -77,6 +78,35 @@ export type LibraryRequestBody =
   /** End an editing session: one recoverable entry, however many changes it held. */
   | { kind: 'design.checkpoint-tweaks'; designId: string; variantId: string; revisionId: string }
   | { kind: 'design.restore-tweaks'; designId: string; variantId: string; revisionId: string; checkpointId: string }
+  /**
+   * Generate one asset into a Design's tray (spec §6.6, D5).
+   *
+   * The asset id is allocated by the caller, as a Design's is: the request log
+   * is applied at-least-once, and an id chosen by the handler would make a
+   * replay produce a second asset — and a second provider call to fill it.
+   */
+  | { kind: 'media.generate'; designId: string; assetId: string; request: StoredMediaRequest }
+  /** Try again for one asset, keeping its id, its reference and its history. */
+  | { kind: 'media.retry'; designId: string; assetId: string }
+  | { kind: 'media.delete'; designId: string; assetId: string; deleted: boolean }
+  | { kind: 'media.purge'; designId: string; assetId: string }
+  /** Make an independent Library item from a tray asset (spec §6.6). */
+  | { kind: 'media.copy-to-library'; designId: string; assetId: string }
+  /**
+   * Generate straight into the Library — Generate inspiration, or Restyle/vary
+   * when `sourceItemId` is set (D3). `slotId` is what the grid renders a pending
+   * tile against, and what makes a replayed request find its own job.
+   */
+  | {
+      kind: 'library.generate';
+      slotId: string;
+      capability: MediaCapability;
+      prompt: string;
+      sourceItemId?: string;
+      aspectRatio?: string;
+      seed?: number;
+      durationSeconds?: number;
+    }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -121,6 +151,12 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'design.reset-tweaks',
   'design.checkpoint-tweaks',
   'design.restore-tweaks',
+  'media.generate',
+  'media.retry',
+  'media.delete',
+  'media.purge',
+  'media.copy-to-library',
+  'library.generate',
   'settings.update',
   'view.set',
 ] as const;
