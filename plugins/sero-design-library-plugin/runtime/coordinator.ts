@@ -10,18 +10,8 @@ import { pendingRequests, readState, updateState, writeJsonFile } from '../share
 import type { DesignLibraryState } from '../shared/types';
 import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
-import { readDesign } from './design-store';
-import {
-  cancelDesignWork,
-  cancelVariant,
-  createDesign,
-  deleteDesign,
-  renameDesign,
-  restoreDesign,
-  resumePendingVariants,
-  retryVariant,
-  startPendingVariants,
-} from './designs';
+import { DesignRequests, isDesignRequest } from './design-requests';
+import { resumePendingVariants, startPendingVariants } from './designs';
 import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
@@ -48,6 +38,7 @@ export interface CoordinatorContext {
 export class Coordinator {
   private readonly queue: AnalysisQueue;
   private readonly variants: VariantQueue;
+  private readonly designs: DesignRequests;
   private draining = false;
   private drainAgain = false;
 
@@ -61,6 +52,7 @@ export class Coordinator {
     };
     this.queue = new AnalysisQueue(shared);
     this.variants = new VariantQueue(shared);
+    this.designs = new DesignRequests(context.paths, this.variants);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -145,6 +137,13 @@ export class Coordinator {
 
   private async apply(body: LibraryRequestBody, requestId: number): Promise<void> {
     const { paths } = this.context;
+
+    // The Design surface is the larger half of the request log and lives in its
+    // own module; everything else is here.
+    if (isDesignRequest(body)) {
+      await this.designs.apply(body, requestId);
+      return;
+    }
 
     switch (body.kind) {
       case 'ingest': {
@@ -256,71 +255,6 @@ export class Coordinator {
         return;
       }
 
-      case 'design.create': {
-        const outcome = await createDesign(paths, {
-          designId: body.designId,
-          title: body.title,
-          brief: body.brief,
-          referenceItemIds: body.referenceItemIds,
-          resolutions: body.resolutions,
-          sessionRules: body.sessionRules ?? [],
-        });
-        // A refusal is thrown rather than swallowed so it reaches the runtime's
-        // error reporting; the request log has no channel back to the caller,
-        // and the tool has already checked the same conditions synchronously.
-        if (outcome.status === 'refused') throw new Error(outcome.reason);
-        await updateState(paths, (current) => ({
-          ...current,
-          view: {
-            ...current.view,
-            selectedDesignId: outcome.design.id,
-            activeVariantId: outcome.design.variants[0]?.id,
-          },
-        }));
-        for (const jobId of await startPendingVariants(paths, outcome.design.id)) {
-          this.variants.enqueue(jobId);
-        }
-        return;
-      }
-
-      case 'design.rename': {
-        await renameDesign(paths, body.designId, body.title);
-        return;
-      }
-
-      case 'design.retry-variant': {
-        // The request id goes with it: applying a request and recording that it
-        // was applied are two writes, so a crash between them replays this one,
-        // and a retry that had already failed by then is retryable again. The
-        // variant remembers the last request it acted on and declines the repeat.
-        const jobId = await retryVariant(paths, body.designId, body.variantId, requestId);
-        if (jobId !== null) this.variants.enqueue(jobId);
-        return;
-      }
-
-      case 'design.cancel-variant': {
-        await this.stopVariant(body.designId, body.variantId);
-        return;
-      }
-
-      case 'design.delete': {
-        // Work stops before the record is hidden: a run that finishes afterwards
-        // would write a revision into a Design the user has thrown away.
-        // Aborting only asks it to stop, so each run is waited out — its last
-        // writes land a tick later, after the abort call has returned.
-        for (const jobId of await cancelDesignWork(paths, body.designId)) {
-          await this.variants.cancel(jobId);
-          await this.variants.settled(jobId);
-        }
-        await deleteDesign(paths, body.designId);
-        return;
-      }
-
-      case 'design.restore': {
-        await restoreDesign(paths, body.designId);
-        return;
-      }
-
       case 'settings.update': {
         await updateState(paths, (current) => ({
           ...current,
@@ -385,22 +319,6 @@ export class Coordinator {
       analysis: { ...current.analysis, status: 'pending', jobId: job.id, error: undefined },
     }));
     this.queue.enqueue(job.id);
-  }
-
-  /**
-   * Stop one variant. The job is asked to cancel before the queue aborts it, so a
-   * run that had not started yet still finds the request when it does.
-   */
-  private async stopVariant(designId: string, variantId: string): Promise<void> {
-    const design = await readDesign(this.context.paths, designId);
-    const jobId = design?.variants.find((variant) => variant.id === variantId)?.jobId;
-    if (jobId !== undefined) {
-      await requestCancel(this.context.paths, jobId);
-      await this.variants.cancel(jobId);
-    }
-    // Also written directly: a variant that never had a job — cancelled before
-    // the runtime got to it — has nobody else to move it out of `pending`.
-    await cancelVariant(this.context.paths, designId, variantId);
   }
 
   private async cancelAnalysis(itemId: string, options: { wait?: boolean } = {}): Promise<void> {

@@ -36,9 +36,25 @@ export interface PreviewFrameProps {
   /** Recorded at build time — refused imports, stripped remote references. */
   buildWarnings: string[];
   title: string;
+  /**
+   * Effective tweak values, keyed by custom property (spec §6.5). Sent into the
+   * frame as plain values — never CSS — and only ever for properties this
+   * revision's own manifest declared, which the document itself enforces.
+   */
+  tweakValues?: Record<string, string>;
+  /** The inspector is hidden; the toggle for it lives with the other controls. */
+  focused?: boolean;
+  onFocus?: () => void;
 }
 
-export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps) {
+export function PreviewFrame({
+  target,
+  buildWarnings,
+  title,
+  tweakValues,
+  focused,
+  onFocus,
+}: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
   const [viewport, setViewport] = useState<Viewport>(VIEWPORTS[0] as Viewport);
@@ -72,9 +88,46 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
       loads.current = 0;
       announced.current = false;
       blanked.current = false;
+      // A fresh document is back at its own defaults, so nothing has been sent
+      // to it yet — whatever the last one was holding does not carry over.
+      applied.current = {};
     }
     frame.current = element;
   }, []);
+
+  /**
+   * What the document has already been told, so a drag sends one value per
+   * change rather than the whole manifest per frame.
+   */
+  const applied = useRef<Record<string, string>>({});
+
+  const sendTweaks = useCallback((values: Record<string, string>) => {
+    const target = frame.current?.contentWindow;
+    if (!target || !announced.current) return;
+    for (const [cssVariable, value] of Object.entries(values)) {
+      if (applied.current[cssVariable] === value) continue;
+      applied.current[cssVariable] = value;
+      // `*` rather than an origin: the frame is sandboxed without
+      // `allow-same-origin`, so its origin is opaque and matches nothing. The
+      // frame checks the sender, the message shape and its own manifest, which
+      // is where the guarantee actually lives.
+      target.postMessage(
+        { source: PREVIEW_MESSAGE_SOURCE, kind: 'tweak', cssVariable, value },
+        '*',
+      );
+    }
+  }, []);
+
+  const values = tweakValues ?? {};
+  const tweakSignature = JSON.stringify(values);
+  // Held in a ref for the `ready` handler, which fires from the frame's own
+  // timeline rather than from a render. Written in an effect rather than during
+  // render: React may replay or discard a render, and a value written from one
+  // that never committed would be sent into the page.
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [tweakSignature, values]);
 
   const report = (message: PreviewMessage) =>
     setRuntimeMessages((current) =>
@@ -97,6 +150,10 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
       if (!isPreviewMessage(event.data)) return;
       if (event.data.kind === 'ready') {
         announced.current = true;
+        // The values are applied on top of a freshly loaded document, so a
+        // reload — or coming back to a variant edited earlier — restores exactly
+        // what was on screen rather than the design's own defaults.
+        sendTweaks(valuesRef.current);
         return;
       }
       report(event.data);
@@ -108,7 +165,17 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
     };
     // A reload replaces the document, so what the old one reported no longer
     // describes what is on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, reloads]);
+
+  // A control moving is a change to a live document, which is an imperative
+  // handle rather than something React can render — so it goes out from here.
+  useEffect(() => {
+    sendTweaks(values);
+    // The signature changes exactly when a value does; the object it describes
+    // is rebuilt on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tweakSignature, sendTweaks]);
 
   /**
    * The backstop for the one escape in-page code cannot block: `window.location`
@@ -212,8 +279,10 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
           viewport={viewport}
           scale={scale}
           paneWidth={pane.width}
+          {...(focused === undefined ? {} : { focused })}
           onViewport={setViewport}
           onReload={() => setReloads((count) => count + 1)}
+          {...(onFocus === undefined ? {} : { onFocus })}
         />
       </div>
 

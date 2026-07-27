@@ -1,4 +1,4 @@
-import { PREVIEW_CSP, PREVIEW_HARNESS } from './harness';
+import { PREVIEW_CSP, buildPreviewHarness } from './harness';
 
 /**
  * Assembling the one file a preview runs from.
@@ -28,6 +28,11 @@ export interface PreviewDocumentInput {
   body: string;
   /** Extra `<head>` content the target needs — the Tailwind compiler, say. */
   head?: string;
+  /**
+   * Custom properties this revision's tweak manifest declared. The document
+   * accepts a live value for these and for nothing else (spec §6.5).
+   */
+  tweakVariables?: readonly string[];
 }
 
 /**
@@ -54,7 +59,7 @@ export function assemblePreviewDocument(input: PreviewDocumentInput): string {
 <meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">
 <title>${escapeHtml(input.title)}</title>
 <script>
-${forInlineScript(PREVIEW_HARNESS)}
+${forInlineScript(buildPreviewHarness(input.tweakVariables ?? []))}
 </script>
 ${input.head ?? ''}
 ${styles === '' ? '' : `<style>\n${styles}\n</style>`}

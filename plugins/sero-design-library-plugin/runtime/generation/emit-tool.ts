@@ -37,15 +37,32 @@ export interface EmitFileTool {
   files(): EmittedFile[];
   /** Names of files the tool refused, so the run can explain a thin result. */
   refusals(): string[];
+  /**
+   * Whether this run wrote anything of its own.
+   *
+   * Only meaningful for a revise, where the tool starts holding the previous
+   * revision's files: `files()` is non-empty from the first moment, so it can no
+   * longer answer "did the model produce anything". A revise that wrote nothing
+   * has not revised — it has agreed with itself — and storing that as a new
+   * revision would put an identical page in the history under an instruction it
+   * never carried out.
+   */
+  touched(): string[];
 }
 
 function byteLength(content: string): number {
   return Buffer.byteLength(content, 'utf8');
 }
 
-export function createEmitFileTool(target: OutputTarget): EmitFileTool {
+/**
+ * @param seed Files the run starts from — the revision being revised. A file the
+ * model never rewrites is carried through unchanged, so a revise can change one
+ * stylesheet without restating the markup.
+ */
+export function createEmitFileTool(target: OutputTarget, seed: EmittedFile[] = []): EmitFileTool {
   const contract = TARGET_CONTRACTS[target];
-  const written = new Map<string, string>();
+  const written = new Map<string, string>(seed.map((file) => [file.name, file.content]));
+  const touched = new Set<string>();
   const refused: string[] = [];
 
   const reject = (message: string, name: string) => {
@@ -60,7 +77,11 @@ export function createEmitFileTool(target: OutputTarget): EmitFileTool {
   const definition: ToolDefinition = {
     name: 'design_library_write_file',
     label: 'Write Design File',
-    description: `Writes one file of the design you are producing. Call it once per file. The entry point must be \`${contract.entry}\`. Allowed file types: ${contract.extensions.join(', ')}. Writing the same name twice replaces the earlier contents.`,
+    description: `Writes one file of the design you are producing. Call it once per file. The entry point must be \`${contract.entry}\`. Allowed file types: ${contract.extensions.join(', ')}. Writing the same name twice replaces the earlier contents.${
+      seed.length === 0
+        ? ''
+        : ` This design already has ${seed.map((file) => `\`${file.name}\``).join(', ')} — write the complete new contents of each file you are changing, and leave the rest alone.`
+    }`,
     promptSnippet: `design_library_write_file — writes one file of the design (entry: ${contract.entry})`,
     parameters: Type.Object({
       name: Type.String({ description: `File name, e.g. \`${contract.entry}\`. No directories.` }),
@@ -112,6 +133,7 @@ export function createEmitFileTool(target: OutputTarget): EmitFileTool {
       }
 
       written.set(name, content);
+      touched.add(name);
       return {
         content: [
           {
@@ -128,6 +150,7 @@ export function createEmitFileTool(target: OutputTarget): EmitFileTool {
     definition,
     files: () => [...written].map(([name, content]) => ({ name, content })),
     refusals: () => [...refused],
+    touched: () => [...touched],
   };
 }
 

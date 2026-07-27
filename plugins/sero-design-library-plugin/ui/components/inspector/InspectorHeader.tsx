@@ -2,6 +2,7 @@ import { Button } from '@sero-ai/ui';
 import { RotateCw, Star, Trash2, X } from 'lucide-react';
 
 import type { ItemSummary } from '../../../shared/types';
+import { relativeTime } from '../../lib/time';
 
 /**
  * The panel header, as the prototype has it: the Librarian's confidence as a
@@ -21,18 +22,6 @@ interface InspectorHeaderProps {
   onReanalyse(): void;
   onDelete(): void;
   onClose(): void;
-}
-
-const MINUTE = 60 * 1000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-function relativeTime(timestamp: number, now: number): string {
-  const elapsed = now - timestamp;
-  if (elapsed < MINUTE) return 'just now';
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
-  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
-  return `${Math.floor(elapsed / DAY)}d ago`;
 }
 
 export function InspectorHeader({

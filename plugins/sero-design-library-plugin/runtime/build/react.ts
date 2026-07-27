@@ -72,6 +72,8 @@ export interface ReactBuildOptions {
   resolvePackage?: (specifier: string) => string;
   /** Overridden in tests to avoid inlining a 260 KB compiler into a fixture. */
   tailwindRuntime?: () => Promise<string>;
+  /** Custom properties the document will accept a live tweak value for. */
+  tweakVariables?: readonly string[];
 }
 
 async function readTailwindRuntime(): Promise<string> {
@@ -225,6 +227,7 @@ export async function buildReactDocument(
           ? ''
           : `<style type="text/tailwindcss">\n${custom.replace(/<\/style/gi, '<\\/style')}\n</style>`,
       body: '<div id="root"></div>',
+      tweakVariables: options.tweakVariables ?? [],
     }),
     warnings,
   };

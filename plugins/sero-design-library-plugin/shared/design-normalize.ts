@@ -16,6 +16,7 @@ import type {
   DesignVariant,
   InspirationStrength,
   OutputTarget,
+  PendingRevision,
   ResolvedConflict,
   VariantStatus,
   VariationMode,
@@ -24,10 +25,14 @@ import {
   DEFAULT_VARIANTS,
   DESIGN_SCHEMA_VERSION,
   MAX_REFERENCES,
+  MAX_TWEAK_CHECKPOINTS,
   MAX_VARIANTS,
   MIN_VARIANTS,
 } from './design';
 import { isSafeId } from './paths';
+import type { RevisionTweakState } from './design';
+import type { TweakCheckpoint } from './tweaks';
+import { normalizeTweakOverrides } from './tweaks';
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -92,6 +97,32 @@ function normalizeRevisionFile(value: unknown): DesignRevisionFile | null {
   return { name: value.name, bytes: num(value.bytes, 0) };
 }
 
+function normalizeCheckpoint(value: unknown): TweakCheckpoint | null {
+  if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  return { id: value.id, at: num(value.at, 0), overrides: normalizeTweakOverrides(value.overrides) };
+}
+
+/**
+ * Tweak state, or undefined when the revision has none. An absent state and an
+ * empty one mean the same thing, so the empty case is dropped rather than
+ * written back — it keeps an untouched revision's record identical to the one the
+ * generation run wrote.
+ */
+function normalizeTweakState(value: unknown): RevisionTweakState | undefined {
+  if (!isRecordObject(value)) return undefined;
+  const overrides = normalizeTweakOverrides(value.overrides);
+  const checkpoints = Array.isArray(value.checkpoints)
+    ? value.checkpoints
+        .flatMap((entry) => {
+          const checkpoint = normalizeCheckpoint(entry);
+          return checkpoint === null ? [] : [checkpoint];
+        })
+        .slice(-MAX_TWEAK_CHECKPOINTS)
+    : [];
+  if (Object.keys(overrides).length === 0 && checkpoints.length === 0) return undefined;
+  return { overrides, checkpoints };
+}
+
 function normalizeRevision(value: unknown): DesignRevision | null {
   if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
   // The id names the revision's directory. One carrying a separator or a
@@ -110,6 +141,8 @@ function normalizeRevision(value: unknown): DesignRevision | null {
   // selector.
   if (files.length === 0) return null;
 
+  const tweaks = normalizeTweakState(value.tweaks);
+
   return {
     id: value.id,
     createdAt: num(value.createdAt, 0),
@@ -122,8 +155,32 @@ function normalizeRevision(value: unknown): DesignRevision | null {
     ...(typeof value.tweakManifestFile === 'string' && isSafeId(value.tweakManifestFile)
       ? { tweakManifestFile: value.tweakManifestFile }
       : {}),
+    ...(tweaks === undefined ? {} : { tweaks }),
+    ...(typeof value.supersededAt === 'number' ? { supersededAt: value.supersededAt } : {}),
     summary: str(value.summary),
     name: str(value.name),
+  };
+}
+
+/**
+ * A revise that is owed. Dropped when its instruction is empty or the revision
+ * it was to start from is gone — either way the run would not be the revise the
+ * user asked for, and generating something else in its place is worse than
+ * having asked again.
+ */
+function normalizePendingRevision(
+  value: unknown,
+  revisions: DesignRevision[],
+): PendingRevision | null {
+  if (!isRecordObject(value)) return null;
+  const instruction = str(value.instruction).trim();
+  const baseRevisionId = str(value.baseRevisionId);
+  if (instruction === '') return null;
+  if (!revisions.some((revision) => revision.id === baseRevisionId)) return null;
+  return {
+    instruction,
+    behaviour: value.behaviour === 'retain' ? 'retain' : 'replace',
+    baseRevisionId,
   };
 }
 
@@ -142,6 +199,8 @@ function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant 
   // A pointer at a revision that did not survive validation is worse than no
   // pointer: `visibleRevision` would fall through to the newest anyway, and
   // keeping the dangling id invites a later reader to trust it.
+  const pendingRevision = normalizePendingRevision(value.pendingRevision, revisions);
+
   const visible =
     typeof value.visibleRevisionId === 'string' &&
     revisions.some((revision) => revision.id === value.visibleRevisionId)
@@ -163,6 +222,7 @@ function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant 
     ...(typeof value.referenceItemId === 'string'
       ? { referenceItemId: value.referenceItemId }
       : {}),
+    ...(pendingRevision === null ? {} : { pendingRevision }),
     // Request ids are positive integers counting up. Anything else compares
     // unpredictably against the next one and would either wave a replay through
     // or refuse every future retry.

@@ -35,14 +35,38 @@ const ACTIONS = [
   'rename',
   'retry-variant',
   'cancel-variant',
+  'revise-variant',
+  'show-revision',
+  'delete-revision',
   'delete',
   'restore',
+  'set-tweak',
+  'reset-tweak',
+  'reset-tweaks',
+  'checkpoint-tweaks',
+  'restore-tweaks',
 ] as const;
 
-const DESIGN_ID_ACTIONS: readonly string[] = [
-  'get', 'open', 'rename', 'retry-variant', 'cancel-variant', 'delete', 'restore',
+/** Tweaks address a revision, because that is what a manifest belongs to. */
+const TWEAK_ACTIONS: readonly string[] = [
+  'set-tweak',
+  'reset-tweak',
+  'reset-tweaks',
+  'checkpoint-tweaks',
+  'restore-tweaks',
 ];
-const VARIANT_ID_ACTIONS: readonly string[] = ['retry-variant', 'cancel-variant'];
+
+/** Actions that name one revision of one variant. */
+const REVISION_ACTIONS: readonly string[] = ['show-revision', 'delete-revision', ...TWEAK_ACTIONS];
+
+const DESIGN_ID_ACTIONS: readonly string[] = [
+  'get', 'open', 'rename', 'retry-variant', 'cancel-variant', 'revise-variant', 'delete', 'restore',
+  ...REVISION_ACTIONS,
+];
+const VARIANT_ID_ACTIONS: readonly string[] = [
+  'retry-variant', 'cancel-variant', 'revise-variant',
+  ...REVISION_ACTIONS,
+];
 
 async function readReferences(
   paths: DesignLibraryPaths,
@@ -120,7 +144,7 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
     name: 'design_library_designs',
     label: 'Design Library Designs',
     description:
-      'Read Design Library designs and start new ones from named references. Reference order matters — the first is primary and leads the visual direction. Use `synthesis` first to see the combined guardrails and any conflict that must be resolved before `create` will run.',
+      'Read Design Library designs, start new ones from named references, and revise what they produced. To start one from a reference the user named, find its id with `design_library_items` (action `search`) first — a Design is created from ids, and reference order matters because the first one leads the visual direction. Then call `synthesis` to see the combined guardrails and any conflict that must be resolved before `create` will run. Use `revise-variant` to change a result that already exists rather than `create` to make another one.',
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which design operation to perform' }),
       designId: Type.Optional(Type.String()),
@@ -151,6 +175,24 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         }),
       ),
       includeDeleted: Type.Optional(Type.Boolean({ description: 'Include Designs in Trash in `list`' })),
+      revisionId: Type.Optional(
+        Type.String({ description: 'Revision to show, delete, or set a tweak on' }),
+      ),
+      instruction: Type.Optional(
+        Type.String({ description: 'What to change, for `revise-variant`' }),
+      ),
+      behaviour: Type.Optional(
+        StringEnum(['replace', 'retain'] as const, {
+          description: 'Whether a revise replaces the visible revision or joins it',
+        }),
+      ),
+      controlId: Type.Optional(Type.String({ description: 'Tweak control id from the manifest' })),
+      value: Type.Optional(
+        Type.String({ description: 'New value for the control, as text (e.g. `34`, `#16805f`)' }),
+      ),
+      checkpointId: Type.Optional(
+        Type.String({ description: 'Tweak checkpoint to restore, for `restore-tweaks`' }),
+      ),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       const needsDesign = DESIGN_ID_ACTIONS.includes(params.action);
@@ -162,6 +204,12 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
       const checkedVariant = needsVariant ? checkId(params.variantId, 'variant id') : null;
       if (checkedVariant && 'error' in checkedVariant) return checkedVariant.error;
       const variantId = checkedVariant && 'id' in checkedVariant ? checkedVariant.id : '';
+
+      const needsRevision = REVISION_ACTIONS.includes(params.action);
+      const checkedRevision = needsRevision ? checkId(params.revisionId, 'revision id') : null;
+      if (checkedRevision && 'error' in checkedRevision) return checkedRevision.error;
+      const revisionId = checkedRevision && 'id' in checkedRevision ? checkedRevision.id : '';
+      const tweakTarget = { designId, variantId, revisionId };
 
       switch (params.action) {
         case 'list': {
@@ -276,6 +324,89 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         case 'restore': {
           await appendRequest(paths, { kind: 'design.restore', designId });
           return text('Restored.');
+        }
+
+        case 'revise-variant': {
+          const instruction = (params.instruction ?? '').trim();
+          if (instruction === '') {
+            return failure('`revise-variant` needs an instruction saying what to change.');
+          }
+          const state = await readState(paths);
+          const behaviour = params.behaviour ?? state.settings.generation.revisionBehaviour;
+          await appendRequest(paths, {
+            kind: 'design.revise-variant',
+            designId,
+            variantId,
+            instruction,
+            behaviour,
+          });
+          return text(
+            behaviour === 'replace'
+              ? 'Revising. The result will replace what is on screen; the current one stays in history.'
+              : 'Revising. The result joins this variant as another revision.',
+          );
+        }
+
+        case 'show-revision': {
+          await appendRequest(paths, {
+            kind: 'design.set-visible-revision',
+            designId,
+            variantId,
+            revisionId,
+          });
+          return text('Showing that revision.');
+        }
+
+        case 'delete-revision': {
+          await appendRequest(paths, {
+            kind: 'design.delete-revision',
+            designId,
+            variantId,
+            revisionId,
+          });
+          return text('Deleted that revision and the files it held.');
+        }
+
+        case 'set-tweak': {
+          if (!params.controlId) return failure('`set-tweak` needs a controlId.');
+          if (params.value === undefined) return failure('`set-tweak` needs a value.');
+          await appendRequest(paths, {
+            kind: 'design.set-tweak',
+            ...tweakTarget,
+            controlId: params.controlId,
+            value: params.value,
+          });
+          return text('Applied.');
+        }
+
+        case 'reset-tweak': {
+          if (!params.controlId) return failure('`reset-tweak` needs a controlId.');
+          await appendRequest(paths, {
+            kind: 'design.reset-tweak',
+            ...tweakTarget,
+            controlId: params.controlId,
+          });
+          return text('Back to the value this design shipped with.');
+        }
+
+        case 'reset-tweaks': {
+          await appendRequest(paths, { kind: 'design.reset-tweaks', ...tweakTarget });
+          return text('All controls reset. The previous values are recoverable.');
+        }
+
+        case 'checkpoint-tweaks': {
+          await appendRequest(paths, { kind: 'design.checkpoint-tweaks', ...tweakTarget });
+          return text('Checkpointed.');
+        }
+
+        case 'restore-tweaks': {
+          if (!params.checkpointId) return failure('`restore-tweaks` needs a checkpointId.');
+          await appendRequest(paths, {
+            kind: 'design.restore-tweaks',
+            ...tweakTarget,
+            checkpointId: params.checkpointId,
+          });
+          return text('Restored those values.');
         }
       }
     },

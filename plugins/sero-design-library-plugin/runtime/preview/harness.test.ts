@@ -303,7 +303,9 @@ describe('a page that cannot be talked out of its guards', () => {
   });
 
   it('accepts a plain value for a custom property from its parent', () => {
-    const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }]);
+    const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }], [
+      '--signal',
+    ]);
     const preview = load(built.document!);
 
     preview.window.dispatchEvent(
@@ -322,6 +324,31 @@ describe('a page that cannot be talked out of its guards', () => {
     // value. Never a selector, a stylesheet or code.
     expect(preview.window.document.documentElement.style.getPropertyValue('--signal')).toBe(
       '#34d399',
+    );
+  });
+
+  it('refuses a property this revision never declared a control for', () => {
+    const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }], [
+      '--signal',
+    ]);
+    const preview = load(built.document!);
+
+    for (const cssVariable of ['--paper', '--signal-strong']) {
+      preview.window.dispatchEvent(
+        new preview.window.MessageEvent('message', {
+          source: preview.window.parent,
+          data: { source: 'sero-design-preview', kind: 'tweak', cssVariable, value: '#000000' },
+        }),
+      );
+    }
+
+    // The manifest is the allow-list, and it is baked into the document. A
+    // property the run never declared a control for is refused even though the
+    // parent asked for it — including one that merely starts with a declared
+    // name, which a prefix check would have let through.
+    expect(preview.window.document.documentElement.style.getPropertyValue('--paper')).toBe('');
+    expect(preview.window.document.documentElement.style.getPropertyValue('--signal-strong')).toBe(
+      '',
     );
   });
 

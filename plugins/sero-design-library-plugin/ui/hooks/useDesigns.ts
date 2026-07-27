@@ -3,6 +3,7 @@ import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { useCallback, useMemo } from 'react';
 
 import type { DesignBrief, DesignRecord } from '../../shared/design';
+import type { LayoutSettings, RevisionBehaviour } from '../../shared/settings';
 import type { ConflictResolution, GuardrailSynthesis } from '../../shared/synthesis';
 import type { DesignLibraryState, DesignSummary } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
@@ -38,7 +39,19 @@ export interface DesignActions {
   read(designId: string): Promise<DesignRecord | null>;
   retryVariant(designId: string, variantId: string): Promise<void>;
   cancelVariant(designId: string, variantId: string): Promise<void>;
+  /** Another run on this variant, carrying what to change (spec §6.4). */
+  reviseVariant(
+    designId: string,
+    variantId: string,
+    instruction: string,
+    behaviour: RevisionBehaviour,
+  ): Promise<void>;
+  showRevision(designId: string, variantId: string, revisionId: string): Promise<void>;
   remove(designId: string): Promise<void>;
+  /** Panel width and rail state, persisted like every other preference. */
+  setLayout(patch: Partial<LayoutSettings>): Promise<void>;
+  /** The default a revise takes, answered on the revise bar and remembered. */
+  setRevisionBehaviour(behaviour: RevisionBehaviour): Promise<void>;
 }
 
 export interface Designs {
@@ -110,8 +123,22 @@ export function useDesigns(): Designs {
       cancelVariant: async (designId, variantId) => {
         await run({ action: 'cancel-variant', designId, variantId });
       },
+      reviseVariant: async (designId, variantId, instruction, behaviour) => {
+        await run({ action: 'revise-variant', designId, variantId, instruction, behaviour });
+      },
+      showRevision: async (designId, variantId, revisionId) => {
+        await run({ action: 'show-revision', designId, variantId, revisionId });
+      },
       remove: async (designId) => {
         await run({ action: 'delete', designId });
+      },
+      setLayout: async (patch) => {
+        // `set-layout` fills in whichever key is absent from the stored value,
+        // so a partial patch is safe here in a way `settings.update` is not.
+        await tools.run('design_library_settings', { action: 'set-layout', ...patch });
+      },
+      setRevisionBehaviour: async (revisionBehaviour) => {
+        await tools.run('design_library_settings', { action: 'set-generation', revisionBehaviour });
       },
     }),
     [run, tools],

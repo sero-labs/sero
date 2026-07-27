@@ -1,16 +1,21 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-
 import type { AppRuntimeHost } from '@sero-ai/common';
 
-import type { DesignRecord, DesignRevision, DesignVariant } from '../../shared/design';
+import type {
+  DesignRecord,
+  DesignRevision,
+  DesignVariant,
+  PendingRevision,
+} from '../../shared/design';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { revisionDir } from '../../shared/paths';
 import type { JobRecord } from '../../shared/records';
 import { readState } from '../../shared/state-io';
 import type { EmittedFile } from '../../shared/targets';
-import { PREVIEW_DOCUMENT_FILE, buildPreviewDocument } from '../build';
+import {
+  applyRevisionBehaviour,
+  readRevisionSource,
+  storeRevisionFiles,
+  type RevisionNaming,
+} from './revision-files';
 import { mutateVariant, readDesign } from '../design-store';
 import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
 import { readJob } from '../store';
@@ -208,16 +213,38 @@ export class VariantQueue {
     const recipe = state.settings.generation.recipes.find(
       (entry) => entry.id === design.brief.recipeId,
     );
-    const references = await collectReferenceLanguage(paths, design);
+    // Two independent reads. A revise carries the page it is editing, read from
+    // the record rather than held from the request that asked for it, so it
+    // survives a restart between the ask and the run.
+    const [references, revise] = await Promise.all([
+      collectReferenceLanguage(paths, design),
+      readRevisionSource(paths, design, variant),
+    ]);
+    if (variant.pendingRevision !== undefined && revise === null) {
+      await this.fail(
+        jobId,
+        target,
+        'The revision this change was to start from is no longer there, so there was nothing to revise.',
+      );
+      await this.clearPendingRevision(target);
+      return;
+    }
 
-    const outcome = await runGeneration(design, variant, references, recipe, {
-      host: this.context.host,
-      paths,
-      workspaceId: this.context.workspaceId,
-      parentSessionId: this.context.sessionId,
-      model: state.settings.designModel,
-      signal: controller.signal,
-    });
+    const outcome = await runGeneration(
+      design,
+      variant,
+      references,
+      recipe,
+      {
+        host: this.context.host,
+        paths,
+        workspaceId: this.context.workspaceId,
+        parentSessionId: this.context.sessionId,
+        model: state.settings.designModel,
+        signal: controller.signal,
+      },
+      revise ?? undefined,
+    );
 
     if (outcome.status === 'cancelled') {
       // Shutting down is not cancelling. Both arrive here as an aborted run, and
@@ -226,7 +253,16 @@ export class VariantQueue {
       // `running`, so nothing ever looks at it again. Leaving the job as it is
       // hands it back to reconciliation, which is what §6.7's "resumable work
       // continues after restart" requires.
+      //
+      // The instruction is left alone here for the same reason. Clearing it
+      // before this check would mean quitting Sero mid-revise came back to a
+      // variant that regenerates itself from the original brief — the one
+      // outcome a revise must never have.
       if (await this.abortedByShutdown(jobId)) return;
+      // An explicit stop does drop it: the next run on this variant is whatever
+      // the user asks for then, not the revise they just cancelled. A failure
+      // keeps it, so Retry repeats the change.
+      await this.clearPendingRevision(target);
       await this.finishCancelled(job);
       return;
     }
@@ -238,7 +274,27 @@ export class VariantQueue {
     await this.storeRevision(job, design, target, outcome.files, {
       name: outcome.name,
       summary: outcome.summary,
+      tweaks: outcome.tweaks,
+      ...(revise === null ? {} : { revision: variant.pendingRevision }),
     });
+  }
+
+  /**
+   * Write the revision, then finish the job, then point the variant at it.
+   *
+   * The order is forced: three files cannot be written atomically. Files first,
+   * because the record entry naming them must never be the thing that exists
+   * first; the job's terminal state next; the variant last. A crash anywhere
+   * leaves a state restart recovery can repair, and the orphaned revision
+   * directory is swept at startup.
+   */
+  private async clearPendingRevision(target: {
+    designId: string;
+    variantId: string;
+  }): Promise<void> {
+    await mutateVariant(this.context.paths, target.designId, target.variantId, (variant) =>
+      variant.pendingRevision === undefined ? null : { ...variant, pendingRevision: undefined },
+    );
   }
 
   /**
@@ -255,58 +311,30 @@ export class VariantQueue {
     design: DesignRecord,
     target: { designId: string; variantId: string },
     files: EmittedFile[],
-    naming: { name: string; summary: string },
+    naming: RevisionNaming & {
+      /** Present when this run was a revise; decides what happens to the old one. */
+      revision?: PendingRevision;
+    },
   ): Promise<void> {
     const { paths } = this.context;
-    const revisionId = randomUUID();
-    const directory = revisionDir(paths, target.designId, target.variantId, revisionId);
+    const { revision, built } = await storeRevisionFiles(
+      paths,
+      design,
+      target,
+      job.id,
+      files,
+      naming,
+    );
 
-    const built = await buildPreviewDocument(design.brief.target, files);
-
-    // Nothing renderable came out. The files are still worth keeping — they are
-    // what the user reads to see what went wrong — but the variant fails, because
-    // a build warning is a note about a page that works, not a substitute for one.
-    //
-    // The revision is recorded with no `builtFile`, which is what makes keeping
-    // them true: files nothing points at are unreachable from the UI and the
-    // startup sweep deletes them as orphans.
-    if (built.document === undefined) {
-      await this.writeFiles(directory, files);
+    if (!built) {
       await this.fail(
         job.id,
         target,
-        built.warnings.join(' ') || 'The design could not be built into a preview.',
-        {
-          id: revisionId,
-          createdAt: Date.now(),
-          jobId: job.id,
-          files: files.map((file) => ({
-            name: file.name,
-            bytes: Buffer.byteLength(file.content, 'utf8'),
-          })),
-          buildWarnings: built.warnings,
-          summary: naming.summary,
-          name: naming.name,
-        },
+        revision.buildWarnings.join(' ') || 'The design could not be built into a preview.',
+        revision,
       );
       return;
     }
-
-    await this.writeFiles(directory, [
-      ...files,
-      { name: PREVIEW_DOCUMENT_FILE, content: built.document },
-    ]);
-
-    const revision: DesignRevision = {
-      id: revisionId,
-      createdAt: Date.now(),
-      jobId: job.id,
-      files: files.map((file) => ({ name: file.name, bytes: Buffer.byteLength(file.content, 'utf8') })),
-      builtFile: PREVIEW_DOCUMENT_FILE,
-      buildWarnings: built.warnings,
-      summary: naming.summary,
-      name: naming.name,
-    };
 
     await markSucceeded(paths, job.id);
     await this.applyIfCurrent(
@@ -317,19 +345,17 @@ export class VariantQueue {
         status: 'ready',
         error: undefined,
         attempts: variant.attempts + 1,
-        revisions: [...variant.revisions, revision],
+        // `replace` retires the revision it was asked to replace; `retain` leaves
+        // it in the selector as a result of its own. Neither deletes anything —
+        // a superseded revision keeps its files and can be made visible again,
+        // which is what makes replacing recoverable (spec §6.4).
+        revisions: [...applyRevisionBehaviour(variant.revisions, naming.revision), revision],
         visibleRevisionId: revision.id,
+        pendingRevision: undefined,
         completedAt: Date.now(),
       }),
       'running',
     );
-  }
-
-  private async writeFiles(directory: string, files: EmittedFile[]): Promise<void> {
-    await mkdir(directory, { recursive: true });
-    for (const file of files) {
-      await writeFile(path.join(directory, file.name), file.content, 'utf8');
-    }
   }
 
   /**

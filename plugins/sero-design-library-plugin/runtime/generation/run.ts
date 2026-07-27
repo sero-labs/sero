@@ -6,9 +6,11 @@ import type { DesignLibraryPaths } from '../../shared/paths';
 import type { ModelSelection, PromptRecipe } from '../../shared/settings';
 import { modelSelectionIsEmpty } from '../../shared/settings';
 import type { EmittedFile } from '../../shared/targets';
+import type { TweakValidation } from '../../shared/tweaks-validate';
 import { readItem } from '../store';
 import { createEmitFileTool, refuseEmittedSet } from './emit-tool';
 import { createNameDesignTool } from './name-tool';
+import { createDeclareTweaksTool } from './tweaks-tool';
 import {
   buildGenerationRepair,
   buildGenerationSystemPrompt,
@@ -28,6 +30,9 @@ import {
 const REPAIR_ATTEMPTS = 2;
 const RUN_TIMEOUT_MS = 600_000;
 
+const UNCHANGED_REVISION =
+  'You have not changed anything. A revise has to write at least one file with `design_library_write_file` — the complete new contents of what you are changing.';
+
 export interface GenerationRunContext {
   host: AppRuntimeHost;
   paths: DesignLibraryPaths;
@@ -37,8 +42,28 @@ export interface GenerationRunContext {
   signal: AbortSignal;
 }
 
+/**
+ * A revise: the page as it stands, and what to change about it (spec §6.4).
+ *
+ * The run starts holding these files, so an instruction about the header does not
+ * make the model restate the rest of the page from memory — which is how a revise
+ * loses work nobody asked it to touch.
+ */
+export interface RevisionRequest {
+  instruction: string;
+  files: EmittedFile[];
+}
+
 export type GenerationOutcome =
-  | { status: 'ok'; files: EmittedFile[]; name: string; summary: string; refusals: string[] }
+  | {
+      status: 'ok';
+      files: EmittedFile[];
+      name: string;
+      summary: string;
+      refusals: string[];
+      /** Null when the run never declared any controls; see the note below. */
+      tweaks: TweakValidation | null;
+    }
   | { status: 'cancelled' }
   | { status: 'failed'; reason: string };
 
@@ -70,6 +95,7 @@ export async function runGeneration(
   references: ReferenceLanguage[],
   recipe: PromptRecipe | undefined,
   context: GenerationRunContext,
+  revision?: RevisionRequest,
 ): Promise<GenerationOutcome> {
   if (references.length === 0) {
     return {
@@ -79,23 +105,27 @@ export async function runGeneration(
     };
   }
 
-  const emitter = createEmitFileTool(design.brief.target);
+  const emitter = createEmitFileTool(design.brief.target, revision?.files ?? []);
   const namer = createNameDesignTool();
+  const tweaker = createDeclareTweaksTool(emitter.files);
+
+  const task = buildGenerationTask({
+    brief: design.brief,
+    guardrails: design.appliedGuardrails,
+    references,
+    variant,
+    variantCount: design.variants.length,
+    ...(recipe === undefined ? {} : { recipe }),
+    ...(revision === undefined ? {} : { revision }),
+  });
 
   const params: AppRuntimeSubagentRunParams = {
-    task: buildGenerationTask({
-      brief: design.brief,
-      guardrails: design.appliedGuardrails,
-      references,
-      variant,
-      variantCount: design.variants.length,
-      ...(recipe === undefined ? {} : { recipe }),
-    }),
+    task,
     systemPrompt: buildGenerationSystemPrompt(),
     parentSessionId: context.parentSessionId,
     workspaceId: context.workspaceId,
     platformTools: 'none',
-    customTools: [emitter.definition, namer.definition],
+    customTools: [emitter.definition, namer.definition, tweaker.definition],
     timeoutMs: RUN_TIMEOUT_MS,
     signal: context.signal,
     repair: {
@@ -103,11 +133,15 @@ export async function runGeneration(
       validate: () => {
         const problem = refuseEmittedSet(design.brief.target, emitter.files());
         if (problem) return buildGenerationRepair(problem);
-        return namer.naming() === null
-          ? buildGenerationRepair(
-              'You have not named the design. Call `design_library_name_design` with a two or three word name and one sentence on the direction you took.',
-            )
-          : null;
+        if (revision !== undefined && emitter.touched().length === 0) {
+          return buildGenerationRepair(UNCHANGED_REVISION);
+        }
+        if (namer.naming() === null) {
+          return buildGenerationRepair(
+            'You have not named the design. Call `design_library_name_design` with a two or three word name and one sentence on the direction you took.',
+          );
+        }
+        return tweakRepair(tweaker.result());
       },
     },
     ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
@@ -134,16 +168,49 @@ export async function runGeneration(
     };
   }
 
+  // A revise that wrote nothing has not revised. Accepting it would store a
+  // second, identical revision under an instruction it never carried out — and
+  // with `replace`, retire the original in favour of a copy of itself.
+  if (revision !== undefined && emitter.touched().length === 0) {
+    return { status: 'failed', reason: UNCHANGED_REVISION };
+  }
+
   // A run that wrote the files but never named them is survivable — the page
   // exists and renders — so the variant keeps its number rather than failing on
   // a label. Repair has already asked for the name twice by this point.
   const naming = namer.naming();
 
+  // Tweaks are survivable for the same reason, and it matters more here: the
+  // controls are an addition to a page that works without them. A revision with
+  // no manifest shows an empty Tweaks tab and can be revised into having one —
+  // failing the whole run over it would throw away the page as well.
   return {
     status: 'ok',
     files,
     name: naming?.name ?? '',
     summary: naming?.summary ?? '',
     refusals: emitter.refusals(),
+    tweaks: tweaker.result(),
   };
+}
+
+/**
+ * What to say about the tweak declaration, or null when it is fine.
+ *
+ * The second case is the one worth a follow-up: every control was dropped, which
+ * means the run declared properties its own page does not use. The tool already
+ * said which and why, so this only has to ask for the fix.
+ */
+function tweakRepair(result: TweakValidation | null): string | null {
+  if (result === null) {
+    return buildGenerationRepair(
+      'You have not declared any live controls. Call `design_library_declare_tweaks` with the handful of CSS custom properties worth adjusting on this page.',
+    );
+  }
+  if (result.manifest.controls.length === 0 && result.dropped.length > 0) {
+    return buildGenerationRepair(
+      'Every control you declared was dropped, so the page has none. Each one must bind to a custom property the page declares and reads through `var()` — add the properties to your CSS, then declare the controls again.',
+    );
+  }
+  return null;
 }

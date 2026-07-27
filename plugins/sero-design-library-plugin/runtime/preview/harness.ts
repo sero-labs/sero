@@ -52,9 +52,16 @@ export const PREVIEW_CSP = [
 /**
  * Written as a single string on purpose: it is inlined verbatim, so it must not
  * depend on a bundler, a module system, or anything the document does not carry.
+ *
+ * `allowedTweakVariables` are the custom properties this revision's own manifest
+ * declared (spec §6.5). They are baked into the document rather than sent to it,
+ * because the allow-list has to be the one thing the page cannot talk the frame
+ * out of: a list that arrived by message could be replaced by a message.
  */
-export const PREVIEW_HARNESS = `(function () {
+export function buildPreviewHarness(allowedTweakVariables: readonly string[] = []): string {
+  return `(function () {
   var SOURCE = ${JSON.stringify(PREVIEW_MESSAGE_SOURCE)};
+  var ALLOWED = ${JSON.stringify([...allowedTweakVariables])};
   var reported = Object.create(null);
 
   function report(kind, capability, detail) {
@@ -209,15 +216,18 @@ export const PREVIEW_HARNESS = `(function () {
   // string, from the window that put this document here. Nothing here evaluates a
   // selector, a stylesheet or code.
   //
-  // The manifest check — that the property belongs to a control *this revision*
-  // declared — lands with the tweaks panel that emits manifests. Until then the
-  // only sender is the surface holding the frame, which is why the source check
-  // below is what stands in for it, and why nothing may relax it in the meantime.
+  // Four things have to hold before a value is applied, and they are independent:
+  // the sender is the parent, the message is ours, the property is one *this
+  // revision's manifest declared*, and the value cannot close a declaration. The
+  // allow-list is the manifest check the spec requires — an undeclared property
+  // is refused even though the parent asked for it, so a manifest can never widen
+  // what the page exposes beyond what it actually declared.
   window.addEventListener('message', function (event) {
     if (event.source !== parent) return;
     var data = event.data;
     if (!data || data.source !== SOURCE || data.kind !== 'tweak') return;
     if (typeof data.cssVariable !== 'string' || !/^--[A-Za-z0-9_-]+$/.test(data.cssVariable)) return;
+    if (ALLOWED.indexOf(data.cssVariable) === -1) return;
     if (typeof data.value !== 'string' || data.value.length > 128) return;
     if (/[;{}()<>"'\\\\]/.test(data.value)) return;
     document.documentElement.style.setProperty(data.cssVariable, data.value);
@@ -232,3 +242,7 @@ export const PREVIEW_HARNESS = `(function () {
     announce();
   }
 })();`;
+}
+
+/** The harness with no tweak controls — every preview built before a manifest. */
+export const PREVIEW_HARNESS = buildPreviewHarness();

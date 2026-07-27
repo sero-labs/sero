@@ -28,7 +28,10 @@ function isRemote(reference: string): boolean {
   return /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(reference) || reference.startsWith('data:');
 }
 
-export function buildHtmlDocument(files: EmittedFile[]): BuildResult {
+export function buildHtmlDocument(
+  files: EmittedFile[],
+  tweakVariables: readonly string[] = [],
+): BuildResult {
   const warnings: string[] = [];
   const byName = new Map(files.map((file) => [file.name, file.content]));
   const entry = byName.get('index.html');
@@ -109,6 +112,7 @@ export function buildHtmlDocument(files: EmittedFile[]): BuildResult {
       styles: [...extractInlineStyles(head), ...inlinedStyles],
       scripts: inlinedScripts,
       body,
+      tweakVariables,
     }),
     warnings,
   };

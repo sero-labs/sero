@@ -103,6 +103,7 @@ describe('generating a variant', () => {
     expect((generation?.customTools ?? []).map((tool) => (tool as ToolDefinition).name)).toEqual([
       'design_library_write_file',
       'design_library_name_design',
+      'design_library_declare_tweaks',
     ]);
     // The Librarian's language, never the image: the analysis is the layer that
     // already excluded logos and recognisable compositions.
