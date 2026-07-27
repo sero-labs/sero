@@ -1,14 +1,14 @@
-import { Button, cn } from '@sero-ai/ui';
-import { ImagePlus, Palette } from 'lucide-react';
-import type { DesignLibraryPage } from '../types';
+import { cn } from '@sero-ai/ui';
+import { Palette } from 'lucide-react';
+import type { DesignLibraryPageId } from '../../shared/state';
 
 interface AppHeaderProps {
-  activePage: DesignLibraryPage;
-  counts: Record<DesignLibraryPage, number>;
-  onNavigate: (page: DesignLibraryPage) => void;
+  activePage: DesignLibraryPageId;
+  counts: Record<DesignLibraryPageId, number>;
+  onNavigate: (page: DesignLibraryPageId) => void;
 }
 
-const PAGES: DesignLibraryPage[] = ['library', 'design', 'gallery'];
+const PAGES: DesignLibraryPageId[] = ['library', 'design', 'gallery'];
 
 export function AppHeader({ activePage, counts, onNavigate }: AppHeaderProps) {
   return (
@@ -32,17 +32,10 @@ export function AppHeader({ activePage, counts, onNavigate }: AppHeaderProps) {
           </button>
         ))}
       </nav>
-
-      <div className="dl-header__actions">
-        <Button size="sm">
-          <ImagePlus aria-hidden="true" size={15} />
-          Add inspiration
-        </Button>
-      </div>
     </header>
   );
 }
 
-function pageLabel(page: DesignLibraryPage): string {
+function pageLabel(page: DesignLibraryPageId): string {
   return page[0].toUpperCase() + page.slice(1);
 }

@@ -1,98 +1,219 @@
 // @vitest-environment jsdom
 
+/**
+ * The app shell against real reactive state, with the app-runtime hooks
+ * replaced by an in-memory double. Every mutation the UI makes must arrive as
+ * an app tool call — that is the contract these tests hold.
+ */
+
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DesignLibraryApp } from './DesignLibraryApp';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_STATE, type DesignLibraryState } from '../shared/state';
+import type { LibraryItemSummary } from '../shared/types';
 
-describe('DesignLibraryApp', () => {
-  let container: HTMLDivElement;
-  let root: Root | null = null;
+const toolCalls: Array<{ tool: string; params: Record<string, unknown> }> = [];
+const toolResults = new Map<string, unknown>();
+let currentState: DesignLibraryState = structuredClone(DEFAULT_STATE);
 
-  beforeEach(() => {
-    Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
-  });
-
-  afterEach(async () => {
-    await act(async () => {
-      root?.unmount();
-    });
-    container.remove();
-    root = null;
-    Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
-  });
-
-  it('renders the uniform Library shell with ordered fixture selection', async () => {
-    await renderApp(root);
-
-    expect(container.textContent).toContain('Northstar operations');
-    expect(container.textContent).toContain('Evening finance');
-    expect(container.textContent).toContain('Librarian analysing');
-    expect(container.textContent).toContain('Analysis needs attention');
-    expect(container.textContent).toContain('3 references selected');
-    expect(container.textContent).toContain('Primary');
-    expect(container.querySelectorAll('.dl-library-card')).toHaveLength(8);
-  });
-
-  it('shows the empty state when fixture search has no matches', async () => {
-    await renderApp(root);
-
-    const search = container.querySelector<HTMLInputElement>('input[aria-label="Search inspiration"]');
-    if (!search) throw new Error('Search input not found');
-
-    await act(async () => {
-      setInputValue(search, 'does-not-exist');
-    });
-
-    expect(container.textContent).toContain('No inspiration found');
-    expect(container.querySelectorAll('.dl-library-card')).toHaveLength(0);
-  });
-
-  it('navigates through Design warning, error and Gallery fixture states', async () => {
-    await renderApp(root);
-
-    await act(async () => clickButton(container, 'Design'));
-    expect(container.textContent).toContain('Agent operations');
-    expect(container.textContent).toContain('Signal ledger');
-
-    await act(async () => clickButton(container, 'Operational field'));
-    expect(container.textContent).toContain('2 restricted capabilities blocked');
-
-    await act(async () => clickButton(container, 'Quiet grid'));
-    expect(container.textContent).toContain('Variant generation failed');
-    expect(container.textContent).toContain('Retry variant');
-
-    await act(async () => clickButton(container, 'Gallery'));
-    expect(container.textContent).toContain('Your Gallery');
-    expect(container.querySelectorAll('.dl-gallery-card')).toHaveLength(4);
-  });
+vi.mock('@sero-ai/app-runtime', async () => {
+  const { useReducer } = await import('react');
+  return {
+    // Mirrors the real file-backed hook: an updater function, and a re-render
+    // when the document changes.
+    useAppState: () => {
+      const [, rerender] = useReducer((count: number) => count + 1, 0);
+      return [
+        currentState,
+        (updater: (current: DesignLibraryState) => DesignLibraryState) => {
+          currentState = updater(currentState);
+          rerender();
+        },
+      ];
+    },
+    useAppTools: () => ({
+      run: async (tool: string, params: Record<string, unknown>) => {
+        toolCalls.push({ tool, params });
+        return toolResults.get(`${tool}:${String(params.action)}`)
+          ?? { text: '', content: [], details: null, isError: false };
+      },
+    }),
+  };
 });
 
-async function renderApp(root: Root | null) {
+const { DesignLibraryApp } = await import('./DesignLibraryApp');
+
+function item(overrides: Partial<LibraryItemSummary> = {}): LibraryItemSummary {
+  return {
+    id: 'itm-1',
+    title: 'Quiet ledger',
+    primaryStyle: 'Editorial dashboard',
+    tags: ['quiet', 'grid'],
+    source: 'file-picker',
+    colours: ['#101014'],
+    analysisStatus: 'ready',
+    createdAt: 1000,
+    searchText: 'quiet ledger editorial dashboard',
+    ...overrides,
+  };
+}
+
+let container: HTMLDivElement;
+let root: Root | null = null;
+
+beforeEach(() => {
+  Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+  toolCalls.length = 0;
+  toolResults.clear();
+  currentState = structuredClone(DEFAULT_STATE);
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(async () => {
+  await act(async () => {
+    root?.unmount();
+  });
+  container.remove();
+  root = null;
+  Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+});
+
+async function render() {
   await act(async () => {
     root?.render(<DesignLibraryApp />);
     await Promise.resolve();
   });
 }
 
-function clickButton(container: HTMLElement, label: string) {
-  const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
-    candidate.textContent?.includes(label),
-  );
-  if (!(button instanceof HTMLButtonElement)) {
-    throw new Error(`Button not found: ${label}`);
-  }
+function clickLabelled(label: string) {
+  const button = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  if (!button) throw new Error(`Button not found: ${label}`);
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
+
+function clickText(text: string) {
+  const button = Array.from(container.querySelectorAll('button'))
+    .find((candidate) => candidate.textContent?.includes(text));
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Button not found: ${text}`);
   button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
 function setInputValue(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    'value',
-  )?.set;
-  setter?.call(input, value);
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+
+describe('DesignLibraryApp', () => {
+  it('shows the empty Library state before anything is imported', async () => {
+    await render();
+    expect(container.textContent).toContain('Your Library is empty');
+    expect(container.querySelectorAll('.dl-library-card')).toHaveLength(0);
+  });
+
+  it('renders one uniform card per item with its analysis status', async () => {
+    currentState = {
+      ...currentState,
+      items: [
+        item(),
+        item({ id: 'itm-2', title: 'Evening finance', analysisStatus: 'analysing' }),
+        item({ id: 'itm-3', title: 'Broken one', analysisStatus: 'failed' }),
+      ],
+    };
+    await render();
+
+    expect(container.querySelectorAll('.dl-library-card')).toHaveLength(3);
+    expect(container.textContent).toContain('Librarian analysing');
+    expect(container.textContent).toContain('Analysis needs attention');
+  });
+
+  it('filters the grid by keyword search', async () => {
+    currentState = { ...currentState, items: [item(), item({ id: 'itm-2', title: 'Evening finance' })] };
+    await render();
+
+    const search = container.querySelector<HTMLInputElement>('input[aria-label="Search inspiration"]');
+    if (!search) throw new Error('Search input not found');
+
+    await act(async () => setInputValue(search, 'evening'));
+    expect(container.querySelectorAll('.dl-library-card')).toHaveLength(1);
+
+    await act(async () => setInputValue(search, 'no-such-thing'));
+    expect(container.textContent).toContain('No inspiration found');
+  });
+
+  it('orders the reference selection and marks the first as Primary', async () => {
+    currentState = { ...currentState, items: [item(), item({ id: 'itm-2', title: 'Evening finance' })] };
+    await render();
+
+    await act(async () => clickLabelled('Add Evening finance to the selection'));
+    await act(async () => clickLabelled('Add Quiet ledger to the selection'));
+
+    expect(currentState.ui.referenceDraft).toEqual(['itm-2', 'itm-1']);
+    expect(container.textContent).toContain('2 of 6 references selected · first is Primary');
+  });
+
+  it('creates a Design through the app tool with the ordered references', async () => {
+    currentState = {
+      ...currentState,
+      items: [item()],
+      ui: { ...currentState.ui, referenceDraft: ['itm-1'] },
+    };
+    toolResults.set('design_library_designs:create', {
+      text: 'queued',
+      content: [],
+      details: { designId: 'dsn-1' },
+      isError: false,
+    });
+    await render();
+
+    await act(async () => clickText('Create Design'));
+
+    const create = toolCalls.find((entry) => entry.params.action === 'create');
+    expect(create?.tool).toBe('design_library_designs');
+    expect(create?.params.itemIds).toEqual(['itm-1']);
+    expect(currentState.ui.activePage).toBe('design');
+    expect(currentState.ui.activeDesignId).toBe('dsn-1');
+  });
+
+  it('shows the empty Design and Gallery states', async () => {
+    await render();
+
+    await act(async () => clickText('Design'));
+    expect(container.textContent).toContain('No Designs yet');
+
+    await act(async () => clickText('Gallery'));
+    expect(container.textContent).toContain('Your Gallery is empty');
+  });
+
+  it('surfaces runtime notices and dismisses them through the tool', async () => {
+    currentState = {
+      ...currentState,
+      notices: [{
+        id: 'ntc-1',
+        level: 'warning',
+        message: '2 tweak controls were removed',
+        details: ['Ghost control: the design does not declare --ghost.'],
+        createdAt: 1,
+      }],
+    };
+    await render();
+
+    expect(container.textContent).toContain('2 tweak controls were removed');
+    await act(async () => clickLabelled('Dismiss'));
+    expect(toolCalls.some((entry) => entry.params.action === 'dismiss_notice')).toBe(true);
+  });
+
+  it('shows the profile settings from reactive state', async () => {
+    currentState = {
+      ...currentState,
+      settings: { variantCount: 5, revisionBehaviour: 'retain' },
+    };
+    await render();
+
+    const bar = container.querySelector('.dl-settings-bar');
+    expect(bar?.textContent).toContain('Variants per run');
+    expect(bar?.textContent).toContain('5');
+    expect(bar?.textContent).toContain('Retain both results');
+  });
+});
