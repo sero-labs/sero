@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** Ready to build
-**Branch:** `feat/design-library-plugin-v2`
+**Status:** PR 1 merged. PR 2 in progress.
+**Branch:** `feat/design-library-design` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -124,7 +124,7 @@ One persisted job per variant; separate persisted jobs for Librarian and media c
 
 # PR 1 — Library
 
-**Status: built.** Awaiting live verification in the desktop app.
+**Status: merged** as [#318](https://github.com/sero-labs/sero/pull/318).
 
 The plugin becomes useful on its own: collect references, understand them, organise them.
 
@@ -162,6 +162,11 @@ The plugin becomes useful on its own: collect references, understand them, organ
 # PR 2 — Design
 
 Turn references into runnable work.
+
+**Split into two PRs while building.** As specified this is eleven items across four loosely-coupled areas, and PR 1 was already large enough that two rounds of review found real defects in it. The boundary puts the risky half first: the spec requires isolation to be *"proven with hostile fixtures before production preview work"* (§7), so sandboxing, CSP and the build pipeline land where they can be reviewed on their own rather than alongside a sessions rail and a tweaks panel.
+
+- **PR 2a — the generation pipeline.** Items 1 (Design records and autosave only), 2, 4, 5, 6. Minimal UI: enough to create a Design and watch a variant render.
+- **PR 2b — the working surface.** Items 1 (sessions rail, restore-to-position), 3, 7, 8, 9, 10, 11.
 
 **Build**
 
