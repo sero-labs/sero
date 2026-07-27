@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Badge, Button, ScrollArea } from '@sero-ai/ui';
 import { RotateCw, Square } from 'lucide-react';
 
 import type { DesignBrief, DesignRevisionFile } from '../../../shared/design';
@@ -6,6 +6,12 @@ import type { DesignVariantSummary, ItemSummary } from '../../../shared/types';
 
 /**
  * What the run produced, and what it was made from.
+ *
+ * Built to the reference inspector's pattern — same width, same flush left
+ * border, same header, same section and field styling — because they are the
+ * same kind of thing: the panel beside the work that says what the work is. Two
+ * panels in one plugin that read differently is just a bug the user has to look
+ * at.
  *
  * The reference list is the part that matters most: a variant is only judgeable
  * against the references it drew on, and once the Design is open there is
@@ -71,69 +77,124 @@ export function VariantDetail({
     0,
     VISIBLE_TAGS,
   );
+  const context = [
+    brief === undefined ? '' : brief.target === 'html' ? 'Web prototype' : 'React component',
+    brief === undefined ? '' : `${brief.inspirationStrength} influence`,
+    variant.revisionCount > 1 ? `${variant.revisionCount} revisions` : '',
+  ].filter((part) => part !== '');
 
   return (
-    <aside className="border-border flex w-80 shrink-0 flex-col rounded-md border">
-      <div className="border-border space-y-1 border-b px-3 py-2.5">
-        <p className="text-muted-foreground text-sm uppercase">
-          Variant {String(variant.index + 1).padStart(2, '0')} · {variant.status}
-        </p>
-        <h3 className="truncate font-semibold">{variant.name ?? 'Unnamed'}</h3>
-      </div>
+    <div className="border-border flex h-full min-h-0 w-full flex-col border-l lg:w-105 lg:shrink-0">
+      <header className="border-border border-b px-4 py-3">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-primary text-xs font-medium tracking-wide uppercase">
+              Variant {String(variant.index + 1).padStart(2, '0')} · {variant.status}
+            </p>
+            <h3 className="mt-1 truncate text-lg font-semibold">{variant.name ?? 'Unnamed'}</h3>
+            {context.length > 0 && (
+              <p className="text-muted-foreground mt-0.5 truncate text-sm">{context.join(' · ')}</p>
+            )}
+          </div>
 
-      {/* A plain scroller rather than `ScrollArea`: that one sizes its viewport
-          to its content, so a long reference title widened the whole panel
-          instead of being cut short. */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="divide-border divide-y">
-          {variant.error !== undefined && (
-            <p className="text-destructive px-3 py-2.5 text-sm">{variant.error}</p>
-          )}
+          {/* Beside the title, where the reference panel keeps its actions. */}
+          <div className="flex shrink-0 items-center">
+            {running ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="Stop generating"
+                title="Stop generating this variant"
+                onClick={onCancel}
+              >
+                <Square className="size-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                disabled={variant.status === 'ready'}
+                aria-label="Try again"
+                title="Generate this variant again"
+                onClick={onRetry}
+              >
+                <RotateCw className="size-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
 
-          {summary !== '' && (
-            <Section title="Concept">
-              <p className="text-muted-foreground text-sm">{summary}</p>
-            </Section>
-          )}
+      <ScrollArea className="min-h-0 flex-1">
+        {variant.error !== undefined && (
+          <div className="border-border border-b px-4 py-3">
+            <Field label="Failed">
+              <p className="text-destructive text-sm wrap-break-word">{variant.error}</p>
+            </Field>
+          </div>
+        )}
 
-          <Section title="Inspiration" count={`${references.length} source${references.length === 1 ? '' : 's'}`}>
+        {summary !== '' && (
+          <div className="border-border border-b px-4 py-3">
+            <Field label="Concept">
+              <p className="text-muted-foreground text-sm leading-relaxed">{summary}</p>
+            </Field>
+          </div>
+        )}
+
+        <div className="border-border border-b px-4 py-3">
+          <Field label="Inspiration">
             <ul className="space-y-1.5">
               {references.map((reference, index) => (
                 <li key={reference.id} className="flex items-baseline gap-2 text-sm">
                   <span className="text-muted-foreground tabular-nums">{index + 1}</span>
-                  <span className={`min-w-0 flex-1 truncate ${reference.missing ? 'text-muted-foreground italic' : ''}`}>
+                  <span
+                    className={`min-w-0 flex-1 truncate ${
+                      reference.missing ? 'text-muted-foreground italic' : 'font-medium'
+                    }`}
+                  >
                     {reference.title}
                     {reference.primaryStyle !== '' && (
-                      <span className="text-muted-foreground"> · {reference.primaryStyle}</span>
+                      <span className="text-muted-foreground font-normal">
+                        {' '}
+                        · {reference.primaryStyle}
+                      </span>
                     )}
                   </span>
                   {/* Only in per-reference mode does one reference own a variant;
                       in blend mode every variant drew on all of them. */}
                   {reference.id === ownReferenceId && (
-                    <span className="text-primary text-sm">this one</span>
+                    <span className="text-primary shrink-0 text-xs tracking-wide uppercase">
+                      this one
+                    </span>
                   )}
                 </li>
               ))}
             </ul>
-          </Section>
+          </Field>
+        </div>
 
-          {language.length > 0 && (
-            <Section title="Applied language">
-              <div className="flex flex-wrap gap-1.5">
+        {language.length > 0 && (
+          <div className="border-border border-b px-4 py-3">
+            <Field label="Applied language">
+              <div className="flex flex-wrap gap-1">
                 {language.map((tag) => (
-                  <span
-                    key={tag}
-                    className="border-border text-muted-foreground rounded-md border px-2 py-0.5 text-sm"
-                  >
+                  <Badge key={tag} variant="outline" className="font-normal">
                     {tag}
-                  </span>
+                  </Badge>
                 ))}
               </div>
-            </Section>
-          )}
+            </Field>
+          </div>
+        )}
 
-          {files.length > 0 && (
-            <Section title="Files" count={String(files.length)}>
+        {files.length > 0 && (
+          <div className="border-border border-b px-4 py-3 last:border-b-0">
+            <Field label="Files">
               <ul className="space-y-1 font-mono text-sm">
                 {files.map((file) => (
                   <li key={file.name} className="flex items-baseline justify-between gap-2">
@@ -144,64 +205,21 @@ export function VariantDetail({
                   </li>
                 ))}
               </ul>
-            </Section>
-          )}
-
-          {brief !== undefined && (
-            <Section title="Generation">
-              <p className="text-muted-foreground text-sm">
-                {brief.target === 'html' ? 'Web prototype' : 'React component'} ·{' '}
-                {brief.inspirationStrength} influence
-                {brief.variationMode === 'per-reference' ? ' · one variant per reference' : ''}
-              </p>
-              {variant.revisionCount > 1 && (
-                <p className="text-muted-foreground text-sm tabular-nums">
-                  {variant.revisionCount} revisions
-                </p>
-              )}
-            </Section>
-          )}
-        </div>
-      </div>
-
-      <div className="border-border flex gap-2 border-t p-2">
-        {running ? (
-          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-            <Square className="size-3.5" />
-            Stop
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={variant.status === 'ready'}
-            onClick={onRetry}
-          >
-            <RotateCw className="size-3.5" />
-            Try again
-          </Button>
+            </Field>
+          </div>
         )}
-      </div>
-    </aside>
+      </ScrollArea>
+    </div>
   );
 }
 
-function Section({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count?: string;
-  children: React.ReactNode;
-}) {
+/** The inspector's field: an uppercase label with the value beneath it. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-1.5 px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <h4 className="text-sm font-medium">{title}</h4>
-        {count !== undefined && <span className="text-muted-foreground text-sm">{count}</span>}
-      </div>
+    <section>
+      <h4 className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+        {label}
+      </h4>
       {children}
     </section>
   );

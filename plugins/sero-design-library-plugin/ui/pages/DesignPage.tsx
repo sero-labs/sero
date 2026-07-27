@@ -97,12 +97,17 @@ export function DesignPage({ design, items, actions, onBack }: DesignPageProps) 
       {active === undefined ? (
         <p className="text-muted-foreground p-6 text-sm">This Design has no variants.</p>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-3 p-3">
-          <PreviewFrame
-            target={target}
-            buildWarnings={revision?.buildWarnings ?? []}
-            title={`${design.title} — ${active.name ?? `variant ${active.index + 1}`}`}
-          />
+        // The detail panel sits flush against the edge under its own left
+        // border, exactly as the reference inspector does; only the preview is
+        // inset.
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col p-3">
+            <PreviewFrame
+              target={target}
+              buildWarnings={revision?.buildWarnings ?? []}
+              title={`${design.title} — ${active.name ?? `variant ${active.index + 1}`}`}
+            />
+          </div>
           <VariantDetail
             variant={active}
             files={revision?.files ?? []}
