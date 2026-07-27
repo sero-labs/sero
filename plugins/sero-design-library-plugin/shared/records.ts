@@ -6,6 +6,7 @@
 
 import type { EditableLibrarianProfile } from './librarian';
 import { normalizeAnalysis, normalizeOverrides } from './librarian';
+import { isSafeId } from './paths';
 
 export type MediaKind = 'image' | 'video';
 
@@ -216,23 +217,28 @@ function normalizeJobKind(value: unknown): JobKind {
  * skipped rather than reconciled against nothing.
  */
 function normalizeJobTarget(value: Record<string, unknown>): JobTarget | null {
+  // Every id here is later joined onto a directory path. One that could not
+  // safely be a folder name makes the whole job unreadable rather than
+  // reconcilable — a path helper would throw on it once per recovery sweep.
+  const id = (candidate: unknown): candidate is string =>
+    typeof candidate === 'string' && isSafeId(candidate);
   const target = value.target;
   if (isRecordObject(target)) {
     if (target.kind === 'variant') {
-      return typeof target.designId === 'string' && typeof target.variantId === 'string'
+      return id(target.designId) && id(target.variantId)
         ? { kind: 'variant', designId: target.designId, variantId: target.variantId }
         : null;
     }
-    if (typeof target.itemId === 'string') return { kind: 'item', itemId: target.itemId };
+    if (id(target.itemId)) return { kind: 'item', itemId: target.itemId };
     return null;
   }
-  return typeof value.itemId === 'string' ? { kind: 'item', itemId: value.itemId } : null;
+  return id(value.itemId) ? { kind: 'item', itemId: value.itemId } : null;
 }
 
 /** Same contract as `normalizeItemRecord`, for job files. */
 export function normalizeJobRecord(value: unknown): JobRecord | null {
   if (!isRecordObject(value)) return null;
-  if (typeof value.id !== 'string' || value.id === '') return null;
+  if (typeof value.id !== 'string' || value.id === '' || !isSafeId(value.id)) return null;
 
   const target = normalizeJobTarget(value);
   if (!target) return null;

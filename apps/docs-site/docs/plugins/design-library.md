@@ -97,6 +97,8 @@ If the design tried to do something the frame does not allow — load a font fro
 
 Because there is no network, generated designs use the system fonts, CSS gradients and shapes, and SVG they draw themselves.
 
+There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
+
 Underneath the preview you can set the width the page is rendered at, and reload it. **Pane width** lets the page reflow as the pane changes, the way a browser window does; **desktop**, **tablet** and **phone** pin it to a fixed width so you can see how it holds up there. A fixed width wider than the pane is scaled down to fit, and the readout always shows the width being used and the scale it is shown at.
 
 The panel beside the preview says what the run made and what it was made from: its concept, the references it drew on, the visual language it took from them, the files it wrote, and the settings it ran under.

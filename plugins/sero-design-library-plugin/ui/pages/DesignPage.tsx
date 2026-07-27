@@ -24,13 +24,27 @@ export interface DesignPageProps {
   design: DesignSummary;
   /** Live Library items, for naming the references this Design drew on. */
   items: ItemSummary[];
+  /** The persisted selection, so reopening a Design lands where you left it. */
+  activeVariantId: string | undefined;
   actions: DesignActions;
   onBack(): void;
 }
 
-export function DesignPage({ design, items, actions, onBack }: DesignPageProps) {
+export function DesignPage({
+  design,
+  items,
+  activeVariantId,
+  actions,
+  onBack,
+}: DesignPageProps) {
   const [record, setRecord] = useState<DesignRecord | null>(null);
-  const [activeId, setActiveId] = useState<string | undefined>(design.variants[0]?.id);
+  /**
+   * The click, held locally so the tab responds before the write comes back —
+   * and stamped with the Design it belongs to. A bare variant id would outlive
+   * its Design: open another one and the page would look for a tab that is not
+   * there, silently showing the first variant while the state said otherwise.
+   */
+  const [picked, setPicked] = useState<{ designId: string; variantId: string } | null>(null);
 
   // The record holds what the index deliberately leaves out — guardrails, file
   // lists, build warnings — so it is read on demand and re-read whenever the
@@ -45,12 +59,18 @@ export function DesignPage({ design, items, actions, onBack }: DesignPageProps) 
     };
   }, [design.id, design.updatedAt, actions]);
 
-  const active =
-    design.variants.find((variant) => variant.id === activeId) ?? design.variants[0];
+  const pinned = picked?.designId === design.id ? picked.variantId : activeVariantId;
+  const active = design.variants.find((variant) => variant.id === pinned) ?? design.variants[0];
+
   const activeRecord = record?.variants.find((variant) => variant.id === active?.id);
   const revision = activeRecord?.revisions.find(
     (entry) => entry.id === activeRecord.visibleRevisionId,
   );
+
+  const select = (variantId: string) => {
+    setPicked({ designId: design.id, variantId });
+    void actions.selectVariant(variantId);
+  };
 
   const references = useMemo(
     () => referenceViews(design.referenceItemIds, items),
@@ -92,7 +112,7 @@ export function DesignPage({ design, items, actions, onBack }: DesignPageProps) 
         </Button>
       </header>
 
-      <VariantTabs variants={design.variants} activeId={active?.id} onSelect={setActiveId} />
+      <VariantTabs variants={design.variants} activeId={active?.id} onSelect={select} />
 
       {active === undefined ? (
         <p className="text-muted-foreground p-6 text-sm">This Design has no variants.</p>

@@ -121,6 +121,11 @@ export interface DesignVariant {
    * Absent in `blend` mode, where every variant draws on all of them.
    */
   referenceItemId?: string;
+  /**
+   * The last request id that started work here. The request log is applied
+   * at-least-once, so this is what tells a replayed retry from a new one.
+   */
+  appliedRequestId?: number;
   startedAt?: number;
   completedAt?: number;
 }

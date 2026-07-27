@@ -13,6 +13,7 @@ import { PREVIEW_CSP } from '../preview/harness';
 import {
   STUB_PAGE,
   isGenerationRun,
+  nameDesign,
   stubAnalysisRun,
   useCoordinator,
   writeDesignFiles,
@@ -54,11 +55,11 @@ async function createDesign(brief: Partial<DesignBrief> = {}): Promise<string> {
 }
 
 /** Wait until every variant of the Design has stopped moving. */
-async function settled(designId: string) {
+async function settled(designId: string, timeout = 5_000) {
   await vi.waitFor(async () => {
     const design = await readDesign(harness.paths, designId);
     expect(design?.variants.every((variant) => variant.status !== 'pending' && variant.status !== 'running')).toBe(true);
-  });
+  }, { timeout });
   return (await readDesign(harness.paths, designId))!;
 }
 
@@ -172,7 +173,7 @@ describe('generating a variant', () => {
     expect(design.variants[0]?.revisions.at(-1)?.name).toBe('');
   });
 
-  it('fails a variant whose files cannot be built, keeping the files to read', async () => {
+  it('fails a variant that wrote no entry point', async () => {
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
       if (!isGenerationRun(params)) return stubAnalysisRun(params);
       // A stylesheet and no entry point: nothing renderable comes out of it.
@@ -186,6 +187,36 @@ describe('generating a variant', () => {
     // one that does not exist.
     expect(design.variants[0]?.status).toBe('failed');
     expect(design.variants[0]?.error).toContain('index.html');
+  });
+
+  it('keeps a readable revision when the files are there but will not build', async () => {
+    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
+      if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      // The entry point is there, so the run is accepted — and then it does not
+      // compile, which is the case where files exist with nothing to show for
+      // them.
+      await writeDesignFiles(params, [
+        { name: 'App.tsx', content: 'export default function App( {' },
+      ]);
+      await nameDesign(params, { name: 'Broken build', summary: 'Did not compile.' });
+      return { response: 'Wrote it.' };
+    });
+
+    // The React build is a real esbuild run, so this one is given longer than
+    // the HTML fixtures need.
+    const design = await settled(await createDesign({ variantCount: 1, target: 'react' }), 15_000);
+    const variant = design.variants[0];
+
+    expect(variant?.status).toBe('failed');
+
+    // Keeping the files means recording them. A revision names them — with no
+    // `builtFile`, because there is nothing to preview — so they can be read;
+    // files nothing points at are unreachable from the UI and the startup sweep
+    // deletes them as orphans.
+    const revision = variant?.revisions.at(-1);
+    expect(revision?.files.map((file) => file.name)).toEqual(['App.tsx']);
+    expect(revision?.builtFile).toBeUndefined();
+    expect(variant?.visibleRevisionId).toBe(revision?.id);
   });
 
   it('retries one failed variant without disturbing the other', async () => {

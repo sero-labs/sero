@@ -106,6 +106,7 @@ export function DesignLibraryApp() {
         <DesignPage
           design={designs.open}
           items={library.state.items}
+          activeVariantId={designs.state.view.activeVariantId}
           actions={designs.actions}
           onBack={() => void designs.actions.open(undefined)}
         />

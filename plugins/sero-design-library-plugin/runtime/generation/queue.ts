@@ -266,12 +266,28 @@ export class VariantQueue {
     // Nothing renderable came out. The files are still worth keeping — they are
     // what the user reads to see what went wrong — but the variant fails, because
     // a build warning is a note about a page that works, not a substitute for one.
+    //
+    // The revision is recorded with no `builtFile`, which is what makes keeping
+    // them true: files nothing points at are unreachable from the UI and the
+    // startup sweep deletes them as orphans.
     if (built.document === undefined) {
       await this.writeFiles(directory, files);
       await this.fail(
         job.id,
         target,
         built.warnings.join(' ') || 'The design could not be built into a preview.',
+        {
+          id: revisionId,
+          createdAt: Date.now(),
+          jobId: job.id,
+          files: files.map((file) => ({
+            name: file.name,
+            bytes: Buffer.byteLength(file.content, 'utf8'),
+          })),
+          buildWarnings: built.warnings,
+          summary: naming.summary,
+          name: naming.name,
+        },
       );
       return;
     }
@@ -316,10 +332,17 @@ export class VariantQueue {
     }
   }
 
+  /**
+   * Fail the variant, optionally recording what the run did produce. A failed
+   * revision has no `builtFile`: there is nothing to preview, but the files it
+   * names can be read, which is the difference between a failure you can look
+   * into and one that only says it happened.
+   */
   private async fail(
     jobId: string,
     target: { designId: string; variantId: string },
     reason: string,
+    revision?: DesignRevision,
   ): Promise<void> {
     await markFailed(this.context.paths, jobId, reason);
     await this.applyIfCurrent(
@@ -331,6 +354,9 @@ export class VariantQueue {
         error: reason,
         attempts: variant.attempts + 1,
         completedAt: Date.now(),
+        ...(revision === undefined
+          ? {}
+          : { revisions: [...variant.revisions, revision], visibleRevisionId: revision.id }),
       }),
       'running',
     );

@@ -240,15 +240,27 @@ export async function startVariant(
   designId: string,
   variantId: string,
   allowedFrom: readonly DesignVariant['status'][] = ['pending'],
+  requestId?: number,
 ): Promise<string | null> {
   const job = await createJob(paths, 'generate', variantTarget(designId, variantId));
   let claimed = false;
   await mutateVariant(paths, designId, variantId, (variant) => {
     if (!allowedFrom.includes(variant.status)) return null;
+    // A request the variant has already acted on is a replay, not a second ask.
+    // Status alone cannot tell them apart — a retry that has already failed
+    // looks exactly like one that was never started — and starting again would
+    // spend another model run on work that was done.
+    if (requestId !== undefined && (variant.appliedRequestId ?? 0) >= requestId) return null;
     claimed = true;
     // Revisions are kept: a retry is another attempt at the same variant, and
     // whatever an earlier attempt produced stays in its history.
-    return { ...variant, status: 'pending', error: undefined, jobId: job.id };
+    return {
+      ...variant,
+      status: 'pending',
+      error: undefined,
+      jobId: job.id,
+      ...(requestId === undefined ? {} : { appliedRequestId: requestId }),
+    };
   });
   if (!claimed) {
     await markCancelled(paths, job.id);
@@ -261,16 +273,27 @@ export async function retryVariant(
   paths: DesignLibraryPaths,
   designId: string,
   variantId: string,
+  requestId?: number,
 ): Promise<string | null> {
-  return startVariant(paths, designId, variantId, RETRYABLE);
+  return startVariant(paths, designId, variantId, RETRYABLE, requestId);
 }
+
+/**
+ * Statuses that mean work is owed. Either is a stuck spinner once no live job
+ * holds the variant: `pending` when the process died between saving the record
+ * and creating the jobs, `running` when the job that owned it is gone —
+ * reconciliation repairs a variant whose job it can still read, and finished job
+ * records are swept after a day, so a machine left closed longer than that comes
+ * back to a variant nothing else would ever look at again.
+ */
+const UNSTARTED: readonly DesignVariant['status'][] = ['pending', 'running'];
 
 /**
  * Jobs for every variant of a Design that is waiting and has nobody running it.
  *
- * Called after creating a Design and again at startup. A variant left `pending`
- * with no live job is the stuck spinner nothing else revisits — reachable if the
- * process died between saving the record and creating the jobs.
+ * Called after creating a Design and again at startup — at startup only after
+ * reconciliation, which is what makes reading `running` as abandoned safe: a run
+ * this process owns has not started yet.
  */
 export async function startPendingVariants(
   paths: DesignLibraryPaths,
@@ -281,9 +304,9 @@ export async function startPendingVariants(
 
   const started: string[] = [];
   for (const variant of design.variants) {
-    if (variant.status !== 'pending') continue;
+    if (!UNSTARTED.includes(variant.status)) continue;
     if (await hasLiveJob(paths, variant.jobId)) continue;
-    const jobId = await startVariant(paths, designId, variant.id);
+    const jobId = await startVariant(paths, designId, variant.id, UNSTARTED);
     if (jobId !== null) started.push(jobId);
   }
   return started;

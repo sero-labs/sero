@@ -13,8 +13,15 @@
  * loop that never settles and hammers whatever it was navigating to. The frame is
  * emptied instead, once, and the user is told what happened.
  *
+ * Counting loads is not enough on its own. A page that navigates *while it is
+ * being parsed* never finishes the document we put there, so that document never
+ * fires `load` and the remote one arrives as the first load — the very load the
+ * count is written to trust. What separates them is the harness: our document
+ * announces itself, and a document that loaded without announcing itself is not
+ * ours. Hence `announced` below.
+ *
  * Kept as a pure decision so it can be tested without a DOM: the wiring in
- * `PreviewFrame` is three lines, and this is the part with a rule in it.
+ * `PreviewFrame` is a handler and a timer, and this is the part with a rule in it.
  */
 
 export type PreviewLoadOutcome =
@@ -22,13 +29,30 @@ export type PreviewLoadOutcome =
   | { action: 'blank'; reason: string }
   | { action: 'ignore' };
 
-/**
- * @param loadCount how many times the frame has fired `load` for this document,
- *   counting the one being handled now. The first is the document being placed
- *   there; any load after it is the page going somewhere else.
- */
-export function decidePreviewLoad(loadCount: number): PreviewLoadOutcome {
-  if (loadCount <= 1) return { action: 'expected' };
+export interface PreviewLoad {
+  /**
+   * How many times the frame has fired `load` for this document, counting the
+   * one being handled now. The first is the document being placed there; any
+   * load after it is the page going somewhere else.
+   */
+  loadCount: number;
+  /**
+   * Whether the harness inside the frame has reported itself ready since the
+   * frame was mounted. Only the document the runtime built can do that.
+   */
+  announced: boolean;
+}
+
+export function decidePreviewLoad({ loadCount, announced }: PreviewLoad): PreviewLoadOutcome {
+  if (loadCount <= 1) {
+    return announced
+      ? { action: 'expected' }
+      : {
+          action: 'blank',
+          reason:
+            'the page replaced itself while it was loading, so the preview was stopped before it ran',
+        };
+  }
   if (loadCount === 2) {
     return {
       action: 'blank',

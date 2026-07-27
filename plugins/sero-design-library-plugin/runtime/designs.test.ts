@@ -11,7 +11,7 @@ import {
   pruneOrphanRevisions,
   readDesign,
 } from './design-store';
-import { cancelVariant, createDesign, retryVariant } from './designs';
+import { cancelVariant, createDesign, retryVariant, startPendingVariants } from './designs';
 import { TEST_BRIEF as BRIEF, seedItem } from './test-fixtures';
 
 let home: string;
@@ -234,6 +234,55 @@ describe('variant lifecycle', () => {
 
     // A pending variant is already going to run; retrying it again is a no-op.
     expect(await retryVariant(paths, designId, variantId)).toBeNull();
+  });
+
+  it('declines a retry request it has already acted on', async () => {
+    // The request log is applied at-least-once: a crash between applying a
+    // request and recording that it was applied replays it. By then the retry
+    // may have run and failed, which looks exactly like a variant asking to be
+    // retried — and a second run costs another model call for work already done.
+    const designId = await seedDesign();
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    await mutateVariant(paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'failed',
+      error: 'the model refused',
+    }));
+
+    expect(await retryVariant(paths, designId, variantId, 7)).not.toBeNull();
+
+    // The retry ran and failed again before the watermark moved.
+    await mutateVariant(paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'failed',
+      error: 'and again',
+    }));
+
+    expect(await retryVariant(paths, designId, variantId, 7)).toBeNull();
+    // A later request is a new ask, not a replay.
+    expect(await retryVariant(paths, designId, variantId, 8)).not.toBeNull();
+  });
+
+  it('restarts a variant left running by a process that is gone', async () => {
+    // Reconciliation repairs a variant whose job it can still read. Finished job
+    // records are swept after a day, so a machine left closed longer than that
+    // comes back to a variant nothing else would ever look at again.
+    const designId = await seedDesign();
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    await mutateVariant(paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'running',
+      jobId: 'job-that-was-swept',
+    }));
+
+    const started = await startPendingVariants(paths, designId);
+
+    const after = await readDesign(paths, designId);
+    const variant = after?.variants.find((entry) => entry.id === variantId);
+    expect(variant?.status).toBe('pending');
+    expect(started).toContain(variant?.jobId);
   });
 
   it('removes a revision directory the record does not name', async () => {

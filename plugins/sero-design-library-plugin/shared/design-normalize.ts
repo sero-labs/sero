@@ -94,6 +94,10 @@ function normalizeRevisionFile(value: unknown): DesignRevisionFile | null {
 
 function normalizeRevision(value: unknown): DesignRevision | null {
   if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  // The id names the revision's directory. One carrying a separator or a
+  // traversal segment would not merely be odd — every path built from it would
+  // point outside the record.
+  if (!isSafeId(value.id)) return null;
 
   const files = Array.isArray(value.files)
     ? value.files.flatMap((entry) => {
@@ -125,6 +129,8 @@ function normalizeRevision(value: unknown): DesignRevision | null {
 
 function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant | null {
   if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  // Names a directory, exactly as a revision id does.
+  if (!isSafeId(value.id)) return null;
 
   const revisions = Array.isArray(value.revisions)
     ? value.revisions.flatMap((entry) => {
@@ -146,13 +152,19 @@ function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant 
     id: value.id,
     index: num(value.index, fallbackIndex),
     status: variantStatus(value.status),
-    ...(typeof value.jobId === 'string' ? { jobId: value.jobId } : {}),
+    // The job id is read back as a file name, so an unsafe one is dropped: the
+    // variant then looks unowned, which recovery can repair, rather than
+    // throwing from inside a path helper on every sweep.
+    ...(typeof value.jobId === 'string' && isSafeId(value.jobId) ? { jobId: value.jobId } : {}),
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     attempts: num(value.attempts, 0),
     revisions,
     ...visible,
     ...(typeof value.referenceItemId === 'string'
       ? { referenceItemId: value.referenceItemId }
+      : {}),
+    ...(typeof value.appliedRequestId === 'number'
+      ? { appliedRequestId: value.appliedRequestId }
       : {}),
     ...(typeof value.startedAt === 'number' ? { startedAt: value.startedAt } : {}),
     ...(typeof value.completedAt === 'number' ? { completedAt: value.completedAt } : {}),

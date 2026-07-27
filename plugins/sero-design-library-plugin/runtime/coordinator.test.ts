@@ -311,8 +311,12 @@ describe('failure handling', () => {
     expect((await readItem(harness.paths, itemId))?.analysis.error).toBe('provider exploded');
 
     // The reason has to reach the grid, or the UI can only say "it failed".
-    const summary = (await readState(harness.paths)).items.find((entry) => entry.id === itemId);
-    expect(summary?.analysisError).toBe('provider exploded');
+    // Waited for rather than read once: the record is written before the index,
+    // so a read taken the moment the record lands can precede the projection.
+    await vi.waitFor(async () => {
+      const summary = (await readState(harness.paths)).items.find((entry) => entry.id === itemId);
+      expect(summary?.analysisError).toBe('provider exploded');
+    });
   });
 
   it('keeps draining after one request fails', async () => {

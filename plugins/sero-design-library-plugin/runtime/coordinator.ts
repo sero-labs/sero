@@ -134,7 +134,7 @@ export class Coordinator {
 
   private async applyOne(request: LibraryRequest): Promise<void> {
     try {
-      await this.apply(request.body);
+      await this.apply(request.body, request.id);
     } catch (error) {
       // One bad request must not stall the whole queue, so it is reported and
       // the watermark still advances past it.
@@ -142,7 +142,7 @@ export class Coordinator {
     }
   }
 
-  private async apply(body: LibraryRequestBody): Promise<void> {
+  private async apply(body: LibraryRequestBody, requestId: number): Promise<void> {
     const { paths } = this.context;
 
     switch (body.kind) {
@@ -288,7 +288,11 @@ export class Coordinator {
       }
 
       case 'design.retry-variant': {
-        const jobId = await retryVariant(paths, body.designId, body.variantId);
+        // The request id goes with it: applying a request and recording that it
+        // was applied are two writes, so a crash between them replays this one,
+        // and a retry that had already failed by then is retryable again. The
+        // variant remembers the last request it acted on and declines the repeat.
+        const jobId = await retryVariant(paths, body.designId, body.variantId, requestId);
         if (jobId !== null) this.variants.enqueue(jobId);
         return;
       }
@@ -301,8 +305,11 @@ export class Coordinator {
       case 'design.delete': {
         // Work stops before the record is hidden: a run that finishes afterwards
         // would write a revision into a Design the user has thrown away.
+        // Aborting only asks it to stop, so each run is waited out — its last
+        // writes land a tick later, after the abort call has returned.
         for (const jobId of await cancelDesignWork(paths, body.designId)) {
           await this.variants.cancel(jobId);
+          await this.variants.settled(jobId);
         }
         await deleteDesign(paths, body.designId);
         return;

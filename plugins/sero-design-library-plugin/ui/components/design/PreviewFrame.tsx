@@ -28,6 +28,9 @@ import { PreviewControls, VIEWPORTS, type Viewport } from './PreviewControls';
 /** Anything more is noise; the count says how much was left out. */
 const VISIBLE_WARNINGS = 4;
 
+/** How long the first load is given to hear the frame announce itself. */
+const ANNOUNCE_GRACE_MS = 750;
+
 export interface PreviewFrameProps {
   target: PreviewTarget | null;
   /** Recorded at build time — refused imports, stripped remote references. */
@@ -47,6 +50,11 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
   // Counted rather than flagged: the first load is the document being put there,
   // and any load after it is the page navigating itself somewhere else.
   const loads = useRef(0);
+  // Set by the harness's `ready` report. A first load without one is a document
+  // this runtime did not build — see `decidePreviewLoad`.
+  const announced = useRef(false);
+  const blanked = useRef(false);
+  const graceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Reset when the element itself is created, not from an effect: `key={url}`
@@ -60,7 +68,11 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
    * covers the detach that React 19's StrictMode adds on top.
    */
   const attachFrame = useCallback((element: HTMLIFrameElement | null) => {
-    if (element !== null && element !== frame.current) loads.current = 0;
+    if (element !== null && element !== frame.current) {
+      loads.current = 0;
+      announced.current = false;
+      blanked.current = false;
+    }
     frame.current = element;
   }, []);
 
@@ -82,11 +94,18 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
       // renderer could otherwise fabricate a warning — or, worse, suppress one
       // by claiming a capability was already reported.
       if (event.source !== frame.current?.contentWindow) return;
-      if (!isPreviewMessage(event.data) || event.data.kind === 'ready') return;
+      if (!isPreviewMessage(event.data)) return;
+      if (event.data.kind === 'ready') {
+        announced.current = true;
+        return;
+      }
       report(event.data);
     };
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      if (graceTimer.current !== null) clearTimeout(graceTimer.current);
+    };
     // A reload replaces the document, so what the old one reported no longer
     // describes what is on screen.
   }, [url, reloads]);
@@ -96,11 +115,30 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
    * is [Unforgeable], so a page can always replace itself. Noticing is all the
    * surface can do — the load has already committed by the time this runs — and
    * `decidePreviewLoad` holds the rule about what to do with that.
+   *
+   * The first load is judged a beat later, not immediately. Our document
+   * announces itself from the harness at `DOMContentLoaded`, which is before the
+   * frame fires `load`, but both arrive as separate tasks; the grace period is
+   * there so ordinary scheduling is never read as an escape.
    */
   const onLoad = () => {
     loads.current += 1;
-    const outcome = decidePreviewLoad(loads.current);
+    const count = loads.current;
+    if (count > 1) {
+      settleLoad(count);
+      return;
+    }
+    if (graceTimer.current !== null) clearTimeout(graceTimer.current);
+    graceTimer.current = setTimeout(() => settleLoad(count), ANNOUNCE_GRACE_MS);
+  };
+
+  const settleLoad = (count: number) => {
+    if (blanked.current) return;
+    const outcome = decidePreviewLoad({ loadCount: count, announced: announced.current });
     if (outcome.action !== 'blank') return;
+    // `about:blank` fires its own load, and the emptied frame never announces
+    // itself either — without this the same escape is reported twice.
+    blanked.current = true;
     report({
       source: PREVIEW_MESSAGE_SOURCE,
       kind: 'blocked',

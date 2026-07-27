@@ -100,8 +100,18 @@ export function CreateDesignDialog({
       sessionRules: brief.sessionRules,
       ...(brief.recipeId === '' ? {} : { recipeId: brief.recipeId }),
     };
-    const outcome = await actions.create(input);
-    setBusy(false);
+    // The reset belongs in `finally`: a create that rejects — the runtime gone,
+    // the bridge unreachable — would otherwise leave the button disabled with no
+    // way back except closing the dialog.
+    let outcome: Awaited<ReturnType<typeof actions.create>>;
+    try {
+      outcome = await actions.create(input);
+    } catch (error) {
+      setRefusal(error instanceof Error ? error.message : 'The design could not be created.');
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!outcome.ok) {
       setRefusal(outcome.message);
       return;

@@ -1,5 +1,5 @@
 import { JSDOM } from 'jsdom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildHtmlDocument } from '../build/html';
 import { buildReactDocument } from '../build/react';
@@ -79,10 +79,22 @@ function loadHostileScript(script: string): LoadedPreview {
 
 /**
  * Let the frame's reports arrive. jsdom delivers `postMessage` on a queued task,
- * and the mutation-observer path adds a hop on top of that, so this waits a few
- * milliseconds rather than a single tick.
+ * and the mutation-observer path adds a hop on top of that.
+ *
+ * Given what it is waiting for, it waits for exactly that and no longer. A fixed
+ * delay is only correct when nothing is expected to arrive — a loaded machine
+ * makes any number of milliseconds too few, which is how the meta-refresh
+ * fixture failed on CI while passing everywhere else.
  */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+const settle = (until?: () => boolean) =>
+  until === undefined
+    ? new Promise((resolve) => setTimeout(resolve, 10))
+    : vi.waitFor(
+        () => {
+          if (!until()) throw new Error('the frame has not reported yet');
+        },
+        { timeout: 2000, interval: 5 },
+      );
 
 describe('a page that tries to reach the network', () => {
   it('rejects fetch rather than resolving with nothing', async () => {
@@ -94,7 +106,7 @@ describe('a page that tries to reach the network', () => {
        );`,
     );
 
-    await settle();
+    await settle(() => preview.blocked().includes('fetch'));
 
     // The failure this guards: an empty response lets generated code render an
     // "empty state" as though the request had succeeded.
@@ -108,7 +120,7 @@ describe('a page that tries to reach the network', () => {
   it('throws when constructing XMLHttpRequest, WebSocket or EventSource', async () => {
     for (const name of ['XMLHttpRequest', 'WebSocket', 'EventSource']) {
       const preview = loadHostileScript(`new ${name}('https://example.com');`);
-      await settle();
+      await settle(() => preview.blocked().includes(name));
       expect(String(preview.window.thrown), name).toContain('TypeError');
       expect(preview.blocked(), name).toContain(name);
     }
@@ -118,7 +130,7 @@ describe('a page that tries to reach the network', () => {
     const preview = loadHostileScript(
       `window.sent = navigator.sendBeacon('https://example.com/track');`,
     );
-    await settle();
+    await settle(() => preview.blocked().includes('navigator.sendBeacon'));
 
     expect(preview.window.sent).toBe(false);
     expect(preview.blocked()).toContain('navigator.sendBeacon');
@@ -126,7 +138,7 @@ describe('a page that tries to reach the network', () => {
 
   it('throws when starting a worker', async () => {
     const preview = loadHostileScript(`new Worker('worker.js');`);
-    await settle();
+    await settle(() => preview.blocked().includes('Worker'));
 
     expect(String(preview.window.thrown)).toContain('TypeError');
     expect(preview.blocked()).toContain('Worker');
@@ -145,6 +157,7 @@ describe('a page that tries to reach the network', () => {
       `for (var i = 0; i < 20; i++) { fetch('https://example.com/x').catch(function () {}); }`,
     );
 
+    await settle(() => preview.blocked().includes('fetch'));
     await settle();
 
     // A render loop calling fetch every frame would otherwise bury the first,
@@ -156,7 +169,7 @@ describe('a page that tries to reach the network', () => {
 describe('a page that tries to leave the frame', () => {
   it('returns null from window.open, as a blocked popup does', async () => {
     const preview = loadHostileScript(`window.opened = window.open('https://example.com');`);
-    await settle();
+    await settle(() => preview.blocked().includes('window.open'));
 
     expect(preview.window.opened).toBeNull();
     expect(preview.blocked()).toContain('window.open');
@@ -170,7 +183,7 @@ describe('a page that tries to leave the frame', () => {
     const event = new preview.window.MouseEvent('click', { bubbles: true, cancelable: true });
 
     preview.window.document.getElementById('out')!.dispatchEvent(event);
-    await settle();
+    await settle(() => preview.blocked().includes('navigation'));
 
     expect(event.defaultPrevented).toBe(true);
     expect(preview.blocked()).toContain('navigation');
@@ -206,7 +219,7 @@ document.head.appendChild(late);
       },
     ]);
     const preview = load(built.document!);
-    await settle();
+    await settle(() => preview.blocked().includes('navigation'));
 
     expect(preview.window.document.querySelector('meta[http-equiv="refresh"]')).toBeNull();
     expect(preview.blocked()).toContain('navigation');
@@ -223,7 +236,7 @@ document.head.appendChild(late);
     const event = new preview.window.Event('submit', { bubbles: true, cancelable: true });
 
     preview.window.document.getElementById('f')!.dispatchEvent(event);
-    await settle();
+    await settle(() => preview.blocked().includes('form submission'));
 
     expect(event.defaultPrevented).toBe(true);
     expect(preview.blocked()).toContain('form submission');
@@ -242,7 +255,7 @@ describe('a page that cannot be talked out of its guards', () => {
        );`,
     );
 
-    await settle();
+    await settle(() => preview.window.result !== undefined);
 
     // Whether the assignment throws or is ignored does not matter. Taking effect
     // does: the page would then have a working network again.
@@ -318,7 +331,7 @@ describe('a page that cannot be talked out of its guards', () => {
     ]);
     const preview = load(built.document!);
 
-    await settle();
+    await settle(() => preview.messages.some((message) => message.kind === 'error'));
 
     expect(preview.messages.some((message) => message.kind === 'error')).toBe(true);
   });
