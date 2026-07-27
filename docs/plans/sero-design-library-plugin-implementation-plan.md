@@ -124,24 +124,38 @@ One persisted job per variant; separate persisted jobs for Librarian and media c
 
 # PR 1 — Library
 
+**Status: built.** Awaiting live verification in the desktop app.
+
 The plugin becomes useful on its own: collect references, understand them, organise them.
 
 **Build**
 
-1. Canonical scaffold, manifest, Module Federation, scoped CSS, dark/light themes.
-2. `shared/` domain types, schemas and fixtures.
-3. `shared/state-io.ts` and `file-lock.ts` with concurrency tests, plus `runtime/projection.ts`.
-4. Runtime coordinator and the persisted job contract.
-5. Bounded ingestion: file picker, drag-and-drop, clipboard paste → 512 KiB base64 chunks → `uploads/` → one ingest request. Checksum duplicate detection. Original and preview storage.
-6. Uniform grid backed by summaries, with a bounded renderer image cache.
-7. Librarian: `platformTools: 'readOnly'`, structured output with `repair`, automatic on import, reanalysis, cancel, retry, restart recovery.
-8. Inspector: whole-field override and per-field reset, override *presence* explicit in storage.
-9. Search, filters, favourites, manual collections, derived style groups.
-10. Soft delete, restore, purge, tombstoned provenance.
-11. Settings page: Librarian and Design model pickers, generation defaults, prompt recipes.
-12. `bridgeTools` read surface for the main agent.
+- [x] 1. Canonical scaffold, manifest, Module Federation, scoped CSS, dark/light themes.
+- [x] 2. `shared/` domain types, schemas and fixtures.
+- [x] 3. `shared/state-io.ts` and `file-lock.ts` with concurrency tests, plus `runtime/projection.ts`.
+- [x] 4. Runtime coordinator and the persisted job contract.
+- [x] 5. Bounded ingestion: file picker, drag-and-drop, clipboard paste → 512 KiB base64 chunks → `uploads/` → one ingest request. Checksum duplicate detection. Original and preview storage.
+- [x] 6. Uniform grid backed by summaries, with a bounded renderer image cache.
+- [x] 7. Librarian: `platformTools: 'readOnly'`, structured output with `repair`, automatic on import, reanalysis, cancel, retry, restart recovery.
+- [x] 8. Inspector: whole-field override and per-field reset, override *presence* explicit in storage.
+- [x] 9. Search, filters, favourites, manual collections, derived style groups.
+- [x] 10. Soft delete, restore, purge, tombstoned provenance.
+- [x] 11. Settings page: Librarian and Design model pickers, generation defaults, prompt recipes.
+- [x] 12. `bridgeTools` read surface for the main agent.
 
 **Accept when** all import methods converge on one pipeline; a duplicate opens the existing item; restart preserves items and resumes analysis; manual fields survive reanalysis; every field resets independently; search, filters, favourites, collections and style groups work over the grid; UI never touches plugin files directly; stale-writer tests pass; model selections persist and are honoured.
+
+**Decisions taken while building**
+
+- The renderer produces the preview (canvas → WebP) rather than the runtime, so no image library enters the background process. A file the browser cannot decode still imports and falls back to its original in the grid.
+- The UI reads images through `design_library_assets` as base64 content blocks, since it has no filesystem access. That makes the bounded renderer cache load-bearing rather than an optimisation.
+- View preferences (scope, query, filters, sort) are held locally and persisted on a debounce through a `view.set` request, so typing does not queue a request per keystroke and the single-writer rule still holds.
+- Every analysis field — including vocabulary, palette and the eight-group visual profile — is edited through one line-based text form, so the override contract covers all thirteen fields without thirteen bespoke controls.
+- **The Librarian receives the image through a plugin-owned `customTools` tool, not a file path.** The platform read tool is scoped to the workspace and a Library item lives in the profile's app directory, so a path is always refused. The tool runs in the runtime, returns an `ImageContent` block, and lets the run drop to `platformTools: 'none'` — stricter than read-only, and identical on host and container workspaces.
+- **An analysis produced without calling that tool is rejected.** The tool records whether it was invoked, and the runtime — not the reply — decides. A model that cannot see the image will otherwise return a well-formed profile describing nothing, which would pass validation and silently poison every design built from it.
+- Records are validated on read (`normalizeItemRecord` / `normalizeJobRecord`), and startup chores are best-effort. A record from an older version is skipped and reported, never crashed on and never deleted.
+- **Opening a reference is a navigation, not a side panel** — the reference takes the whole surface (image left, analysis right), matching prototype state 2. A side inspector at grid width had room for neither. Consequence: a new import no longer selects, or a bulk import would throw the user into the last file; an exact duplicate still opens the existing item.
+- **Clicking a card selects; an explicit edit button opens it.** Double-click was tried and dropped: nothing on screen advertises it, and it aims badly at a card that already answers single clicks. The button carries its own translucent surface so it stays legible over any image.
 
 ---
 

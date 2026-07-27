@@ -104,6 +104,8 @@ A fourth surface, **Settings**, holds model choices, generation defaults and med
 
 A responsive uniform grid of equal-width cards with consistent metadata alignment. Each card shows preview, title, primary style, a small tag set, analysis status and selection state. Selecting references reveals one focused action bar (see the prototype, state 1).
 
+Clicking a card selects it. Opening one is an explicit edit button in the card's top corner, drawn on its own surface so it stays legible over any image. Opening is a navigation, not a side panel: the reference takes the whole surface, with the image at size on the left and the Librarian's reading beside it (prototype, state 2). Importing a new reference never navigates — it appears in the grid and analyses behind you. Importing an exact duplicate does open the item you already have.
+
 The left rail carries: All inspiration, Favourites, Awaiting analysis, Recently added; **Collections** (manual, user-created, coloured); **Style groups**.
 
 Style groups are derived, not learned. They group items by the Librarian's own `primaryStyle` and high-frequency vocabulary terms — the prototype's "Dark luxury", "High density", "Editorial", "Retro-futurist" are exactly these values. No embeddings, no extra model calls.
