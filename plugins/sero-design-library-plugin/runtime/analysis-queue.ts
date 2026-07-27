@@ -2,7 +2,7 @@ import type { AppRuntimeHost } from '@sero-ai/common';
 
 import { replaceGenerated } from '../shared/librarian';
 import type { DesignLibraryPaths } from '../shared/paths';
-import type { JobRecord } from '../shared/records';
+import type { ItemRecord, JobRecord } from '../shared/records';
 import { readState } from '../shared/state-io';
 import { runLibrarian } from './librarian/run';
 import { markCancelled, markFailed, markRunning, markSucceeded } from './jobs';
@@ -15,6 +15,10 @@ import { mutateItem, readItem, readJob } from './store';
  * once and every one of them is a model call. Each running job holds an
  * `AbortController` so cancellation reaches the session immediately rather
  * than waiting for the run to finish on its own.
+ *
+ * Two rules keep a finished job from corrupting state it no longer owns:
+ * shutdown waits for in-flight work instead of merely asking it to stop, and
+ * every write checks the item still points at the writing job.
  */
 
 const MAX_CONCURRENT = 2;
@@ -28,9 +32,15 @@ export interface AnalysisQueueContext {
   onError(message: string, error: unknown): void;
 }
 
+interface InFlight {
+  controller: AbortController;
+  /** Resolves when the run has finished writing. Never rejects. */
+  done: Promise<void>;
+}
+
 export class AnalysisQueue {
   private readonly pending: string[] = [];
-  private readonly running = new Map<string, AbortController>();
+  private readonly running = new Map<string, InFlight>();
   private disposed = false;
 
   constructor(private readonly context: AnalysisQueueContext) {}
@@ -45,19 +55,33 @@ export class AnalysisQueue {
 
   /** Abort a running job, or drop it from the queue if it never started. */
   cancel(jobId: string): void {
-    const controller = this.running.get(jobId);
-    if (controller) {
-      controller.abort();
+    const inFlight = this.running.get(jobId);
+    if (inFlight) {
+      inFlight.controller.abort();
       return;
     }
     const index = this.pending.indexOf(jobId);
     if (index !== -1) this.pending.splice(index, 1);
   }
 
+  /** Resolves once the job is no longer writing — immediately if it never was. */
+  async settled(jobId: string): Promise<void> {
+    await this.running.get(jobId)?.done;
+  }
+
+  /**
+   * Stop accepting work and wait for what is already running.
+   *
+   * Aborting only *asks* a run to stop; its writes land a tick later. Returning
+   * before they do lets a disposed runtime write over a restarted one — and, in
+   * tests, lets a write race the temporary directory being removed.
+   */
   async dispose(): Promise<void> {
     this.disposed = true;
     this.pending.length = 0;
-    for (const controller of this.running.values()) controller.abort();
+    const inFlight = [...this.running.values()];
+    for (const entry of inFlight) entry.controller.abort();
+    await Promise.allSettled(inFlight.map((entry) => entry.done));
     this.running.clear();
   }
 
@@ -65,15 +89,35 @@ export class AnalysisQueue {
     while (!this.disposed && this.running.size < MAX_CONCURRENT && this.pending.length > 0) {
       const jobId = this.pending.shift();
       if (jobId === undefined) return;
+
       const controller = new AbortController();
-      this.running.set(jobId, controller);
-      void this.execute(jobId, controller)
+      const done = this.execute(jobId, controller)
         .catch((error: unknown) => this.context.onError(`Analysis job ${jobId} threw`, error))
         .finally(() => {
           this.running.delete(jobId);
           void this.pump();
         });
+      this.running.set(jobId, { controller, done });
     }
+  }
+
+  /**
+   * Apply a result only while the item still points at this job. A job that was
+   * superseded — cancelled and replaced by a forced reanalysis, say — must not
+   * overwrite the newer run's work just because it finished later.
+   */
+  private async applyIfCurrent(
+    jobId: string,
+    itemId: string,
+    apply: (item: ItemRecord) => ItemRecord,
+  ): Promise<boolean> {
+    let applied = false;
+    await mutateItem(this.context.paths, itemId, (item) => {
+      if (item.analysis.jobId !== jobId) return null;
+      applied = true;
+      return apply(item);
+    });
+    return applied;
   }
 
   private async execute(jobId: string, controller: AbortController): Promise<void> {
@@ -93,10 +137,15 @@ export class AnalysisQueue {
     }
 
     await markRunning(paths, jobId);
-    await mutateItem(paths, job.itemId, (current) => ({
+    const claimed = await this.applyIfCurrent(jobId, job.itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'running', jobId, startedAt: Date.now(), error: undefined },
     }));
+    // The item moved on to another job before this one started.
+    if (!claimed) {
+      await markCancelled(paths, jobId);
+      return;
+    }
 
     const state = await readState(paths);
     const outcome = await runLibrarian(item, {
@@ -115,7 +164,7 @@ export class AnalysisQueue {
 
     if (outcome.status === 'failed') {
       await markFailed(paths, jobId, outcome.reason);
-      await mutateItem(paths, job.itemId, (current) => ({
+      await this.applyIfCurrent(jobId, job.itemId, (current) => ({
         ...current,
         analysis: {
           ...current.analysis,
@@ -130,7 +179,7 @@ export class AnalysisQueue {
     }
 
     // Reanalysis replaces the generated profile only — manual fields survive.
-    await mutateItem(paths, job.itemId, (current) => ({
+    await this.applyIfCurrent(jobId, job.itemId, (current) => ({
       ...current,
       profile: replaceGenerated(current.profile, outcome.analysis),
       analysis: {
@@ -146,10 +195,9 @@ export class AnalysisQueue {
 
   private async finishCancelled(job: JobRecord): Promise<void> {
     await markCancelled(this.context.paths, job.id);
-    await mutateItem(this.context.paths, job.itemId, (current) =>
-      current.analysis.jobId === job.id
-        ? { ...current, analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() } }
-        : current,
-    );
+    await this.applyIfCurrent(job.id, job.itemId, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() },
+    }));
   }
 }

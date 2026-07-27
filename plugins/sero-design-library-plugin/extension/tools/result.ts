@@ -1,3 +1,5 @@
+import { isSafeId } from '../../shared/paths';
+
 /**
  * Tool result helpers.
  *
@@ -26,4 +28,16 @@ export function image(data: string, mimeType: string, caption: string): ToolResu
 
 export function failure(message: string): ToolResult {
   return text(message, { ok: false });
+}
+
+/**
+ * Narrow a caller-supplied id to a safe one.
+ *
+ * The path helpers assert this too, and deliberately so: this layer turns a bad
+ * id into a readable tool error, while the helpers make it impossible for a new
+ * call site to skip the check at all.
+ */
+export function checkId(value: string | undefined, kind: string): { id: string } | { error: ToolResult } {
+  if (value !== undefined && isSafeId(value)) return { id: value };
+  return { error: failure(`${JSON.stringify(value ?? null)} is not a valid ${kind}.`) };
 }

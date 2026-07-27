@@ -7,11 +7,12 @@ import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/commo
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 import { designLibraryPathsFromHome, tombstoneFile, type DesignLibraryPaths } from '../shared/paths';
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readState, updateState } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { invokeTool } from './librarian/test-support';
-import { readItem } from './store';
+import { markSucceeded } from './jobs';
+import { listJobs, mutateItem, readItem } from './store';
 
 /**
  * The coordinator drives real records against a stubbed model, so these cover
@@ -233,6 +234,159 @@ describe('collections', () => {
     expect(state.collections).toEqual([]);
     expect(state.items).toHaveLength(1);
     expect(state.items[0].collectionIds).toEqual([]);
+  });
+});
+
+describe('shutdown', () => {
+  it('waits for in-flight analysis before dispose resolves', async () => {
+    // The regression: dispose aborted the run and returned immediately, so a
+    // write landed after teardown — which is what made CI fail with ENOTEMPTY
+    // when the temp directory was removed straight afterwards.
+    let releaseRun: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      runStructured.mockImplementationOnce(async (params: AppRuntimeSubagentRunParams) => {
+        const tools = (params.customTools ?? []) as ToolDefinition[];
+        const viewer = tools.find((tool) => tool.name === 'design_library_view_reference');
+        if (viewer) await invokeTool(viewer);
+        resolve();
+        await new Promise<void>((release) => {
+          releaseRun = release;
+        });
+        return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
+      });
+    });
+
+    await upload('u1', 'shot.png', 'bytes');
+    await appendRequest(paths, { kind: 'ingest', uploadId: 'u1' });
+    await coordinator.drain();
+    await started;
+
+    let disposed = false;
+    const disposal = coordinator.dispose().then(() => {
+      disposed = true;
+    });
+
+    // Give dispose every chance to resolve early while the run is still open.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(disposed).toBe(false);
+
+    releaseRun();
+    await disposal;
+    expect(disposed).toBe(true);
+  });
+});
+
+describe('reanalysis', () => {
+  it('runs one job at a time even when forced during a run', async () => {
+    const itemId = await importAndAnalyse('u1', 'shot.png', 'bytes');
+    expect(runStructured).toHaveBeenCalledTimes(1);
+
+    // Two forced reanalyses back to back: the first must be cancelled and
+    // waited for, not left racing the second.
+    await appendRequest(paths, { kind: 'analysis.run', itemId, force: true });
+    await appendRequest(paths, { kind: 'analysis.run', itemId, force: true });
+    await coordinator.drain();
+
+    await vi.waitFor(async () => {
+      expect((await readItem(paths, itemId))?.analysis.status).toBe('ready');
+    });
+
+    const item = await readItem(paths, itemId);
+    const jobs = await listJobs(paths);
+    const running = jobs.filter((job) => job.status === 'running');
+
+    expect(running).toEqual([]);
+    // Exactly one job owns the item, and it is the one that finished.
+    expect(jobs.filter((job) => job.id === item?.analysis.jobId)[0]?.status).toBe('succeeded');
+  });
+
+  it('ignores a completion from a job the item has moved on from', async () => {
+    const itemId = await importAndAnalyse('u1', 'shot.png', 'bytes');
+    const first = (await readItem(paths, itemId))?.analysis.jobId;
+    expect(first).toBeTruthy();
+
+    // Point the item at a different job, as a forced reanalysis would.
+    await mutateItem(paths, itemId, (item) => ({
+      ...item,
+      analysis: { ...item.analysis, jobId: 'some-newer-job', status: 'running' },
+    }));
+
+    // The stale job reports success. It must not overwrite the newer state.
+    await markSucceeded(paths, first!);
+    const after = await readItem(paths, itemId);
+    expect(after?.analysis.jobId).toBe('some-newer-job');
+    expect(after?.analysis.status).toBe('running');
+  });
+});
+
+describe('request consumption', () => {
+  it('advances the watermark after each request, not after the batch', async () => {
+    // A batch-wide watermark replayed everything already applied when the
+    // process died part-way through.
+    const itemId = await importAndAnalyse('u1', 'shot.png', 'bytes');
+    await appendRequest(paths, { kind: 'item.favourite', itemId, favourite: true });
+    await appendRequest(paths, { kind: 'collection.create', collectionId: 'c1', name: 'One', colour: 'primary' });
+    await appendRequest(paths, { kind: 'collection.create', collectionId: 'c2', name: 'Two', colour: 'primary' });
+    await coordinator.drain();
+
+    const state = await readState(paths);
+    expect(state.requests).toEqual([]);
+    expect(state.consumedRequestId).toBe(state.nextRequestId - 1);
+  });
+
+  it('is safe to replay a request that was applied but not recorded', async () => {
+    const itemId = await importAndAnalyse('u1', 'shot.png', 'bytes');
+
+    // Simulate the crash window: apply, then put the request back unconsumed.
+    await appendRequest(paths, { kind: 'item.favourite', itemId, favourite: true });
+    await coordinator.drain();
+    const applied = await readState(paths);
+    expect(applied.items[0].favourite).toBe(true);
+
+    await updateState(paths, (current) => ({
+      ...current,
+      consumedRequestId: current.consumedRequestId - 1,
+      requests: [
+        { id: current.consumedRequestId, requestedAt: Date.now(), body: { kind: 'item.favourite', itemId, favourite: true } },
+      ],
+    }));
+    await coordinator.drain();
+
+    const replayed = await readState(paths);
+    expect(replayed.items[0].favourite).toBe(true);
+    expect(replayed.requests).toEqual([]);
+  });
+
+  it('does not re-run analysis when an ingest request is replayed', async () => {
+    await importAndAnalyse('u1', 'shot.png', 'bytes');
+    expect(runStructured).toHaveBeenCalledTimes(1);
+
+    // The upload was consumed by the first apply, so a replay finds nothing.
+    await appendRequest(paths, { kind: 'ingest', uploadId: 'u1' });
+    await coordinator.drain();
+
+    expect(runStructured).toHaveBeenCalledTimes(1);
+    expect((await readState(paths)).items).toHaveLength(1);
+  });
+});
+
+describe('field validation', () => {
+  it('refuses a malformed value even when it reaches the runtime directly', async () => {
+    const itemId = await importAndAnalyse('u1', 'shot.png', 'bytes');
+
+    // The tool validates too; this is the request log being written directly.
+    await appendRequest(paths, {
+      kind: 'item.set-field',
+      itemId,
+      field: 'tags',
+      value: 99 as never,
+    });
+    await coordinator.drain();
+
+    const item = await readItem(paths, itemId);
+    expect(item?.profile.overrides.tags).toBeUndefined();
+    // The bad request is consumed rather than stalling the queue.
+    expect((await readState(paths)).requests).toEqual([]);
   });
 });
 

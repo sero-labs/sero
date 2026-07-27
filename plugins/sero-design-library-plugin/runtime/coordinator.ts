@@ -1,6 +1,6 @@
 import type { AppRuntimeHost } from '@sero-ai/common';
 
-import { clearOverride, effectiveField, setOverride } from '../shared/librarian';
+import { clearOverride, effectiveField, setOverride, validateFieldValue } from '../shared/librarian';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { tombstoneFile } from '../shared/paths';
 import type { TombstonedProvenance } from '../shared/records';
@@ -62,6 +62,17 @@ export class Coordinator {
    * Apply every unconsumed request. Re-entrant calls coalesce into one more
    * pass, so a state change arriving mid-drain is never lost and never starts
    * a second concurrent drain.
+   *
+   * The watermark advances after **each** request rather than after the batch.
+   * Advancing per batch meant a crash part-way through replayed everything
+   * already applied — most damagingly, queuing a second analysis job for an
+   * item that had just been analysed.
+   *
+   * This is at-least-once, not exactly-once: a crash between applying a request
+   * and recording it replays that one request. Every handler is therefore
+   * idempotent — an ingest whose upload has already been consumed finds no
+   * manifest, and the field, favourite, collection, deletion and settings
+   * handlers all set values rather than accumulating them.
    */
   async drain(): Promise<void> {
     if (this.draining) {
@@ -73,24 +84,22 @@ export class Coordinator {
       do {
         this.drainAgain = false;
         const state = await readState(this.context.paths);
-        const requests = pendingRequests(state);
-        for (const request of requests) {
+        for (const request of pendingRequests(state)) {
           await this.applyOne(request);
+          await this.consume(request);
         }
-        if (requests.length > 0) await this.consume(requests);
       } while (this.drainAgain);
     } finally {
       this.draining = false;
     }
   }
 
-  /** Advance the watermark and drop the requests it now covers. */
-  private async consume(requests: LibraryRequest[]): Promise<void> {
-    const highest = requests.reduce((max, request) => Math.max(max, request.id), 0);
+  /** Advance the watermark past one request and drop it from the log. */
+  private async consume(request: LibraryRequest): Promise<void> {
     await updateState(this.context.paths, (current: DesignLibraryState) => ({
       ...current,
-      consumedRequestId: Math.max(current.consumedRequestId, highest),
-      requests: current.requests.filter((request) => request.id > highest),
+      consumedRequestId: Math.max(current.consumedRequestId, request.id),
+      requests: current.requests.filter((entry) => entry.id > request.id),
     }));
   }
 
@@ -124,9 +133,14 @@ export class Coordinator {
       }
 
       case 'item.set-field': {
+        // Validated at the tool too. Checked again here because the request log
+        // is a file: anything that can write it can reach this handler, and a
+        // malformed value would break the projection for that item.
+        const checked = validateFieldValue(body.field, body.value);
+        if (!checked.ok) throw new Error(checked.reason);
         await mutateItem(paths, body.itemId, (item) => ({
           ...item,
-          profile: setOverride(item.profile, body.field, body.value, Date.now()),
+          profile: setOverride(item.profile, body.field, checked.value, Date.now()),
         }));
         return;
       }
@@ -230,13 +244,25 @@ export class Coordinator {
     }
   }
 
-  /** Queue analysis. Without `force`, an item that already has it is left alone. */
+  /**
+   * Queue analysis. Without `force`, an item that already has it is left alone.
+   *
+   * With `force`, any run already in flight is cancelled and waited for first.
+   * Letting a second job start alongside the first meant two model calls for
+   * one item, and whichever finished last won — so a reanalysis could be
+   * silently overwritten by the run it was meant to replace.
+   */
   private async startAnalysis(itemId: string, force: boolean): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     if (!item || item.deletedAt !== undefined) return;
-    if (!force && (item.analysis.status === 'ready' || item.analysis.status === 'running')) return;
+
+    const busy = item.analysis.status === 'running' || item.analysis.status === 'pending';
+    if (!force && (item.analysis.status === 'ready' || busy)) return;
+    if (busy) await this.cancelAnalysis(itemId, { wait: true });
 
     const job = await createJob(this.context.paths, 'analysis', itemId);
+    // Claiming the item for this job is what makes the queue's completion
+    // check meaningful: a superseded job no longer matches and cannot write.
     await mutateItem(this.context.paths, itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'pending', jobId: job.id, error: undefined },
@@ -244,12 +270,13 @@ export class Coordinator {
     this.queue.enqueue(job.id);
   }
 
-  private async cancelAnalysis(itemId: string): Promise<void> {
+  private async cancelAnalysis(itemId: string, options: { wait?: boolean } = {}): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     const jobId = item?.analysis.jobId;
     if (jobId === undefined) return;
     await requestCancel(this.context.paths, jobId);
     this.queue.cancel(jobId);
+    if (options.wait === true) await this.queue.settled(jobId);
   }
 
   /**

@@ -216,6 +216,95 @@ export function normalizeAnalysis(value: unknown): LibrarianAnalysis {
   };
 }
 
+/**
+ * Validate a value offered for one analysis field.
+ *
+ * Overrides arrive from tool callers, including the main agent, and the
+ * projection reads every field without checking — so a `tags` set to a number
+ * becomes a crash the moment the grid rebuilds. Rejecting is deliberate rather
+ * than coercing: silently turning a bad value into an empty list would tell
+ * the caller it worked while throwing their data away.
+ */
+export function validateFieldValue(
+  field: LibrarianField,
+  value: unknown,
+): { ok: true; value: LibrarianUserFacingAnalysis[LibrarianField] } | { ok: false; reason: string } {
+  const bad = (expected: string) => ({ ok: false as const, reason: `\`${field}\` expects ${expected}.` });
+  const good = (checked: unknown) => ({
+    ok: true as const,
+    value: checked as LibrarianUserFacingAnalysis[LibrarianField],
+  });
+
+  const isStringArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate) && candidate.every((entry) => typeof entry === 'string');
+
+  switch (field) {
+    case 'title':
+    case 'notes':
+    case 'primaryStyle':
+    case 'summary':
+    case 'designIntent':
+    case 'generationPrompt':
+      return typeof value === 'string' ? good(value) : bad('a string');
+
+    case 'designTypes':
+    case 'tags':
+    case 'always':
+    case 'never':
+      return isStringArray(value) ? good(value) : bad('an array of strings');
+
+    case 'aestheticVocabulary':
+      return Array.isArray(value) &&
+        value.every(
+          (entry) =>
+            isObject(entry) &&
+            typeof entry.term === 'string' &&
+            (entry.meaning === undefined || typeof entry.meaning === 'string'),
+        )
+        ? good(value)
+        : bad('an array of { term, meaning? } objects');
+
+    case 'palette':
+      return Array.isArray(value) &&
+        value.every(
+          (entry) =>
+            isObject(entry) &&
+            typeof entry.hex === 'string' &&
+            /^#[0-9a-fA-F]{3,8}$/.test(entry.hex) &&
+            (entry.role === undefined || typeof entry.role === 'string'),
+        )
+        ? good(value)
+        : bad('an array of { hex, role } objects with #rrggbb colours');
+
+    case 'visualProfile':
+      return isObject(value) &&
+        (Object.keys(EMPTY_VISUAL_PROFILE) as (keyof LibrarianVisualProfile)[]).every((group) =>
+          value[group] === undefined ? true : isStringArray(value[group]),
+        )
+        ? good({ ...EMPTY_VISUAL_PROFILE, ...(value as Partial<LibrarianVisualProfile>) })
+        : bad('an object of observation groups, each an array of strings');
+  }
+}
+
+/** Drop any stored override this version cannot trust. Used when reading records. */
+export function normalizeOverrides(value: unknown): LibrarianOverrides {
+  if (!isObject(value)) return {};
+  const overrides: Record<string, unknown> = {};
+
+  for (const field of LIBRARIAN_FIELDS) {
+    const entry = value[field];
+    if (!isObject(entry)) continue;
+    const checked = validateFieldValue(field, entry.value);
+    if (!checked.ok) continue;
+    overrides[field] = {
+      field,
+      value: checked.value,
+      updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : 0,
+    };
+  }
+  return overrides as LibrarianOverrides;
+}
+
 /** True when the field carries a user override, regardless of its value. */
 export function isOverridden(profile: EditableLibrarianProfile, field: LibrarianField): boolean {
   return Object.prototype.hasOwnProperty.call(profile.overrides, field) &&

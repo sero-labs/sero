@@ -4,14 +4,20 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { effectiveAnalysis, isLibrarianField, isOverridden, LIBRARIAN_FIELDS } from '../../shared/librarian';
+import {
+  effectiveAnalysis,
+  isLibrarianField,
+  isOverridden,
+  validateFieldValue,
+  LIBRARIAN_FIELDS,
+} from '../../shared/librarian';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { itemRecordFile } from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
 import { deriveFacets, selectItems } from '../../shared/search';
 import { appendRequest, readJsonFile, readState } from '../../shared/state-io';
 import { EMPTY_FILTERS, type ItemSummary } from '../../shared/types';
-import { failure, text, type ToolResult } from './result';
+import { checkId, failure, text, type ToolResult } from './result';
 
 /**
  * The item surface — searching, reading and editing Library items.
@@ -36,6 +42,12 @@ const ACTIONS = [
   'rename-collection',
   'delete-collection',
 ] as const;
+
+/** Actions whose id becomes part of a filesystem path. */
+const ITEM_ID_ACTIONS: readonly string[] = [
+  'get', 'set-field', 'reset-field', 'favourite', 'collect', 'delete', 'restore', 'purge',
+];
+const COLLECTION_ID_ACTIONS: readonly string[] = ['collect', 'rename-collection', 'delete-collection'];
 
 function describe(item: ItemSummary): string {
   const bits = [item.title];
@@ -105,6 +117,18 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
       colour: Type.Optional(Type.String({ description: 'Collection colour token (default `primary`)' })),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
+      // Ids build filesystem paths, so they are checked once here before any
+      // action can use them.
+      const needsItem = ITEM_ID_ACTIONS.includes(params.action);
+      const checkedItem = needsItem ? checkId(params.itemId, 'item id') : null;
+      if (checkedItem && 'error' in checkedItem) return checkedItem.error;
+      const itemId = checkedItem && 'id' in checkedItem ? checkedItem.id : '';
+
+      const needsCollection = COLLECTION_ID_ACTIONS.includes(params.action);
+      const checkedCollection = needsCollection ? checkId(params.collectionId, 'collection id') : null;
+      if (checkedCollection && 'error' in checkedCollection) return checkedCollection.error;
+      const collectionId = checkedCollection && 'id' in checkedCollection ? checkedCollection.id : '';
+
       switch (params.action) {
         case 'search': {
           const state = await readState(paths);
@@ -123,77 +147,66 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
         }
 
         case 'get': {
-          if (!params.itemId) return failure('`get` needs itemId.');
-          const record = await readRecord(paths, params.itemId);
-          return record ? renderItem(record) : failure(`No Library item ${params.itemId}.`);
+          const record = await readRecord(paths, itemId);
+          return record ? renderItem(record) : failure(`No Library item ${itemId}.`);
         }
 
         case 'set-field': {
-          if (!params.itemId || !isLibrarianField(params.field)) {
-            return failure(`\`set-field\` needs itemId and one of: ${LIBRARIAN_FIELDS.join(', ')}.`);
+          if (!isLibrarianField(params.field)) {
+            return failure(`\`set-field\` needs one of: ${LIBRARIAN_FIELDS.join(', ')}.`);
           }
-          if (params.value === undefined) return failure('`set-field` needs a value.');
+          // The value is shaped by the caller, so it is validated against the
+          // named field before it can reach a record.
+          const checked = validateFieldValue(params.field, params.value);
+          if (!checked.ok) return failure(checked.reason);
           await appendRequest(paths, {
             kind: 'item.set-field',
-            itemId: params.itemId,
+            itemId,
             field: params.field,
-            // The runtime stores the value against the field it names; the
-            // union of field types cannot be narrowed from a string at runtime.
-            value: params.value as never,
+            value: checked.value,
           });
           return text(`Queued an override for \`${params.field}\`.`);
         }
 
         case 'reset-field': {
-          if (!params.itemId || !isLibrarianField(params.field)) {
-            return failure(`\`reset-field\` needs itemId and one of: ${LIBRARIAN_FIELDS.join(', ')}.`);
+          if (!isLibrarianField(params.field)) {
+            return failure(`\`reset-field\` needs one of: ${LIBRARIAN_FIELDS.join(', ')}.`);
           }
-          await appendRequest(paths, {
-            kind: 'item.reset-field',
-            itemId: params.itemId,
-            field: params.field,
-          });
+          await appendRequest(paths, { kind: 'item.reset-field', itemId, field: params.field });
           return text(`Queued a reset for \`${params.field}\`; the generated value will show again.`);
         }
 
         case 'favourite': {
-          if (!params.itemId) return failure('`favourite` needs itemId.');
           await appendRequest(paths, {
             kind: 'item.favourite',
-            itemId: params.itemId,
+            itemId,
             favourite: params.favourite ?? true,
           });
           return text(params.favourite === false ? 'Removed from favourites.' : 'Added to favourites.');
         }
 
         case 'collect': {
-          if (!params.itemId || !params.collectionId) {
-            return failure('`collect` needs itemId and collectionId.');
-          }
           await appendRequest(paths, {
             kind: 'item.collect',
-            itemId: params.itemId,
-            collectionId: params.collectionId,
+            itemId,
+            collectionId,
             member: params.member ?? true,
           });
           return text(params.member === false ? 'Removed from the collection.' : 'Added to the collection.');
         }
 
         case 'delete': {
-          if (!params.itemId) return failure('`delete` needs itemId.');
-          await appendRequest(paths, { kind: 'item.delete', itemId: params.itemId });
+          await appendRequest(paths, { kind: 'item.delete', itemId });
           return text('Moved to Trash. Restore it any time; nothing is removed until you purge it.');
         }
 
         case 'restore': {
-          if (!params.itemId) return failure('`restore` needs itemId.');
-          await appendRequest(paths, { kind: 'item.restore', itemId: params.itemId });
+          await appendRequest(paths, { kind: 'item.restore', itemId });
           return text('Restored.');
         }
 
         case 'purge': {
-          if (!params.itemId) return failure('`purge` needs itemId.');
-          await appendRequest(paths, { kind: 'item.purge', itemId: params.itemId });
+          await appendRequest(paths, { kind: 'item.purge', itemId });
           return text('Queued permanent deletion. Anything referencing it keeps a tombstone, not the image.');
         }
 
@@ -224,20 +237,13 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
         }
 
         case 'rename-collection': {
-          if (!params.collectionId || !params.name) {
-            return failure('`rename-collection` needs collectionId and name.');
-          }
-          await appendRequest(paths, {
-            kind: 'collection.rename',
-            collectionId: params.collectionId,
-            name: params.name,
-          });
+          if (!params.name) return failure('`rename-collection` needs a name.');
+          await appendRequest(paths, { kind: 'collection.rename', collectionId, name: params.name });
           return text('Queued the rename.');
         }
 
         case 'delete-collection': {
-          if (!params.collectionId) return failure('`delete-collection` needs collectionId.');
-          await appendRequest(paths, { kind: 'collection.delete', collectionId: params.collectionId });
+          await appendRequest(paths, { kind: 'collection.delete', collectionId });
           return text('Queued deletion of the collection. The references inside it are untouched.');
         }
       }

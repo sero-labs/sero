@@ -4,7 +4,7 @@ import { Type } from 'typebox';
 
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { appendRequest, readState } from '../../shared/state-io';
-import { failure, text, type ToolResult } from './result';
+import { checkId, failure, text, type ToolResult } from './result';
 
 /**
  * The analysis surface — asking the Librarian to look, or to look again.
@@ -43,24 +43,26 @@ export function registerAnalysisTool(pi: ExtensionAPI, paths: DesignLibraryPaths
         );
       }
 
-      if (!params.itemId) return failure(`\`${params.action}\` needs itemId.`);
+      const checked = checkId(params.itemId, 'item id');
+      if ('error' in checked) return checked.error;
+      const itemId = checked.id;
 
       switch (params.action) {
         case 'analyse':
-          await appendRequest(paths, { kind: 'analysis.run', itemId: params.itemId, force: false });
+          await appendRequest(paths, { kind: 'analysis.run', itemId, force: false });
           return text('Queued analysis.');
 
         case 'reanalyse':
           // Reanalysis replaces the generated profile only — manual edits stay.
-          await appendRequest(paths, { kind: 'analysis.run', itemId: params.itemId, force: true });
+          await appendRequest(paths, { kind: 'analysis.run', itemId, force: true });
           return text('Queued reanalysis. Fields you edited by hand are kept.');
 
         case 'retry':
-          await appendRequest(paths, { kind: 'analysis.run', itemId: params.itemId, force: true });
+          await appendRequest(paths, { kind: 'analysis.run', itemId, force: true });
           return text('Queued a retry.');
 
         case 'cancel':
-          await appendRequest(paths, { kind: 'analysis.cancel', itemId: params.itemId });
+          await appendRequest(paths, { kind: 'analysis.cancel', itemId });
           return text('Queued a cancellation.');
       }
     },

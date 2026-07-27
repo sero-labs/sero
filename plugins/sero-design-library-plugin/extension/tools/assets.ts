@@ -19,7 +19,7 @@ import {
   discardUpload,
   writeUploadChunk,
 } from '../../shared/uploads';
-import { failure, image, text, type ToolResult } from './result';
+import { checkId, failure, image, text, type ToolResult } from './result';
 
 /**
  * The asset surface — bytes in, bytes out.
@@ -105,11 +105,19 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           if (!params.fileName || !params.mediaType) {
             return failure('`begin` needs fileName and mediaType.');
           }
+          // Importing your own video is deferred to a later release. The
+          // renderer filters for images too; this is the boundary that holds
+          // when the caller is the agent rather than the file picker.
+          if (!params.mediaType.startsWith('image/')) {
+            return failure(
+              `Only images can be imported (got ${params.mediaType}). Video references are not supported yet.`,
+            );
+          }
           const manifest: UploadManifest = {
             id: randomUUID(),
             fileName: params.fileName,
             mediaType: params.mediaType,
-            kind: params.kind ?? 'image',
+            kind: 'image',
             sourceKind: params.sourceKind ?? 'file',
             chunkCounts: {
               original: params.originalChunks ?? 0,
@@ -129,31 +137,36 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
         }
 
         case 'chunk': {
-          if (!params.uploadId || params.data === undefined || params.index === undefined) {
+          if (params.data === undefined || params.index === undefined) {
             return failure('`chunk` needs uploadId, index and data.');
           }
+          const checked = checkId(params.uploadId, 'upload id');
+          if ('error' in checked) return checked.error;
           const role: UploadRole = params.role ?? 'original';
-          const written = await writeUploadChunk(paths, params.uploadId, role, params.index, params.data);
+          const written = await writeUploadChunk(paths, checked.id, role, params.index, params.data);
           return text(`Stored ${role} chunk ${params.index} (${written} bytes).`, { written });
         }
 
         case 'complete': {
-          if (!params.uploadId) return failure('`complete` needs uploadId.');
-          await completeUpload(paths, params.uploadId);
-          const requestId = await appendRequest(paths, { kind: 'ingest', uploadId: params.uploadId });
+          const checked = checkId(params.uploadId, 'upload id');
+          if ('error' in checked) return checked.error;
+          await completeUpload(paths, checked.id);
+          const requestId = await appendRequest(paths, { kind: 'ingest', uploadId: checked.id });
           return text('Upload complete; import queued.', { requestId });
         }
 
         case 'abort': {
-          if (!params.uploadId) return failure('`abort` needs uploadId.');
-          await discardUpload(paths, params.uploadId);
+          const checked = checkId(params.uploadId, 'upload id');
+          if ('error' in checked) return checked.error;
+          await discardUpload(paths, checked.id);
           return text('Upload discarded.');
         }
 
         case 'preview':
         case 'original': {
-          if (!params.itemId) return failure(`\`${params.action}\` needs itemId.`);
-          return readItemAsset(paths, params.itemId, params.action);
+          const checked = checkId(params.itemId, 'item id');
+          if ('error' in checked) return checked.error;
+          return readItemAsset(paths, checked.id, params.action);
         }
       }
     },

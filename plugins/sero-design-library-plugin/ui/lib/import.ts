@@ -126,7 +126,7 @@ export async function importFile(
     fileName: file.name,
     mediaType: file.type || 'application/octet-stream',
     previewMediaType: preview?.mediaType ?? 'image/webp',
-    kind: file.type.startsWith('video/') ? 'video' : 'image',
+    kind: 'image',
     sourceKind,
     originalChunks: chunkCount(original.length),
     previewChunks: preview ? chunkCount(preview.bytes.length) : 0,
@@ -155,7 +155,13 @@ export async function importFile(
   }
 }
 
-const IMPORTABLE = /^(image|video)\//;
+/**
+ * Importing your own video is deferred: generated video is supported, but a
+ * dropped video file has no preview path (the canvas cannot decode it) and
+ * would reach the Librarian as image bytes. Until frame extraction ships, the
+ * picker, the drop target and the paste handler all agree on images only.
+ */
+const IMPORTABLE = /^image\//;
 
 export function importableFiles(files: Iterable<File>): File[] {
   return [...files].filter((file) => IMPORTABLE.test(file.type));

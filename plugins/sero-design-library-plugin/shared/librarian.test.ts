@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EditableLibrarianProfile, LibrarianAnalysis } from './librarian';
+import type { EditableLibrarianProfile, LibrarianAnalysis, LibrarianField } from './librarian';
 import {
   clearOverride,
   effectiveAnalysis,
   effectiveField,
   emptyAnalysis,
   isOverridden,
+  normalizeOverrides,
   replaceGenerated,
   setOverride,
+  validateFieldValue,
 } from './librarian';
 
 function generated(overrides: Partial<LibrarianAnalysis> = {}): LibrarianAnalysis {
@@ -80,5 +82,78 @@ describe('the override contract', () => {
 
   it('gives generated notes an empty baseline so reset never restores text the user did not write', () => {
     expect(emptyAnalysis('t').notes).toBe('');
+  });
+});
+
+describe('validateFieldValue', () => {
+  it('accepts a correctly shaped value for every field', () => {
+    const good: Array<[LibrarianField, unknown]> = [
+      ['title', 'Northstar'],
+      ['notes', ''],
+      ['primaryStyle', 'Editorial'],
+      ['summary', 'One sentence.'],
+      ['designIntent', 'An intent.'],
+      ['generationPrompt', 'words'],
+      ['designTypes', ['dashboard']],
+      ['tags', ['a', 'b']],
+      ['always', []],
+      ['never', ['no gradients']],
+      ['aestheticVocabulary', [{ term: 'terse' }, { term: 'exact', meaning: 'precise' }]],
+      ['palette', [{ hex: '#0b0b0d', role: 'background' }]],
+      ['visualProfile', { colour: ['near-black'] }],
+    ];
+    for (const [field, value] of good) {
+      expect(validateFieldValue(field, value).ok, `${field} should accept`).toBe(true);
+    }
+  });
+
+  it('rejects a value of the wrong shape rather than coercing it', () => {
+    // Coercing would tell the caller it worked while discarding their data,
+    // and a number reaching `tags` crashes the projection.
+    const bad: Array<[LibrarianField, unknown]> = [
+      ['title', 42],
+      ['title', null],
+      ['tags', 'not-an-array'],
+      ['tags', [1, 2]],
+      ['designTypes', {}],
+      ['aestheticVocabulary', ['plain string']],
+      ['aestheticVocabulary', [{ meaning: 'no term' }]],
+      ['palette', [{ hex: 'not-a-colour' }]],
+      ['palette', ['#fff']],
+      ['visualProfile', 'nope'],
+      ['visualProfile', { colour: [1] }],
+    ];
+    for (const [field, value] of bad) {
+      const result = validateFieldValue(field, value);
+      expect(result.ok, `${field} = ${JSON.stringify(value)} should be rejected`).toBe(false);
+      if (!result.ok) expect(result.reason).toContain(field);
+    }
+  });
+
+  it('fills the missing groups when a partial visual profile is accepted', () => {
+    const result = validateFieldValue('visualProfile', { colour: ['a'] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toMatchObject({ colour: ['a'], typography: [], motion: [] });
+  });
+});
+
+describe('normalizeOverrides', () => {
+  it('keeps valid overrides and drops poisoned ones', () => {
+    const overrides = normalizeOverrides({
+      title: { field: 'title', value: 'Kept', updatedAt: 5 },
+      tags: { field: 'tags', value: 99 },
+      notAField: { field: 'notAField', value: 'x' },
+      palette: 'not even an object',
+    });
+
+    expect(Object.keys(overrides)).toEqual(['title']);
+    expect(overrides.title).toEqual({ field: 'title', value: 'Kept', updatedAt: 5 });
+  });
+
+  it('survives a completely malformed overrides blob', () => {
+    expect(normalizeOverrides(null)).toEqual({});
+    expect(normalizeOverrides('nope')).toEqual({});
+    expect(normalizeOverrides([1, 2, 3])).toEqual({});
   });
 });

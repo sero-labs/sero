@@ -103,7 +103,7 @@ export function DesignLibraryApp() {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         multiple
         hidden
         onChange={(event) => {

@@ -39,15 +39,41 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
  * version that referenced it can still explain what is missing.
  */
 export function tombstoneFile(paths: DesignLibraryPaths, itemId: string): string {
-  return path.join(paths.tombstonesDir, `${itemId}.json`);
+  return path.join(paths.tombstonesDir, `${assertSafeId(itemId, 'item id')}.json`);
 }
 
 export function resolveDesignLibraryPaths(env: NodeJS.ProcessEnv = process.env): DesignLibraryPaths {
   return designLibraryPathsFromHome(path.join(resolveSeroHome(env), 'apps', 'design-library'));
 }
 
+/**
+ * Ids arrive from tool callers, so they are untrusted input that gets used to
+ * build paths — and one of those paths is handed to a recursive delete.
+ * `path.join` offers no protection: `join(uploads, '../../..')` walks straight
+ * out of the plugin's storage.
+ *
+ * Every id therefore has to be a single safe path segment. Validating inside
+ * the path helpers rather than at each call site means a new call site cannot
+ * forget: there is no way to build a plugin path from an id without passing
+ * through here.
+ */
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+export function isSafeId(id: string): boolean {
+  // The leading-character rule already excludes '.' and '..', and the class
+  // excludes every separator, so no traversal survives.
+  return SAFE_ID.test(id);
+}
+
+export function assertSafeId(id: string, kind: string): string {
+  if (!isSafeId(id)) {
+    throw new Error(`Refusing to use ${JSON.stringify(id)} as a ${kind}: it is not a safe identifier.`);
+  }
+  return id;
+}
+
 export function itemDir(paths: DesignLibraryPaths, itemId: string): string {
-  return path.join(paths.itemsDir, itemId);
+  return path.join(paths.itemsDir, assertSafeId(itemId, 'item id'));
 }
 
 export function itemRecordFile(paths: DesignLibraryPaths, itemId: string): string {
@@ -55,11 +81,11 @@ export function itemRecordFile(paths: DesignLibraryPaths, itemId: string): strin
 }
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {
-  return path.join(paths.jobsDir, `${jobId}.json`);
+  return path.join(paths.jobsDir, `${assertSafeId(jobId, 'job id')}.json`);
 }
 
 export function uploadDir(paths: DesignLibraryPaths, uploadId: string): string {
-  return path.join(paths.uploadsDir, uploadId);
+  return path.join(paths.uploadsDir, assertSafeId(uploadId, 'upload id'));
 }
 
 export function uploadManifestFile(paths: DesignLibraryPaths, uploadId: string): string {

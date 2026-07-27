@@ -5,7 +5,7 @@
  */
 
 import type { EditableLibrarianProfile } from './librarian';
-import { normalizeAnalysis } from './librarian';
+import { normalizeAnalysis, normalizeOverrides } from './librarian';
 
 export type MediaKind = 'image' | 'video';
 
@@ -142,9 +142,9 @@ export function normalizeItemRecord(value: unknown): ItemRecord | null {
     },
     profile: {
       generated: normalizeAnalysis(profile.generated),
-      overrides: isRecordObject(profile.overrides)
-        ? (profile.overrides as ItemRecord['profile']['overrides'])
-        : {},
+      // Overrides are validated on the way in too, but a record on disk may
+      // predate that check — so it is enforced again on the way out.
+      overrides: normalizeOverrides(profile.overrides),
     },
     analysis: {
       status: known ? status : 'pending',
