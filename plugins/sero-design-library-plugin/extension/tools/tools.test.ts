@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile, mkdir, access } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, access, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -235,5 +235,27 @@ describe('the asset tool guards design files', () => {
     });
 
     expect(textOf(result)).toContain('No file preview.html');
+  });
+});
+
+describe('the asset tool will not follow a link out of its storage', () => {
+  it('refuses a revision file that is a symlink to somewhere else', async () => {
+    const secret = path.join(home, 'outside.txt');
+    await writeFile(secret, 'not yours', 'utf8');
+    const directory = path.join(paths.home, 'designs', 'dsn-1', 'variants', 'var-1', 'rev-1');
+    await mkdir(directory, { recursive: true });
+    await symlink(secret, path.join(directory, 'preview.html'));
+
+    const result = await call('design_library_assets', {
+      action: 'design-file',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      revisionId: 'rev-1',
+      fileName: 'preview.html',
+    });
+
+    // A lexical path check cannot see this; only resolving the real path can.
+    expect(textOf(result)).toContain('outside the Design Library directory');
+    expect(textOf(result)).not.toContain('not yours');
   });
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
@@ -49,6 +49,10 @@ const ACTIONS = [
  */
 const MAX_DESIGN_FILE_BYTES = 4 * 1024 * 1024;
 
+function isInside(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
 async function readDesignFile(
   paths: DesignLibraryPaths,
   designId: string,
@@ -65,13 +69,32 @@ async function readDesignFile(
   const resolved = resolveInsideHome(paths, path.relative(paths.home, file));
   if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
 
+  // Existence first, so a file that is simply not there says so. Deciding it
+  // afterwards would report every missing file as a refused path, which is both
+  // wrong and the more alarming of the two messages.
   const stats = await stat(resolved).catch(() => null);
   if (!stats?.isFile()) return failure(`No file ${fileName} in that revision.`);
   if (stats.size > MAX_DESIGN_FILE_BYTES) {
     return failure(`${fileName} is ${Math.round(stats.size / 1024)} KB, too large to read.`);
   }
 
-  const content = await readFile(resolved, 'utf8');
+  // A lexical check cannot see a symlink. Resolving the real path and checking
+  // it again is what stops a link inside the plugin's storage from becoming a
+  // read of anything on the machine.
+  //
+  // Both sides are resolved, not just the file: on macOS the app directory
+  // itself usually sits under a symlinked prefix (`/var` → `/private/var`), so
+  // comparing a real path against the unresolved home would refuse every
+  // legitimate read.
+  const [real, realHome] = await Promise.all([
+    realpath(resolved).catch(() => null),
+    realpath(paths.home).catch(() => null),
+  ]);
+  if (real === null || realHome === null || !isInside(realHome, real)) {
+    return failure('Refusing to read a path outside the Design Library directory.');
+  }
+
+  const content = await readFile(real, 'utf8');
   return text(content, { name: fileName, bytes: stats.size });
 }
 

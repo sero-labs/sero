@@ -143,9 +143,33 @@ export const PREVIEW_HARNESS = `(function () {
     } catch (ignored) {}
   }
 
-  // Navigating the frame is how generated code most often tries to leave, and
-  // it looks like an ordinary link. The frame cannot reach the top window, but
-  // it can still replace itself and take the preview with it.
+  // Leaving by navigating the frame itself.
+  //
+  // \`Location\` is [Unforgeable]: neither \`location = url\` nor \`location.assign\`
+  // can be replaced or wrapped from inside the page, and a guard written here
+  // that quietly fails to install would be worse than none — it would imply a
+  // coverage that does not exist. So this handles only what genuinely is
+  // reachable in-page, meta refresh and links, and the parent watches for a load
+  // it did not ask for. That is the actual backstop for programmatic navigation.
+  //
+  // A navigated frame keeps its sandbox flags, so it still cannot reach Sero,
+  // storage or the filesystem — but it would have a network again, and it would
+  // no longer be carrying this document's policy or these guards.
+  function stripRefresh(root) {
+    var metas = root.querySelectorAll ? root.querySelectorAll('meta[http-equiv]') : [];
+    for (var i = 0; i < metas.length; i++) {
+      if (String(metas[i].getAttribute('http-equiv')).toLowerCase() !== 'refresh') continue;
+      blocked('navigation', describe(metas[i].getAttribute('content')));
+      metas[i].remove();
+    }
+  }
+  stripRefresh(document);
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(function () {
+      stripRefresh(document);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   document.addEventListener(
     'click',
     function (event) {
@@ -181,10 +205,16 @@ export const PREVIEW_HARNESS = `(function () {
     report('error', 'script', describe(event.reason));
   });
 
-  // The one thing the frame accepts from outside: a value for a control this
-  // revision's own manifest declared. Nothing here evaluates a selector, a
-  // stylesheet or code — it sets one custom property to one string.
+  // The one thing the frame accepts from outside: one custom property set to one
+  // string, from the window that put this document here. Nothing here evaluates a
+  // selector, a stylesheet or code.
+  //
+  // The manifest check — that the property belongs to a control *this revision*
+  // declared — lands with the tweaks panel that emits manifests. Until then the
+  // only sender is the surface holding the frame, which is why the source check
+  // below is what stands in for it, and why nothing may relax it in the meantime.
   window.addEventListener('message', function (event) {
+    if (event.source !== parent) return;
     var data = event.data;
     if (!data || data.source !== SOURCE || data.kind !== 'tweak') return;
     if (typeof data.cssVariable !== 'string' || !/^--[A-Za-z0-9_-]+$/.test(data.cssVariable)) return;

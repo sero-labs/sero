@@ -119,22 +119,49 @@ export function unapprovedImports(target: OutputTarget, source: string): string[
   );
 }
 
+function withoutNamespaces(urls: Iterable<string>): string[] {
+  // A namespace declaration is not a fetch, and every generated SVG has one.
+  return [...new Set([...urls].filter((url) => !url.includes('www.w3.org')))];
+}
+
 /**
- * Remote URLs referenced from a document, which a preview can never load.
+ * Any remote URL appearing in a source file.
  *
- * A protocol-relative `//host/path` only counts when it opens an attribute value
- * or a `url()`. Matching it anywhere would read `//TODO: fix this` as a network
- * reference and refuse a perfectly good file over a comment.
+ * Deliberately broad, because this feeds the refusal a *model* reads: a URL in
+ * generated code is almost always an attempt to load something, and saying so
+ * early costs one tool call. A protocol-relative `//host/path` only counts when
+ * it opens an attribute value or a `url()`, so `//TODO: fix this` is not read as
+ * a network reference.
  */
 export function remoteReferencesOf(source: string): string[] {
-  const found = new Set<string>();
-  for (const match of source.matchAll(
-    /(?:https?:\/\/|(?<=["'(])\/\/)[A-Za-z0-9][^\s'"()<>]*/g,
-  )) {
-    const url = match[0];
-    // A namespace declaration is not a fetch, and every generated SVG has one.
-    if (url.includes('www.w3.org')) continue;
-    found.add(url);
+  const found: string[] = [];
+  for (const match of source.matchAll(/(?:https?:\/\/|(?<=["'(])\/\/)[A-Za-z0-9][^\s'"()<>]*/g)) {
+    found.push(match[0]);
   }
-  return [...found];
+  return withoutNamespaces(found);
+}
+
+/**
+ * Remote URLs a document will actually try to fetch — the value of a
+ * resource-bearing attribute, or a CSS `url()`.
+ *
+ * Narrower than `remoteReferencesOf` on purpose, because this feeds a warning a
+ * *user* reads, and that warning says something was blocked. A page that merely
+ * prints "see https://example.com" as text fetches nothing, and reporting it
+ * would make the warnings untrustworthy exactly where they need to be believed.
+ */
+export function remoteFetchesOf(markup: string): string[] {
+  const found: string[] = [];
+  const attribute = /\b(?:src|srcset|href|poster|data|action|formaction|background|ping)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+  for (const match of markup.matchAll(attribute)) {
+    const value = match[1] ?? match[2] ?? match[3] ?? '';
+    for (const candidate of value.split(',')) {
+      const url = candidate.trim().split(/\s+/)[0] ?? '';
+      if (/^(?:https?:)?\/\//i.test(url)) found.push(url);
+    }
+  }
+  for (const match of markup.matchAll(/url\(\s*['"]?((?:https?:)?\/\/[^'")\s]+)/gi)) {
+    if (match[1] !== undefined) found.push(match[1]);
+  }
+  return withoutNamespaces(found);
 }

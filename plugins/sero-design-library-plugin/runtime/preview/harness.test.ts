@@ -77,8 +77,12 @@ function loadHostileScript(script: string): LoadedPreview {
   return load(built.document!);
 }
 
-/** Let a rejected promise settle before the assertion looks at the result. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/**
+ * Let the frame's reports arrive. jsdom delivers `postMessage` on a queued task,
+ * and the mutation-observer path adds a hop on top of that, so this waits a few
+ * milliseconds rather than a single tick.
+ */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 
 describe('a page that tries to reach the network', () => {
   it('rejects fetch rather than resolving with nothing', async () => {
@@ -188,6 +192,26 @@ describe('a page that tries to leave the frame', () => {
     expect(preview.blocked()).not.toContain('navigation');
   });
 
+  it('strips a meta refresh, including one added later', async () => {
+    const built = buildHtmlDocument([
+      {
+        name: 'index.html',
+        content: `<head><meta http-equiv="refresh" content="0;url=https://example.com"></head><body>
+<script>
+var late = document.createElement('meta');
+late.setAttribute('http-equiv', 'refresh');
+late.setAttribute('content', '5;url=https://later.example');
+document.head.appendChild(late);
+</script></body>`,
+      },
+    ]);
+    const preview = load(built.document!);
+    await settle();
+
+    expect(preview.window.document.querySelector('meta[http-equiv="refresh"]')).toBeNull();
+    expect(preview.blocked()).toContain('navigation');
+  });
+
   it('stops a form from submitting', async () => {
     const built = buildHtmlDocument([
       {
@@ -244,12 +268,34 @@ describe('a page that cannot be talked out of its guards', () => {
     expect(preview.window.owned).toBeUndefined();
   });
 
-  it('accepts a plain value for a custom property', () => {
+  it('ignores a tweak that did not come from the window holding the frame', () => {
     const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }]);
     const preview = load(built.document!);
 
     preview.window.dispatchEvent(
       new preview.window.MessageEvent('message', {
+        // No sender: anything else able to post into this document could
+        // otherwise restyle the page it is meant to be previewing.
+        source: null,
+        data: {
+          source: 'sero-design-preview',
+          kind: 'tweak',
+          cssVariable: '--signal',
+          value: '#34d399',
+        },
+      }),
+    );
+
+    expect(preview.window.document.documentElement.style.getPropertyValue('--signal')).toBe('');
+  });
+
+  it('accepts a plain value for a custom property from its parent', () => {
+    const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }]);
+    const preview = load(built.document!);
+
+    preview.window.dispatchEvent(
+      new preview.window.MessageEvent('message', {
+        source: preview.window.parent,
         data: {
           source: 'sero-design-preview',
           kind: 'tweak',

@@ -96,7 +96,11 @@ export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecor
   const interrupted = jobs.filter((job) => job.status === 'running');
 
   for (const job of interrupted) {
-    await saveJob(paths, { ...job, status: 'queued', startedAt: undefined, cancelRequested: false });
+    // `cancelRequested` is kept rather than cleared. It is a durable record that
+    // the user asked for this to stop, and a crash between the request and the
+    // run noticing it must not resurrect the work — the resumed run sees the
+    // flag and finishes cancelled, which is what was asked for.
+    await saveJob(paths, { ...job, status: 'queued', startedAt: undefined });
     await rewindTarget(paths, job);
   }
 

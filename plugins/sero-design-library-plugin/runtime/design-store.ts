@@ -70,6 +70,26 @@ export async function saveDesign(paths: DesignLibraryPaths, design: DesignRecord
 }
 
 /**
+ * Write a Design only if that id is free, and hand back whatever is there.
+ *
+ * Request application is at-least-once: a crash between applying a request and
+ * recording it replays that request. A plain save would then write a brand-new
+ * record — new variant ids, no revisions — straight over a Design that had
+ * already generated, and every completed variant would be gone with no error
+ * anywhere. Creating is therefore the one write that must not overwrite.
+ */
+export async function createDesignRecord(
+  paths: DesignLibraryPaths,
+  design: DesignRecord,
+): Promise<{ design: DesignRecord; created: boolean }> {
+  return withRecordLock(paths, designRecordFile(paths, design.id), async () => {
+    const existing = await readDesign(paths, design.id);
+    if (existing) return { design: existing, created: false };
+    return { design: await writeDesign(paths, design), created: true };
+  });
+}
+
+/**
  * Read, transform and save one Design under a single lock. Returns null when the
  * Design is gone or the transform declined, so a request naming a deleted Design
  * is a no-op rather than an error.

@@ -121,10 +121,16 @@ export class VariantQueue {
     jobId: string,
     target: { designId: string; variantId: string },
     apply: (variant: DesignVariant) => DesignVariant,
+    expect?: DesignVariant['status'],
   ): Promise<boolean> {
     let applied = false;
     await mutateVariant(this.context.paths, target.designId, target.variantId, (variant) => {
       if (variant.jobId !== jobId) return null;
+      // Owning the variant is not enough for a terminal write. A cancel leaves
+      // the job id in place while moving the variant to `cancelled`, so a run
+      // that finished a moment later would report `ready` over it and the
+      // cancellation would silently undo itself.
+      if (expect !== undefined && variant.status !== expect) return null;
       applied = true;
       return apply(variant);
     });
@@ -187,6 +193,13 @@ export class VariantQueue {
     });
 
     if (outcome.status === 'cancelled') {
+      // Shutting down is not cancelling. Both arrive here as an aborted run, and
+      // writing `cancelled` for either means quitting Sero mid-generation
+      // retires the variant for good — restart recovery only revisits a job left
+      // `running`, so nothing ever looks at it again. Leaving the job as it is
+      // hands it back to reconciliation, which is what §6.7's "resumable work
+      // continues after restart" requires.
+      if (await this.abortedByShutdown(jobId)) return;
       await this.finishCancelled(job);
       return;
     }
@@ -249,15 +262,20 @@ export class VariantQueue {
     };
 
     await markSucceeded(paths, job.id);
-    await this.applyIfCurrent(job.id, target, (variant) => ({
-      ...variant,
-      status: 'ready',
-      error: undefined,
-      attempts: variant.attempts + 1,
-      revisions: [...variant.revisions, revision],
-      visibleRevisionId: revision.id,
-      completedAt: Date.now(),
-    }));
+    await this.applyIfCurrent(
+      job.id,
+      target,
+      (variant) => ({
+        ...variant,
+        status: 'ready',
+        error: undefined,
+        attempts: variant.attempts + 1,
+        revisions: [...variant.revisions, revision],
+        visibleRevisionId: revision.id,
+        completedAt: Date.now(),
+      }),
+      'running',
+    );
   }
 
   private async writeFiles(directory: string, files: EmittedFile[]): Promise<void> {
@@ -273,13 +291,29 @@ export class VariantQueue {
     reason: string,
   ): Promise<void> {
     await markFailed(this.context.paths, jobId, reason);
-    await this.applyIfCurrent(jobId, target, (variant) => ({
-      ...variant,
-      status: 'failed',
-      error: reason,
-      attempts: variant.attempts + 1,
-      completedAt: Date.now(),
-    }));
+    await this.applyIfCurrent(
+      jobId,
+      target,
+      (variant) => ({
+        ...variant,
+        status: 'failed',
+        error: reason,
+        attempts: variant.attempts + 1,
+        completedAt: Date.now(),
+      }),
+      'running',
+    );
+  }
+
+  /**
+   * True when this run stopped because the runtime is going away rather than
+   * because anyone asked it to. The job record is the authority — a cancel
+   * requested before the abort is durable and outranks the shutdown.
+   */
+  private async abortedByShutdown(jobId: string): Promise<boolean> {
+    if (!this.disposed) return false;
+    const job = await readJob(this.context.paths, jobId);
+    return job?.cancelRequested !== true;
   }
 
   private async finishCancelled(job: JobRecord): Promise<void> {

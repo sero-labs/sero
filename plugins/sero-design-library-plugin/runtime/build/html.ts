@@ -1,5 +1,5 @@
 import type { EmittedFile } from '../../shared/targets';
-import { remoteReferencesOf } from '../../shared/targets';
+import { remoteFetchesOf } from '../../shared/targets';
 import { assemblePreviewDocument } from '../preview/document';
 import type { BuildResult } from './types';
 
@@ -94,7 +94,10 @@ export function buildHtmlDocument(files: EmittedFile[]): BuildResult {
     }
   }
 
-  for (const reference of remoteReferencesOf(markup)) {
+  // Only what the document would actually fetch. A page that prints a URL as
+  // text loads nothing, and warning about it would make these warnings — which
+  // say something *was blocked* — untrustworthy where it matters.
+  for (const reference of remoteFetchesOf(markup)) {
     warnings.push(`\`index.html\` references ${reference}, which will not load — a preview has no network.`);
   }
 

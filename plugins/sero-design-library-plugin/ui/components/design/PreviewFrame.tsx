@@ -1,7 +1,11 @@
 import { AlertTriangle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { isPreviewMessage, type PreviewMessage } from '../../../shared/preview-message';
+import {
+  PREVIEW_MESSAGE_SOURCE,
+  isPreviewMessage,
+  type PreviewMessage,
+} from '../../../shared/preview-message';
 import { usePreviewDocument, type PreviewTarget } from '../../hooks/usePreviewDocument';
 
 /**
@@ -31,25 +35,56 @@ export interface PreviewFrameProps {
 export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
+  const frame = useRef<HTMLIFrameElement>(null);
+  // Counted rather than flagged: the first load is the document being put there,
+  // and any load after it is the page navigating itself somewhere else.
+  const loads = useRef(0);
+
+  const report = (message: PreviewMessage) =>
+    setRuntimeMessages((current) =>
+      current.some(
+        (entry) => entry.capability === message.capability && entry.detail === message.detail,
+      )
+        ? current
+        : [...current, message],
+    );
 
   // The frame is a separate document; its reports arrive as window messages,
   // which is a genuine external event source rather than derived state.
   useEffect(() => {
     setRuntimeMessages([]);
+    loads.current = 0;
     const onMessage = (event: MessageEvent) => {
+      // Bound to this frame's own window. Anything else that can post into this
+      // renderer could otherwise fabricate a warning — or, worse, suppress one
+      // by claiming a capability was already reported.
+      if (event.source !== frame.current?.contentWindow) return;
       if (!isPreviewMessage(event.data) || event.data.kind === 'ready') return;
-      const message = event.data;
-      setRuntimeMessages((current) =>
-        current.some(
-          (entry) => entry.capability === message.capability && entry.detail === message.detail,
-        )
-          ? current
-          : [...current, message],
-      );
+      report(event.data);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [url]);
+
+  /**
+   * The backstop for the one escape in-page code cannot block: `window.location`
+   * is [Unforgeable], so a page can always assign to it and replace itself. The
+   * navigated document keeps the sandbox flags — no Sero, no storage, no
+   * filesystem — but it would have a network and would no longer carry this
+   * document's policy. So the frame is put back, and the attempt is reported
+   * rather than passing unnoticed.
+   */
+  const onLoad = () => {
+    loads.current += 1;
+    if (loads.current <= 1 || url === null) return;
+    report({
+      source: PREVIEW_MESSAGE_SOURCE,
+      kind: 'blocked',
+      capability: 'navigation',
+      detail: 'the page tried to load a different document',
+    });
+    if (frame.current) frame.current.src = url;
+  };
 
   const warnings = [
     ...buildWarnings,
@@ -70,7 +105,9 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
         ) : (
           <iframe
             key={url}
+            ref={frame}
             src={url}
+            onLoad={onLoad}
             title={title}
             // No `allow-same-origin`: with it the frame would share this
             // document's origin and the whole boundary would be decorative.
@@ -99,7 +136,7 @@ function PreviewWarnings({ warnings }: { warnings: string[] }) {
       </p>
       <ul className="text-muted-foreground mt-1.5 space-y-1">
         {shown.map((warning) => (
-          <li key={warning} className="break-words">
+          <li key={warning} className="wrap-break-word">
             {warning}
           </li>
         ))}

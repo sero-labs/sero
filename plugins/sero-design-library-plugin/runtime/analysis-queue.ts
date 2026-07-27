@@ -176,6 +176,11 @@ export class AnalysisQueue {
     });
 
     if (outcome.status === 'cancelled') {
+      // Shutting down is not cancelling. Both reach here as an aborted run, and
+      // recording `cancelled` for a shutdown retires the analysis for good —
+      // restart recovery only revisits a job left `running`. Leaving the job as
+      // it is hands it back to reconciliation, which resumes it.
+      if (await this.abortedByShutdown(jobId)) return;
       await this.finishCancelled(job, itemId);
       return;
     }
@@ -214,6 +219,17 @@ export class AnalysisQueue {
         completedAt: Date.now(),
       },
     }));
+  }
+
+  /**
+   * True when this run stopped because the runtime is going away rather than
+   * because anyone asked it to. The job record is the authority — a cancel
+   * requested before the abort is durable and outranks the shutdown.
+   */
+  private async abortedByShutdown(jobId: string): Promise<boolean> {
+    if (!this.disposed) return false;
+    const job = await readJob(this.context.paths, jobId);
+    return job?.cancelRequested !== true;
   }
 
   private async finishCancelled(job: JobRecord, itemId: string): Promise<void> {

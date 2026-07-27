@@ -15,8 +15,9 @@ import {
   useCoordinator,
   writeDesignFiles,
 } from '../coordinator-harness';
-import { readDesign } from '../design-store';
-import { listJobs } from '../store';
+import { mutateVariant, readDesign } from '../design-store';
+import { reconcileJobs } from '../jobs';
+import { listJobs, saveJob } from '../store';
 
 /**
  * Generation end to end, against a stubbed model: a Design is created, its
@@ -292,5 +293,131 @@ describe('the order a finished variant is recorded in', () => {
 
     expect(sawRevision).toBe(true);
     expect(documentExisted).toBe(true);
+  });
+});
+
+describe('durability across restart and replay', () => {
+  it('does not rebuild a Design when its create request is replayed', async () => {
+    // Request application is at-least-once: a crash between applying a request
+    // and recording it replays that one request.
+    const designId = await createDesign({ variantCount: 1 });
+    const before = await settled(designId);
+    const revisionId = before.variants[0]!.revisions[0]!.id;
+
+    await appendRequest(harness.paths, {
+      kind: 'design.create',
+      designId,
+      title: 'Agent operations',
+      brief: { ...BRIEF, variantCount: 1 },
+      referenceItemIds: before.references.map((reference) => reference.itemId),
+      resolutions: [],
+    });
+    await harness.coordinator.drain();
+
+    const after = await readDesign(harness.paths, designId);
+    // A fresh record would have new variant ids and no revisions, and every
+    // completed variant would be gone with no error anywhere.
+    expect(after?.variants[0]?.id).toBe(before.variants[0]!.id);
+    expect(after?.variants[0]?.revisions[0]?.id).toBe(revisionId);
+    expect(after?.variants[0]?.status).toBe('ready');
+  });
+
+  it('leaves a variant resumable when the runtime shuts down mid-run', async () => {
+    let release: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      harness.runStructured.mockImplementationOnce(stubAnalysisRun);
+      harness.runStructured.mockImplementationOnce(async () => {
+        resolve();
+        await new Promise<void>((resolveRelease) => {
+          release = resolveRelease;
+        });
+        return { response: 'never got there.' };
+      });
+    });
+
+    const designId = await createDesign({ variantCount: 1 });
+    await started;
+
+    // Quitting Sero, not cancelling. Recording `cancelled` here would retire the
+    // variant for good: restart recovery only revisits a job left `running`.
+    const disposal = harness.coordinator.dispose();
+    release();
+    await disposal;
+
+    const design = await readDesign(harness.paths, designId);
+    const variant = design!.variants[0]!;
+    expect(variant.status).not.toBe('cancelled');
+
+    const job = (await listJobs(harness.paths)).find((entry) => entry.id === variant.jobId);
+    expect(job?.status).toBe('running');
+    // Which is exactly what reconciliation is for.
+    const resumable = await reconcileJobs(harness.paths);
+    expect(resumable.map((entry) => entry.id)).toContain(job?.id);
+  });
+
+  it('keeps a cancellation across a restart rather than resurrecting the work', async () => {
+    const designId = await createDesign({ variantCount: 1 });
+    const design = await settled(designId);
+    const variantId = design.variants[0]!.id;
+
+    // A cancel that landed while the process was still running the job, and a
+    // crash before the run noticed it.
+    const jobId = design.variants[0]!.jobId!;
+    await mutateVariant(harness.paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'running',
+    }));
+    await saveJob(harness.paths, {
+      ...(await listJobs(harness.paths)).find((entry) => entry.id === jobId)!,
+      status: 'running',
+      cancelRequested: true,
+    });
+
+    await reconcileJobs(harness.paths);
+
+    const job = (await listJobs(harness.paths)).find((entry) => entry.id === jobId);
+    expect(job?.status).toBe('queued');
+    // Clearing the flag would resurrect work the user had already stopped.
+    expect(job?.cancelRequested).toBe(true);
+  });
+
+  it('will not let a finishing run overwrite a variant that was cancelled', async () => {
+    let release: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      harness.runStructured.mockImplementationOnce(stubAnalysisRun);
+      harness.runStructured.mockImplementationOnce(async (params: AppRuntimeSubagentRunParams) => {
+        resolve();
+        await new Promise<void>((resolveRelease) => {
+          release = resolveRelease;
+        });
+        await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
+        return { response: 'Finished after the cancel.' };
+      });
+    });
+
+    const designId = await createDesign({ variantCount: 1 });
+    await started;
+    const variantId = (await readDesign(harness.paths, designId))!.variants[0]!.id;
+
+    // The variant is marked cancelled while its run is still open, and the run
+    // then completes anyway — an abort only *asks* a run to stop, and a model
+    // call already in flight can return a whole page afterwards. The job id is
+    // unchanged, so ownership alone would let the completion write `ready` and
+    // silently undo the cancellation.
+    await mutateVariant(harness.paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'cancelled',
+      completedAt: Date.now(),
+    }));
+    release();
+
+    await vi.waitFor(async () => {
+      const jobs = await listJobs(harness.paths);
+      expect(jobs.every((job) => job.status !== 'running')).toBe(true);
+    });
+
+    const after = await readDesign(harness.paths, designId);
+    expect(after?.variants[0]?.status).toBe('cancelled');
+    expect(after?.variants[0]?.revisions).toEqual([]);
   });
 });

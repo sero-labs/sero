@@ -16,7 +16,13 @@ import { variantTarget } from '../shared/records';
 import type { ConflictResolution, ReferenceGuardrails } from '../shared/synthesis';
 import { applyResolutions, synthesizeGuardrails } from '../shared/synthesis';
 import { updateState } from '../shared/state-io';
-import { mutateDesign, mutateVariant, readDesign, saveDesign, scanDesigns } from './design-store';
+import {
+  createDesignRecord,
+  mutateDesign,
+  mutateVariant,
+  readDesign,
+  scanDesigns,
+} from './design-store';
 import { createJob, markCancelled, requestCancel } from './jobs';
 import { readItem, readJob } from './store';
 
@@ -106,6 +112,13 @@ export async function createDesign(
 ): Promise<DesignCreateOutcome> {
   if (!isSafeId(input.designId)) return { status: 'refused', reason: 'Unusable design id.' };
 
+  // Checked before anything else, because a replayed request must be a no-op
+  // rather than a refusal: by the time it replays, a reference may have been
+  // deleted, and reporting that would bury the fact that the Design already
+  // exists and is fine.
+  const existing = await readDesign(paths, input.designId);
+  if (existing) return { status: 'created', design: existing };
+
   // Duplicate ids are unique per reference, so a repeated id in the list is a
   // caller mistake rather than an intentional double weighting.
   const ids = [...new Set(input.referenceItemIds)];
@@ -151,8 +164,10 @@ export async function createDesign(
     appliedGuardrails,
   };
 
-  await saveDesign(paths, design);
-  return { status: 'created', design };
+  // Create-if-absent rather than save: two requests carrying the same id must
+  // converge on one record, whichever of them the runtime applies second.
+  const stored = await createDesignRecord(paths, design);
+  return { status: 'created', design: stored.design };
 }
 
 export async function renameDesign(

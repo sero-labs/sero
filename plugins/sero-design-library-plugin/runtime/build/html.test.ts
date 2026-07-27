@@ -137,3 +137,37 @@ describe('assembling an HTML design', () => {
     expect(built.warnings.join(' ')).toContain('index.html');
   });
 });
+
+describe('what counts as a blocked reference', () => {
+  it('does not warn about a URL the page merely prints', () => {
+    const built = buildHtmlDocument([
+      { name: 'index.html', content: '<body><p>Docs live at https://example.com/guide</p></body>' },
+    ]);
+
+    // A warning says something was blocked. Text fetches nothing, and warning
+    // about it would make the real warnings less believable.
+    expect(built.warnings).toEqual([]);
+  });
+
+  it('warns about a background image the page would fetch', () => {
+    const built = buildHtmlDocument([
+      {
+        name: 'index.html',
+        content: '<body><div style="background: url(https://cdn.example/x.png)"></div></body>',
+      },
+    ]);
+
+    expect(built.warnings.join(' ')).toContain('cdn.example');
+  });
+
+  it('warns about each candidate in a srcset', () => {
+    const built = buildHtmlDocument([
+      {
+        name: 'index.html',
+        content: '<body><img srcset="https://a.example/1x.png 1x, https://a.example/2x.png 2x"></body>',
+      },
+    ]);
+
+    expect(built.warnings.join(' ')).toContain('2x.png');
+  });
+});
