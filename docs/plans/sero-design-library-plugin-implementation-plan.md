@@ -1,6 +1,6 @@
 # Sero Design Library Plugin Implementation Plan
 
-**Status:** Ready for PR 1; persistence and AI blocked by required spikes
+**Status:** Draft;
 **Target branch:** `feat/design-library-plugin`
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library`
@@ -9,8 +9,6 @@
 ## 1. Purpose
 
 This plan delivers the approved image-only Library to Design to Gallery loop while preserving external-plugin portability.
-
-PR 1 may begin because it is fixture-backed. PR 2 and later production infrastructure must not begin until the pre-PR-2 spikes resolve state ownership, asset transport, multimodal input, preview isolation, Gallery preview capture and provider-neutral asset generation.
 
 ## 2. Governing constraints
 
@@ -37,11 +35,12 @@ PR 1 may begin because it is fixture-backed. PR 2 and later production infrastru
 8. Choose HTML or React output for the Design.
 9. Generate one to five variants, default three.
 10. Preview safely, including warnings for blocked behaviour.
-11. Revise with recoverable replace or retain behaviour.
-12. Generate local illustrative assets through provider-neutral LLM tools when the model chooses.
-13. Save an immutable version into a Gallery family.
-14. Export exact saved code, assets and metadata.
-15. Restart Sero and recover durable state and resumable jobs.
+11. Use AI-authored, design-specific Tweaks to edit CSS with immediate preview updates.
+12. Revise with recoverable replace or retain behaviour.
+13. Generate local illustrative assets through provider-neutral LLM tools when the model chooses.
+14. Save an immutable version into a Gallery family.
+15. Export exact saved code, tweak values, assets and metadata.
+16. Restart Sero and recover durable state and resumable jobs.
 
 ## 4. Reuse map
 
@@ -56,6 +55,7 @@ PR 1 may begin because it is fixture-backed. PR 2 and later production infrastru
 | Theme | `@sero-ai/ui` and theme CSS tokens | Use Sero colour, typography, spacing and radius contracts. |
 | Secrets | Existing per-profile secret mechanism | Resolve provider credentials without plugin-owned plaintext settings. |
 | Preview pattern | Existing opaque-origin iframe and CSP precedents | Adapt patterns inside the plugin after the isolation spike. |
+| Tweak controls | Generated manifest, CSS custom properties and generic UI primitives | Let each variant define its own safe controls without page-specific UI code. |
 | Files | Resolved global app directory | Store plugin-owned records and assets without new host IPC. |
 
 ## 5. Domain shape
@@ -72,6 +72,7 @@ Design
   chosen output target
   generation runs
   variants and revision histories
+  versioned tweak manifests and overrides
   provider-neutral generated assets
 
 GalleryFamily
@@ -86,6 +87,12 @@ Each reference can resolve to:
 - Tombstoned provenance after permanent source deletion.
 
 ## 6. Plugin shape
+
+The following is the target shape across the complete first release. Phase 1
+creates only the package, `shared/` domain drafts and fixture-backed `ui/`
+surface. It does not register an extension or background runtime. Those
+surfaces are added by the production phase that first needs them after Gate A
+has resolved their ownership and communication mechanisms.
 
 ```text
 plugins/sero-design-library-plugin/
@@ -116,7 +123,8 @@ plugins/sero-design-library-plugin/
     │   ├── LibraryPage.tsx
     │   ├── DesignPage.tsx
     │   └── GalleryPage.tsx
-    └── components/
+    ├── components/
+    └── tweaks/
 ```
 
 Keep files focused and below 500 lines where practical.
@@ -130,7 +138,7 @@ Use grouped tools with validated action enums:
 | `design_library_assets` | Upload lifecycle, preview read, original read, delete, copy to Library |
 | `design_library_items` | Get, update field, reset field, soft delete, restore, permanent delete |
 | `design_library_analysis` | Analyse, reanalyse, cancel, retry |
-| `design_library_designs` | Create, open, revise, retry variant, cancel variant, delete, restore |
+| `design_library_designs` | Create, open, revise, update tweak, reset tweak, reset all tweaks, retry variant, cancel variant, delete, restore |
 | `design_library_design_assets` | List, retry, delete, promote |
 | `design_library_gallery` | Save version, feature, open, duplicate, remix, delete, restore, purge |
 | `design_library_export` | Export exact Gallery version to Downloads or Workspace |
@@ -261,6 +269,21 @@ Failure inserts a local placeholder. Asset-only retry updates the visible revisi
 
 Each Design has one target.
 
+### Tweak output contract
+
+Every successful variant revision must also emit:
+
+- A bounded, versioned tweak manifest selected for that page by the active model.
+- A declared CSS custom property for every manifest control.
+- Generated default values separate from user overrides.
+- Generic control metadata for range, toggle, colour or choice rendering.
+- Only approved system or locally bundled font choices.
+- Validation evidence that every retained control changes the rendered page.
+
+The manifest is design-specific. Do not populate it from a fixed category template. Invalid controls are omitted and reported while the valid page remains runnable.
+
+Tweak working state autosaves. Continuous changes within one panel session coalesce into one recoverable revision at the defined checkpoint boundaries.
+
 ## 13. Preview and validation
 
 Required behaviour:
@@ -273,6 +296,8 @@ Required behaviour:
 - No host navigation or uncontrolled pop-ups.
 - No Sero, Node, Electron, filesystem, secret or persistent-storage access.
 - Approved dependencies only.
+- Accept only manifest-declared, schema-valid tweak identifier/value messages.
+- Never accept selectors, arbitrary CSS text or JavaScript through the tweak channel.
 - Block capability violations.
 - Render safe remaining output.
 - Display actionable warnings outside the frame.
@@ -283,14 +308,15 @@ The isolation spike must include hostile fixtures and React bundle fixtures.
 
 Saving a version performs an immutable snapshot transaction:
 
-1. Validate the current Design revision.
-2. Copy exact code.
-3. Copy all used local assets.
-4. Record dependency and provenance manifests.
-5. Capture a deterministic preview.
-6. Publish the immutable version.
-7. Add it to the existing family.
-8. Feature it by default.
+1. Validate and checkpoint the current Design revision.
+2. Copy exact code with effective tweak values.
+3. Copy the tweak manifest and override values.
+4. Copy all used local assets.
+5. Record dependency and provenance manifests.
+6. Capture a deterministic preview.
+7. Publish the immutable version.
+8. Add it to the existing family.
+9. Feature it by default.
 
 Changing the featured pointer never mutates a version.
 
@@ -309,7 +335,33 @@ Reopen restores the source Design at the saved revision. Duplicate or Remix expl
 
 ## 16. Implementation sequence
 
-### PR 1: Approved shell and schemas
+### Phase 1: Approved shell and schemas
+
+Repository-backed execution details:
+
+- Use `docs/prototypes/sero-design-library-plugin.html` as the visual and
+  information-hierarchy reference. It is not a product authority. Where it
+  shows deferred or superseded concepts, including video or webpage items,
+  collections, smart groups, favourites, alternate grid modes, prompt recipes,
+  variation modes, inspiration-strength controls or Sero plugin output, omit
+  them and follow the decision record.
+- Use `packages/templates/skills/sero-plugin/example/sero-notes-plugin` as the
+  canonical scaffold reference, with the current plugin skill's scoped CSS and
+  Module Federation configuration. Other more complex plugin examples are in `plugins/`
+- Phase 1 is a UI-only global plugin with fixture data and component-local,
+  in-memory interaction state. Do not add `extension/`, `runtime/`,
+  `useAppState()`, plugin tools, persistence code or required host capabilities.
+  Set `sero.plugin.bridgeTools` to `false`.
+- Use `palette` as the Lucide manifest icon and development port `5190`, which
+  is unused by the in-repository plugins at the start of Phase 1.
+- Follow the component-test setup used by existing UI plugins such as
+  `plugins/sero-mcp-plugin`: Vitest with per-file jsdom for rendered component
+  tests.
+- The shared schema drafts in this PR are JSON-serialisable product-domain
+  types and fixtures only. They must not select record ownership,
+  serialisation, asset transport, preview construction, multimodal execution,
+  job recovery or provider-adapter request/result/error contracts. Gate A owns
+  those technical decisions.
 
 Build:
 
@@ -330,18 +382,97 @@ Acceptance:
 
 ### Gate A: Required spikes
 
-Complete and document:
+Each mechanism below was selected from evidence already in this repository. No
+spike changed approved product behaviour, and none introduced a Design
+Library-specific host API.
 
-1. Authoritative state mutation.
-2. Bounded upload and preview delivery.
-3. Multimodal structured Librarian input.
-4. HTML and React preview isolation.
-5. Deterministic Gallery preview capture.
-6. Provider-neutral asset contract with fal.ai proof.
+#### 1. Authoritative state mutation
 
-PR 2 is blocked until Gate A passes.
+**Evidence.** `plugins/sero-graphify-plugin` shows the established shape for a
+global plugin: extension tools append intent requests to the reactive state and
+a background runtime consumes them (`shared/state-io.ts`, `runtime/indexer.ts`).
+`AppRuntimeStateApi.update` serialises writes only within the host process, and
+Pi CLI tool calls run in a separate process, so atomic replacement alone can
+still lose an update.
 
-### PR 2: Durable image Library
+**Conclusion.** Extension tools are read-and-intent only; the runtime is the
+single authoritative writer for every record and for the index. Every write goes
+through `shared/state-io.ts`, which combines an in-process queue per path, a
+cross-process exclusive lock directory (`shared/file-lock.ts`), and a
+revision compare-and-swap. Requests are append-only and consumed by a monotonic
+watermark, so an append that races a consume cannot be dropped. The index is a
+pure projection of the records (`runtime/projection.ts`), which is what makes an
+interrupted index write recoverable. Proven by the concurrency tests in
+`shared/state-io.test.ts`.
+
+#### 2. Bounded upload and preview delivery
+
+**Evidence.** `AppToolResult` (`packages/common/src/app-tools.ts`) carries text,
+arbitrary `details` JSON and image content blocks, and
+`electron/ipc/agent/handlers/app-agent-tools.ts` passes image blocks through to
+the renderer unchanged.
+
+**Conclusion.** File picker, drag-and-drop and clipboard paste all call
+`design_library_assets`, which streams base64 chunks of at most 512 KiB per call
+into `uploads/<id>/` and then queues one ingest request. Previews are read back
+as image content blocks and held in a bounded renderer cache
+(`ui/hooks/useItemImage.ts`). No binary enters reactive state and no preload API
+is added.
+
+#### 3. Multimodal structured Librarian input
+
+**Evidence.** Pi's own read tool sends images as model attachments with bounded
+resizing (`@earendil-works/pi-coding-agent`, `dist/core/tools/read.js`), and
+`AppRuntimeSubagentRunParams.platformTools: 'readOnly'` gives a run exactly that
+tool.
+
+**Conclusion.** The Librarian runs with `platformTools: 'readOnly'` and a `cwd`
+of the item's directory, and is asked to read the stored original. Structured
+output uses the existing `repair` contract. Design generation runs with
+`platformTools: 'none'`, so reference pixels can never reach it.
+
+#### 4. HTML and React preview isolation
+
+**Evidence.** `apps/desktop/src/components/apps/explorer/editor/HtmlPreview.tsx`
+already renders untrusted HTML from a `blob:` URL in an
+`allow-scripts`-only iframe, which yields an opaque origin with no access to the
+host renderer, cookies or storage.
+
+**Conclusion.** Previews use the same blob + `sandbox="allow-scripts"` boundary,
+plus a strict document CSP (`default-src 'none'`) that blocks network, workers
+and framing, and a guard harness that reports blocked attempts. The React target
+is compiled locally by the runtime with esbuild (React bundled from the plugin's
+own dependencies) and Tailwind's offline `compile()` API; imports outside the
+approved bundle are refused and reported. Both are declared in
+`sero.app.runtimeExternals`.
+
+#### 5. Deterministic Gallery preview capture
+
+**Evidence.** A Gallery version is immutable, and a raster capture would require
+a headless browser — a machine dependency with no benefit for content that never
+changes.
+
+**Conclusion.** Each saved version stores a script-free, animation-free
+rendering of its own snapshot (`buildDeterministicPreviewDocument`). Cards render
+it in a scaled `sandbox=""` iframe mounted only when scrolled into view, so the
+same bytes always paint the same picture, no host API is involved, and a large
+Gallery stays practical.
+
+#### 6. Provider-neutral asset contract with fal.ai proof
+
+**Evidence.** `AppRuntimeCredentialsApi.getProviderApiKey` resolves model
+providers only, but Sero already stores provider credentials in
+`<SERO_HOME>/agent/auth.json`.
+
+**Conclusion.** `runtime/asset-generation/contract.ts` defines the neutral
+capability, request, result, error and provenance types. The fal.ai adapter uses
+the official `@fal-ai/client` package and stops all provider specifics at its own
+boundary; results are downloaded locally so no remote URL reaches a preview or an
+export. Credentials come from `FAL_KEY` or the existing `auth.json` store, so no
+host change is required. A second, fal-free adapter passes the same contract
+tests.
+
+### Phase 2: Durable image Library
 
 Build:
 
@@ -362,7 +493,7 @@ Acceptance:
 - UI never reads plugin files directly.
 - Stale-writer tests pass.
 
-### PR 3: Librarian and durable jobs
+### Phase 3: Librarian and durable jobs
 
 Build:
 
@@ -379,7 +510,7 @@ Acceptance:
 - Invalid output repairs or fails clearly.
 - Restart resumes eligible work.
 
-### PR 4: Design generation
+### Phase 4: Design generation
 
 Build:
 
@@ -391,6 +522,8 @@ Build:
 - Partial success, cancellation and retry.
 - Continuous autosave.
 - Recoverable revision replace/retain workflow.
+- AI-authored tweak manifest and CSS custom properties for every successful variant revision.
+- Generated defaults and separately persisted tweak overrides.
 
 Acceptance:
 
@@ -398,8 +531,9 @@ Acceptance:
 - Reference pixels never enter output.
 - Sibling variants survive failure and cancellation.
 - Work restores to the previous position.
+- Tweak manifests are design-specific, validated and never copied from a fixed control catalogue.
 
-### PR 5: Asset generation adapter
+### Phase 5: Asset generation adapter
 
 Build:
 
@@ -418,7 +552,7 @@ Acceptance:
 - Provider failure does not fail the whole variant.
 - A fake second adapter passes the contract tests.
 
-### PR 6: Isolated workbench
+### Phase 6: Isolated workbench
 
 Build:
 
@@ -426,6 +560,9 @@ Build:
 - Isolation and dependency enforcement.
 - Warning presentation.
 - Responsive viewport controls.
+- Dynamically rendered Tweaks panel with grouped range, toggle, colour and choice controls.
+- Immediate value-only preview updates, individual reset, Reset all and Copy CSS.
+- Session checkpointing that avoids slider-event revision spam.
 - Hostile fixture regression tests.
 
 Acceptance:
@@ -434,8 +571,10 @@ Acceptance:
 - Safe output still renders.
 - No network or host privilege is available.
 - Preview resources are cleaned up.
+- Invalid tweak messages cannot alter undeclared CSS or execute code.
+- Tweak state autosaves, survives restart and restores exactly.
 
-### PR 7: Gallery and export
+### Phase 7: Gallery and export
 
 Build:
 
@@ -447,21 +586,24 @@ Build:
 - Explicit Duplicate and Remix family branching.
 - Recoverable deletion and purge.
 - Exact export with metadata manifest.
+- Immutable tweak manifest and values in every Gallery version.
+- Effective tweak CSS resolved into standalone export output.
 
 Acceptance:
 
 - Source deletion cannot damage Gallery.
 - Old versions never mutate.
-- Export matches the snapshot.
+- Export matches the snapshot and does not depend on Sero's tweak runtime.
 - Downloads and Workspace destinations work.
 
-### PR 8: Alpha hardening
+### Phase 8: Alpha hardening
 
 Build:
 
 - Keyboard navigation and accessibility.
 - Screen-reader job announcements.
-- Reduced motion.
+- Reduced motion, including generated motion controls.
+- Keyboard and screen-reader operation for every generated tweak control.
 - Incremental grid rendering or virtualisation.
 - Bounded preview cache.
 - Fault injection for recovery and cleanup.
@@ -485,14 +627,12 @@ Manual verification covers:
 - Analysis and override reset.
 - Variant failure, cancellation and restart.
 - fal.ai failure and asset-only retry.
-- Hostile previews.
+- Hostile previews and invalid tweak messages.
+- Dynamic tweak relevance, live update, reset, Copy CSS and revision coalescing.
 - Gallery source deletion.
 - Downloads and Workspace export.
 - External plugin installation.
 
 ## 18. Implementation readiness
 
-PR 1 is ready.
-
-PR 2 is not ready until Gate A is complete and its outcomes are reflected in the shared schemas and this plan. A spike may select a mechanism, but it must preserve the approved behaviour in the decision document.
-
+TBC

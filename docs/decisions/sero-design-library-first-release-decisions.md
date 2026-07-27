@@ -1,6 +1,6 @@
 # Sero Design Library: Implementation-Shaping Decisions
 
-**Status:** Approved
+**Status:** Draft
 **Decision date:** 2026-07-25
 **Applies to:** First usable release of `@sero-ai/plugin-design-library`
 **Branch:** `feat/design-library-plugin`
@@ -25,6 +25,7 @@ The first release is an image-only vertical slice supporting:
   - Self-contained HTML, CSS and JavaScript.
   - React, TypeScript and Tailwind.
 - Runnable, isolated previews.
+- An AI-authored Tweaks panel for live, design-specific CSS adjustment.
 - Revision and recovery.
 - Explicit save to Gallery.
 - Exact export to Downloads or the active Workspace.
@@ -132,6 +133,19 @@ Semantic search is deferred.
 - Generation continues when the user navigates away while Sero is running.
 - If Sero quits, durable job state is persisted and resumable work continues after restart.
 
+### Tweaks
+
+- Every successful web variant revision includes an AI-authored, versioned tweak manifest and matching CSS custom properties.
+- The active model chooses only controls that are useful for that specific design. Groups and parameters are derived from the generated page and are not selected from a pre-canned category list.
+- The UI renders the manifest through generic range, toggle, colour and choice controls. Font choices are limited to approved bundled or system fonts already available to the Design.
+- Every control must change a declared custom property in the generated output. Invalid, duplicate or non-functional definitions are omitted and reported.
+- Tweaks can cover typography, colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS value that can be expressed safely through the manifest.
+- Changes apply immediately in the isolated preview through a value-only message channel. The channel accepts only a declared tweak identifier and a schema-valid value; it cannot carry selectors, arbitrary CSS or JavaScript.
+- Generated defaults and user overrides are stored separately. Each control and the whole panel can be reset.
+- Tweak changes autosave as working state. One editing session is checkpointed as one recoverable revision when the panel closes, the active variant changes, another revision starts, Gallery saves or Sero shuts down. Continuous slider input must not create revision spam.
+- Copy CSS returns the effective scoped custom-property override block.
+- Gallery save and export use the exact effective tweak values. Exported output contains the resolved CSS and does not depend on Sero's tweak UI or runtime.
+
 ## 5. Generated asset decisions
 
 ### Provider-neutral architecture
@@ -182,6 +196,7 @@ Provider-specific provenance may be stored in an adapter-owned extension object,
 - Browser cookies and normal persistent storage are unavailable.
 - Navigation of the main Sero window and uncontrolled pop-ups are blocked.
 - Dependencies outside the approved bundle are blocked.
+- The preview accepts only validated tweak value messages for controls declared by its own manifest.
 - Safe portions of the preview still render when restricted behaviour is detected.
 - The UI shows clear warnings describing each blocked capability.
 - Validation warnings do not weaken the isolation boundary.
@@ -190,7 +205,7 @@ Provider-specific provenance may be stored in an adapter-owned extension object,
 
 ### Snapshots and families
 
-- A Gallery version is an immutable snapshot of exact code, assets and provenance.
+- A Gallery version is an immutable snapshot of exact code, assets, tweak manifest, effective tweak values and provenance.
 - Saving a revised variant adds a version to the existing family.
 - New families are created only through an explicit action.
 - Duplicate or Remix creates a new linked Design family.
@@ -215,8 +230,8 @@ Provider-specific provenance may be stored in an adapter-owned extension object,
 
 ### Export
 
-- Export reproduces the exact saved code and bundled assets.
-- Export includes a small metadata manifest.
+- Export reproduces the exact saved code, effective tweak values and bundled assets.
+- Export includes a small metadata manifest containing the saved tweak manifest and values.
 - The user chooses Downloads or the active Workspace for each export.
 - Export never regenerates the Design.
 
@@ -230,7 +245,7 @@ Provider-specific provenance may be stored in an adapter-owned extension object,
 
 ## 9. Required technical decisions delegated to spikes
 
-The following product behaviour is settled, but the implementation mechanism requires a spike before its production PR.
+The following product behaviour is settled, but the implementation mechanism requires a spike before its production phase.
 
 ### Authoritative state mutation
 
@@ -308,16 +323,16 @@ The following are intentionally deferred beyond the first release:
 - Multiple output targets within one Design.
 - A second generated-asset provider.
 - Plugin-level asset-generation budgeting.
+- Free-form selector editing or arbitrary CSS/JavaScript injection through Tweaks.
 
 ## 11. Readiness rule
 
-PR 1 may implement a fixture-backed shell using the approved terminology and schemas.
+A single PR should contain the complete first release. Its fixture-backed shell phase may proceed using the approved terminology and schemas.
 
-Persistence and AI work must not begin until the required pre-PR-2 spikes have resolved:
+Production persistence and AI phases within that PR must not begin until Gate A has resolved:
 
 - Authoritative state mutation.
 - Asset transfer and preview delivery.
 - Multimodal Librarian input.
 - Preview isolation and Gallery preview capture.
 - Provider-neutral asset generation.
-
