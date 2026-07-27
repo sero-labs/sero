@@ -1,5 +1,5 @@
 import { Input, Label } from '@sero-ai/ui';
-import { Ban, Check, Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
 import type { GuardrailSynthesis } from '../../../shared/synthesis';
@@ -7,10 +7,10 @@ import type { GuardrailSynthesis } from '../../../shared/synthesis';
 /**
  * The rules this run will be held to, and the one place to add another.
  *
- * Only rules in force are shown. The synthesis has already dropped whatever the
- * references did not agree on, so a rule appearing here is one the design will
- * be generated under — there is nothing to be gained from listing rules that
- * are not.
+ * Only what the design must do is listed. The prohibitions are in force too —
+ * they reach the run exactly the same way — but they are the Librarian's
+ * standing "don't", not a decision anyone makes here, and spelling them out
+ * doubled the row for nothing. Their count is stated so they are not hidden.
  *
  * They are the references' words, verbatim. Paraphrasing them into shorter
  * chips would change what the design is being generated under.
@@ -38,7 +38,7 @@ export function GuardrailChips({
     setDrafting(false);
   };
 
-  const inForce = synthesis.always.length + synthesis.never.length + sessionRules.length;
+  const prohibitions = synthesis.never.length;
 
   return (
     <section className="space-y-2">
@@ -47,17 +47,15 @@ export function GuardrailChips({
           <span>Applied guardrails</span>
         </Label>
         <span className="text-muted-foreground text-sm">
-          {inForce} in force
-          {sessionRules.length > 0 && ` · ${sessionRules.length} yours`}
+          {prohibitions === 0
+            ? 'from the references'
+            : `and ${prohibitions} thing${prohibitions === 1 ? '' : 's'} it must not do`}
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         {synthesis.always.map((rule) => (
           <Chip key={`always:${rule}`} icon={<Check className="size-3 shrink-0" />} label={rule} />
-        ))}
-        {synthesis.never.map((rule) => (
-          <Chip key={`never:${rule}`} icon={<Ban className="size-3 shrink-0" />} label={rule} />
         ))}
         {sessionRules.map((rule) => (
           <Chip

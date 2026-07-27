@@ -113,7 +113,7 @@ export function CreateDesignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-5xl">
+      <DialogContent className="gap-0 p-0 sm:max-w-6xl">
         <DialogHeader className="border-border space-y-1 border-b px-6 py-4">
           <DialogTitle>Create a new design</DialogTitle>
           <DialogDescription>
