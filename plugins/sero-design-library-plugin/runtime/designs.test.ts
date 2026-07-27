@@ -217,7 +217,7 @@ describe('variant lifecycle', () => {
       status: 'failed',
       error: 'the model refused',
       revisions: [
-        { id: 'rev-1', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: 'first try' },
+        { id: 'rev-1', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: 'first try', name: 'First cut' },
       ],
     }));
 
@@ -243,7 +243,7 @@ describe('variant lifecycle', () => {
     await mutateVariant(paths, designId, variantId, (variant) => ({
       ...variant,
       revisions: [
-        { id: 'rev-kept', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: '' },
+        { id: 'rev-kept', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: '', name: '' },
       ],
     }));
 
@@ -287,6 +287,7 @@ describe('the Design projection', () => {
           builtFile: 'preview.html',
           buildWarnings: ['Refused an import of `axios`.'],
           summary: 'first',
+          name: '',
         },
         {
           id: 'rev-new',
@@ -296,6 +297,7 @@ describe('the Design projection', () => {
           builtFile: 'preview.html',
           buildWarnings: [],
           summary: 'second',
+          name: '',
         },
       ],
     }));
@@ -335,6 +337,7 @@ describe('creating the same Design twice', () => {
           files: [{ name: 'index.html', bytes: 4 }],
           buildWarnings: [],
           summary: 'kept',
+          name: '',
         },
       ],
     }));

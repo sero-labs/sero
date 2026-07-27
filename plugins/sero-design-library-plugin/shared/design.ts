@@ -91,6 +91,17 @@ export interface DesignRevision {
   tweakManifestFile?: string;
   /** What the model said it was going for, for the revision selector. */
   summary: string;
+  /**
+   * What the run called this design, two or three words. Shown on the variant
+   * tab in place of its number, which said nothing about three pages that took
+   * deliberately different directions.
+   *
+   * Lives on the revision, not the variant: a retry is a new revision and a
+   * different design, so a name pinned to the variant would outlive the work it
+   * described. Empty when the run never named it — the tab falls back to the
+   * number.
+   */
+  name: string;
 }
 
 export interface DesignVariant {

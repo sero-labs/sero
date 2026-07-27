@@ -235,7 +235,10 @@ export class VariantQueue {
       return;
     }
 
-    await this.storeRevision(job, design, target, outcome.files, outcome.summary);
+    await this.storeRevision(job, design, target, outcome.files, {
+      name: outcome.name,
+      summary: outcome.summary,
+    });
   }
 
   /**
@@ -252,7 +255,7 @@ export class VariantQueue {
     design: DesignRecord,
     target: { designId: string; variantId: string },
     files: EmittedFile[],
-    summary: string,
+    naming: { name: string; summary: string },
   ): Promise<void> {
     const { paths } = this.context;
     const revisionId = randomUUID();
@@ -285,7 +288,8 @@ export class VariantQueue {
       files: files.map((file) => ({ name: file.name, bytes: Buffer.byteLength(file.content, 'utf8') })),
       builtFile: PREVIEW_DOCUMENT_FILE,
       buildWarnings: built.warnings,
-      summary,
+      summary: naming.summary,
+      name: naming.name,
     };
 
     await markSucceeded(paths, job.id);

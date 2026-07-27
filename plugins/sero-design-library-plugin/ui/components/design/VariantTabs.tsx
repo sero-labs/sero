@@ -1,11 +1,15 @@
 import type { DesignVariantSummary } from '../../../shared/types';
 
 /**
- * One tab per variant, with its status as a dot.
+ * One tab per variant, with its status as a dot and the name the run gave it.
  *
  * Variants run independently, so the row has to show them at different stages at
  * once — one rendered, one still working, one failed — rather than a single
  * progress state for the Design.
+ *
+ * The number stays alongside the name. It is what everything else calls the
+ * variant — the record, the preview title, a retry — and a tab that only said
+ * "Glass telemetry" would leave nothing to match those against.
  */
 
 const DOT: Record<DesignVariantSummary['status'], string> = {
@@ -43,7 +47,10 @@ export function VariantTabs({ variants, activeId, onSelect }: VariantTabsProps) 
           onClick={() => onSelect(variant.id)}
         >
           <span className={`size-1.5 rounded-full ${DOT[variant.status]}`} aria-hidden />
-          <span className="tabular-nums">{String(variant.index + 1).padStart(2, '0')}</span>
+          <span className="text-muted-foreground tabular-nums">
+            {String(variant.index + 1).padStart(2, '0')}
+          </span>
+          {variant.name !== undefined && <span className="max-w-40 truncate">{variant.name}</span>}
           {variant.warningCount > 0 && (
             <span className="text-muted-foreground tabular-nums">{variant.warningCount}⚠</span>
           )}

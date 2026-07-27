@@ -65,6 +65,8 @@ export interface DesignVariantSummary {
   id: string;
   index: number;
   status: VariantStatus;
+  /** What the run called this design. Absent until it has produced one. */
+  name?: string;
   error?: string;
   /** Home-relative path to the visible revision's built document, when built. */
   previewPath?: string;
@@ -268,6 +270,7 @@ function normalizeVariantSummary(value: unknown, fallbackIndex: number): DesignV
       status === 'running' || status === 'ready' || status === 'failed' || status === 'cancelled'
         ? status
         : 'pending',
+    ...(typeof value.name === 'string' && value.name !== '' ? { name: value.name } : {}),
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     ...(typeof value.previewPath === 'string' ? { previewPath: value.previewPath } : {}),
     warningCount: num(value.warningCount, 0),

@@ -119,6 +119,7 @@ function normalizeRevision(value: unknown): DesignRevision | null {
       ? { tweakManifestFile: value.tweakManifestFile }
       : {}),
     summary: str(value.summary),
+    name: str(value.name),
   };
 }
 

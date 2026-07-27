@@ -8,6 +8,7 @@ import { modelSelectionIsEmpty } from '../../shared/settings';
 import type { EmittedFile } from '../../shared/targets';
 import { readItem } from '../store';
 import { createEmitFileTool, refuseEmittedSet } from './emit-tool';
+import { createNameDesignTool } from './name-tool';
 import {
   buildGenerationRepair,
   buildGenerationSystemPrompt,
@@ -18,16 +19,14 @@ import {
 /**
  * One variant generation run.
  *
- * `platformTools: 'none'` and exactly one custom tool — the one the files are
- * written through. No bash, no read, no write, no workspace and no network. The
- * only thing this run can produce is a set of files the runtime has already
- * checked against the target contract.
+ * `platformTools: 'none'` and two custom tools — the one the files are written
+ * through, and the one it names the result with. No bash, no read, no write, no
+ * workspace and no network. The only thing this run can produce is a set of
+ * files the runtime has already checked against the target contract.
  */
 
 const REPAIR_ATTEMPTS = 2;
 const RUN_TIMEOUT_MS = 600_000;
-/** A one-line direction, not an essay. Long replies are truncated, not rejected. */
-const MAX_SUMMARY_CHARS = 240;
 
 export interface GenerationRunContext {
   host: AppRuntimeHost;
@@ -39,7 +38,7 @@ export interface GenerationRunContext {
 }
 
 export type GenerationOutcome =
-  | { status: 'ok'; files: EmittedFile[]; summary: string; refusals: string[] }
+  | { status: 'ok'; files: EmittedFile[]; name: string; summary: string; refusals: string[] }
   | { status: 'cancelled' }
   | { status: 'failed'; reason: string };
 
@@ -65,14 +64,6 @@ export async function collectReferenceLanguage(
   return language;
 }
 
-function summarise(reply: string): string {
-  const line = reply
-    .split('\n')
-    .map((entry) => entry.trim())
-    .find((entry) => entry !== '' && !entry.startsWith('#'));
-  return (line ?? '').slice(0, MAX_SUMMARY_CHARS);
-}
-
 export async function runGeneration(
   design: DesignRecord,
   variant: DesignVariant,
@@ -89,6 +80,7 @@ export async function runGeneration(
   }
 
   const emitter = createEmitFileTool(design.brief.target);
+  const namer = createNameDesignTool();
 
   const params: AppRuntimeSubagentRunParams = {
     task: buildGenerationTask({
@@ -103,16 +95,18 @@ export async function runGeneration(
     parentSessionId: context.parentSessionId,
     workspaceId: context.workspaceId,
     platformTools: 'none',
-    customTools: [emitter.definition],
+    customTools: [emitter.definition, namer.definition],
     timeoutMs: RUN_TIMEOUT_MS,
     signal: context.signal,
     repair: {
       maxAttempts: REPAIR_ATTEMPTS,
-      validate: (reply) => {
+      validate: () => {
         const problem = refuseEmittedSet(design.brief.target, emitter.files());
         if (problem) return buildGenerationRepair(problem);
-        return summarise(reply) === ''
-          ? buildGenerationRepair('Your reply had no text in it.')
+        return namer.naming() === null
+          ? buildGenerationRepair(
+              'You have not named the design. Call `design_library_name_design` with a two or three word name and one sentence on the direction you took.',
+            )
           : null;
       },
     },
@@ -140,12 +134,16 @@ export async function runGeneration(
     };
   }
 
+  // A run that wrote the files but never named them is survivable — the page
+  // exists and renders — so the variant keeps its number rather than failing on
+  // a label. Repair has already asked for the name twice by this point.
+  const naming = namer.naming();
+
   return {
     status: 'ok',
     files,
-    // An empty summary is survivable — the variant renders either way, and the
-    // revision selector can fall back to its number.
-    summary: summarise(result.response),
+    name: naming?.name ?? '',
+    summary: naming?.summary ?? '',
     refusals: emitter.refusals(),
   };
 }

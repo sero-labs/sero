@@ -102,6 +102,7 @@ function projectVariant(design: DesignRecord, variant: DesignVariant): DesignVar
     status: variant.status,
     ...(variant.error === undefined ? {} : { error: variant.error }),
     ...built,
+    ...(revision?.name === undefined || revision.name === '' ? {} : { name: revision.name }),
     warningCount: revision?.buildWarnings.length ?? 0,
     revisionCount: variant.revisions.length,
     ...(variant.visibleRevisionId === undefined

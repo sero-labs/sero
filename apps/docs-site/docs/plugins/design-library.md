@@ -83,6 +83,7 @@ A reference has to be analysed before you can design from it. The design run is 
 
 Each variant is its own piece of work. They run a couple at a time and appear as they finish.
 
+- Each one names itself — "Signal ledger", "Glass telemetry" — so the tabs say what the directions were rather than counting them.
 - One failing changes nothing about the others — you keep whatever worked.
 - **Try again** re-runs a single variant. Its earlier attempt stays in its history.
 - **Stop** cancels one variant and leaves its siblings running.
@@ -95,6 +96,10 @@ Generated work runs in a sealed frame: no network, no access to Sero, your files
 If the design tried to do something the frame does not allow — load a font from the web, call an API, open a new window — the preview blocks it, still shows everything else, and lists what it stopped underneath the frame. A warning always means the thing was blocked. It never means it was allowed.
 
 Because there is no network, generated designs use the system fonts, CSS gradients and shapes, and SVG they draw themselves.
+
+Underneath the preview you can set the width the page is rendered at — desktop, tablet, phone, or whatever the pane happens to be — and reload it. A fixed width wider than the pane is scaled down to fit, and the percentage is shown so you know what you are looking at is smaller than the real thing.
+
+The panel beside the preview says what the run made and what it was made from: its concept, the references it drew on, the visual language it took from them, the files it wrote, and the settings it ran under.
 
 ## Deleting
 

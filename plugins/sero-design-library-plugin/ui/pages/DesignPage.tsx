@@ -1,10 +1,11 @@
-import { Button, ScrollArea } from '@sero-ai/ui';
-import { ArrowLeft, RotateCw, Square, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Button } from '@sero-ai/ui';
+import { ArrowLeft, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
-import type { DesignSummary, DesignVariantSummary } from '../../shared/types';
+import type { DesignSummary, ItemSummary } from '../../shared/types';
 import { PreviewFrame } from '../components/design/PreviewFrame';
+import { VariantDetail, referenceViews } from '../components/design/VariantDetail';
 import { VariantTabs } from '../components/design/VariantTabs';
 import type { DesignActions } from '../hooks/useDesigns';
 import type { PreviewTarget } from '../hooks/usePreviewDocument';
@@ -21,11 +22,13 @@ import type { PreviewTarget } from '../hooks/usePreviewDocument';
 
 export interface DesignPageProps {
   design: DesignSummary;
+  /** Live Library items, for naming the references this Design drew on. */
+  items: ItemSummary[];
   actions: DesignActions;
   onBack(): void;
 }
 
-export function DesignPage({ design, actions, onBack }: DesignPageProps) {
+export function DesignPage({ design, items, actions, onBack }: DesignPageProps) {
   const [record, setRecord] = useState<DesignRecord | null>(null);
   const [activeId, setActiveId] = useState<string | undefined>(design.variants[0]?.id);
 
@@ -47,6 +50,11 @@ export function DesignPage({ design, actions, onBack }: DesignPageProps) {
   const activeRecord = record?.variants.find((variant) => variant.id === active?.id);
   const revision = activeRecord?.revisions.find(
     (entry) => entry.id === activeRecord.visibleRevisionId,
+  );
+
+  const references = useMemo(
+    () => referenceViews(design.referenceItemIds, items),
+    [design.referenceItemIds, items],
   );
 
   const target: PreviewTarget | null =
@@ -93,102 +101,20 @@ export function DesignPage({ design, actions, onBack }: DesignPageProps) {
           <PreviewFrame
             target={target}
             buildWarnings={revision?.buildWarnings ?? []}
-            title={`${design.title} — variant ${active.index + 1}`}
+            title={`${design.title} — ${active.name ?? `variant ${active.index + 1}`}`}
           />
           <VariantDetail
-            design={design}
             variant={active}
-            files={revision?.files.map((file) => `${file.name} · ${formatBytes(file.bytes)}`) ?? []}
+            files={revision?.files ?? []}
             summary={revision?.summary ?? ''}
-            actions={actions}
+            brief={record?.brief}
+            references={references}
+            ownReferenceId={active.referenceItemId}
+            onRetry={() => void actions.retryVariant(design.id, active.id)}
+            onCancel={() => void actions.cancelVariant(design.id, active.id)}
           />
         </div>
       )}
     </div>
   );
-}
-
-function VariantDetail({
-  design,
-  variant,
-  files,
-  summary,
-  actions,
-}: {
-  design: DesignSummary;
-  variant: DesignVariantSummary;
-  files: string[];
-  summary: string;
-  actions: DesignActions;
-}) {
-  const running = variant.status === 'pending' || variant.status === 'running';
-
-  return (
-    <aside className="border-border flex w-72 shrink-0 flex-col rounded-md border">
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-4 p-3">
-          <div className="space-y-1">
-            <p className="text-muted-foreground text-sm uppercase">
-              Variant {String(variant.index + 1).padStart(2, '0')} · {variant.status}
-            </p>
-            {summary !== '' && <p className="text-sm">{summary}</p>}
-            {variant.error !== undefined && (
-              <p className="text-destructive text-sm">{variant.error}</p>
-            )}
-          </div>
-
-          {files.length > 0 && (
-            <section className="space-y-1">
-              <h3 className="text-sm font-medium">
-                Files
-                <span className="text-muted-foreground ml-1.5 tabular-nums">{files.length}</span>
-              </h3>
-              <ul className="text-muted-foreground space-y-0.5 font-mono text-sm">
-                {files.map((file) => (
-                  <li key={file} className="truncate">
-                    {file}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {variant.revisionCount > 1 && (
-            <p className="text-muted-foreground text-sm tabular-nums">
-              {variant.revisionCount} revisions
-            </p>
-          )}
-        </div>
-      </ScrollArea>
-
-      <div className="border-border flex gap-2 border-t p-2">
-        {running ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void actions.cancelVariant(design.id, variant.id)}
-          >
-            <Square className="size-3.5" />
-            Stop
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={variant.status === 'ready'}
-            onClick={() => void actions.retryVariant(design.id, variant.id)}
-          >
-            <RotateCw className="size-3.5" />
-            Try again
-          </Button>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function formatBytes(bytes: number): string {
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
 }

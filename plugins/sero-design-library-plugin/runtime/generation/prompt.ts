@@ -117,9 +117,9 @@ Produce original work. Match the language; do not reproduce a reference layout.
 
 Write each file with \`design_library_write_file\`. It is the only way to produce
 anything — a reply with no file written is a failed run. When every file is
-written, reply with a single short sentence naming the design direction you took,
-for example "Typography-led operational panel with a restrained accent." No
-preamble, no file listing, no explanation.`;
+written, call \`design_library_name_design\` once with a two or three word name
+for what you made and one sentence on the direction you took. Then stop; the
+reply itself is not shown anywhere.`;
 }
 
 export interface GenerationTaskInput {
@@ -165,5 +165,5 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
 export function buildGenerationRepair(problem: string): string {
   return `${problem}
 
-Write the missing file or files with \`design_library_write_file\`, then reply with the one-sentence direction.`;
+Write anything still missing with \`design_library_write_file\`, then name the design with \`design_library_name_design\`.`;
 }

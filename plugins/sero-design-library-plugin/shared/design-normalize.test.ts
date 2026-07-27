@@ -167,8 +167,8 @@ describe('reading a Design', () => {
       status: 'ready' as const,
       attempts: 1,
       revisions: [
-        { id: 'rev-1', jobId: 'job-1', files: [], buildWarnings: [], createdAt: 1, summary: '' },
-        { id: 'rev-2', jobId: 'job-2', files: [], buildWarnings: [], createdAt: 2, summary: '' },
+        { id: 'rev-1', jobId: 'job-1', files: [], buildWarnings: [], createdAt: 1, summary: '', name: '' },
+        { id: 'rev-2', jobId: 'job-2', files: [], buildWarnings: [], createdAt: 2, summary: '', name: '' },
       ],
     };
 

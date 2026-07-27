@@ -7,7 +7,9 @@ import {
   type PreviewMessage,
 } from '../../../shared/preview-message';
 import { decidePreviewLoad } from '../../lib/preview-navigation';
+import { useElementSize } from '../../hooks/useElementSize';
 import { usePreviewDocument, type PreviewTarget } from '../../hooks/usePreviewDocument';
+import { PreviewControls, VIEWPORTS, type Viewport } from './PreviewControls';
 
 /**
  * The isolated frame a generated design runs in (spec §7).
@@ -36,6 +38,11 @@ export interface PreviewFrameProps {
 export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
+  const [viewport, setViewport] = useState<Viewport>(VIEWPORTS[0] as Viewport);
+  // Reloading is remounting: the frame has an opaque origin, so nothing outside
+  // it can reach in and refresh it.
+  const [reloads, setReloads] = useState(0);
+  const pane = useElementSize<HTMLDivElement>();
   const frame = useRef<HTMLIFrameElement | null>(null);
   // Counted rather than flagged: the first load is the document being put there,
   // and any load after it is the page navigating itself somewhere else.
@@ -80,7 +87,9 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [url]);
+    // A reload replaces the document, so what the old one reported no longer
+    // describes what is on screen.
+  }, [url, reloads]);
 
   /**
    * The backstop for the one escape in-page code cannot block: `window.location`
@@ -110,27 +119,63 @@ export function PreviewFrame({ target, buildWarnings, title }: PreviewFrameProps
     ),
   ];
 
+  // Scaled down to fit, never up: a 390-pixel page blown up to fill a wide pane
+  // would be a picture of a phone, not the page at that width.
+  const scale =
+    viewport.width === undefined || pane.width === 0
+      ? 1
+      : Math.min(1, pane.width / viewport.width);
+
+  const frameElement =
+    url === null ? null : (
+      <iframe
+        key={`${url}#${reloads}`}
+        ref={attachFrame}
+        src={url}
+        onLoad={onLoad}
+        title={title}
+        // No `allow-same-origin`: with it the frame would share this
+        // document's origin and the whole boundary would be decorative.
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        className="size-full border-0 bg-white"
+      />
+    );
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="border-border bg-muted/30 relative min-h-0 flex-1 overflow-hidden rounded-md border">
-        {url === null ? (
-          <p className="text-muted-foreground flex h-full items-center justify-center text-sm">
-            {loading ? 'Loading the preview…' : (error ?? 'Nothing to preview yet.')}
-          </p>
-        ) : (
-          <iframe
-            key={url}
-            ref={attachFrame}
-            src={url}
-            onLoad={onLoad}
-            title={title}
-            // No `allow-same-origin`: with it the frame would share this
-            // document's origin and the whole boundary would be decorative.
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            className="size-full border-0 bg-white"
-          />
-        )}
+    // `min-w-0`: without it the pane cannot shrink below whatever the page
+    // inside it is, and a wide design pushes the detail panel off screen.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      <div className="border-border flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+        <div ref={pane.ref} className="bg-muted/30 relative flex min-h-0 flex-1 justify-center">
+          {frameElement === null ? (
+            <p className="text-muted-foreground flex h-full items-center text-sm">
+              {loading ? 'Loading the preview…' : (error ?? 'Nothing to preview yet.')}
+            </p>
+          ) : viewport.width === undefined ? (
+            frameElement
+          ) : (
+            <div
+              className="shrink-0 origin-top"
+              style={{
+                width: viewport.width,
+                // The scaled element keeps its unscaled size in the layout, so
+                // the height is divided back out to fill the pane exactly.
+                height: pane.height === 0 ? '100%' : pane.height / scale,
+                transform: `scale(${scale})`,
+              }}
+            >
+              {frameElement}
+            </div>
+          )}
+        </div>
+
+        <PreviewControls
+          viewport={viewport}
+          scale={scale}
+          onViewport={setViewport}
+          onReload={() => setReloads((count) => count + 1)}
+        />
       </div>
 
       {warnings.length > 0 && <PreviewWarnings warnings={warnings} />}

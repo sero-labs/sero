@@ -98,16 +98,26 @@ export async function writeDesignFiles(
   for (const file of files) await invokeTool(writer, file);
 }
 
+/** Name the design the way a generation run does, through its tool. */
+export async function nameDesign(
+  params: AppRuntimeSubagentRunParams,
+  naming: { name: string; summary: string },
+): Promise<void> {
+  const namer = toolNamed(params, 'design_library_name_design');
+  if (namer) await invokeTool(namer, naming);
+}
+
 /**
  * A stub that behaves like a model that does its job, for both kinds of run: it
- * looks at the reference before analysing, and writes a file before describing a
- * design. Which run it is answering is decided by the tool it was handed.
+ * looks at the reference before analysing, and writes and names a design. Which
+ * run it is answering is decided by the tool it was handed.
  */
 function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi.fn> } {
   const runStructured = vi.fn(async (params: AppRuntimeSubagentRunParams) => {
     if (toolNamed(params, 'design_library_write_file')) {
       await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
-      return { response: 'Typography-led panel.', modelId: 'stub-model', providerId: 'stub' };
+      await nameDesign(params, { name: 'Signal ledger', summary: 'Typography-led panel.' });
+      return { response: 'done', modelId: 'stub-model', providerId: 'stub' };
     }
     await viewReference(params);
     return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
