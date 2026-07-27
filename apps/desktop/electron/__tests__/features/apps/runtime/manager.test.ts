@@ -137,6 +137,18 @@ function createHostStub(
       notify: vi.fn(),
       requestChoice: vi.fn(async () => ({ choiceId: null, timedOut: true })),
     },
+    media: {
+      prepareImage: vi.fn(async (data: string, mimeType: string, text?: string) => ({
+        data,
+        mimeType,
+        ...(text === undefined ? {} : { text }),
+        wasResized: false,
+        width: 0,
+        height: 0,
+        originalWidth: 0,
+        originalHeight: 0,
+      })),
+    },
     session: {
       getActiveForWorkspace: vi.fn(async () => null),
       getState: vi.fn(async () => ({ idle: true, pendingMessages: 0, activeTurnId: null })),

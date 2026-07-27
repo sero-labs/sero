@@ -40,7 +40,7 @@ export async function runLibrarian(
   context: LibrarianRunContext,
 ): Promise<LibrarianRunOutcome> {
   const startedAt = Date.now();
-  const imageTool = createReferenceImageTool(context.paths, item);
+  const imageTool = createReferenceImageTool(context.host, context.paths, item);
 
   const params: AppRuntimeSubagentRunParams = {
     task: buildAnalysisTask(),
