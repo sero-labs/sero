@@ -5,6 +5,7 @@ import {
   editedTweakCount,
   effectiveTweakValue,
   groupTweaks,
+  normalizeTweakControl,
   normalizeTweakDocument,
   normalizeTweakValue,
   pruneOverrides,
@@ -142,6 +143,72 @@ describe('Copy CSS', () => {
 
   it('is empty when the revision has no controls', () => {
     expect(tweakCssBlock({ ...manifest, controls: [] }, {})).toBe('');
+  });
+});
+
+describe('a control the preview would refuse', () => {
+  /**
+   * The frame drops any value that could close a declaration, silently — as a
+   * sandbox should. A control kept here but refused there is the worst outcome
+   * available: it renders, it moves, it saves, and the page never changes. So
+   * anything the frame would refuse disqualifies the control at this end.
+   */
+  it('drops a choice option carrying a statement terminator', () => {
+    const control = normalizeTweakControl({
+      type: 'choice',
+      options: [
+        { label: 'Tight', value: '0.9' },
+        { label: 'Loose', value: '1.4' },
+        { label: 'Broken', value: '1; --accent: red' },
+      ],
+    });
+
+    expect(control).toEqual({
+      type: 'choice',
+      options: [
+        { label: 'Tight', value: '0.9' },
+        { label: 'Loose', value: '1.4' },
+      ],
+    });
+  });
+
+  it('drops the whole choice when too few usable options are left', () => {
+    expect(
+      normalizeTweakControl({
+        type: 'choice',
+        options: [
+          { label: 'Fine', value: '1.4' },
+          { label: 'Calc', value: 'calc(100% - 2rem)' },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it('drops a toggle whose on or off value would be refused', () => {
+    expect(
+      normalizeTweakControl({ type: 'toggle', onValue: 'clamp(1rem, 2vw, 2rem)', offValue: '1rem' }),
+    ).toBeNull();
+    expect(normalizeTweakControl({ type: 'toggle', onValue: 'block', offValue: 'none' })).toEqual({
+      type: 'toggle',
+      onValue: 'block',
+      offValue: 'none',
+    });
+  });
+
+  it('drops a range whose unit would be refused, rather than dropping the unit', () => {
+    // Stripping it would leave a slider that sets `12` where it meant `12px` —
+    // a control that is wrong rather than one that is missing.
+    expect(normalizeTweakControl({ type: 'range', min: 0, max: 10, step: 1, unit: 'px)' })).toBeNull();
+  });
+
+  it('leaves an ordinary control alone', () => {
+    expect(normalizeTweakControl({ type: 'range', min: 24, max: 64, step: 2, unit: 'px' })).toEqual({
+      type: 'range',
+      min: 24,
+      max: 64,
+      step: 2,
+      unit: 'px',
+    });
   });
 });
 

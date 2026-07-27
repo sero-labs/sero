@@ -149,6 +149,45 @@ describe('refusing what the preview cannot run', () => {
   });
 });
 
+describe('what a revise actually changed', () => {
+  const SEED = [{ name: 'index.html', content: '<body><main>Original</main></body>' }];
+
+  it('counts a file whose contents are different', async () => {
+    const tool = createEmitFileTool('html', SEED);
+
+    await write(tool, 'index.html', '<body><main>Revised</main></body>');
+
+    expect(tool.touched()).toEqual(['index.html']);
+  });
+
+  it('counts a file the revise added', async () => {
+    const tool = createEmitFileTool('html', SEED);
+
+    await write(tool, 'styles.css', 'body { margin: 0 }');
+
+    expect(tool.touched()).toEqual(['styles.css']);
+  });
+
+  it('does not count a file written back exactly as it was', async () => {
+    // The model that agrees with itself but restates the page anyway. Counting
+    // the write would let it retire the original in favour of a copy of itself.
+    const tool = createEmitFileTool('html', SEED);
+
+    await write(tool, 'index.html', SEED[0]!.content);
+
+    expect(tool.touched()).toEqual([]);
+  });
+
+  it('does not count a change that was undone before the run ended', async () => {
+    const tool = createEmitFileTool('html', SEED);
+
+    await write(tool, 'index.html', '<body><main>Revised</main></body>');
+    await write(tool, 'index.html', SEED[0]!.content);
+
+    expect(tool.touched()).toEqual([]);
+  });
+});
+
 describe('judging the collected set', () => {
   it('rejects a run that wrote nothing', () => {
     expect(refuseEmittedSet('html', [])).toContain('not written any files');

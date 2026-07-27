@@ -9,7 +9,7 @@ import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
-import { listedRevisions } from '../../shared/design';
+import { orderedRevisions } from '../../shared/design';
 import type { DesignLibrarySettings, RevisionBehaviour } from '../../shared/settings';
 import type { DesignSummary, ItemSummary } from '../../shared/types';
 import { PreviewFrame } from '../components/design/PreviewFrame';
@@ -213,7 +213,7 @@ export function DesignPage({
                 <VariantInspector
                   variant={active}
                   revision={revision}
-                  revisions={activeRecord === undefined ? [] : listedRevisions(activeRecord)}
+                  revisions={activeRecord === undefined ? [] : orderedRevisions(activeRecord)}
                   brief={record?.brief}
                   references={references}
                   ownReferenceId={active.referenceItemId}

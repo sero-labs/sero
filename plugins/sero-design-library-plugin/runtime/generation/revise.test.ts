@@ -209,8 +209,17 @@ describe('revising a variant', () => {
     const baseRevisionId = created.variants[0]!.revisions[0]!.id;
 
     let disposed: Promise<void> | null = null;
+    // Waited on below, so the shutdown is something that definitely happened
+    // rather than something the test hoped would happen while it moved on. The
+    // run starts after `drain()` returns, and without this the assertions —
+    // and the restart — can overtake it.
+    let running = () => undefined as void;
+    const started = new Promise<void>((resolve) => {
+      running = () => resolve();
+    });
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
       if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      running();
       // Dispose while the run is in flight, which is what quitting does.
       disposed = harness.coordinator.dispose();
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -225,6 +234,7 @@ describe('revising a variant', () => {
       behaviour: 'replace',
     });
     await harness.coordinator.drain();
+    await started;
     await disposed;
 
     const design = (await readDesign(harness.paths, 'dsn-1'))!;

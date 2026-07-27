@@ -21,6 +21,13 @@ import { validateTweakControls } from '../../shared/tweaks-validate';
  * either add the property to the page or drop the control — both are fixes, and
  * neither is available once the run is over.
  *
+ * That first answer is feedback, not the verdict. What the tool keeps is the raw
+ * declaration, and `result()` re-checks it against the files *as they now stand*
+ * — because a run can declare its controls and then rewrite the stylesheet out
+ * from under them. Validating once, at declaration time, would let a page ship a
+ * control for a property it no longer has, and bake that property into the
+ * preview's allow-list: exactly the inert control this tool exists to prevent.
+ *
  * Every value crosses as a string. A union of string, number and boolean is
  * exactly the kind of schema that different providers render differently, and a
  * CSS value is a string at the far end regardless; ranges are the one case that
@@ -29,14 +36,27 @@ import { validateTweakControls } from '../../shared/tweaks-validate';
 
 export interface DeclareTweaksTool {
   definition: ToolDefinition;
-  /** The last validated declaration, or null when the tool was never called. */
+  /**
+   * The last declaration, validated against the emitted files at the moment you
+   * ask — null when the tool was never called.
+   */
   result(): TweakValidation | null;
 }
 
 const CONTROL_TYPES = ['range', 'toggle', 'colour', 'choice'] as const;
 
 export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTweaksTool {
-  let validated: TweakValidation | null = null;
+  let declared: unknown[] | null = null;
+
+  const sourceOf = () =>
+    files()
+      .map((file) => file.content)
+      .join('\n');
+
+  // The revision id is stamped on when the revision is stored; at this point it
+  // does not exist yet, and inventing one here would let a manifest claim to
+  // belong to a revision that was never written.
+  const validate = (entries: unknown[]) => validateTweakControls(entries, sourceOf(), '');
 
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
@@ -79,11 +99,8 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
     }),
     async execute(_toolCallId, params) {
       const { controls } = params as { controls: unknown[] };
-      const source = files()
-        .map((file) => file.content)
-        .join('\n');
 
-      if (source === '') {
+      if (sourceOf() === '') {
         return {
           content: [
             {
@@ -96,29 +113,30 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
         };
       }
 
-      // The revision id is stamped on when the revision is stored; at this point
-      // it does not exist yet, and inventing one here would let a manifest claim
-      // to belong to a revision that was never written.
-      validated = validateTweakControls(controls.map(toDefinitionShape), source, '');
+      declared = controls.map(toDefinitionShape);
+      const answer = validate(declared);
 
-      const kept = validated.manifest.controls.length;
+      const kept = answer.manifest.controls.length;
       const lines = [`Accepted ${kept} control${kept === 1 ? '' : 's'}.`];
-      if (validated.dropped.length > 0) {
+      if (answer.dropped.length > 0) {
         lines.push(
-          `Dropped ${validated.dropped.length}:`,
-          ...validated.dropped.map((entry) => `- ${entry.label}: ${entry.reason}`),
+          `Dropped ${answer.dropped.length}:`,
+          ...answer.dropped.map((entry) => `- ${entry.label}: ${entry.reason}`),
           'Fix these by declaring and using the property in the page, or leave them out and call this tool again with the controls that work.',
         );
       }
+      lines.push(
+        'These are checked again against the finished page, so a later rewrite that removes a property also removes its control.',
+      );
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
-        details: { ok: kept > 0, accepted: kept, dropped: validated.dropped.length },
+        details: { ok: kept > 0, accepted: kept, dropped: answer.dropped.length },
         isError: false,
       };
     },
   };
 
-  return { definition, result: () => validated };
+  return { definition, result: () => (declared === null ? null : validate(declared)) };
 }
 
 /**

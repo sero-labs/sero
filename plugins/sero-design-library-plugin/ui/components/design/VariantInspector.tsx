@@ -1,6 +1,6 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@sero-ai/ui';
 import { RotateCw, Square } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { DesignBrief, DesignRevision } from '../../../shared/design';
 import type { DesignVariantSummary } from '../../../shared/types';
@@ -56,11 +56,19 @@ export function VariantInspector({
   // Leaving the Tweaks tab ends an editing session (spec §6.5). The panel
   // closing is one of the moments a session checkpoints at, and the session
   // ending is the difference between one recoverable entry and fifty.
+  //
+  // Through a ref, because the tab can stay open across a change of revision —
+  // a revise landing, or another Design chosen from the rail. A cleanup holding
+  // the surface from the render the tab last changed on would close a session on
+  // the revision the user has left and leave the one they are on open.
+  const checkpoint = useRef(tweaks.checkpoint);
   useEffect(() => {
-    if (tab === 'tweaks') return () => tweaks.checkpoint();
+    checkpoint.current = tweaks.checkpoint;
+  });
+
+  useEffect(() => {
+    if (tab === 'tweaks') return () => checkpoint.current();
     return undefined;
-    // The surface is rebuilt on every render; checkpointing is keyed to the tab.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const context = [

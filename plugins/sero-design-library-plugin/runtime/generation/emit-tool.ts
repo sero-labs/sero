@@ -38,14 +38,19 @@ export interface EmitFileTool {
   /** Names of files the tool refused, so the run can explain a thin result. */
   refusals(): string[];
   /**
-   * Whether this run wrote anything of its own.
+   * Whether this run changed anything of its own.
    *
    * Only meaningful for a revise, where the tool starts holding the previous
    * revision's files: `files()` is non-empty from the first moment, so it can no
-   * longer answer "did the model produce anything". A revise that wrote nothing
+   * longer answer "did the model produce anything". A revise that changed nothing
    * has not revised — it has agreed with itself — and storing that as a new
    * revision would put an identical page in the history under an instruction it
    * never carried out.
+   *
+   * Compared against the files the run started from, not merely counted: writing
+   * a file back byte for byte is the same non-event as never writing it, and a
+   * model that restates the page it was given would otherwise pass this check and
+   * retire the original in favour of a copy of itself.
    */
   touched(): string[];
 }
@@ -61,7 +66,8 @@ function byteLength(content: string): number {
  */
 export function createEmitFileTool(target: OutputTarget, seed: EmittedFile[] = []): EmitFileTool {
   const contract = TARGET_CONTRACTS[target];
-  const written = new Map<string, string>(seed.map((file) => [file.name, file.content]));
+  const seeded = new Map<string, string>(seed.map((file) => [file.name, file.content]));
+  const written = new Map<string, string>(seeded);
   const touched = new Set<string>();
   const refused: string[] = [];
 
@@ -150,7 +156,10 @@ export function createEmitFileTool(target: OutputTarget, seed: EmittedFile[] = [
     definition,
     files: () => [...written].map(([name, content]) => ({ name, content })),
     refusals: () => [...refused],
-    touched: () => [...touched],
+    // Written *and* different from what it started as. A file rewritten and then
+    // put back is not a change either, which is why this compares final contents
+    // rather than remembering that a write happened.
+    touched: () => [...touched].filter((name) => written.get(name) !== seeded.get(name)),
   };
 }
 

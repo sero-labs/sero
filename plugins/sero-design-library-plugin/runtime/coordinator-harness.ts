@@ -212,8 +212,12 @@ export function useCoordinator(label: string): CoordinatorHarness {
       return itemId;
     },
     withErrors(failures) {
+      // The same stub, not a fresh one: this stands for Sero restarting, and a
+      // restart does not come back with a different model. A test that has said
+      // how the model behaves means that for the resumed work too — otherwise
+      // the run it is asserting on is served by a stub it never configured.
       return new Coordinator({
-        host: stubHost().host,
+        host: { subagents: { runStructured } } as unknown as AppRuntimeHost,
         paths,
         workspaceId: 'ws',
         sessionId: 'session',

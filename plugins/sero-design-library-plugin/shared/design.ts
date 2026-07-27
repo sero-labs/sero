@@ -106,9 +106,10 @@ export interface DesignRevision {
    * When a later revision replaced this one (spec §6.4).
    *
    * Set only by a revise the user asked to *replace* the visible result. The
-   * revision is untouched otherwise — its files stay on disk and it can be made
-   * visible again — but the selector keeps it out of the way, which is the whole
-   * difference between replacing a result and keeping both.
+   * revision is untouched otherwise — its files stay on disk, it stays listed in
+   * History, and it can be made visible again. The mark is the whole difference
+   * between replacing a result and keeping both, and it is a label rather than a
+   * removal because "replacement is always recoverable" (spec §6.4).
    */
   supersededAt?: number;
   /** What the model said it was going for, for the revision selector. */
@@ -278,15 +279,16 @@ export function plannedVariantCount(brief: DesignBrief, referenceCount: number):
 }
 
 /**
- * The revisions the selector shows: everything a replace has not superseded,
- * plus whatever is on screen. The visible one is listed even if it was
- * superseded, because a revision you are looking at must be one you can see
- * listed — that is how you get back to it.
+ * Every revision the variant has, newest first — which is every revision it has
+ * ever had.
+ *
+ * Nothing is filtered out. A replace marks the revision it replaced rather than
+ * hiding it, because "replacement is always recoverable" (spec §6.4) is only
+ * true if the replaced revision is still something you can see and click. The
+ * mark is what distinguishes replace from retain; it is not a reason to omit it.
  */
-export function listedRevisions(variant: DesignVariant): DesignRevision[] {
-  return variant.revisions.filter(
-    (revision) => revision.supersededAt === undefined || revision.id === variant.visibleRevisionId,
-  );
+export function orderedRevisions(variant: DesignVariant): DesignRevision[] {
+  return variant.revisions.toSorted((a, b) => b.createdAt - a.createdAt);
 }
 
 export function visibleRevision(variant: DesignVariant): DesignRevision | undefined {

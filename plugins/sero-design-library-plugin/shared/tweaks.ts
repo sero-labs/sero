@@ -320,6 +320,19 @@ export function normalizeTweakDefinition(value: unknown): TweakDefinition | null
   };
 }
 
+/**
+ * Will the preview accept what this value becomes?
+ *
+ * The frame refuses anything that could close a declaration, and it does so
+ * silently — as a sandbox should. A control the manifest keeps but the frame
+ * refuses is the worst of both: it renders, it moves, it persists, and the page
+ * never changes. So a value that would be refused there disqualifies the control
+ * here, where there is still something to say about it.
+ */
+function previewAccepts(value: TweakValue): boolean {
+  return TWEAK_VALUE_PATTERN.test(String(value));
+}
+
 export function normalizeTweakControl(value: unknown): TweakControl | null {
   if (!isRecord(value)) return null;
   switch (value.type) {
@@ -328,19 +341,25 @@ export function normalizeTweakControl(value: unknown): TweakControl | null {
       if (typeof min !== 'number' || typeof max !== 'number' || !Number.isFinite(min)) return null;
       if (!Number.isFinite(max) || max <= min) return null;
       const size = typeof step === 'number' && step > 0 ? step : (max - min) / 100;
+      const unit =
+        typeof value.unit === 'string' && value.unit.trim() !== ''
+          ? value.unit.trim().slice(0, 8)
+          : undefined;
+      // Dropped rather than stripped: without its unit the same number means a
+      // different size, so a slider that silently lost `rem` is not a repair.
+      if (unit !== undefined && !previewAccepts(unit)) return null;
       return {
         type: 'range',
         min,
         max,
         step: size,
-        ...(typeof value.unit === 'string' && value.unit.trim() !== ''
-          ? { unit: value.unit.trim().slice(0, 8) }
-          : {}),
+        ...(unit === undefined ? {} : { unit }),
       };
     }
     case 'toggle': {
       const { offValue, onValue } = value;
       if (!isTweakValue(offValue) || !isTweakValue(onValue)) return null;
+      if (!previewAccepts(offValue) || !previewAccepts(onValue)) return null;
       // Both sides identical is a switch that does nothing.
       return offValue === onValue ? null : { type: 'toggle', offValue, onValue };
     }
@@ -351,6 +370,9 @@ export function normalizeTweakControl(value: unknown): TweakControl | null {
       const options: TweakOption[] = [];
       for (const entry of value.options) {
         if (!isRecord(entry) || !isTweakValue(entry.value)) continue;
+        // One unusable option is not worth losing the control over — the rest
+        // still work — but two left standing is the floor for a choice at all.
+        if (!previewAccepts(entry.value)) continue;
         if (options.some((option) => option.value === entry.value)) continue;
         options.push({
           label: typeof entry.label === 'string' && entry.label.trim() !== ''

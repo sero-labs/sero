@@ -15,10 +15,12 @@ import { Block, Field } from './Field';
  * result and resetting a panel safe things to do.
  *
  * Revisions are never destroyed by revising — the pointer moves, the list keeps
- * growing — so the newest is simply first.
+ * growing — so the newest is simply first. One a replace stood in for is marked
+ * rather than removed: that is what makes replacing recoverable.
  */
 
 export interface HistoryTabProps {
+  /** Every revision the variant has, newest first. */
   revisions: DesignRevision[];
   visibleRevisionId: string | undefined;
   /** Checkpoints for the revision on screen; other revisions keep their own. */
@@ -34,7 +36,7 @@ export function HistoryTab({
   onSelectRevision,
   onRestoreCheckpoint,
 }: HistoryTabProps) {
-  const ordered = revisions.toSorted((a, b) => b.createdAt - a.createdAt);
+  const ordered = revisions;
   const now = Date.now();
 
   if (ordered.length === 0) {
@@ -68,6 +70,7 @@ export function HistoryTab({
                       <span className="text-muted-foreground block truncate">
                         {relativeTime(revision.createdAt, now)}
                         {revision.builtFile === undefined ? ' · did not build' : ''}
+                        {revision.supersededAt === undefined ? '' : ' · replaced'}
                       </span>
                     </span>
                     {visible && <Check className="text-primary size-3.5 shrink-0" />}
