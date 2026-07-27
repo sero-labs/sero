@@ -1,0 +1,172 @@
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { withLock, type FileLockOptions } from './file-lock';
+import type { DesignLibraryPaths } from './paths';
+import type { LibraryRequestBody } from './requests';
+import type { DesignLibraryState } from './types';
+import { DEFAULT_STATE, normalizeState } from './types';
+
+/**
+ * The one authoritative serialisation path for reactive state.
+ *
+ * Three layers, each covering a gap the others leave open:
+ *
+ * 1. An in-process queue per file, so concurrent writers inside one process
+ *    serialise instead of interleaving their read-modify-write cycles.
+ * 2. A cross-process lock, because Pi tool calls run in a different process
+ *    from the host runtime and cannot see the queue.
+ * 3. A revision compare-and-swap, so a writer holding state it read earlier —
+ *    outside any lock — is rejected rather than silently clobbering newer work.
+ */
+
+export class StaleStateError extends Error {
+  constructor(
+    readonly expectedRevision: number,
+    readonly actualRevision: number,
+  ) {
+    super(`State changed under this writer (expected revision ${expectedRevision}, found ${actualRevision})`);
+    this.name = 'StaleStateError';
+  }
+}
+
+const queues = new Map<string, Promise<unknown>>();
+
+/** Serialise work on one file within this process. */
+function enqueue<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const previous = queues.get(key) ?? Promise.resolve();
+  // The queue must survive a rejected entry, so the chain swallows the error
+  // and only the returned promise carries it to the caller.
+  const next = previous.then(fn, fn);
+  queues.set(
+    key,
+    next.catch(() => undefined),
+  );
+  return next;
+}
+
+async function readRaw(stateFile: string): Promise<DesignLibraryState | null> {
+  const raw = await readFile(stateFile, 'utf8').catch(() => null);
+  if (raw === null) return null;
+  return normalizeState(JSON.parse(raw) as unknown);
+}
+
+async function writeAtomic(stateFile: string, state: DesignLibraryState): Promise<void> {
+  await mkdir(path.dirname(stateFile), { recursive: true });
+  const temp = path.join(path.dirname(stateFile), `.state.${process.pid}.${Date.now()}.tmp`);
+  await writeFile(temp, JSON.stringify(state, null, 2), 'utf8');
+  await rename(temp, stateFile);
+}
+
+export async function readState(paths: DesignLibraryPaths): Promise<DesignLibraryState> {
+  return (await readRaw(paths.stateFile)) ?? structuredClone(DEFAULT_STATE);
+}
+
+/**
+ * Read, transform and write under both locks. The updater sees state read
+ * inside the lock, so it can never be working from a stale copy. Returning
+ * `null` from the updater abandons the write without touching the file.
+ */
+export async function updateState<T = void>(
+  paths: DesignLibraryPaths,
+  updater: (current: DesignLibraryState) => DesignLibraryState | null | Promise<DesignLibraryState | null>,
+  options: { result?: (state: DesignLibraryState) => T; lock?: FileLockOptions } = {},
+): Promise<T | undefined> {
+  return enqueue(paths.stateFile, () =>
+    withLock(
+      paths.lockDir,
+      async () => {
+        const current = await readState(paths);
+        const next = await updater(current);
+        if (next === null) return undefined;
+        const committed: DesignLibraryState = { ...next, revision: current.revision + 1 };
+        await writeAtomic(paths.stateFile, committed);
+        return options.result ? options.result(committed) : undefined;
+      },
+      options.lock,
+    ),
+  ) as Promise<T | undefined>;
+}
+
+/**
+ * Commit a state object prepared outside the lock. Rejects when the on-disk
+ * revision has moved on, which is the case `updateState` cannot help with —
+ * a caller that read state, went away to do slow work, and came back.
+ */
+export async function commitState(
+  paths: DesignLibraryPaths,
+  next: DesignLibraryState,
+  expectedRevision: number,
+  options: { lock?: FileLockOptions } = {},
+): Promise<DesignLibraryState> {
+  return enqueue(paths.stateFile, () =>
+    withLock(
+      paths.lockDir,
+      async () => {
+        const current = await readState(paths);
+        if (current.revision !== expectedRevision) {
+          throw new StaleStateError(expectedRevision, current.revision);
+        }
+        const committed: DesignLibraryState = { ...next, revision: current.revision + 1 };
+        await writeAtomic(paths.stateFile, committed);
+        return committed;
+      },
+      options.lock,
+    ),
+  );
+}
+
+/**
+ * Append one intent for the runtime to apply. Extension tools call this
+ * instead of writing records themselves.
+ */
+export async function appendRequest(
+  paths: DesignLibraryPaths,
+  body: LibraryRequestBody,
+): Promise<number> {
+  const id = await updateState<number>(
+    paths,
+    (current) => ({
+      ...current,
+      nextRequestId: current.nextRequestId + 1,
+      requests: [...current.requests, { id: current.nextRequestId, requestedAt: Date.now(), body }],
+    }),
+    { result: (state) => state.nextRequestId - 1 },
+  );
+  if (id === undefined) throw new Error('Failed to append request');
+  return id;
+}
+
+/** Requests the runtime has not applied yet, oldest first. */
+export function pendingRequests(state: DesignLibraryState): DesignLibraryState['requests'] {
+  return state.requests
+    .filter((request) => request.id > state.consumedRequestId)
+    .sort((a, b) => a.id - b.id);
+}
+
+/**
+ * Atomic JSON record helpers, used for item and job files.
+ *
+ * A record that is missing or unparseable resolves to null rather than
+ * throwing. Records are per-item and individually skippable, so one truncated
+ * file should cost one item — not the whole runtime. Reactive state is
+ * deliberately not this forgiving: it holds collections and settings that
+ * cannot be rebuilt, so a corrupt state file fails loudly instead of quietly
+ * resetting to defaults.
+ */
+export async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  const raw = await readFile(filePath, 'utf8').catch(() => null);
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const temp = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.tmp`);
+  await writeFile(temp, JSON.stringify(value, null, 2), 'utf8');
+  await rename(temp, filePath);
+}
