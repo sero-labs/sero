@@ -91,6 +91,9 @@ async function sendChunks(
 ): Promise<void> {
   for (let index = 0; index * CHUNK_BYTES < bytes.length; index += 1) {
     const slice = bytes.subarray(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
+    // Sequential by necessity: the runtime appends chunks in arrival order, and
+    // sending them together would put the whole file in flight at once.
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop
     await tools.run('design_library_assets', {
       action: 'chunk',
       uploadId,
