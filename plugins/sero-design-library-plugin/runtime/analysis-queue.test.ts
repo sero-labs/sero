@@ -1,16 +1,18 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AppRuntimeHost } from '@sero-ai/common';
+import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 import { emptyAnalysis } from '../shared/librarian';
-import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
+import { designLibraryPathsFromHome, itemDir, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord, JobRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION } from '../shared/records';
 import { AnalysisQueue } from './analysis-queue';
 import { createJob } from './jobs';
+import { invokeTool } from './librarian/test-support';
 import { mutateItem, readItem, readJob, saveItem } from './store';
 
 /**
@@ -28,17 +30,39 @@ let queue: AnalysisQueue;
 /** Resolves every blocked run, so `dispose` is not left waiting on them. */
 let releaseRuns: () => void;
 
+/** A reply that satisfies the parser and the content limits. */
+const ANALYSIS_REPLY = JSON.stringify({
+  title: 'Analysed title',
+  primaryStyle: 'Technical monochrome',
+  designTypes: ['dashboard'],
+  tags: ['a', 'b', 'c', 'd', 'e', 'f'],
+  summary: 'A summary.',
+  designIntent: 'An intent.',
+  aestheticVocabulary: [{ term: 'exact' }],
+  visualProfile: { colour: ['near-black'] },
+  palette: [{ hex: '#0b0b0d', role: 'background' }],
+  always: ['Keep geometry square'],
+  never: ['Decorative gradients'],
+  generationPrompt: Array.from({ length: 100 }, () => 'word').join(' '),
+  confidence: 0.9,
+});
+
 function stubHost(): AppRuntimeHost {
   const blocked = new Promise<void>((resolve) => {
     releaseRuns = resolve;
   });
   return {
     subagents: {
-      // Runs never finish on their own: that is what keeps the queue saturated
-      // so a third job stays pending for the test to cancel.
-      runStructured: vi.fn(async () => {
+      // Runs hold until released, which is what keeps the queue saturated so a
+      // third job stays pending for the cancellation tests. Once released the
+      // run behaves like a model that did its job: it views the image first,
+      // because a reply produced without that is refused.
+      runStructured: vi.fn(async (params: AppRuntimeSubagentRunParams) => {
         await blocked;
-        return { response: '{}', modelId: 'stub', providerId: 'stub' };
+        const tools = (params.customTools ?? []) as ToolDefinition[];
+        const viewer = tools.find((tool) => tool.name === 'design_library_view_reference');
+        if (viewer) await invokeTool(viewer);
+        return { response: ANALYSIS_REPLY, modelId: 'stub', providerId: 'stub' };
       }),
     },
   } as unknown as AppRuntimeHost;
@@ -70,6 +94,10 @@ function item(id: string): ItemRecord {
 /** An item with a queued analysis job claiming it, as the coordinator leaves it. */
 async function queuedAnalysis(id: string): Promise<JobRecord> {
   await saveItem(paths, item(id));
+  // Real bytes on disk: the run refuses any analysis produced without the
+  // model actually viewing the image, and the viewer reads this file.
+  await mkdir(itemDir(paths, id), { recursive: true });
+  await writeFile(path.join(itemDir(paths, id), 'original.png'), Buffer.from('image-bytes'));
   const job = await createJob(paths, 'analysis', id);
   await mutateItem(paths, id, (current) => ({
     ...current,
@@ -139,5 +167,32 @@ describe('cancelling a job that never started', () => {
 
   it('is a no-op for a job that was never queued', async () => {
     await expect(queue.cancel('no-such-job')).resolves.toBeUndefined();
+  });
+});
+
+describe('the order a finished job is recorded in', () => {
+  it('never reports an item ready while its own job still says running', async () => {
+    // The item is the thing the UI waits on, so anything that reads the item
+    // and then looks up its job must not find a contradiction. Writing the item
+    // first left exactly that window — wide enough to fail on a slow runner.
+    const job = await queuedAnalysis('itm-order');
+    queue.enqueue(job.id);
+    releaseRuns();
+
+    // Sampled as tightly as the event loop allows rather than through
+    // `vi.waitFor`, whose polling interval steps straight over a window this
+    // narrow and would report the bug as fixed while it was still there.
+    let sawReady = false;
+    let jobWhenReady = 'never-observed';
+    for (let attempt = 0; attempt < 20_000 && !sawReady; attempt += 1) {
+      const item = await readItem(paths, 'itm-order');
+      if (item?.analysis.status === 'ready') {
+        sawReady = true;
+        jobWhenReady = (await readJob(paths, job.id))?.status ?? 'missing';
+      }
+    }
+
+    expect(sawReady).toBe(true);
+    expect(jobWhenReady).toBe('succeeded');
   });
 });

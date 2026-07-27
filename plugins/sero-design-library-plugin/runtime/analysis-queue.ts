@@ -188,6 +188,12 @@ export class AnalysisQueue {
       return;
     }
 
+    // The job reaches its terminal state before the item does, matching the
+    // failure path above. The other order leaves a window where the item reads
+    // `ready` while its own job still reads `running` — anything that trusts
+    // the item and then looks up the job sees a contradiction.
+    await markSucceeded(paths, jobId);
+
     // Reanalysis replaces the generated profile only — manual fields survive.
     await this.applyIfCurrent(jobId, job.itemId, (current) => ({
       ...current,
@@ -200,7 +206,6 @@ export class AnalysisQueue {
         completedAt: Date.now(),
       },
     }));
-    await markSucceeded(paths, jobId);
   }
 
   private async finishCancelled(job: JobRecord): Promise<void> {
