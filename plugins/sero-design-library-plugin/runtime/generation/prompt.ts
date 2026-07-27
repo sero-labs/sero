@@ -6,6 +6,7 @@ import type {
 } from '../../shared/design';
 import type { LibrarianUserFacingAnalysis } from '../../shared/librarian';
 import type { PromptRecipe } from '../../shared/settings';
+import type { EmittedFile } from '../../shared/targets';
 import { TARGET_CONTRACTS } from '../../shared/targets';
 
 /**
@@ -105,6 +106,27 @@ function targetRules(brief: DesignBrief): string {
   return `## Output\n\n${[...shared, ...perTarget].map((rule) => `- ${rule}`).join('\n')}`;
 }
 
+/**
+ * The tweaks contract (spec §6.5).
+ *
+ * Written as a design instruction rather than a schema note because that is what
+ * it is: the page has to be *built* to be adjustable — its decisions routed
+ * through custom properties — before any control over it can be honest. A model
+ * told only to declare controls at the end will declare them over a page whose
+ * values are all hard-coded, and every one of them will be dropped.
+ */
+function tweakRules(): string {
+  const rules = [
+    'Route the decisions worth revisiting through CSS custom properties: declare them once at the top (`:root { --display-scale: 34px; }`) and read them everywhere else with `var(--display-scale)`.',
+    'Then call `design_library_declare_tweaks` once, declaring a control for each of those properties.',
+    'Choose them from what this page is actually about. A dense metrics dashboard wants density and accent controls; an editorial page wants measure and type scale. Between four and ten is usually right.',
+    'Every control must bind to a property the page declares **and** reads. One that does not is dropped, and a control that visibly does nothing is worse than a missing one.',
+    'Do not emit a standard set. There is no catalogue to fill in — the controls are part of the design you made.',
+    'Ranges carry a unit and sensible bounds either side of the value you shipped. Choices carry two or more real alternatives, not a scale in disguise.',
+  ];
+  return `## Live controls\n\n${rules.map((rule) => `- ${rule}`).join('\n')}`;
+}
+
 export function buildGenerationSystemPrompt(): string {
   return `You are a senior product designer who builds the thing rather than describing it.
 
@@ -118,8 +140,9 @@ Produce original work. Match the language; do not reproduce a reference layout.
 Write each file with \`design_library_write_file\`. It is the only way to produce
 anything — a reply with no file written is a failed run. When every file is
 written, call \`design_library_name_design\` once with a two or three word name
-for what you made and one sentence on the direction you took. Then stop; the
-reply itself is not shown anywhere.`;
+for what you made and one sentence on the direction you took, then
+\`design_library_declare_tweaks\` once with the live controls for the page. Then
+stop; the reply itself is not shown anywhere.`;
 }
 
 export interface GenerationTaskInput {
@@ -130,6 +153,41 @@ export interface GenerationTaskInput {
   /** Total variants in this Design, so the run knows how to differ from siblings. */
   variantCount: number;
   recipe?: PromptRecipe;
+  /** Present when this run is a revise rather than a first attempt. */
+  revision?: { instruction: string; files: EmittedFile[] };
+}
+
+/**
+ * The revise block (spec §6.4).
+ *
+ * The page is given in full. A model asked to change the header of a page it
+ * cannot see rewrites the whole thing from the brief, and the parts nobody
+ * mentioned come back subtly different — which is exactly the work a revise is
+ * supposed to leave alone.
+ */
+function revisionBlock(revision: { instruction: string; files: EmittedFile[] }): string {
+  const files = revision.files
+    .map((file) => `### ${file.name}\n\n\`\`\`\n${file.content}\n\`\`\``)
+    .join('\n\n');
+
+  return `# Revise this design
+
+Change what is asked and nothing else. This is an edit to a page that already
+exists, not a fresh attempt at the brief: keep every decision the instruction
+does not touch, including the parts you would do differently today.
+
+Write the complete new contents of each file you change with
+\`design_library_write_file\`. A file you do not write is kept as it is. Then name
+and declare the controls again, as for any other run — the name and manifest
+describe the page as it now stands.
+
+## What to change
+
+${revision.instruction}
+
+## The design as it stands
+
+${files}`;
 }
 
 export function buildGenerationTask(input: GenerationTaskInput): string {
@@ -147,7 +205,11 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
       ? ''
       : `You are producing variant ${variant.index + 1} of ${variantCount}. Each variant is generated independently and they are compared side by side, so commit to one distinct interpretation rather than hedging between several. Choose the axis to vary — composition, density, hierarchy, colour weight, whichever the request makes most interesting — and take it further than feels safe.`;
 
+  // A revise leads with the change and keeps the original brief underneath as
+  // context: the instruction is what this run is for, and the brief is what the
+  // page must still answer once it has been carried out.
   const blocks = [
+    input.revision === undefined ? '' : revisionBlock(input.revision),
     `# Request\n\n${brief.request}`,
     input.recipe === undefined ? '' : `# Approach\n\n${input.recipe.instruction}`,
     `# Reference language\n\n${STRENGTH_NOTES[brief.inspirationStrength]}\n\n${references
@@ -155,7 +217,10 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
       .join('\n\n')}`,
     guardrailBlock(input.guardrails),
     targetRules(brief),
-    diversity === '' ? '' : `## This variant\n\n${diversity}`,
+    tweakRules(),
+    // Only for a first attempt: a revise has siblings it already differs from,
+    // and telling it to diverge again would undo the design it is editing.
+    diversity === '' || input.revision !== undefined ? '' : `## This variant\n\n${diversity}`,
   ];
 
   return blocks.filter((block) => block !== '').join('\n\n');

@@ -99,9 +99,45 @@ Because there is no network, generated designs use the system fonts, CSS gradien
 
 There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
 
-Underneath the preview you can set the width the page is rendered at, and reload it. **Pane width** lets the page reflow as the pane changes, the way a browser window does; **desktop**, **tablet** and **phone** pin it to a fixed width so you can see how it holds up there. A fixed width wider than the pane is scaled down to fit, and the readout always shows the width being used and the scale it is shown at.
+Underneath the preview you can set the width the page is rendered at, and reload it. **Pane width** lets the page reflow as the pane changes, the way a browser window does; **desktop**, **tablet** and **phone** pin it to a fixed width so you can see how it holds up there. A fixed width wider than the pane is scaled down to fit, and the readout always shows the width being used and the scale it is shown at. The last control hides the panel beside the preview so the page has the whole surface, and brings it back.
 
-The panel beside the preview says what the run made and what it was made from: its concept, the references it drew on, the visual language it took from them, the files it wrote, and the settings it ran under.
+### The panel beside the preview
+
+Four tabs, all about the variant on screen:
+
+- **Design** — what the run made and what it was made from: its concept, the references it drew on, and the visual language it took from them.
+- **Files** — what it wrote, and how big each file is.
+- **History** — every result this variant has had, and the tweak values you had set earlier. Selecting one puts it back on screen; nothing is generated and nothing is lost.
+- **Tweaks** — the live controls for this exact page (below).
+
+Drag the panel's left edge to widen it, and the width is remembered. The Designs rail on the far left collapses to initials, which is what makes a wide panel affordable on a laptop.
+
+### Designs you have on the go
+
+The rail down the left lists your designs, with the ones still generating at the top and how far along they are. Generation keeps running whether or not you are looking at it, so moving between designs costs nothing, and reopening one puts you back on the variant you were last looking at.
+
+### Tweaks
+
+Every result comes with a small set of controls written for **that page** — display scale, grid gap, signal accent, whatever the page is actually about. They are not a standard set of sliders: the model that wrote the page chooses them from what it built, so a dense dashboard and an editorial page get different controls.
+
+Moving one changes the preview immediately. Each control has a reset, the panel has **Reset all**, and **Copy CSS** gives you the values as a block you can paste into the page's own stylesheet.
+
+Values save as you go and survive a restart. Everything you change in one sitting is kept as a single entry under **History → Earlier tweak values**, so a long session of adjusting is one thing to go back to rather than fifty — and **Reset all** is undoable for the same reason.
+
+A control that would not visibly change anything is dropped before you see it — a page that never uses the value it was meant to set. When that happens the panel says how many were left out, and expands to say why.
+
+### Asking for changes
+
+The box under the preview asks for a change to the variant on screen: *"make the metrics tighter"*, *"try a lighter surface"*. The run is given the page it is editing, so it changes what you asked about and leaves the rest alone.
+
+Beside the box you choose what happens to the result you already have:
+
+| Choice | What happens |
+| --- | --- |
+| Replace it | The new result takes its place. The old one stays in History and can be brought back |
+| Keep both | Both stay in the revision list, and you switch between them |
+
+Your choice is remembered as the default, and can also be changed in Settings. Nothing is ever deleted by revising — revisions stay until you delete one yourself.
 
 ## Deleting
 
@@ -127,9 +163,9 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | --- | --- |
 | `design_library_items` | Search references, read one in full, edit or reset analysis fields, favourite, collect, delete and restore |
 | `design_library_analysis` | Check analysis status, reanalyse, cancel or retry |
-| `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry or stop a variant |
+| `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry, stop or revise a variant, switch or delete revisions, and set tweak values |
 
-Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, or *"make a dashboard from the Northstar and Material journal references"*.
+Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, or *"revise variant 2 to use a lighter surface"*.
 
 ## Where things are stored
 

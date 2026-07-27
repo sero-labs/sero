@@ -105,7 +105,9 @@ export function DesignLibraryApp() {
       ) : designs.open !== undefined ? (
         <DesignPage
           design={designs.open}
+          designs={designs.list}
           items={library.state.items}
+          settings={library.state.settings}
           activeVariantId={designs.state.view.activeVariantId}
           actions={designs.actions}
           onBack={() => void designs.actions.open(undefined)}

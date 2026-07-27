@@ -11,7 +11,13 @@ import {
   pruneOrphanRevisions,
   readDesign,
 } from './design-store';
-import { cancelVariant, createDesign, retryVariant, startPendingVariants } from './designs';
+import {
+  cancelVariant,
+  createDesign,
+  deleteRevision,
+  retryVariant,
+  startPendingVariants,
+} from './designs';
 import { TEST_BRIEF as BRIEF, seedItem } from './test-fixtures';
 
 let home: string;
@@ -206,6 +212,58 @@ describe('variant lifecycle', () => {
 
     const after = await readDesign(paths, designId);
     expect(after?.variants.find((variant) => variant.id === variantId)?.status).toBe('ready');
+  });
+
+  it('will not delete the revision a queued revise starts from', async () => {
+    const designId = await seedDesign();
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    await mutateVariant(paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'ready',
+      visibleRevisionId: 'rev-2',
+      revisions: [
+        { id: 'rev-1', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: 'first', name: '' },
+        { id: 'rev-2', createdAt: 2, jobId: 'job-2', files: [{ name: 'index.html', bytes: 6 }], buildWarnings: [], summary: 'second', name: '' },
+      ],
+      pendingRevision: {
+        instruction: 'Lighter surface',
+        behaviour: 'replace',
+        baseRevisionId: 'rev-2',
+      },
+    }));
+
+    // A revise reads its base off disk when it runs. Deleting that revision
+    // first would either fail the run or, once the record no longer names it,
+    // drop the instruction and generate from the brief instead.
+    await deleteRevision(paths, designId, variantId, 'rev-2');
+    const guarded = await readDesign(paths, designId);
+    expect(guarded?.variants[0]?.revisions.map((entry) => entry.id)).toEqual(['rev-1', 'rev-2']);
+
+    // Another revision is still deletable while the revise waits.
+    await deleteRevision(paths, designId, variantId, 'rev-1');
+    const after = await readDesign(paths, designId);
+    expect(after?.variants[0]?.revisions.map((entry) => entry.id)).toEqual(['rev-2']);
+  });
+
+  it('keeps the last revision, whichever one is asked for', async () => {
+    const designId = await seedDesign();
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    await mutateVariant(paths, designId, variantId, (variant) => ({
+      ...variant,
+      status: 'ready',
+      visibleRevisionId: 'rev-1',
+      revisions: [
+        { id: 'rev-1', createdAt: 1, jobId: 'job-1', files: [{ name: 'index.html', bytes: 4 }], buildWarnings: [], summary: 'only', name: '' },
+      ],
+    }));
+
+    // A variant marked ready with no revision has nothing to show and no way
+    // back to having one except regenerating.
+    await deleteRevision(paths, designId, variantId, 'rev-1');
+    const after = await readDesign(paths, designId);
+    expect(after?.variants[0]?.revisions).toHaveLength(1);
   });
 
   it('retries only from a failed or cancelled variant, keeping its revisions', async () => {

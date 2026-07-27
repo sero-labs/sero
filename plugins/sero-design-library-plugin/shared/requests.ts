@@ -10,7 +10,7 @@
 
 import type { DesignBrief } from './design';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
-import type { DesignLibrarySettings } from './settings';
+import type { DesignLibrarySettings, RevisionBehaviour } from './settings';
 import type { ConflictResolution } from './synthesis';
 import type { ViewPatch } from './types';
 
@@ -51,6 +51,32 @@ export type LibraryRequestBody =
   | { kind: 'design.cancel-variant'; designId: string; variantId: string }
   | { kind: 'design.delete'; designId: string }
   | { kind: 'design.restore'; designId: string }
+  /**
+   * Another run on a variant that already has a result, carrying what to change
+   * (spec §6.4). `behaviour` decides what happens to the revision it started
+   * from: `replace` retires it into history, `retain` keeps it in the selector.
+   */
+  | {
+      kind: 'design.revise-variant';
+      designId: string;
+      variantId: string;
+      instruction: string;
+      behaviour: RevisionBehaviour;
+    }
+  | { kind: 'design.set-visible-revision'; designId: string; variantId: string; revisionId: string }
+  | { kind: 'design.delete-revision'; designId: string; variantId: string; revisionId: string }
+  /**
+   * Tweak values, addressed by revision because a manifest belongs to one
+   * (spec §6.5). The value travels as a string and is coerced onto the control
+   * the manifest declares; the runtime refuses anything that control does not
+   * accept, so a request naming a stale control is a no-op rather than a write.
+   */
+  | { kind: 'design.set-tweak'; designId: string; variantId: string; revisionId: string; controlId: string; value: string }
+  | { kind: 'design.reset-tweak'; designId: string; variantId: string; revisionId: string; controlId: string }
+  | { kind: 'design.reset-tweaks'; designId: string; variantId: string; revisionId: string }
+  /** End an editing session: one recoverable entry, however many changes it held. */
+  | { kind: 'design.checkpoint-tweaks'; designId: string; variantId: string; revisionId: string }
+  | { kind: 'design.restore-tweaks'; designId: string; variantId: string; revisionId: string; checkpointId: string }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -87,6 +113,14 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'design.cancel-variant',
   'design.delete',
   'design.restore',
+  'design.revise-variant',
+  'design.set-visible-revision',
+  'design.delete-revision',
+  'design.set-tweak',
+  'design.reset-tweak',
+  'design.reset-tweaks',
+  'design.checkpoint-tweaks',
+  'design.restore-tweaks',
   'settings.update',
   'view.set',
 ] as const;

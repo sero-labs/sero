@@ -173,6 +173,83 @@ describe('queuing work on a Design', () => {
     expect(request?.body).toMatchObject({ referenceItemIds: ['itm-b', 'itm-a'] });
   });
 
+  it('queues a revise carrying the instruction and what to do with the old result', async () => {
+    const result = await call({
+      action: 'revise-variant',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      instruction: '  Make the metrics tighter  ',
+      behaviour: 'retain',
+    });
+
+    expect(textOf(result)).toContain('joins this variant');
+    const [request] = (await readState(paths)).requests;
+    expect(request?.body).toEqual({
+      kind: 'design.revise-variant',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      instruction: 'Make the metrics tighter',
+      behaviour: 'retain',
+    });
+  });
+
+  it('refuses a revise with nothing to change, and falls back to the saved default', async () => {
+    const empty = await call({
+      action: 'revise-variant',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      instruction: '   ',
+    });
+    expect(textOf(empty)).toContain('needs an instruction');
+    expect((await readState(paths)).requests).toEqual([]);
+
+    await call({
+      action: 'revise-variant',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      instruction: 'Make it denser',
+    });
+    // The default is the generation setting, so an agent that does not care gets
+    // the behaviour the user last chose rather than one this tool invented.
+    expect((await readState(paths)).requests[0]?.body).toMatchObject({ behaviour: 'replace' });
+  });
+
+  it('rejects an unsafe revision id before queuing a tweak', async () => {
+    for (const action of ['set-tweak', 'show-revision', 'delete-revision']) {
+      const result = await call({
+        action,
+        designId: 'dsn-1',
+        variantId: 'var-1',
+        revisionId: '../escape',
+        controlId: 'gap',
+        value: '12',
+      });
+      expect(textOf(result), action).toContain('not a valid revision id');
+    }
+    expect((await readState(paths)).requests).toEqual([]);
+  });
+
+  it('queues a tweak against the revision it belongs to', async () => {
+    await call({
+      action: 'set-tweak',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      revisionId: 'rev-1',
+      controlId: 'gap',
+      value: '20',
+    });
+
+    const [request] = (await readState(paths)).requests;
+    expect(request?.body).toEqual({
+      kind: 'design.set-tweak',
+      designId: 'dsn-1',
+      variantId: 'var-1',
+      revisionId: 'rev-1',
+      controlId: 'gap',
+      value: '20',
+    });
+  });
+
   it('queues a retry that names one variant only', async () => {
     await call({ action: 'retry-variant', designId: 'dsn-1', variantId: 'var-1' });
 

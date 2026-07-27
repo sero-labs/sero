@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 
 import type { DesignBrief, DesignRecord, DesignReference, DesignVariant } from '../shared/design';
 import {
@@ -6,11 +7,13 @@ import {
   MAX_REFERENCES,
   MIN_REFERENCES,
   plannedVariantCount,
+  visibleRevision,
 } from '../shared/design';
 import { normalizeDesignBrief } from '../shared/design-normalize';
 import { effectiveAnalysis } from '../shared/librarian';
 import type { DesignLibraryPaths } from '../shared/paths';
-import { isSafeId } from '../shared/paths';
+import { isSafeId, revisionDir } from '../shared/paths';
+import type { RevisionBehaviour } from '../shared/settings';
 import type { ItemRecord } from '../shared/records';
 import { variantTarget } from '../shared/records';
 import type { ConflictResolution, ReferenceGuardrails } from '../shared/synthesis';
@@ -276,6 +279,108 @@ export async function retryVariant(
   requestId?: number,
 ): Promise<string | null> {
   return startVariant(paths, designId, variantId, RETRYABLE, requestId);
+}
+
+/**
+ * Ask for a revise (spec §6.4): another run on this variant, starting from what
+ * is on screen and carrying an instruction.
+ *
+ * The instruction is written to the variant before the job is started, so it is
+ * durable: the request that carried it is consumed as soon as it is applied, and
+ * a run that reached the model without it would quietly regenerate the page from
+ * the original brief instead of changing it.
+ *
+ * Allowed from any settled status. A variant that failed still has the revision
+ * that worked before it, and asking for a change to that is a reasonable thing to
+ * do; the run simply starts from the revision named here.
+ */
+export async function reviseVariant(
+  paths: DesignLibraryPaths,
+  designId: string,
+  variantId: string,
+  instruction: string,
+  behaviour: RevisionBehaviour,
+  requestId?: number,
+): Promise<string | null> {
+  const trimmed = instruction.trim();
+  if (trimmed === '') return null;
+
+  let armed = false;
+  await mutateVariant(paths, designId, variantId, (variant) => {
+    if (!SETTLED.includes(variant.status)) return null;
+    if (requestId !== undefined && (variant.appliedRequestId ?? 0) >= requestId) return null;
+    const base = visibleRevision(variant);
+    if (!base) return null;
+    armed = true;
+    return {
+      ...variant,
+      pendingRevision: { instruction: trimmed, behaviour, baseRevisionId: base.id },
+    };
+  });
+  if (!armed) return null;
+
+  const jobId = await startVariant(paths, designId, variantId, SETTLED, requestId);
+  // The instruction is dropped again if no job could claim the variant, so a
+  // later retry does not silently inherit a revise nobody asked it for.
+  if (jobId === null) {
+    await mutateVariant(paths, designId, variantId, (variant) =>
+      variant.pendingRevision === undefined
+        ? null
+        : { ...variant, pendingRevision: undefined },
+    );
+  }
+  return jobId;
+}
+
+/** Put a different revision on screen. Nothing is generated and nothing is lost. */
+export async function setVisibleRevision(
+  paths: DesignLibraryPaths,
+  designId: string,
+  variantId: string,
+  revisionId: string,
+): Promise<void> {
+  await mutateVariant(paths, designId, variantId, (variant) =>
+    variant.revisions.some((revision) => revision.id === revisionId)
+      ? { ...variant, visibleRevisionId: revisionId }
+      : null,
+  );
+}
+
+/**
+ * Delete one revision for good (spec §6.4: revisions persist until manually
+ * deleted).
+ *
+ * The record entry goes first and the directory second. The other order would
+ * leave a revision the selector offers and nothing can render; this order leaves
+ * a directory nothing points at, which the startup sweep already collects.
+ */
+export async function deleteRevision(
+  paths: DesignLibraryPaths,
+  designId: string,
+  variantId: string,
+  revisionId: string,
+): Promise<void> {
+  let removed = false;
+  await mutateVariant(paths, designId, variantId, (variant) => {
+    // A revise reads its base off disk when it runs, so deleting that revision
+    // out from under a queued or running one would either fail the run or —
+    // once the record no longer names it — drop the instruction and regenerate
+    // from the brief. Refused under the record lock, where the check holds.
+    if (variant.pendingRevision?.baseRevisionId === revisionId) return null;
+    const remaining = variant.revisions.filter((revision) => revision.id !== revisionId);
+    // The last one is kept: a variant marked ready with no revision has nothing
+    // to show and no way back to having one except regenerating.
+    if (remaining.length === variant.revisions.length || remaining.length === 0) return null;
+    removed = true;
+    const visible =
+      variant.visibleRevisionId === revisionId
+        ? remaining[remaining.length - 1]?.id
+        : variant.visibleRevisionId;
+    return { ...variant, revisions: remaining, visibleRevisionId: visible };
+  });
+  if (removed) {
+    await rm(revisionDir(paths, designId, variantId, revisionId), { recursive: true, force: true });
+  }
 }
 
 /**

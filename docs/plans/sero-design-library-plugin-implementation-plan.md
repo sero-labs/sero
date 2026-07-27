@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a open for review (#320); PR 2b next.
-**Branch:** `feat/design-library-design` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318)
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b — the working surface — in progress.
+**Branch:** `feat/design-library-working-surface` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -170,17 +170,17 @@ Turn references into runnable work.
 
 **Build**
 
-1. [~] Design records, continuous autosave. *(Sessions rail and restore-to-position are 2b.)*
+1. [x] Design records, continuous autosave, sessions rail, restore-to-position.
 2. [x] Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
 3. [~] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel. *(Built; the prototype's polish lands with 2b.)*
 4. [x] Generation runs with `platformTools: 'none'` — structured language in, no pixels. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
 5. [x] `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
 6. [x] `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
-7. Tweaks: AI-authored manifest emitted with each successful revision, validator that drops invalid/duplicate/inert controls and reports them in one collapsible line, generic control rendering, value-only postMessage channel, per-control and panel reset, Copy CSS. Rendered as a fourth inspector tab inside a `ResizablePanel` (`@sero-ai/ui`) whose width persists, with a collapsible sessions rail.
-8. Tweak persistence: separate defaults and overrides, continuous autosave, one revision per editing session at the defined checkpoints.
-9. Revision replace/retain with recoverable history.
-10. Responsive viewport controls.
-11. `bridgeTools` create surface — the main agent can start a Design from named references.
+7. [x] Tweaks: AI-authored manifest emitted with each successful revision, validator that drops invalid/duplicate/inert controls and reports them in one collapsible line, generic control rendering, value-only postMessage channel, per-control and panel reset, Copy CSS. Rendered as a fourth inspector tab inside a `ResizablePanel` (`@sero-ai/ui`) whose width persists, with a collapsible sessions rail.
+8. [x] Tweak persistence: separate defaults and overrides, continuous autosave, one revision per editing session at the defined checkpoints.
+9. [x] Revision replace/retain with recoverable history.
+10. [x] Responsive viewport controls.
+11. [x] `bridgeTools` create surface — the main agent can start a Design from named references.
 
 **Decisions taken while building 2a**
 
@@ -191,6 +191,21 @@ Turn references into runnable work.
 - **Clearing a view key uses `null`.** The patch travels as JSON and `undefined` is dropped, so a clear never reached the runtime — already true of leaving a reference in PR 1, and visible the moment the Design surface cleared two keys at once.
 - **A reference must be analysed before it can start a Design.** The run receives the Librarian's language and nothing else, so an unanalysed reference contributes nothing; skipping it silently would make the Design lie about its provenance.
 - New dependencies: `esbuild` (external in the plugin bundle via `sero.app.runtimeExternals`), `@tailwindcss/browser`, and `react`/`react-dom`/`lucide-react` promoted from devDependencies because the runtime bundles them into previews.
+
+**Decisions taken while building 2b**
+
+- **The manifest arrives through a tool, and is validated against the code that was emitted.** `design_library_declare_tweaks` checks each control *inside the call*, so a model that binds `--display-scale` to a property its own stylesheet never declares is told while it can still fix it. A control bound to a property the page does not declare, or declares and never reads through `var()`, is dropped: a slider that visibly does nothing makes the user doubt the ones that work. Dropping is never fatal — the page still renders and the omissions are one expandable line. The answer in the call is feedback, not the verdict: the same declaration is checked again against the files the run *finished* with, because a run can declare its controls and then rewrite the stylesheet out from under them. A control is also dropped when a value it can produce is one the preview would refuse, so the panel never offers a setting the frame silently ignores.
+- **The allow-list is baked into the document, not sent to it.** The built preview carries the properties its own manifest declared, and the harness refuses any other. A list that arrived by message could be replaced by a message.
+- **Every tweak value crosses as a string.** A union of string, number and boolean is the part of a tool schema providers render least consistently, and a CSS value is a string at the far end; ranges get their numbers from `min`/`max`/`step`. The value is coerced onto the control in the runtime as well as the UI, because requests arrive through a file.
+- **An "editing session" checkpoints tweak *values*, not a new generated revision.** Files do not change when a slider moves, so a checkpoint is an entry in the revision's own tweak history — appended when the panel closes, the variant changes, a revision arrives or Reset all runs, and skipped when nothing changed. `Reset all` checkpoints first, which is what makes it undoable.
+- **Tweak state lives on the record, the manifest lives in a file.** The values change constantly and are what restart recovery must restore; the manifest is bulky and immutable. Keeping values on the record also keeps the projection a pure function of the records.
+- **`replace` marks the revision it replaced; `retain` leaves both unmarked.** Neither deletes anything and neither hides anything: History lists every revision a variant has ever had, a replaced one carrying the word "replaced", so "replacement is always recoverable" and "revisions persist until manually deleted" are both true — with an explicit per-revision delete for the second. Filtering the marked ones out of the list was the first shape of this and it was wrong: a revision you cannot see is not one you can go back to.
+- **A revise is given the page it is editing, and one that changed nothing fails.** The run starts holding the previous revision's files, so an instruction about the header does not make the model restate the rest from memory. A model that agrees with itself would otherwise store an identical revision — and, under `replace`, retire the original in favour of a copy of itself. "Changed nothing" is measured against the files the run started from, not by counting writes, so restating the page byte for byte fails the same way writing nothing does.
+- **A failed revise keeps its instruction; a cancelled one drops it.** Retry then repeats the change rather than regenerating the page from the brief, and an explicit stop means the next run is whatever is asked for then.
+- The create dialog matches prototype state 3 in full. The one remaining difference — no reference thumbnails in the synthesis rail — is PR 1's deliberate decision, unchanged.
+- **The tweak write path is its own module, not hook internals.** `ui/lib/tweak-writes.ts` owns batching, targeting and ordering, as `view-sync.ts` owns the view's reconciliation and for the same reason: every bug here is about *time* — a batch outliving the revision it was set on, a checkpoint overtaking the values it closes over, a failed write undoing a newer one — and none of it needs a component to be true or to test. Four rules came out of review and are enforced there: a batch carries its own target, sends are chained, the chain keeps a settled tail so one failure cannot silence the writer, and a failure is reported only to the write that still owns the control.
+- **Shutdown is not cancellation, for the instruction as well as the job.** Clearing a pending revise on abort before checking for shutdown would have made quitting Sero mid-revise come back to a variant that regenerates itself from the original brief. The check runs first, and the restart path is tested end to end: the resumed run receives the instruction and the page it was editing.
+- **Replay safety is per request, not per value.** A restore names its checkpoint after the request that made it, so applying the request twice appends once. Deciding it from the values was wrong in the case that matters — a restore over values that already matched the newest checkpoint wrote no marker at all.
 
 **Accept when** only incompatible guardrails block; reference pixels never enter output; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a self-contained frame with no workspace, install or network; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
 

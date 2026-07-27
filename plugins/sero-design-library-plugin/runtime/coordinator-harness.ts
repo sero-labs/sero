@@ -98,6 +98,24 @@ export async function writeDesignFiles(
   for (const file of files) await invokeTool(writer, file);
 }
 
+/**
+ * A page whose decisions run through custom properties, so controls declared
+ * over it survive validation. The plain `STUB_PAGE` deliberately does not — a
+ * design with nothing adjustable is a real case, and the two are used to tell
+ * "no manifest" from "a manifest that was dropped".
+ */
+export const STUB_TWEAKABLE_PAGE =
+  '<body><style>:root{--signal:#16805f;--gap:12px}main{color:var(--signal);gap:var(--gap)}</style><main id="generated">Generated page</main></body>';
+
+/** Declare tweak controls the way a generation run does, through its tool. */
+export async function declareTweaks(
+  params: AppRuntimeSubagentRunParams,
+  controls: Array<Record<string, unknown>>,
+): Promise<void> {
+  const tool = toolNamed(params, 'design_library_declare_tweaks');
+  if (tool) await invokeTool(tool, { controls });
+}
+
 /** Name the design the way a generation run does, through its tool. */
 export async function nameDesign(
   params: AppRuntimeSubagentRunParams,
@@ -194,8 +212,12 @@ export function useCoordinator(label: string): CoordinatorHarness {
       return itemId;
     },
     withErrors(failures) {
+      // The same stub, not a fresh one: this stands for Sero restarting, and a
+      // restart does not come back with a different model. A test that has said
+      // how the model behaves means that for the resumed work too — otherwise
+      // the run it is asserting on is served by a stub it never configured.
       return new Coordinator({
-        host: stubHost().host,
+        host: { subagents: { runStructured } } as unknown as AppRuntimeHost,
         paths,
         workspaceId: 'ws',
         sessionId: 'session',

@@ -1,5 +1,13 @@
 import { Button } from '@sero-ai/ui';
-import { Maximize2, Monitor, RotateCw, Smartphone, Tablet } from 'lucide-react';
+import {
+  Maximize2,
+  Monitor,
+  PanelRightClose,
+  PanelRightOpen,
+  RotateCw,
+  Smartphone,
+  Tablet,
+} from 'lucide-react';
 
 /**
  * How wide the page is being rendered, and at what scale.
@@ -47,16 +55,22 @@ export interface PreviewControlsProps {
   scale: number;
   /** How wide the pane itself is, which is the width used in `fit`. */
   paneWidth: number;
+  /** The inspector is hidden and the page has the whole surface. */
+  focused?: boolean;
   onViewport(viewport: Viewport): void;
   onReload(): void;
+  /** Absent on surfaces with no inspector to hide. */
+  onFocus?: () => void;
 }
 
 export function PreviewControls({
   viewport,
   scale,
   paneWidth,
+  focused,
   onViewport,
   onReload,
+  onFocus,
 }: PreviewControlsProps) {
   // Always the width the page is actually being rendered at. Naming the mode
   // instead — "fits the pane" — said nothing you could act on.
@@ -92,6 +106,26 @@ export function PreviewControls({
       <Button type="button" variant="ghost" size="sm" aria-label="Reload preview" onClick={onReload}>
         <RotateCw className="size-3.5" />
       </Button>
+
+      {/* Judging a wide layout on a laptop means getting the panel out of the
+          way for a moment, not permanently narrowing it. */}
+      {onFocus !== undefined && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={focused === true}
+          aria-label={focused === true ? 'Show the inspector' : 'Hide the inspector'}
+          title={focused === true ? 'Show the inspector' : 'Give the page the whole surface'}
+          onClick={onFocus}
+        >
+          {focused === true ? (
+            <PanelRightOpen className="size-3.5" />
+          ) : (
+            <PanelRightClose className="size-3.5" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }

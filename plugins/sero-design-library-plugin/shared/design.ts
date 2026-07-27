@@ -11,6 +11,8 @@
  */
 
 import type { TombstonedProvenance } from './records';
+import type { RevisionBehaviour } from './settings';
+import type { TweakCheckpoint, TweakOverrides } from './tweaks';
 
 export const DESIGN_SCHEMA_VERSION = 1;
 
@@ -89,6 +91,27 @@ export interface DesignRevision {
   buildWarnings: string[];
   /** Emitted with the revision and bound to it; see the note at the top. */
   tweakManifestFile?: string;
+  /**
+   * The user's tweak values for this revision, and the editing sessions already
+   * checkpointed.
+   *
+   * On the record rather than beside the manifest, and deliberately: the values
+   * change constantly while the manifest never does, the record is what restart
+   * recovery already restores, and keeping them here means the projection stays a
+   * pure function of the records — a summary can say how many controls are edited
+   * without anything reading a second file.
+   */
+  tweaks?: RevisionTweakState;
+  /**
+   * When a later revision replaced this one (spec §6.4).
+   *
+   * Set only by a revise the user asked to *replace* the visible result. The
+   * revision is untouched otherwise — its files stay on disk, it stays listed in
+   * History, and it can be made visible again. The mark is the whole difference
+   * between replacing a result and keeping both, and it is a label rather than a
+   * removal because "replacement is always recoverable" (spec §6.4).
+   */
+  supersededAt?: number;
   /** What the model said it was going for, for the revision selector. */
   summary: string;
   /**
@@ -102,6 +125,44 @@ export interface DesignRevision {
    * number.
    */
   name: string;
+}
+
+/**
+ * Tweak state for one revision (spec §6.5).
+ *
+ * Only overrides are stored. Defaults live in the manifest, so a revision that
+ * declares a new default picks it up rather than being pinned to a copy taken
+ * when the first slider moved.
+ *
+ * `checkpoints` is what makes an editing session recoverable. Continuous
+ * autosave writes `overrides` on every change; a checkpoint is appended once per
+ * session at the defined moments — the panel closing, the variant changing, a new
+ * revision arriving, or shutdown — so dragging a slider fifty times leaves one
+ * entry in history rather than fifty.
+ */
+export interface RevisionTweakState {
+  overrides: TweakOverrides;
+  checkpoints: TweakCheckpoint[];
+}
+
+/** Enough to undo a session's work; past this the older ones say nothing new. */
+export const MAX_TWEAK_CHECKPOINTS = 10;
+
+/**
+ * A revise the user has asked for but that has not run yet (spec §6.4).
+ *
+ * Stored on the variant rather than passed to the queue, for the same reason the
+ * job is a file: the request that started it is consumed the moment it is
+ * applied, and a revise that lost its instruction on the way to the model would
+ * regenerate the page from the original brief — silently producing something
+ * nobody asked for. Cleared when the run that used it finishes.
+ */
+export interface PendingRevision {
+  instruction: string;
+  /** Whether the result replaces the visible revision or joins it. */
+  behaviour: RevisionBehaviour;
+  /** The revision being revised, so the run starts from what is on screen. */
+  baseRevisionId: string;
 }
 
 export interface DesignVariant {
@@ -121,6 +182,8 @@ export interface DesignVariant {
    * Absent in `blend` mode, where every variant draws on all of them.
    */
   referenceItemId?: string;
+  /** Set when a revise is owed; consumed by the run that carries it out. */
+  pendingRevision?: PendingRevision;
   /**
    * The last request id that started work here. The request log is applied
    * at-least-once, so this is what tells a replayed retry from a new one.
@@ -213,6 +276,19 @@ export function primaryReference(design: DesignRecord): DesignReference | undefi
 export function plannedVariantCount(brief: DesignBrief, referenceCount: number): number {
   const clamp = (value: number) => Math.min(MAX_VARIANTS, Math.max(MIN_VARIANTS, value));
   return brief.variationMode === 'per-reference' ? clamp(referenceCount) : clamp(brief.variantCount);
+}
+
+/**
+ * Every revision the variant has, newest first — which is every revision it has
+ * ever had.
+ *
+ * Nothing is filtered out. A replace marks the revision it replaced rather than
+ * hiding it, because "replacement is always recoverable" (spec §6.4) is only
+ * true if the replaced revision is still something you can see and click. The
+ * mark is what distinguishes replace from retain; it is not a reason to omit it.
+ */
+export function orderedRevisions(variant: DesignVariant): DesignRevision[] {
+  return variant.revisions.toSorted((a, b) => b.createdAt - a.createdAt);
 }
 
 export function visibleRevision(variant: DesignVariant): DesignRevision | undefined {
