@@ -6,6 +6,7 @@
 
 import type { EditableLibrarianProfile } from './librarian';
 import { normalizeAnalysis, normalizeOverrides } from './librarian';
+import { isSafeId } from './paths';
 
 export type MediaKind = 'image' | 'video';
 
@@ -160,9 +161,30 @@ export function normalizeItemRecord(value: unknown): ItemRecord | null {
   };
 }
 
-export type JobKind = 'ingest' | 'analysis';
+export type JobKind = 'ingest' | 'analysis' | 'generate';
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+/**
+ * What a job is responsible for.
+ *
+ * A discriminated target rather than a bare `itemId`, because a generation job
+ * belongs to one variant of one Design and has no item at all. Storing an empty
+ * `itemId` for those would let restart recovery hand that empty string to a
+ * path helper, and `assertSafeId` would throw part-way through reconciliation —
+ * taking the whole recovery pass down with it.
+ */
+export type JobTarget =
+  | { kind: 'item'; itemId: string }
+  | { kind: 'variant'; designId: string; variantId: string };
+
+export function itemTarget(itemId: string): JobTarget {
+  return { kind: 'item', itemId };
+}
+
+export function variantTarget(designId: string, variantId: string): JobTarget {
+  return { kind: 'variant', designId, variantId };
+}
 
 /**
  * One persisted job per unit of background work. Jobs survive restart: the
@@ -174,22 +196,52 @@ export interface JobRecord {
   id: string;
   kind: JobKind;
   status: JobStatus;
-  /** The item the job belongs to. */
-  itemId: string;
+  /** The item or variant the job belongs to. */
+  target: JobTarget;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
   attempts: number;
   error?: string;
-  /** Incremented by a cancel request; the run checks it and aborts. */
+  /** Set by a cancel request; the run checks it and aborts. */
   cancelRequested?: boolean;
+}
+
+function normalizeJobKind(value: unknown): JobKind {
+  return value === 'ingest' || value === 'generate' ? value : 'analysis';
+}
+
+/**
+ * A job's target, accepting the `itemId` shape written before jobs could belong
+ * to a variant. Returns null when neither shape is present, so the job is
+ * skipped rather than reconciled against nothing.
+ */
+function normalizeJobTarget(value: Record<string, unknown>): JobTarget | null {
+  // Every id here is later joined onto a directory path. One that could not
+  // safely be a folder name makes the whole job unreadable rather than
+  // reconcilable — a path helper would throw on it once per recovery sweep.
+  const id = (candidate: unknown): candidate is string =>
+    typeof candidate === 'string' && isSafeId(candidate);
+  const target = value.target;
+  if (isRecordObject(target)) {
+    if (target.kind === 'variant') {
+      return id(target.designId) && id(target.variantId)
+        ? { kind: 'variant', designId: target.designId, variantId: target.variantId }
+        : null;
+    }
+    if (id(target.itemId)) return { kind: 'item', itemId: target.itemId };
+    return null;
+  }
+  return id(value.itemId) ? { kind: 'item', itemId: value.itemId } : null;
 }
 
 /** Same contract as `normalizeItemRecord`, for job files. */
 export function normalizeJobRecord(value: unknown): JobRecord | null {
   if (!isRecordObject(value)) return null;
-  if (typeof value.id !== 'string' || value.id === '') return null;
-  if (typeof value.itemId !== 'string') return null;
+  if (typeof value.id !== 'string' || value.id === '' || !isSafeId(value.id)) return null;
+
+  const target = normalizeJobTarget(value);
+  if (!target) return null;
 
   const status = value.status;
   const known = status === 'queued' || status === 'running' || status === 'succeeded' ||
@@ -197,9 +249,9 @@ export function normalizeJobRecord(value: unknown): JobRecord | null {
 
   return {
     id: value.id,
-    kind: value.kind === 'ingest' ? 'ingest' : 'analysis',
+    kind: normalizeJobKind(value.kind),
     status: known ? status : 'queued',
-    itemId: value.itemId,
+    target,
     createdAt: typeof value.createdAt === 'number' ? value.createdAt : 0,
     ...(typeof value.startedAt === 'number' ? { startedAt: value.startedAt } : {}),
     ...(typeof value.completedAt === 'number' ? { completedAt: value.completedAt } : {}),

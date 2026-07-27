@@ -40,6 +40,9 @@ export function useImport(): {
 
       const errors: string[] = [];
       for (const [index, file] of files.entries()) {
+        // One file at a time on purpose: the progress line counts files as they
+        // land, and twenty uploads racing each other would report nonsense.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         const result = await importFile(tools, file, sourceKind, (progress) =>
           setState((current) => ({ ...current, fileName: progress.fileName, progress: progress.progress })),
         );

@@ -1,9 +1,11 @@
 {
   "name": "@sero-ai/plugin-design-library",
   "version": "0.1.0",
-  "description": "Sero Design Library — visual reference memory and creative workbench",
+  "description": "Sero Design Library \u2014 visual reference memory and creative workbench",
   "type": "module",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,7 +13,9 @@
     "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extension/index.ts"]
+    "extensions": [
+      "./extension/index.ts"
+    ]
   },
   "sero": {
     "app": {
@@ -24,19 +28,40 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "DesignLibraryApp",
       "devPort": 5190,
-      "runtime": "./runtime/index.ts"
+      "runtime": "./runtime/index.ts",
+      "runtimeExternals": [
+        "esbuild"
+      ]
     },
     "plugin": {
       "category": "productivity",
-      "tags": ["design", "references", "inspiration", "generation"],
+      "tags": [
+        "design",
+        "references",
+        "inspiration",
+        "generation"
+      ],
       "minSeroVersion": "0.1.0",
       "runtimeAbi": 2,
       "preBuilt": false,
-      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
-      "bridgeTools": ["design_library_items", "design_library_analysis"]
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli",
+        "appRuntime.background"
+      ],
+      "bridgeTools": [
+        "design_library_items",
+        "design_library_analysis",
+        "design_library_designs"
+      ]
     }
   },
   "dependencies": {
+    "@tailwindcss/browser": "catalog:",
+    "esbuild": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "typebox": "catalog:"
   },
   "peerDependencies": {
@@ -46,19 +71,18 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
-    "@sero-ai/plugin-vite": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",
+    "@sero-ai/plugin-vite": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "lucide-react": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
+    "jsdom": "^26.1.0",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

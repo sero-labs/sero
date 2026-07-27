@@ -25,6 +25,7 @@ export interface DesignLibraryPaths {
    */
   recordLocksDir: string;
   itemsDir: string;
+  designsDir: string;
   jobsDir: string;
   uploadsDir: string;
   tombstonesDir: string;
@@ -37,6 +38,7 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     lockDir: path.join(home, '.state.lock'),
     recordLocksDir: path.join(home, '.record-locks'),
     itemsDir: path.join(home, 'items'),
+    designsDir: path.join(home, 'designs'),
     jobsDir: path.join(home, 'jobs'),
     uploadsDir: path.join(home, 'uploads'),
     tombstonesDir: path.join(home, 'tombstones'),
@@ -87,6 +89,32 @@ export function itemDir(paths: DesignLibraryPaths, itemId: string): string {
 
 export function itemRecordFile(paths: DesignLibraryPaths, itemId: string): string {
   return path.join(itemDir(paths, itemId), 'record.json');
+}
+
+export function designDir(paths: DesignLibraryPaths, designId: string): string {
+  return path.join(paths.designsDir, assertSafeId(designId, 'design id'));
+}
+
+export function designRecordFile(paths: DesignLibraryPaths, designId: string): string {
+  return path.join(designDir(paths, designId), 'record.json');
+}
+
+export function variantDir(paths: DesignLibraryPaths, designId: string, variantId: string): string {
+  return path.join(designDir(paths, designId), 'variants', assertSafeId(variantId, 'variant id'));
+}
+
+/**
+ * One directory per revision, holding the files the model authored and the
+ * assembled preview document built from them. Revisions are append-only, so a
+ * new attempt never overwrites the files an earlier one produced.
+ */
+export function revisionDir(
+  paths: DesignLibraryPaths,
+  designId: string,
+  variantId: string,
+  revisionId: string,
+): string {
+  return path.join(variantDir(paths, designId, variantId), assertSafeId(revisionId, 'revision id'));
 }
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {

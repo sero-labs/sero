@@ -9,6 +9,7 @@ import { LibraryToolbar } from '../components/LibraryToolbar';
 import { SelectionBar } from '../components/SelectionBar';
 import type { ImportState } from '../hooks/useImport';
 import type { ImportSourceKind } from '../lib/import';
+import type { ItemSummary } from '../../shared/types';
 import type { Library } from '../hooks/useLibrary';
 
 /**
@@ -26,6 +27,8 @@ interface LibraryPageProps {
   dismissErrors(): void;
   onPickFiles(): void;
   onOpenItem(itemId: string): void;
+  /** Ordered as the user picked them, because the first reference leads. */
+  onCreateDesign(references: ItemSummary[]): void;
   /** The card that should carry the transition name, if any. */
   transitioningItemId?: string;
   transitionName: string;
@@ -38,6 +41,7 @@ export function LibraryPage({
   dismissErrors,
   onPickFiles,
   onOpenItem,
+  onCreateDesign,
   transitioningItemId,
   transitionName,
 }: LibraryPageProps) {
@@ -49,9 +53,11 @@ export function LibraryPage({
   const inTrash = view.scope.kind === 'trash';
   // A Set because both of these are consulted once per card in the grid.
   const pickedIds = useMemo(() => new Set(picked), [picked]);
+  // Mapped over `picked` rather than filtered out of `state.items`: reference
+  // order is what makes the first one primary, and the grid's order is not it.
   const pickedItems = useMemo(
-    () => state.items.filter((item) => pickedIds.has(item.id)),
-    [state.items, pickedIds],
+    () => picked.flatMap((id) => state.items.filter((item) => item.id === id)),
+    [state.items, picked],
   );
 
   const togglePicked = useCallback((itemId: string) => {
@@ -112,6 +118,7 @@ export function LibraryPage({
           onDelete={() => applyToPicked((id) => actions.remove(id))}
           onRestore={() => applyToPicked((id) => actions.restore(id))}
           onPurge={() => applyToPicked((id) => actions.purge(id))}
+          onCreateDesign={() => onCreateDesign(pickedItems)}
         />
 
         {importState.active && (

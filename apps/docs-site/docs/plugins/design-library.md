@@ -6,7 +6,7 @@
 
 Design Library is your private visual memory. You collect screenshots and images you like, Sero reads each one and describes its design language, and later you turn that language into original work.
 
-This first release covers the Library itself: getting references in, understanding them, and organising them. Designing from them and keeping the results arrive in the next two releases.
+You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. The Gallery, and generating imagery, arrive in the next release.
 
 ## Getting started
 
@@ -50,6 +50,59 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 - **Favourites** and **Collections** are yours to arrange. A collection is a plain group you name.
 - **Style groups** appear on their own once two references share a primary style. They are simply what the Librarian already said, counted — nothing extra runs to produce them.
 
+## Designing from your references
+
+Select the references you want, then choose **Create design**. Order matters: the first one you pick leads the visual direction and the rest contribute traits that fit alongside it. You can use up to six.
+
+The dialog is one decision:
+
+| Choice | What it does |
+| --- | --- |
+| Request | What you want built, in your words |
+| Prompt recipe | A named instruction template applied on top of the request |
+| Output target | Self-contained HTML, or React with Tailwind |
+| Variation mode | Blend all the references, or one variant per reference |
+| Variants | 1–5 directions, generated independently |
+| Inspiration strength | How closely the result follows the references rather than the request |
+
+Under the brief, **Applied guardrails** lists every rule the run will be held to — the Always and Never rules the Librarian wrote for your references, combined. Only rules in force are shown.
+
+**Session rule** adds one of your own for this design alone. It carries the same weight as the references' rules and is recorded on the design as yours, so a rule you asked for on the day is never mistaken for something the Librarian read in a reference. Adding a rule the references already state changes nothing.
+
+The panel beside it names the references in order and says whether the synthesis is ready or blocked.
+
+### When references disagree
+
+If one reference requires something another forbids, that rule is held back and you are asked which side to keep. Nothing generates until you decide, because a brief that contradicts itself would just have the model pick a side quietly. Only genuine contradictions block; different styles blend without a question.
+
+What you choose is recorded on the design, so *"why is this design ignoring that rule?"* stays answerable later. Editing a reference afterwards does not change a design that was already generated under the old rules.
+
+A reference has to be analysed before you can design from it. The design run is given the Librarian's written description and never the image itself, so a reference with no description has nothing to contribute.
+
+### Watching it generate
+
+Each variant is its own piece of work. They run a couple at a time and appear as they finish.
+
+- Each one names itself — "Signal ledger", "Glass telemetry" — so the tabs say what the directions were rather than counting them.
+- One failing changes nothing about the others — you keep whatever worked.
+- **Try again** re-runs a single variant. Its earlier attempt stays in its history.
+- **Stop** cancels one variant and leaves its siblings running.
+- Closing the app does not stop generation, and work resumes if Sero restarts mid-run.
+
+### The preview
+
+Generated work runs in a sealed frame: no network, no access to Sero, your files or your workspace, no cookies or storage, and nothing outside what the plugin bundles. Everything it needs is inside the one file it runs from.
+
+If the design tried to do something the frame does not allow — load a font from the web, call an API, open a new window — the preview blocks it, still shows everything else, and lists what it stopped underneath the frame. A warning always means the thing was blocked. It never means it was allowed.
+
+Because there is no network, generated designs use the system fonts, CSS gradients and shapes, and SVG they draw themselves.
+
+There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
+
+Underneath the preview you can set the width the page is rendered at, and reload it. **Pane width** lets the page reflow as the pane changes, the way a browser window does; **desktop**, **tablet** and **phone** pin it to a fixed width so you can see how it holds up there. A fixed width wider than the pane is scaled down to fit, and the readout always shows the width being used and the scale it is shown at.
+
+The panel beside the preview says what the run made and what it was made from: its concept, the references it drew on, the visual language it took from them, the files it wrote, and the settings it ran under.
+
 ## Deleting
 
 **Delete** moves a reference to Trash, where it stays until you restore it or delete it permanently. Permanent deletion removes the image and its analysis, and leaves behind only a record of what used to be there, so anything that referred to it can still explain what is missing. Deleting a collection never deletes the references inside it.
@@ -59,7 +112,7 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Librarian model | Sero's configured model | The model that reads references and writes their design language |
-| Design model | Sero's configured model | The model that generates and revises work (used from the next release) |
+| Design model | Sero's configured model | The model that generates and revises work |
 | Variants per design | 3 | How many directions a new design starts with |
 | On revise | Replace what is visible | Or keep each revision separately |
 | Prompt recipes | Three built in | Named instruction templates applied on top of a request |
@@ -74,12 +127,13 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | --- | --- |
 | `design_library_items` | Search references, read one in full, edit or reset analysis fields, favourite, collect, delete and restore |
 | `design_library_analysis` | Check analysis status, reanalyse, cancel or retry |
+| `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry or stop a variant |
 
-Ask things like *"what dark, data-dense references do I have?"* or *"reanalyse the Northstar screenshot"*.
+Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, or *"make a dashboard from the Northstar and Material journal references"*.
 
 ## Where things are stored
 
-Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records and the search index. Nothing leaves your machine except the image sent to your configured model for analysis.
+Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design and the search index. Nothing leaves your machine except the image sent to your configured model for analysis, and the written description sent when you generate.
 
 Deleting a profile deletes its library. There is no cloud copy.
 

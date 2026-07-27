@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** Ready to build
-**Branch:** `feat/design-library-plugin-v2`
+**Status:** PR 1 merged (#318). PR 2a open for review (#320); PR 2b next.
+**Branch:** `feat/design-library-design` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -124,7 +124,7 @@ One persisted job per variant; separate persisted jobs for Librarian and media c
 
 # PR 1 — Library
 
-**Status: built.** Awaiting live verification in the desktop app.
+**Status: merged** as [#318](https://github.com/sero-labs/sero/pull/318).
 
 The plugin becomes useful on its own: collect references, understand them, organise them.
 
@@ -163,19 +163,34 @@ The plugin becomes useful on its own: collect references, understand them, organ
 
 Turn references into runnable work.
 
+**Split into two PRs while building.** As specified this is eleven items across four loosely-coupled areas, and PR 1 was already large enough that two rounds of review found real defects in it. The boundary puts the risky half first: the spec requires isolation to be *"proven with hostile fixtures before production preview work"* (§7), so sandboxing, CSP and the build pipeline land where they can be reviewed on their own rather than alongside a sessions rail and a tweaks panel.
+
+- **PR 2a — the generation pipeline.** Items 1 (Design records and autosave only), 2, 4, 5, 6. Minimal UI: enough to create a Design and watch a variant render. **Complete.**
+- **PR 2b — the working surface.** Items 1 (sessions rail, restore-to-position), 3 (the dialog's remaining polish), 7, 8, 9, 10, 11.
+
 **Build**
 
-1. Sessions rail, Design records, continuous autosave, restore-to-position on restart.
-2. Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
-3. Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel.
-4. Generation runs with `platformTools: 'none'` — structured language in, no pixels. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
-5. `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
-6. `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
+1. [~] Design records, continuous autosave. *(Sessions rail and restore-to-position are 2b.)*
+2. [x] Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
+3. [~] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel. *(Built; the prototype's polish lands with 2b.)*
+4. [x] Generation runs with `platformTools: 'none'` — structured language in, no pixels. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
+5. [x] `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
+6. [x] `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
 7. Tweaks: AI-authored manifest emitted with each successful revision, validator that drops invalid/duplicate/inert controls and reports them in one collapsible line, generic control rendering, value-only postMessage channel, per-control and panel reset, Copy CSS. Rendered as a fourth inspector tab inside a `ResizablePanel` (`@sero-ai/ui`) whose width persists, with a collapsible sessions rail.
 8. Tweak persistence: separate defaults and overrides, continuous autosave, one revision per editing session at the defined checkpoints.
 9. Revision replace/retain with recoverable history.
 10. Responsive viewport controls.
 11. `bridgeTools` create surface — the main agent can start a Design from named references.
+
+**Decisions taken while building 2a**
+
+- **Generated files arrive through a plugin-owned `customTools` tool, not in the reply.** Asking for one JSON object makes the model escape hundreds of lines of markup into string literals, which it gets wrong often enough to matter. A tool call per file also lets the runtime check each one as it lands, and — the load-bearing part — lets the *runtime* decide whether a design was produced. A model that describes a page it never wrote returns a plausible sentence, and accepting it marks a variant ready with nothing to render.
+- **A revision is a file tree on disk, not a string in the record.** The prototype's Files tab shows markup, styles and script separately, and `record.json` is read and rewritten under a lock on every variant transition — inlining pages would grow it to hundreds of kilobytes. Files are written before the record entry naming them, so a startup chore sweeps revision directories nothing points at.
+- **Jobs carry a discriminated target** (`item` or `variant`) rather than a bare `itemId`. A generation job has no item, and an empty id would reach a path helper during restart recovery and throw part-way through the repair pass.
+- **The approved import set is enforced at resolution, not by scanning.** esbuild gets a resolver that knows the emitted files and the approved packages and nothing else, so an unapproved import has nowhere to resolve. A refused module loads as an empty *CommonJS* module: a named import from an empty ES module is a compile error and would cost the whole page.
+- **Clearing a view key uses `null`.** The patch travels as JSON and `undefined` is dropped, so a clear never reached the runtime — already true of leaving a reference in PR 1, and visible the moment the Design surface cleared two keys at once.
+- **A reference must be analysed before it can start a Design.** The run receives the Librarian's language and nothing else, so an unanalysed reference contributes nothing; skipping it silently would make the Design lie about its provenance.
+- New dependencies: `esbuild` (external in the plugin bundle via `sero.app.runtimeExternals`), `@tailwindcss/browser`, and `react`/`react-dom`/`lucide-react` promoted from devDependencies because the runtime bundles them into previews.
 
 **Accept when** only incompatible guardrails block; reference pixels never enter output; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a self-contained frame with no workspace, install or network; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
 

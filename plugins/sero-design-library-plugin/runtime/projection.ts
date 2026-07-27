@@ -7,9 +7,16 @@
  * the records, so a half-written index is a cache miss rather than data loss.
  */
 
+import type { DesignRecord, DesignVariant } from '../shared/design';
+import { orderedReferences, visibleRevision } from '../shared/design';
 import { effectiveAnalysis, isOverridden, LIBRARIAN_FIELDS } from '../shared/librarian';
 import type { ItemRecord, JobRecord } from '../shared/records';
-import type { ItemSummary, JobSummary } from '../shared/types';
+import type {
+  DesignSummary,
+  DesignVariantSummary,
+  ItemSummary,
+  JobSummary,
+} from '../shared/types';
 
 const CARD_TAG_LIMIT = 6;
 
@@ -75,9 +82,51 @@ export function projectJob(job: JobRecord): JobSummary {
     id: job.id,
     kind: job.kind,
     status: job.status,
-    itemId: job.itemId,
+    target: job.target,
     createdAt: job.createdAt,
     ...(job.error === undefined ? {} : { error: job.error }),
+  };
+}
+
+function projectVariant(design: DesignRecord, variant: DesignVariant): DesignVariantSummary {
+  const revision = visibleRevision(variant);
+  const built =
+    revision?.builtFile === undefined
+      ? {}
+      : {
+          previewPath: `designs/${design.id}/variants/${variant.id}/${revision.id}/${revision.builtFile}`,
+        };
+  return {
+    id: variant.id,
+    index: variant.index,
+    status: variant.status,
+    ...(variant.error === undefined ? {} : { error: variant.error }),
+    ...built,
+    ...(revision?.name === undefined || revision.name === '' ? {} : { name: revision.name }),
+    warningCount: revision?.buildWarnings.length ?? 0,
+    revisionCount: variant.revisions.length,
+    ...(variant.visibleRevisionId === undefined
+      ? {}
+      : { visibleRevisionId: variant.visibleRevisionId }),
+    ...(variant.referenceItemId === undefined
+      ? {}
+      : { referenceItemId: variant.referenceItemId }),
+  };
+}
+
+export function projectDesign(design: DesignRecord): DesignSummary {
+  return {
+    id: design.id,
+    title: design.title,
+    target: design.brief.target,
+    variationMode: design.brief.variationMode,
+    referenceItemIds: orderedReferences(design).map((reference) => reference.itemId),
+    variants: design.variants
+      .toSorted((a, b) => a.index - b.index)
+      .map((variant) => projectVariant(design, variant)),
+    createdAt: design.createdAt,
+    updatedAt: design.updatedAt,
+    ...(design.deletedAt === undefined ? {} : { deletedAt: design.deletedAt }),
   };
 }
 

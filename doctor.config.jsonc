@@ -1,0 +1,51 @@
+// React Doctor — https://www.react.doctor/ci
+//
+// Everything stays on by default. The one exception below is scoped as
+// narrowly as it can be, so the rule keeps working where it was written to
+// work: React components in `ui/` and `src/`.
+{
+  "ignore": {
+    "overrides": [
+      {
+        // Node-side code: plugin runtimes and extensions, the Electron main
+        // process, and build/dev scripts. None of it renders anything.
+        // Matched against paths relative to whichever project is being
+        // scanned, so each directory is listed both ways: as a workspace scan
+        // sees it and as a repo-root scan does. Anchored at the top of a
+        // package on purpose — `**/runtime/**` would also catch
+        // `src/components/runtime/`, which is React and should keep the rule.
+        "files": [
+          "runtime/**",
+          "extension/**",
+          "electron/**",
+          "scripts/**",
+          "plugins/*/runtime/**",
+          "plugins/*/extension/**",
+          "apps/*/electron/**",
+          "apps/*/scripts/**",
+          "packages/*/scripts/**"
+        ],
+        // `await` in a loop is the point in this code, not an oversight. These
+        // files write records to disk one at a time on purpose:
+        //
+        //  - Order is the durability rule. A job's terminal state is written
+        //    before the target that points at it, and the files of a revision
+        //    before the record naming them, so that a crash between two writes
+        //    leaves a state that startup recovery can repair. `Promise.all`
+        //    would run them in whatever order they finish, and the recovery
+        //    code would have nothing left to reason about.
+        //  - Many of the loops write the *same* record. Each write takes that
+        //    record's lock, so running them together only queues them up again,
+        //    with contention and retries in place of a plain loop.
+        //  - The startup sweeps walk every record in the library. Fanning those
+        //    out means hundreds of concurrent file handles at launch to save
+        //    milliseconds nobody is waiting on.
+        //
+        // Where a loop genuinely has independent work and the concurrency is
+        // worth having, it is written with `Promise.all` already (see
+        // `reindex` in the design library's store).
+        "rules": ["react-doctor/async-await-in-loop"]
+      }
+    ]
+  }
+}

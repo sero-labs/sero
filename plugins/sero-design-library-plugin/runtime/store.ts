@@ -7,7 +7,8 @@ import type { ItemRecord, JobRecord } from '../shared/records';
 import { normalizeItemRecord, normalizeJobRecord } from '../shared/records';
 import { readJsonFile, updateState, withRecordLock, writeJsonFile } from '../shared/state-io';
 import type { DesignLibraryState } from '../shared/types';
-import { projectItem, projectJob } from './projection';
+import { scanDesigns } from './design-store';
+import { projectDesign, projectItem, projectJob } from './projection';
 
 /**
  * Record storage and the index that mirrors it.
@@ -180,9 +181,16 @@ export async function mutateJob(
 /**
  * Rebuild the whole index from the records. Called at startup, which is what
  * makes an index write interrupted by a crash self-healing rather than fatal.
+ *
+ * Returns the record directories this version could not read, item ids and
+ * design ids together — they are reported to the user, never deleted.
  */
-export async function reindex(paths: DesignLibraryPaths): Promise<ItemScan['unreadable']> {
-  const [{ items, unreadable }, jobs] = await Promise.all([scanItems(paths), listJobs(paths)]);
+export async function reindex(paths: DesignLibraryPaths): Promise<string[]> {
+  const [{ items, unreadable }, designScan, jobs] = await Promise.all([
+    scanItems(paths),
+    scanDesigns(paths),
+    listJobs(paths),
+  ]);
   const cutoff = Date.now() - FINISHED_JOB_RETENTION_MS;
   const isLive = (job: JobRecord) =>
     job.status === 'queued' || job.status === 'running' || (job.completedAt ?? job.createdAt) > cutoff;
@@ -197,10 +205,11 @@ export async function reindex(paths: DesignLibraryPaths): Promise<ItemScan['unre
   await updateState(paths, (current: DesignLibraryState) => ({
     ...current,
     items: items.map((item) => projectItem(item, previewPathFor(item))),
+    designs: designScan.designs.map(projectDesign),
     jobs: liveJobs.map(projectJob),
   }));
 
-  return unreadable;
+  return [...unreadable, ...designScan.unreadable];
 }
 
 /** An item is a duplicate when another live record shares its checksum. */

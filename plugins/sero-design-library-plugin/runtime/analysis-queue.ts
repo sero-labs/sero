@@ -41,6 +41,18 @@ interface InFlight {
 export class AnalysisQueue {
   private readonly pending: string[] = [];
   private readonly running = new Map<string, InFlight>();
+  /**
+   * Cancelling a job that never started still writes — to the job and to its
+   * target — and those writes are not owned by any entry in `running`. Tracked
+   * here so `dispose` waits for them too; returning while one is still in flight
+   * lets a disposed runtime write over a restarted one.
+   *
+   * Defence rather than a demonstrated failure: every caller awaits `cancel`,
+   * and disposal already waits on in-flight runs that in practice outlast a
+   * short cancellation write, so the suite cannot pin the window down. It is
+   * cheap, and the same window with a run in it was a real bug in PR 1.
+   */
+  private readonly cancelling = new Set<Promise<void>>();
   private disposed = false;
 
   constructor(private readonly context: AnalysisQueueContext) {}
@@ -70,8 +82,23 @@ export class AnalysisQueue {
     const index = this.pending.indexOf(jobId);
     if (index === -1) return;
     this.pending.splice(index, 1);
-    const job = await readJob(this.context.paths, jobId);
-    if (job) await this.finishCancelled(job);
+    await this.track(async () => {
+      const job = await readJob(this.context.paths, jobId);
+      if (job?.target.kind === 'item') await this.finishCancelled(job, job.target.itemId);
+    });
+  }
+
+  /** Run a write that no `running` entry owns, so `dispose` can wait for it. */
+  private async track(write: () => Promise<void>): Promise<void> {
+    const pending = write().catch((error: unknown) =>
+      this.context.onError('A cancellation write failed', error),
+    );
+    this.cancelling.add(pending);
+    try {
+      await pending;
+    } finally {
+      this.cancelling.delete(pending);
+    }
   }
 
   /** Resolves once the job is no longer writing — immediately if it never was. */
@@ -91,7 +118,7 @@ export class AnalysisQueue {
     this.pending.length = 0;
     const inFlight = [...this.running.values()];
     for (const entry of inFlight) entry.controller.abort();
-    await Promise.allSettled(inFlight.map((entry) => entry.done));
+    await Promise.allSettled([...inFlight.map((entry) => entry.done), ...this.cancelling]);
     this.running.clear();
   }
 
@@ -134,20 +161,28 @@ export class AnalysisQueue {
     const { paths } = this.context;
     const job = await readJob(paths, jobId);
     if (!job) return;
+    // This queue only runs analysis, which always belongs to an item. Anything
+    // else reaching it is a routing mistake, and failing the job says so rather
+    // than leaving it queued forever.
+    if (job.target.kind !== 'item') {
+      await markFailed(paths, jobId, 'An analysis job was queued without an item to analyse.');
+      return;
+    }
+    const itemId = job.target.itemId;
     // A cancel that arrived while the job was still queued.
     if (job.cancelRequested === true) {
-      await this.finishCancelled(job);
+      await this.finishCancelled(job, itemId);
       return;
     }
 
-    const item = await readItem(paths, job.itemId);
+    const item = await readItem(paths, itemId);
     if (!item) {
       await markFailed(paths, jobId, 'The item was removed before analysis started.');
       return;
     }
 
     await markRunning(paths, jobId);
-    const claimed = await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+    const claimed = await this.applyIfCurrent(jobId, itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'running', jobId, startedAt: Date.now(), error: undefined },
     }));
@@ -168,13 +203,18 @@ export class AnalysisQueue {
     });
 
     if (outcome.status === 'cancelled') {
-      await this.finishCancelled(job);
+      // Shutting down is not cancelling. Both reach here as an aborted run, and
+      // recording `cancelled` for a shutdown retires the analysis for good —
+      // restart recovery only revisits a job left `running`. Leaving the job as
+      // it is hands it back to reconciliation, which resumes it.
+      if (await this.abortedByShutdown(jobId)) return;
+      await this.finishCancelled(job, itemId);
       return;
     }
 
     if (outcome.status === 'failed') {
       await markFailed(paths, jobId, outcome.reason);
-      await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+      await this.applyIfCurrent(jobId, itemId, (current) => ({
         ...current,
         analysis: {
           ...current.analysis,
@@ -195,7 +235,7 @@ export class AnalysisQueue {
     await markSucceeded(paths, jobId);
 
     // Reanalysis replaces the generated profile only — manual fields survive.
-    await this.applyIfCurrent(jobId, job.itemId, (current) => ({
+    await this.applyIfCurrent(jobId, itemId, (current) => ({
       ...current,
       profile: replaceGenerated(current.profile, outcome.analysis),
       analysis: {
@@ -208,9 +248,20 @@ export class AnalysisQueue {
     }));
   }
 
-  private async finishCancelled(job: JobRecord): Promise<void> {
+  /**
+   * True when this run stopped because the runtime is going away rather than
+   * because anyone asked it to. The job record is the authority — a cancel
+   * requested before the abort is durable and outranks the shutdown.
+   */
+  private async abortedByShutdown(jobId: string): Promise<boolean> {
+    if (!this.disposed) return false;
+    const job = await readJob(this.context.paths, jobId);
+    return job?.cancelRequested !== true;
+  }
+
+  private async finishCancelled(job: JobRecord, itemId: string): Promise<void> {
     await markCancelled(this.context.paths, job.id);
-    await this.applyIfCurrent(job.id, job.itemId, (current) => ({
+    await this.applyIfCurrent(job.id, itemId, (current) => ({
       ...current,
       analysis: { ...current.analysis, status: 'cancelled', completedAt: Date.now() },
     }));

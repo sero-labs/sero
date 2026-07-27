@@ -4,6 +4,7 @@ import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/p
 import { pendingRequests, readState } from '../shared/state-io';
 import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
+import { pruneOrphanRevisions, scanDesigns } from './design-store';
 import { reindex } from './store';
 
 /**
@@ -54,10 +55,18 @@ class DesignLibraryRuntime implements AppRuntime {
     if (unreadable !== undefined && unreadable.length > 0) {
       this.report(
         `Skipped ${unreadable.length} record(s) this version cannot read (${unreadable.join(', ')}). ` +
-          'Their files are untouched under items/.',
+          'Their files are untouched under items/ and designs/.',
         null,
       );
     }
+
+    // A revision's files are written before the record entry naming them, so a
+    // crash in between leaves a directory nothing points at. The variant is
+    // regenerated from scratch, which makes those files dead weight.
+    await this.attempt('remove orphaned revision files', async () => {
+      const { designs } = await scanDesigns(paths);
+      for (const design of designs) await pruneOrphanRevisions(paths, design);
+    });
 
     this.coordinator = new Coordinator({
       host: this.ctx.host,

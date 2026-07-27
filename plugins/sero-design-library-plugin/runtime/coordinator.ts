@@ -3,14 +3,29 @@ import type { AppRuntimeHost } from '@sero-ai/common';
 import { clearOverride, effectiveField, setOverride, validateFieldValue } from '../shared/librarian';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { tombstoneFile } from '../shared/paths';
-import type { TombstonedProvenance } from '../shared/records';
+import type { JobKind, TombstonedProvenance } from '../shared/records';
+import { itemTarget } from '../shared/records';
 import type { LibraryRequest, LibraryRequestBody } from '../shared/requests';
 import { pendingRequests, readState, updateState, writeJsonFile } from '../shared/state-io';
 import type { DesignLibraryState } from '../shared/types';
+import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
+import { readDesign } from './design-store';
+import {
+  cancelDesignWork,
+  cancelVariant,
+  createDesign,
+  deleteDesign,
+  renameDesign,
+  restoreDesign,
+  resumePendingVariants,
+  retryVariant,
+  startPendingVariants,
+} from './designs';
+import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
-import { destroyItem, mutateItem, readItem } from './store';
+import { destroyItem, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
  * Applies intent submitted by extension tools.
@@ -32,30 +47,45 @@ export interface CoordinatorContext {
 
 export class Coordinator {
   private readonly queue: AnalysisQueue;
+  private readonly variants: VariantQueue;
   private draining = false;
   private drainAgain = false;
 
   constructor(private readonly context: CoordinatorContext) {
-    this.queue = new AnalysisQueue({
+    const shared = {
       host: context.host,
       paths: context.paths,
       workspaceId: context.workspaceId,
       sessionId: context.sessionId,
       onError: context.onError,
-    });
+    };
+    this.queue = new AnalysisQueue(shared);
+    this.variants = new VariantQueue(shared);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
   async start(): Promise<void> {
     const resumable = await reconcileJobs(this.context.paths);
-    for (const job of resumable) {
-      if (job.kind === 'analysis') this.queue.enqueue(job.id);
+    for (const job of resumable) this.route(job.kind, job.id);
+
+    // Reconciliation repairs a variant that has a job. A variant left `pending`
+    // with none — the process died between saving the Design and creating them —
+    // is invisible to it, and nothing else ever looks at that variant again.
+    for (const jobId of await resumePendingVariants(this.context.paths)) {
+      this.variants.enqueue(jobId);
     }
+    await this.resumeAbandonedAnalyses();
+
     await this.drain();
   }
 
   async dispose(): Promise<void> {
-    await this.queue.dispose();
+    await Promise.all([this.queue.dispose(), this.variants.dispose()]);
+  }
+
+  private route(kind: JobKind, jobId: string): void {
+    if (kind === 'analysis') this.queue.enqueue(jobId);
+    if (kind === 'generate') this.variants.enqueue(jobId);
   }
 
   /**
@@ -105,7 +135,7 @@ export class Coordinator {
 
   private async applyOne(request: LibraryRequest): Promise<void> {
     try {
-      await this.apply(request.body);
+      await this.apply(request.body, request.id);
     } catch (error) {
       // One bad request must not stall the whole queue, so it is reported and
       // the watermark still advances past it.
@@ -113,7 +143,7 @@ export class Coordinator {
     }
   }
 
-  private async apply(body: LibraryRequestBody): Promise<void> {
+  private async apply(body: LibraryRequestBody, requestId: number): Promise<void> {
     const { paths } = this.context;
 
     switch (body.kind) {
@@ -226,6 +256,71 @@ export class Coordinator {
         return;
       }
 
+      case 'design.create': {
+        const outcome = await createDesign(paths, {
+          designId: body.designId,
+          title: body.title,
+          brief: body.brief,
+          referenceItemIds: body.referenceItemIds,
+          resolutions: body.resolutions,
+          sessionRules: body.sessionRules ?? [],
+        });
+        // A refusal is thrown rather than swallowed so it reaches the runtime's
+        // error reporting; the request log has no channel back to the caller,
+        // and the tool has already checked the same conditions synchronously.
+        if (outcome.status === 'refused') throw new Error(outcome.reason);
+        await updateState(paths, (current) => ({
+          ...current,
+          view: {
+            ...current.view,
+            selectedDesignId: outcome.design.id,
+            activeVariantId: outcome.design.variants[0]?.id,
+          },
+        }));
+        for (const jobId of await startPendingVariants(paths, outcome.design.id)) {
+          this.variants.enqueue(jobId);
+        }
+        return;
+      }
+
+      case 'design.rename': {
+        await renameDesign(paths, body.designId, body.title);
+        return;
+      }
+
+      case 'design.retry-variant': {
+        // The request id goes with it: applying a request and recording that it
+        // was applied are two writes, so a crash between them replays this one,
+        // and a retry that had already failed by then is retryable again. The
+        // variant remembers the last request it acted on and declines the repeat.
+        const jobId = await retryVariant(paths, body.designId, body.variantId, requestId);
+        if (jobId !== null) this.variants.enqueue(jobId);
+        return;
+      }
+
+      case 'design.cancel-variant': {
+        await this.stopVariant(body.designId, body.variantId);
+        return;
+      }
+
+      case 'design.delete': {
+        // Work stops before the record is hidden: a run that finishes afterwards
+        // would write a revision into a Design the user has thrown away.
+        // Aborting only asks it to stop, so each run is waited out — its last
+        // writes land a tick later, after the abort call has returned.
+        for (const jobId of await cancelDesignWork(paths, body.designId)) {
+          await this.variants.cancel(jobId);
+          await this.variants.settled(jobId);
+        }
+        await deleteDesign(paths, body.designId);
+        return;
+      }
+
+      case 'design.restore': {
+        await restoreDesign(paths, body.designId);
+        return;
+      }
+
       case 'settings.update': {
         await updateState(paths, (current) => ({
           ...current,
@@ -237,7 +332,7 @@ export class Coordinator {
       case 'view.set': {
         await updateState(paths, (current) => ({
           ...current,
-          view: { ...current.view, ...body.patch },
+          view: applyViewPatch(current.view, body.patch),
         }));
         return;
       }
@@ -252,6 +347,28 @@ export class Coordinator {
    * one item, and whichever finished last won — so a reanalysis could be
    * silently overwritten by the run it was meant to replace.
    */
+  /**
+   * The same sweep the variants get, for items.
+   *
+   * An item waiting on a job nobody holds is a spinner that never stops:
+   * reconciliation can only repair a target whose job it can still read, and
+   * finished job records are swept after a day. Called after reconciliation, so
+   * an item still `running` here belongs to a process that is gone.
+   */
+  private async resumeAbandonedAnalyses(): Promise<void> {
+    const { items } = await scanItems(this.context.paths);
+    for (const item of items) {
+      if (item.deletedAt !== undefined) continue;
+      if (item.analysis.status !== 'pending' && item.analysis.status !== 'running') continue;
+      const job =
+        item.analysis.jobId === undefined
+          ? null
+          : await readJob(this.context.paths, item.analysis.jobId);
+      if (job?.status === 'queued' || job?.status === 'running') continue;
+      await this.startAnalysis(item.id, true);
+    }
+  }
+
   private async startAnalysis(itemId: string, force: boolean): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     if (!item || item.deletedAt !== undefined) return;
@@ -260,7 +377,7 @@ export class Coordinator {
     if (!force && (item.analysis.status === 'ready' || busy)) return;
     if (busy) await this.cancelAnalysis(itemId, { wait: true });
 
-    const job = await createJob(this.context.paths, 'analysis', itemId);
+    const job = await createJob(this.context.paths, 'analysis', itemTarget(itemId));
     // Claiming the item for this job is what makes the queue's completion
     // check meaningful: a superseded job no longer matches and cannot write.
     await mutateItem(this.context.paths, itemId, (current) => ({
@@ -268,6 +385,22 @@ export class Coordinator {
       analysis: { ...current.analysis, status: 'pending', jobId: job.id, error: undefined },
     }));
     this.queue.enqueue(job.id);
+  }
+
+  /**
+   * Stop one variant. The job is asked to cancel before the queue aborts it, so a
+   * run that had not started yet still finds the request when it does.
+   */
+  private async stopVariant(designId: string, variantId: string): Promise<void> {
+    const design = await readDesign(this.context.paths, designId);
+    const jobId = design?.variants.find((variant) => variant.id === variantId)?.jobId;
+    if (jobId !== undefined) {
+      await requestCancel(this.context.paths, jobId);
+      await this.variants.cancel(jobId);
+    }
+    // Also written directly: a variant that never had a job — cancelled before
+    // the runtime got to it — has nobody else to move it out of `pending`.
+    await cancelVariant(this.context.paths, designId, variantId);
   }
 
   private async cancelAnalysis(itemId: string, options: { wait?: boolean } = {}): Promise<void> {
