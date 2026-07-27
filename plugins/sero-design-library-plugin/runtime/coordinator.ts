@@ -25,7 +25,7 @@ import {
 import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
-import { destroyItem, mutateItem, readItem } from './store';
+import { destroyItem, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
  * Applies intent submitted by extension tools.
@@ -74,6 +74,7 @@ export class Coordinator {
     for (const jobId of await resumePendingVariants(this.context.paths)) {
       this.variants.enqueue(jobId);
     }
+    await this.resumeAbandonedAnalyses();
 
     await this.drain();
   }
@@ -346,6 +347,28 @@ export class Coordinator {
    * one item, and whichever finished last won — so a reanalysis could be
    * silently overwritten by the run it was meant to replace.
    */
+  /**
+   * The same sweep the variants get, for items.
+   *
+   * An item waiting on a job nobody holds is a spinner that never stops:
+   * reconciliation can only repair a target whose job it can still read, and
+   * finished job records are swept after a day. Called after reconciliation, so
+   * an item still `running` here belongs to a process that is gone.
+   */
+  private async resumeAbandonedAnalyses(): Promise<void> {
+    const { items } = await scanItems(this.context.paths);
+    for (const item of items) {
+      if (item.deletedAt !== undefined) continue;
+      if (item.analysis.status !== 'pending' && item.analysis.status !== 'running') continue;
+      const job =
+        item.analysis.jobId === undefined
+          ? null
+          : await readJob(this.context.paths, item.analysis.jobId);
+      if (job?.status === 'queued' || job?.status === 'running') continue;
+      await this.startAnalysis(item.id, true);
+    }
+  }
+
   private async startAnalysis(itemId: string, force: boolean): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     if (!item || item.deletedAt !== undefined) return;

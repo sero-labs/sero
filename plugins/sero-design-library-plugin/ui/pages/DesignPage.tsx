@@ -39,12 +39,17 @@ export function DesignPage({
 }: DesignPageProps) {
   const [record, setRecord] = useState<DesignRecord | null>(null);
   /**
-   * The click, held locally so the tab responds before the write comes back —
-   * and stamped with the Design it belongs to. A bare variant id would outlive
-   * its Design: open another one and the page would look for a tab that is not
-   * there, silently showing the first variant while the state said otherwise.
+   * The click, held locally so the tab responds before the write comes back. It
+   * is stamped with the Design and with the selection it replaced, and it only
+   * applies while both still hold — so it stops mattering the moment the write
+   * lands or anything else moves the selection, rather than pinning this page to
+   * one tab for as long as it stays open.
    */
-  const [picked, setPicked] = useState<{ designId: string; variantId: string } | null>(null);
+  const [picked, setPicked] = useState<{
+    designId: string;
+    variantId: string;
+    replacing: string | undefined;
+  } | null>(null);
 
   // The record holds what the index deliberately leaves out — guardrails, file
   // lists, build warnings — so it is read on demand and re-read whenever the
@@ -59,7 +64,10 @@ export function DesignPage({
     };
   }, [design.id, design.updatedAt, actions]);
 
-  const pinned = picked?.designId === design.id ? picked.variantId : activeVariantId;
+  const pinned =
+    picked?.designId === design.id && picked.replacing === activeVariantId
+      ? picked.variantId
+      : activeVariantId;
   const active = design.variants.find((variant) => variant.id === pinned) ?? design.variants[0];
 
   const activeRecord = record?.variants.find((variant) => variant.id === active?.id);
@@ -68,7 +76,7 @@ export function DesignPage({
   );
 
   const select = (variantId: string) => {
-    setPicked({ designId: design.id, variantId });
+    setPicked({ designId: design.id, variantId, replacing: activeVariantId });
     void actions.selectVariant(variantId);
   };
 

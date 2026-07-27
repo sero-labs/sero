@@ -319,6 +319,23 @@ describe('failure handling', () => {
     });
   });
 
+  it('restarts an analysis left running by a process that is gone', async () => {
+    // Reconciliation repairs an item whose job it can still read, and finished
+    // job records are swept after a day — so a machine left closed longer than
+    // that comes back to an item nothing else would ever look at again.
+    const itemId = await harness.importAndAnalyse('u1', 'shot.png', 'bytes');
+    await mutateItem(harness.paths, itemId, (item) => ({
+      ...item,
+      analysis: { ...item.analysis, status: 'running', jobId: 'job-that-was-swept' },
+    }));
+
+    await harness.coordinator.start();
+
+    await vi.waitFor(async () => {
+      expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('ready');
+    });
+  });
+
   it('keeps draining after one request fails', async () => {
     // An ingest naming an upload that does not exist must not stall the queue.
     await appendRequest(harness.paths, { kind: 'ingest', uploadId: 'missing' });

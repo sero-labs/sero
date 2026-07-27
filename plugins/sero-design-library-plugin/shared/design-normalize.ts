@@ -163,7 +163,12 @@ function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant 
     ...(typeof value.referenceItemId === 'string'
       ? { referenceItemId: value.referenceItemId }
       : {}),
-    ...(typeof value.appliedRequestId === 'number'
+    // Request ids are positive integers counting up. Anything else compares
+    // unpredictably against the next one and would either wave a replay through
+    // or refuse every future retry.
+    ...(typeof value.appliedRequestId === 'number' &&
+    Number.isSafeInteger(value.appliedRequestId) &&
+    value.appliedRequestId >= 0
       ? { appliedRequestId: value.appliedRequestId }
       : {}),
     ...(typeof value.startedAt === 'number' ? { startedAt: value.startedAt } : {}),
@@ -214,7 +219,9 @@ export function normalizeDesignBrief(value: unknown): DesignBrief {
 
 export function normalizeDesignRecord(value: unknown): DesignRecord | null {
   if (!isRecordObject(value)) return null;
-  if (typeof value.id !== 'string' || value.id === '') return null;
+  // The id names the Design's directory, as the variant and revision ids name
+  // theirs: unsafe means unreadable, not merely odd.
+  if (typeof value.id !== 'string' || !isSafeId(value.id)) return null;
 
   const references = Array.isArray(value.references)
     ? value.references

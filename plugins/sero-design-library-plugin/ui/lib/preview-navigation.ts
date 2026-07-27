@@ -20,6 +20,15 @@
  * announces itself, and a document that loaded without announcing itself is not
  * ours. Hence `announced` below.
  *
+ * That announcement is a diagnostic, not a boundary, and cannot be made into one
+ * from here: the harness runs inside the document it is vouching for, so a page
+ * determined to escape can read its own source, hand the parent's message shape
+ * to whatever it navigates to, and have that page announce in its place. The
+ * honest guarantee is the sandbox — no same-origin, no Sero, no storage, no
+ * files — plus a request that is noticed and a frame that is emptied. Refusing
+ * the request itself has to happen in the host, which owns the frame; the
+ * renderer only ever finds out afterwards.
+ *
  * Kept as a pure decision so it can be tested without a DOM: the wiring in
  * `PreviewFrame` is a handler and a timer, and this is the part with a rule in it.
  */
