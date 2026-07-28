@@ -1,10 +1,20 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@sero-ai/ui';
-import { RotateCw, Square } from 'lucide-react';
+import {
+  FileCode,
+  History,
+  Image as ImageIcon,
+  Layers,
+  RotateCw,
+  SlidersHorizontal,
+  Square,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { DesignBrief, DesignRevision } from '../../../shared/design';
+import type { DesignAsset } from '../../../shared/media';
 import type { DesignVariantSummary } from '../../../shared/types';
 import type { TweakSurface } from '../../hooks/useTweaks';
+import { AssetsTab } from './inspector/AssetsTab';
 import { DesignTab } from './inspector/DesignTab';
 import { FilesTab } from './inspector/FilesTab';
 import { HistoryTab } from './inspector/HistoryTab';
@@ -21,7 +31,15 @@ import { TweaksPanel } from './TweaksPanel';
  * design costs the surface nothing when you are not adjusting it.
  */
 
-type TabId = 'design' | 'files' | 'history' | 'tweaks';
+type TabId = 'design' | 'files' | 'history' | 'tweaks' | 'art';
+
+const TABS: { id: TabId; label: string; icon: typeof Layers }[] = [
+  { id: 'design', label: 'Design', icon: Layers },
+  { id: 'files', label: 'Files', icon: FileCode },
+  { id: 'history', label: 'History', icon: History },
+  { id: 'tweaks', label: 'Tweaks', icon: SlidersHorizontal },
+  { id: 'art', label: 'Art', icon: ImageIcon },
+];
 
 export interface VariantInspectorProps {
   variant: DesignVariantSummary;
@@ -32,9 +50,16 @@ export interface VariantInspectorProps {
   references: DesignReferenceView[];
   ownReferenceId: string | undefined;
   tweaks: TweakSurface;
+  /** The Design's assets — they belong to the Design, not to this variant. */
+  designId: string;
+  assets: DesignAsset[];
   onRetry(): void;
   onCancel(): void;
   onSelectRevision(revisionId: string): void;
+  onRetryAsset(assetId: string): void;
+  onCopyAssetToLibrary(assetId: string): void;
+  onDeleteAsset(assetId: string): void;
+  onGenerateAsset(): void;
 }
 
 export function VariantInspector({
@@ -45,9 +70,15 @@ export function VariantInspector({
   references,
   ownReferenceId,
   tweaks,
+  designId,
+  assets,
   onRetry,
   onCancel,
   onSelectRevision,
+  onRetryAsset,
+  onCopyAssetToLibrary,
+  onDeleteAsset,
+  onGenerateAsset,
 }: VariantInspectorProps) {
   const [tab, setTab] = useState<TabId>('design');
   const running = variant.status === 'pending' || variant.status === 'running';
@@ -128,16 +159,25 @@ export function VariantInspector({
         onValueChange={(value) => setTab(value as TabId)}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <TabsList className="mx-3 mt-2 grid w-auto grid-cols-4">
-          <TabsTrigger value="design">Design</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="tweaks">
-            Tweaks
-            {controlCount > 0 && (
-              <span className="text-muted-foreground tabular-nums">{controlCount}</span>
-            )}
-          </TabsTrigger>
+        {/* A fifth tab does not fit five labels at the inspector's 280px
+            minimum — "History" and "Tweaks" collide. The row measures itself
+            rather than the viewport, because the panel is drag-resizable and
+            the window's width says nothing about it: when it gets tight the
+            labels give way to icons, and the label stays as the accessible
+            name so nothing is lost to a screen reader. */}
+        <TabsList className="@container mx-3 mt-2 grid w-auto grid-cols-5">
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} aria-label={tab.label} title={tab.label}>
+              <tab.icon className="size-3.5 @[280px]:hidden" />
+              <span className="hidden @[280px]:inline">{tab.label}</span>
+              {tab.id === 'tweaks' && controlCount > 0 && (
+                <span className="text-muted-foreground tabular-nums">{controlCount}</span>
+              )}
+              {tab.id === 'art' && assets.length > 0 && (
+                <span className="text-muted-foreground tabular-nums">{assets.length}</span>
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="design" className="mt-2 flex min-h-0 flex-1 flex-col">
@@ -165,6 +205,17 @@ export function VariantInspector({
 
         <TabsContent value="tweaks" className="mt-2 flex min-h-0 flex-1 flex-col">
           <TweaksPanel tweaks={tweaks} />
+        </TabsContent>
+
+        <TabsContent value="art" className="mt-2 flex min-h-0 flex-1 flex-col">
+          <AssetsTab
+            designId={designId}
+            assets={assets}
+            onRetry={onRetryAsset}
+            onCopyToLibrary={onCopyAssetToLibrary}
+            onDelete={onDeleteAsset}
+            onGenerate={onGenerateAsset}
+          />
         </TabsContent>
       </Tabs>
     </div>
