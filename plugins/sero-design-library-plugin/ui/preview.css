@@ -1,0 +1,3 @@
+/* Throwaway — see ui/preview.tsx. The host's design tokens, which a plugin
+   normally inherits from the shell's document root. */
+@import "@sero-ai/ui/styles/globals.css";
