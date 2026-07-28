@@ -1,9 +1,10 @@
-import { chmod, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
-import type { CredentialStatus } from '../../shared/media';
-import type { DesignLibraryPaths } from '../../shared/paths';
-import { secretsFile } from '../../shared/paths';
-import { readJsonFile } from '../../shared/state-io';
+import type { CredentialStatus } from './media';
+import type { DesignLibraryPaths } from './paths';
+import { secretsFile } from './paths';
+import { readJsonFile } from './state-io';
 
 /**
  * Where the provider key comes from (spec §8.3, D9).
@@ -17,6 +18,13 @@ import { readJsonFile } from '../../shared/state-io';
  * encrypted store available to a plugin, since `getProviderApiKey` resolves
  * *model* providers only. That is a known and accepted limitation, which is why
  * the environment path is preferred and labelled as such in Settings.
+ *
+ * Shared rather than runtime-owned because both sides need it: the runtime
+ * resolves the key to make a call, and the settings tool reports and edits it.
+ * That tool calls these functions **directly** instead of appending a request —
+ * the one deliberate exception to the single-writer rule, because the request
+ * log lives in `state.json`, which the UI reads, and a key must never enter
+ * reactive state (spec §8.3). Nothing here is importable from `ui/`.
  */
 
 const ENV_VAR = 'FAL_KEY';
@@ -73,6 +81,11 @@ export async function falKeyStatus(
  */
 export async function storeFalKey(paths: DesignLibraryPaths, key: string): Promise<void> {
   const file = secretsFile(paths);
+  // Every other write in the plugin ensures its own directory, and this one runs
+  // in the extension process — which cannot assume the runtime has started and
+  // created the app directory first. Entering a key into an untouched profile
+  // would otherwise fail on the one screen that could fix it.
+  await mkdir(path.dirname(file), { recursive: true });
   const secrets: StoredSecrets = { falKey: key };
   await writeFile(file, `${JSON.stringify(secrets, null, 2)}\n`, { mode: 0o600 });
   await chmod(file, 0o600);

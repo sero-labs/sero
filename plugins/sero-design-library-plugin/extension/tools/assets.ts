@@ -6,9 +6,18 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { normalizeDesignRecord } from '../../shared/design-normalize';
 import { effectiveField } from '../../shared/librarian';
+import { currentAttempt } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { isSafeId, itemRecordFile, resolveInsideHome, revisionDir } from '../../shared/paths';
+import {
+  designAssetDir,
+  designRecordFile,
+  isSafeId,
+  itemRecordFile,
+  resolveInsideHome,
+  revisionDir,
+} from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
 import { appendRequest, readJsonFile } from '../../shared/state-io';
 import type { UploadManifest, UploadRole } from '../../shared/uploads';
@@ -39,6 +48,7 @@ const ACTIONS = [
   'preview',
   'original',
   'design-file',
+  'design-asset',
 ] as const;
 
 /**
@@ -134,6 +144,59 @@ async function readItemAsset(
   return image(bytes.toString('base64'), mediaTypeFor(resolved), `${title} (${which})`);
 }
 
+/**
+ * Read what a Design asset currently shows (spec §6.6).
+ *
+ * The record names the file, exactly as an item's record does, so the caller
+ * never supplies a path. `poster` is the still frame a video carries: a tray of
+ * assets paints from posters rather than decoding video, and a video whose frame
+ * has not been captured yet has none to give.
+ */
+async function readDesignAsset(
+  paths: DesignLibraryPaths,
+  designId: string,
+  assetId: string,
+  which: 'media' | 'poster',
+): Promise<ToolResult> {
+  const design = normalizeDesignRecord(
+    await readJsonFile<unknown>(designRecordFile(paths, designId)),
+  );
+  const asset = design?.assets.find((entry) => entry.id === assetId);
+  if (!asset) return failure(`No asset ${assetId} in Design ${designId}.`);
+
+  const attempt = currentAttempt(asset);
+  if (attempt?.outcome !== 'ready') {
+    // Not an error: a pending or failed asset is an ordinary tray state, and the
+    // tray needs to tell the two apart to choose between a spinner and a retry.
+    return text('That asset has no artwork yet.', {
+      ok: false,
+      state: asset.attempts.length === 0 ? 'pending' : 'failed',
+    });
+  }
+
+  const fileName = which === 'poster' ? attempt.posterFile : attempt.file;
+  if (fileName === undefined) {
+    return text(
+      which === 'poster'
+        ? 'That video has no still frame yet.'
+        : 'That attempt stored no file.',
+      { ok: false, state: which === 'poster' ? 'awaiting-frames' : 'failed' },
+    );
+  }
+
+  const resolved = resolveInsideHome(
+    paths,
+    path.relative(paths.home, path.join(designAssetDir(paths, designId, assetId), fileName)),
+  );
+  if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
+
+  const bytes = await readFile(resolved).catch(() => null);
+  if (!bytes) return failure(`The ${which} for asset ${assetId} is missing.`);
+
+  const mediaType = which === 'poster' ? mediaTypeFor(resolved) : attempt.mediaType ?? mediaTypeFor(resolved);
+  return image(bytes.toString('base64'), mediaType, asset.request.prompt || asset.reference);
+}
+
 export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
   pi.registerTool({
     name: 'design_library_assets',
@@ -156,9 +219,15 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       role: Type.Optional(StringEnum(['original', 'preview'] as const)),
       index: Type.Optional(Type.Number({ description: 'Zero-based chunk index' })),
       data: Type.Optional(Type.String({ description: 'Base64 chunk payload' })),
-      designId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      designId: Type.Optional(Type.String({ description: 'Required by design-file and design-asset' })),
       variantId: Type.Optional(Type.String({ description: 'Required by design-file' })),
       revisionId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      assetId: Type.Optional(Type.String({ description: 'Required by design-asset' })),
+      which: Type.Optional(
+        StringEnum(['media', 'poster'] as const, {
+          description: 'design-asset: the artwork itself, or a video’s still frame',
+        }),
+      ),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       switch (params.action) {
@@ -245,6 +314,14 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           if ('error' in revision) return revision.error;
           if (params.fileName === undefined) return failure('`design-file` needs a fileName.');
           return readDesignFile(paths, design.id, variant.id, revision.id, params.fileName);
+        }
+
+        case 'design-asset': {
+          const design = checkId(params.designId, 'design id');
+          if ('error' in design) return design.error;
+          const asset = checkId(params.assetId, 'asset id');
+          if ('error' in asset) return asset.error;
+          return readDesignAsset(paths, design.id, asset.id, params.which ?? 'media');
         }
       }
     },

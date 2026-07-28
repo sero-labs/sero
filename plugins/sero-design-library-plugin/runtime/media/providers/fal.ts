@@ -24,7 +24,7 @@ import { MediaError } from '../contract';
  * of this plugin says has none.
  *
  * Credentials are configured at call time from a resolver and never persisted
- * here; see `runtime/media/credentials.ts` for where they come from.
+ * here; see `shared/credentials.ts` for where they come from.
  */
 
 /**

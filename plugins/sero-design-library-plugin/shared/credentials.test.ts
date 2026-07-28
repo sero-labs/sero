@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
+import { designLibraryPathsFromHome, type DesignLibraryPaths } from './paths';
 import { clearFalKey, falKeyStatus, resolveFalKey, storeFalKey } from './credentials';
 
 describe('provider credentials', () => {
@@ -21,6 +21,16 @@ describe('provider credentials', () => {
   it('reports missing when there is neither an environment nor a stored key', async () => {
     expect(await falKeyStatus(paths, {})).toBe('missing');
     expect(await resolveFalKey(paths, {})).toBeUndefined();
+  });
+
+  it('stores a key into a profile whose app directory does not exist yet', async () => {
+    // The extension process writes this, and it cannot assume the runtime has
+    // started and made the directory first.
+    const untouched = designLibraryPathsFromHome(path.join(paths.home, 'apps', 'design-library'));
+
+    await storeFalKey(untouched, 'stored-key');
+
+    expect(await resolveFalKey(untouched, {})).toBe('stored-key');
   });
 
   it('prefers the environment over a stored key', async () => {

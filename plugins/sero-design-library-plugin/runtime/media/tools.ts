@@ -2,7 +2,7 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import { needsSource } from '../../shared/media';
+import { missingRequirement } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
@@ -209,12 +209,11 @@ function createCapabilityTool(
     parameters: shape.parameters,
     async execute(_toolCallId, params) {
       const request = toRequest(capability, params as Record<string, unknown>);
-      if (request.prompt.trim() === '' && capability !== 'upscale') {
-        return toolError('This needs a prompt describing what to produce.');
-      }
-      if (needsSource(capability) && (request.sourceAssetIds ?? []).length === 0) {
-        return toolError('This needs a `sourceId` naming an asset or Library item to work from.');
-      }
+      const missing = missingRequirement(capability, {
+        prompt: request.prompt,
+        ...(request.sourceAssetIds === undefined ? {} : { sourceIds: request.sourceAssetIds }),
+      });
+      if (missing !== null) return toolError(missing);
 
       const outcome = await generateAsset(capability, request, context);
       // A refusal — the cap, or a video the user declined — is reported to the

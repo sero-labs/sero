@@ -2,7 +2,7 @@ import type { MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { MediaSettings } from '../../shared/settings';
 import type { MediaProvider } from './contract';
-import { resolveFalKey } from './credentials';
+import { resolveFalKey } from '../../shared/credentials';
 import { createFalProvider } from './providers/fal';
 
 /**

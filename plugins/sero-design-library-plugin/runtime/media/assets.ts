@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import type { DesignRecord } from '../../shared/design';
 import type { DesignAsset, MediaAttempt, StoredMediaRequest } from '../../shared/media';
-import { assetReference, currentAttempt, kindFor } from '../../shared/media';
+import { assetReferenceFor, currentAttempt, kindFor } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaSourceAsset } from './contract';
@@ -52,7 +52,7 @@ export async function reserveAsset(
     // The reference is fixed at reservation and never changes, so a retry that
     // produces different bytes does not orphan the `src` already written into
     // the page — which is what makes an asset-only retry work at all.
-    reference: assetReference(`${id}.${request.capability === 'text-to-video' ? 'mp4' : 'png'}`),
+    reference: assetReferenceFor(id, request.capability),
     request,
     attempts: [],
     createdAt: now,

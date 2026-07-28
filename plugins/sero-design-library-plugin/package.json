@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-design-library",
   "version": "0.1.0",
-  "description": "Sero Design Library — visual reference memory and creative workbench",
+  "description": "Sero Design Library \u2014 visual reference memory and creative workbench",
   "type": "module",
   "keywords": [
     "pi-package"
@@ -52,7 +52,8 @@
       "bridgeTools": [
         "design_library_items",
         "design_library_analysis",
-        "design_library_designs"
+        "design_library_designs",
+        "design_library_media"
       ]
     }
   },

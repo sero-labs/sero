@@ -181,6 +181,43 @@ export function assetReference(fileName: string): string {
   return `${ASSETS_REFERENCE_PREFIX}${fileName}`;
 }
 
+/**
+ * The reference an asset will carry, derived from its id alone.
+ *
+ * Reservation and the tool that allocates the id both need this, and they must
+ * agree: the tool tells its caller the path to write into the page before the
+ * asset exists, and reservation fixes that path for good. Deriving it twice is
+ * how the two would drift.
+ */
+export function assetReferenceFor(assetId: string, capability: MediaCapability): string {
+  return assetReference(`${assetId}.${kindFor(capability) === 'video' ? 'mp4' : 'png'}`);
+}
+
+/**
+ * Whether a request carries what its capability needs, or why it does not.
+ *
+ * Both routes in check this — the tool the model calls inside a generation run
+ * and the explicit action the UI queues — because D5's "one implementation, no
+ * divergence" has to cover the refusal as well as the call. A missing source
+ * that got through here would surface as a provider error instead, after the
+ * spend decision had already been taken.
+ */
+export function missingRequirement(
+  capability: MediaCapability,
+  request: { prompt?: string; sourceIds?: readonly string[] },
+  sourceParam = 'sourceId',
+): string | null {
+  // Upscale is the one capability with nothing to describe: it works from the
+  // source, and a prompt is only optional guidance for the upscaler.
+  if (capability !== 'upscale' && (request.prompt ?? '').trim() === '') {
+    return 'This needs a prompt describing what to produce.';
+  }
+  if (needsSource(capability) && (request.sourceIds ?? []).length === 0) {
+    return `This needs a \`${sourceParam}\` naming an asset or Library item to work from.`;
+  }
+  return null;
+}
+
 export function isAssetReference(value: string): boolean {
   return value.startsWith(ASSETS_REFERENCE_PREFIX);
 }

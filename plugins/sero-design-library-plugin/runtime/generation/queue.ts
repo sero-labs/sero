@@ -14,7 +14,7 @@ import { readState } from '../../shared/state-io';
 import type { EmittedFile } from '../../shared/targets';
 import { readAssetBytes } from '../media/assets';
 import { MediaBudget, createVideoConfirmer } from '../media/budget';
-import { resolveFalKey } from '../media/credentials';
+import { resolveFalKey } from '../../shared/credentials';
 import { createMediaProviderForRun } from '../media/provider';
 import { createMediaTools } from '../media/tools';
 import {

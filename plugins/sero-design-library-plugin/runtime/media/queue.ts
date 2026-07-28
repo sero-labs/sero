@@ -133,7 +133,7 @@ export class MediaQueue {
    * it gets a budget of one: the user asked for one image and pressing a button
    * cannot spend more than the thing it is attached to. Video still confirms.
    */
-  private async budgetFor(designTitle?: string): Promise<MediaBudget> {
+  private budgetFor(designTitle?: string): MediaBudget {
     return new MediaBudget({
       callsPerRun: 1,
       confirmVideo: createVideoConfirmer(
@@ -180,7 +180,7 @@ export class MediaQueue {
 
     const state = await readState(paths);
     const provider = await this.provider(state.settings.media);
-    const budget = await this.budgetFor(design.title);
+    const budget = this.budgetFor(design.title);
     const context: MediaToolContext = {
       paths,
       designId,
@@ -223,7 +223,7 @@ export class MediaQueue {
 
     const state = await readState(paths);
     const provider = await this.provider(state.settings.media);
-    const budget = await this.budgetFor();
+    const budget = this.budgetFor();
     const directory = await mkdtemp(path.join(tmpdir(), 'design-library-generate-'));
 
     try {
