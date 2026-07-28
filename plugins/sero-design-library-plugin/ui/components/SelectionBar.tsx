@@ -1,5 +1,5 @@
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@sero-ai/ui';
-import { FolderPlus, RotateCw, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { FolderPlus, RotateCw, Shuffle, Sparkles, Star, Trash2, X } from 'lucide-react';
 
 import { MAX_REFERENCES } from '../../shared/design';
 
@@ -26,6 +26,8 @@ interface SelectionBarProps {
   onRestore(): void;
   onPurge(): void;
   onCreateDesign(): void;
+  /** Generate a variation of the one selected reference (D3). */
+  onRestyle(): void;
 }
 
 export function SelectionBar({
@@ -40,6 +42,7 @@ export function SelectionBar({
   onRestore,
   onPurge,
   onCreateDesign,
+  onRestyle,
 }: SelectionBarProps) {
   if (selected.length === 0) return null;
   const count = `${selected.length} reference${selected.length === 1 ? '' : 's'} selected`;
@@ -78,6 +81,14 @@ export function SelectionBar({
               <Sparkles className="size-3.5" />
               Create design
             </Button>
+            {/* One reference only: a variation is made *from* something, and
+                "restyle these four" has no single source to work from. */}
+            {selected.length === 1 && (
+              <Button type="button" variant="ghost" size="sm" onClick={onRestyle}>
+                <Shuffle className="size-3.5" />
+                Restyle
+              </Button>
+            )}
             <Button type="button" variant="ghost" size="sm" onClick={onFavourite}>
               <Star className="size-3.5" />
               Favourite

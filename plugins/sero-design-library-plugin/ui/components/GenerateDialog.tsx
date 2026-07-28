@@ -54,6 +54,12 @@ export interface GenerateDialogProps {
   target: GenerateTarget;
   /** Assets in this Design, or Library items — whichever the target can use. */
   sources: GenerateSource[];
+  /**
+   * A source the dialog opens already working from — Restyle on a chosen
+   * reference. The capability follows it, because arriving on "new image" with
+   * a source selected says the source will be used when it will not be.
+   */
+  initialSourceId?: string;
   onOpenChange(open: boolean): void;
   onGenerate(request: GenerateRequest): void;
 }
@@ -67,12 +73,15 @@ export function GenerateDialog({
   open,
   target,
   sources,
+  initialSourceId,
   onOpenChange,
   onGenerate,
 }: GenerateDialogProps) {
-  const [capability, setCapability] = useState<MediaCapability>('text-to-image');
+  const [capability, setCapability] = useState<MediaCapability>(
+    initialSourceId === undefined ? 'text-to-image' : 'image-to-image',
+  );
   const [prompt, setPrompt] = useState('');
-  const [sourceId, setSourceId] = useState<string>('');
+  const [sourceId, setSourceId] = useState<string>(initialSourceId ?? '');
   const [aspectRatio, setAspectRatio] = useState(DEFAULT_ASPECT);
   const [durationSeconds, setDurationSeconds] = useState(DURATIONS[0] ?? 4);
 

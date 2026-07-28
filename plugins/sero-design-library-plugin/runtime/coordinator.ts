@@ -17,7 +17,7 @@ import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
 import { MediaQueue, type MediaQueueContext } from './media/queue';
 import { MediaRequests, isMediaRequest } from './media/requests';
-import { destroyItem, mutateItem, readItem, readJob, scanItems } from './store';
+import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
  * Applies intent submitted by extension tools.
@@ -280,6 +280,13 @@ export class Coordinator {
 
       case 'collection.delete': {
         await this.deleteCollection(body.collectionId);
+        return;
+      }
+
+      case 'job.dismiss': {
+        // Idempotent: a job already forgotten, or one still running and so
+        // refused, both leave nothing to do rather than failing the request.
+        await dismissJob(paths, body.jobId);
         return;
       }
 

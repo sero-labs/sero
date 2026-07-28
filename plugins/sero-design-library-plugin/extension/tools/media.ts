@@ -44,6 +44,7 @@ const ACTIONS = [
   'purge',
   'copy-to-library',
   'generate-into-library',
+  'dismiss-job',
 ] as const;
 
 /** Actions that address one asset inside one Design. */
@@ -128,6 +129,9 @@ export function registerMediaTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       seed: Type.Optional(Type.Number({ description: 'For a repeatable result' })),
       durationSeconds: Type.Optional(Type.Number({ description: 'Seconds of footage, for video' })),
       includeDeleted: Type.Optional(Type.Boolean({ description: 'Include deleted assets in `list`' })),
+      jobId: Type.Optional(
+        Type.String({ description: 'A finished job to forget, for `dismiss-job`' }),
+      ),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       const needsDesign = DESIGN_ID_ACTIONS.includes(params.action);
@@ -251,6 +255,15 @@ export function registerMediaTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
               : 'Generating into the Library. It arrives as an ordinary item and analyses itself.',
             { slotId },
           );
+        }
+
+        case 'dismiss-job': {
+          const checked = checkId(params.jobId, 'job id');
+          if ('error' in checked) return checked.error;
+          await appendRequest(paths, { kind: 'job.dismiss', jobId: checked.id });
+          // A job still running is refused by the runtime rather than here,
+          // because only the runtime knows whether it has finished.
+          return text('Forgotten, if it had finished. A running job is left alone.');
         }
       }
     },

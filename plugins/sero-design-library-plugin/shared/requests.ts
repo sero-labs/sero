@@ -107,6 +107,11 @@ export type LibraryRequestBody =
       seed?: number;
       durationSeconds?: number;
     }
+  /**
+   * Forget a job that has finished, so the surface it is showing on can stop
+   * showing it. A job still running is left alone — cancelling is `*.cancel`.
+   */
+  | { kind: 'job.dismiss'; jobId: string }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -157,6 +162,7 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'media.purge',
   'media.copy-to-library',
   'library.generate',
+  'job.dismiss',
   'settings.update',
   'view.set',
 ] as const;

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
-import { ITEM_SCHEMA_VERSION, itemTarget, variantTarget } from '../shared/records';
+import { ITEM_SCHEMA_VERSION, itemTarget, libraryTarget, variantTarget } from '../shared/records';
 import { readState } from '../shared/state-io';
 import { mutateVariant, readDesign } from './design-store';
 import {
@@ -17,7 +17,7 @@ import {
   markSucceeded,
   reconcileJobs,
 } from './jobs';
-import { listJobs, mutateItem, readItem, reindex, saveItem } from './store';
+import { dismissJob, listJobs, mutateItem, readItem, reindex, saveItem } from './store';
 import { retryVariant } from './designs';
 import { seedDesign } from './test-fixtures';
 
@@ -376,5 +376,44 @@ describe('reconciliation racing a retry', () => {
     );
     expect(generate.map((job) => job.id)).toEqual([newer.id]);
     expect(resumable.map((job) => job.id)).toContain(newer.id);
+  });
+});
+
+describe('forgetting a job', () => {
+  /**
+   * A failed job is otherwise visible until the retention sweep collects it a
+   * day later — so a generation that failed leaves a tile in the Library saying
+   * so, with nothing the user can do about it.
+   */
+  it('removes a finished job from the record store and the index together', async () => {
+    const job = await createJob(paths, 'media', libraryTarget('slot-1'));
+    await markFailed(paths, job.id, 'The provider is unavailable.');
+
+    expect(await dismissJob(paths, job.id)).toBe(true);
+
+    expect(await listJobs(paths)).toEqual([]);
+    // The index is what the UI renders: a summary outliving its record is
+    // exactly the tile that cannot be got rid of.
+    expect((await readState(paths)).jobs).toEqual([]);
+  });
+
+  it('refuses to forget a job that is still working', async () => {
+    const job = await createJob(paths, 'media', libraryTarget('slot-1'));
+    await markRunning(paths, job.id);
+
+    expect(await dismissJob(paths, job.id)).toBe(false);
+
+    // Hiding a running job would hide work that is still going — and, for
+    // media, still spending. Cancelling is the way to stop one.
+    expect((await readState(paths)).jobs).toHaveLength(1);
+  });
+
+  it('is safe to apply twice, because the request log is at-least-once', async () => {
+    const job = await createJob(paths, 'media', libraryTarget('slot-1'));
+    await markFailed(paths, job.id, 'gone');
+
+    await dismissJob(paths, job.id);
+    await expect(dismissJob(paths, job.id)).resolves.toBe(true);
+    expect((await readState(paths)).jobs).toEqual([]);
   });
 });

@@ -50,6 +50,8 @@ export interface MediaActions {
   purge(designId: string, assetId: string): Promise<void>;
   copyToLibrary(designId: string, assetId: string): Promise<void>;
   generateIntoLibrary(input: GenerateIntoLibraryInput): Promise<{ slotId: string } | null>;
+  /** Forget a finished job, so its tile stops being shown. */
+  dismissJob(jobId: string): Promise<void>;
 }
 
 export function useMedia(): MediaActions {
@@ -90,6 +92,10 @@ export function useMedia(): MediaActions {
         const result = await run({ action: 'generate-into-library', ...input });
         const slotId = (result.details ?? {}).slotId;
         return typeof slotId === 'string' ? { slotId } : null;
+      },
+
+      dismissJob: async (jobId) => {
+        await run({ action: 'dismiss-job', jobId });
       },
     };
   }, [tools]);

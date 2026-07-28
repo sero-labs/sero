@@ -165,6 +165,35 @@ export async function saveJob(paths: DesignLibraryPaths, job: JobRecord): Promis
   });
 }
 
+/**
+ * Forget a job that has finished, record and index together.
+ *
+ * A failed job is otherwise visible until the retention sweep collects it a day
+ * later, and a generation that failed leaves a tile in the Library saying so for
+ * all of that time with no way to clear it.
+ *
+ * A job still doing something is left alone: dismissing a *running* job would
+ * hide work that is still going — and, for media, still spending — behind a
+ * surface that had stopped mentioning it. Cancelling is a different request and
+ * stays the way to stop one.
+ */
+export async function dismissJob(paths: DesignLibraryPaths, jobId: string): Promise<boolean> {
+  return withRecordLock(paths, jobFile(paths, jobId), async () => {
+    const job = await readJob(paths, jobId);
+    if (job && (job.status === 'queued' || job.status === 'running')) return false;
+
+    // Removed even when the record has already gone: the index is what the UI
+    // renders, and a summary outliving its record is exactly the tile that
+    // cannot be got rid of.
+    await rm(jobFile(paths, jobId), { force: true });
+    await updateState(paths, (current) => ({
+      ...current,
+      jobs: current.jobs.filter((entry) => entry.id !== jobId),
+    }));
+    return true;
+  });
+}
+
 /** Read and write under one lock, for the same reason as `mutateItem`. */
 export async function mutateJob(
   paths: DesignLibraryPaths,
