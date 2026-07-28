@@ -16,6 +16,7 @@ import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
 import { MediaQueue, type MediaQueueContext } from './media/queue';
+import { attachFrames } from './frames';
 import { MediaRequests, isMediaRequest } from './media/requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
@@ -283,6 +284,16 @@ export class Coordinator {
         return;
       }
 
+      case 'frames.attach': {
+        const outcome = await attachFrames(paths, body);
+        // Forced, because the item is still sitting at `pending` — that is what
+        // being held back looks like — and the unforced path reads `pending` as
+        // "already queued" and does nothing. There is no job to displace: the
+        // hold is exactly the absence of one.
+        if (outcome.analyse !== undefined) await this.startAnalysis(outcome.analyse, true);
+        return;
+      }
+
       case 'job.dismiss': {
         // Idempotent: a job already forgotten, or one still running and so
         // refused, both leave nothing to do rather than failing the request.
@@ -341,6 +352,13 @@ export class Coordinator {
   private async startAnalysis(itemId: string, force: boolean): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     if (!item || item.deletedAt !== undefined) return;
+
+    // A video with no frames is a video the Librarian cannot see. Running
+    // anyway would produce a well-formed profile describing nothing — the same
+    // failure the image tool's "was it called?" check exists to prevent — and
+    // it would burn a model call doing it. The open app captures frames and
+    // `frames.attach` starts this again.
+    if (item.awaitingFrames === true) return;
 
     const busy = item.analysis.status === 'running' || item.analysis.status === 'pending';
     if (!force && (item.analysis.status === 'ready' || busy)) return;

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
 import { orderedRevisions } from '../../shared/design';
-import { assetIsReady } from '../../shared/media';
+import { assetIsReady, currentAttempt } from '../../shared/media';
 import type { DesignLibrarySettings, RevisionBehaviour } from '../../shared/settings';
 import type { DesignSummary, ItemSummary } from '../../shared/types';
 import { GenerateDialog, type GenerateSource } from '../components/GenerateDialog';
@@ -22,6 +22,7 @@ import { VariantTabs } from '../components/design/VariantTabs';
 import { referenceViews } from '../components/design/references';
 import type { DesignActions } from '../hooks/useDesigns';
 import { useMedia } from '../hooks/useMedia';
+import { useVideoFrames } from '../hooks/useVideoFrames';
 import { useTweaks } from '../hooks/useTweaks';
 import type { PreviewTarget } from '../hooks/usePreviewDocument';
 
@@ -148,6 +149,21 @@ export function DesignPage({
       ),
     [assets],
   );
+
+  // A tray video with no poster is one the renderer has not looked at yet.
+  const assetsAwaitingFrames = useMemo(
+    () =>
+      assets.flatMap((asset) => {
+        const attempt = currentAttempt(asset);
+        return asset.kind === 'video' &&
+          attempt?.outcome === 'ready' &&
+          attempt.posterFile === undefined
+          ? [{ kind: 'asset' as const, designId: design.id, assetId: asset.id }]
+          : [];
+      }),
+    [assets, design.id],
+  );
+  useVideoFrames(assetsAwaitingFrames);
 
   const persistWidth = useLayoutPersist(actions);
 

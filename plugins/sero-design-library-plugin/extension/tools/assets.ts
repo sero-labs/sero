@@ -19,6 +19,7 @@ import {
   revisionDir,
 } from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
+import type { LibraryRequestBody } from '../../shared/requests';
 import { appendRequest, readJsonFile } from '../../shared/state-io';
 import type { UploadManifest, UploadRole } from '../../shared/uploads';
 import {
@@ -49,6 +50,7 @@ const ACTIONS = [
   'original',
   'design-file',
   'design-asset',
+  'attach-frames',
 ] as const;
 
 /**
@@ -197,6 +199,31 @@ async function readDesignAsset(
   return image(bytes.toString('base64'), mediaType, asset.request.prompt || asset.reference);
 }
 
+type FramesTarget = Extract<LibraryRequestBody, { kind: 'frames.attach' }>['target'];
+
+/**
+ * What the captured frames belong to — a Library item, or a Design asset.
+ *
+ * Named by the caller and checked here, because both ids build filesystem paths
+ * on the far side and the caller is the renderer.
+ */
+function framesTarget(params: {
+  itemId?: string;
+  designId?: string;
+  assetId?: string;
+}): { target: FramesTarget } | { error: ToolResult } {
+  if (params.itemId !== undefined) {
+    const checked = checkId(params.itemId, 'item id');
+    return 'error' in checked ? checked : { target: { kind: 'item', itemId: checked.id } };
+  }
+
+  const design = checkId(params.designId, 'design id');
+  if ('error' in design) return design;
+  const asset = checkId(params.assetId, 'asset id');
+  if ('error' in asset) return asset;
+  return { target: { kind: 'asset', designId: design.id, assetId: asset.id } };
+}
+
 export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
   pi.registerTool({
     name: 'design_library_assets',
@@ -216,7 +243,10 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       previewChunks: Type.Optional(Type.Number({ description: 'Chunk count for the preview; 0 to send none' })),
       width: Type.Optional(Type.Number()),
       height: Type.Optional(Type.Number()),
-      role: Type.Optional(StringEnum(['original', 'preview'] as const)),
+      role: Type.Optional(StringEnum(['original', 'preview', 'frames'] as const)),
+      framesChunks: Type.Optional(
+        Type.Number({ description: 'Chunk count for a video filmstrip; 0 to send none' }),
+      ),
       index: Type.Optional(Type.Number({ description: 'Zero-based chunk index' })),
       data: Type.Optional(Type.String({ description: 'Base64 chunk payload' })),
       designId: Type.Optional(Type.String({ description: 'Required by design-file and design-asset' })),
@@ -252,6 +282,7 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
             chunkCounts: {
               original: params.originalChunks ?? 0,
               preview: params.previewChunks ?? 0,
+              frames: params.framesChunks ?? 0,
             },
             previewMediaType: params.previewMediaType ?? 'image/webp',
             ...(params.width === undefined ? {} : { width: params.width }),
@@ -314,6 +345,26 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           if ('error' in revision) return revision.error;
           if (params.fileName === undefined) return failure('`design-file` needs a fileName.');
           return readDesignFile(paths, design.id, variant.id, revision.id, params.fileName);
+        }
+
+        case 'attach-frames': {
+          const checked = checkId(params.uploadId, 'upload id');
+          if ('error' in checked) return checked.error;
+          const target = framesTarget(params);
+          if ('error' in target) return target.error;
+
+          const rejected = await completeUpload(paths, checked.id).then(
+            () => null,
+            (error: unknown) => (error instanceof Error ? error.message : String(error)),
+          );
+          if (rejected !== null) return failure(rejected);
+
+          await appendRequest(paths, {
+            kind: 'frames.attach',
+            uploadId: checked.id,
+            target: target.target,
+          });
+          return text('Frames queued.');
         }
 
         case 'design-asset': {

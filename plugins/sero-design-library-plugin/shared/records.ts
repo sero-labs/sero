@@ -29,6 +29,13 @@ export interface ItemAsset {
   originalFile: string;
   /** File name inside the item directory, e.g. `preview.webp`. */
   previewFile: string;
+  /**
+   * A video's filmstrip — several moments side by side in one image (D4).
+   *
+   * What the Librarian is shown for a video, because it cannot watch one. Absent
+   * for images, and absent for a video whose frames have not been captured yet.
+   */
+  framesFile?: string;
   mediaType: string;
   bytes: number;
   width?: number;
@@ -156,6 +163,9 @@ export function normalizeItemRecord(value: unknown): ItemRecord | null {
     asset: {
       originalFile: asset.originalFile,
       previewFile: asset.previewFile,
+      ...(typeof asset.framesFile === 'string' && asset.framesFile !== ''
+        ? { framesFile: asset.framesFile }
+        : {}),
       mediaType: typeof asset.mediaType === 'string' ? asset.mediaType : 'application/octet-stream',
       bytes: typeof asset.bytes === 'number' ? asset.bytes : 0,
       ...(typeof asset.width === 'number' ? { width: asset.width } : {}),

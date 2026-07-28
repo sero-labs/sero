@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { currentAttempt } from '../shared/media';
 import { appendRequest, readState } from '../shared/state-io';
+
 import { useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
 import { readItem } from './store';
@@ -236,5 +237,25 @@ describe('generating into the Library', () => {
       const state = await readState(harness.paths);
       expect(state.items.filter((item) => item.sourceKind === 'generated')).toHaveLength(1);
     });
+  });
+});
+
+describe('video confirmation', () => {
+  it('does not generate a video the user declined', async () => {
+    // The harness answers the confirmation with "skip", which is what a prompt
+    // nobody answered also produces. Either way it must not spend.
+    await appendRequest(harness.paths, {
+      kind: 'library.generate',
+      slotId: 'slot-video',
+      capability: 'text-to-video',
+      prompt: 'a slow pan across a city',
+    });
+    await harness.coordinator.drain();
+
+    await vi.waitFor(async () => {
+      const state = await readState(harness.paths);
+      expect(state.jobs.find((job) => job.target.kind === 'library')?.status).toBe('failed');
+    });
+    expect((await readState(harness.paths)).items).toEqual([]);
   });
 });

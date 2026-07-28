@@ -112,6 +112,19 @@ export type LibraryRequestBody =
    * showing it. A job still running is left alone — cancelling is `*.cancel`.
    */
   | { kind: 'job.dismiss'; jobId: string }
+  /**
+   * Frames the renderer captured from a generated video (D4).
+   *
+   * Video is decoded in the renderer — the runtime has no image library and no
+   * codecs — so a clip finishes with no thumbnail and nothing the Librarian can
+   * look at. The open app extracts a poster and a filmstrip, uploads them, and
+   * this attaches them to whatever they belong to.
+   */
+  | {
+      kind: 'frames.attach';
+      uploadId: string;
+      target: { kind: 'item'; itemId: string } | { kind: 'asset'; designId: string; assetId: string };
+    }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -163,6 +176,7 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'media.copy-to-library',
   'library.generate',
   'job.dismiss',
+  'frames.attach',
   'settings.update',
   'view.set',
 ] as const;

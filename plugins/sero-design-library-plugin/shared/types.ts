@@ -30,6 +30,11 @@ export interface ItemSummary {
   /** Path relative to the app state directory, for the UI to request bytes. */
   previewPath: string;
   analysisStatus: AnalysisStatus;
+  /**
+   * A generated video whose stills have not been captured yet (D4). The open
+   * app looks for this, captures them, and the flag clears.
+   */
+  awaitingFrames?: boolean;
   /** Why analysis failed. Carried in the summary so a failure explains itself. */
   analysisError?: string;
   favourite: boolean;
@@ -214,6 +219,7 @@ function normalizeItem(value: unknown): ItemSummary | null {
     kind: value.kind === 'video' ? 'video' : 'image',
     previewPath: typeof value.previewPath === 'string' ? value.previewPath : '',
     analysisStatus: normalizeAnalysisStatus(value.analysisStatus),
+    ...(value.awaitingFrames === true ? { awaitingFrames: true } : {}),
     ...(typeof value.analysisError === 'string' ? { analysisError: value.analysisError } : {}),
     favourite: value.favourite === true,
     collectionIds: stringArray(value.collectionIds),

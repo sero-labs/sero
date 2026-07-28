@@ -24,7 +24,19 @@ import type { ItemSourceKind, MediaKind } from './records';
 export const UPLOAD_CHUNK_BYTES = 512 * 1024;
 export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
 
-export type UploadRole = 'original' | 'preview';
+/**
+ * `frames` is a filmstrip: one image holding several moments of a video side by
+ * side (D4, and the UI-decode decision). One attachment rather than four —
+ * the Librarian sees the progression in a single look, and the upload stays one
+ * role rather than a variable number of them.
+ */
+export type UploadRole = 'original' | 'preview' | 'frames';
+
+export const UPLOAD_ROLES: readonly UploadRole[] = ['original', 'preview', 'frames'] as const;
+
+export function isUploadRole(value: unknown): value is UploadRole {
+  return typeof value === 'string' && (UPLOAD_ROLES as readonly string[]).includes(value);
+}
 
 export interface UploadManifest {
   id: string;
@@ -32,8 +44,14 @@ export interface UploadManifest {
   mediaType: string;
   kind: MediaKind;
   sourceKind: ItemSourceKind;
-  /** Number of chunks the uploader will send for each role. */
-  chunkCounts: Record<UploadRole, number>;
+  /**
+   * Number of chunks the uploader will send for each role.
+   *
+   * Partial because `frames` arrived after the first manifests were written, and
+   * a stored upload without the key must still verify rather than counting
+   * `undefined` chunks and refusing itself.
+   */
+  chunkCounts: Partial<Record<UploadRole, number>> & { original: number; preview: number };
   previewMediaType: string;
   width?: number;
   height?: number;
@@ -62,8 +80,9 @@ export async function beginUpload(
   paths: DesignLibraryPaths,
   manifest: UploadManifest,
 ): Promise<void> {
-  await mkdir(roleDir(paths, manifest.id, 'original'), { recursive: true });
-  await mkdir(roleDir(paths, manifest.id, 'preview'), { recursive: true });
+  for (const role of UPLOAD_ROLES) {
+    await mkdir(roleDir(paths, manifest.id, role), { recursive: true });
+  }
   await writeJsonFile(uploadManifestFile(paths, manifest.id), manifest);
 }
 
@@ -130,11 +149,11 @@ export async function verifyUpload(
   paths: DesignLibraryPaths,
   manifest: UploadManifest,
 ): Promise<string[]> {
-  const roles: UploadRole[] = ['original', 'preview'];
+  const roles = UPLOAD_ROLES;
   const parts = await Promise.all(roles.map((role) => inspectRole(paths, manifest.id, role)));
 
   const problems = roles.flatMap((role, position) => {
-    const expected = manifest.chunkCounts[role];
+    const expected = manifest.chunkCounts[role] ?? 0;
     const { indices } = parts[position] ?? { indices: [], bytes: 0 };
     if (indices.length !== expected) {
       return [`${role}: the manifest promised ${expected} chunk(s) but ${indices.length} arrived`];
@@ -190,7 +209,7 @@ export async function stageGeneratedUpload(
   const manifest: UploadManifest = {
     ...details,
     id,
-    chunkCounts: { original: 1, preview: 0 },
+    chunkCounts: { original: 1, preview: 0, frames: 0 },
     createdAt: Date.now(),
     complete: false,
   };

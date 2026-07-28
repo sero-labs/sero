@@ -131,7 +131,10 @@ export async function nameDesign(
  * looks at the reference before analysing, and writes and names a design. Which
  * run it is answering is decided by the tool it was handed.
  */
-function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi.fn> } {
+function stubHost(options: HarnessOptions = {}): {
+  host: AppRuntimeHost;
+  runStructured: ReturnType<typeof vi.fn>;
+} {
   const runStructured = vi.fn(async (params: AppRuntimeSubagentRunParams) => {
     if (toolNamed(params, 'design_library_write_file')) {
       await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
@@ -148,7 +151,10 @@ function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi
   // say so.
   const notifications = {
     notify: () => undefined,
-    requestChoice: async () => ({ choiceId: 'skip', timedOut: false }),
+    requestChoice: async () => ({
+      choiceId: options.approveVideo === true ? 'generate' : 'skip',
+      timedOut: false,
+    }),
   };
 
   return {
@@ -162,7 +168,18 @@ function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi
  * registers its own `beforeEach`/`afterEach`, and every field is read through
  * the returned object so it always sees the current test's instances.
  */
-export function useCoordinator(label: string): CoordinatorHarness {
+export interface HarnessOptions {
+  /**
+   * Answer the video confirmation with "generate".
+   *
+   * Off by default and deliberately so: an approval nobody wrote is exactly
+   * what the confirmation exists to prevent, so a test that wants video has to
+   * say so out loud.
+   */
+  approveVideo?: boolean;
+}
+
+export function useCoordinator(label: string, options: HarnessOptions = {}): CoordinatorHarness {
   let home = '';
   let paths: DesignLibraryPaths;
   let coordinator: Coordinator;
@@ -171,7 +188,7 @@ export function useCoordinator(label: string): CoordinatorHarness {
   beforeEach(async () => {
     home = await mkdtemp(path.join(tmpdir(), `design-library-${label}-`));
     paths = designLibraryPathsFromHome(home);
-    const stub = stubHost();
+    const stub = stubHost(options);
     runStructured = stub.runStructured;
     coordinator = new Coordinator({
       host: stub.host,

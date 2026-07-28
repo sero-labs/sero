@@ -64,6 +64,7 @@ export function projectItem(item: ItemRecord, previewPath: string): ItemSummary 
     kind: item.kind,
     previewPath,
     analysisStatus: item.analysis.status,
+    ...(item.awaitingFrames === true ? { awaitingFrames: true } : {}),
     ...(item.analysis.error === undefined ? {} : { analysisError: item.analysis.error }),
     favourite: item.favourite,
     collectionIds: item.collectionIds,

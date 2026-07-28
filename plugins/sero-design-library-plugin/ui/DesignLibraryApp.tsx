@@ -9,6 +9,7 @@ import { GenerateDialog, type GenerateSource } from './components/GenerateDialog
 import { CreateDesignDialog } from './components/design/CreateDesignDialog';
 import { useDesigns } from './hooks/useDesigns';
 import { useMedia } from './hooks/useMedia';
+import { useVideoFrames } from './hooks/useVideoFrames';
 import { useImport } from './hooks/useImport';
 import { useLibrary } from './hooks/useLibrary';
 import { importableFiles } from './lib/import';
@@ -53,6 +54,20 @@ export function DesignLibraryApp() {
   const backToLibrary = () => navigateWithTransition(() => library.actions.select(undefined));
 
   const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
+
+  // Videos generated while Sero was closed have no stills yet, and the runtime
+  // cannot make them. Done here rather than on the Library page so it keeps
+  // going while the user is inside a Design (D4).
+  const awaitingFrames = useMemo(
+    () =>
+      library.state.items.flatMap((item) =>
+        item.awaitingFrames === true && item.deletedAt === undefined
+          ? [{ kind: 'item' as const, itemId: item.id }]
+          : [],
+      ),
+    [library.state.items],
+  );
+  useVideoFrames(awaitingFrames);
 
   // Anything live can be restyled or upscaled — unlike a Design reference, this
   // does not need the Librarian to have read it first.

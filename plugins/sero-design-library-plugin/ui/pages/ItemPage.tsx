@@ -78,7 +78,20 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
 
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
           <div className="bg-muted border-border flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border">
-            {src ? (
+            {src && item.kind === 'video' ? (
+              // Controls, and no autoplay: a reference that started moving the
+              // moment it was opened would be motion the user never asked for,
+              // which is the one thing a reduced-motion preference is about.
+              // eslint-disable-next-line jsx-a11y/media-has-caption -- generated artwork has no dialogue
+              <video
+                src={src}
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={item.title}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : src ? (
               <img
                 src={src}
                 alt={item.title}
@@ -90,7 +103,7 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
             ) : (
               <span className="text-muted-foreground flex flex-col items-center gap-2 text-sm">
                 <ImageOff className="size-6" />
-                Loading image…
+                {item.awaitingFrames === true ? 'Capturing frames…' : 'Loading…'}
               </span>
             )}
           </div>
