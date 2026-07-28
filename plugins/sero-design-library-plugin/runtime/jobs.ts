@@ -93,7 +93,24 @@ const TERMINAL: readonly JobRecord['status'][] = ['succeeded', 'failed', 'cancel
  */
 export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> {
   const jobs = await listJobs(paths);
-  const interrupted = jobs.filter((job) => job.status === 'running');
+
+  // Media never resumes. Every other kind of job is free to run again — a
+  // generation or an analysis costs a model call the user already asked for —
+  // but a media job that died mid-flight may well have been billed already, and
+  // the user cannot know. Re-running it spends money they did not ask to spend
+  // twice, which is the one behaviour D10 exists to prevent. So it comes back as
+  // a placeholder with a retry and waits to be asked.
+  const abandoned = jobs.filter((job) => job.kind === 'media' && job.status === 'running');
+  for (const job of abandoned) {
+    await abandonAsset(paths, job);
+    await markFailed(
+      paths,
+      job.id,
+      'Sero closed while this was generating. It was not run again, in case the provider had already charged for it.',
+    );
+  }
+
+  const interrupted = jobs.filter((job) => job.kind !== 'media' && job.status === 'running');
 
   for (const job of interrupted) {
     // `cancelRequested` is kept rather than cleared. It is a durable record that

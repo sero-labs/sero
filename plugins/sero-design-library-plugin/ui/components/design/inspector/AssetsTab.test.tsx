@@ -166,6 +166,55 @@ describe('the tray as a whole', () => {
     expect(screen.getByRole('button', { name: /A warm abstract gradient — Image/ })).toBeDefined();
   });
 
+  it('can be worked entirely from the keyboard', async () => {
+    renderTray([
+      asset({ id: 'a', request: { capability: 'text-to-image', prompt: 'The older one' } }),
+      asset({
+        id: 'b',
+        request: { capability: 'text-to-image', prompt: 'The newest one' },
+        attempts: [attempt({ id: 'a1', outcome: 'failed' })],
+      }),
+    ]);
+
+    // Tab reaches the tiles in order, and Enter selects — the tiles are buttons
+    // rather than clickable divs precisely so this works without extra wiring.
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /The older one/ }));
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByText('The older one')).toBeDefined();
+
+    await userEvent.tab();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByText('The newest one')).toBeDefined();
+
+    // And the action that costs money is reachable the same way.
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    retry.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(handlers.onRetry).toHaveBeenCalledWith('b');
+  });
+
+  it('tells a screen reader which tile is selected', async () => {
+    renderTray([
+      asset({ id: 'a', request: { capability: 'text-to-image', prompt: 'The older one' } }),
+      asset({ id: 'b', request: { capability: 'text-to-image', prompt: 'The newest one' } }),
+    ]);
+
+    const older = screen.getByRole('button', { name: /The older one/ });
+    expect(older.getAttribute('aria-pressed')).toBe('false');
+
+    await userEvent.click(older);
+    // Selection is what the detail below follows, so it has to be announced.
+    expect(older.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('announces what the tray is doing', () => {
+    renderTray([asset({ id: 'a', jobId: 'job-1' })]);
+
+    const live = screen.getByText('1 asset generating');
+    expect(live.getAttribute('aria-live')).toBe('polite');
+  });
+
   it('shows the newest asset until another is chosen', async () => {
     renderTray([
       asset({ id: 'a', request: { capability: 'text-to-image', prompt: 'The older one' } }),
