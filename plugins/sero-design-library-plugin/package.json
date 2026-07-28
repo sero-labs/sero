@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-design-library",
   "version": "0.1.0",
-  "description": "Sero Design Library \u2014 visual reference memory and creative workbench",
+  "description": "Sero Design Library — visual reference memory and creative workbench",
   "type": "module",
   "keywords": [
     "pi-package"
@@ -79,6 +79,8 @@
     "@sero-ai/plugin-vite": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jsdom": "^21.1.7",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
