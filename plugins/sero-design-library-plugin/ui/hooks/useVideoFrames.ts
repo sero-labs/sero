@@ -20,9 +20,11 @@ import { captureAndAttach, type FramesTarget } from '../lib/frames-upload';
 type Attempted = Set<string>;
 
 function keyOf(target: FramesTarget): string {
+  // The attempt is part of the key: a retry produces new footage that needs
+  // capturing again, and a key without it would look already-attempted.
   return target.kind === 'item'
     ? `item:${target.itemId}`
-    : `asset:${target.designId}:${target.assetId}`;
+    : `asset:${target.designId}:${target.assetId}:${target.attemptId}`;
 }
 
 export interface VideoFramesState {

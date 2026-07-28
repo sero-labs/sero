@@ -267,6 +267,17 @@ export interface JobRecord {
    * file the runtime alone reads.
    */
   media?: MediaJobRequest;
+  /**
+   * Paid media calls this job has already made (D10).
+   *
+   * On the record because the per-run cap has to survive a restart. The budget
+   * itself is an in-memory object built when a run starts, so a generation
+   * interrupted after spending its six calls would come back with six more —
+   * the cap would bound a *process*, not a run, which is not what anyone asked
+   * for. Incremented before the provider is called, so a crash mid-call counts
+   * against the run rather than being forgotten.
+   */
+  mediaCallsUsed?: number;
 }
 
 /** The parameters of a Library generation, as the job remembers them. */
@@ -360,5 +371,8 @@ export function normalizeJobRecord(value: unknown): JobRecord | null {
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     ...(value.cancelRequested === true ? { cancelRequested: true } : {}),
     ...(media === undefined ? {} : { media }),
+    ...(typeof value.mediaCallsUsed === 'number' && value.mediaCallsUsed > 0
+      ? { mediaCallsUsed: value.mediaCallsUsed }
+      : {}),
   };
 }

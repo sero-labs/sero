@@ -123,7 +123,15 @@ export type LibraryRequestBody =
   | {
       kind: 'frames.attach';
       uploadId: string;
-      target: { kind: 'item'; itemId: string } | { kind: 'asset'; designId: string; assetId: string };
+      target:
+        | { kind: 'item'; itemId: string }
+        /**
+         * `attemptId` is what the frames were captured *from*. A capture takes
+         * seconds, and a retry inside that window produces different footage —
+         * without it the poster from the old clip would be attached to the new
+         * one, which is worse than having no poster at all.
+         */
+        | { kind: 'asset'; designId: string; assetId: string; attemptId: string };
     }
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**

@@ -158,7 +158,14 @@ export function DesignPage({
         return asset.kind === 'video' &&
           attempt?.outcome === 'ready' &&
           attempt.posterFile === undefined
-          ? [{ kind: 'asset' as const, designId: design.id, assetId: asset.id }]
+          ? [
+              {
+                kind: 'asset' as const,
+                designId: design.id,
+                assetId: asset.id,
+                attemptId: attempt.id,
+              },
+            ]
           : [];
       }),
     [assets, design.id],

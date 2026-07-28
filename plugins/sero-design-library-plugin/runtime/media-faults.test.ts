@@ -238,3 +238,74 @@ describe('retrying after a failure', () => {
     expect(retried.reference).toBe(reference);
   });
 });
+
+describe('two jobs racing for one asset', () => {
+  const harness = useCoordinator('media-ownership');
+
+  it('only the job the asset points at is allowed to spend', async () => {
+    await seedDesign(harness.paths, 'design-1');
+    // The crash window: `createJob` landed, `reserveAsset` did not, so this job
+    // is queued and the asset never adopted it. The replayed request then
+    // reserves the asset under a second job.
+    const orphan = await createJob(harness.paths, 'media', assetTarget('design-1', 'asset-1'));
+    await appendRequest(harness.paths, {
+      kind: 'media.generate',
+      designId: 'design-1',
+      assetId: 'asset-1',
+      request: { capability: 'text-to-image', prompt: 'a wide hero' },
+    });
+    await harness.coordinator.drain();
+    await vi.waitFor(async () => {
+      expect((await assetOf(harness.paths, 'design-1', 'asset-1')).attempts.length).toBe(1);
+    });
+
+    // The orphan is still `queued`, so the next start reconciles it as
+    // resumable and routes it to the media queue — the real path it takes.
+    await harness.coordinator.start();
+    await vi.waitFor(async () => {
+      const state = await readState(harness.paths);
+      expect(state.jobs.find((job) => job.id === orphan.id)?.status).toBe('failed');
+    });
+
+    // One attempt, not two: the orphan does not own the asset, so it must not
+    // generate — that would be two provider calls and two charges for one press.
+    expect((await assetOf(harness.paths, 'design-1', 'asset-1')).attempts).toHaveLength(1);
+  });
+});
+
+describe('a video the user declines', () => {
+  const harness = useCoordinator('media-declined');
+
+  it('releases the asset so Retry still works', async () => {
+    await seedDesign(harness.paths, 'design-1');
+    await appendRequest(harness.paths, {
+      kind: 'media.generate',
+      designId: 'design-1',
+      assetId: 'asset-1',
+      request: { capability: 'text-to-video', prompt: 'a slow pan' },
+    });
+    await harness.coordinator.drain();
+
+    await vi.waitFor(async () => {
+      const state = await readState(harness.paths);
+      expect(state.jobs.find((job) => job.target.kind === 'asset')?.status).toBe('failed');
+    });
+
+    // The refusal wrote no attempt, so without an explicit release the asset
+    // keeps pointing at a finished job — and `media.retry` reads a live jobId
+    // as "already working" and does nothing.
+    const asset = await assetOf(harness.paths, 'design-1', 'asset-1');
+    expect(asset.jobId).toBeUndefined();
+
+    await appendRequest(harness.paths, {
+      kind: 'media.retry',
+      designId: 'design-1',
+      assetId: 'asset-1',
+    });
+    await harness.coordinator.drain();
+    await vi.waitFor(async () => {
+      const state = await readState(harness.paths);
+      expect(state.jobs.filter((job) => job.target.kind === 'asset')).toHaveLength(2);
+    });
+  });
+});

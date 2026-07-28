@@ -15,7 +15,8 @@ const CHUNK_BYTES = 512 * 1024;
 
 export type FramesTarget =
   | { kind: 'item'; itemId: string }
-  | { kind: 'asset'; designId: string; assetId: string };
+  /** `attemptId` is the attempt these frames are captured from — see below. */
+  | { kind: 'asset'; designId: string; assetId: string; attemptId: string };
 
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -125,7 +126,14 @@ export async function captureAndAttach(
       uploadId,
       ...(target.kind === 'item'
         ? { itemId: target.itemId }
-        : { designId: target.designId, assetId: target.assetId }),
+        : {
+            designId: target.designId,
+            assetId: target.assetId,
+            // The runtime refuses the attach if this is no longer the attempt
+            // on show: a retry during the capture makes this poster a picture
+            // of footage nobody can see any more.
+            attemptId: target.attemptId,
+          }),
     });
     return { ok: true };
   } catch (error) {

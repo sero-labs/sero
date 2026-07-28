@@ -21,18 +21,47 @@ export interface MediaBudgetOptions {
   /** Maximum calls this run may make. Zero disables media for the run entirely. */
   callsPerRun: number;
   /**
+   * Calls this run already made before it was interrupted (D10).
+   *
+   * The budget is an in-memory object built when a run starts, so without this
+   * a generation that spent its whole allowance and was then interrupted would
+   * come back with the whole allowance again — the cap would bound a *process*
+   * rather than a run, which is not what was configured.
+   */
+  alreadyUsed?: number;
+  /**
+   * Called when a slot is taken, so the count can be made durable.
+   *
+   * Awaited before the provider is called, so a crash during the call counts
+   * against the run rather than being forgotten.
+   */
+  onClaimed?(used: number): Promise<void>;
+  /**
    * Asks the user to approve a video generation. Video always confirms,
    * including when the agent requested it — that is the whole point of D10.
    */
-  confirmVideo(request: { prompt: string; model: string }): Promise<boolean>;
+  confirmVideo(request: {
+    prompt: string;
+    model: string;
+    /**
+     * Seconds of footage, when the caller asked for a specific length.
+     *
+     * Named separately because it is the price: providers bill video by the
+     * second, so approving "a video" without knowing whether it is four seconds
+     * or sixty is approving an unknown amount of money.
+     */
+    durationSeconds?: number;
+  }): Promise<boolean>;
 }
 
 export class MediaBudget {
-  private claimed = 0;
+  private claimed: number;
   private costUsd = 0;
   private capHit = false;
 
-  constructor(private readonly options: MediaBudgetOptions) {}
+  constructor(private readonly options: MediaBudgetOptions) {
+    this.claimed = options.alreadyUsed ?? 0;
+  }
 
   /** Calls started, whether they succeeded or not. */
   get callsUsed(): number {
@@ -61,7 +90,10 @@ export class MediaBudget {
    * the case where an agent retries in a loop, and a cap that only counts
    * successes does not bound that at all.
    */
-  async claim(capability: MediaCapability, describe: { prompt: string; model: string }): Promise<BudgetDecision> {
+  async claim(
+    capability: MediaCapability,
+    describe: { prompt: string; model: string; durationSeconds?: number },
+  ): Promise<BudgetDecision> {
     if (this.claimed >= this.options.callsPerRun) {
       this.capHit = true;
       return {
@@ -74,9 +106,18 @@ export class MediaBudget {
       };
     }
 
-    // Confirmation happens before the slot is taken, so declining costs nothing
-    // and a user who says no to one video is not charged a call for it.
+    // The slot is taken *before* the confirmation is awaited, and given back if
+    // the answer is no.
+    //
+    // Checking and then incrementing across an await is a hole big enough to
+    // drive the whole cap through: a model can call two tools at once, and both
+    // read the same `claimed` before either writes it. Awaiting a confirmation
+    // dialog holds that window open for as long as the user takes to answer.
+    // Reserving first makes the check and the take one synchronous step, which
+    // is what makes the cap mean anything under concurrency.
+    this.claimed += 1;
     if (needsConfirmation(capability) && !(await this.options.confirmVideo(describe))) {
+      this.claimed -= 1;
       return {
         allowed: false,
         kind: 'declined',
@@ -85,7 +126,9 @@ export class MediaBudget {
       };
     }
 
-    this.claimed += 1;
+    // Made durable before the caller goes on to spend, so an interrupted run
+    // resumes knowing what it has already used.
+    await this.options.onClaimed?.(this.claimed);
     return { allowed: true };
   }
 
@@ -129,12 +172,15 @@ export function createVideoConfirmer(
   host: VideoConfirmationHost,
   context: { designTitle?: string } = {},
 ): MediaBudgetOptions['confirmVideo'] {
-  return async ({ prompt, model }) => {
+  return async ({ prompt, model, durationSeconds }) => {
     const outcome = await host.requestChoice({
       title: 'Generate a video?',
       body: [
         context.designTitle === undefined ? null : `Design: ${context.designTitle}`,
         `Model: ${model}`,
+        // Providers bill video by the second, so the length is the number the
+        // user is really being asked to approve.
+        durationSeconds === undefined ? null : `Length: ${durationSeconds} seconds`,
         `Prompt: ${prompt}`,
         'Video generation is the most expensive capability, so it always asks first.',
       ]

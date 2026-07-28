@@ -89,6 +89,9 @@ export async function generateIntoLibrary(
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,
     model,
+    ...(request.durationSeconds === undefined
+      ? {}
+      : { durationSeconds: request.durationSeconds }),
   });
   if (!decision.allowed) return { status: 'refused', reason: decision.reason };
 

@@ -136,3 +136,87 @@ describe('createVideoConfirmer', () => {
     expect(seen[0]).toContain('Landing page');
   });
 });
+
+describe('the cap under concurrency and across restarts', () => {
+  it('does not let two parallel claims share the last slot', async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const budget = new MediaBudget({
+      callsPerRun: 1,
+      // Slow enough that both claims are inside `claim` at once — which is what
+      // two tool calls from one model turn look like.
+      confirmVideo: async () => {
+        await held;
+        return true;
+      },
+    });
+
+    const first = budget.claim('text-to-video', { prompt: 'a', model: 'm' });
+    const second = budget.claim('text-to-video', { prompt: 'b', model: 'm' });
+    release();
+    const [a, b] = await Promise.all([first, second]);
+
+    // Exactly one gets through. Checking the count and then incrementing it
+    // across the confirmation await would let both pass the same slot.
+    expect([a.allowed, b.allowed].filter(Boolean)).toHaveLength(1);
+    expect(budget.callsUsed).toBe(1);
+  });
+
+  it('gives the slot back when a video is declined', async () => {
+    const budget = new MediaBudget({ callsPerRun: 1, confirmVideo: async () => false });
+
+    const declined = await budget.claim('text-to-video', { prompt: 'a', model: 'm' });
+    expect(declined.allowed).toBe(false);
+    // Saying no to a video must not use up the run's allowance.
+    expect(budget.callsUsed).toBe(0);
+    expect((await budget.claim('text-to-image', { prompt: 'b', model: 'm' })).allowed).toBe(true);
+  });
+
+  it('resumes with what an interrupted run already spent', async () => {
+    const budget = new MediaBudget({
+      callsPerRun: 2,
+      alreadyUsed: 2,
+      confirmVideo: async () => true,
+    });
+
+    // The run had already used its two calls before it was interrupted, so it
+    // comes back with none — the cap bounds the run, not the process.
+    const decision = await budget.claim('text-to-image', { prompt: 'a', model: 'm' });
+    expect(decision.allowed).toBe(false);
+    expect(decision.allowed === false && decision.kind).toBe('cap');
+  });
+
+  it('reports each claim so the count can be made durable', async () => {
+    const claims: number[] = [];
+    const budget = new MediaBudget({
+      callsPerRun: 3,
+      confirmVideo: async () => true,
+      onClaimed: async (used) => {
+        claims.push(used);
+      },
+    });
+
+    await budget.claim('text-to-image', { prompt: 'a', model: 'm' });
+    await budget.claim('text-to-image', { prompt: 'b', model: 'm' });
+
+    expect(claims).toEqual([1, 2]);
+  });
+
+  it('tells the user how long a video will be, since that is the price', async () => {
+    const asked: string[] = [];
+    const confirm = createVideoConfirmer({
+      requestChoice: async (options) => {
+        asked.push(options.body);
+        return { choiceId: 'skip', timedOut: false };
+      },
+    });
+
+    await confirm({ prompt: 'a slow pan', model: 'veo', durationSeconds: 30 });
+
+    // Providers bill video by the second; approving "a video" without knowing
+    // whether it is four seconds or thirty approves an unknown amount of money.
+    expect(asked[0]).toContain('30 seconds');
+  });
+});

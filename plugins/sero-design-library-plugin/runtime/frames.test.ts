@@ -152,7 +152,7 @@ describe('a Design asset', () => {
     await attachFrames(paths, {
       kind: 'frames.attach',
       uploadId: await stageFrames(),
-      target: { kind: 'asset', designId: 'design-1', assetId: asset.id },
+      target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
     });
 
     const design = await readDesign(paths, 'design-1');
@@ -183,7 +183,7 @@ describe('a Design asset', () => {
     await attachFrames(paths, {
       kind: 'frames.attach',
       uploadId: await stageFrames(),
-      target: { kind: 'asset', designId: 'design-1', assetId: asset.id },
+      target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
     });
 
     // Nothing analyses a Design asset, so a filmstrip would be bytes with no
@@ -191,6 +191,42 @@ describe('a Design asset', () => {
     expect(
       await exists(path.join(designAssetDir(paths, 'design-1', asset.id), 'frames.webp')),
     ).toBe(false);
+  });
+
+  it('refuses a poster for footage a retry has replaced', async () => {
+    await seedDesign(paths, 'design-1');
+    const asset = await reserveAsset(paths, 'design-1', {
+      capability: 'text-to-video',
+      prompt: 'a slow pan',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+    await recordAttempt(paths, 'design-1', asset.id, {
+      id: 'attempt-1',
+      outcome: 'ready',
+      startedAt: 0,
+      completedAt: 1,
+      file: 'clip.mp4',
+    });
+    // A retry lands while the renderer is still decoding the first clip.
+    await recordAttempt(paths, 'design-1', asset.id, {
+      id: 'attempt-2',
+      outcome: 'ready',
+      startedAt: 2,
+      completedAt: 3,
+      file: 'clip.mp4',
+    });
+
+    await attachFrames(paths, {
+      kind: 'frames.attach',
+      uploadId: await stageFrames(),
+      target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
+    });
+
+    // The poster is of footage nobody can see any more, so it is dropped rather
+    // than shown under the clip that replaced it.
+    const design = await readDesign(paths, 'design-1');
+    const stored = design?.assets.find((entry) => entry.id === asset.id);
+    expect(currentAttempt(stored!)?.posterFile).toBeUndefined();
   });
 
   it('leaves an asset with no successful attempt alone', async () => {
@@ -204,7 +240,7 @@ describe('a Design asset', () => {
     await attachFrames(paths, {
       kind: 'frames.attach',
       uploadId: await stageFrames(),
-      target: { kind: 'asset', designId: 'design-1', assetId: asset.id },
+      target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
     });
 
     const design = await readDesign(paths, 'design-1');

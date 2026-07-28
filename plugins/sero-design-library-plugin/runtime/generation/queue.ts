@@ -25,7 +25,7 @@ import {
 } from './revision-files';
 import { mutateVariant, readDesign } from '../design-store';
 import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
-import { readJob } from '../store';
+import { mutateJob, readJob } from '../store';
 import { collectReferenceLanguage, runGeneration } from './run';
 
 /**
@@ -311,11 +311,22 @@ export class VariantQueue {
     variantId: string,
     controller: AbortController,
   ): Promise<{ tools: ToolDefinition[]; budget: MediaBudget }> {
+    // Seeded from the job, so a run interrupted after spending its allowance
+    // does not come back with the whole allowance again (D10). The cap bounds
+    // the run, not the process that happened to be executing it.
+    const job = await readJob(this.context.paths, jobId);
     const budget = new MediaBudget({
       callsPerRun: settings.callsPerRun,
+      ...(job?.mediaCallsUsed === undefined ? {} : { alreadyUsed: job.mediaCallsUsed }),
       confirmVideo: createVideoConfirmer(this.context.host.notifications, {
         designTitle: design.title,
       }),
+      onClaimed: async (used) => {
+        await mutateJob(this.context.paths, jobId, (current) => ({
+          ...current,
+          mediaCallsUsed: used,
+        }));
+      },
     });
 
     const key = await resolveFalKey(this.context.paths);

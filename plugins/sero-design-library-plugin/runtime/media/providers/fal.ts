@@ -247,17 +247,81 @@ export interface FalProviderOptions {
  *
  * Worth stating rather than leaving to be rediscovered: an earlier version of
  * this file exposed a `maxRetries` option that silently did nothing.
+ *
+ * That retry is fine for a 429, which is refused before anything is queued, and
+ * dangerous for a *lost response*. A submit the server accepted but whose reply
+ * never arrived looks identical to one that never landed, and retrying it queues
+ * a second job — a second charge — while the budget counts one call. Since the
+ * client cannot be told not to, `submitOnce` below refuses the retry at the
+ * transport instead: one queue submit per generation, and a genuinely lost
+ * response fails rather than silently costing twice. Failing is recoverable —
+ * the asset keeps its retry — and double-charging is not.
  */
+
+/** True for the POST that creates a queue job, and for nothing else. */
+function isQueueSubmit(url: string, method: string): boolean {
+  if (method.toUpperCase() !== 'POST') return false;
+  const parsed = new URL(url);
+  if (parsed.host !== 'queue.fal.run') return false;
+  return !parsed.pathname.endsWith('/status') && !parsed.pathname.includes('/requests/');
+}
+
+/**
+ * A transport that refuses to submit a queue job twice when the first outcome
+ * is unknown.
+ *
+ * The distinction is what makes this usable rather than merely safe. A submit
+ * that came back `4xx` — a 429, a bad request — was *rejected*: nothing was
+ * queued and nothing will be charged, so the client's retry is exactly right
+ * and passes through. A submit that threw, or came back `5xx`, has an unknown
+ * outcome: it may well be sitting in the queue already, and sending it again
+ * buys a second job and a second charge. Those are blocked.
+ *
+ * Everything else — storage uploads, status polls, result reads, file
+ * downloads — passes untouched and stays freely retryable, because none of them
+ * creates work or costs money.
+ */
+function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch {
+  let outcomeUnknown = false;
+  return async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? 'GET';
+    if (!isQueueSubmit(url, method)) return transport(input, init);
+
+    if (outcomeUnknown) {
+      throw new MediaError(
+        'network',
+        'The provider stopped answering after the request had been sent. It was not sent again, in case the first one is already running and would be charged for — retry when you are ready.',
+        true,
+      );
+    }
+
+    try {
+      const response = await transport(input, init);
+      // 5xx is ambiguous: the request may have been accepted and the failure
+      // happened afterwards. 4xx is a refusal, and refusals queue nothing.
+      if (response.status >= 500) outcomeUnknown = true;
+      return response;
+    } catch (error) {
+      outcomeUnknown = true;
+      throw error;
+    }
+  };
+}
 
 export function createFalProvider(options: FalProviderOptions): MediaProvider {
   const transport = options.fetch ?? globalThis.fetch;
-  const client = createFalClient({
-    credentials: options.credentials,
-    // The runtime is a Node process, not a browser, so the client's warning
-    // about exposed credentials does not apply and only adds noise to the log.
-    suppressLocalCredentialsWarning: true,
-    fetch: transport,
-  });
+  // One client per generation, not one per provider: the submit guard counts
+  // submits, and a client shared across calls would let the first generation
+  // spend the only submit the second was entitled to.
+  const clientFor = () =>
+    createFalClient({
+      credentials: options.credentials,
+      // The runtime is a Node process, not a browser, so the client's warning
+      // about exposed credentials does not apply and only adds noise to the log.
+      suppressLocalCredentialsWarning: true,
+      fetch: submitOnce(transport),
+    });
 
   const modelFor = (capability: MediaCapability): string =>
     options.models?.[capability] ?? FAL_DEFAULT_MODELS[capability];
@@ -271,6 +335,7 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
     async generate(request: MediaRequest, context: MediaContext): Promise<MediaResult> {
       const startedAt = Date.now();
       const model = request.model ?? modelFor(request.capability);
+      const client = clientFor();
 
       try {
         if (options.credentials() === undefined) {

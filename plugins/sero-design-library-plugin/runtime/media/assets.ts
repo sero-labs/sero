@@ -114,6 +114,36 @@ export async function recordAttempt(
   return stored;
 }
 
+/**
+ * Give up ownership of an asset without recording an attempt.
+ *
+ * For the case where a job finishes having generated nothing — a refused video,
+ * a cap that stopped it. The asset has to stop pointing at that job or it looks
+ * busy for ever: `media.retry` treats a live `jobId` as "already working" and
+ * declines, which is right while something is running and wrong the moment it
+ * has stopped.
+ *
+ * Only the named job releases it, so a slow release cannot unhook an asset a
+ * newer attempt has since claimed.
+ */
+export async function releaseAsset(
+  paths: DesignLibraryPaths,
+  designId: string,
+  assetId: string,
+  jobId: string,
+): Promise<void> {
+  await mutateDesign(paths, designId, (design) => {
+    const asset = design.assets.find((entry) => entry.id === assetId);
+    if (!asset || asset.jobId !== jobId) return null;
+    return {
+      ...design,
+      assets: design.assets.map((entry) =>
+        entry.id === assetId ? { ...entry, jobId: undefined, updatedAt: Date.now() } : entry,
+      ),
+    };
+  });
+}
+
 /** Deletion hides the asset; the files stay until the Design is purged. */
 export async function deleteAsset(
   paths: DesignLibraryPaths,

@@ -134,7 +134,11 @@ export async function generateAsset(
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
   const model = request.model ?? context.provider.defaultModel(capability);
-  const decision = await context.budget.claim(capability, { prompt: request.prompt, model });
+  const decision = await context.budget.claim(capability, {
+    prompt: request.prompt,
+    model,
+    ...(request.durationSeconds === undefined ? {} : { durationSeconds: request.durationSeconds }),
+  });
   if (!decision.allowed) return { refused: decision.reason };
 
   const asset = await reserveAsset(context.paths, context.designId, request, {
@@ -170,6 +174,9 @@ export async function generateForAsset(
   const decision = await context.budget.claim(asset.request.capability, {
     prompt: asset.request.prompt,
     model,
+    ...(asset.request.durationSeconds === undefined
+      ? {}
+      : { durationSeconds: asset.request.durationSeconds }),
   });
   if (!decision.allowed) return { refused: decision.reason };
 

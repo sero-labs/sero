@@ -17,6 +17,7 @@ import { MediaBudget, createVideoConfirmer } from './budget';
 import type { MediaProvider } from './contract';
 import { generateIntoLibrary } from './library';
 import { createMediaProviderForRun } from './provider';
+import { releaseAsset } from './assets';
 import { generateForAsset, type MediaToolContext } from './tools';
 
 /**
@@ -178,6 +179,25 @@ export class MediaQueue {
       return;
     }
 
+    // The asset must still say this job owns it, checked immediately before any
+    // money is spent.
+    //
+    // A job record and the asset that points at it are separate files and
+    // cannot be written together. A crash between `createJob` and
+    // `reserveAsset` leaves a queued job the asset never adopted; the replayed
+    // request then reserves the asset under a *second* job, and both would
+    // generate — two provider calls, two charges, for one press. Ownership is
+    // the thing that tells them apart, so it is checked here rather than
+    // assumed from the job existing.
+    if (asset.jobId !== job.id) {
+      await markFailed(
+        paths,
+        job.id,
+        'Another attempt already owns this asset, so this one was dropped rather than generating it twice.',
+      );
+      return;
+    }
+
     const state = await readState(paths);
     const provider = await this.provider(state.settings.media);
     const budget = this.budgetFor(design.title);
@@ -199,6 +219,12 @@ export class MediaQueue {
     const outcome = await generateForAsset(asset, context);
 
     if ('refused' in outcome) {
+      // Ownership is released, because nothing was attempted. A refusal writes
+      // no attempt, so the asset would otherwise keep pointing at a job that
+      // has finished — and `media.retry` reads a live `jobId` as "already
+      // working" and does nothing. Declining one video would leave its Retry
+      // dead until the next restart.
+      await releaseAsset(paths, designId, assetId, job.id);
       await markFailed(paths, job.id, outcome.refused);
       return;
     }

@@ -58,7 +58,7 @@ export async function attachFrames(
 
     return body.target.kind === 'item'
       ? await attachToItem(paths, body.target.itemId, poster, filmstrip)
-      : await attachToAsset(paths, body.target.designId, body.target.assetId, poster);
+      : await attachToAsset(paths, body.target, poster);
   } finally {
     await discardUpload(paths, body.uploadId);
   }
@@ -107,15 +107,20 @@ async function attachToItem(
  */
 async function attachToAsset(
   paths: DesignLibraryPaths,
-  designId: string,
-  assetId: string,
+  target: { designId: string; assetId: string; attemptId: string },
   poster: Buffer,
 ): Promise<FramesOutcome> {
+  const { designId, assetId, attemptId } = target;
   // Same order as the item path, and for the same reason: an asset deleted or
   // retried since the capture started has nothing this poster belongs to.
   const design = await readDesign(paths, designId);
   const existing = design?.assets.find((entry) => entry.id === assetId);
-  if (!existing || currentAttempt(existing)?.outcome !== 'ready') return {};
+  const showing = existing === undefined ? undefined : currentAttempt(existing);
+  if (!existing || showing?.outcome !== 'ready') return {};
+  // The attempt these frames came from has to still be the one on show. A
+  // retry landing during the capture makes this poster a picture of footage
+  // nobody can see any more.
+  if (showing.id !== attemptId) return {};
 
   const directory = designAssetDir(paths, designId, assetId);
   await mkdir(directory, { recursive: true });
@@ -124,7 +129,9 @@ async function attachToAsset(
   await mutateDesign(paths, designId, (design) => {
     const asset = design.assets.find((entry) => entry.id === assetId);
     const attempt = asset === undefined ? undefined : currentAttempt(asset);
-    if (!asset || attempt?.outcome !== 'ready') return null;
+    // Checked again inside the lock: the read above is not serialised with it,
+    // and a retry can land between the two.
+    if (!asset || attempt?.outcome !== 'ready' || attempt.id !== attemptId) return null;
 
     // The poster lands on the attempt the frames were taken from, not on the
     // asset: a retry produces different footage, and a poster that outlived its
@@ -137,7 +144,7 @@ async function attachToAsset(
           : {
               ...entry,
               attempts: entry.attempts.map((candidate) =>
-                candidate.id === attempt.id ? { ...candidate, posterFile: POSTER_FILE } : candidate,
+                candidate.id === attemptId ? { ...candidate, posterFile: POSTER_FILE } : candidate,
               ),
               updatedAt: Date.now(),
             },

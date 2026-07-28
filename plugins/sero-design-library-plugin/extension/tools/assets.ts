@@ -211,6 +211,7 @@ function framesTarget(params: {
   itemId?: string;
   designId?: string;
   assetId?: string;
+  attemptId?: string;
 }): { target: FramesTarget } | { error: ToolResult } {
   if (params.itemId !== undefined) {
     const checked = checkId(params.itemId, 'item id');
@@ -221,7 +222,13 @@ function framesTarget(params: {
   if ('error' in design) return design;
   const asset = checkId(params.assetId, 'asset id');
   if ('error' in asset) return asset;
-  return { target: { kind: 'asset', designId: design.id, assetId: asset.id } };
+  // Required, not optional: without it the runtime cannot tell frames captured
+  // from the clip on show from frames captured before a retry replaced it.
+  const attempt = checkId(params.attemptId, 'attempt id');
+  if ('error' in attempt) return attempt;
+  return {
+    target: { kind: 'asset', designId: design.id, assetId: asset.id, attemptId: attempt.id },
+  };
 }
 
 export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
@@ -253,6 +260,9 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       variantId: Type.Optional(Type.String({ description: 'Required by design-file' })),
       revisionId: Type.Optional(Type.String({ description: 'Required by design-file' })),
       assetId: Type.Optional(Type.String({ description: 'Required by design-asset' })),
+      attemptId: Type.Optional(
+        Type.String({ description: 'The attempt frames were captured from, for attach-frames' }),
+      ),
       which: Type.Optional(
         StringEnum(['media', 'poster'] as const, {
           description: 'design-asset: the artwork itself, or a video’s still frame',
