@@ -6,7 +6,7 @@
 
 Design Library is your private visual memory. You collect screenshots and images you like, Sero reads each one and describes its design language, and later you turn that language into original work.
 
-You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. The Gallery, and generating imagery, arrive in the next release.
+You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. Designs can generate their own artwork and video, and you can generate references straight into the Library. The Gallery arrives in the next release.
 
 ## Getting started
 
@@ -103,14 +103,15 @@ Underneath the preview you can set the width the page is rendered at, and reload
 
 ### The panel beside the preview
 
-Four tabs, all about the variant on screen:
+Five tabs, all about the variant on screen:
 
 - **Design** — what the run made and what it was made from: its concept, the references it drew on, and the visual language it took from them.
 - **Files** — what it wrote, and how big each file is.
 - **History** — every result this variant has had, and the tweak values you had set earlier. Selecting one puts it back on screen; nothing is generated and nothing is lost.
 - **Tweaks** — the live controls for this exact page (below).
+- **Art** — the pictures and video this design uses (below).
 
-Drag the panel's left edge to widen it, and the width is remembered. The Designs rail on the far left collapses to initials, which is what makes a wide panel affordable on a laptop.
+Drag the panel's left edge to widen it, and the width is remembered. When the panel is narrow the tab labels become icons; hover one to see its name. The Designs rail on the far left collapses to initials, which is what makes a wide panel affordable on a laptop.
 
 ### Designs you have on the go
 
@@ -126,6 +127,23 @@ Values save as you go and survive a restart. Everything you change in one sittin
 
 A control that would not visibly change anything is dropped before you see it — a page that never uses the value it was meant to set. When that happens the panel says how many were left out, and expands to say why.
 
+### Art
+
+Designs can use pictures that do not exist yet — a hero image, a texture, a background. The model asks for them while it builds, and you can ask for them yourself from the **Art** tab.
+
+Artwork belongs to the design rather than to one variant, so the same picture is available to all of them and stays until you delete it.
+
+Each piece shows what it is, what it cost, and the name the page refers to it by. That name never changes, even if you generate the picture again — so the page keeps working while you try for a better result.
+
+| Button | What it does |
+| --- | --- |
+| Generate artwork | Ask for a new picture or a short video |
+| Retry | Try again for one that failed. The failure stays on the record, and the page needs no change |
+| Library | Copy it into your Library as a reference of its own, with its own copy of the file |
+| Delete | Hide it from the tray. The file stays until the design is deleted |
+
+If the provider is unavailable, you get a placeholder you can retry rather than a design that failed. If Sero closes while a picture is generating, it comes back as something you can retry — it is never generated again on its own, because the provider may already have charged for the first attempt.
+
 ### Asking for changes
 
 The box under the preview asks for a change to the variant on screen: *"make the metrics tighter"*, *"try a lighter surface"*. The run is given the page it is editing, so it changes what you asked about and leaves the rest alone.
@@ -138,6 +156,27 @@ Beside the box you choose what happens to the result you already have:
 | Keep both | Both stay in the revision list, and you switch between them |
 
 Your choice is remembered as the default, and can also be changed in Settings. Nothing is ever deleted by revising — revisions stay until you delete one yourself.
+
+## Generating references
+
+You can also generate straight into the Library, from the **Generate** button in the header.
+
+| What | How |
+| --- | --- |
+| A new reference from a description | **Generate**, describe what you want |
+| A variation of something you have | Select one reference, then **Restyle** |
+| A sharper copy | **Generate** → Upscale, and choose the reference |
+| A short video | **Generate** → Video |
+
+Generated references arrive in the Library like any other and are read by the Librarian automatically, keeping the prompt that made them. While one is on its way it shows as a tile in the grid, so you can see that it is coming rather than wondering whether the button worked.
+
+### Video
+
+Video is the most expensive thing here, so it always asks before it spends — including when the model asks for it in the middle of building a design.
+
+A video needs Sero to be open to get its thumbnail: the frames are captured by the app, not in the background. One generated while Sero was closed shows as still working until the next time you open it, at which point it gets its thumbnail and is read like anything else. The Librarian is shown a strip of frames from across the clip, so it can describe the movement as well as the look.
+
+Importing your own video files is not supported yet.
 
 ## Deleting
 
@@ -152,8 +191,17 @@ Your choice is remembered as the default, and can also be changed in Settings. N
 | Variants per design | 3 | How many directions a new design starts with |
 | On revise | Replace what is visible | Or keep each revision separately |
 | Prompt recipes | Three built in | Named instruction templates applied on top of a request |
+| Media models | The provider's defaults | One model per kind of generation: image, restyle, upscale, video |
+| Media calls per run | 6 | How many pictures one design run may ask for. Going over stops further calls and says so; the design still finishes |
+| Provider key | From the environment | See below |
 
 Leaving a model empty means "use whatever Sero is configured to use".
+
+### The picture provider
+
+Generating pictures needs a key for [fal.ai](https://fal.ai). Sero looks for `FAL_KEY` in the environment first, and falls back to a key you paste into Settings. Settings only ever tells you where the key came from — the environment, saved here, or missing — and never shows the key itself.
+
+A key saved in Settings is stored on your machine, readable only by you, at the same level of protection as Sero's other credentials. If you have `FAL_KEY` set in the environment, that one wins and Settings says so.
 
 ## What the agent can do
 
@@ -164,12 +212,15 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_items` | Search references, read one in full, edit or reset analysis fields, favourite, collect, delete and restore |
 | `design_library_analysis` | Check analysis status, reanalyse, cancel or retry |
 | `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry, stop or revise a variant, switch or delete revisions, and set tweak values |
+| `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
 
-Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, or *"revise variant 2 to use a lighter surface"*.
+Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 
 ## Where things are stored
 
-Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design and the search index. Nothing leaves your machine except the image sent to your configured model for analysis, and the written description sent when you generate.
+Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design and the search index. Generated pictures are downloaded and kept locally too — a design never points at a web address.
+
+What leaves your machine: the image sent to your configured model for analysis, the written description sent when you generate a design, and the prompt sent to the picture provider when you generate artwork.
 
 Deleting a profile deletes its library. There is no cloud copy.
 
