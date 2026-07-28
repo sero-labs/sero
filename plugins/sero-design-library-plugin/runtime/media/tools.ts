@@ -2,7 +2,7 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import { missingRequirement } from '../../shared/media';
+import { MAX_VIDEO_SECONDS, boundedDuration, missingRequirement } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
@@ -87,7 +87,9 @@ const SHAPES: Record<MediaCapability, CapabilityShape> = {
       'Generates a short video from a description. This always asks the user first and is the most expensive capability, so use it only when motion is the point.',
     parameters: Type.Object({
       prompt: Type.String({ description: 'What the video should show, including the motion.' }),
-      durationSeconds: Type.Optional(Type.Number({ description: 'Seconds of footage.' })),
+      durationSeconds: Type.Optional(
+        Type.Number({ description: `Seconds of footage, up to ${MAX_VIDEO_SECONDS}.` }),
+      ),
       aspectRatio: Type.Optional(Type.String()),
     }),
   },
@@ -101,7 +103,9 @@ function toRequest(capability: MediaCapability, params: Record<string, unknown>)
   const source = optionalString(params.sourceId);
   const aspectRatio = optionalString(params.aspectRatio);
   const seed = optionalNumber(params.seed);
-  const durationSeconds = optionalNumber(params.durationSeconds);
+  // Bounded here rather than trusted: the number comes from a model, and a
+  // provider bills video by the second.
+  const durationSeconds = boundedDuration(optionalNumber(params.durationSeconds));
 
   return {
     capability,

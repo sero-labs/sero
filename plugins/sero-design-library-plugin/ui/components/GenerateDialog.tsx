@@ -19,7 +19,13 @@ import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 import type { MediaCapability } from '../../shared/media';
-import { MEDIA_CAPABILITIES, missingRequirement, needsConfirmation, needsSource } from '../../shared/media';
+import {
+  MAX_VIDEO_SECONDS,
+  MEDIA_CAPABILITIES,
+  missingRequirement,
+  needsConfirmation,
+  needsSource,
+} from '../../shared/media';
 import { capabilityLabel } from '../lib/asset-view';
 
 /**
@@ -67,7 +73,7 @@ export interface GenerateDialogProps {
 const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:2'];
 const DEFAULT_ASPECT = '16:9';
 /** Long enough to read as motion, short enough that a mistake is cheap. */
-const DURATIONS = [4, 6, 8];
+const DURATIONS = [4, 6, 8].filter((seconds) => seconds <= MAX_VIDEO_SECONDS);
 
 export function GenerateDialog({
   open,

@@ -55,12 +55,24 @@ export interface MediaBudgetOptions {
 }
 
 export class MediaBudget {
+  /**
+   * Slots taken, including video reservations still awaiting an answer. This is
+   * what the cap is checked against, so an unanswered confirmation cannot be
+   * overtaken by another call.
+   */
   private claimed: number;
+  /**
+   * Slots that were actually granted. This is what is made durable — persisting
+   * `claimed` would write a reservation that is still only a question, and a
+   * crash while the dialog was open would count a video nobody approved.
+   */
+  private granted: number;
   private costUsd = 0;
   private capHit = false;
 
   constructor(private readonly options: MediaBudgetOptions) {
     this.claimed = options.alreadyUsed ?? 0;
+    this.granted = this.claimed;
   }
 
   /** Calls started, whether they succeeded or not. */
@@ -128,7 +140,8 @@ export class MediaBudget {
 
     // Made durable before the caller goes on to spend, so an interrupted run
     // resumes knowing what it has already used.
-    await this.options.onClaimed?.(this.claimed);
+    this.granted += 1;
+    await this.options.onClaimed?.(this.granted);
     return { allowed: true };
   }
 

@@ -7,8 +7,10 @@ import { Type } from 'typebox';
 import { normalizeDesignRecord } from '../../shared/design-normalize';
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
 import {
+  MAX_VIDEO_SECONDS,
   MEDIA_CAPABILITIES,
   assetCostUsd,
+  boundedDuration,
   assetReferenceFor,
   currentAttempt,
   designCostUsd,
@@ -94,7 +96,9 @@ function requestFrom(
     ...(params.sourceId === undefined ? {} : { sourceAssetIds: [params.sourceId] }),
     ...(params.aspectRatio === undefined ? {} : { aspectRatio: params.aspectRatio }),
     ...(params.seed === undefined ? {} : { seed: params.seed }),
-    ...(params.durationSeconds === undefined ? {} : { durationSeconds: params.durationSeconds }),
+    ...(boundedDuration(params.durationSeconds) === undefined
+      ? {}
+      : { durationSeconds: boundedDuration(params.durationSeconds) }),
   };
 }
 
@@ -127,7 +131,9 @@ export function registerMediaTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       ),
       aspectRatio: Type.Optional(Type.String({ description: 'e.g. `16:9`, `1:1`, `9:16`' })),
       seed: Type.Optional(Type.Number({ description: 'For a repeatable result' })),
-      durationSeconds: Type.Optional(Type.Number({ description: 'Seconds of footage, for video' })),
+      durationSeconds: Type.Optional(
+        Type.Number({ description: `Seconds of footage, for video; up to ${MAX_VIDEO_SECONDS}` }),
+      ),
       includeDeleted: Type.Optional(Type.Boolean({ description: 'Include deleted assets in `list`' })),
       jobId: Type.Optional(
         Type.String({ description: 'A finished job to forget, for `dismiss-job`' }),
@@ -245,9 +251,9 @@ export function registerMediaTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
             ...(params.sourceItemId === undefined ? {} : { sourceItemId: params.sourceItemId }),
             ...(params.aspectRatio === undefined ? {} : { aspectRatio: params.aspectRatio }),
             ...(params.seed === undefined ? {} : { seed: params.seed }),
-            ...(params.durationSeconds === undefined
+            ...(boundedDuration(params.durationSeconds) === undefined
               ? {}
-              : { durationSeconds: params.durationSeconds }),
+              : { durationSeconds: boundedDuration(params.durationSeconds) }),
           });
           return text(
             needsSource(capability)

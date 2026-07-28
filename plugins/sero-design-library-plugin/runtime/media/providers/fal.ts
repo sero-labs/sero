@@ -282,16 +282,19 @@ function isQueueSubmit(url: string, method: string): boolean {
  * creates work or costs money.
  */
 function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch {
-  let outcomeUnknown = false;
+  // What went wrong the first time, so the refusal explains the real failure
+  // rather than replacing it with "the retry was blocked" — which says nothing
+  // about why the provider stopped answering.
+  let firstUnknown: string | null = null;
   return async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? 'GET';
     if (!isQueueSubmit(url, method)) return transport(input, init);
 
-    if (outcomeUnknown) {
+    if (firstUnknown !== null) {
       throw new MediaError(
         'network',
-        'The provider stopped answering after the request had been sent. It was not sent again, in case the first one is already running and would be charged for — retry when you are ready.',
+        `${firstUnknown} It was not sent again, in case the first one is already running and would be charged for — retry when you are ready.`,
         true,
       );
     }
@@ -300,10 +303,15 @@ function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch
       const response = await transport(input, init);
       // 5xx is ambiguous: the request may have been accepted and the failure
       // happened afterwards. 4xx is a refusal, and refusals queue nothing.
-      if (response.status >= 500) outcomeUnknown = true;
+      if (response.status >= 500) {
+        firstUnknown = `The provider answered ${response.status} after the request had been sent.`;
+      }
       return response;
     } catch (error) {
-      outcomeUnknown = true;
+      // An abort is the user stopping it, not a lost response — and it must not
+      // poison the guard, since the run is over either way.
+      const message = error instanceof Error ? error.message : String(error);
+      firstUnknown = `The provider stopped answering after the request had been sent (${message}).`;
       throw error;
     }
   };

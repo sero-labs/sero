@@ -141,13 +141,19 @@ export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecor
  * Written as a real failed attempt rather than left with none, because "no
  * attempts" is how the tray says *generating* — and an asset left saying that,
  * owned by a job that will never run again, is a spinner nobody stops.
+ *
+ * Ownership is released whether or not there are earlier attempts. An
+ * interrupted *retry* has attempts already — that is what makes it a retry —
+ * and skipping it there left the asset pointing at a job that will never run
+ * again, which `media.retry` reads as "already working". The Retry button then
+ * did nothing, for good.
  */
 async function abandonAsset(paths: DesignLibraryPaths, job: JobRecord): Promise<void> {
   if (job.target.kind !== 'asset') return;
   const { designId, assetId } = job.target;
   await mutateDesign(paths, designId, (design) => {
     const asset = design.assets.find((entry) => entry.id === assetId);
-    if (!asset || asset.jobId !== job.id || asset.attempts.length > 0) return null;
+    if (!asset || asset.jobId !== job.id) return null;
     const now = Date.now();
     return {
       ...design,
@@ -157,19 +163,27 @@ async function abandonAsset(paths: DesignLibraryPaths, job: JobRecord): Promise<
               ...entry,
               jobId: undefined,
               updatedAt: now,
-              attempts: [
-                {
-                  id: `${job.id}-abandoned`,
-                  outcome: 'failed' as const,
-                  startedAt: job.startedAt ?? job.createdAt,
-                  completedAt: now,
-                  error: {
-                    code: 'provider' as const,
-                    message: 'Sero closed while this was generating, so it never finished.',
-                    retryable: true,
-                  },
-                },
-              ],
+              // Appended, never replacing. Attempts accumulate everywhere else
+              // in this plugin, and an interrupted *retry* has earlier attempts
+              // by definition — overwriting them would delete the history the
+              // retry was preserving. Keyed on the job id, so applying this
+              // twice appends once.
+              attempts: entry.attempts.some((attempt) => attempt.id === `${job.id}-abandoned`)
+                ? entry.attempts
+                : [
+                    ...entry.attempts,
+                    {
+                      id: `${job.id}-abandoned`,
+                      outcome: 'failed' as const,
+                      startedAt: job.startedAt ?? job.createdAt,
+                      completedAt: now,
+                      error: {
+                        code: 'provider' as const,
+                        message: 'Sero closed while this was generating, so it never finished.',
+                        retryable: true,
+                      },
+                    },
+                  ],
             }
           : entry,
       ),

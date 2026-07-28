@@ -220,3 +220,31 @@ describe('the cap under concurrency and across restarts', () => {
     expect(asked[0]).toContain('30 seconds');
   });
 });
+
+describe('what is made durable', () => {
+  it('persists only calls that were granted, not ones still being asked about', async () => {
+    const persisted: number[] = [];
+    let answer: (value: boolean) => void = () => undefined;
+    const pending = new Promise<boolean>((resolve) => {
+      answer = resolve;
+    });
+    const budget = new MediaBudget({
+      callsPerRun: 4,
+      confirmVideo: () => pending,
+      onClaimed: async (used) => {
+        persisted.push(used);
+      },
+    });
+
+    const video = budget.claim('text-to-video', { prompt: 'a', model: 'm' });
+    // An image is approved while the video dialog is still open.
+    await budget.claim('text-to-image', { prompt: 'b', model: 'm' });
+    // Persisting the raw slot count here would write 2 — counting a video
+    // nobody has answered yet, which a crash would then make permanent.
+    expect(persisted).toEqual([1]);
+
+    answer(false);
+    await video;
+    expect(persisted).toEqual([1]);
+  });
+});

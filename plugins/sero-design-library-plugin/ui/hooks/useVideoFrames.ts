@@ -1,5 +1,5 @@
 import { useAppTools } from '@sero-ai/app-runtime';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { captureAndAttach, type FramesTarget } from '../lib/frames-upload';
 
@@ -15,9 +15,6 @@ import { captureAndAttach, type FramesTarget } from '../lib/frames-upload';
  * The Library shows such an item as still analysing until the frames land,
  * which is true — analysis is held back until there is something to see.
  */
-
-/** A target that has been tried and failed. Retried next time the app opens. */
-type Attempted = Set<string>;
 
 function keyOf(target: FramesTarget): string {
   // The attempt is part of the key: a retry produces new footage that needs
@@ -40,37 +37,42 @@ export function useVideoFrames(targets: FramesTarget[]): VideoFramesState {
   // rather than on every state change for as long as the app is open. Not
   // persisted: a new session is a new chance, and a codec can arrive with an
   // update.
-  const attempted = useRef<Attempted>(new Set());
+  const attempted = useRef<Set<string>>(new Set());
   const running = useRef(false);
 
-  // The list is rebuilt on every state change, so the effect reads it through a
-  // ref rather than depending on it — otherwise a single unrelated state write
-  // would restart the sweep mid-capture.
+  // The list is rebuilt on every state change, so the sweep reads it through a
+  // ref rather than depending on it — otherwise an unrelated state write would
+  // restart it mid-capture.
   const latest = useRef(targets);
   useEffect(() => {
     latest.current = targets;
   });
 
-  // One pass rather than map → filter → join: this runs on every render of a
-  // surface that re-renders on every state write.
-  const pendingKeys = targets.reduce((keys, target) => {
-    const key = keyOf(target);
-    return attempted.current.has(key) ? keys : `${keys}|${key}`;
-  }, '');
+  // Unmount only. Deliberately NOT the sweep's cleanup: cancelling on every
+  // change of the target list, and bailing out of the replacement because one
+  // was still running, left a newly-retried video uncaptured for the rest of
+  // the session. The sweep re-reads the list each time round, so it does not
+  // need restarting — only stopping when there is no longer anyone to tell.
+  const unmounted = useRef(false);
+  useEffect(
+    () => () => {
+      unmounted.current = true;
+    },
+    [],
+  );
 
-  // The only state write below is guarded by `cancelled`, which this effect's
-  // own cleanup sets — see the comment at the write.
-  // react-doctor-disable-next-line react-doctor/no-set-state-after-await-in-effect
-  useEffect(() => {
-    if (pendingKeys === '' || running.current) return;
+  // A stable callback rather than a ref written during render: React may replay
+  // or discard a render, and a runner assigned there could be one a committed
+  // render never saw. Everything it touches is a ref, so it needs no deps
+  // beyond the tool surface.
+  const start = useCallback((): void => {
+    if (running.current || unmounted.current) return;
+    if (!latest.current.some((target) => !attempted.current.has(keyOf(target)))) return;
     running.current = true;
-    let cancelled = false;
 
     const sweep = async () => {
-      // Re-read each time round: a capture takes seconds, and the set can grow
-      // while one is in flight.
       for (;;) {
-        if (cancelled) return;
+        if (unmounted.current) return;
         const next = latest.current.find((target) => !attempted.current.has(keyOf(target)));
         if (next === undefined) return;
 
@@ -85,21 +87,38 @@ export function useVideoFrames(targets: FramesTarget[]): VideoFramesState {
           ok: false as const,
           error: error instanceof Error ? error.message : String(error),
         }));
-        // Guarded by `cancelled`, which the cleanup below sets: the sweep
-        // outlives an unmount because a capture takes seconds and the user can
-        // leave the surface part-way through.
-        if (!result.ok && !cancelled) setFailed((current) => [...current, key]);
+        if (!result.ok && !unmounted.current) setFailed((current) => [...current, key]);
       }
     };
 
     void sweep().finally(() => {
       running.current = false;
+      // Checked again on the way out. A target that appeared while this sweep
+      // was finishing has already had its render, and the effect below saw a
+      // sweep running and left it alone — so without this the work would sit
+      // there until something unrelated re-rendered.
+      startRef.current();
     });
+  }, [tools]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [pendingKeys, tools]);
+  // The runner reaches its own restart through a ref, because it is recreated
+  // whenever `tools` changes and a sweep already running must call the current
+  // one rather than the one it closed over.
+  const startRef = useRef(start);
+  useEffect(() => {
+    startRef.current = start;
+  }, [start]);
+
+  const pendingKeys = targets.reduce((keys, target) => {
+    const key = keyOf(target);
+    return attempted.current.has(key) ? keys : `${keys}|${key}`;
+  }, '');
+
+  // The only state write is guarded by `unmounted`.
+  // react-doctor-disable-next-line react-doctor/no-set-state-after-await-in-effect
+  useEffect(() => {
+    start();
+  }, [pendingKeys, start]);
 
   return { failed };
 }

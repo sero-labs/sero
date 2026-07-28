@@ -35,6 +35,22 @@ export function needsConfirmation(capability: MediaCapability): boolean {
   return capability === 'text-to-video';
 }
 
+/**
+ * The longest clip anything may ask for.
+ *
+ * Providers bill video by the second, so an unbounded duration is an unbounded
+ * charge — and the number arrives from a model, which will happily ask for a
+ * minute of footage to illustrate a header. The cap is generous for the thing
+ * video is for here and small enough that a mistake is survivable.
+ */
+export const MAX_VIDEO_SECONDS = 12;
+
+/** Clamp a requested duration into range, or drop it if it is not a number. */
+export function boundedDuration(seconds: number | undefined): number | undefined {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) return undefined;
+  return Math.min(Math.round(seconds), MAX_VIDEO_SECONDS);
+}
+
 export function kindFor(capability: MediaCapability): MediaKind {
   return capability === 'text-to-video' ? 'video' : 'image';
 }

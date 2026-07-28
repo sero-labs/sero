@@ -5,6 +5,8 @@ import type {
   InspirationStrength,
 } from '../../shared/design';
 import type { LibrarianUserFacingAnalysis } from '../../shared/librarian';
+import type { DesignAsset } from '../../shared/media';
+import { assetIsReady } from '../../shared/media';
 import type { PromptRecipe } from '../../shared/settings';
 import type { EmittedFile } from '../../shared/targets';
 import { TARGET_CONTRACTS } from '../../shared/targets';
@@ -123,12 +125,38 @@ function targetRules(brief: DesignBrief): string {
  * generate a hero image writes markup pointing at one that never arrives — and
  * the page ships with a placeholder where its focal point should be.
  */
-function mediaRules(available: boolean): string {
+function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
+  // Artwork the Design already has, whoever asked for it — an earlier variant,
+  // an explicit press, or this very run before it was interrupted.
+  //
+  // Load-bearing on a resumed run. A generation that restarts is a fresh
+  // conversation: the model has no memory of the tool calls it already made, so
+  // without being told, it asks for the same hero image again and pays for it
+  // again. The durable cap bounds how much that can cost; this is what stops it
+  // happening at all. It is also just true the rest of the time — assets belong
+  // to the Design, and reusing one is free where generating another is not.
+  const reusable = existing.filter(
+    (asset) => asset.deletedAt === undefined && assetIsReady(asset),
+  );
+  const reuse =
+    reusable.length === 0
+      ? []
+      : [
+          '',
+          'This Design already has artwork. Use these before generating anything new — they cost nothing and they are already what this Design looks like:',
+          ...reusable.map(
+            (asset) => `- \`${asset.reference}\` — ${asset.request.prompt || 'no description'}`,
+          ),
+        ];
+
   if (!available) {
     return [
       '## Imagery',
       '',
-      'You cannot generate imagery in this run. Build any illustrative artwork out of CSS — gradients, shapes, layered blends — or inline SVG you write yourself. Do not reference an image file: nothing will resolve it.',
+      reusable.length === 0
+        ? 'You cannot generate imagery in this run. Build any illustrative artwork out of CSS — gradients, shapes, layered blends — or inline SVG you write yourself. Do not reference an image file: nothing will resolve it.'
+        : 'You cannot generate new imagery in this run. Use the artwork this Design already has, listed below, and build anything else out of CSS or inline SVG you write yourself. Do not reference any other image file: nothing will resolve it.',
+      ...reuse,
     ].join('\n');
   }
   return [
@@ -137,6 +165,7 @@ function mediaRules(available: boolean): string {
     'You can generate illustrative artwork — a hero image, a texture, an abstract graphic — with the media tools. Each returns a reference like `assets/<id>.png`; use it as the `src` or in `url()` and it resolves in the preview and in the export.',
     '',
     'Generate sparingly and only where artwork is the point. Routine interface icons come from inline SVG you write yourself, never from the media tools. If a tool refuses — a limit reached, a video declined — carry on and finish the page without it rather than asking again.',
+    ...reuse,
   ].join('\n');
 }
 
@@ -179,6 +208,12 @@ export interface GenerationTaskInput {
   variantCount: number;
   /** Whether the media tools are on this run's tool surface (spec §6.6). */
   mediaAvailable?: boolean;
+  /**
+   * Artwork this Design already has. Listed in the prompt so a run reuses it
+   * rather than generating it again — which a *resumed* run would otherwise do
+   * every time, having no memory of the tool calls it already paid for.
+   */
+  existingAssets?: DesignAsset[];
   recipe?: PromptRecipe;
   /** Present when this run is a revise rather than a first attempt. */
   revision?: { instruction: string; files: EmittedFile[] };
@@ -245,7 +280,7 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
     guardrailBlock(input.guardrails),
     targetRules(brief),
     tweakRules(),
-    mediaRules(input.mediaAvailable === true),
+    mediaRules(input.mediaAvailable === true, input.existingAssets ?? []),
     // Only for a first attempt: a revise has siblings it already differs from,
     // and telling it to diverge again would undo the design it is editing.
     diversity === '' || input.revision !== undefined ? '' : `## This variant\n\n${diversity}`,

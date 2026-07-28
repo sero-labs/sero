@@ -127,6 +127,7 @@ export async function runGeneration(
     variant,
     variantCount: design.variants.length,
     mediaAvailable: mediaTools.length > 0,
+    existingAssets: design.assets,
     ...(recipe === undefined ? {} : { recipe }),
     ...(revision === undefined ? {} : { revision }),
   });
