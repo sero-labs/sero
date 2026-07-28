@@ -102,7 +102,7 @@ Its known weakness — a fixed 274px is cramped for a control-heavy page — is 
 
 Rendering the comparison also surfaced a real UI problem: a permanent multi-line "controls omitted" warning box pushed a whole control group off-screen. It collapses to one line that expands on demand.
 
-### D12 · Three PRs, not one
+### D12 · Three PRs, not one — and in practice five
 
 **Reverses R1-§11**, which required the complete first release in a single PR.
 
@@ -113,6 +113,22 @@ Revision 1's scope has since gained video, four media capabilities, a second out
 3. **Media and Gallery** — capability contract, adapter, video, asset tray, snapshots, families and export.
 
 Each is independently reviewable and usable. PR 1 is a working tool on its own.
+
+**Both 2 and 3 were split again while being built**, and it is worth recording
+that this happened twice rather than treating each as a one-off. The estimate
+that produced three PRs was made against the *spec*, before the seams were known;
+what the build then found in each case was that the work divided cleanly at a
+place the plan had not marked.
+
+- **2 → 2a and 2b** at the generation-pipeline / working-surface boundary.
+- **3 → 3a and 3b** at the media / Gallery boundary, agreed part-way through 3a.
+  3a alone had already reached the size of a full PR, and 3b depends on it —
+  a Gallery version bundles the assets 3a produces — so the order is forced and
+  the cut costs nothing.
+
+The lesson for the next plan of this shape is not "estimate better". It is that a
+build order should say where it *may* be cut, so splitting is a decision taken
+once rather than renegotiated under pressure at the point the diff gets large.
 
 ---
 

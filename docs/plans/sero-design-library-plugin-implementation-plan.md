@@ -1,6 +1,6 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3 — Media and Gallery — in progress.
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — in progress. PR 3b — Gallery and export — not started.
 **Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
@@ -215,6 +215,18 @@ Turn references into runnable work.
 
 Generation of imagery and video, and a permanent archive.
 
+**Split into 3a and 3b**, agreed part-way through 3a for the same reason PR 2
+was split: the two halves together are larger than PR 2a and 2b combined, and one
+PR at that size is not reviewable. The build order below is unchanged — the cut
+falls between item 9 and item 10, and the hardening pass splits along the same
+line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
+
+---
+
+## PR 3a — Media
+
+Generation of imagery and video, everywhere it is invoked from.
+
 **Build**
 
 1. `runtime/media/contract.ts` — capability, request, result, error, provenance, context. No vendor types.
@@ -226,11 +238,23 @@ Generation of imagery and video, and a permanent archive.
 7. Library entry points: Generate inspiration, Restyle/vary. Generated items analyse automatically and keep generation provenance.
 8. Video support: storage, thumbnail, playback, frame-based Librarian analysis with motion language.
 9. Design asset tray: reuse across variants, placeholder on failure, asset-only retry preserving history, per-asset and per-Design cost, Copy to Library.
+9a. Media hardening: keyboard and screen-reader operation for the tray and the generation actions, job announcements, reduced motion for video playback, fault injection for media recovery and cleanup.
+
+**Accept when** all four capabilities work from both the agent and explicit actions; results are local and no remote URL reaches a preview; provider failure does not fail the whole variant; no vendor type exists outside the adapter and the fake adapter passes the same contract tests; caps hold and video is confirmed; costs are visible; an interrupted generation comes back retryable rather than re-running; a generated video gets its thumbnail and motion analysis once the app is open.
+
+---
+
+## PR 3b — Gallery and export
+
+A permanent archive of what was made, and a way to take it out.
+
+**Build**
+
 10. Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, deterministic snapshot re-render preview in a scaled `sandbox=""` iframe mounted on scroll, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge.
 11. Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
-12. Hardening: keyboard and screen-reader operation for every generated tweak control, job announcements, reduced motion including generated motion controls, incremental grid rendering, bounded preview cache, fault injection for recovery and cleanup, external plugin installation test.
+12. Remaining hardening: keyboard and screen-reader operation for every generated tweak control, reduced motion including generated motion controls, incremental grid rendering, bounded preview cache, external plugin installation test.
 
-**Accept when** all four capabilities work from both the agent and explicit actions; results are local and no remote URL reaches a preview or export; provider failure does not fail the whole variant; no vendor type exists outside the adapter and the fake adapter passes the same contract tests; caps hold and video is confirmed; costs are visible; Gallery versions stay byte-identical after source deletion; old versions never mutate; export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work.
+**Accept when** Gallery versions stay byte-identical after source deletion; old versions never mutate; export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work.
 
 ---
 
@@ -248,7 +272,8 @@ Manual verification per PR:
 
 - **PR 1** — global discovery; all three import paths; duplicate handling; search, filters, collections; analysis, reanalysis and per-field reset; restart mid-analysis; model picker persistence.
 - **PR 2** — reference ordering and conflict blocking; both output targets; variant failure, cancellation and restart; hostile previews and invalid tweak messages; tweak relevance, live update, reset, Copy CSS and revision coalescing.
-- **PR 3** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; Gallery source deletion; both export destinations; external plugin installation.
+- **PR 3a** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; quit mid-generation and reopen; a generated video's thumbnail and motion analysis.
+- **PR 3b** — Gallery source deletion; reopening at an exact revision; both export destinations; external plugin installation.
 
 ## 8. Notes
 
