@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { MediaAttempt, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import { kindFor } from '../../shared/media';
+import { kindFor, withVideoDuration } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { ItemRecord, ItemSourceKind } from '../../shared/records';
 import { stageGeneratedUpload } from '../../shared/uploads';
@@ -82,9 +82,13 @@ function fileNameFor(prompt: string, mediaType: string): string {
 }
 
 export async function generateIntoLibrary(
-  request: LibraryGenerationRequest,
+  incoming: LibraryGenerationRequest,
   context: LibraryGenerationContext,
 ): Promise<LibraryGenerationOutcome> {
+  // The request arrives from the log, which another process wrote: its duration
+  // is settled here, before the confirmation quotes a length and before the
+  // provider is asked for one.
+  const request = withVideoDuration(incoming);
   const model = context.provider.defaultModel(request.capability);
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,

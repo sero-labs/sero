@@ -2,7 +2,12 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import { MAX_VIDEO_SECONDS, boundedDuration, missingRequirement } from '../../shared/media';
+import {
+  MAX_VIDEO_SECONDS,
+  boundedDuration,
+  missingRequirement,
+  withVideoDuration,
+} from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
@@ -134,9 +139,13 @@ function toolText(message: string, details: Record<string, unknown>) {
  */
 export async function generateAsset(
   capability: MediaCapability,
-  request: StoredMediaRequest,
+  stored: StoredMediaRequest,
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
+  // Settled before the confirmation, so the length the user approves is the
+  // length that is sent — and before the asset is reserved, so a retry replays
+  // the same clip rather than a different one.
+  const request = withVideoDuration(stored);
   const model = request.model ?? context.provider.defaultModel(capability);
   const decision = await context.budget.claim(capability, {
     prompt: request.prompt,
@@ -173,18 +182,18 @@ export async function generateForAsset(
   asset: DesignAsset,
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
-  const model =
-    asset.request.model ?? context.provider.defaultModel(asset.request.capability);
-  const decision = await context.budget.claim(asset.request.capability, {
-    prompt: asset.request.prompt,
+  // A stored request can predate the ceiling, or have been written by another
+  // process: what it replays is settled here rather than trusted.
+  const request = withVideoDuration(asset.request);
+  const model = request.model ?? context.provider.defaultModel(request.capability);
+  const decision = await context.budget.claim(request.capability, {
+    prompt: request.prompt,
     model,
-    ...(asset.request.durationSeconds === undefined
-      ? {}
-      : { durationSeconds: asset.request.durationSeconds }),
+    ...(request.durationSeconds === undefined ? {} : { durationSeconds: request.durationSeconds }),
   });
   if (!decision.allowed) return { refused: decision.reason };
 
-  return { asset: await attemptAsset(asset, { ...asset.request, model }, context) };
+  return { asset: await attemptAsset(asset, { ...request, model }, context) };
 }
 
 /** Run one attempt against an asset that has already been reserved. */

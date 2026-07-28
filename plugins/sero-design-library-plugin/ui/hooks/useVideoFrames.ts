@@ -61,10 +61,20 @@ export function useVideoFrames(targets: FramesTarget[]): VideoFramesState {
     [],
   );
 
+  // The tool surface is read per capture rather than closed over. A sweep can
+  // outlive several renders, and one holding the surface it started with would
+  // keep calling a bridge that has since been replaced — marking every target it
+  // touched as attempted, which is what stops them being tried again this
+  // session.
+  const toolsRef = useRef(tools);
+  useEffect(() => {
+    toolsRef.current = tools;
+  });
+
   // A stable callback rather than a ref written during render: React may replay
   // or discard a render, and a runner assigned there could be one a committed
-  // render never saw. Everything it touches is a ref, so it needs no deps
-  // beyond the tool surface.
+  // render never saw. Everything it touches is a ref, so it needs no deps at
+  // all.
   const start = useCallback((): void => {
     if (running.current || unmounted.current) return;
     if (!latest.current.some((target) => !attempted.current.has(keyOf(target)))) return;
@@ -83,7 +93,7 @@ export function useVideoFrames(targets: FramesTarget[]): VideoFramesState {
         // One video at a time — decoding is expensive and this is background
         // repair, not something the user is waiting on.
         // react-doctor-disable-next-line react-doctor/async-await-in-loop
-        const result = await captureAndAttach(tools, next).catch((error: unknown) => ({
+        const result = await captureAndAttach(toolsRef.current, next).catch((error: unknown) => ({
           ok: false as const,
           error: error instanceof Error ? error.message : String(error),
         }));
@@ -99,11 +109,10 @@ export function useVideoFrames(targets: FramesTarget[]): VideoFramesState {
       // there until something unrelated re-rendered.
       startRef.current();
     });
-  }, [tools]);
+  }, []);
 
-  // The runner reaches its own restart through a ref, because it is recreated
-  // whenever `tools` changes and a sweep already running must call the current
-  // one rather than the one it closed over.
+  // The runner restarts itself through a ref rather than by name, because a
+  // callback cannot list itself as its own dependency.
   const startRef = useRef(start);
   useEffect(() => {
     startRef.current = start;

@@ -45,10 +45,41 @@ export function needsConfirmation(capability: MediaCapability): boolean {
  */
 export const MAX_VIDEO_SECONDS = 12;
 
+/**
+ * The length a clip runs to when nobody said.
+ *
+ * Video is the one capability billed by the second, so "unspecified" cannot mean
+ * "whatever the model behind it happens to default to": the confirmation the
+ * user answers has to state the length they are approving, and it can only state
+ * a number this side knows.
+ */
+export const DEFAULT_VIDEO_SECONDS = 5;
+
 /** Clamp a requested duration into range, or drop it if it is not a number. */
 export function boundedDuration(seconds: number | undefined): number | undefined {
   if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) return undefined;
   return Math.min(Math.round(seconds), MAX_VIDEO_SECONDS);
+}
+
+/**
+ * Settle a request's duration before anything charges for it.
+ *
+ * Applied at every point a request becomes a provider call, not only where one
+ * is built, because the number reaches those points from three directions — a
+ * model's tool call, a request-log entry written by another process, and a
+ * stored request replayed by a retry months later — and only the last hop is
+ * common to all three. Video always ends up with a stated, bounded length;
+ * everything else drops the field, since a duration on a still image is noise in
+ * the record and in the provider's parameters.
+ */
+export function withVideoDuration<T extends { capability: MediaCapability; durationSeconds?: number }>(
+  request: T,
+): T {
+  if (request.capability !== 'text-to-video') {
+    const { durationSeconds: _dropped, ...rest } = request;
+    return rest as T;
+  }
+  return { ...request, durationSeconds: boundedDuration(request.durationSeconds) ?? DEFAULT_VIDEO_SECONDS };
 }
 
 export function kindFor(capability: MediaCapability): MediaKind {

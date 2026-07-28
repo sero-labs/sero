@@ -1,6 +1,6 @@
 import { ApiError, createFalClient, ValidationError } from '@fal-ai/client';
 
-import type { MediaCapability } from '../../../shared/media';
+import type { MediaCapability, MediaErrorCode } from '../../../shared/media';
 import { MEDIA_CAPABILITIES, needsSource } from '../../../shared/media';
 import type {
   MediaContext,
@@ -285,7 +285,10 @@ function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch
   // What went wrong the first time, so the refusal explains the real failure
   // rather than replacing it with "the retry was blocked" — which says nothing
   // about why the provider stopped answering.
-  let firstUnknown: string | null = null;
+  // Carries the first failure's own classification as well as its wording: the
+  // attempt record keeps the code, and "network" against a provider that
+  // answered 503 sends anyone reading it back to look at the wrong thing.
+  let firstUnknown: { code: MediaErrorCode; message: string } | null = null;
   return async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? 'GET';
@@ -293,8 +296,8 @@ function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch
 
     if (firstUnknown !== null) {
       throw new MediaError(
-        'network',
-        `${firstUnknown} It was not sent again, in case the first one is already running and would be charged for — retry when you are ready.`,
+        firstUnknown.code,
+        `${firstUnknown.message} It was not sent again, in case the first one is already running and would be charged for — retry when you are ready.`,
         true,
       );
     }
@@ -304,14 +307,20 @@ function submitOnce(transport: typeof globalThis.fetch): typeof globalThis.fetch
       // 5xx is ambiguous: the request may have been accepted and the failure
       // happened afterwards. 4xx is a refusal, and refusals queue nothing.
       if (response.status >= 500) {
-        firstUnknown = `The provider answered ${response.status} after the request had been sent.`;
+        firstUnknown = {
+          code: 'provider',
+          message: `The provider answered ${response.status} after the request had been sent.`,
+        };
       }
       return response;
     } catch (error) {
       // An abort is the user stopping it, not a lost response — and it must not
       // poison the guard, since the run is over either way.
       const message = error instanceof Error ? error.message : String(error);
-      firstUnknown = `The provider stopped answering after the request had been sent (${message}).`;
+      firstUnknown = {
+        code: 'network',
+        message: `The provider stopped answering after the request had been sent (${message}).`,
+      };
       throw error;
     }
   };

@@ -125,6 +125,17 @@ function targetRules(brief: DesignBrief): string {
  * generate a hero image writes markup pointing at one that never arrives — and
  * the page ships with a placeholder where its focal point should be.
  */
+/** Enough of the tray to choose from, without it becoming the brief. */
+const MAX_LISTED_ASSETS = 12;
+const MAX_DESCRIPTION_CHARS = 160;
+
+/** One line, always — a caption for a reference, not a section of the prompt. */
+function describeArtwork(prompt: string): string {
+  const flat = prompt.replace(/\s+/g, ' ').trim();
+  if (flat === '') return 'no description';
+  return flat.length <= MAX_DESCRIPTION_CHARS ? flat : `${flat.slice(0, MAX_DESCRIPTION_CHARS)}…`;
+}
+
 function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
   // Artwork the Design already has, whoever asked for it — an earlier variant,
   // an explicit press, or this very run before it was interrupted.
@@ -135,9 +146,13 @@ function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
   // again. The durable cap bounds how much that can cost; this is what stops it
   // happening at all. It is also just true the rest of the time — assets belong
   // to the Design, and reusing one is free where generating another is not.
-  const reusable = existing.filter(
-    (asset) => asset.deletedAt === undefined && assetIsReady(asset),
-  );
+  const ready = existing.filter((asset) => asset.deletedAt === undefined && assetIsReady(asset));
+  // Newest first and bounded. A tray grows without limit, and every description
+  // in it is text a model wrote — left whole, a long tray crowds out the brief
+  // it is meant to support, and a description running to several lines reads as
+  // structure rather than as a caption.
+  const reusable = ready.toSorted((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_LISTED_ASSETS);
+  const omitted = ready.length - reusable.length;
   const reuse =
     reusable.length === 0
       ? []
@@ -145,8 +160,11 @@ function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
           '',
           'This Design already has artwork. Use these before generating anything new — they cost nothing and they are already what this Design looks like:',
           ...reusable.map(
-            (asset) => `- \`${asset.reference}\` — ${asset.request.prompt || 'no description'}`,
+            (asset) => `- \`${asset.reference}\` — ${describeArtwork(asset.request.prompt)}`,
           ),
+          ...(omitted === 0
+            ? []
+            : [`(and ${omitted} older ${omitted === 1 ? 'one' : 'ones'}, listed by the media tools.)`]),
         ];
 
   if (!available) {

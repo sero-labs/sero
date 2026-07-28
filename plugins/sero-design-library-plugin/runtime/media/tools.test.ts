@@ -4,7 +4,13 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { assetCostUsd, currentAttempt, designCostUsd } from '../../shared/media';
+import {
+  DEFAULT_VIDEO_SECONDS,
+  MAX_VIDEO_SECONDS,
+  assetCostUsd,
+  currentAttempt,
+  designCostUsd,
+} from '../../shared/media';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
 import type { DesignAsset } from '../../shared/media';
 import { readDesign } from '../design-store';
@@ -161,6 +167,61 @@ describe('media tools', () => {
     expect(refused).toMatchObject({ refused: expect.stringContaining('not approved') });
     expect(budget.callsUsed).toBe(0);
     expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(0);
+  });
+
+  it('states a length for every video, including one nobody gave a length', async () => {
+    // The confirmation quotes what it is about to spend on, and video is billed
+    // by the second: "unspecified" would leave the user approving a number only
+    // the provider knows.
+    const asked: (number | undefined)[] = [];
+    const budget = new MediaBudget({
+      callsPerRun: 4,
+      confirmVideo: async ({ durationSeconds }) => {
+        asked.push(durationSeconds);
+        return true;
+      },
+    });
+    const shared = context({ budget });
+
+    await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan' }, shared);
+    await generateAsset(
+      'text-to-video',
+      { capability: 'text-to-video', prompt: 'a long pan', durationSeconds: 90 },
+      shared,
+    );
+
+    expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS]);
+    const design = await readDesign(paths, DESIGN_ID);
+    // And the asset stores what was actually run, so a retry replays that clip
+    // rather than the number originally asked for.
+    expect(design?.assets.map((asset) => asset.request.durationSeconds)).toEqual([
+      DEFAULT_VIDEO_SECONDS,
+      MAX_VIDEO_SECONDS,
+    ]);
+  });
+
+  it('bounds a stored duration on retry, however it got there', async () => {
+    // A request written before the ceiling existed, or by another process.
+    const asked: (number | undefined)[] = [];
+    const shared = context({
+      budget: new MediaBudget({
+        callsPerRun: 4,
+        confirmVideo: async ({ durationSeconds }) => {
+          asked.push(durationSeconds);
+          return true;
+        },
+      }),
+    });
+    const asset = expectAsset(
+      await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan' }, shared),
+    );
+
+    await generateForAsset(
+      { ...asset, request: { ...asset.request, durationSeconds: 300 } },
+      shared,
+    );
+
+    expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS]);
   });
 
   it('totals reported cost per asset and per Design', async () => {
