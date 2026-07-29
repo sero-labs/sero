@@ -292,7 +292,18 @@ describe('media tools', () => {
       (entry) => entry.id === asset.id,
     );
     expect(stored?.request.durationSeconds).toBe(10);
-    expect(stored?.request.model).toBeDefined();
+    const model = stored?.request.model;
+    expect(model).toBeDefined();
+
+    // And it is the recorded model a later retry uses, not whatever Settings
+    // happens to say by then — the asset replays what it actually bought.
+    const resettled = expectAsset(
+      await generateForAsset(stored!, {
+        ...shared,
+        provider: { ...createFakeProvider({ modelOptions: fixedLengths }), defaultModel: () => 'a-different-model' },
+      }),
+    );
+    expect(currentAttempt(resettled)?.provenance?.model).toBe(model);
   });
 
   it('totals reported cost per asset and per Design', async () => {

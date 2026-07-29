@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { currentAttempt } from '../shared/media';
@@ -130,7 +130,7 @@ async function attachToAsset(
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, posterFile), poster);
 
-  await mutateDesign(paths, designId, (design) => {
+  const updated = await mutateDesign(paths, designId, (design) => {
     const asset = design.assets.find((entry) => entry.id === assetId);
     const attempt = asset === undefined ? undefined : currentAttempt(asset);
     // Checked again inside the lock: the read above is not serialised with it,
@@ -155,5 +155,11 @@ async function attachToAsset(
       ),
     };
   });
+
+  // The file goes when the record refuses it. A retry landing between the write
+  // and the lock leaves a poster no attempt names — and now that posters are
+  // named per attempt, no later capture will ever overwrite it, so it would sit
+  // there until the whole Design was purged.
+  if (updated === null) await rm(path.join(directory, posterFile), { force: true });
   return {};
 }

@@ -92,3 +92,37 @@ describe('a generated video', () => {
     expect((await readItem(harness.paths, itemId))?.asset.framesFile).toBe('frames.webp');
   });
 });
+
+/**
+ * A video model whose shortest clip costs more than one press is allowed to.
+ *
+ * Its own harness because the refusal has to happen with the confirmation
+ * standing by to approve — otherwise a test could pass because the video was
+ * declined for an entirely different reason.
+ */
+describe('a video model that only makes long clips', () => {
+  const longOnly = useCoordinator('video-long', {
+    approveVideo: true,
+    provider: { modelOptions: { 'text-to-video': { durationsSeconds: [20, 40] } } },
+  });
+
+  it('is refused rather than bought at its own length', async () => {
+    await appendRequest(longOnly.paths, {
+      kind: 'library.generate',
+      slotId: 'slot-long',
+      capability: 'text-to-video',
+      prompt: 'a slow pan across a city',
+    });
+    await longOnly.coordinator.drain();
+
+    await vi.waitFor(async () => {
+      const state = await readState(longOnly.paths);
+      const job = state.jobs.find((entry) => entry.status === 'failed');
+      expect(job?.error).toContain('shorter');
+    });
+
+    // Nothing was made and nothing was charged for.
+    const state = await readState(longOnly.paths);
+    expect(state.items).toHaveLength(0);
+  });
+});

@@ -17,7 +17,7 @@ import {
   markSucceeded,
   reconcileJobs,
 } from './jobs';
-import { dismissJob, listJobs, mutateItem, readItem, reindex, saveItem } from './store';
+import { dismissJob, listJobs, mutateItem, readItem, readJob, reindex, saveItem } from './store';
 import { retryVariant } from './designs';
 import { seedDesign } from './test-fixtures';
 
@@ -174,6 +174,19 @@ describe('an item orphaned by a finished job', () => {
     const after = await readItem(paths, item.id);
     expect(after?.analysis.status).toBe('ready');
     expect(after?.analysis.jobId).toBe(job.id);
+  });
+
+  it('saves a Library job complete, so no crash can leave it empty', async () => {
+    // Asserted on the very first write rather than on the end state: the old
+    // two-write version also finished with the request attached, so a test that
+    // only looked at the result passed either way. The window it left was
+    // between the writes, and the only way to close it is for there to be one.
+    const job = await createJob(paths, 'media', libraryTarget('slot-1'), {
+      capability: 'text-to-image',
+      prompt: 'brutalist poster grid',
+    });
+
+    expect((await readJob(paths, job.id))?.media?.prompt).toBe('brutalist poster grid');
   });
 
   it('writes no job file at all for work that is already finished', async () => {

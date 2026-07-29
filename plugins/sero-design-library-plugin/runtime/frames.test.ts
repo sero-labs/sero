@@ -1,7 +1,30 @@
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * A seam for the one race that cannot be staged by ordering calls: a retry
+ * landing *after* the poster is written and *before* the record lock refuses
+ * it. The media queue runs alongside the request drain, so this window is real;
+ * nothing here changes unless a test sets `beforeMutate`.
+ */
+let beforeMutate: (() => Promise<void>) | null = null;
+
+vi.mock('./design-store', async () => {
+  const actual = await vi.importActual<typeof import('./design-store')>('./design-store');
+  return {
+    ...actual,
+    mutateDesign: async (...args: Parameters<typeof actual.mutateDesign>) => {
+      if (beforeMutate) {
+        const run = beforeMutate;
+        beforeMutate = null;
+        await run();
+      }
+      return actual.mutateDesign(...args);
+    },
+  };
+});
 
 import { currentAttempt } from '../shared/media';
 import { designAssetDir, designLibraryPathsFromHome, itemDir, uploadDir, type DesignLibraryPaths } from '../shared/paths';
@@ -229,6 +252,50 @@ describe('a Design asset', () => {
     const design = await readDesign(paths, 'design-1');
     const stored = design?.assets.find((entry) => entry.id === asset.id);
     expect(currentAttempt(stored!)?.posterFile).toBeUndefined();
+  });
+
+  it('leaves no poster behind when a retry lands mid-write', async () => {
+    await seedDesign(paths, 'design-1');
+    const asset = await reserveAsset(paths, 'design-1', {
+      capability: 'text-to-video',
+      prompt: 'a slow pan',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+    await recordAttempt(paths, 'design-1', asset.id, {
+      id: 'attempt-1',
+      outcome: 'ready',
+      startedAt: 0,
+      completedAt: 1,
+      file: 'clip.mp4',
+    });
+
+    // The retry finishes after the poster is on disk but before the record is
+    // asked to accept it — the window the locked re-check exists to catch.
+    beforeMutate = async () => {
+      await recordAttempt(paths, 'design-1', asset.id, {
+        id: 'attempt-2',
+        outcome: 'ready',
+        startedAt: 2,
+        completedAt: 3,
+        file: 'clip.mp4',
+      });
+    };
+
+    await attachFrames(paths, {
+      kind: 'frames.attach',
+      uploadId: await stageFrames(),
+      target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
+    });
+
+    const design = await readDesign(paths, 'design-1');
+    const stored = design?.assets.find((entry) => entry.id === asset.id);
+    expect(currentAttempt(stored!)?.posterFile).toBeUndefined();
+    // And the file goes with it. Posters are named per attempt now, so nothing
+    // would ever overwrite this one — it would sit there until the Design was
+    // purged.
+    expect(
+      await exists(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster-attempt-1.webp')),
+    ).toBe(false);
   });
 
   it('leaves an asset with no successful attempt alone', async () => {
