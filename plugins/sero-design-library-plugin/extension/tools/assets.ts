@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { open, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
@@ -48,6 +48,7 @@ const ACTIONS = [
   'abort',
   'preview',
   'original',
+  'stream',
   'design-file',
   'design-asset',
   'attach-frames',
@@ -147,6 +148,56 @@ async function readItemAsset(
 }
 
 /**
+ * One slice of an item's original file (D4).
+ *
+ * Video needs this and images do not. A still comes back whole as a base64
+ * image block, which is fine at thumbnail size; a clip is megabytes, and a
+ * `data:` URL of it cannot be seeked or streamed — the media element has to
+ * take the entire string at once, and a generated clip therefore rendered a
+ * player that would not play. Read in slices, the renderer can assemble a Blob
+ * and hand the element a real, seekable URL.
+ *
+ * The slice rides in `details` rather than as an image block: it is bytes of a
+ * video, and an image block holding video is the mislabelling that started
+ * this. `total` comes back on every call so the caller knows when to stop
+ * without a second round trip.
+ */
+async function streamItemAsset(
+  paths: DesignLibraryPaths,
+  itemId: string,
+  offset: number,
+): Promise<ToolResult> {
+  const record = await readJsonFile<ItemRecord>(itemRecordFile(paths, itemId));
+  if (!record) return failure(`No Library item ${itemId}.`);
+
+  const resolved = resolveInsideHome(paths, `items/${itemId}/${record.asset.originalFile}`);
+  if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
+
+  const handle = await open(resolved, 'r').catch(() => null);
+  if (!handle) return failure(`The original for ${itemId} is missing.`);
+
+  try {
+    const { size } = await handle.stat();
+    // A start past the end is not an error: it is how a caller that has read
+    // everything finds out, and how a file that shrank underneath one stops.
+    const start = Math.max(0, Math.min(offset, size));
+    const buffer = Buffer.alloc(Math.min(UPLOAD_CHUNK_BYTES, size - start));
+    const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, start);
+
+    return text(`Bytes ${start}–${start + bytesRead} of ${size}.`, {
+      ok: true,
+      total: size,
+      offset: start,
+      bytes: bytesRead,
+      mediaType: record.asset.mediaType,
+      data: buffer.subarray(0, bytesRead).toString('base64'),
+    });
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
  * Read what a Design asset currently shows (spec §6.6).
  *
  * The record names the file, exactly as an item's record does, so the caller
@@ -240,7 +291,10 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which asset operation to perform' }),
       uploadId: Type.Optional(Type.String({ description: 'Returned by `begin`; required by chunk/complete/abort' })),
-      itemId: Type.Optional(Type.String({ description: 'Required by preview/original' })),
+      itemId: Type.Optional(Type.String({ description: 'Required by preview/original/stream' })),
+      offset: Type.Optional(
+        Type.Number({ description: 'Byte to start at, for `stream`. Defaults to 0.' }),
+      ),
       fileName: Type.Optional(Type.String()),
       mediaType: Type.Optional(Type.String({ description: 'e.g. image/png' })),
       previewMediaType: Type.Optional(Type.String({ description: 'Defaults to image/webp' })),
@@ -344,6 +398,16 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           const checked = checkId(params.itemId, 'item id');
           if ('error' in checked) return checked.error;
           return readItemAsset(paths, checked.id, params.action);
+        }
+
+        case 'stream': {
+          const checked = checkId(params.itemId, 'item id');
+          if ('error' in checked) return checked.error;
+          const offset = params.offset ?? 0;
+          if (!Number.isSafeInteger(offset) || offset < 0) {
+            return failure(`${JSON.stringify(params.offset ?? null)} is not a valid offset.`);
+          }
+          return streamItemAsset(paths, checked.id, offset);
         }
 
         case 'design-file': {

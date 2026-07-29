@@ -4,6 +4,7 @@ import { ChevronRight, ImageOff } from 'lucide-react';
 import type { Collection } from '../../shared/records';
 import type { ItemSummary } from '../../shared/types';
 import { ItemInspector } from '../components/ItemInspector';
+import { useAssetObjectUrl } from '../hooks/useAssetObjectUrl';
 import { useAssetSrc } from '../hooks/useAssetSrc';
 import { useItemDetail } from '../hooks/useItemDetail';
 import type { LibraryActions } from '../hooks/useLibrary';
@@ -43,9 +44,15 @@ function formatDate(timestamp: number): string {
 
 export function ItemPage({ item, collections, revision, actions, onBack }: ItemPageProps) {
   const detail = useItemDetail(item.id, revision);
-  // Same reason as the grid: a clip with no still yet has nothing worth
-  // fetching, and its "preview" is the whole video until one arrives.
-  const src = useAssetSrc(item.awaitingFrames === true ? undefined : item.id, 'original');
+  // A still comes back whole, as base64; a clip is read in slices and becomes a
+  // Blob URL. The media element needs a URL it can seek and stream, which a
+  // `data:` URL of eleven megabytes is not — that produced a player that
+  // rendered and would not play.
+  const video = item.kind === 'video';
+  const ready = item.awaitingFrames !== true;
+  const still = useAssetSrc(ready && !video ? item.id : undefined, 'original');
+  const clip = useAssetObjectUrl(ready && video ? item.id : undefined);
+  const src = video ? clip : still;
 
   // The first collection the reference belongs to, purely as a breadcrumb hint.
   const memberOf = new Set(item.collectionIds);

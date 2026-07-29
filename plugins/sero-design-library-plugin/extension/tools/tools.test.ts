@@ -10,6 +10,7 @@ import { seedDesign } from '../../runtime/test-fixtures';
 import type { MediaAttempt } from '../../shared/media';
 import { designAssetDir, designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
 import { readState } from '../../shared/state-io';
+import { UPLOAD_CHUNK_BYTES } from '../../shared/uploads';
 import { registerAssetTool } from './assets';
 import { registerItemTool } from './items';
 
@@ -354,5 +355,85 @@ describe('the asset tool will not follow a link out of its storage', () => {
     // A lexical path check cannot see this; only resolving the real path can.
     expect(textOf(result)).toContain('outside the Design Library directory');
     expect(textOf(result)).not.toContain('not yours');
+  });
+});
+
+/**
+ * Reading a stored clip in slices (D4).
+ *
+ * A still comes back whole and that is fine at thumbnail size. A clip is
+ * megabytes, and the `data:` URL a whole-file read produces cannot be seeked or
+ * streamed — which is a player that renders and will not play. So it is read in
+ * pieces the renderer can assemble into a Blob.
+ */
+describe('the asset tool streams an original in slices', () => {
+  const CONTENT = Buffer.alloc(UPLOAD_CHUNK_BYTES + 1024, 7);
+
+  async function seedClip(): Promise<string> {
+    const id = 'itm-clip';
+    const directory = path.join(paths.home, 'items', id);
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, 'original.mp4'), CONTENT);
+    await writeFile(
+      path.join(directory, 'record.json'),
+      JSON.stringify({
+        id,
+        schemaVersion: 1,
+        createdAt: 0,
+        updatedAt: 0,
+        kind: 'video',
+        source: { kind: 'generated', fileName: 'clip.mp4' },
+        asset: {
+          originalFile: 'original.mp4',
+          previewFile: 'poster.webp',
+          mediaType: 'video/mp4',
+          bytes: CONTENT.byteLength,
+          checksum: 'x',
+        },
+        analysis: { status: 'ready' },
+        collectionIds: [],
+      }),
+      'utf8',
+    );
+    return id;
+  }
+
+  it('hands back ordered pieces that rebuild the file exactly', async () => {
+    const id = await seedClip();
+    const parts: Buffer[] = [];
+    let offset = 0;
+    let total = 0;
+
+    for (let guard = 0; guard < 10; guard += 1) {
+      const result = await call('design_library_assets', { action: 'stream', itemId: id, offset });
+      const details = result.details as { total: number; bytes: number; data: string; mediaType: string };
+      expect(details.mediaType).toBe('video/mp4');
+      // Never more than one chunk at a time, whatever the file's size.
+      expect(details.bytes).toBeLessThanOrEqual(UPLOAD_CHUNK_BYTES);
+      total = details.total;
+      parts.push(Buffer.from(details.data, 'base64'));
+      offset += details.bytes;
+      if (offset >= details.total || details.bytes === 0) break;
+    }
+
+    expect(total).toBe(CONTENT.byteLength);
+    expect(Buffer.concat(parts)).toEqual(CONTENT);
+  });
+
+  it('says nothing is left rather than failing, past the end', async () => {
+    const id = await seedClip();
+    const result = await call('design_library_assets', {
+      action: 'stream',
+      itemId: id,
+      offset: CONTENT.byteLength + 5000,
+    });
+
+    expect(result.details).toMatchObject({ bytes: 0, total: CONTENT.byteLength });
+  });
+
+  it('refuses an offset that is not a byte position', async () => {
+    const id = await seedClip();
+    const result = await call('design_library_assets', { action: 'stream', itemId: id, offset: -1 });
+    expect(textOf(result)).toContain('not a valid offset');
   });
 });

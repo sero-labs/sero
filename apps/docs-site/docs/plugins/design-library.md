@@ -182,6 +182,8 @@ There is an upper limit of 12 seconds on anything one press can buy. If the vide
 
 A video needs Sero to be open to get its thumbnail: the frames are captured by the app, not in the background. One generated while Sero was closed shows as still working until the next time you open it, at which point it gets its thumbnail and is read like anything else. The Librarian is shown a strip of frames from across the clip, so it can describe the movement as well as the look.
 
+Until the thumbnail arrives the tile says **Capturing frames…** rather than showing a broken picture. Opening a clip plays it in place, with the usual controls.
+
 Importing your own video files is not supported yet.
 
 ## Deleting
