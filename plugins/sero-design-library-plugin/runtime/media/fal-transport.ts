@@ -20,6 +20,13 @@ export interface FalTransportOptions {
   failBody?: unknown;
   /** Bytes the produced file downloads as. */
   fileBytes?: Uint8Array;
+  /**
+   * The endpoint's OpenAPI document, when a test cares what the model accepts.
+   *
+   * Absent means the schema endpoint answers 404, which is the ordinary case for
+   * most of these tests and the one where the adapter sends what it was given.
+   */
+  schema?: unknown;
 }
 
 /** A minimal valid PNG, so a stored result is a real image on disk. */
@@ -92,6 +99,14 @@ export function createFalTransport(options: FalTransportOptions = {}): FalTransp
 
     if (options.failStatus !== undefined && host.endsWith('fal.run')) {
       return json(options.failBody ?? { detail: 'refused' }, options.failStatus);
+    }
+
+    // What the endpoint accepts. Read by the adapter to spell a clip length the
+    // way this model spells it.
+    if (host === 'fal.ai' && pathname.startsWith('/api/openapi')) {
+      return options.schema === undefined
+        ? json({ detail: 'no schema' }, 404)
+        : json(options.schema);
     }
 
     // Storage: initiate, then a PUT whose body the client ignores.

@@ -211,6 +211,44 @@ describe('fal adapter specifics', () => {
     expect(submit?.body).toMatchObject({ prompt: 'a quiet hero', image_size: 'landscape_16_9' });
   });
 
+  it('sends a clip length the way the endpoint spells it', async () => {
+    // fal's own video endpoints spell the same five seconds as `5`, `"5"` and
+    // `"5s"` depending on the model, and reject the other two. What the endpoint
+    // published is what goes back; the plugin only ever counts seconds.
+    const transport = createFalTransport({
+      result: { video: { url: 'https://fal.media/result.mp4', content_type: 'video/mp4' } },
+      schema: {
+        components: {
+          schemas: { Veo3Input: { properties: { prompt: {}, duration: { enum: ['4s', '6s', '8s'] } } } },
+        },
+      },
+    });
+
+    await executeMedia(
+      createFalProvider({ credentials: () => 'test-key', fetch: transport.fetch }),
+      { capability: 'text-to-video', prompt: 'a slow pan', durationSeconds: 8 },
+      { directory, signal: new AbortController().signal, readAsset: async () => sourceAsset() },
+    );
+
+    const submit = transport.calls.find((call) => call.url.startsWith('https://queue.fal.run/'));
+    expect(submit?.body).toMatchObject({ duration: '8s' });
+  });
+
+  it('sends the length as given when the endpoint will not say what it takes', async () => {
+    const transport = createFalTransport({
+      result: { video: { url: 'https://fal.media/result.mp4', content_type: 'video/mp4' } },
+    });
+
+    await executeMedia(
+      createFalProvider({ credentials: () => 'test-key', fetch: transport.fetch }),
+      { capability: 'text-to-video', prompt: 'a slow pan', durationSeconds: 5 },
+      { directory, signal: new AbortController().signal, readAsset: async () => sourceAsset() },
+    );
+
+    const submit = transport.calls.find((call) => call.url.startsWith('https://queue.fal.run/'));
+    expect(submit?.body).toMatchObject({ duration: '5' });
+  });
+
   it('fails a payload it cannot read rather than storing an empty asset', async () => {
     const attempt = await runWith(createFalTransport({ result: { note: 'nothing here' } }));
 

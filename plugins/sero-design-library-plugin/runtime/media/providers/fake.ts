@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 
-import type { MediaCapability } from '../../../shared/media';
+import type { MediaCapability, MediaModelOptions } from '../../../shared/media';
 import { MEDIA_CAPABILITIES, needsSource } from '../../../shared/media';
 import type { MediaContext, MediaProvider, MediaRequest, MediaResult } from '../contract';
 import { MediaError } from '../contract';
@@ -36,6 +36,13 @@ export interface FakeProviderOptions {
   costUsd?: number;
   /** Await this before returning, so a test can cancel mid-flight. */
   delay?: () => Promise<void>;
+  /**
+   * What the fake's models accept, so both settling paths can be exercised.
+   *
+   * Absent is the interesting default: a provider that cannot say is the case
+   * where a request goes out as it was asked for.
+   */
+  modelOptions?: Partial<Record<MediaCapability, MediaModelOptions>>;
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -113,6 +120,13 @@ export function createFakeProvider(options: FakeProviderOptions = {}): MediaProv
     displayName: 'Fake provider',
     capabilities: () => [...MEDIA_CAPABILITIES],
     defaultModel: (capability) => CAPABILITY_MODELS[capability],
+
+    ...(options.modelOptions === undefined
+      ? {}
+      : {
+          describe: async (capability: MediaCapability): Promise<MediaModelOptions> =>
+            options.modelOptions?.[capability] ?? {},
+        }),
 
     async generate(request: MediaRequest, context: MediaContext): Promise<MediaResult> {
       const startedAt = Date.now();

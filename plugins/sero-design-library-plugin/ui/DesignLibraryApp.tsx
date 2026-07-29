@@ -147,6 +147,7 @@ export function DesignLibraryApp() {
           designs={designs.list}
           items={library.state.items}
           settings={library.state.settings}
+          mediaOptions={library.state.mediaOptions}
           activeVariantId={designs.state.view.activeVariantId}
           actions={designs.actions}
           onBack={() => void designs.actions.open(undefined)}
@@ -199,6 +200,7 @@ export function DesignLibraryApp() {
           open
           target={{ kind: 'library' }}
           sources={librarySources}
+          modelOptions={library.state.mediaOptions}
           {...(generatingFrom.item === undefined ? {} : { initialSourceId: generatingFrom.item.id })}
           onOpenChange={(open) => {
             if (!open) setGeneratingFrom(null);

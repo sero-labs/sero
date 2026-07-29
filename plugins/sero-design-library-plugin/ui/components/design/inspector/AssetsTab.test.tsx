@@ -89,7 +89,28 @@ describe('a failed asset', () => {
       asset({ jobId: 'job-2', attempts: [attempt({ id: 'a1', outcome: 'failed' })] }),
     ]);
 
-    expect(screen.getByRole('button', { name: 'Retry' }).hasAttribute('disabled')).toBe(true);
+    // Absent rather than greyed out. A disabled button beside a failure reads as
+    // the tray being broken, and there is nothing here for a second press to do.
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('does not offer to copy artwork that does not exist yet', () => {
+    renderTray([
+      asset({
+        attempts: [
+          attempt({
+            id: 'a1',
+            outcome: 'failed',
+            error: { code: 'provider', message: 'The provider is unavailable.', retryable: true },
+          }),
+        ],
+      }),
+    ]);
+
+    // The manual pass read the greyed-out copy button as "there is no way to do
+    // this", which is the wrong lesson: there is, once something has landed.
+    expect(screen.queryByRole('button', { name: /Copy to Library/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
   });
 });
 

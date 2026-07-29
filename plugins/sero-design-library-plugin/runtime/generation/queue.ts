@@ -254,6 +254,7 @@ export class VariantQueue {
         model: state.settings.designModel,
         signal: controller.signal,
         mediaTools: media.tools,
+        mediaCallsRemaining: media.budget.callsRemaining,
       },
       revise ?? undefined,
     );

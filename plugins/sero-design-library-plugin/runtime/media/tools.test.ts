@@ -169,19 +169,58 @@ describe('media tools', () => {
     expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(0);
   });
 
-  it('states a length for every video, including one nobody gave a length', async () => {
-    // The confirmation quotes what it is about to spend on, and video is billed
-    // by the second: "unspecified" would leave the user approving a number only
-    // the provider knows.
-    const asked: (number | undefined)[] = [];
-    const budget = new MediaBudget({
+  /** Records every length the confirmation was asked to approve. */
+  function recordingBudget(asked: (number | undefined)[]): MediaBudget {
+    return new MediaBudget({
       callsPerRun: 4,
       confirmVideo: async ({ durationSeconds }) => {
         asked.push(durationSeconds);
         return true;
       },
     });
-    const shared = context({ budget });
+  }
+
+  /** A model that takes 5 or 10 seconds and rejects everything else, as fal's does. */
+  const fixedLengths = { 'text-to-video': { durationsSeconds: [5, 10] } };
+
+  it('asks only for a length the model accepts', async () => {
+    // The manual pass found this the hard way: 4 seconds went to a model that
+    // takes 5 or 10, and the provider refused the request outright. Nothing was
+    // charged and nothing was produced, which is the worst of both.
+    const asked: (number | undefined)[] = [];
+    const budget = recordingBudget(asked);
+    const shared = context({
+      budget,
+      provider: createFakeProvider({ modelOptions: fixedLengths }),
+    });
+
+    await generateAsset(
+      'text-to-video',
+      { capability: 'text-to-video', prompt: 'a pan', durationSeconds: 4 },
+      shared,
+    );
+    // Nobody said, so the default settles to the nearest length on offer.
+    await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan two' }, shared);
+    // Longer than anything the model does, and longer than our own ceiling.
+    await generateAsset(
+      'text-to-video',
+      { capability: 'text-to-video', prompt: 'a long pan', durationSeconds: 90 },
+      shared,
+    );
+
+    expect(asked).toEqual([5, DEFAULT_VIDEO_SECONDS, 10]);
+    const design = await readDesign(paths, DESIGN_ID);
+    // The asset stores what was actually run, so a retry replays that clip
+    // rather than the number originally asked for.
+    expect(design?.assets.map((asset) => asset.request.durationSeconds)).toEqual([5, 5, 10]);
+  });
+
+  it('leaves the length to the model when the provider cannot say', async () => {
+    // A private endpoint, or a machine offline at that moment. A number invented
+    // here would be a guess the provider is free to reject; its own default is
+    // at least a length it can produce, and the confirmation says as much.
+    const asked: (number | undefined)[] = [];
+    const shared = context({ budget: recordingBudget(asked) });
 
     await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan' }, shared);
     await generateAsset(
@@ -190,27 +229,18 @@ describe('media tools', () => {
       shared,
     );
 
-    expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS]);
-    const design = await readDesign(paths, DESIGN_ID);
-    // And the asset stores what was actually run, so a retry replays that clip
-    // rather than the number originally asked for.
-    expect(design?.assets.map((asset) => asset.request.durationSeconds)).toEqual([
-      DEFAULT_VIDEO_SECONDS,
-      MAX_VIDEO_SECONDS,
-    ]);
+    // What was asked for is still bounded — that ceiling is ours, not the
+    // provider's — but an absent length stays absent.
+    expect(asked).toEqual([undefined, MAX_VIDEO_SECONDS]);
   });
 
-  it('bounds a stored duration on retry, however it got there', async () => {
-    // A request written before the ceiling existed, or by another process.
+  it('settles a stored duration on retry, however it got there', async () => {
+    // A request written before the ceiling existed, by another process, or
+    // against a model that has since changed in Settings.
     const asked: (number | undefined)[] = [];
     const shared = context({
-      budget: new MediaBudget({
-        callsPerRun: 4,
-        confirmVideo: async ({ durationSeconds }) => {
-          asked.push(durationSeconds);
-          return true;
-        },
-      }),
+      budget: recordingBudget(asked),
+      provider: createFakeProvider({ modelOptions: fixedLengths }),
     });
     const asset = expectAsset(
       await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan' }, shared),
@@ -221,7 +251,7 @@ describe('media tools', () => {
       shared,
     );
 
-    expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS]);
+    expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, 10]);
   });
 
   it('totals reported cost per asset and per Design', async () => {

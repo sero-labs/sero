@@ -62,24 +62,44 @@ export function boundedDuration(seconds: number | undefined): number | undefined
 }
 
 /**
- * Settle a request's duration before anything charges for it.
+ * What one model will actually accept, as the provider reports it (D7).
  *
- * Applied at every point a request becomes a provider call, not only where one
- * is built, because the number reaches those points from three directions — a
- * model's tool call, a request-log entry written by another process, and a
- * stored request replayed by a retry months later — and only the last hop is
- * common to all three. Video always ends up with a stated, bounded length;
- * everything else drops the field, since a duration on a still image is noise in
- * the record and in the provider's parameters.
+ * Vendor-neutral by construction: lengths in seconds and ratios as `w:h`, with
+ * no endpoint, schema or SDK type in sight. Every field is optional because
+ * "the provider could not say" is a real answer — a private endpoint, a schema
+ * that has moved, a machine with no network at that moment — and it is a
+ * different answer from "anything goes".
+ *
+ * The settling rules live in `media-options.ts`; this is here because it is
+ * persisted into reactive state for the UI's pickers.
  */
-export function withVideoDuration<T extends { capability: MediaCapability; durationSeconds?: number }>(
-  request: T,
-): T {
-  if (request.capability !== 'text-to-video') {
-    const { durationSeconds: _dropped, ...rest } = request;
-    return rest as T;
-  }
-  return { ...request, durationSeconds: boundedDuration(request.durationSeconds) ?? DEFAULT_VIDEO_SECONDS };
+export interface MediaModelOptions {
+  /** The only lengths this model accepts, ascending. */
+  durationsSeconds?: number[];
+  /** A continuous range of lengths, when the model takes one. */
+  durationRange?: { min: number; max: number };
+  /** The only aspect ratios this model accepts, as `w:h`. */
+  aspectRatios?: string[];
+}
+
+export function normalizeModelOptions(value: unknown): MediaModelOptions {
+  if (!isRecordObject(value)) return {};
+  const durations = Array.isArray(value.durationsSeconds)
+    ? value.durationsSeconds.filter(
+        (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry) && entry > 0,
+      )
+    : undefined;
+  const range = isRecordObject(value.durationRange) ? value.durationRange : undefined;
+  const min = optionalNumber(range?.min);
+  const max = optionalNumber(range?.max);
+  const ratios = Array.isArray(value.aspectRatios)
+    ? value.aspectRatios.filter((entry): entry is string => typeof entry === 'string' && entry !== '')
+    : undefined;
+  return {
+    ...(durations === undefined || durations.length === 0 ? {} : { durationsSeconds: durations }),
+    ...(min === undefined || max === undefined || max < min ? {} : { durationRange: { min, max } }),
+    ...(ratios === undefined || ratios.length === 0 ? {} : { aspectRatios: ratios }),
+  };
 }
 
 export function kindFor(capability: MediaCapability): MediaKind {

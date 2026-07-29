@@ -2,15 +2,12 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import {
-  MAX_VIDEO_SECONDS,
-  boundedDuration,
-  missingRequirement,
-  withVideoDuration,
-} from '../../shared/media';
+import { MAX_VIDEO_SECONDS, boundedDuration, missingRequirement } from '../../shared/media';
+import { settleMediaRequest } from '../../shared/media-options';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
+import { modelOptions } from './contract';
 import type { MediaBudget } from './budget';
 import { createSourceResolver, recordAttempt, reserveAsset } from './assets';
 import { executeMedia } from './execute';
@@ -144,9 +141,13 @@ export async function generateAsset(
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
   // Settled before the confirmation, so the length the user approves is the
   // length that is sent — and before the asset is reserved, so a retry replays
-  // the same clip rather than a different one.
-  const request = withVideoDuration(stored);
-  const model = request.model ?? context.provider.defaultModel(capability);
+  // the same clip rather than a different one. Against the model's own options,
+  // because a length it does not accept is a request it refuses outright.
+  const model = stored.model ?? context.provider.defaultModel(capability);
+  const request = settleMediaRequest(
+    stored,
+    await modelOptions(context.provider, capability, model, context.signal),
+  );
   const decision = await context.budget.claim(capability, {
     prompt: request.prompt,
     model,
@@ -182,10 +183,14 @@ export async function generateForAsset(
   asset: DesignAsset,
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
-  // A stored request can predate the ceiling, or have been written by another
-  // process: what it replays is settled here rather than trusted.
-  const request = withVideoDuration(asset.request);
-  const model = request.model ?? context.provider.defaultModel(request.capability);
+  // A stored request can predate the ceiling, have been written by another
+  // process, or have been stored against a model that has since changed in
+  // Settings: what it replays is settled here rather than trusted.
+  const model = asset.request.model ?? context.provider.defaultModel(asset.request.capability);
+  const request = settleMediaRequest(
+    asset.request,
+    await modelOptions(context.provider, asset.request.capability, model, context.signal),
+  );
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,
     model,

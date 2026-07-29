@@ -175,40 +175,39 @@ function AssetDetail({ view, onRetry, onCopyToLibrary, onDelete }: AssetDetailPr
       </Block>
 
       <Block>
-        {/* One row that never wraps: at the inspector's narrowest a wrapping
-            row leaves the delete button alone on a line of its own, which
-            reads as a mistake. The two useful actions share the width and the
-            destructive one stays an icon at the end. */}
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="min-w-0 flex-1"
-            disabled={!view.canRetry}
-            onClick={onRetry}
-          >
-            <RotateCw className="size-3.5" />
-            Retry
-          </Button>
-
-          {view.copiedItemId === undefined ? (
+        {/* Wraps rather than compresses. An action named in full is worth a
+            second line at the inspector's narrowest — "Library" on its own fit,
+            and read as a label nobody could act on. Only the actions that apply
+            to this asset are drawn: a disabled button beside a failed generation
+            says the tray is broken, where its absence says nothing at all. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {view.canRetry && (
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="min-w-0 flex-1"
-              disabled={!view.canCopy}
-              // "Library" is what fits beside Retry at 280px; the full sentence
-              // stays as the accessible name rather than being truncated to
-              // "To Li…" on screen.
-              aria-label="Copy to Library"
+              onClick={onRetry}
+            >
+              <RotateCw className="size-3.5" />
+              Retry
+            </Button>
+          )}
+
+          {view.canCopy && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-w-0 flex-1 basis-36"
               onClick={onCopyToLibrary}
             >
               <Library className="size-3.5" />
-              <span className="truncate">Library</span>
+              <span className="truncate">Copy to Library</span>
             </Button>
-          ) : (
+          )}
+
+          {view.copiedItemId !== undefined && (
             <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
               In the Library
             </span>

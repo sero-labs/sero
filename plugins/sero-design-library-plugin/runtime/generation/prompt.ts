@@ -81,14 +81,20 @@ function guardrailBlock(guardrails: AppliedGuardrails): string {
   return lines.length === 0 ? '' : `## Guardrails\n\nThese are not suggestions.\n\n${lines.join('\n')}`;
 }
 
-function targetRules(brief: DesignBrief): string {
+function targetRules(brief: DesignBrief, mediaAvailable: boolean): string {
   const contract = TARGET_CONTRACTS[brief.target];
   const shared = [
     `Write ${contract.label}.`,
     `Start with \`${contract.entry}\`. Allowed file types: ${contract.extensions.join(', ')}.`,
     'The preview has no network. No remote fonts, images, scripts, stylesheets or analytics — none of them will load.',
     'Fonts are limited to the system sans and mono stacks. Use `font-family: system-ui, sans-serif` or `ui-monospace, monospace`.',
-    'Imagery is CSS — gradients, shapes, masks — or inline SVG you write yourself.',
+    // Conditional, and it has to be: as a flat rule this sat above the Imagery
+    // section contradicting it, and a run given both read this one and never
+    // touched the media tools at all — a brief that asked in as many words for
+    // a hero image and two illustrations came back with four gradients.
+    mediaAvailable
+      ? 'Photographic and illustrative artwork comes from the media tools, described under Imagery below. Everything else — interface icons, dividers, decorative shapes — is CSS or inline SVG you write yourself.'
+      : 'Imagery is CSS — gradients, shapes, masks — or inline SVG you write yourself.',
     'Use realistic content lengths. Placeholder text that is all the same width makes a layout look untested.',
     'The page must be responsive and must not scroll horizontally at any width.',
   ];
@@ -136,7 +142,11 @@ function describeArtwork(prompt: string): string {
   return flat.length <= MAX_DESCRIPTION_CHARS ? flat : `${flat.slice(0, MAX_DESCRIPTION_CHARS)}…`;
 }
 
-function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
+function mediaRules(
+  available: boolean,
+  existing: DesignAsset[] = [],
+  callsRemaining?: number,
+): string {
   // Artwork the Design already has, whoever asked for it — an earlier variant,
   // an explicit press, or this very run before it was interrupted.
   //
@@ -177,12 +187,24 @@ function mediaRules(available: boolean, existing: DesignAsset[] = []): string {
       ...reuse,
     ].join('\n');
   }
+  // Stated as a budget rather than as "sparingly". A vague instruction to
+  // restrain itself is the one a model resolves by generating nothing at all,
+  // and nothing at all is what a brief asking for a hero image got.
+  const allowance =
+    callsRemaining === undefined
+      ? 'Generate what the design genuinely needs and no more.'
+      : callsRemaining <= 0
+        ? 'You have no generations left in this run. Use the artwork this Design already has and build the rest out of CSS or inline SVG.'
+        : `You may generate up to ${callsRemaining} ${callsRemaining === 1 ? 'image or clip' : 'images or clips'} in this run. Spend them on what the design genuinely needs — a brief that asks for photography, illustration or a hero image is asking for these tools.`;
+
   return [
     '## Imagery',
     '',
-    'You can generate illustrative artwork — a hero image, a texture, an abstract graphic — with the media tools. Each returns a reference like `assets/<id>.png`; use it as the `src` or in `url()` and it resolves in the preview and in the export.',
+    'You can generate illustrative artwork — a hero image, a texture, a photographic background, an abstract graphic — with the media tools. Each returns a reference like `assets/<id>.png`; use it as the `src` or in `url()` and it resolves in the preview and in the export.',
     '',
-    'Generate sparingly and only where artwork is the point. Routine interface icons come from inline SVG you write yourself, never from the media tools. If a tool refuses — a limit reached, a video declined — carry on and finish the page without it rather than asking again.',
+    allowance,
+    '',
+    'Routine interface icons come from inline SVG you write yourself, never from the media tools. If a tool refuses — a limit reached, a video declined — carry on and finish the page without it rather than asking again.',
     ...reuse,
   ].join('\n');
 }
@@ -232,6 +254,8 @@ export interface GenerationTaskInput {
    * every time, having no memory of the tool calls it already paid for.
    */
   existingAssets?: DesignAsset[];
+  /** Media calls this run may still make, so the allowance is a number not a mood. */
+  mediaCallsRemaining?: number;
   recipe?: PromptRecipe;
   /** Present when this run is a revise rather than a first attempt. */
   revision?: { instruction: string; files: EmittedFile[] };
@@ -296,9 +320,9 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
       .map(describeReference)
       .join('\n\n')}`,
     guardrailBlock(input.guardrails),
-    targetRules(brief),
+    targetRules(brief, input.mediaAvailable === true),
     tweakRules(),
-    mediaRules(input.mediaAvailable === true, input.existingAssets ?? []),
+    mediaRules(input.mediaAvailable === true, input.existingAssets ?? [], input.mediaCallsRemaining),
     // Only for a first attempt: a revise has siblings it already differs from,
     // and telling it to diverge again would undo the design it is editing.
     diversity === '' || input.revision !== undefined ? '' : `## This variant\n\n${diversity}`,

@@ -12,7 +12,12 @@
  * to be called, which is why none of it is persisted or projected.
  */
 
-import type { MediaCapability, MediaErrorCode, MediaProvenance } from '../../shared/media';
+import type {
+  MediaCapability,
+  MediaErrorCode,
+  MediaModelOptions,
+  MediaProvenance,
+} from '../../shared/media';
 
 export interface MediaRequest {
   capability: MediaCapability;
@@ -87,4 +92,28 @@ export interface MediaProvider {
   capabilities(): MediaCapability[];
   defaultModel(capability: MediaCapability): string;
   generate(request: MediaRequest, context: MediaContext): Promise<MediaResult>;
+  /**
+   * What this model will accept — clip lengths, aspect ratios — when the
+   * provider can say (D7).
+   *
+   * Optional, and answering "I don't know" with an empty object is a legitimate
+   * implementation: the caller settles what it can and sends the rest as asked.
+   * Never throws, because a provider that cannot describe a model must not stop
+   * anyone generating with it.
+   */
+  describe?(
+    capability: MediaCapability,
+    model: string,
+    signal?: AbortSignal,
+  ): Promise<MediaModelOptions>;
+}
+
+/** A provider's options for a model, or none when it cannot say. */
+export async function modelOptions(
+  provider: MediaProvider,
+  capability: MediaCapability,
+  model: string,
+  signal?: AbortSignal,
+): Promise<MediaModelOptions> {
+  return (await provider.describe?.(capability, model, signal)) ?? {};
 }

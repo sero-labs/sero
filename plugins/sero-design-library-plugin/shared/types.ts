@@ -9,7 +9,8 @@
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
-import { MEDIA_CAPABILITIES } from './media';
+import type { MediaCapability, MediaModelOptions } from './media';
+import { MEDIA_CAPABILITIES, normalizeModelOptions } from './media';
 import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
 import { normalizeJobRecord } from './records';
 import type { LibraryRequest } from './requests';
@@ -160,6 +161,16 @@ export interface DesignLibraryState {
   collections: Collection[];
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
+  /**
+   * What each capability's model accepts — clip lengths, aspect ratios — as the
+   * provider last reported it (D7).
+   *
+   * A cache, not a record. An absent entry means "nobody could say", never "no
+   * constraints", so the pickers fall back rather than offering nothing. The
+   * generation path settles against the provider directly and does not read
+   * this.
+   */
+  mediaOptions: Partial<Record<MediaCapability, MediaModelOptions>>;
   view: ViewPreferences;
   requests: LibraryRequest[];
   nextRequestId: number;
@@ -184,6 +195,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
+  mediaOptions: {},
   view: {
     scope: { kind: 'all' },
     query: '',
@@ -428,6 +440,17 @@ function normalizeModel(value: unknown): DesignLibrarySettings['librarianModel']
   };
 }
 
+function normalizeMediaOptions(value: unknown): Partial<Record<MediaCapability, MediaModelOptions>> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    MEDIA_CAPABILITIES.flatMap((capability) => {
+      if (!(capability in value)) return [];
+      const options = normalizeModelOptions(value[capability]);
+      return Object.keys(options).length === 0 ? [] : [[capability, options] as const];
+    }),
+  );
+}
+
 export function normalizeState(value: unknown): DesignLibraryState {
   if (!isRecord(value)) return structuredClone(DEFAULT_STATE);
 
@@ -462,6 +485,7 @@ export function normalizeState(value: unknown): DesignLibraryState {
         })
       : [],
     settings: normalizeSettings(value.settings),
+    mediaOptions: normalizeMediaOptions(value.mediaOptions),
     view: normalizeView(value.view),
     requests,
     nextRequestId: Math.max(num(value.nextRequestId, 1), highestRequestId + 1),

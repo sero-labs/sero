@@ -18,14 +18,16 @@ import {
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
-import type { MediaCapability } from '../../shared/media';
+import type { MediaCapability, MediaModelOptions } from '../../shared/media';
 import {
+  DEFAULT_VIDEO_SECONDS,
   MAX_VIDEO_SECONDS,
   MEDIA_CAPABILITIES,
   missingRequirement,
   needsConfirmation,
   needsSource,
 } from '../../shared/media';
+import { allowedDurations } from '../../shared/media-options';
 import { capabilityLabel } from '../lib/asset-view';
 
 /**
@@ -66,20 +68,33 @@ export interface GenerateDialogProps {
    * a source selected says the source will be used when it will not be.
    */
   initialSourceId?: string;
+  /**
+   * What each capability's model accepts, as the provider last reported it.
+   *
+   * Absent for a capability means nobody could say, and the fallbacks below
+   * apply. Present means these are the only values that will work, so they are
+   * the only ones offered — the previous behaviour, offering a plausible clip
+   * length and letting the provider reject it, produced nothing at all on a
+   * model that takes 5 or 10 seconds.
+   */
+  modelOptions?: Partial<Record<MediaCapability, MediaModelOptions>>;
   onOpenChange(open: boolean): void;
   onGenerate(request: GenerateRequest): void;
 }
 
-const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:2'];
+const FALLBACK_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:2'];
 const DEFAULT_ASPECT = '16:9';
 /** Long enough to read as motion, short enough that a mistake is cheap. */
-const DURATIONS = [4, 6, 8].filter((seconds) => seconds <= MAX_VIDEO_SECONDS);
+const FALLBACK_DURATIONS = [DEFAULT_VIDEO_SECONDS, 10].filter(
+  (seconds) => seconds <= MAX_VIDEO_SECONDS,
+);
 
 export function GenerateDialog({
   open,
   target,
   sources,
   initialSourceId,
+  modelOptions,
   onOpenChange,
   onGenerate,
 }: GenerateDialogProps) {
@@ -88,8 +103,22 @@ export function GenerateDialog({
   );
   const [prompt, setPrompt] = useState('');
   const [sourceId, setSourceId] = useState<string>(initialSourceId ?? '');
-  const [aspectRatio, setAspectRatio] = useState(DEFAULT_ASPECT);
-  const [durationSeconds, setDurationSeconds] = useState(DURATIONS[0] ?? 4);
+  const [chosenAspect, setChosenAspect] = useState<string | null>(null);
+  const [chosenDuration, setChosenDuration] = useState<number | null>(null);
+
+  // What this capability's model will take. Derived rather than held in state:
+  // the answer changes with the capability and again when the runtime publishes
+  // fresh options, and a stored choice that is no longer on the list is exactly
+  // the request the provider rejects.
+  const options = modelOptions?.[capability];
+  const durations = allowedDurations(options) ?? FALLBACK_DURATIONS;
+  const durationSeconds =
+    chosenDuration !== null && durations.includes(chosenDuration) ? chosenDuration : durations[0];
+  const ratios = options?.aspectRatios ?? FALLBACK_ASPECT_RATIOS;
+  const aspectRatio =
+    chosenAspect !== null && ratios.includes(chosenAspect)
+      ? chosenAspect
+      : (ratios.find((ratio) => ratio === DEFAULT_ASPECT) ?? ratios[0]);
 
   const wantsSource = needsSource(capability);
   // The same check the tool and the model's own tool run, so the dialog cannot
@@ -192,12 +221,12 @@ export function GenerateDialog({
             {capability !== 'upscale' && (
               <div className="space-y-1.5">
                 <Label htmlFor="generate-aspect">Aspect</Label>
-                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                <Select value={aspectRatio} onValueChange={setChosenAspect}>
                   <SelectTrigger id="generate-aspect">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ASPECT_RATIOS.map((ratio) => (
+                    {ratios.map((ratio) => (
                       <SelectItem key={ratio} value={ratio}>
                         {ratio}
                       </SelectItem>
@@ -212,13 +241,13 @@ export function GenerateDialog({
                 <Label htmlFor="generate-duration">Length</Label>
                 <Select
                   value={String(durationSeconds)}
-                  onValueChange={(value) => setDurationSeconds(Number(value))}
+                  onValueChange={(value) => setChosenDuration(Number(value))}
                 >
                   <SelectTrigger id="generate-duration">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DURATIONS.map((seconds) => (
+                    {durations.map((seconds) => (
                       <SelectItem key={seconds} value={String(seconds)}>
                         {seconds} seconds
                       </SelectItem>

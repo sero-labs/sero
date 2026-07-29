@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
 import { orderedRevisions } from '../../shared/design';
+import type { MediaCapability, MediaModelOptions } from '../../shared/media';
 import { assetIsReady, currentAttempt } from '../../shared/media';
 import type { DesignLibrarySettings, RevisionBehaviour } from '../../shared/settings';
 import type { DesignSummary, ItemSummary } from '../../shared/types';
@@ -46,6 +47,8 @@ export interface DesignPageProps {
   /** Live Library items, for naming the references this Design drew on. */
   items: ItemSummary[];
   settings: DesignLibrarySettings;
+  /** What each capability's model accepts, for the generate dialog's pickers. */
+  mediaOptions: Partial<Record<MediaCapability, MediaModelOptions>>;
   /** The persisted selection, so reopening a Design lands where you left it. */
   activeVariantId: string | undefined;
   actions: DesignActions;
@@ -57,6 +60,7 @@ export function DesignPage({
   designs,
   items,
   settings,
+  mediaOptions,
   activeVariantId,
   actions,
   onBack,
@@ -312,6 +316,7 @@ export function DesignPage({
         open={generating}
         target={{ kind: 'design', designId: design.id, designTitle: design.title }}
         sources={assetSources}
+        modelOptions={mediaOptions}
         onOpenChange={setGenerating}
         onGenerate={(request) => {
           // Nothing waits on the result: the asset is reserved immediately and

@@ -1,7 +1,8 @@
 import { ApiError, createFalClient, ValidationError } from '@fal-ai/client';
 
-import type { MediaCapability, MediaErrorCode } from '../../../shared/media';
+import type { MediaCapability, MediaErrorCode, MediaModelOptions } from '../../../shared/media';
 import { MEDIA_CAPABILITIES, needsSource } from '../../../shared/media';
+import { createFalSchemaReader } from './fal-schema';
 import type {
   MediaContext,
   MediaFile,
@@ -168,7 +169,16 @@ export function normalizeFalError(error: unknown): MediaError {
   return new MediaError('provider', String(error), true);
 }
 
-function buildInput(request: MediaRequest, sourceUrls: string[]): Record<string, unknown> {
+function buildInput(
+  request: MediaRequest,
+  sourceUrls: string[],
+  /**
+   * How this endpoint spells a length. `"5"` on one model, `"8s"` on the next —
+   * so the value it published is what goes back, and the seconds are only how
+   * the rest of the plugin refers to it.
+   */
+  durationTokens: Map<number, string | number>,
+): Record<string, unknown> {
   const size = request.aspectRatio === undefined ? undefined : IMAGE_SIZES[request.aspectRatio];
   const shared = {
     ...(request.seed === undefined ? {} : { seed: request.seed }),
@@ -201,7 +211,10 @@ function buildInput(request: MediaRequest, sourceUrls: string[]): Record<string,
         prompt: request.prompt,
         ...(request.durationSeconds === undefined
           ? {}
-          : { duration: String(request.durationSeconds) }),
+          : {
+              duration:
+                durationTokens.get(request.durationSeconds) ?? String(request.durationSeconds),
+            }),
         ...(request.aspectRatio === undefined ? {} : { aspect_ratio: request.aspectRatio }),
         ...shared,
       };
@@ -343,11 +356,22 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
   const modelFor = (capability: MediaCapability): string =>
     options.models?.[capability] ?? FAL_DEFAULT_MODELS[capability];
 
+  // One reader per provider, so its cache outlives a single generation.
+  const readSchema = createFalSchemaReader(transport);
+
   return {
     id: 'fal',
     displayName: 'fal.ai',
     capabilities: () => [...MEDIA_CAPABILITIES],
     defaultModel: modelFor,
+
+    async describe(
+      _capability: MediaCapability,
+      model: string,
+      signal?: AbortSignal,
+    ): Promise<MediaModelOptions> {
+      return (await readSchema(model, signal)).options;
+    },
 
     async generate(request: MediaRequest, context: MediaContext): Promise<MediaResult> {
       const startedAt = Date.now();
@@ -382,7 +406,12 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
           sourceUrls.push(await client.storage.upload(blob));
         }
 
-        const input = buildInput(request, sourceUrls);
+        // Read alongside the call rather than ahead of it: the caller has
+        // already settled the length against these same options, and this is
+        // only how to spell it. A schema that cannot be read leaves the number
+        // as it stands, which is what the endpoint got before any of this.
+        const schema = await readSchema(model, context.signal);
+        const input = buildInput(request, sourceUrls, schema.durationTokens);
         const result = await client.subscribe(model, {
           input,
           abortSignal: context.signal,

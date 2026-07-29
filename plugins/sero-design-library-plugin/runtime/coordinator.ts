@@ -7,6 +7,7 @@ import type { JobKind, TombstonedProvenance } from '../shared/records';
 import { itemTarget } from '../shared/records';
 import type { LibraryRequest, LibraryRequestBody } from '../shared/requests';
 import { pendingRequests, readState, updateState, writeJsonFile } from '../shared/state-io';
+import type { MediaSettings } from '../shared/settings';
 import type { DesignLibraryState } from '../shared/types';
 import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
@@ -17,6 +18,9 @@ import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
 import { MediaQueue, type MediaQueueContext } from './media/queue';
 import { attachFrames } from './frames';
+import type { MediaProvider } from './media/contract';
+import { mediaModelsChanged, refreshMediaOptions } from './media/options';
+import { createMediaProviderForRun } from './media/provider';
 import { MediaRequests, isMediaRequest } from './media/requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
@@ -48,6 +52,9 @@ export class Coordinator {
   private readonly media: MediaRequests;
   private draining = false;
   private drainAgain = false;
+  /** Best-effort option reads in flight, so disposal waits for their writes. */
+  private readonly optionsRefreshes = new Set<Promise<void>>();
+  private readonly shutdown = new AbortController();
 
   constructor(private readonly context: CoordinatorContext) {
     const shared = {
@@ -89,10 +96,50 @@ export class Coordinator {
     await this.resumeAbandonedAnalyses();
 
     await this.drain();
+
+    // Deliberately last and deliberately not awaited: it reaches the network,
+    // and nothing here should wait on a schema endpoint to resume work that is
+    // already paid for. What it publishes only affects the pickers, and they
+    // fall back until it lands.
+    this.refreshMediaOptions();
+  }
+
+  /**
+   * Publish what each capability's model accepts, for the UI's pickers.
+   *
+   * Fire and forget. A failure is reported and changes nothing: generation
+   * settles against the provider itself, so it stays correct whether this ever
+   * succeeded or not.
+   */
+  private refreshMediaOptions(): void {
+    // Tracked so `dispose` can wait for it. It writes state, and a write landing
+    // after the runtime is gone is the same hazard the generation queue tracks
+    // its cancellations for.
+    const pending = (async () => {
+      const state = await readState(this.context.paths);
+      const provider = await this.createProvider(state.settings.media);
+      await refreshMediaOptions(this.context.paths, provider, this.shutdown.signal);
+    })().catch((error: unknown) => {
+      if (this.shutdown.signal.aborted) return;
+      this.context.onError('Could not read what the media models accept', error);
+    });
+    this.optionsRefreshes.add(pending);
+    void pending.finally(() => this.optionsRefreshes.delete(pending));
+  }
+
+  private async createProvider(settings: MediaSettings): Promise<MediaProvider> {
+    const create = this.context.createMediaProvider ?? createMediaProviderForRun;
+    return create(this.context.paths, settings);
   }
 
   async dispose(): Promise<void> {
-    await Promise.all([this.queue.dispose(), this.variants.dispose(), this.mediaQueue.dispose()]);
+    this.shutdown.abort();
+    await Promise.all([
+      this.queue.dispose(),
+      this.variants.dispose(),
+      this.mediaQueue.dispose(),
+      ...this.optionsRefreshes,
+    ]);
   }
 
   private route(kind: JobKind, jobId: string): void {
@@ -302,10 +349,16 @@ export class Coordinator {
       }
 
       case 'settings.update': {
-        await updateState(paths, (current) => ({
-          ...current,
-          settings: { ...current.settings, ...body.patch },
-        }));
+        let modelsChanged = false;
+        await updateState(paths, (current) => {
+          const settings = { ...current.settings, ...body.patch };
+          modelsChanged = mediaModelsChanged(current.settings.media, settings.media);
+          return { ...current, settings };
+        });
+        // A new model id means new options — a different set of clip lengths,
+        // possibly a different set of aspect ratios — and the pickers would
+        // otherwise keep offering the old model's.
+        if (modelsChanged) this.refreshMediaOptions();
         return;
       }
 

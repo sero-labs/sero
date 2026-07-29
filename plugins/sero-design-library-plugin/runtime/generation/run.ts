@@ -50,6 +50,8 @@ export interface GenerationRunContext {
    * run arguing with it instead of writing the page.
    */
   mediaTools?: ToolDefinition[];
+  /** What is left of this run's media allowance, for the task to plan against. */
+  mediaCallsRemaining?: number;
 }
 
 /**
@@ -128,6 +130,9 @@ export async function runGeneration(
     variantCount: design.variants.length,
     mediaAvailable: mediaTools.length > 0,
     existingAssets: design.assets,
+    ...(context.mediaCallsRemaining === undefined
+      ? {}
+      : { mediaCallsRemaining: context.mediaCallsRemaining }),
     ...(recipe === undefined ? {} : { recipe }),
     ...(revision === undefined ? {} : { revision }),
   });

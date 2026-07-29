@@ -192,8 +192,13 @@ export function createVideoConfirmer(
         context.designTitle === undefined ? null : `Design: ${context.designTitle}`,
         `Model: ${model}`,
         // Providers bill video by the second, so the length is the number the
-        // user is really being asked to approve.
-        durationSeconds === undefined ? null : `Length: ${durationSeconds} seconds`,
+        // user is really being asked to approve. It is stated either way: when
+        // the model could not be asked what lengths it takes, saying so is
+        // honest, where leaving the line out reads as though length were not
+        // part of the price.
+        durationSeconds === undefined
+          ? "Length: this model's own default — it could not be asked"
+          : `Length: ${durationSeconds} seconds`,
         `Prompt: ${prompt}`,
         'Video generation is the most expensive capability, so it always asks first.',
       ]

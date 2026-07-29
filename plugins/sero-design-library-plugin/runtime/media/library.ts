@@ -2,12 +2,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { MediaAttempt, MediaCapability, StoredMediaRequest } from '../../shared/media';
-import { kindFor, withVideoDuration } from '../../shared/media';
+import { kindFor } from '../../shared/media';
+import { settleMediaRequest } from '../../shared/media-options';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { ItemRecord, ItemSourceKind } from '../../shared/records';
 import { stageGeneratedUpload } from '../../shared/uploads';
 import type { MediaSourceAsset } from './contract';
-import { MediaError } from './contract';
+import { MediaError, modelOptions } from './contract';
 import type { MediaBudget } from './budget';
 import type { MediaProvider } from './contract';
 import { executeMedia } from './execute';
@@ -85,11 +86,14 @@ export async function generateIntoLibrary(
   incoming: LibraryGenerationRequest,
   context: LibraryGenerationContext,
 ): Promise<LibraryGenerationOutcome> {
-  // The request arrives from the log, which another process wrote: its duration
-  // is settled here, before the confirmation quotes a length and before the
-  // provider is asked for one.
-  const request = withVideoDuration(incoming);
-  const model = context.provider.defaultModel(request.capability);
+  // The request arrives from the log, which another process wrote: it is settled
+  // here against the model's own options, before the confirmation quotes a
+  // length and before the provider is asked for one.
+  const model = context.provider.defaultModel(incoming.capability);
+  const request = settleMediaRequest(
+    incoming,
+    await modelOptions(context.provider, incoming.capability, model, context.signal),
+  );
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,
     model,
