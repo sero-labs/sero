@@ -51,6 +51,8 @@ let paths: DesignLibraryPaths;
 beforeEach(async () => {
   home = await mkdtemp(path.join(tmpdir(), 'design-library-frames-'));
   paths = designLibraryPathsFromHome(path.join(home, 'apps', 'design-library'));
+  // A seam a failing test never got to use must not reach the next one.
+  beforeMutate = null;
 });
 
 afterEach(async () => {
@@ -293,6 +295,38 @@ describe('a Design asset', () => {
     // And the file goes with it. Posters are named per attempt now, so nothing
     // would ever overwrite this one — it would sit there until the Design was
     // purged.
+    expect(
+      await exists(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster-attempt-1.webp')),
+    ).toBe(false);
+  });
+
+  it('leaves no poster behind when the record write itself fails', async () => {
+    // The request is reported and consumed either way, so nothing comes back
+    // to tidy up after a write that threw.
+    await seedDesign(paths, 'design-1');
+    const asset = await reserveAsset(paths, 'design-1', {
+      capability: 'text-to-video',
+      prompt: 'a slow pan',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+    await recordAttempt(paths, 'design-1', asset.id, {
+      id: 'attempt-1',
+      outcome: 'ready',
+      startedAt: 0,
+      completedAt: 1,
+      file: 'clip.mp4',
+    });
+
+    beforeMutate = () => Promise.reject(new Error('the disk went away'));
+
+    await expect(
+      attachFrames(paths, {
+        kind: 'frames.attach',
+        uploadId: await stageFrames(),
+        target: { kind: 'asset', designId: 'design-1', assetId: asset.id, attemptId: 'attempt-1' },
+      }),
+    ).rejects.toThrow('the disk went away');
+
     expect(
       await exists(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster-attempt-1.webp')),
     ).toBe(false);

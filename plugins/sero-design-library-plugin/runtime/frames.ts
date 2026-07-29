@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import type { DesignRecord } from '../shared/design';
 import { currentAttempt } from '../shared/media';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { designAssetDir, itemDir } from '../shared/paths';
@@ -130,43 +131,48 @@ async function attachToAsset(
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, posterFile), poster);
 
-  const updated = await mutateDesign(paths, designId, (design) => {
-    const asset = design.assets.find((entry) => entry.id === assetId);
-    const attempt = asset === undefined ? undefined : currentAttempt(asset);
-    // Checked again inside the lock: the read above is not serialised with it,
-    // and a retry can land between the two.
-    if (!asset || attempt?.outcome !== 'ready' || attempt.id !== attemptId) return null;
+  let updated: DesignRecord | null = null;
+  try {
+    updated = await mutateDesign(paths, designId, (design) => {
+      const asset = design.assets.find((entry) => entry.id === assetId);
+      const attempt = asset === undefined ? undefined : currentAttempt(asset);
+      // Checked again inside the lock: the read above is not serialised with it,
+      // and a retry can land between the two.
+      if (!asset || attempt?.outcome !== 'ready' || attempt.id !== attemptId) return null;
 
-    // The poster lands on the attempt the frames were taken from, not on the
-    // asset: a retry produces different footage, and a poster that outlived its
-    // attempt would show the previous clip under the new one.
-    return {
-      ...design,
-      assets: design.assets.map((entry) =>
-        entry.id !== assetId
-          ? entry
-          : {
-              ...entry,
-              attempts: entry.attempts.map((candidate) =>
-                candidate.id === attemptId ? { ...candidate, posterFile } : candidate,
-              ),
-              updatedAt: Date.now(),
-            },
-      ),
-    };
-  });
-
-  // The file goes when the record refuses it. A retry landing between the write
-  // and the lock leaves a poster no attempt names — and now that posters are
-  // named per attempt, no later capture will ever overwrite it, so it would sit
-  // there until the whole Design was purged.
-  //
-  // Unless something already names it: a second capture for an attempt that has
-  // since been superseded would otherwise delete the poster an earlier capture
-  // recorded against that same attempt, leaving its history pointing at a file
-  // that is gone.
-  if (updated === null && !(await isNamed(paths, designId, assetId, posterFile))) {
-    await rm(path.join(directory, posterFile), { force: true });
+      // The poster lands on the attempt the frames were taken from, not on the
+      // asset: a retry produces different footage, and a poster that outlived
+      // its attempt would show the previous clip under the new one.
+      return {
+        ...design,
+        assets: design.assets.map((entry) =>
+          entry.id !== assetId
+            ? entry
+            : {
+                ...entry,
+                attempts: entry.attempts.map((candidate) =>
+                  candidate.id === attemptId ? { ...candidate, posterFile } : candidate,
+                ),
+                updatedAt: Date.now(),
+              },
+        ),
+      };
+    });
+  } finally {
+    // The file goes when the record does not take it — whether it declined or
+    // the write threw. A retry landing between the write and the lock leaves a
+    // poster no attempt names, and now that posters are named per attempt, no
+    // later capture will ever overwrite it: it would sit there until the whole
+    // Design was purged. `finally`, because a request that failed part-way is
+    // reported and consumed, so nothing comes back to tidy up after it.
+    //
+    // Unless something already names it: a second capture for an attempt that
+    // has since been superseded would otherwise delete the poster an earlier
+    // capture recorded against that same attempt, leaving its history pointing
+    // at a file that is gone.
+    if (updated === null && !(await isNamed(paths, designId, assetId, posterFile))) {
+      await rm(path.join(directory, posterFile), { force: true });
+    }
   }
   return {};
 }
