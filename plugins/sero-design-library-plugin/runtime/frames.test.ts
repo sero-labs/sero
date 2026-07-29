@@ -298,6 +298,53 @@ describe('a Design asset', () => {
     ).toBe(false);
   });
 
+  it('keeps a poster an earlier capture already recorded', async () => {
+    // The cleanup above must not reach a file something still points at. A
+    // second capture for the same attempt, arriving after a retry has moved
+    // on, would otherwise delete the poster the first capture recorded.
+    await seedDesign(paths, 'design-1');
+    const asset = await reserveAsset(paths, 'design-1', {
+      capability: 'text-to-video',
+      prompt: 'a slow pan',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+    await recordAttempt(paths, 'design-1', asset.id, {
+      id: 'attempt-1',
+      outcome: 'ready',
+      startedAt: 0,
+      completedAt: 1,
+      file: 'clip.mp4',
+    });
+
+    const target = {
+      kind: 'asset' as const,
+      designId: 'design-1',
+      assetId: asset.id,
+      attemptId: 'attempt-1',
+    };
+    await attachFrames(paths, { kind: 'frames.attach', uploadId: await stageFrames(), target });
+
+    // A second capture for the same attempt, with the retry landing mid-write.
+    beforeMutate = async () => {
+      await recordAttempt(paths, 'design-1', asset.id, {
+        id: 'attempt-2',
+        outcome: 'ready',
+        startedAt: 2,
+        completedAt: 3,
+        file: 'clip.mp4',
+      });
+    };
+    await attachFrames(paths, { kind: 'frames.attach', uploadId: await stageFrames(), target });
+
+    const design = await readDesign(paths, 'design-1');
+    const stored = design?.assets.find((entry) => entry.id === asset.id);
+    // The first attempt still names its poster, and the file is still there.
+    expect(stored?.attempts[0]?.posterFile).toBe('poster-attempt-1.webp');
+    expect(
+      await exists(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster-attempt-1.webp')),
+    ).toBe(true);
+  });
+
   it('leaves an asset with no successful attempt alone', async () => {
     await seedDesign(paths, 'design-1');
     const asset = await reserveAsset(paths, 'design-1', {

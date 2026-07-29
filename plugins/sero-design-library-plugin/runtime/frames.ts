@@ -160,6 +160,25 @@ async function attachToAsset(
   // and the lock leaves a poster no attempt names — and now that posters are
   // named per attempt, no later capture will ever overwrite it, so it would sit
   // there until the whole Design was purged.
-  if (updated === null) await rm(path.join(directory, posterFile), { force: true });
+  //
+  // Unless something already names it: a second capture for an attempt that has
+  // since been superseded would otherwise delete the poster an earlier capture
+  // recorded against that same attempt, leaving its history pointing at a file
+  // that is gone.
+  if (updated === null && !(await isNamed(paths, designId, assetId, posterFile))) {
+    await rm(path.join(directory, posterFile), { force: true });
+  }
   return {};
+}
+
+/** Whether any attempt on this asset still points at the file. */
+async function isNamed(
+  paths: DesignLibraryPaths,
+  designId: string,
+  assetId: string,
+  posterFile: string,
+): Promise<boolean> {
+  const design = await readDesign(paths, designId);
+  const asset = design?.assets.find((entry) => entry.id === assetId);
+  return asset?.attempts.some((attempt) => attempt.posterFile === posterFile) === true;
 }
