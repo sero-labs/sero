@@ -6,11 +6,11 @@ import {
   baselineTweakInstructions,
   baselineTweakProblem,
 } from '../../shared/baseline-tweaks';
+import { DESIGN_FONT_OPTIONS } from '../../shared/fonts';
 import type { EmittedFile } from '../../shared/targets';
 import {
   MAX_TWEAK_CONTROLS,
   MAX_TWEAK_OPTIONS,
-  normalizeTweakManifest,
 } from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
 import { validateTweakControls } from '../../shared/tweaks-validate';
@@ -68,14 +68,13 @@ export function createDeclareTweaksTool(
   // does not exist yet, and inventing one here would let a manifest claim to
   // belong to a revision that was never written.
   const validate = (entries: unknown[]) => {
-    const result = validateTweakControls(entries, sourceOf(), '');
-    return { ...result, manifest: normalizeTweakManifest(result.manifest) };
+    return validateTweakControls(entries.map(withRuntimeFontCatalog), sourceOf(), '');
   };
 
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
     label: 'Declare Design Tweaks',
-    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nDeclare Font and Body font as choices; the runtime supplies their standard font catalog. Connect each baseline property to its named \`h1\`, \`h2\` or \`body\` element. Body copy, controls, tables, labels and utility text must inherit Body size or use a small custom-property type scale derived from \`--body-size\`; do not hard-code text sizes. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
+    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nDeclare Font and Body font as choices with an exact standard default: ${DESIGN_FONT_OPTIONS.map((option) => `\`${option.value}\``).join(', ')}. The runtime supplies their options, so omit \`options\` for those two controls. Connect each baseline property to its named \`h1\`, \`h2\` or \`body\` element. Body copy, controls, tables, labels and utility text must inherit Body size or use a small custom-property type scale derived from \`--body-size\`; do not hard-code text sizes. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
     promptSnippet:
       'design_library_declare_tweaks — declares the live CSS controls for the page you wrote',
     parameters: Type.Object({
@@ -184,6 +183,25 @@ function toDefinitionShape(entry: unknown): unknown {
       ...(value.onValue === undefined ? {} : { onValue: value.onValue }),
       ...(value.offValue === undefined ? {} : { offValue: value.offValue }),
       ...(value.options === undefined ? {} : { options: value.options }),
+    },
+  };
+}
+
+/** The model chooses the shipped stack; the runtime owns the fixed catalog. */
+function withRuntimeFontCatalog(entry: unknown): unknown {
+  if (typeof entry !== 'object' || entry === null) return entry;
+  const definition = entry as Record<string, unknown>;
+  const control = definition.control;
+  if (typeof control !== 'object' || control === null) return entry;
+  const isHeading = definition.id === 'font' && definition.cssVariable === '--font-family';
+  const isBody = definition.id === 'body-font' && definition.cssVariable === '--body-font';
+  if ((!isHeading && !isBody) || (control as Record<string, unknown>).type !== 'choice') return entry;
+  if (!DESIGN_FONT_OPTIONS.some((option) => option.value === definition.defaultValue)) return entry;
+  return {
+    ...definition,
+    control: {
+      ...(control as Record<string, unknown>),
+      options: DESIGN_FONT_OPTIONS.map(({ label, value }) => ({ label, value })),
     },
   };
 }

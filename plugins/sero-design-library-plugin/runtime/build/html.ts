@@ -11,8 +11,8 @@ import type { BuildResult } from './types';
  * simply would not arrive. Inlining is what makes the document work at all, and
  * it is also what makes an export runnable from a folder.
  *
- * Anything remote from generated markup is removed and reported. The preview
- * harness owns the one controlled font-provider exception.
+ * Anything remote from generated markup is removed and reported. Design fonts
+ * arrive as bundled bytes over the parent channel, never from generated markup.
  */
 
 const LINK_PATTERN = /<link\b[^>]*>/gi;

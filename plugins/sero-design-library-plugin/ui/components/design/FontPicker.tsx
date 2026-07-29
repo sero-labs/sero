@@ -2,7 +2,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui';
 import { Check, ChevronDown } from 'lucide-react';
 
 import type { TweakOption, TweakValue } from '../../../shared/tweaks';
-import { loadDesignFont, preloadDesignFonts } from '../../lib/google-fonts';
+import { loadDesignFont, preloadDesignFonts } from '../../lib/design-fonts';
 
 interface FontPickerProps {
   id: string;

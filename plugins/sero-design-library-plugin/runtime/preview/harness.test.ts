@@ -50,6 +50,26 @@ function load(document: string): LoadedPreview {
     // inline script is blocked while the document is still being built, so a
     // listener attached afterwards would miss the very reports under test.
     beforeParse(window) {
+      const previewWindow = window as unknown as PreviewWindow;
+      class PreviewFontFace {
+        constructor(
+          public family: string,
+          public source: ArrayBuffer,
+          public descriptors: FontFaceDescriptors,
+        ) {}
+
+        load() {
+          return Promise.resolve(this);
+        }
+      }
+      Object.defineProperty(window, 'FontFace', { value: PreviewFontFace });
+      Object.defineProperty(window.document, 'fonts', {
+        value: {
+          add(face: PreviewFontFace) {
+            previewWindow.addedFont = face;
+          },
+        },
+      });
       window.addEventListener('message', (event: Event) => {
         const data = (event as MessageEvent).data;
         if (isPreviewMessage(data)) messages.push(data);
@@ -327,12 +347,24 @@ describe('a page that cannot be talked out of its guards', () => {
     );
   });
 
-  it('loads only a standard Google Font selected through the font control', () => {
+  it('loads only a bundled font face selected through the font control', async () => {
     const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }], [
       '--font-family',
     ]);
     const preview = load(built.document!);
 
+    preview.window.dispatchEvent(
+      new preview.window.MessageEvent('message', {
+        source: preview.window.parent,
+        data: {
+          source: 'sero-design-preview',
+          kind: 'font',
+          fontStack: 'Inter, system-ui, sans-serif',
+          faceId: 'inter-latin',
+          bytes: new preview.window.ArrayBuffer(8),
+        },
+      }),
+    );
     preview.window.dispatchEvent(
       new preview.window.MessageEvent('message', {
         source: preview.window.parent,
@@ -345,10 +377,10 @@ describe('a page that cannot be talked out of its guards', () => {
       }),
     );
 
-    const fontLink = preview.window.document.querySelector<HTMLLinkElement>(
-      'link[href^="https://fonts.googleapis.com/"]',
-    );
-    expect(fontLink?.href).toContain('family=Inter');
+    await settle(() => preview.window.addedFont !== undefined);
+    expect(preview.window.addedFont.family).toBe('Inter');
+    expect(preview.window.addedFont.descriptors.weight).toBe('300 800');
+    expect(preview.window.document.querySelector('link[href^="http"]')).toBeNull();
     expect(preview.window.document.documentElement.style.getPropertyValue('--font-family')).toBe(
       'Inter, system-ui, sans-serif',
     );
@@ -408,7 +440,7 @@ describe('the assembled document', () => {
     expect(built.document).toContain('Still renders');
   });
 
-  it('keeps the network closed except for the standard font provider', () => {
+  it('keeps every fetching directive closed', () => {
     // `default-src 'none'` is the claim; these are the directives people assume it
     // does not cover, stated so a later edit cannot quietly widen one.
     for (const directive of [
@@ -424,9 +456,9 @@ describe('the assembled document', () => {
     ]) {
       expect(PREVIEW_CSP).toContain(directive);
     }
-    expect(PREVIEW_CSP).toContain("style-src 'unsafe-inline' https://fonts.googleapis.com");
-    expect(PREVIEW_CSP).toContain('font-src data: https://fonts.gstatic.com');
-    expect(PREVIEW_CSP.match(/https:\/\//g)).toHaveLength(2);
+    expect(PREVIEW_CSP).toContain("style-src 'unsafe-inline'");
+    expect(PREVIEW_CSP).toContain('font-src data:');
+    expect(PREVIEW_CSP).not.toMatch(/https?:/);
     expect(PREVIEW_CSP).not.toContain('*');
   });
 

@@ -6,6 +6,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { DESIGN_FONT_OPTIONS } from '../../../shared/fonts';
 import { FontPicker } from './FontPicker';
 
+vi.mock('../../lib/design-fonts', () => ({
+  loadDesignFont: vi.fn(),
+  preloadDesignFonts: vi.fn(),
+}));
+
 describe('Design FontPicker', () => {
   it('shows the real font catalog and selects a web font', async () => {
     const onChange = vi.fn();

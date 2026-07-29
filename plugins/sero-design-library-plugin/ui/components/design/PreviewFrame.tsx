@@ -7,6 +7,7 @@ import {
   type PreviewMessage,
 } from '../../../shared/preview-message';
 import { decidePreviewLoad } from '../../lib/preview-navigation';
+import { designFontAssets } from '../../lib/design-fonts';
 import { useElementSize } from '../../hooks/useElementSize';
 import { usePreviewDocument, type PreviewTarget } from '../../hooks/usePreviewDocument';
 import { PreviewControls, VIEWPORTS, type Viewport } from './PreviewControls';
@@ -31,6 +32,33 @@ const VISIBLE_WARNINGS = 4;
 
 /** How long the first load is given to hear the frame announce itself. */
 const ANNOUNCE_GRACE_MS = 750;
+
+function sendFontAssets(
+  target: Window,
+  fontStack: string,
+  sent: Set<string>,
+): void {
+  void designFontAssets(fontStack)
+    .then((faces) => {
+      for (const face of faces) {
+        if (sent.has(face.id)) continue;
+        sent.add(face.id);
+        const bytes = face.bytes.slice(0);
+        target.postMessage(
+          {
+            source: PREVIEW_MESSAGE_SOURCE,
+            kind: 'font',
+            fontStack,
+            faceId: face.id,
+            bytes,
+          },
+          '*',
+          [bytes],
+        );
+      }
+    })
+    .catch(() => undefined);
+}
 
 export interface PreviewFrameProps {
   target: PreviewTarget | null;
@@ -95,6 +123,9 @@ export function PreviewFrame({
       // A fresh document is back at its own defaults, so nothing has been sent
       // to it yet — whatever the last one was holding does not carry over.
       applied.current = {};
+      // Replace rather than clear: an asset read for the old frame may still be
+      // in flight, and it must not mark a face as sent in the new frame's set.
+      sentFonts.current = new Set<string>();
     }
     frame.current = element;
   }, []);
@@ -104,6 +135,7 @@ export function PreviewFrame({
    * change rather than the whole manifest per frame.
    */
   const applied = useRef<Record<string, string>>({});
+  const sentFonts = useRef(new Set<string>());
 
   const sendTweaks = useCallback((values: Record<string, string>) => {
     const target = frame.current?.contentWindow;
@@ -119,6 +151,9 @@ export function PreviewFrame({
         { source: PREVIEW_MESSAGE_SOURCE, kind: 'tweak', cssVariable, value },
         '*',
       );
+      if (cssVariable === '--font-family' || cssVariable === '--body-font') {
+        sendFontAssets(target, value, sentFonts.current);
+      }
     }
   }, []);
 

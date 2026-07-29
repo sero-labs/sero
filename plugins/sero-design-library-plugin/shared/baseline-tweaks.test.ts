@@ -91,4 +91,29 @@ describe('baseline tweak contract', () => {
       'Body size must drive the page typography',
     );
   });
+
+  it('refuses a fixed size hidden inside a CSS function', () => {
+    const fixedSource = SOURCE.replace(
+      '</style>',
+      '.label { font-size: clamp(10px, 2vw, 14px); }</style>',
+    );
+
+    expect(baselineTweakProblem(controls(), fixedSource)).toContain(
+      'Body size must drive the page typography',
+    );
+  });
+
+  it('refuses Tailwind text utilities that compile to fixed rem sizes', () => {
+    const fixedSource = `${SOURCE}<p className="text-sm md:text-lg">Fixed utility text</p>`;
+
+    expect(baselineTweakProblem(controls(), fixedSource)).toContain(
+      'Body size must drive the page typography',
+    );
+  });
+
+  it('accepts a Tailwind arbitrary size that reads the derived type scale', () => {
+    const derivedSource = `${SOURCE}<p className="text-[length:var(--text-sm)]">Scaled text</p>`;
+
+    expect(baselineTweakProblem(controls(), derivedSource)).toBeNull();
+  });
 });

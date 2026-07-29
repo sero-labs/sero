@@ -5,6 +5,7 @@ import type {
   InspirationStrength,
 } from '../../shared/design';
 import { baselineTweakInstructions } from '../../shared/baseline-tweaks';
+import { DESIGN_FONT_OPTIONS } from '../../shared/fonts';
 import type { LibrarianUserFacingAnalysis } from '../../shared/librarian';
 import type { DesignAsset } from '../../shared/media';
 import { assetIsReady } from '../../shared/media';
@@ -223,14 +224,14 @@ function tweakRules(): string {
   const rules = [
     'Every page must route its typography through the seven standard custom properties below. Declare each property once at `:root`, read it with `var()` on the element it names, and declare its control first in the exact order shown.',
     'Font applies to `h1` and `h2`. H1 size, weight and tracking apply to `h1`. H2 size applies to `h2`. Body font and body size apply to `body` and inherited body copy.',
-    'Font and Body font are standard font pickers. Declare each as a choice with the page’s current stack; the runtime supplies the complete font catalog. H1 weight choices must include the weight the page ships with. Size ranges carry a sensible CSS unit; H1 tracking uses `em`.',
+    `Font and Body font are standard font pickers. Declare each as a choice with the page’s current stack as its exact default: ${DESIGN_FONT_OPTIONS.map((option) => `\`${option.value}\``).join(', ')}. Omit their options because the runtime supplies the complete catalog. H1 weight choices must include the weight the page ships with. Size ranges carry a sensible CSS unit; H1 tracking uses \`em\`.`,
     'Connect the baseline to its intended text with CSS rules that target `h1`, `h2` and `body`: `h1` owns Font, H1 size, H1 weight and H1 tracking; `h2` owns H2 size; `body` owns Body font and Body size. Qualified selectors such as `.hero h1` are valid. The page must contain an `h1` and an `h2`.',
     'Make Body size a real page-wide type scale. Define a few derived properties such as `--text-xs: calc(var(--body-size) * .75)`, `--text-sm`, `--text-base` and `--text-lg`. Use those properties or inherited Body size for body copy, controls, tables, labels and utility text. Do not hard-code `font-size` or `font` shorthand sizes in `px`, `rem`, `em` or `pt`; H1 and H2 keep their independent baseline properties.',
     `Required baseline controls:\n${baselineTweakInstructions()}`,
     'After the baseline, add only the page-specific decisions worth revisiting. A dense metrics dashboard may want density and accent controls; an editorial page may want measure. Two to six page-specific controls is usually right.',
     'Call `design_library_declare_tweaks` once, with the baseline followed by those page-specific controls.',
     'Every control must bind to a property the page declares **and** reads. One that does not is dropped, and a control that visibly does nothing is worse than a missing one.',
-    'Ranges carry a unit and sensible bounds either side of the value you shipped. Choices carry two or more real alternatives, not a scale in disguise.',
+    'Ranges carry a unit and sensible bounds either side of the value you shipped. Page-specific choices carry two or more real alternatives, not a scale in disguise.',
   ];
   return `## Live controls\n\n${rules.map((rule) => `- ${rule}`).join('\n')}`;
 }

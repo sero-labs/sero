@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { DESIGN_FONT_OPTIONS } from '../../shared/fonts';
 import type { EmittedFile } from '../../shared/targets';
 import { invokeTool } from '../librarian/test-support';
 import { createDeclareTweaksTool } from './tweaks-tool';
@@ -26,6 +27,22 @@ const CONTROL = {
 
 const PAGE = `<style>:root { --display-scale: 34px; } h1 { font-size: var(--display-scale); }</style>`;
 const PAGE_WITHOUT = `<style>h1 { font-size: 34px; }</style>`;
+const BASELINE_PAGE = `<style>
+:root { --font-family: system-ui, sans-serif; --h1-size: 48px; --h1-weight: 600; --h1-tracking: 0em; --h2-size: 28px; --body-font: system-ui, sans-serif; --body-size: 16px; }
+h1 { font-family: var(--font-family); font-size: var(--h1-size); font-weight: var(--h1-weight); letter-spacing: var(--h1-tracking); }
+h2 { font-size: var(--h2-size); }
+body { font-family: var(--body-font); font-size: var(--body-size); }
+</style><h1>Title</h1><h2>Section</h2>`;
+
+const BASELINE_CONTROLS = [
+  { id: 'font', group: 'Typography', label: 'Font', cssVariable: '--font-family', type: 'choice', defaultValue: 'system-ui, sans-serif' },
+  { id: 'h1-size', group: 'Typography', label: 'H1 size', cssVariable: '--h1-size', type: 'range', defaultValue: '48', min: 24, max: 96, step: 1, unit: 'px' },
+  { id: 'h1-weight', group: 'Typography', label: 'H1 weight', cssVariable: '--h1-weight', type: 'choice', defaultValue: '600', options: [{ label: '400', value: '400' }, { label: '600', value: '600' }] },
+  { id: 'h1-tracking', group: 'Typography', label: 'H1 tracking', cssVariable: '--h1-tracking', type: 'range', defaultValue: '0', min: -0.1, max: 0.1, step: 0.01, unit: 'em' },
+  { id: 'h2-size', group: 'Typography', label: 'H2 size', cssVariable: '--h2-size', type: 'range', defaultValue: '28', min: 16, max: 64, step: 1, unit: 'px' },
+  { id: 'body-font', group: 'Typography', label: 'Body font', cssVariable: '--body-font', type: 'choice', defaultValue: 'system-ui, sans-serif' },
+  { id: 'body-size', group: 'Typography', label: 'Body size', cssVariable: '--body-size', type: 'range', defaultValue: '16', min: 12, max: 24, step: 1, unit: 'px' },
+];
 
 function toolOver(files: EmittedFile[]) {
   // The array is mutated by the tests, exactly as the emitter's would be.
@@ -40,6 +57,17 @@ describe('declaring the controls for a page', () => {
 
     expect(tool.result()?.manifest.controls.map((entry) => entry.id)).toEqual(['display-scale']);
     expect(tool.result()?.dropped).toEqual([]);
+  });
+
+  it('supplies bundled font choices when the model declares only the standard default', async () => {
+    const { tool } = toolOver([{ name: 'index.html', content: BASELINE_PAGE }]);
+
+    await invokeTool(tool.definition, { controls: BASELINE_CONTROLS });
+
+    const font = tool.result()?.manifest.controls[0];
+    expect(font?.control.type === 'choice' ? font.control.options : []).toHaveLength(
+      DESIGN_FONT_OPTIONS.length,
+    );
   });
 
   it('tells the model when a valid page-specific control lacks the baseline', async () => {

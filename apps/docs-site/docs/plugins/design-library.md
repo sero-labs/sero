@@ -93,11 +93,11 @@ Each variant is its own piece of work. They run a couple at a time and appear as
 
 ### The preview
 
-Generated work runs in a sealed frame: no access to Sero, your files or your workspace, no cookies or storage, and no general network access. The only network exception is the font selected from the fixed Design font list.
+Generated work runs in a sealed frame: no network, no access to Sero, your files or your workspace, and no cookies or storage. Design fonts are bundled with the plugin and passed into the frame as local data.
 
 If the design tried to do something the frame does not allow — load a font from the web, call an API, open a new window — the preview blocks it, still shows everything else, and lists what it stopped underneath the frame. A warning always means the thing was blocked. It never means it was allowed.
 
-Generated designs can use the Design font picker, system fonts, CSS gradients and shapes, and SVG they draw themselves. Generated code cannot request its own remote fonts or assets.
+Generated designs can use the Design font picker, system fonts, CSS gradients and shapes, and SVG they draw themselves. Generated code cannot request remote fonts or assets.
 
 There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
 

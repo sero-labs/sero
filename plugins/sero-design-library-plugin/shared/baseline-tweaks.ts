@@ -71,6 +71,36 @@ function ruleUsesVariableOnElement(
   return false;
 }
 
+const FIXED_TEXT_UNIT = /-?(?:\d*\.)?\d+(?:px|rem|em|pt)\b/i;
+const STANDARD_TEXT_UTILITY = /(?:^|:)text-(?:xs|sm|base|lg|xl|[2-9]xl)$/;
+
+function usesFixedTextSize(source: string): boolean {
+  for (const match of source.matchAll(/\b(?:font-size|font)\s*:\s*([^;{}]+)/gi)) {
+    if (FIXED_TEXT_UNIT.test(match[1] ?? '')) return true;
+  }
+
+  // React designs are encouraged to use Tailwind. Its named text utilities turn
+  // into fixed rem values only after this source-level check, so they must be
+  // caught from class attributes before the browser compiler sees them.
+  for (const match of source.matchAll(
+    /\bclass(?:Name)?\s*=\s*(?:\{\s*)?(["'`])([\s\S]*?)\1\s*\}?/g,
+  )) {
+    const tokens = (match[2] ?? '').split(/\s+/);
+    if (tokens.some((token) => STANDARD_TEXT_UTILITY.test(token))) return true;
+    if (
+      tokens.some(
+        (token) =>
+          /(?:^|:)text-\[[^\]]+\]$/.test(token) &&
+          FIXED_TEXT_UNIT.test(token) &&
+          !/var\(--(?:body-size|text-[A-Za-z0-9_-]+|h[12]-size)\)/.test(token),
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Why a finished manifest does not meet the baseline contract. */
 export function baselineTweakProblem(
   controls: readonly TweakDefinition[],
@@ -111,9 +141,7 @@ export function baselineTweakProblem(
       return `${required.label} cannot work because the page has no \`<${rule.selector}>\` element.`;
     }
   }
-  const fixedSize = /\bfont-size\s*:\s*-?(?:\d*\.)?\d+(?:px|rem|em|pt)\b/i.exec(source);
-  const fixedShorthand = /\bfont\s*:[^;{}]*\b\d+(?:\.\d+)?(?:px|rem|em|pt)\b/i.exec(source);
-  if (fixedSize !== null || fixedShorthand !== null) {
+  if (usesFixedTextSize(source)) {
     return 'Body size must drive the page typography. Use `var(--body-size)` and a small derived type scale such as `--text-xs`, `--text-sm`, `--text-base` and `--text-lg`; do not hard-code text sizes.';
   }
   return null;

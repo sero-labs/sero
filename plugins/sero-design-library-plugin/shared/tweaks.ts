@@ -298,17 +298,15 @@ export function normalizeTweakManifest(value: unknown): TweakManifest {
   };
 }
 
-/** Migrate old two-option font controls and ignore model-authored font catalogs. */
+/** Supply the catalog only when doing so will not change the shipped default. */
 function withStandardFontOptions(definition: TweakDefinition): TweakDefinition {
   const isHeadingFont = definition.id === 'font' && definition.cssVariable === '--font-family';
   const isBodyFont = definition.id === 'body-font' && definition.cssVariable === '--body-font';
   if (!isHeadingFont && !isBodyFont) return definition;
   if (definition.control.type !== 'choice') return definition;
   const options = DESIGN_FONT_OPTIONS.map(({ label, value }) => ({ label, value }));
-  const defaultValue = options.some((option) => option.value === definition.defaultValue)
-    ? definition.defaultValue
-    : options[0]!.value;
-  return { ...definition, control: { type: 'choice', options }, defaultValue };
+  if (!options.some((option) => option.value === definition.defaultValue)) return definition;
+  return { ...definition, control: { type: 'choice', options } };
 }
 
 /**

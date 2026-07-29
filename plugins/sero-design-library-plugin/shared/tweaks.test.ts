@@ -266,7 +266,31 @@ describe('reading a manifest back', () => {
     );
   });
 
-  it('does not offer web fonts to an old preview that cannot load them', () => {
+  it('does not replace an unknown shipped font with System Sans', () => {
+    const document = normalizeTweakDocument({
+      manifest: {
+        schemaVersion: 2,
+        controls: [
+          {
+            id: 'font',
+            cssVariable: '--font-family',
+            control: {
+              type: 'choice',
+              options: [
+                { label: 'Manrope', value: 'Manrope, sans-serif' },
+                { label: 'Sans', value: 'system-ui, sans-serif' },
+              ],
+            },
+            defaultValue: 'Manrope, sans-serif',
+          },
+        ],
+      },
+    });
+
+    expect(document.manifest.controls[0]?.defaultValue).toBe('Manrope, sans-serif');
+  });
+
+  it('does not offer bundled fonts to an old preview that cannot load them', () => {
     const document = normalizeTweakDocument({
       manifest: {
         schemaVersion: 1,

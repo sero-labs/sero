@@ -3,9 +3,9 @@ import { PREVIEW_CSP, buildPreviewHarness } from './harness';
 /**
  * Assembling the one file a preview runs from.
  *
- * The generated page is folded into one document. Its only external resource is
- * a font stylesheet that the trusted harness can add from the fixed catalog;
- * generated markup and code cannot add network dependencies (spec §6.3, §7).
+ * The generated page is folded into one document. Design fonts arrive as bundled
+ * bytes from the parent and are installed by the trusted harness; generated
+ * markup and code cannot add network dependencies (spec §6.3, §7).
  */
 
 /** `</script>` inside inlined code would end the tag early and escape the block. */
