@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { FilesTab } from './FilesTab';
 
@@ -35,5 +36,14 @@ describe('FilesTab', () => {
 
     expect(screen.queryByRole('list')).toBeNull();
     expect(screen.getByText('Nothing has been written yet.')).toBeDefined();
+  });
+
+  it('opens the revision folder when the desktop action is available', async () => {
+    const onOpen = vi.fn();
+    render(<FilesTab files={[{ name: 'index.html', bytes: 20 }]} onOpen={onOpen} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
+
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 });

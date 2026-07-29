@@ -7,6 +7,7 @@ import type { LayoutSettings, RevisionBehaviour } from '../../shared/settings';
 import type { ConflictResolution, GuardrailSynthesis } from '../../shared/synthesis';
 import type { DesignLibraryState, DesignSummary } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
+import { showItemInFolder } from '../lib/host-files';
 
 /**
  * The Design surface's read and write path.
@@ -47,6 +48,8 @@ export interface DesignActions {
     behaviour: RevisionBehaviour,
   ): Promise<void>;
   showRevision(designId: string, variantId: string, revisionId: string): Promise<void>;
+  /** Reveal one revision's directory through the generic desktop shell bridge. */
+  openFiles(designId: string, variantId: string, revisionId: string): Promise<void>;
   remove(designId: string): Promise<void>;
   /** Panel width and rail state, persisted like every other preference. */
   setLayout(patch: Partial<LayoutSettings>): Promise<void>;
@@ -128,6 +131,11 @@ export function useDesigns(): Designs {
       },
       showRevision: async (designId, variantId, revisionId) => {
         await run({ action: 'show-revision', designId, variantId, revisionId });
+      },
+      openFiles: async (designId, variantId, revisionId) => {
+        const result = await run({ action: 'files-location', designId, variantId, revisionId });
+        const folder = detailsOf(result).folder;
+        if (typeof folder === 'string') await showItemInFolder(folder);
       },
       remove: async (designId) => {
         await run({ action: 'delete', designId });

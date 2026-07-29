@@ -292,6 +292,8 @@ Each control has Reset; the panel has Reset all; Copy CSS yields the effective s
 
 **Placement.** Tweaks is a fourth tab in the variant inspector, alongside Design, Files and History. The inspector is drag-resizable using `ResizablePanel` from `@sero-ai/ui`, and its width persists in plugin state, so a control-heavy design can be given room and narrowed again afterwards. The sessions rail collapses to icons, which is what makes a widened inspector affordable.
 
+**Files.** The Files tab lists the authored files for the visible revision and can open that revision's folder in Finder. The action resolves the folder from the validated Design record and uses Sero's generic shell bridge. It does not give the UI filesystem access, and the action can later open the same files in the Editor instead.
+
 Tweak state autosaves continuously, but one *editing session* checkpoints as **one** recoverable revision — when the panel closes, the active variant changes, a new revision starts, Gallery saves, or Sero shuts down. Slider input must never create revision spam.
 
 ### 6.6 Media in a Design

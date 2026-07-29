@@ -108,7 +108,7 @@ Underneath the preview you can set the width the page is rendered at, and reload
 Five tabs, all about the variant on screen:
 
 - **Design** — what the run made and what it was made from: its concept, the references it drew on, and the visual language it took from them.
-- **Files** — what it wrote, and how big each file is.
+- **Files** — what it wrote and how big each file is. **Open in Finder** opens that revision's folder on your Mac.
 - **History** — every result this variant has had, and the tweak values you had set earlier. Selecting one puts it back on screen; nothing is generated and nothing is lost.
 - **Tweaks** — the live controls for this exact page (below).
 - **Art** — the pictures and video this design uses (below).
