@@ -27,7 +27,7 @@ import {
   needsConfirmation,
   needsSource,
 } from '../../shared/media';
-import { allowedDurations } from '../../shared/media-options';
+import { allowedDurations, videoLengthRefusal } from '../../shared/media-options';
 import { capabilityLabel } from '../lib/asset-view';
 
 /**
@@ -112,8 +112,13 @@ export function GenerateDialog({
   // the request the provider rejects.
   const options = modelOptions?.[capability];
   const durations = allowedDurations(options) ?? FALLBACK_DURATIONS;
+  // The model makes nothing short enough to be worth buying. Said here and
+  // refused again in the runtime, because the request also arrives from a tool.
+  const tooLong = videoLengthRefusal(capability, options);
   const durationSeconds =
-    chosenDuration !== null && durations.includes(chosenDuration) ? chosenDuration : durations[0];
+    chosenDuration !== null && durations.includes(chosenDuration)
+      ? chosenDuration
+      : (durations[0] ?? DEFAULT_VIDEO_SECONDS);
   const ratios = options?.aspectRatios ?? FALLBACK_ASPECT_RATIOS;
   const aspectRatio =
     chosenAspect !== null && ratios.includes(chosenAspect)
@@ -128,9 +133,10 @@ export function GenerateDialog({
     ...(sourceId === '' ? {} : { sourceIds: [sourceId] }),
   });
   const noSources = wantsSource && sources.length === 0;
+  const blocked = missing !== null || noSources || tooLong !== null;
 
   const submit = () => {
-    if (missing !== null || noSources) return;
+    if (blocked) return;
     onGenerate({
       capability,
       prompt: prompt.trim(),
@@ -173,6 +179,19 @@ export function GenerateDialog({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+
+          {/*
+            A reference chosen for a restyle stays chosen when the capability
+            changes, and the row that showed it disappears — so the request went
+            out from the words alone while the dialog still looked like it was
+            working from the picture. It says so now instead.
+          */}
+          {!wantsSource && sourceId !== '' && (
+            <p className="text-muted-foreground text-sm">
+              {capabilityLabel(capability)} works from your description alone. The reference you
+              chose will not be used.
+            </p>
+          )}
 
           {wantsSource && (
             <div className="space-y-1.5">
@@ -261,11 +280,12 @@ export function GenerateDialog({
 
         <div className="flex items-center gap-3">
           <p className="text-muted-foreground flex-1 text-xs">
-            {needsConfirmation(capability)
-              ? 'Video is the most expensive capability and asks again before it spends.'
-              : 'The model behind each capability is a setting, not a choice made here.'}
+            {tooLong ??
+              (needsConfirmation(capability)
+                ? 'Video is the most expensive capability and asks again before it spends.'
+                : 'The model behind each capability is a setting, not a choice made here.')}
           </p>
-          <Button type="button" onClick={submit} disabled={missing !== null || noSources}>
+          <Button type="button" onClick={submit} disabled={blocked}>
             <Sparkles className="size-3.5" />
             Generate
           </Button>

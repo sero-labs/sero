@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from './media';
-import { allowedDurations, settleMediaRequest } from './media-options';
+import { allowedDurations, settleMediaRequest, videoLengthRefusal } from './media-options';
 
 /**
  * Settling a request against what the model takes.
@@ -45,11 +45,21 @@ describe('settling a video request', () => {
     expect(settleMediaRequest({ ...video, durationSeconds: 60 }, options).durationSeconds).toBe(10);
   });
 
-  it('takes the shortest clip a model offers even when all of them are long', () => {
-    // Refusing to generate at all is not a spend protection anybody asked for,
-    // and the confirmation still quotes the number before it is spent.
+  it('refuses a model whose every clip is longer than the ceiling', () => {
+    // The ceiling is the promise that one press cannot spend more than a known
+    // amount. Buying the model's shortest clip anyway would break that promise
+    // precisely where it matters.
     const options = { durationsSeconds: [20, 40] };
-    expect(settleMediaRequest(video, options).durationSeconds).toBe(20);
+    expect(allowedDurations(options)).toEqual([]);
+    expect(videoLengthRefusal('text-to-video', options)).toContain(String(MAX_VIDEO_SECONDS));
+  });
+
+  it('refuses nothing when the model has a length we will buy', () => {
+    expect(videoLengthRefusal('text-to-video', { durationsSeconds: [5, 20] })).toBeNull();
+    // Unknown options are not a refusal: the request goes out as asked.
+    expect(videoLengthRefusal('text-to-video', undefined)).toBeNull();
+    // And a still image is never refused for its length.
+    expect(videoLengthRefusal('text-to-image', { durationsSeconds: [20] })).toBeNull();
   });
 
   it('leaves an unstated length alone when the model could not be asked', () => {

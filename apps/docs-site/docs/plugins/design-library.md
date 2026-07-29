@@ -142,7 +142,7 @@ Each piece shows what it is, what it cost, and the name the page refers to it by
 | Copy to Library | Copy it into your Library as a reference of its own, with its own copy of the file |
 | Delete | Hide it from the tray. The file stays until the design is deleted |
 
-Only the buttons that apply are shown: nothing to retry on a picture that worked, and nothing to copy until one has actually arrived.
+Only the buttons that apply are shown: nothing to retry on a picture that worked, and nothing to copy until one has actually arrived. Retry appears only where trying again could give a different answer — a provider that was busy, or a run that never finished. Where the request itself was refused, trying again would only be refused the same way, so the button is not offered.
 
 If the provider is unavailable, you get a placeholder you can retry rather than a design that failed. If Sero closes while a picture is generating, it comes back as something you can retry — it is never generated again on its own, because the provider may already have charged for the first attempt.
 
@@ -177,6 +177,8 @@ Generated references arrive in the Library like any other and are read by the Li
 Video is the most expensive thing here, so it always asks before it spends — including when the model asks for it in the middle of building a design. The confirmation says how long the clip will be, because that is what you are being asked to pay for.
 
 The lengths on offer come from the video model itself, not from a list kept here: one model makes clips of exactly 5 or 10 seconds, another does 4, 6 or 8. Change the model in Settings and the lengths change with it. If the model cannot be asked — an unusual endpoint, or no connection at that moment — the clip runs to whatever length that model produces by default, and the confirmation says so.
+
+There is an upper limit of 12 seconds on anything one press can buy. If the video model in Settings makes nothing shorter than that, the plugin says so and refuses rather than quietly buying its shortest clip. Choose a model with shorter clips.
 
 A video needs Sero to be open to get its thumbnail: the frames are captured by the app, not in the background. One generated while Sero was closed shows as still working until the next time you open it, at which point it gets its thumbnail and is read like anything else. The Librarian is shown a strip of frames from across the clip, so it can describe the movement as well as the look.
 

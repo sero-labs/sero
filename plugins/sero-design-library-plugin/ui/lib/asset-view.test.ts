@@ -76,12 +76,48 @@ describe('what the tray shows for one asset', () => {
   it('reports a failure with the provider’s own words, never an empty message', () => {
     const view = assetView({
       ...asset(),
-      attempts: [attempt({ id: 'a1', outcome: 'failed' })],
+      attempts: [
+        attempt({
+          id: 'a1',
+          outcome: 'failed',
+          error: { code: 'provider', message: '', retryable: true },
+        }),
+      ],
     });
 
     expect(view.state).toBe('failed');
     expect(view.status).toBe('The provider failed.');
     expect(view.canRetry).toBe(true);
+  });
+
+  it('offers no retry for a failure that would fail the same way again', () => {
+    // The provider says a malformed request is not retryable, and a button that
+    // promises otherwise only spends the user's patience.
+    const rejected = assetView({
+      ...asset(),
+      attempts: [
+        attempt({
+          id: 'a1',
+          outcome: 'failed',
+          error: { code: 'invalid-request', message: 'Input should be 5 or 10.', retryable: false },
+        }),
+      ],
+    });
+    expect(rejected.canRetry).toBe(false);
+
+    // A rejected key is the exception: it is fixed in Settings, and then the
+    // same call is worth making.
+    const badKey = assetView({
+      ...asset(),
+      attempts: [
+        attempt({
+          id: 'a1',
+          outcome: 'failed',
+          error: { code: 'auth', message: 'The fal API key was rejected.', retryable: false },
+        }),
+      ],
+    });
+    expect(badKey.canRetry).toBe(true);
   });
 
   it('will not offer a second retry while one is in flight', () => {

@@ -176,6 +176,25 @@ describe('an item orphaned by a finished job', () => {
     expect(after?.analysis.jobId).toBe(job.id);
   });
 
+  it('writes no job file at all for work that is already finished', async () => {
+    // Reconciliation runs over the whole job history on every start, and almost
+    // every job in it is done. Creating a replacement first and retiring it
+    // afterwards left one dead file per finished job per start: the directory
+    // grew by its own size every time the app opened.
+    const item = await seedItem('itm-settled', 'ready');
+    const job = await createJob(paths, 'analysis', itemTarget(item.id));
+    await mutateItem(paths, item.id, (current) => ({
+      ...current,
+      analysis: { ...current.analysis, status: 'ready', jobId: job.id },
+    }));
+    await markSucceeded(paths, job.id);
+
+    const before = (await listJobs(paths)).length;
+    await reconcileJobs(paths);
+    await reconcileJobs(paths);
+    expect((await listJobs(paths)).length).toBe(before);
+  });
+
   it('ignores a finished job the item has already moved on from', async () => {
     const item = await seedItem('itm-moved', 'running');
     const stale = await createJob(paths, 'analysis', itemTarget(item.id));

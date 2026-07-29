@@ -159,9 +159,11 @@ describe('a Design asset', () => {
     const stored = design?.assets.find((entry) => entry.id === asset.id);
     // On the attempt, not the asset: a retry produces different footage, and a
     // poster that outlived its attempt would show the old clip under the new.
-    expect(currentAttempt(stored!)?.posterFile).toBe('poster.webp');
+    // Named for the attempt, so a capture that arrives after a retry cannot
+    // leave its frames in the file the new attempt's record points at.
+    expect(currentAttempt(stored!)?.posterFile).toBe('poster-attempt-1.webp');
     expect(
-      await readFile(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster.webp')),
+      await readFile(path.join(designAssetDir(paths, 'design-1', asset.id), 'poster-attempt-1.webp')),
     ).toEqual(POSTER);
   });
 

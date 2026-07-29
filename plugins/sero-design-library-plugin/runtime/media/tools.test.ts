@@ -254,6 +254,47 @@ describe('media tools', () => {
     expect(asked).toEqual([DEFAULT_VIDEO_SECONDS, 10]);
   });
 
+  it('will not buy a clip from a model that makes nothing short enough', async () => {
+    // The ceiling is a promise about what one press can cost. Taking the
+    // model's shortest clip instead would break it exactly where it counts.
+    const asked: (number | undefined)[] = [];
+    const budget = recordingBudget(asked);
+    const outcome = await generateAsset(
+      'text-to-video',
+      { capability: 'text-to-video', prompt: 'a pan' },
+      context({
+        budget,
+        provider: createFakeProvider({
+          modelOptions: { 'text-to-video': { durationsSeconds: [20, 40] } },
+        }),
+      }),
+    );
+
+    expect(outcome).toMatchObject({ refused: expect.stringContaining('shorter') });
+    expect(asked).toEqual([]);
+    expect(budget.callsUsed).toBe(0);
+    expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(0);
+  });
+
+  it('records the model that settled a retry, not just the length', async () => {
+    // The asset should say what was actually bought. A record that still names
+    // the number the user typed is a record of something that never happened.
+    const shared = context({
+      provider: createFakeProvider({ modelOptions: fixedLengths }),
+    });
+    const asset = expectAsset(
+      await generateAsset('text-to-video', { capability: 'text-to-video', prompt: 'a pan' }, shared),
+    );
+
+    await generateForAsset({ ...asset, request: { ...asset.request, durationSeconds: 300 } }, shared);
+
+    const stored = (await readDesign(paths, DESIGN_ID))?.assets.find(
+      (entry) => entry.id === asset.id,
+    );
+    expect(stored?.request.durationSeconds).toBe(10);
+    expect(stored?.request.model).toBeDefined();
+  });
+
   it('totals reported cost per asset and per Design', async () => {
     const shared = context();
     await generateAsset('text-to-image', { capability: 'text-to-image', prompt: 'one' }, shared);

@@ -193,7 +193,13 @@ describe('the tray as a whole', () => {
       asset({
         id: 'b',
         request: { capability: 'text-to-image', prompt: 'The newest one' },
-        attempts: [attempt({ id: 'a1', outcome: 'failed' })],
+        attempts: [
+          attempt({
+            id: 'a1',
+            outcome: 'failed',
+            error: { code: 'provider', message: 'The provider is unavailable.', retryable: true },
+          }),
+        ],
       }),
     ]);
 

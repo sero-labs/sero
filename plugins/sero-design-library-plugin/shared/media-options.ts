@@ -17,10 +17,17 @@
 import type { MediaCapability, MediaModelOptions } from './media';
 import { DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS, boundedDuration } from './media';
 
-/** Every length worth offering for a model, ascending, or null when unknown. */
+/**
+ * Every length worth offering for a model, ascending, or null when unknown.
+ *
+ * The ceiling is applied here, so it holds for the picker and the runtime alike.
+ * An empty list is a real answer and not the same as null: it means the model
+ * was asked, and the shortest clip it makes is longer than we are willing to buy
+ * without being told otherwise.
+ */
 export function allowedDurations(options: MediaModelOptions | undefined): number[] | null {
   const listed = options?.durationsSeconds;
-  if (listed !== undefined && listed.length > 0) return listed.toSorted((a, b) => a - b);
+  if (listed !== undefined && listed.length > 0) return affordable(listed);
 
   const range = options?.durationRange;
   if (range === undefined) return null;
@@ -28,22 +35,41 @@ export function allowedDurations(options: MediaModelOptions | undefined): number
   // exists to say what this costs, and a box accepting any number of seconds
   // invites a value nobody meant to buy.
   const mid = Math.round((range.min + range.max) / 2);
-  return [...new Set([range.min, mid, range.max])].sort((a, b) => a - b);
+  return affordable([...new Set([range.min, mid, range.max])]);
+}
+
+function affordable(seconds: number[]): number[] {
+  return seconds.filter((value) => value <= MAX_VIDEO_SECONDS).toSorted((a, b) => a - b);
+}
+
+/**
+ * Why this model cannot be asked for a video, or null when it can.
+ *
+ * A model whose shortest clip is longer than the ceiling is refused rather than
+ * quietly bought at its own length. The ceiling is the promise that one press
+ * cannot spend more than a known amount, and a promise that yields to whatever
+ * the endpoint happens to offer is not one.
+ */
+export function videoLengthRefusal(
+  capability: MediaCapability,
+  options: MediaModelOptions | undefined,
+): string | null {
+  if (capability !== 'text-to-video') return null;
+  if (allowedDurations(options)?.length !== 0) return null;
+  return (
+    `The video model in Settings makes nothing shorter than ${MAX_VIDEO_SECONDS} seconds, ` +
+    'which is longer than this app will buy in one go. Choose a model with shorter clips.'
+  );
 }
 
 /**
  * The length to actually ask for, out of what the model allows.
  *
  * Nearest-allowed rather than exact: the caller's number is a preference, and a
- * model that takes 5 or 10 has no way to honour a request for 4. Our own ceiling
- * applies wherever the model leaves room — but when every length it offers is
- * longer than the ceiling, the shortest one it offers wins, because refusing to
- * generate anything at all is not a spend protection anybody asked for.
+ * model that takes 5 or 10 has no way to honour a request for 4.
  */
 function nearestAllowed(preferred: number, allowed: number[]): number {
-  const affordable = allowed.filter((seconds) => seconds <= MAX_VIDEO_SECONDS);
-  const candidates = affordable.length > 0 ? affordable : [Math.min(...allowed)];
-  return candidates.reduce((best, seconds) =>
+  return allowed.reduce((best, seconds) =>
     Math.abs(seconds - preferred) < Math.abs(best - preferred) ? seconds : best,
   );
 }
@@ -100,8 +126,13 @@ export function settleMediaRequest<
 
   const allowed = allowedDurations(options);
   const preferred = boundedDuration(requested);
+  // An empty list is handled like an unknown one: the callers refuse a model
+  // whose clips are all too long before reaching here, and inventing a length it
+  // never offered would only be rejected further down.
   const durationSeconds =
-    allowed === null ? preferred : nearestAllowed(preferred ?? DEFAULT_VIDEO_SECONDS, allowed);
+    allowed === null || allowed.length === 0
+      ? preferred
+      : nearestAllowed(preferred ?? DEFAULT_VIDEO_SECONDS, allowed);
 
   const ratios = options?.aspectRatios;
   const aspectRatio =

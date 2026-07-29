@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import type { MediaAttempt, MediaCapability, StoredMediaRequest } from '../../shared/media';
 import { kindFor } from '../../shared/media';
-import { settleMediaRequest } from '../../shared/media-options';
+import { settleMediaRequest, videoLengthRefusal } from '../../shared/media-options';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { ItemRecord, ItemSourceKind } from '../../shared/records';
 import { stageGeneratedUpload } from '../../shared/uploads';
@@ -90,10 +90,11 @@ export async function generateIntoLibrary(
   // here against the model's own options, before the confirmation quotes a
   // length and before the provider is asked for one.
   const model = context.provider.defaultModel(incoming.capability);
-  const request = settleMediaRequest(
-    incoming,
-    await modelOptions(context.provider, incoming.capability, model, context.signal),
-  );
+  const options = await modelOptions(context.provider, incoming.capability, model, context.signal);
+  const refusal = videoLengthRefusal(incoming.capability, options);
+  if (refusal !== null) return { status: 'refused', reason: refusal };
+
+  const request = settleMediaRequest(incoming, options);
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,
     model,

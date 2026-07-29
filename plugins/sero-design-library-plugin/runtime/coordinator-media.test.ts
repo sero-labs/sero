@@ -5,7 +5,7 @@ import { appendRequest, readState } from '../shared/state-io';
 
 import { useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
-import { readItem } from './store';
+import { listJobs, readItem } from './store';
 import { seedDesign } from './test-fixtures';
 
 /**
@@ -219,6 +219,27 @@ describe('generating into the Library', () => {
     expect((await readItem(harness.paths, itemId))?.generation?.prompt).toBe(
       'brutalist poster grid',
     );
+  });
+
+  it('never leaves a job that exists but has nothing to generate', async () => {
+    // The job and the thing it is meant to generate are one write. Two writes
+    // left a crash window where the job existed empty — and the slot could not
+    // recover, because a slot that already has a job is exactly how the replay
+    // knows not to start a second one.
+    await appendRequest(harness.paths, {
+      kind: 'library.generate',
+      slotId: 'slot-atomic',
+      capability: 'text-to-image',
+      prompt: 'brutalist poster grid',
+    });
+    await harness.coordinator.drain();
+
+    const jobs = await listJobs(harness.paths);
+    const slotJobs = jobs.filter(
+      (job) => job.target.kind === 'library' && job.target.slotId === 'slot-atomic',
+    );
+    expect(slotJobs).toHaveLength(1);
+    expect(slotJobs[0]?.media?.prompt).toBe('brutalist poster grid');
   });
 
   it('starts one generation however often the request lands', async () => {

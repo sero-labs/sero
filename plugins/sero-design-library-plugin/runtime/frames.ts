@@ -122,9 +122,13 @@ async function attachToAsset(
   // nobody can see any more.
   if (showing.id !== attemptId) return {};
 
+  // Named for the attempt rather than shared. Two attempts writing one
+  // `poster.webp` means the loser of that race leaves its frames in the file the
+  // winner's record points at — a poster of footage that is no longer on show.
+  const posterFile = `poster-${attemptId}.webp`;
   const directory = designAssetDir(paths, designId, assetId);
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, POSTER_FILE), poster);
+  await writeFile(path.join(directory, posterFile), poster);
 
   await mutateDesign(paths, designId, (design) => {
     const asset = design.assets.find((entry) => entry.id === assetId);
@@ -144,7 +148,7 @@ async function attachToAsset(
           : {
               ...entry,
               attempts: entry.attempts.map((candidate) =>
-                candidate.id === attemptId ? { ...candidate, posterFile: POSTER_FILE } : candidate,
+                candidate.id === attemptId ? { ...candidate, posterFile } : candidate,
               ),
               updatedAt: Date.now(),
             },

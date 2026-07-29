@@ -3,13 +3,13 @@ import { Type } from 'typebox';
 
 import type { DesignAsset, MediaCapability, StoredMediaRequest } from '../../shared/media';
 import { MAX_VIDEO_SECONDS, boundedDuration, missingRequirement } from '../../shared/media';
-import { settleMediaRequest } from '../../shared/media-options';
+import { settleMediaRequest, videoLengthRefusal } from '../../shared/media-options';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
 import { modelOptions } from './contract';
 import type { MediaBudget } from './budget';
-import { createSourceResolver, recordAttempt, reserveAsset } from './assets';
+import { createSourceResolver, recordAttempt, reserveAsset, storeSettledRequest } from './assets';
 import { executeMedia } from './execute';
 
 /**
@@ -144,10 +144,11 @@ export async function generateAsset(
   // the same clip rather than a different one. Against the model's own options,
   // because a length it does not accept is a request it refuses outright.
   const model = stored.model ?? context.provider.defaultModel(capability);
-  const request = settleMediaRequest(
-    stored,
-    await modelOptions(context.provider, capability, model, context.signal),
-  );
+  const options = await modelOptions(context.provider, capability, model, context.signal);
+  const refusal = videoLengthRefusal(capability, options);
+  if (refusal !== null) return { refused: refusal };
+
+  const request = settleMediaRequest(stored, options);
   const decision = await context.budget.claim(capability, {
     prompt: request.prompt,
     model,
@@ -155,7 +156,11 @@ export async function generateAsset(
   });
   if (!decision.allowed) return { refused: decision.reason };
 
-  const asset = await reserveAsset(context.paths, context.designId, request, {
+  // The settled request is what gets stored, with the model that settled it: the
+  // asset should say what was actually bought, and a retry that starts from the
+  // original numbers would settle them all over again against a model that may
+  // by then be a different one.
+  const asset = await reserveAsset(context.paths, context.designId, { ...request, model }, {
     ...(context.jobId === undefined ? {} : { jobId: context.jobId }),
     ...(context.originVariantId === undefined
       ? {}
@@ -186,11 +191,13 @@ export async function generateForAsset(
   // A stored request can predate the ceiling, have been written by another
   // process, or have been stored against a model that has since changed in
   // Settings: what it replays is settled here rather than trusted.
-  const model = asset.request.model ?? context.provider.defaultModel(asset.request.capability);
-  const request = settleMediaRequest(
-    asset.request,
-    await modelOptions(context.provider, asset.request.capability, model, context.signal),
-  );
+  const { capability } = asset.request;
+  const model = asset.request.model ?? context.provider.defaultModel(capability);
+  const options = await modelOptions(context.provider, capability, model, context.signal);
+  const refusal = videoLengthRefusal(capability, options);
+  if (refusal !== null) return { refused: refusal };
+
+  const request: StoredMediaRequest = { ...settleMediaRequest(asset.request, options), model };
   const decision = await context.budget.claim(request.capability, {
     prompt: request.prompt,
     model,
@@ -198,7 +205,10 @@ export async function generateForAsset(
   });
   if (!decision.allowed) return { refused: decision.reason };
 
-  return { asset: await attemptAsset(asset, { ...request, model }, context) };
+  // Recorded before the provider is asked, so the asset says what was bought
+  // even if the call never comes back.
+  await storeSettledRequest(context.paths, context.designId, asset.id, request);
+  return { asset: await attemptAsset(asset, request, context) };
 }
 
 /** Run one attempt against an asset that has already been reserved. */

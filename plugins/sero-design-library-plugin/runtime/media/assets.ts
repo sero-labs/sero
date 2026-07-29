@@ -144,6 +144,33 @@ export async function releaseAsset(
   });
 }
 
+/**
+ * Write back the request as the model will actually be asked for it.
+ *
+ * An explicit action reserves the asset from the request log, offline, so what
+ * it stores is what the user typed — which is not always what a provider will
+ * take. Settling happens later, in the queue, with the model's own options in
+ * hand; without this the record kept saying four seconds while five were bought
+ * and confirmed, and a retry started from the four all over again.
+ */
+export async function storeSettledRequest(
+  paths: DesignLibraryPaths,
+  designId: string,
+  assetId: string,
+  request: StoredMediaRequest,
+): Promise<void> {
+  await mutateDesign(paths, designId, (design) => {
+    const asset = design.assets.find((entry) => entry.id === assetId);
+    if (!asset) return null;
+    return {
+      ...design,
+      assets: design.assets.map((entry) =>
+        entry.id === assetId ? { ...entry, request, updatedAt: Date.now() } : entry,
+      ),
+    };
+  });
+}
+
 /** Deletion hides the asset; the files stay until the Design is purged. */
 export async function deleteAsset(
   paths: DesignLibraryPaths,

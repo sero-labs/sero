@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import type { DesignLibraryPaths } from '../shared/paths';
-import type { JobKind, JobRecord, JobTarget } from '../shared/records';
+import type { JobKind, JobRecord, JobTarget, MediaJobRequest } from '../shared/records';
 import { mutateDesign, mutateVariant, readDesign } from './design-store';
-import { listJobs, mutateItem, mutateJob, saveJob } from './store';
+import { listJobs, mutateItem, mutateJob, readItem, saveJob } from './store';
 
 /**
  * The persisted job contract.
@@ -14,10 +14,18 @@ import { listJobs, mutateItem, mutateJob, saveJob } from './store';
  * created it, and its lifecycle is only these few transitions.
  */
 
+/**
+ * `media` is passed here rather than saved onto the job afterwards. A Library
+ * generation carries what to generate on the job record itself, and two writes
+ * meant a crash between them left a job with nothing to generate — which the
+ * replay could not repair, because a slot that already has a job is how a replay
+ * knows not to start a second one. The slot was then stuck for good.
+ */
 export async function createJob(
   paths: DesignLibraryPaths,
   kind: JobKind,
   target: JobTarget,
+  media?: MediaJobRequest,
 ): Promise<JobRecord> {
   const job: JobRecord = {
     id: randomUUID(),
@@ -26,6 +34,7 @@ export async function createJob(
     target,
     createdAt: Date.now(),
     attempts: 0,
+    ...(media === undefined ? {} : { media }),
   };
   await saveJob(paths, job);
   return job;
@@ -233,6 +242,21 @@ const UNFINISHED: readonly string[] = ['pending', 'running'];
  * target left waiting with no job owning it is the stuck spinner this exists to
  * prevent. Returns null when the target has moved on, which is the normal case.
  */
+/** Whether the target still waits on this job — the only case needing repair. */
+async function stillOwnedBy(paths: DesignLibraryPaths, job: JobRecord): Promise<boolean> {
+  if (job.target.kind === 'item') {
+    const item = await readItem(paths, job.target.itemId);
+    return item?.analysis.jobId === job.id && UNFINISHED.includes(item.analysis.status);
+  }
+  if (job.target.kind === 'variant') {
+    const { designId, variantId } = job.target;
+    const design = await readDesign(paths, designId);
+    const variant = design?.variants.find((entry) => entry.id === variantId);
+    return variant?.jobId === job.id && UNFINISHED.includes(variant.status);
+  }
+  return false;
+}
+
 async function replaceOrphan(
   paths: DesignLibraryPaths,
   job: JobRecord,
@@ -247,6 +271,14 @@ async function replaceOrphan(
     return null;
   }
   if (job.target.kind === 'library') return null;
+
+  // Asked before anything is written, and it says no for almost every job: this
+  // runs over the whole job history on every start, and the targets have long
+  // since finished. Creating a replacement first and retiring it afterwards left
+  // one dead job file per completed job per start — the directory grew by its
+  // own size every time the app opened. The answer is re-tested under the record
+  // lock below, because this read is not serialised with it.
+  if (!(await stillOwnedBy(paths, job))) return null;
 
   // A replacement has to exist before the target can point at it — a target
   // naming a job that does not exist has nothing to run it and nothing to repair

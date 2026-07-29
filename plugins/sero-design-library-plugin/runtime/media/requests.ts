@@ -9,7 +9,7 @@ import type { LibraryRequestBody } from '../../shared/requests';
 import { mutateDesign, readDesign } from '../design-store';
 import { ingestUpload } from '../ingest';
 import { createJob } from '../jobs';
-import { listJobs, saveJob } from '../store';
+import { listJobs } from '../store';
 import { deleteAsset, purgeAsset, reserveAsset } from './assets';
 import { copyAssetToLibrary } from './library';
 import type { MediaQueue } from './queue';
@@ -112,8 +112,10 @@ export class MediaRequests {
           ...(body.seed === undefined ? {} : { seed: body.seed }),
           ...(body.durationSeconds === undefined ? {} : { durationSeconds: body.durationSeconds }),
         };
-        const job = await createJob(paths, 'media', libraryTarget(body.slotId));
-        await saveJob(paths, { ...job, media });
+        // One write, not two: a job saved without its request would be a slot
+        // nothing can ever generate, and the replay guard above would keep it
+        // that way.
+        const job = await createJob(paths, 'media', libraryTarget(body.slotId), media);
         this.queue.enqueue(job.id);
         return {};
       }
