@@ -16,7 +16,7 @@ Product behaviour lives in `docs/specs/sero-design-library-plugin-spec.md`. Rati
 - No direct filesystem access from UI code.
 - No binary payloads in reactive state.
 - No vendor types outside the media adapter.
-- No reference pixels in generated output.
+- Imported reference pixels never enter generated output. Images made by Design Library may be copied into a Design and used as its actual artwork.
 - No mutable Gallery snapshots.
 - Never exceed 500 LOC in a source file.
 
@@ -173,7 +173,7 @@ Turn references into runnable work.
 1. [x] Design records, continuous autosave, sessions rail, restore-to-position.
 2. [x] Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
 3. [~] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel. *(Built; the prototype's polish lands with 2b.)*
-4. [x] Generation runs with `platformTools: 'none'` — structured language in, no pixels. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
+4. [x] Generation runs with `platformTools: 'none'` — imported references enter as structured language; plugin-made reference images may also enter as local Design artwork. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
 5. [x] `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
 6. [x] `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
 7. [x] Tweaks: AI-authored manifest emitted with each successful revision, validator that drops invalid/duplicate/inert controls and reports them in one collapsible line, generic control rendering, value-only postMessage channel, per-control and panel reset, Copy CSS. Rendered as a fourth inspector tab inside a `ResizablePanel` (`@sero-ai/ui`) whose width persists, with a collapsible sessions rail.
@@ -207,7 +207,7 @@ Turn references into runnable work.
 - **Shutdown is not cancellation, for the instruction as well as the job.** Clearing a pending revise on abort before checking for shutdown would have made quitting Sero mid-revise come back to a variant that regenerates itself from the original brief. The check runs first, and the restart path is tested end to end: the resumed run receives the instruction and the page it was editing.
 - **Replay safety is per request, not per value.** A restore names its checkpoint after the request that made it, so applying the request twice appends once. Deciding it from the values was wrong in the case that matters — a restore over values that already matched the newest checkpoint wrote no marker at all.
 
-**Accept when** only incompatible guardrails block; reference pixels never enter output; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a self-contained frame with no workspace, install or network; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
+**Accept when** only incompatible guardrails block; imported reference pixels never enter output while plugin-made images can be used as local artwork; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a self-contained frame with no workspace, install or network; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
 
 ---
 

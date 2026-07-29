@@ -20,7 +20,7 @@ import {
 } from '../coordinator-harness';
 import { mutateVariant, readDesign } from '../design-store';
 import { reconcileJobs } from '../jobs';
-import { listJobs, saveJob } from '../store';
+import { listJobs, readItem, saveItem, saveJob } from '../store';
 
 /**
  * Generation end to end, against a stubbed model: a Design is created, its
@@ -64,6 +64,56 @@ async function settled(designId: string, timeout = 5_000) {
 }
 
 describe('generating a variant', () => {
+  it('uses a plugin-made reference as real artwork in the built preview', async () => {
+    const itemId = await harness.importAndAnalyse('u1', 'owned.png', 'owned-image');
+    const item = await readItem(harness.paths, itemId);
+    await saveItem(harness.paths, {
+      ...item!,
+      source: { ...item!.source, kind: 'generated' },
+      generation: {
+        providerId: 'fake',
+        capability: 'text-to-image',
+        model: 'fake/image',
+        prompt: 'An owned hero image',
+        parameters: {},
+        startedAt: 1,
+        completedAt: 2,
+      },
+    });
+
+    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
+      if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      const reference = params.task.match(/`(assets\/reference-[^`]+\.png)`/)?.[1];
+      expect(reference).toBeDefined();
+      await writeDesignFiles(params, [
+        { name: 'index.html', content: `<body><img src="${reference}"></body>` },
+      ]);
+      await nameDesign(params, { name: 'Owned image', summary: 'Uses the selected artwork.' });
+      return { response: 'Done.' };
+    });
+
+    await appendRequest(harness.paths, {
+      kind: 'design.create',
+      designId: 'dsn-owned',
+      title: 'Owned artwork',
+      brief: { ...BRIEF, variantCount: 1 },
+      referenceItemIds: [itemId],
+      resolutions: [],
+      sessionRules: [],
+    });
+    await harness.coordinator.drain();
+    const design = await settled('dsn-owned');
+    const variant = design.variants[0]!;
+    const revision = variant.revisions[0]!;
+    const preview = await readFile(
+      path.join(revisionDir(harness.paths, design.id, variant.id, revision.id), revision.builtFile!),
+      'utf8',
+    );
+
+    expect(preview).toContain(`data:image/png;base64,${Buffer.from('owned-image').toString('base64')}`);
+    expect(preview).not.toContain('assets/reference-');
+  });
+
   it('projects the latest run activity while the design is being built', async () => {
     let finish: (() => void) | undefined;
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
@@ -125,7 +175,7 @@ describe('generating a variant', () => {
     expect(summary?.variants.every((variant) => variant.previewPath !== undefined)).toBe(true);
   });
 
-  it('gives the run no platform tools and no reference pixels', async () => {
+  it('gives the run no platform tools and keeps imported reference pixels out', async () => {
     await createDesign({ variantCount: 1 });
     await settled('dsn-1');
 
@@ -143,6 +193,8 @@ describe('generating a variant', () => {
     // already excluded logos and recognisable compositions.
     expect(generation?.task).toContain('Technical monochrome');
     expect(generation?.task).toContain('A dense operational dashboard');
+    expect(generation?.task).not.toContain('selected reference artwork made by Design Library');
+    expect(generation?.task).not.toContain('assets/reference-');
   });
 
   it('carries the frozen guardrails into the brief as requirements', async () => {

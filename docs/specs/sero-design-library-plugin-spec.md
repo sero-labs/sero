@@ -217,7 +217,9 @@ Normal deletion hides an item until restore or permanent deletion. Permanent del
 
 A Design takes one to six Library references and **order matters**: the first is primary and leads the visual direction; the rest contribute compatible traits. Style differences may be blended. Only genuinely incompatible guardrails block generation, and blocking conflicts must be resolved explicitly before work starts — surfaced in the create dialog's synthesis panel (prototype, state 3).
 
-Reference images are supplied for *understanding* only, and only to the Librarian. The design-generation run receives the Librarian's structured language, never the pixels.
+Imported reference images are supplied for *understanding* only, and only to the Librarian. The design-generation run receives their structured language, never their pixels.
+
+Images made by Design Library are different: they are original work owned by the plugin. When one is selected as a reference, the new Design receives its own local copy as reusable artwork. The run still receives the Librarian's language, but it may also place that artwork through the supplied `assets/...` reference. Derived images follow the same rule; imported images never do.
 
 ### 6.2 The create dialog
 

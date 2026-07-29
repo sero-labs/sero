@@ -77,7 +77,9 @@ If one reference requires something another forbids, that rule is held back and 
 
 What you choose is recorded on the design, so *"why is this design ignoring that rule?"* stays answerable later. Editing a reference afterwards does not change a design that was already generated under the old rules.
 
-A reference has to be analysed before you can design from it. The design run is given the Librarian's written description and never the image itself, so a reference with no description has nothing to contribute.
+A reference has to be analysed before you can design from it. For an image you imported, the design run receives the Librarian's written description and never the image itself.
+
+An image made by Design Library can also be used as the actual artwork. When you start a design from a generated or restyled image, the Design gets its own copy and can use it across variants. Removing the Library item later does not break the Design.
 
 ### Watching it generate
 

@@ -27,6 +27,7 @@ import {
   scanDesigns,
 } from './design-store';
 import { createJob, markCancelled, requestCancel } from './jobs';
+import { stageReferenceAssets } from './reference-assets';
 import { readItem, readJob } from './store';
 
 /**
@@ -64,10 +65,10 @@ export function referenceGuardrails(items: ItemRecord[]): ReferenceGuardrails[] 
 /**
  * Why a set of references cannot start a Design, or null when it can.
  *
- * An unanalysed reference is refused rather than skipped: the generation run is
- * given the Librarian's structured language and nothing else (spec §6.1), so a
- * reference with no analysis contributes nothing at all — and a Design that
- * silently ignored one of its references would be lying about its provenance.
+ * An unanalysed reference is refused rather than skipped: every reference gives
+ * the run the Librarian's structured language, including plugin-made images
+ * that may also contribute their owned artwork (spec §6.1). A Design that
+ * silently ignored one would be lying about its provenance.
  */
 export function refuseReferences(items: ItemRecord[]): string | null {
   if (items.length < MIN_REFERENCES) return 'A Design needs at least one reference.';
@@ -160,6 +161,7 @@ export async function createDesign(
   }
 
   const references: DesignReference[] = items.map((item, order) => ({ itemId: item.id, order }));
+  const assets = await stageReferenceAssets(paths, input.designId, items);
   const now = Date.now();
   const design: DesignRecord = {
     id: input.designId,
@@ -171,7 +173,7 @@ export async function createDesign(
     references,
     variants: planVariants(brief, references),
     appliedGuardrails,
-    assets: [],
+    assets,
   };
 
   // Create-if-absent rather than save: two requests carrying the same id must

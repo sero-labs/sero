@@ -1,7 +1,12 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
 import type { DesignBrief, DesignRecord } from '../shared/design';
 import { emptyAnalysis, setOverride } from '../shared/librarian';
+import type { MediaProvenance } from '../shared/media';
 import type { DesignLibraryPaths } from '../shared/paths';
-import type { ItemRecord } from '../shared/records';
+import { itemDir } from '../shared/paths';
+import type { ItemRecord, ItemSourceKind } from '../shared/records';
 import { ITEM_SCHEMA_VERSION } from '../shared/records';
 import { createDesign } from './designs';
 import { saveItem } from './store';
@@ -13,6 +18,8 @@ export interface SeedItemOptions {
   always?: string[];
   never?: string[];
   deleted?: boolean;
+  sourceKind?: ItemSourceKind;
+  generation?: MediaProvenance;
 }
 
 export async function seedItem(
@@ -31,7 +38,7 @@ export async function seedItem(
     createdAt: now,
     updatedAt: now,
     kind: 'image',
-    source: { kind: 'file', fileName: `${id}.png` },
+    source: { kind: options.sourceKind ?? 'file', fileName: `${id}.png` },
     asset: {
       originalFile: 'original.png',
       previewFile: 'preview.webp',
@@ -43,8 +50,11 @@ export async function seedItem(
     analysis: { status: options.status ?? 'pending', attempts: 0 },
     favourite: false,
     collectionIds: [],
+    ...(options.generation === undefined ? {} : { generation: options.generation }),
     ...(options.deleted === true ? { deletedAt: now } : {}),
   };
+  await mkdir(itemDir(paths, id), { recursive: true });
+  await writeFile(path.join(itemDir(paths, id), item.asset.originalFile), 'seed-bytes');
   await saveItem(paths, item);
   return item;
 }

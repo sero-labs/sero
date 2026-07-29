@@ -188,6 +188,8 @@ export interface MediaAttempt {
 export interface DesignAsset {
   id: string;
   kind: MediaKind;
+  /** Library artwork copied in when this Design was created. */
+  sourceItemId?: string;
   /** How the page refers to it, e.g. `assets/hero.png`. Stable across retries. */
   reference: string;
   request: StoredMediaRequest;
@@ -226,6 +228,9 @@ export function assetIsPending(asset: DesignAsset): boolean {
 
 /** Reported cost across every attempt — a failed one that still billed counts. */
 export function assetCostUsd(asset: DesignAsset): number {
+  // Reference artwork was paid for before this Design existed. Its provenance
+  // stays on the copy, but it is not a cost this Design incurred.
+  if (asset.sourceItemId !== undefined) return 0;
   return asset.attempts.reduce((total, attempt) => total + (attempt.provenance?.costUsd ?? 0), 0);
 }
 
@@ -399,6 +404,7 @@ export function normalizeDesignAsset(value: unknown): DesignAsset | null {
     attempts,
     createdAt: optionalNumber(value.createdAt) ?? 0,
     updatedAt: optionalNumber(value.updatedAt) ?? 0,
+    ...withOptional('sourceItemId', optionalString(value.sourceItemId)),
     ...withOptional('originVariantId', optionalString(value.originVariantId)),
     ...withOptional('jobId', optionalString(value.jobId)),
     ...withOptional('copiedItemId', optionalString(value.copiedItemId)),

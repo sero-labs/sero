@@ -62,6 +62,36 @@ describe('artwork the Design already has', () => {
     expect(prompt).toContain('cannot generate new imagery');
   });
 
+  it('identifies plugin-made reference artwork as something the page may use directly', () => {
+    const prompt = buildGenerationTask({
+      ...BASE,
+      mediaAvailable: false,
+      existingAssets: [asset({ sourceItemId: 'item-1' })],
+    });
+
+    expect(prompt).toContain('selected reference artwork made by Design Library');
+    expect(prompt).toContain('assets/asset-1.png');
+  });
+
+  it('offers a per-reference variant only the artwork from its own reference', () => {
+    const prompt = buildGenerationTask({
+      ...BASE,
+      variant: { ...BASE.variant, referenceItemId: 'item-1' },
+      references: [
+        ...BASE.references,
+        { itemId: 'item-2', order: 1, analysis: emptyAnalysis('Second') },
+      ],
+      mediaAvailable: false,
+      existingAssets: [
+        asset({ sourceItemId: 'item-1', reference: 'assets/first.png' }),
+        asset({ id: 'asset-2', sourceItemId: 'item-2', reference: 'assets/second.png' }),
+      ],
+    });
+
+    expect(prompt).toContain('assets/first.png');
+    expect(prompt).not.toContain('assets/second.png');
+  });
+
   it('does not offer artwork that failed or was deleted', () => {
     const prompt = buildGenerationTask({
       ...BASE,
