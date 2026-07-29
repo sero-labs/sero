@@ -84,7 +84,19 @@ export async function stubAnalysisRun(params: AppRuntimeSubagentRunParams) {
  * The default generated page: enough to build and render, small enough to read in
  * a failure message.
  */
-export const STUB_PAGE = '<body><main id="generated">Generated page</main></body>';
+export const BASELINE_STYLE = `<style>:root{--font-family:system-ui,sans-serif;--h1-size:48px;--h1-weight:650;--h1-tracking:-0.04em;--h2-size:28px;--body-font:system-ui,sans-serif;--body-size:16px}h1,h2{font-family:var(--font-family)}h1{font-size:var(--h1-size);font-weight:var(--h1-weight);letter-spacing:var(--h1-tracking)}h2{font-size:var(--h2-size)}body{font-family:var(--body-font);font-size:var(--body-size)}</style>`;
+
+export const BASELINE_CONTROLS: Array<Record<string, unknown>> = [
+  { id: 'font', group: 'Typography', label: 'Font', cssVariable: '--font-family', type: 'choice', defaultValue: 'system-ui, sans-serif', options: [{ label: 'Sans', value: 'system-ui, sans-serif' }, { label: 'Mono', value: 'ui-monospace, monospace' }] },
+  { id: 'h1-size', group: 'Typography', label: 'H1 size', cssVariable: '--h1-size', type: 'range', defaultValue: '48', min: 24, max: 96, step: 1, unit: 'px' },
+  { id: 'h1-weight', group: 'Typography', label: 'H1 weight', cssVariable: '--h1-weight', type: 'choice', defaultValue: '650', options: [{ label: '400', value: '400' }, { label: '650', value: '650' }, { label: '800', value: '800' }] },
+  { id: 'h1-tracking', group: 'Typography', label: 'H1 tracking', cssVariable: '--h1-tracking', type: 'range', defaultValue: '-0.04', min: -0.1, max: 0.1, step: 0.01, unit: 'em' },
+  { id: 'h2-size', group: 'Typography', label: 'H2 size', cssVariable: '--h2-size', type: 'range', defaultValue: '28', min: 16, max: 64, step: 1, unit: 'px' },
+  { id: 'body-font', group: 'Typography', label: 'Body font', cssVariable: '--body-font', type: 'choice', defaultValue: 'system-ui, sans-serif', options: [{ label: 'Sans', value: 'system-ui, sans-serif' }, { label: 'Mono', value: 'ui-monospace, monospace' }] },
+  { id: 'body-size', group: 'Typography', label: 'Body size', cssVariable: '--body-size', type: 'range', defaultValue: '16', min: 12, max: 24, step: 1, unit: 'px' },
+];
+
+export const STUB_PAGE = `<body>${BASELINE_STYLE}<h1>Generated page</h1><h2>Section</h2><p id="generated">Generated page</p></body>`;
 
 /**
  * Write files the way a generation run does. Nothing is accepted from a run that
@@ -93,10 +105,12 @@ export const STUB_PAGE = '<body><main id="generated">Generated page</main></body
 export async function writeDesignFiles(
   params: AppRuntimeSubagentRunParams,
   files: Array<{ name: string; content: string }>,
+  withBaseline = true,
 ): Promise<void> {
   const writer = toolNamed(params, 'design_library_write_file');
   if (!writer) return;
   for (const file of files) await invokeTool(writer, file);
+  if (withBaseline) await declareTweaks(params, BASELINE_CONTROLS);
 }
 
 /**
@@ -106,7 +120,7 @@ export async function writeDesignFiles(
  * "no manifest" from "a manifest that was dropped".
  */
 export const STUB_TWEAKABLE_PAGE =
-  '<body><style>:root{--signal:#16805f;--gap:12px}main{color:var(--signal);gap:var(--gap)}</style><main id="generated">Generated page</main></body>';
+  `<body>${BASELINE_STYLE}<style>:root{--signal:#16805f;--gap:12px}main{color:var(--signal);gap:var(--gap)}</style><h1>Generated page</h1><h2>Section</h2><main id="generated">Generated page</main></body>`;
 
 /** Declare tweak controls the way a generation run does, through its tool. */
 export async function declareTweaks(
@@ -114,7 +128,8 @@ export async function declareTweaks(
   controls: Array<Record<string, unknown>>,
 ): Promise<void> {
   const tool = toolNamed(params, 'design_library_declare_tweaks');
-  if (tool) await invokeTool(tool, { controls });
+  const complete = controls[0]?.id === 'font' ? controls : [...BASELINE_CONTROLS, ...controls];
+  if (tool) await invokeTool(tool, { controls: complete });
 }
 
 /** Name the design the way a generation run does, through its tool. */

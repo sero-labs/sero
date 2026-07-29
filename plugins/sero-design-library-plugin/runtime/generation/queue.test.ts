@@ -11,6 +11,7 @@ import { revisionDir } from '../../shared/paths';
 import { appendRequest, readState } from '../../shared/state-io';
 import { PREVIEW_CSP } from '../preview/harness';
 import {
+  BASELINE_STYLE,
   STUB_PAGE,
   isGenerationRun,
   nameDesign,
@@ -86,7 +87,10 @@ describe('generating a variant', () => {
       const reference = params.task.match(/`(assets\/reference-[^`]+\.png)`/)?.[1];
       expect(reference).toBeDefined();
       await writeDesignFiles(params, [
-        { name: 'index.html', content: `<body><img src="${reference}"></body>` },
+        {
+          name: 'index.html',
+          content: `<body>${BASELINE_STYLE}<h1>Owned</h1><h2>Artwork</h2><img src="${reference}"></body>`,
+        },
       ]);
       await nameDesign(params, { name: 'Owned image', summary: 'Uses the selected artwork.' });
       return { response: 'Done.' };
@@ -260,6 +264,24 @@ describe('generating a variant', () => {
     expect(design.variants[0]?.revisions.at(-1)?.name).toBe('');
   });
 
+  it('refuses a page that still lacks the typography baseline after repair', async () => {
+    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
+      if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      await writeDesignFiles(
+        params,
+        [{ name: 'index.html', content: '<body><h1>Uncontrolled</h1></body>' }],
+        false,
+      );
+      await nameDesign(params, { name: 'No controls', summary: 'Missing the contract.' });
+      return { response: 'Done.' };
+    });
+
+    const design = await settled(await createDesign({ variantCount: 1 }));
+
+    expect(design.variants[0]?.status).toBe('failed');
+    expect(design.variants[0]?.error).toContain('required typography controls');
+  });
+
   it('fails a variant that wrote no entry point', async () => {
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
       if (!isGenerationRun(params)) return stubAnalysisRun(params);
@@ -283,7 +305,10 @@ describe('generating a variant', () => {
       // compile, which is the case where files exist with nothing to show for
       // them.
       await writeDesignFiles(params, [
-        { name: 'App.tsx', content: 'export default function App( {' },
+        {
+          name: 'App.tsx',
+          content: `const css = ${JSON.stringify(BASELINE_STYLE)}; export default function App( {`,
+        },
       ]);
       await nameDesign(params, { name: 'Broken build', summary: 'Did not compile.' });
       return { response: 'Wrote it.' };

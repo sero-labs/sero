@@ -5,6 +5,7 @@ import type { AppRuntimeSubagentRunParams } from '@sero-ai/common';
 import type { DesignBrief, DesignRecord } from '../../shared/design';
 import { appendRequest } from '../../shared/state-io';
 import {
+  BASELINE_STYLE,
   STUB_PAGE,
   isGenerationRun,
   nameDesign,
@@ -32,7 +33,7 @@ const BRIEF: DesignBrief = {
   inspirationStrength: 'balanced',
 };
 
-const REVISED_PAGE = '<body><main id="generated">Revised page</main></body>';
+const REVISED_PAGE = `<body>${BASELINE_STYLE}<h1>Revised page</h1><h2>Section</h2><main id="generated">Revised page</main></body>`;
 
 async function createDesign(): Promise<DesignRecord> {
   const itemId = await harness.importAndAnalyse('u1', 'shot.png', 'bytes');

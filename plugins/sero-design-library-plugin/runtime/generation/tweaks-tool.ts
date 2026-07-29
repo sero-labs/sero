@@ -2,6 +2,10 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 
+import {
+  baselineTweakInstructions,
+  baselineTweakProblem,
+} from '../../shared/baseline-tweaks';
 import type { EmittedFile } from '../../shared/targets';
 import { MAX_TWEAK_CONTROLS, MAX_TWEAK_OPTIONS } from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
@@ -61,7 +65,7 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
     label: 'Declare Design Tweaks',
-    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Each control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped, because a control that changes nothing on screen is worse than no control. Choose what is worth adjusting on *this* page (at most ${MAX_TWEAK_CONTROLS}); do not emit a standard set.`,
+    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nEach control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
     promptSnippet:
       'design_library_declare_tweaks — declares the live CSS controls for the page you wrote',
     parameters: Type.Object({
@@ -115,9 +119,11 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
 
       declared = controls.map(toDefinitionShape);
       const answer = validate(declared);
+      const baselineProblem = baselineTweakProblem(answer.manifest.controls);
 
       const kept = answer.manifest.controls.length;
       const lines = [`Accepted ${kept} control${kept === 1 ? '' : 's'}.`];
+      if (baselineProblem !== null) lines.push(`Baseline not accepted: ${baselineProblem}`);
       if (answer.dropped.length > 0) {
         lines.push(
           `Dropped ${answer.dropped.length}:`,
@@ -130,7 +136,11 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
       );
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
-        details: { ok: kept > 0, accepted: kept, dropped: answer.dropped.length },
+        details: {
+          ok: kept > 0 && baselineProblem === null,
+          accepted: kept,
+          dropped: answer.dropped.length,
+        },
         isError: false,
       };
     },

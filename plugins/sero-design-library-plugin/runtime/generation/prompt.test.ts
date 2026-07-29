@@ -36,6 +36,15 @@ const BASE = {
 } as unknown as Parameters<typeof buildGenerationTask>[0];
 
 describe('artwork the Design already has', () => {
+  it('requires the stable typography controls before page-specific ones', () => {
+    const prompt = buildGenerationTask(BASE);
+
+    expect(prompt).toContain('`font` — “Font” — `--font-family` — choice');
+    expect(prompt).toContain('`h1-tracking` — “H1 tracking” — `--h1-tracking` — range');
+    expect(prompt).toContain('`body-size` — “Body size” — `--body-size` — range');
+    expect(prompt).toContain('add only the page-specific decisions');
+  });
+
   it('names it, so a resumed run reuses it rather than paying again', () => {
     const prompt = buildGenerationTask({
       ...BASE,

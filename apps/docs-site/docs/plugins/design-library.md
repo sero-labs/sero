@@ -121,7 +121,9 @@ The rail down the left lists your designs, with the ones still generating at the
 
 ### Tweaks
 
-Every result comes with a small set of controls written for **that page** — display scale, grid gap, signal accent, whatever the page is actually about. They are not a standard set of sliders: the model that wrote the page chooses them from what it built, so a dense dashboard and an editorial page get different controls.
+Every result starts with the same typography controls: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. The page is built to use them, so each control changes the preview.
+
+After those, the result has a small set of controls written for **that page** — display scale, grid gap, signal accent, or whatever the page is about. A dense dashboard and an editorial page still get different page controls.
 
 Moving one changes the preview immediately. Each control has a reset, the panel has **Reset all**, and **Copy CSS** gives you the values as a block you can paste into the page's own stylesheet.
 

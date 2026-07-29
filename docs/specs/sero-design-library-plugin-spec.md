@@ -250,7 +250,7 @@ Revising asks whether to replace the visible result or keep it as a separate vis
 
 ### 6.5 Tweaks
 
-Every successful variant revision emits CSS custom properties **and** a versioned manifest describing the high-value controls for that exact page. The model chooses the groups, labels, ranges and options from what it actually generated. It must not emit a standard set of controls mechanically.
+Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. The model then adds the high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated.
 
 ```ts
 type TweakValue = string | number | boolean;
@@ -282,9 +282,9 @@ interface VariantTweakState {
 }
 ```
 
-A manifest may cover typography, colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS concern. Font options are limited to fonts already available to the Design.
+A manifest may also cover colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS concern. Font options are limited to the system sans and mono stacks available to every Design.
 
-Every definition must bind to a declared custom property and visibly change the page. A validator drops invalid, duplicate or inert controls and reports them, without preventing the valid page from rendering.
+Every definition must bind to a declared custom property and visibly change the page. A validator drops invalid, duplicate or inert page-specific controls and reports them, without preventing the valid page from rendering. The baseline is part of the generation contract: missing or inert baseline controls trigger in-session repair, and a page that still lacks them is not accepted.
 
 Changing a control validates and normalises the value, stores it as an override and applies it immediately. **The message sent to the preview carries only a manifest id and a value** — never a selector, arbitrary CSS or JavaScript.
 
@@ -530,7 +530,7 @@ The first release is complete when:
 4. A Design accepts up to six ordered references with primary-reference semantics, and only incompatible guardrails block.
 5. Both HTML and React targets generate runnable output previewed from a self-contained frame with no workspace, install or network.
 6. One to five variants survive failure, cancellation and restart independently.
-7. Every generated page exposes relevant, validated, design-specific Tweaks that update the preview live; overrides reset, autosave, survive restart and coalesce into one revision per editing session.
+7. Every generated page exposes the required typography baseline plus relevant, validated, design-specific Tweaks that update the preview live; overrides reset, autosave, survive restart and coalesce into one revision per editing session.
 8. Media generation works for all four capabilities from both the agent and explicit actions; results are local; failure yields a placeholder with asset-only retry.
 9. No vendor type appears outside the adapter, and the fake adapter satisfies the same contract.
 10. Media call caps hold, video is confirmed, and costs are visible.

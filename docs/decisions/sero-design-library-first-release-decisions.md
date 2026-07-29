@@ -102,6 +102,14 @@ Its known weakness — a fixed 274px is cramped for a control-heavy page — is 
 
 Rendering the comparison also surfaced a real UI problem: a permanent multi-line "controls omitted" warning box pushed a whole control group off-screen. It collapses to one line that expands on demand.
 
+### D14 · Baseline typography Tweaks belong to the generation contract
+
+The first manual pass reversed the earlier decision to make every control page-specific. Each generated page must now provide Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size before its own controls.
+
+This is enforced in the generation prompt and the finished manifest validator. Each property must be declared by the page and read through `var()`. A missing or inert baseline control sends the model back through the existing repair loop; a page that still lacks the baseline is not accepted. The runtime does not rewrite generated CSS, and the UI does not show controls that only happen to work on some pages.
+
+Page-specific controls remain AI-authored and validated as before. The fixed baseline is the only catalogue.
+
 ### D12 · Three PRs, not one — and in practice five
 
 **Reverses R1-§11**, which required the complete first release in a single PR.
@@ -152,7 +160,7 @@ These decisions were reviewed and stand.
 
 **Persistence.** Continuous autosave; generation continues when the user navigates away; durable job state survives quit and resumes on restart; reopening restores the previous working position.
 
-**Tweaks.** AI-authored per revision, never from a pre-canned category list. Rendered through generic range/toggle/colour/choice primitives. Every control must change a declared custom property; invalid, duplicate or inert controls are omitted and reported. The preview channel accepts only a declared id and a schema-valid value — never selectors, CSS text or JavaScript. Defaults and overrides stored separately, each resettable. One editing session checkpoints as one revision. Copy CSS returns the effective scoped block. Gallery and export use resolved effective values and do not depend on the Tweaks runtime.
+**Tweaks.** Each revision starts with the required typography baseline from D14, then adds AI-authored controls specific to the page. All controls use the same generic range/toggle/colour/choice primitives. Every control must change a declared custom property; invalid, duplicate or inert page-specific controls are omitted and reported, while a missing baseline refuses the run after repair. The preview channel accepts only a declared id and a schema-valid value — never selectors, CSS text or JavaScript. Defaults and overrides stored separately, each resettable. One editing session checkpoints as one revision. Copy CSS returns the effective scoped block. Gallery and export use resolved effective values and do not depend on the Tweaks runtime.
 
 **Media lifecycle.** Illustrative artwork, not routine icons. Results downloaded and stored locally. Reusable across variants in one Design; wider reuse requires explicit Copy to Library, which creates an independent item with retained generation provenance and automatic analysis. Provider unavailability yields a local placeholder with asset-only retry. Gallery snapshots bundle their own copies, so deleting a Design asset cannot alter a saved version.
 

@@ -2,9 +2,8 @@
  * Tweaks — the AI-authored controls that belong to one generated page (spec §6.5).
  *
  * A manifest is written by the run that produced the revision, from what it
- * actually emitted: the groups, labels, ranges and options describe *that* page.
- * There is no catalogue of standard controls here on purpose — a fixed slider set
- * would be applied mechanically to pages it says nothing true about.
+ * actually emitted. Seven standard typography controls form the baseline; the
+ * remaining groups, labels, ranges and options describe *that* page.
  *
  * Two rules hold the whole feature together, and everything below exists to keep
  * them:
@@ -44,7 +43,7 @@ export interface TweakOption {
 
 export interface TweakDefinition {
   id: string;
-  /** The section it appears under. The model chooses these, not a fixed list. */
+  /** The section it appears under. Only the baseline Typography group is fixed. */
   group: string;
   label: string;
   cssVariable: `--${string}`;

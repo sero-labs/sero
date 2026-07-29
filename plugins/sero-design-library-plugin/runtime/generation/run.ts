@@ -1,6 +1,7 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
+import { baselineTweakProblem } from '../../shared/baseline-tweaks';
 import type { DesignRecord, DesignVariant } from '../../shared/design';
 import { effectiveAnalysis } from '../../shared/librarian';
 import type { DesignLibraryPaths } from '../../shared/paths';
@@ -208,17 +209,25 @@ export async function runGeneration(
   // a label. Repair has already asked for the name twice by this point.
   const naming = namer.naming();
 
-  // Tweaks are survivable for the same reason, and it matters more here: the
-  // controls are an addition to a page that works without them. A revision with
-  // no manifest shows an empty Tweaks tab and can be revised into having one —
-  // failing the whole run over it would throw away the page as well.
+  // Page-specific controls remain survivable: a dropped accent slider does not
+  // invalidate a page. The standard typography controls are different because
+  // the product promises them on every page; that contract is checked below.
+  const tweaks = tweaker.result();
+  const baselineProblem = baselineTweakProblem(tweaks?.manifest.controls ?? []);
+  if (baselineProblem !== null) {
+    return {
+      status: 'failed',
+      reason: `The page did not provide its required typography controls. ${baselineProblem}`,
+    };
+  }
+
   return {
     status: 'ok',
     files,
     name: naming?.name ?? '',
     summary: naming?.summary ?? '',
     refusals: emitter.refusals(),
-    tweaks: tweaker.result(),
+    tweaks,
   };
 }
 
@@ -247,6 +256,12 @@ export function generationProgressMessage(update: string): string | null {
  * said which and why, so this only has to ask for the fix.
  */
 function tweakRepair(result: TweakValidation | null): string | null {
+  const baselineProblem = baselineTweakProblem(result?.manifest.controls ?? []);
+  if (baselineProblem !== null) {
+    return buildGenerationRepair(
+      `The required typography controls are missing or invalid. ${baselineProblem} Add or fix the properties in the page, then declare the complete controls again.`,
+    );
+  }
   if (result === null) {
     return buildGenerationRepair(
       'You have not declared any live controls. Call `design_library_declare_tweaks` with the handful of CSS custom properties worth adjusting on this page.',

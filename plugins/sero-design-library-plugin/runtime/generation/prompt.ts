@@ -4,6 +4,7 @@ import type {
   DesignVariant,
   InspirationStrength,
 } from '../../shared/design';
+import { baselineTweakInstructions } from '../../shared/baseline-tweaks';
 import type { LibrarianUserFacingAnalysis } from '../../shared/librarian';
 import type { DesignAsset } from '../../shared/media';
 import { assetIsReady } from '../../shared/media';
@@ -220,11 +221,13 @@ function artworkForReferences(assets: DesignAsset[], references: ReferenceLangua
 
 function tweakRules(): string {
   const rules = [
-    'Route the decisions worth revisiting through CSS custom properties: declare them once at the top (`:root { --display-scale: 34px; }`) and read them everywhere else with `var(--display-scale)`.',
-    'Then call `design_library_declare_tweaks` once, declaring a control for each of those properties.',
-    'Choose them from what this page is actually about. A dense metrics dashboard wants density and accent controls; an editorial page wants measure and type scale. Between four and ten is usually right.',
+    'Every page must route its typography through the seven standard custom properties below. Declare each property once at `:root`, read it with `var()` on the element it names, and declare its control first in the exact order shown.',
+    'Font applies to `h1` and `h2`. H1 size, weight and tracking apply to `h1`. H2 size applies to `h2`. Body font and body size apply to `body` and inherited body copy.',
+    'Font choices are the allowed system sans and mono stacks. H1 weight choices must include the weight the page ships with. Size ranges carry a sensible CSS unit; H1 tracking uses `em`.',
+    `Required baseline controls:\n${baselineTweakInstructions()}`,
+    'After the baseline, add only the page-specific decisions worth revisiting. A dense metrics dashboard may want density and accent controls; an editorial page may want measure. Two to six page-specific controls is usually right.',
+    'Call `design_library_declare_tweaks` once, with the baseline followed by those page-specific controls.',
     'Every control must bind to a property the page declares **and** reads. One that does not is dropped, and a control that visibly does nothing is worse than a missing one.',
-    'Do not emit a standard set. There is no catalogue to fill in — the controls are part of the design you made.',
     'Ranges carry a unit and sensible bounds either side of the value you shipped. Choices carry two or more real alternatives, not a scale in disguise.',
   ];
   return `## Live controls\n\n${rules.map((rule) => `- ${rule}`).join('\n')}`;

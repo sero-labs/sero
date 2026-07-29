@@ -42,6 +42,16 @@ describe('declaring the controls for a page', () => {
     expect(tool.result()?.dropped).toEqual([]);
   });
 
+  it('tells the model when a valid page-specific control lacks the baseline', async () => {
+    const { tool } = toolOver([{ name: 'index.html', content: PAGE }]);
+
+    const result = await invokeTool(tool.definition, { controls: [CONTROL] });
+    const message = result.content.find((entry) => entry.type === 'text');
+
+    expect(result.details).toMatchObject({ ok: false });
+    expect(message && 'text' in message ? message.text : '').toContain('Baseline not accepted');
+  });
+
   it('says nothing at all when it was never called', () => {
     const { tool } = toolOver([{ name: 'index.html', content: PAGE }]);
 
