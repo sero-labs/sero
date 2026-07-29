@@ -8,13 +8,8 @@ import { assetReferenceFor } from '../shared/media';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { designAssetDir } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
+import { itemIsPluginArtwork } from '../shared/records';
 import { originalPathFor } from './store';
-
-/** Source kinds whose pixels belong to Design Library rather than an import. */
-export function itemCanBeDesignArtwork(item: ItemRecord): boolean {
-  return item.kind === 'image' &&
-    (item.source.kind === 'generated' || item.source.kind === 'derived');
-}
 
 export function referenceAssetId(itemId: string): string {
   return `reference-${createHash('sha256').update(itemId).digest('hex').slice(0, 24)}`;
@@ -35,7 +30,7 @@ export async function stageReferenceAssets(
 ): Promise<DesignAsset[]> {
   const assets: DesignAsset[] = [];
   for (const item of items) {
-    if (!itemCanBeDesignArtwork(item)) continue;
+    if (!itemIsPluginArtwork(item)) continue;
 
     const assetId = referenceAssetId(item.id);
     const directory = designAssetDir(paths, designId, assetId);

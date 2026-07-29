@@ -9,7 +9,14 @@ import { designAssetDir } from '../../shared/paths';
 import type { MediaProvider } from './contract';
 import { modelOptions } from './contract';
 import type { MediaBudget } from './budget';
-import { createSourceResolver, recordAttempt, reserveAsset, storeSettledRequest } from './assets';
+import {
+  createSourceResolver,
+  librarySourceRefusal,
+  recordAttempt,
+  reserveAsset,
+  storeSettledRequest,
+  type LibrarySourcePolicy,
+} from './assets';
 import { executeMedia } from './execute';
 
 /**
@@ -39,6 +46,8 @@ export interface MediaToolContext {
   /** The generation job these calls belong to, for provenance on the asset. */
   jobId?: string;
   originVariantId?: string;
+  /** Generation permits only plugin-made Library pixels; explicit user actions permit all. */
+  librarySources: LibrarySourcePolicy;
   onProgress?(message: string): void;
 }
 
@@ -139,6 +148,16 @@ export async function generateAsset(
   stored: StoredMediaRequest,
   context: MediaToolContext,
 ): Promise<{ asset: DesignAsset } | { refused: string }> {
+  const sourceId = stored.sourceAssetIds?.[0];
+  if (sourceId !== undefined) {
+    const refused = await librarySourceRefusal(
+      context.paths,
+      context.designId,
+      sourceId,
+      context.librarySources,
+    );
+    if (refused !== null) return { refused };
+  }
   // Settled before the confirmation, so the length the user approves is the
   // length that is sent — and before the asset is reserved, so a retry replays
   // the same clip rather than a different one. Against the model's own options,
@@ -220,7 +239,7 @@ async function attemptAsset(
   const attempt = await executeMedia(context.provider, request, {
     directory: designAssetDir(context.paths, context.designId, asset.id),
     signal: context.signal,
-    readAsset: createSourceResolver(context.paths, context.designId),
+    readAsset: createSourceResolver(context.paths, context.designId, context.librarySources),
     ...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
   });
 
@@ -243,6 +262,7 @@ function createCapabilityTool(
     promptSnippet: `${shape.name} — ${shape.summary}`,
     parameters: shape.parameters,
     async execute(_toolCallId, params) {
+      context.onProgress?.('Creating artwork…');
       const request = toRequest(capability, params as Record<string, unknown>);
       const missing = missingRequirement(capability, {
         prompt: request.prompt,

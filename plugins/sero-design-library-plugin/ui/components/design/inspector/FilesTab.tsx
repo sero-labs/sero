@@ -30,7 +30,7 @@ export function FilesTab({
         {onOpen !== undefined && (
           <Button type="button" variant="outline" size="sm" className="mb-3" onClick={onOpen}>
             <FolderOpen className="size-3.5" />
-            Open in Finder
+            Show in folder
           </Button>
         )}
         <Field label="Files">

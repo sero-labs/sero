@@ -120,9 +120,16 @@ export async function runGeneration(
     };
   }
 
-  const emitter = createEmitFileTool(design.brief.target, revision?.files ?? []);
-  const namer = createNameDesignTool();
-  const tweaker = createDeclareTweaksTool(emitter.files);
+  const emitter = createEmitFileTool(
+    design.brief.target,
+    revision?.files ?? [],
+    () => context.onProgress?.('Writing the design files…'),
+  );
+  const namer = createNameDesignTool(() => context.onProgress?.('Finishing the design…'));
+  const tweaker = createDeclareTweaksTool(
+    emitter.files,
+    () => context.onProgress?.('Adding design controls…'),
+  );
 
   const mediaTools = context.mediaTools ?? [];
   const task = buildGenerationTask({
@@ -162,20 +169,13 @@ export async function runGeneration(
             'You have not named the design. Call `design_library_name_design` with a two or three word name and one sentence on the direction you took.',
           );
         }
-        return tweakRepair(tweaker.result());
+        return tweakRepair(tweaker.result(), emitter.files());
       },
     },
-    ...(context.onProgress === undefined
-      ? {}
-      : {
-          onUpdate: (update: string) => {
-            const message = generationProgressMessage(update);
-            if (message !== null) context.onProgress?.(message);
-          },
-        }),
     ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
   };
 
+  context.onProgress?.('Planning the design…');
   const result = await context.host.subagents.runStructured(params);
 
   if (context.signal.aborted || result.error?.startsWith('Aborted')) return { status: 'cancelled' };
@@ -213,7 +213,10 @@ export async function runGeneration(
   // invalidate a page. The standard typography controls are different because
   // the product promises them on every page; that contract is checked below.
   const tweaks = tweaker.result();
-  const baselineProblem = baselineTweakProblem(tweaks?.manifest.controls ?? []);
+  const baselineProblem = baselineTweakProblem(
+    tweaks?.manifest.controls ?? [],
+    files.map((file) => file.content).join('\n'),
+  );
   if (baselineProblem !== null) {
     return {
       status: 'failed',
@@ -231,23 +234,6 @@ export async function runGeneration(
   };
 }
 
-/** Turn host/tool activity into stable, plain-English UI copy. */
-export function generationProgressMessage(update: string): string | null {
-  if (update.includes('design_library_write_file')) return 'Writing the design files…';
-  if (update.includes('design_library_declare_tweaks')) return 'Adding design controls…';
-  if (update.includes('design_library_name_design')) return 'Finishing the design…';
-  if (
-    update.includes('design_library_generate_image') ||
-    update.includes('design_library_restyle_image') ||
-    update.includes('design_library_upscale_image') ||
-    update.includes('design_library_generate_video')
-  ) {
-    return 'Creating artwork…';
-  }
-  if (update.includes('started')) return 'Planning the design…';
-  return null;
-}
-
 /**
  * What to say about the tweak declaration, or null when it is fine.
  *
@@ -255,8 +241,11 @@ export function generationProgressMessage(update: string): string | null {
  * means the run declared properties its own page does not use. The tool already
  * said which and why, so this only has to ask for the fix.
  */
-function tweakRepair(result: TweakValidation | null): string | null {
-  const baselineProblem = baselineTweakProblem(result?.manifest.controls ?? []);
+function tweakRepair(result: TweakValidation | null, files: EmittedFile[]): string | null {
+  const baselineProblem = baselineTweakProblem(
+    result?.manifest.controls ?? [],
+    files.map((file) => file.content).join('\n'),
+  );
   if (baselineProblem !== null) {
     return buildGenerationRepair(
       `The required typography controls are missing or invalid. ${baselineProblem} Add or fix the properties in the page, then declare the complete controls again.`,

@@ -26,6 +26,7 @@ import {
 import { mutateVariant, readDesign } from '../design-store';
 import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
 import { mutateJob, readJob } from '../store';
+import { createGenerationProgressReporter } from './progress';
 import { collectReferenceLanguage, runGeneration } from './run';
 
 /**
@@ -238,20 +239,20 @@ export class VariantQueue {
       return;
     }
 
-    // Media rides in as `customTools` (D5). The budget is per run, so it is
-    // built here and lives exactly as long as this generation does.
-    const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller);
-
     // Settle status writes before the terminal write, so a late update cannot
     // put "Writing…" back onto a completed variant.
-    let progressWrites = Promise.resolve();
-    const onProgress = (progress: string) => {
-      progressWrites = progressWrites
-        .then(async () => {
-          await this.applyIfCurrent(jobId, target, (current) => ({ ...current, progress }), 'running');
-        })
-        .catch((error: unknown) => this.context.onError('Could not update generation progress', error));
-    };
+    const progress = createGenerationProgressReporter(
+      async (message) => {
+        await this.applyIfCurrent(jobId, target, (current) => ({ ...current, progress: message }), 'running');
+      },
+      (error) => this.context.onError('Could not update generation progress', error),
+    );
+
+    // Media rides in as `customTools` (D5). The budget is per run, so it is
+    // built here and lives exactly as long as this generation does.
+    const media = await this.mediaTools(
+      design, state.settings.media, jobId, variant.id, controller, progress.report,
+    );
 
     const outcome = await runGeneration(
       design,
@@ -267,11 +268,11 @@ export class VariantQueue {
         signal: controller.signal,
         mediaTools: media.tools,
         mediaCallsRemaining: media.budget.callsRemaining,
-        onProgress,
+        onProgress: progress.report,
       },
       revise ?? undefined,
     );
-    await progressWrites;
+    await progress.settle();
 
     if (outcome.status === 'cancelled') {
       // Shutting down is not cancelling. Both arrive here as an aborted run, and
@@ -311,20 +312,14 @@ export class VariantQueue {
     if (capped !== null) this.context.onError(capped, null);
   }
 
-  /**
-   * The media surface for one run.
-   *
-   * Absent — not merely refusing — when there is no key or the cap is zero. A
-   * model handed tools that fail every call spends the run arguing with them
-   * instead of writing the page, so the run is told in its task that it has none
-   * and what to do instead.
-   */
+  /** No media tools when there is no key or allowance; the task explains why. */
   private async mediaTools(
     design: DesignRecord,
     settings: MediaSettings,
     jobId: string,
     variantId: string,
     controller: AbortController,
+    onProgress: (message: string) => void,
   ): Promise<{ tools: ToolDefinition[]; budget: MediaBudget }> {
     // Seeded from the job, so a run interrupted after spending its allowance
     // does not come back with the whole allowance again (D10). The cap bounds
@@ -356,6 +351,8 @@ export class VariantQueue {
       signal: controller.signal,
       jobId,
       originVariantId: variantId,
+      librarySources: 'plugin-owned',
+      onProgress,
     });
     return { tools, budget };
   }

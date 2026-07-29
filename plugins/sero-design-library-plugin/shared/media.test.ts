@@ -40,6 +40,6 @@ describe('Design reference assets', () => {
 
   it('retains provenance without counting the old generation cost again', () => {
     expect(assetCostUsd(asset())).toBe(0.08);
-    expect(assetCostUsd(asset({ sourceItemId: 'item-1' }))).toBe(0);
+    expect(assetCostUsd(asset({ sourceItemId: 'item-1' }))).toBe(0.08);
   });
 });

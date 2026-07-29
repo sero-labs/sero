@@ -15,7 +15,7 @@ import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../share
 import type { DesignAsset } from '../../shared/media';
 import { readDesign } from '../design-store';
 import { invokeTool } from '../librarian/test-support';
-import { seedDesign } from '../test-fixtures';
+import { seedDesign, seedItem } from '../test-fixtures';
 import { readAssetBytes } from './assets';
 import { MediaBudget } from './budget';
 import { MediaError } from './contract';
@@ -48,6 +48,7 @@ describe('media tools', () => {
     provider: createFakeProvider({ costUsd: 0.02 }),
     budget: new MediaBudget({ callsPerRun: 4, confirmVideo: async () => true }),
     signal: new AbortController().signal,
+    librarySources: 'all',
     ...overrides,
   });
 
@@ -60,6 +61,39 @@ describe('media tools', () => {
       'design_library_upscale_image',
       'design_library_generate_video',
     ]);
+  });
+
+  it('keeps imported Library pixels out of generation media tools', async () => {
+    await seedItem(paths, 'imported-item', { status: 'ready' });
+    const budget = new MediaBudget({ callsPerRun: 4, confirmVideo: async () => true });
+    const tools = createMediaTools(context({ budget, librarySources: 'plugin-owned' }));
+    const restyle = tools.find((tool) => tool.name === 'design_library_restyle_image')!;
+
+    const result = await invokeTool(restyle, {
+      sourceId: 'imported-item',
+      prompt: 'make it quieter',
+    });
+
+    expect(result.details).toMatchObject({ ok: false });
+    expect(result.content).toEqual([
+      expect.objectContaining({ text: expect.stringContaining('language-only') }),
+    ]);
+    expect(budget.callsUsed).toBe(0);
+    expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(0);
+  });
+
+  it('lets generation media tools use plugin-made Library pixels', async () => {
+    await seedItem(paths, 'generated-item', { status: 'ready', sourceKind: 'generated' });
+    const tools = createMediaTools(context({ librarySources: 'plugin-owned' }));
+    const restyle = tools.find((tool) => tool.name === 'design_library_restyle_image')!;
+
+    const result = await invokeTool(restyle, {
+      sourceId: 'generated-item',
+      prompt: 'make it quieter',
+    });
+
+    expect(result.details).toMatchObject({ ok: true });
+    expect((await readDesign(paths, DESIGN_ID))?.assets).toHaveLength(1);
   });
 
   it('records a generated asset on the Design with its provenance', async () => {

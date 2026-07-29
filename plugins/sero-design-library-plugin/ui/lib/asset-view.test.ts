@@ -154,6 +154,7 @@ describe('what the tray shows for one asset', () => {
 
     expect(assetView(ready).canCopy).toBe(true);
     expect(assetView({ ...ready, copiedItemId: 'item-9' }).canCopy).toBe(false);
+    expect(assetView({ ...ready, sourceItemId: 'item-source' }).canCopy).toBe(false);
   });
 
   it('will not copy an asset that has no bytes', () => {

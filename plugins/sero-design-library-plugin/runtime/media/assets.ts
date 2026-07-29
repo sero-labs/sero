@@ -7,6 +7,7 @@ import type { DesignAsset, MediaAttempt, StoredMediaRequest } from '../../shared
 import { assetReferenceFor, currentAttempt, kindFor } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designAssetDir } from '../../shared/paths';
+import { itemIsPluginArtwork } from '../../shared/records';
 import type { MediaSourceAsset } from './contract';
 import { MediaError } from './contract';
 import { mutateDesign, readDesign } from '../design-store';
@@ -95,7 +96,7 @@ export async function recordAttempt(
       return null;
     }
     // The reference is deliberately untouched. By the time an attempt lands the
-    // model has already written `src="assets/<id>.png"` into the page, and a
+    // model has already written `src="assets/<id>.image"` into the page, and a
     // reference that changed to match the bytes would break every page pointing
     // at it — including on a retry that merely came back as WebP instead of PNG.
     // The name is a key; the media type travels on the attempt.
@@ -223,6 +224,7 @@ export function assetFilePath(
 export function createSourceResolver(
   paths: DesignLibraryPaths,
   designId: string,
+  librarySources: LibrarySourcePolicy,
 ): (assetId: string) => Promise<MediaSourceAsset> {
   return async (assetId) => {
     const design = await readDesign(paths, designId);
@@ -244,9 +246,33 @@ export function createSourceResolver(
         false,
       );
     }
+    if (librarySources === 'plugin-owned' && !itemIsPluginArtwork(item)) {
+      throw new MediaError(
+        'invalid-request',
+        'Imported Library items are language-only references and cannot be used as source pixels during Design generation.',
+        false,
+      );
+    }
     const file = path.join(paths.home, originalPathFor(item));
     return { path: file, bytes: await readFile(file), mediaType: item.asset.mediaType };
   };
+}
+
+export type LibrarySourcePolicy = 'all' | 'plugin-owned';
+
+/** Refuse a forbidden Library source before reserving an asset or spending budget. */
+export async function librarySourceRefusal(
+  paths: DesignLibraryPaths,
+  designId: string,
+  sourceId: string,
+  policy: LibrarySourcePolicy,
+): Promise<string | null> {
+  if (policy === 'all') return null;
+  const design = await readDesign(paths, designId);
+  if (design?.assets.some((asset) => asset.id === sourceId)) return null;
+  const item = await readItem(paths, sourceId);
+  if (item === null || itemIsPluginArtwork(item)) return null;
+  return 'Imported Library items are language-only references and cannot be used as source pixels during Design generation.';
 }
 
 /**

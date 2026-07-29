@@ -6,6 +6,11 @@ import { afterEach, beforeEach, expect, vi } from 'vitest';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
+import {
+  BASELINE_FONT_OPTIONS,
+  BASELINE_TWEAKS,
+  hasBaselineTweakPrefix,
+} from '../shared/baseline-tweaks';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
 import { appendRequest, readState } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
@@ -86,15 +91,24 @@ export async function stubAnalysisRun(params: AppRuntimeSubagentRunParams) {
  */
 export const BASELINE_STYLE = `<style>:root{--font-family:system-ui,sans-serif;--h1-size:48px;--h1-weight:650;--h1-tracking:-0.04em;--h2-size:28px;--body-font:system-ui,sans-serif;--body-size:16px}h1,h2{font-family:var(--font-family)}h1{font-size:var(--h1-size);font-weight:var(--h1-weight);letter-spacing:var(--h1-tracking)}h2{font-size:var(--h2-size)}body{font-family:var(--body-font);font-size:var(--body-size)}</style>`;
 
-export const BASELINE_CONTROLS: Array<Record<string, unknown>> = [
-  { id: 'font', group: 'Typography', label: 'Font', cssVariable: '--font-family', type: 'choice', defaultValue: 'system-ui, sans-serif', options: [{ label: 'Sans', value: 'system-ui, sans-serif' }, { label: 'Mono', value: 'ui-monospace, monospace' }] },
-  { id: 'h1-size', group: 'Typography', label: 'H1 size', cssVariable: '--h1-size', type: 'range', defaultValue: '48', min: 24, max: 96, step: 1, unit: 'px' },
-  { id: 'h1-weight', group: 'Typography', label: 'H1 weight', cssVariable: '--h1-weight', type: 'choice', defaultValue: '650', options: [{ label: '400', value: '400' }, { label: '650', value: '650' }, { label: '800', value: '800' }] },
-  { id: 'h1-tracking', group: 'Typography', label: 'H1 tracking', cssVariable: '--h1-tracking', type: 'range', defaultValue: '-0.04', min: -0.1, max: 0.1, step: 0.01, unit: 'em' },
-  { id: 'h2-size', group: 'Typography', label: 'H2 size', cssVariable: '--h2-size', type: 'range', defaultValue: '28', min: 16, max: 64, step: 1, unit: 'px' },
-  { id: 'body-font', group: 'Typography', label: 'Body font', cssVariable: '--body-font', type: 'choice', defaultValue: 'system-ui, sans-serif', options: [{ label: 'Sans', value: 'system-ui, sans-serif' }, { label: 'Mono', value: 'ui-monospace, monospace' }] },
-  { id: 'body-size', group: 'Typography', label: 'Body size', cssVariable: '--body-size', type: 'range', defaultValue: '16', min: 12, max: 24, step: 1, unit: 'px' },
-];
+export const BASELINE_CONTROLS: Array<Record<string, unknown>> = BASELINE_TWEAKS.map((control) => {
+  const definition = { ...control, group: 'Typography' };
+  switch (control.id) {
+    case 'font':
+    case 'body-font':
+      return { ...definition, defaultValue: 'system-ui, sans-serif', options: BASELINE_FONT_OPTIONS };
+    case 'h1-weight':
+      return { ...definition, defaultValue: '650', options: ['400', '650', '800'].map((value) => ({ label: value, value })) };
+    case 'h1-tracking':
+      return { ...definition, defaultValue: '-0.04', min: -0.1, max: 0.1, step: 0.01, unit: 'em' };
+    case 'h1-size':
+      return { ...definition, defaultValue: '48', min: 24, max: 96, step: 1, unit: 'px' };
+    case 'h2-size':
+      return { ...definition, defaultValue: '28', min: 16, max: 64, step: 1, unit: 'px' };
+    case 'body-size':
+      return { ...definition, defaultValue: '16', min: 12, max: 24, step: 1, unit: 'px' };
+  }
+});
 
 export const STUB_PAGE = `<body>${BASELINE_STYLE}<h1>Generated page</h1><h2>Section</h2><p id="generated">Generated page</p></body>`;
 
@@ -128,7 +142,7 @@ export async function declareTweaks(
   controls: Array<Record<string, unknown>>,
 ): Promise<void> {
   const tool = toolNamed(params, 'design_library_declare_tweaks');
-  const complete = controls[0]?.id === 'font' ? controls : [...BASELINE_CONTROLS, ...controls];
+  const complete = hasBaselineTweakPrefix(controls) ? controls : [...BASELINE_CONTROLS, ...controls];
   if (tool) await invokeTool(tool, { controls: complete });
 }
 

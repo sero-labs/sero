@@ -1,21 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { generationProgressMessage } from './run';
+import { createGenerationProgressReporter } from './progress';
 
-describe('generation progress copy', () => {
-  it('turns internal tool activity into plain English', () => {
-    expect(generationProgressMessage('  📂 design_library_write_file: index.html')).toBe(
-      'Writing the design files…',
-    );
-    expect(generationProgressMessage('  📂 design_library_declare_tweaks: controls')).toBe(
-      'Adding design controls…',
-    );
-    expect(generationProgressMessage('  📂 design_library_generate_image: hero')).toBe(
-      'Creating artwork…',
-    );
-  });
+describe('generation progress writes', () => {
+  it('keeps tool-owned updates in order and waits for them', async () => {
+    const written: string[] = [];
+    const reporter = createGenerationProgressReporter(async (message) => {
+      await Promise.resolve();
+      written.push(message);
+    }, vi.fn());
 
-  it('does not expose an unknown host update', () => {
-    expect(generationProgressMessage('provider debug output')).toBeNull();
+    reporter.report('Planning the design…');
+    reporter.report('Writing the design files…');
+    await reporter.settle();
+
+    expect(written).toEqual(['Planning the design…', 'Writing the design files…']);
   });
 });

@@ -42,7 +42,7 @@ describe('FilesTab', () => {
     const onOpen = vi.fn();
     render(<FilesTab files={[{ name: 'index.html', bytes: 20 }]} onOpen={onOpen} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show in folder' }));
 
     expect(onOpen).toHaveBeenCalledOnce();
   });

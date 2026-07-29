@@ -208,6 +208,7 @@ export class MediaQueue {
       budget,
       signal: controller.signal,
       jobId: job.id,
+      librarySources: 'all',
       ...(asset.originVariantId === undefined
         ? {}
         : { originVariantId: asset.originVariantId }),

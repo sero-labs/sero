@@ -108,7 +108,7 @@ Underneath the preview you can set the width the page is rendered at, and reload
 Five tabs, all about the variant on screen:
 
 - **Design** — what the run made and what it was made from: its concept, the references it drew on, and the visual language it took from them.
-- **Files** — what it wrote and how big each file is. **Open in Finder** opens that revision's folder on your Mac.
+- **Files** — what it wrote and how big each file is. **Show in folder** opens that revision in your file manager.
 - **History** — every result this variant has had, and the tweak values you had set earlier. Selecting one puts it back on screen; nothing is generated and nothing is lost.
 - **Tweaks** — the live controls for this exact page (below).
 - **Art** — the pictures and video this design uses (below).
@@ -143,7 +143,7 @@ Each piece shows what it is, what it cost, and the name the page refers to it by
 | --- | --- |
 | Generate artwork | Ask for a new picture or a short video |
 | Retry | Try again for one that failed. The failure stays on the record, and the page needs no change |
-| Copy to Library | Copy it into your Library as a reference of its own, with its own copy of the file |
+| Copy to Library | Copy new artwork into your Library as a reference of its own. Artwork copied from an existing Library item does not offer this action |
 | Delete | Hide it from the tray. The file stays until the design is deleted |
 
 Only the buttons that apply are shown: nothing to retry on a picture that worked, and nothing to copy until one has actually arrived. Retry appears only where trying again could give a different answer — a provider that was busy, or a run that never finished. Where the request itself was refused, trying again would only be refused the same way, so the button is not offered.

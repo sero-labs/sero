@@ -106,7 +106,7 @@ Rendering the comparison also surfaced a real UI problem: a permanent multi-line
 
 The first manual pass reversed the earlier decision to make every control page-specific. Each generated page must now provide Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size before its own controls.
 
-This is enforced in the generation prompt and the finished manifest validator. Each property must be declared by the page and read through `var()`. A missing or inert baseline control sends the model back through the existing repair loop; a page that still lacks the baseline is not accepted. The runtime does not rewrite generated CSS, and the UI does not show controls that only happen to work on some pages.
+This is enforced in the generation prompt and the finished manifest validator. Each property must be declared and connected to its intended `h1`, `h2` or `body` rule through `var()`. Font choices are limited to the two available system stacks. A missing or inert baseline control sends the model back through the existing repair loop; a page that still lacks the baseline is not accepted. This also applies when revising a revision created before the baseline existed. The runtime does not rewrite generated CSS, and the UI does not show controls that only happen to work on some pages.
 
 Page-specific controls remain AI-authored and validated as before. The fixed baseline is the only catalogue.
 

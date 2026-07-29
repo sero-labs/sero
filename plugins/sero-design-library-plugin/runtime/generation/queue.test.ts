@@ -21,6 +21,7 @@ import {
 } from '../coordinator-harness';
 import { mutateVariant, readDesign } from '../design-store';
 import { reconcileJobs } from '../jobs';
+import { invokeTool } from '../librarian/test-support';
 import { listJobs, readItem, saveItem, saveJob } from '../store';
 
 /**
@@ -84,7 +85,7 @@ describe('generating a variant', () => {
 
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
       if (!isGenerationRun(params)) return stubAnalysisRun(params);
-      const reference = params.task.match(/`(assets\/reference-[^`]+\.png)`/)?.[1];
+      const reference = params.task.match(/`(assets\/reference-[^`]+\.image)`/)?.[1];
       expect(reference).toBeDefined();
       await writeDesignFiles(params, [
         {
@@ -122,6 +123,10 @@ describe('generating a variant', () => {
     let finish: (() => void) | undefined;
     harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
       if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      const writer = (params.customTools as ToolDefinition[]).find(
+        (tool) => tool.name === 'design_library_write_file',
+      );
+      if (writer) await invokeTool(writer, { name: 'index.html', content: STUB_PAGE });
       await new Promise<void>((resolve) => {
         finish = resolve;
       });
@@ -139,8 +144,6 @@ describe('generating a variant', () => {
       return found!;
     });
     try {
-      expect(generation.onUpdate).toEqual(expect.any(Function));
-      generation.onUpdate?.('  📂 design_library_write_file: index.html');
       await vi.waitFor(async () => {
         const state = await readState(harness.paths);
         expect(state.designs[0]?.variants[0]?.progress).toBe('Writing the design files…');
@@ -307,7 +310,7 @@ describe('generating a variant', () => {
       await writeDesignFiles(params, [
         {
           name: 'App.tsx',
-          content: `const css = ${JSON.stringify(BASELINE_STYLE)}; export default function App( {`,
+          content: `const page = ${JSON.stringify(STUB_PAGE)}; export default function App( {`,
         },
       ]);
       await nameDesign(params, { name: 'Broken build', summary: 'Did not compile.' });

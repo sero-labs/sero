@@ -64,7 +64,11 @@ function byteLength(content: string): number {
  * model never rewrites is carried through unchanged, so a revise can change one
  * stylesheet without restating the markup.
  */
-export function createEmitFileTool(target: OutputTarget, seed: EmittedFile[] = []): EmitFileTool {
+export function createEmitFileTool(
+  target: OutputTarget,
+  seed: EmittedFile[] = [],
+  onExecute?: () => void,
+): EmitFileTool {
   const contract = TARGET_CONTRACTS[target];
   const seeded = new Map<string, string>(seed.map((file) => [file.name, file.content]));
   const written = new Map<string, string>(seeded);
@@ -94,6 +98,7 @@ export function createEmitFileTool(target: OutputTarget, seed: EmittedFile[] = [
       content: Type.String({ description: 'The complete file contents.' }),
     }),
     async execute(_toolCallId, params) {
+      onExecute?.();
       const { name, content } = params as { name: string; content: string };
 
       const badName = refuseFileName(target, name);

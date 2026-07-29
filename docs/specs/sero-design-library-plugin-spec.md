@@ -284,7 +284,7 @@ interface VariantTweakState {
 
 A manifest may also cover colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS concern. Font options are limited to the system sans and mono stacks available to every Design.
 
-Every definition must bind to a declared custom property and visibly change the page. A validator drops invalid, duplicate or inert page-specific controls and reports them, without preventing the valid page from rendering. The baseline is part of the generation contract: missing or inert baseline controls trigger in-session repair, and a page that still lacks them is not accepted.
+Every definition must bind to a declared custom property and visibly change the page. For the baseline, the validator also proves that each property reaches its intended `h1`, `h2` or `body` rule and that font choices use only the two available system stacks. A validator drops invalid, duplicate or inert page-specific controls and reports them, without preventing the valid page from rendering. The baseline is part of the generation contract: missing or inert baseline controls trigger in-session repair, and a page that still lacks them is not accepted. Revising a revision made before this contract must add the baseline before the new revision is accepted.
 
 Changing a control validates and normalises the value, stores it as an override and applies it immediately. **The message sent to the preview carries only a manifest id and a value** — never a selector, arbitrary CSS or JavaScript.
 
@@ -292,7 +292,7 @@ Each control has Reset; the panel has Reset all; Copy CSS yields the effective s
 
 **Placement.** Tweaks is a fourth tab in the variant inspector, alongside Design, Files and History. The inspector is drag-resizable using `ResizablePanel` from `@sero-ai/ui`, and its width persists in plugin state, so a control-heavy design can be given room and narrowed again afterwards. The sessions rail collapses to icons, which is what makes a widened inspector affordable.
 
-**Files.** The Files tab lists the authored files for the visible revision and can open that revision's folder in Finder. The action resolves the folder from the validated Design record and uses Sero's generic shell bridge. It does not give the UI filesystem access, and the action can later open the same files in the Editor instead.
+**Files.** The Files tab lists the authored files for the visible revision and can show that revision in the host file manager. The action resolves the folder from the validated Design record and uses Sero's generic shell bridge. It does not give the UI filesystem access, and the action can later open the same files in the Editor instead.
 
 Tweak state autosaves continuously, but one *editing session* checkpoints as **one** recoverable revision — when the panel closes, the active variant changes, a new revision starts, Gallery saves, or Sero shuts down. Slider input must never create revision spam.
 
@@ -304,7 +304,7 @@ Media is for illustrative artwork — hero imagery, textures, abstract graphics.
 
 Results are downloaded and stored locally; no remote URL ever reaches a preview or an export. Failure inserts a local placeholder with asset-only retry; a successful retry replaces the placeholder and preserves history. Assets are reusable across variants in the same Design and stay in the tray until deleted.
 
-**Copy to Library** creates an independent Library item with full generation provenance and automatic analysis.
+**Copy to Library** creates an independent Library item with full generation provenance and automatic analysis. A Design-owned copy of an existing Library item does not offer this action because it already has a Library source.
 
 ### 6.7 Persistence
 

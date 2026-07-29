@@ -49,7 +49,10 @@ export interface DeclareTweaksTool {
 
 const CONTROL_TYPES = ['range', 'toggle', 'colour', 'choice'] as const;
 
-export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTweaksTool {
+export function createDeclareTweaksTool(
+  files: () => EmittedFile[],
+  onExecute?: () => void,
+): DeclareTweaksTool {
   let declared: unknown[] | null = null;
 
   const sourceOf = () =>
@@ -65,7 +68,7 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
     label: 'Declare Design Tweaks',
-    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nEach control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
+    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nFont and Body font must offer exactly \`system-ui, sans-serif\` and \`ui-monospace, monospace\`. Connect each baseline property to its named element with a direct \`h1\`, \`h2\` or \`body\` CSS rule. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
     promptSnippet:
       'design_library_declare_tweaks — declares the live CSS controls for the page you wrote',
     parameters: Type.Object({
@@ -102,6 +105,7 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
       ),
     }),
     async execute(_toolCallId, params) {
+      onExecute?.();
       const { controls } = params as { controls: unknown[] };
 
       if (sourceOf() === '') {
@@ -119,7 +123,7 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
 
       declared = controls.map(toDefinitionShape);
       const answer = validate(declared);
-      const baselineProblem = baselineTweakProblem(answer.manifest.controls);
+      const baselineProblem = baselineTweakProblem(answer.manifest.controls, sourceOf());
 
       const kept = answer.manifest.controls.length;
       const lines = [`Accepted ${kept} control${kept === 1 ? '' : 's'}.`];

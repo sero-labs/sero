@@ -190,7 +190,7 @@ export interface DesignAsset {
   kind: MediaKind;
   /** Library artwork copied in when this Design was created. */
   sourceItemId?: string;
-  /** How the page refers to it, e.g. `assets/hero.png`. Stable across retries. */
+  /** How the page refers to it, e.g. `assets/<id>.image`. Stable across retries. */
   reference: string;
   request: StoredMediaRequest;
   /** Oldest first; the last one is what the tray shows. */
@@ -228,9 +228,6 @@ export function assetIsPending(asset: DesignAsset): boolean {
 
 /** Reported cost across every attempt — a failed one that still billed counts. */
 export function assetCostUsd(asset: DesignAsset): number {
-  // Reference artwork was paid for before this Design existed. Its provenance
-  // stays on the copy, but it is not a cost this Design incurred.
-  if (asset.sourceItemId !== undefined) return 0;
   return asset.attempts.reduce((total, attempt) => total + (attempt.provenance?.costUsd ?? 0), 0);
 }
 
@@ -262,7 +259,7 @@ export function assetReference(fileName: string): string {
  * how the two would drift.
  */
 export function assetReferenceFor(assetId: string, capability: MediaCapability): string {
-  return assetReference(`${assetId}.${kindFor(capability) === 'video' ? 'mp4' : 'png'}`);
+  return assetReference(`${assetId}.${kindFor(capability) === 'video' ? 'mp4' : 'image'}`);
 }
 
 /**

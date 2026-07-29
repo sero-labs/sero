@@ -101,6 +101,12 @@ export interface ItemRecord {
   deletedAt?: number;
 }
 
+/** Whether an item's pixels were made inside Design Library. */
+export function itemIsPluginArtwork(item: ItemRecord): boolean {
+  return item.kind === 'image' &&
+    (item.source.kind === 'generated' || item.source.kind === 'derived');
+}
+
 export const ITEM_SCHEMA_VERSION = 1;
 
 export interface Collection {
