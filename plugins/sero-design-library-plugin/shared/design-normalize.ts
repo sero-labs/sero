@@ -143,11 +143,16 @@ function normalizeRevision(value: unknown): DesignRevision | null {
   if (files.length === 0) return null;
 
   const tweaks = normalizeTweakState(value.tweaks);
+  const model = isRecordObject(value.model) &&
+    typeof value.model.providerId === 'string' && typeof value.model.modelId === 'string'
+    ? { providerId: value.model.providerId, modelId: value.model.modelId }
+    : undefined;
 
   return {
     id: value.id,
     createdAt: num(value.createdAt, 0),
     jobId: str(value.jobId),
+    ...(model === undefined ? {} : { model }),
     files,
     ...(typeof value.builtFile === 'string' && isSafeId(value.builtFile)
       ? { builtFile: value.builtFile }
@@ -303,6 +308,19 @@ export function normalizeDesignRecord(value: unknown): DesignRecord | null {
   // and its brief alone is not a Design.
   if (references.length === 0) return null;
 
+  const lineage: DesignRecord['galleryLineage'] = isRecordObject(value.galleryLineage) &&
+    (value.galleryLineage.mode === 'duplicate' || value.galleryLineage.mode === 'remix') &&
+    typeof value.galleryLineage.parentFamilyId === 'string' &&
+    typeof value.galleryLineage.parentVersionId === 'string' &&
+    isSafeId(value.galleryLineage.parentFamilyId) &&
+    isSafeId(value.galleryLineage.parentVersionId)
+    ? {
+        mode: value.galleryLineage.mode,
+        parentFamilyId: value.galleryLineage.parentFamilyId,
+        parentVersionId: value.galleryLineage.parentVersionId,
+      }
+    : undefined;
+
   return {
     id: value.id,
     schemaVersion: num(value.schemaVersion, DESIGN_SCHEMA_VERSION),
@@ -322,8 +340,12 @@ export function normalizeDesignRecord(value: unknown): DesignRecord | null {
       ? value.assets.flatMap((entry) => {
           const asset = normalizeDesignAsset(entry);
           return asset === null ? [] : [asset];
-        })
+      })
       : [],
+    ...(typeof value.galleryFamilyId === 'string' && isSafeId(value.galleryFamilyId)
+      ? { galleryFamilyId: value.galleryFamilyId }
+      : {}),
+    ...(lineage === undefined ? {} : { galleryLineage: lineage }),
     ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
   };
 }

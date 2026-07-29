@@ -13,6 +13,7 @@
 import type { DesignAsset } from './media';
 import type { TombstonedProvenance } from './records';
 import type { RevisionBehaviour } from './settings';
+import type { ModelSelection } from './settings';
 import type { TweakCheckpoint, TweakOverrides } from './tweaks';
 
 export const DESIGN_SCHEMA_VERSION = 1;
@@ -75,6 +76,8 @@ export interface DesignRevision {
   createdAt: number;
   /** The generation job that produced it. Provenance for the History tab. */
   jobId: string;
+  /** Concrete generation model when the host reported it. */
+  model?: ModelSelection;
   /** Files the model authored, in the order it wrote them. */
   files: DesignRevisionFile[];
   /**
@@ -231,6 +234,14 @@ export interface DesignRecord {
    * outlives the run that asked for it and any variant that failed after it.
    */
   assets: DesignAsset[];
+  /** Reserved family for saves, including a new family created by Duplicate or Remix. */
+  galleryFamilyId?: string;
+  /** The Gallery version this separate Design family grew from. */
+  galleryLineage?: {
+    mode: 'duplicate' | 'remix';
+    parentFamilyId: string;
+    parentVersionId: string;
+  };
   deletedAt?: number;
 }
 

@@ -458,6 +458,15 @@ export interface SeroAdminBridge {
 
 export interface SeroAppControlBridge {
   openFile(workspaceId: string, filePath: string): Promise<boolean>;
+  /** Capture a visible window-relative CSS rectangle inside the active app panel. */
+  captureRegion(rect: SeroCaptureRect): Promise<string | null>;
+}
+
+export interface SeroCaptureRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface SeroEditorBridge {

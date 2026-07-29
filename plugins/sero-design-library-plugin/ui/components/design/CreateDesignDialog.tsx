@@ -37,6 +37,8 @@ export interface CreateDesignDialogProps {
   actions: DesignActions;
   onOpenChange(open: boolean): void;
   onCreated(): void;
+  initialBrief?: DesignBrief;
+  galleryParent?: { familyId: string; versionId: string };
 }
 
 export function CreateDesignDialog({
@@ -46,14 +48,16 @@ export function CreateDesignDialog({
   actions,
   onOpenChange,
   onCreated,
+  initialBrief,
+  galleryParent,
 }: CreateDesignDialogProps) {
   const [brief, setBrief] = useState<Brief>({
-    request: '',
-    recipeId: '',
-    target: 'html',
-    variationMode: 'blend',
-    variantCount: settings.generation.variantCount,
-    strengthIndex: 1,
+    request: initialBrief?.request ?? '',
+    recipeId: initialBrief?.recipeId ?? '',
+    target: initialBrief?.target ?? 'html',
+    variationMode: initialBrief?.variationMode ?? 'blend',
+    variantCount: initialBrief?.variantCount ?? settings.generation.variantCount,
+    strengthIndex: Math.max(0, STRENGTHS.indexOf(initialBrief?.inspirationStrength ?? 'balanced')),
     sessionRules: [],
   });
   const [synthesis, setSynthesis] = useState<GuardrailSynthesis | null>(null);
@@ -99,6 +103,7 @@ export function CreateDesignDialog({
       resolutions,
       sessionRules: brief.sessionRules,
       ...(brief.recipeId === '' ? {} : { recipeId: brief.recipeId }),
+      ...(galleryParent === undefined ? {} : { galleryParent }),
     };
     // The reset belongs in `finally`: a create that rejects — the runtime gone,
     // the bridge unreachable — would otherwise leave the button disabled with no
@@ -125,9 +130,11 @@ export function CreateDesignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-6xl">
         <DialogHeader className="border-border space-y-1 border-b px-6 py-4">
-          <DialogTitle>Create a new design</DialogTitle>
+          <DialogTitle>{galleryParent ? 'Remix saved design' : 'Create a new design'}</DialogTitle>
           <DialogDescription>
-            Turn the selected references into original, runnable work.
+            {galleryParent
+              ? 'Start a new family from the saved brief and references.'
+              : 'Turn the selected references into original, runnable work.'}
           </DialogDescription>
         </DialogHeader>
 

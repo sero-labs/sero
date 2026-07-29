@@ -1,6 +1,9 @@
 import os from 'node:os';
 import path from 'node:path';
 
+import { isSafeId } from './safe-id';
+export { isSafeId } from './safe-id';
+
 /**
  * Root of the active profile's Sero home. Falls back to `~/.pi` only when the
  * env vars are unset, which happens in plain Pi CLI mode.
@@ -81,14 +84,6 @@ export function resolveDesignLibraryPaths(env: NodeJS.ProcessEnv = process.env):
  * forget: there is no way to build a plugin path from an id without passing
  * through here.
  */
-const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-
-export function isSafeId(id: string): boolean {
-  // The leading-character rule already excludes '.' and '..', and the class
-  // excludes every separator, so no traversal survives.
-  return SAFE_ID.test(id);
-}
-
 export function assertSafeId(id: string, kind: string): string {
   if (!isSafeId(id)) {
     throw new Error(`Refusing to use ${JSON.stringify(id)} as a ${kind}: it is not a safe identifier.`);
@@ -171,6 +166,14 @@ export function galleryVersionDir(
     'versions',
     assertSafeId(versionId, 'gallery version id'),
   );
+}
+
+export function galleryVersionRecordFile(
+  paths: DesignLibraryPaths,
+  familyId: string,
+  versionId: string,
+): string {
+  return path.join(galleryVersionDir(paths, familyId, versionId), 'record.json');
 }
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {

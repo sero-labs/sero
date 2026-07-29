@@ -5,8 +5,8 @@ import {
   ResizablePanelGroup,
 } from '@sero-ai/ui';
 import { createDebouncedFn } from '@sero-ai/common';
-import { ArrowLeft, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Images, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
 import { orderedRevisions } from '../../shared/design';
@@ -23,6 +23,7 @@ import { VariantTabs } from '../components/design/VariantTabs';
 import { referenceViews } from '../components/design/references';
 import type { DesignActions } from '../hooks/useDesigns';
 import { useMedia } from '../hooks/useMedia';
+import { useGallery } from '../hooks/useGallery';
 import { useVideoFrames } from '../hooks/useVideoFrames';
 import { useTweaks } from '../hooks/useTweaks';
 import type { PreviewTarget } from '../hooks/usePreviewDocument';
@@ -86,7 +87,15 @@ export function DesignPage({
    */
   const [focused, setFocused] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [captureReady, setCaptureReady] = useState(false);
+  const [startingGallerySave, setStartingGallerySave] = useState(false);
+  const [gallerySaveError, setGallerySaveError] = useState<string>();
   const media = useMedia();
+  const gallery = useGallery();
+  const captureTarget = useRef<HTMLDivElement | null>(null);
+  const registerCaptureTarget = useCallback((element: HTMLDivElement | null) => {
+    captureTarget.current = element;
+  }, []);
 
   // The record holds what the index deliberately leaves out — guardrails, file
   // lists, revisions, tweak values — so it is read on demand and re-read
@@ -215,9 +224,29 @@ export function DesignPage({
 
           <Button
             type="button"
-            variant="ghost"
             size="sm"
             className="ml-auto"
+            disabled={working || revision === undefined || !captureReady || gallery.saving || startingGallerySave}
+            onClick={() => {
+              if (!active || !revision || !captureTarget.current) return;
+              const target = captureTarget.current;
+              setStartingGallerySave(true);
+              setGallerySaveError(undefined);
+              void tweaks.checkpoint().then(() =>
+                gallery.actions.save(target, design.id, active.id, revision.id),
+              ).catch(() => {
+                setGallerySaveError('The latest Tweaks could not be saved, so Gallery did not capture them.');
+              }).finally(() => setStartingGallerySave(false));
+            }}
+          >
+            <Images className="size-3.5" />
+            {gallery.saving || startingGallerySave ? 'Saving…' : 'Save to Gallery'}
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               void actions.remove(design.id);
               onBack();
@@ -244,6 +273,8 @@ export function DesignPage({
                     tweakValues={tweaks.cssValues}
                     focused={focused}
                     onFocus={() => setFocused((current) => !current)}
+                    onCaptureTarget={registerCaptureTarget}
+                    onCaptureReady={setCaptureReady}
                     {...(working
                       ? {
                           generationMessage:
@@ -324,6 +355,11 @@ export function DesignPage({
                 );
               }}
             />
+            {(gallery.error ?? gallerySaveError) && (
+              <p className="text-destructive px-4 pb-2 text-sm" role="alert">
+                {gallery.error ?? gallerySaveError}
+              </p>
+            )}
           </>
         )}
       </div>

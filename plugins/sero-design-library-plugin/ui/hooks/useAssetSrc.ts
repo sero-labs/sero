@@ -1,6 +1,7 @@
 import type { AppToolResult } from '@sero-ai/common';
 import { useAppTools } from '@sero-ai/app-runtime';
 import { useEffect, useRef, useState } from 'react';
+import { BoundedImageCache } from '../lib/image-cache';
 
 /**
  * Stored images, fetched through the asset tool and cached.
@@ -11,24 +12,18 @@ import { useEffect, useRef, useState } from 'react';
  * endlessly. The cache is bounded because the payloads are large — an
  * unbounded one would hold every image the user has ever scrolled past.
  *
- * Library items and Design assets share the cache and the in-flight map. They
- * are the same problem — bytes only a tool call can reach — and one cache with
- * one bound is the only way the bound means anything.
+ * Library items, Design assets and Gallery previews share the cache and the
+ * in-flight map. They are the same problem — bytes only a tool call can reach —
+ * and one cache with one bound is the only way the bound means anything.
  */
 
 const MAX_CACHED = 120;
 
-/** Insertion-ordered, so the oldest key is the first one `keys()` yields. */
-const cache = new Map<string, string>();
+const cache = new BoundedImageCache(MAX_CACHED);
 const inFlight = new Map<string, Promise<string | null>>();
 
 function remember(key: string, dataUrl: string): void {
   cache.set(key, dataUrl);
-  while (cache.size > MAX_CACHED) {
-    const oldest = cache.keys().next();
-    if (oldest.done === true) break;
-    cache.delete(oldest.value);
-  }
 }
 
 function toDataUrl(result: AppToolResult): string | null {
@@ -49,7 +44,11 @@ function toDataUrl(result: AppToolResult): string | null {
  * params no committed render ever had. Effects run in declaration order, so the
  * write below always lands before the fetch reads it.
  */
-function useToolImage(key: string, params: Record<string, unknown> | null): string | null {
+function useToolImage(
+  key: string,
+  params: Record<string, unknown> | null,
+  toolName = 'design_library_assets',
+): string | null {
   const tools = useAppTools();
   const latest = useRef(params);
   useEffect(() => {
@@ -81,7 +80,7 @@ function useToolImage(key: string, params: Record<string, unknown> | null): stri
     const pending =
       inFlight.get(key) ??
       tools
-        .run('design_library_assets', request)
+        .run(toolName, request)
         .then((result) => {
           const dataUrl = toDataUrl(result);
           if (dataUrl !== null) remember(key, dataUrl);
@@ -99,9 +98,20 @@ function useToolImage(key: string, params: Record<string, unknown> | null): stri
     return () => {
       active = false;
     };
-  }, [key, tools]);
+  }, [key, toolName, tools]);
 
   return src;
+}
+
+export function useGalleryPreviewSrc(
+  familyId: string,
+  versionId: string | undefined,
+): string | null {
+  return useToolImage(
+    versionId === undefined ? '' : `gallery:${familyId}:${versionId}`,
+    versionId === undefined ? null : { action: 'preview', familyId, versionId },
+    'design_library_gallery',
+  );
 }
 
 export type AssetVariant = 'preview' | 'original';

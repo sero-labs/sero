@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). **#328 built** — design loading state, generated Library images as source material, opening a design's files, and baseline Tweaks controls. PR 3b — Gallery and export — next.
-**Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). Issue #328 merged as #329. PR 3b — Gallery — built and awaiting review; PR 3c — Export and release hardening — follows it.
+**Branch:** `feat/design-library-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -12,7 +12,7 @@ Product behaviour lives in `docs/specs/sero-design-library-plugin-spec.md`. Rati
 
 ## 1. Governing constraints
 
-- Reuse Sero's public plugin and runtime contracts. No custom preload APIs, no new desktop IPC, no Design Library-specific host changes, no imports from desktop source or `sero-web-plugin`.
+- Reuse Sero's public plugin and runtime contracts. Small, generic host capabilities are valid when they are useful to other plugins and keep domain logic in the plugin. Do not add Design Library-specific IPC or heavy plugin code to the host, and do not import desktop source or `sero-web-plugin`.
 - No direct filesystem access from UI code.
 - No binary payloads in reactive state.
 - No vendor types outside the media adapter.
@@ -258,17 +258,28 @@ line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
 
 ---
 
-## PR 3b — Gallery and export
+## PR 3b — Gallery
 
-A permanent archive of what was made, and a way to take it out.
+A permanent archive of what was made.
 
 **Build**
 
-10. Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, deterministic snapshot re-render preview in a scaled `sandbox=""` iframe mounted on scroll, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge.
-11. Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
-12. Remaining hardening: keyboard and screen-reader operation for every generated tweak control, reduced motion including generated motion controls, incremental grid rendering, bounded preview cache, external plugin installation test.
+10. Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, bounded immutable visual preview, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge. Prefer Sero's native capture path and a cropped, card-sized PNG. A thin generic host method for capturing a visible app-panel region is valid; Gallery records, snapshot rules and image management stay in the plugin. The preview mechanism is an implementation choice: it must stay local, inert and useful, but a sandboxed iframe is only a fallback rather than a product constraint. Use incremental grid rendering and a bounded preview cache.
 
-**Accept when** Gallery versions stay byte-identical after source deletion; old versions never mutate; export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work.
+**Accept when** Gallery versions stay byte-identical after source deletion; old versions never mutate; exact revisions reopen; Duplicate and Remix create the correct linked Design family; a large Gallery remains responsive.
+
+---
+
+## PR 3c — Export and release hardening
+
+Take an exact Gallery version out of Sero and complete the first-release hardening pass.
+
+**Build**
+
+11. Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
+12. Remaining hardening: keyboard and screen-reader operation for every generated tweak control, reduced motion including generated motion controls, external plugin installation test, final documentation and first-release acceptance pass.
+
+**Accept when** export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work; the plugin installs and runs as an external plugin.
 
 ---
 
@@ -287,7 +298,8 @@ Manual verification per PR:
 - **PR 1** — global discovery; all three import paths; duplicate handling; search, filters, collections; analysis, reanalysis and per-field reset; restart mid-analysis; model picker persistence.
 - **PR 2** — reference ordering and conflict blocking; both output targets; variant failure, cancellation and restart; hostile previews and invalid tweak messages; tweak relevance, live update, reset, Copy CSS and revision coalescing.
 - **PR 3a** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; quit mid-generation and reopen; a generated video's thumbnail and motion analysis.
-- **PR 3b** — Gallery source deletion; reopening at an exact revision; both export destinations; external plugin installation.
+- **PR 3b** — Gallery source deletion; reopening at an exact revision; Duplicate and Remix; a large Gallery.
+- **PR 3c** — Both export destinations; standalone output; generated-control accessibility and reduced motion; external plugin installation.
 
 ## 8. Notes
 

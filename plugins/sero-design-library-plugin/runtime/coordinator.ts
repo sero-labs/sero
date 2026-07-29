@@ -22,6 +22,7 @@ import type { MediaProvider } from './media/contract';
 import { mediaModelsChanged, refreshMediaOptions } from './media/options';
 import { createMediaProviderForRun } from './media/provider';
 import { MediaRequests, isMediaRequest } from './media/requests';
+import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
@@ -50,6 +51,7 @@ export class Coordinator {
   private readonly designs: DesignRequests;
   private readonly mediaQueue: MediaQueue;
   private readonly media: MediaRequests;
+  private readonly gallery: GalleryRequests;
   private draining = false;
   private drainAgain = false;
   /** Best-effort option reads in flight, so disposal waits for their writes. */
@@ -80,6 +82,7 @@ export class Coordinator {
         : { createProvider: context.createMediaProvider }),
     });
     this.media = new MediaRequests(context.paths, this.mediaQueue);
+    this.gallery = new GalleryRequests(context.paths);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -218,6 +221,11 @@ export class Coordinator {
     if (isMediaRequest(body)) {
       const { analyse } = await this.media.apply(body);
       if (analyse !== undefined) await this.startAnalysis(analyse, true);
+      return;
+    }
+
+    if (isGalleryRequest(body)) {
+      await this.gallery.apply(body);
       return;
     }
 

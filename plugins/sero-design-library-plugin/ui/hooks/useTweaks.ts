@@ -65,7 +65,7 @@ export interface TweakSurface {
   reset(controlId: string): void;
   resetAll(): void;
   /** End the editing session: one recoverable entry for everything since the last. */
-  checkpoint(): void;
+  checkpoint(): Promise<void>;
   /** Put an earlier session's values back; the current ones are kept first. */
   restoreCheckpoint(checkpointId: string): void;
 }
@@ -261,11 +261,16 @@ export function useTweaks(
         setPending({ key, values: {} });
         if (target !== null) fire(writes, { action: 'reset-tweaks', ...target });
       },
-      checkpoint() {
+      async checkpoint() {
         // After the values, never beside them: a checkpoint that overtook the
         // last change would close the session without it.
-        void writes.flush(send);
-        if (target !== null) fire(writes, { action: 'checkpoint-tweaks', ...target });
+        await writes.flush(send);
+        if (target !== null) {
+          await writes.send(send, { action: 'checkpoint-tweaks', ...target }).then(
+            () => undefined,
+            () => undefined,
+          );
+        }
       },
       restoreCheckpoint(checkpointId: string) {
         // Same rule as Reset all: what is on screen is checkpointed before it is

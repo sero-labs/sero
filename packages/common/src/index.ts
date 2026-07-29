@@ -376,6 +376,7 @@ export type {
   SeroSessionsBridge,
   SeroAdminBridge,
   SeroAppControlBridge,
+  SeroCaptureRect,
   SeroEditorBridge,
   SeroWebHostBridge,
 } from './admin-bridge';

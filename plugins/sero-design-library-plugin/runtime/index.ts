@@ -6,6 +6,7 @@ import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { pruneOrphanRevisions, scanDesigns } from './design-store';
 import { reindex } from './store';
+import { pruneGalleryTemps, reindexGallery } from './gallery-store';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -43,7 +44,11 @@ class DesignLibraryRuntime implements AppRuntime {
       const state = await readState(paths);
       const awaited = new Set(
         pendingRequests(state).flatMap((request) =>
-          request.body.kind === 'ingest' ? [request.body.uploadId] : [],
+          request.body.kind === 'ingest'
+            ? [request.body.uploadId]
+            : request.body.kind === 'gallery.save'
+              ? [request.body.previewUploadId]
+              : [],
         ),
       );
       return pruneStaleUploads(paths, STALE_UPLOAD_MS, Date.now(), awaited);
@@ -59,6 +64,8 @@ class DesignLibraryRuntime implements AppRuntime {
         null,
       );
     }
+    await this.attempt('rebuild the Gallery index', () => reindexGallery(paths));
+    await this.attempt('remove incomplete Gallery snapshots', () => pruneGalleryTemps(paths));
 
     // A revision's files are written before the record entry naming them, so a
     // crash in between leaves a directory nothing points at. The variant is

@@ -105,6 +105,11 @@ function hasVisibleRect(rect: AppPanelRect | null): rect is AppPanelRect {
   return !!rect && rect.width > 0 && rect.height > 0;
 }
 
+function finiteRect(rect: AppPanelRect): boolean {
+  return [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
+    rect.width > 0 && rect.height > 0;
+}
+
 async function captureRecordingFrame(): Promise<void> {
   try {
     const capture = await appControlHostService.captureVisibleApp();
@@ -188,6 +193,20 @@ export const appControlHostService = {
   async screenshot(): Promise<string | null> {
     const capture = await this.captureVisibleApp();
     return capture?.base64 ?? null;
+  },
+
+  /** Capture only a visible window-relative region inside the active app panel. */
+  async captureAppRegion(rect: AppPanelRect): Promise<string | null> {
+    if (!finiteRect(rect)) return null;
+    const panel = await this.getAppRect();
+    if (!hasVisibleRect(panel)) return null;
+
+    const left = Math.max(panel.x, rect.x);
+    const top = Math.max(panel.y, rect.y);
+    const right = Math.min(panel.x + panel.width, rect.x + rect.width);
+    const bottom = Math.min(panel.y + panel.height, rect.y + rect.height);
+    if (right <= left || bottom <= top) return null;
+    return captureRect({ x: left, y: top, width: right - left, height: bottom - top });
   },
 
   async fullScreenshot(selector?: string): Promise<{ base64: string; target: AppFullScreenshotTarget } | null> {

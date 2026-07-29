@@ -42,4 +42,14 @@ describe('Design reference assets', () => {
     expect(assetCostUsd(asset())).toBe(0.08);
     expect(assetCostUsd(asset({ sourceItemId: 'item-1' }))).toBe(0.08);
   });
+
+  it('refuses asset paths that could leave the Design directory', () => {
+    expect(normalizeDesignAsset(asset({ id: '../asset' }))).toBeNull();
+    expect(normalizeDesignAsset(asset({ reference: 'assets/../../secret' }))).toBeNull();
+    expect(normalizeDesignAsset(asset({
+      attempts: [{
+        id: 'attempt-1', outcome: 'ready', startedAt: 1, completedAt: 2, file: '../secret',
+      }],
+    }))?.attempts[0]?.file).toBeUndefined();
+  });
 });

@@ -31,6 +31,7 @@ export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
  * role rather than a variable number of them.
  */
 export type UploadRole = 'original' | 'preview' | 'frames';
+export type UploadPurpose = 'import' | 'gallery-preview';
 
 export const UPLOAD_ROLES: readonly UploadRole[] = ['original', 'preview', 'frames'] as const;
 
@@ -44,6 +45,8 @@ export interface UploadManifest {
   mediaType: string;
   kind: MediaKind;
   sourceKind: ItemSourceKind;
+  /** Import queues ingestion; Gallery preview staging is consumed by `gallery.save`. */
+  purpose?: UploadPurpose;
   /**
    * Number of chunks the uploader will send for each role.
    *

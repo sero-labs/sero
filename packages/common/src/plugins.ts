@@ -27,6 +27,8 @@ export const SERO_HOST_CAPABILITIES = [
    * stays installable on older hosts.
    */
   'appRuntime.media',
+  /** Federated UI can capture a visible region inside its active app panel. */
+  'appControl.capture',
   /** Host mounts `sero.app.explorerView` as an Explorer view. */
   'ui.explorerView',
   /** Host mounts `sero.app.titlebar` as a title-bar control. */

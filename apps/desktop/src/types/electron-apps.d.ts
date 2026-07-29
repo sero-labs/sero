@@ -90,6 +90,8 @@ interface SeroAppControlAPI {
   openFile(workspaceId: string, filePath: string): Promise<boolean>;
   /** Capture a screenshot of the app panel. Returns base64 PNG or null. */
   screenshot(): Promise<string | null>;
+  /** Capture a window-relative CSS rectangle inside the active app panel. */
+  captureRegion(rect: AppPanelRect): Promise<string | null>;
   /** Execute a DOM interaction in the app panel. */
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
   /** Get the app panel's bounding rect for screenshot targeting. */

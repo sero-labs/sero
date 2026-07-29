@@ -100,7 +100,11 @@ export function VariantInspector({
   });
 
   useEffect(() => {
-    if (tab === 'tweaks') return () => checkpoint.current();
+    if (tab === 'tweaks') {
+      return () => {
+        void checkpoint.current();
+      };
+    }
     return undefined;
   }, [tab]);
 

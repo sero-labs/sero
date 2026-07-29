@@ -6,7 +6,7 @@
 
 Design Library is your private visual memory. You collect screenshots and images you like, Sero reads each one and describes its design language, and later you turn that language into original work.
 
-You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. Designs can generate their own artwork and video, and you can generate references straight into the Library. The Gallery arrives in the next release.
+You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. Designs can generate their own artwork and video, and you can generate references straight into the Library.
 
 ## Getting started
 
@@ -165,6 +165,22 @@ Beside the box you choose what happens to the result you already have:
 
 Your choice is remembered as the default, and can also be changed in Settings. Nothing is ever deleted by revising — revisions stay until you delete one yourself.
 
+## Gallery
+
+Choose **Save to Gallery** when a Design revision is worth keeping. The save contains its own source files, effective Tweaks values, artwork, references, guardrails and provenance. It also stores a small PNG preview for the Gallery card. The preview is not the exported design and does not need full output resolution.
+
+Each Design has one Gallery family. Saving it again adds another immutable version to the same card and makes the new version featured. Use the version selector to inspect an older save or feature it again.
+
+| Action | What it does |
+| --- | --- |
+| Open Design | Opens the source Design at the exact saved revision |
+| Duplicate | Creates an exact editable copy in a new family |
+| Remix | Opens generation with the saved brief and references filled in |
+| Delete version | Moves one saved version to Gallery Trash |
+| Delete family | Moves the full family to Gallery Trash |
+
+Deleted versions and families remain recoverable until you delete them permanently from Gallery Trash. Each version owns its files and artwork, so deleting the source Design, a Design asset or a Library reference cannot change the saved result.
+
 ## Generating references
 
 You can also generate straight into the Library, from the **Generate** button in the header.
@@ -227,12 +243,13 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_analysis` | Check analysis status, reanalyse, cancel or retry |
 | `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry, stop or revise a variant, switch or delete revisions, and set tweak values |
 | `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
+| `design_library_gallery` | List saved families, read versions, open or duplicate an exact revision, feature versions, and manage Gallery Trash |
 
 Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 
 ## Where things are stored
 
-Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design and the search index. Generated pictures are downloaded and kept locally too — a design never points at a web address.
+Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design, immutable Gallery versions and the search index. Generated pictures are downloaded and kept locally too — a design never points at a web address.
 
 What leaves your machine: the image sent to your configured model for analysis, the written description sent when you generate a design, and the prompt sent to the picture provider when you generate artwork.
 

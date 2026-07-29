@@ -449,7 +449,7 @@ Each asset records tool, provider, capability, model, prompt, parameters, seed, 
 
 ### 9.1 Saving
 
-Saving creates an immutable version containing exact source files with effective tweak values resolved, the tweak manifest and saved overrides, bundled local assets, a deterministic preview, the prompt and guardrail snapshot, source and model provenance, and the output target and dependency manifest.
+Saving creates an immutable version containing exact source files with effective tweak values resolved, the tweak manifest and saved overrides, bundled local assets, a bounded visual preview, the prompt and guardrail snapshot, source and model provenance, and the output target and dependency manifest.
 
 Subsequent saves add versions to the same family. A family shows as one card using its featured version; older versions are reachable through a revision selector. The newest save becomes featured by default, and changing that pointer never mutates a version.
 
@@ -457,7 +457,9 @@ New families come only from explicit Duplicate or Remix into a linked Design fam
 
 ### 9.2 Previews
 
-A Gallery version never changes, so its preview is a re-render of its own snapshot rather than a raster capture: a script-free, animation-free document rendered in a scaled `sandbox=""` iframe, mounted only when scrolled into view. The same bytes always paint the same picture, no headless browser is involved, and a large Gallery stays practical.
+A Gallery version owns a bounded visual preview for cards and revision selection. The preview is not an export artifact and does not need output resolution. Prefer Sero's existing native capture path: crop the rendered Design preview, reduce it to a useful card size and store it as an immutable local image. The Gallery must not run generated scripts or load remote resources to show a preview.
+
+The mechanism is not a product constraint. A safe local fallback is valid when native capture is unavailable, provided it keeps the Gallery useful, inert and responsive. A small generic host capture capability is valid when it is useful to other plugins; Gallery records, snapshot rules and image management remain plugin-owned. Preview work must not require a headless-browser dependency or a Design Library-specific host API.
 
 ### 9.3 Reopening, deletion, export
 
