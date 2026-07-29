@@ -65,4 +65,21 @@ describe('baseline tweak contract', () => {
       'h1 { font-family: var(--font-family); }',
     );
   });
+
+  it('accepts descendant and qualified selectors that target the intended element', () => {
+    const qualifiedSource = SOURCE
+      .replace('h1 { font-family', '.hero h1.title { font-family')
+      .replace('h2 { font-size', 'article > h2[data-level="2"] { font-size')
+      .replace('body { font-family', 'body.theme-dark { font-family');
+
+    expect(baselineTweakProblem(controls(), qualifiedSource)).toBeNull();
+  });
+
+  it('refuses a rule that targets a child inside the intended element', () => {
+    const childSource = SOURCE.replace('h1 { font-family', 'h1 .title { font-family');
+
+    expect(baselineTweakProblem(controls(), childSource)).toContain(
+      'h1 { font-family: var(--font-family); }',
+    );
+  });
 });

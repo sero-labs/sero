@@ -38,17 +38,32 @@ const BASELINE_RULES = {
   'body-size': { selector: 'body', property: 'font-size' },
 } as const;
 
-function directRuleUsesVariable(
+function selectorTargetsElement(candidate: string, element: string): boolean {
+  const escapedElement = element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `(?:^|.*[\\s>+~])${escapedElement}(?:[#.][\\w-]+|\\[[^\\]]+\\])*$`,
+    'i',
+  ).test(candidate);
+}
+
+function ruleUsesVariableOnElement(
   source: string,
   selector: string,
   property: string,
   variable: string,
 ): boolean {
   for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const afterMarkup = match[1]?.split('>').at(-1) ?? '';
-    const selectorText = afterMarkup.split(/[`'"]/).at(-1) ?? '';
+    const afterMarkup = match[1]?.replace(/^.*<\/?[a-z][^>]*>/is, '') ?? '';
+    const attributeAt = afterMarkup.indexOf('[');
+    const wrapperText = afterMarkup.slice(0, attributeAt < 0 ? undefined : attributeAt);
+    const wrapperAt = Math.max(
+      wrapperText.lastIndexOf('`'),
+      wrapperText.lastIndexOf("'"),
+      wrapperText.lastIndexOf('"'),
+    );
+    const selectorText = afterMarkup.slice(wrapperAt + 1);
     const selectors = selectorText.split(',').map((entry) => entry.trim());
-    if (!selectors.includes(selector)) continue;
+    if (!selectors.some((entry) => selectorTargetsElement(entry, selector))) continue;
     const declarations = match[2] ?? '';
     const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*var\\(\\s*${escapedVariable}(?:\\s*[,)]|\\s*$)`).test(declarations)) {
@@ -91,7 +106,7 @@ export function baselineTweakProblem(
       }
     }
     const rule = BASELINE_RULES[required.id as keyof typeof BASELINE_RULES];
-    if (!directRuleUsesVariable(source, rule.selector, rule.property, required.cssVariable)) {
+    if (!ruleUsesVariableOnElement(source, rule.selector, rule.property, required.cssVariable)) {
       return `${required.label} must be connected with \`${rule.selector} { ${rule.property}: var(${required.cssVariable}); }\` so it changes the intended text.`;
     }
     if ((rule.selector === 'h1' || rule.selector === 'h2') && !new RegExp(`<${rule.selector}(?:\\s|>)`, 'i').test(source)) {

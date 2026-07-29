@@ -11,3 +11,10 @@ export function createGenerationProgressReporter(
     settle: () => pending,
   };
 }
+
+/** Keep provider queue details out of the Design's plain-English status line. */
+export function createGenerationMediaProgressReporter(
+  report: (message: string) => void,
+): (_providerMessage: string) => void {
+  return () => report('Creating artwork…');
+}

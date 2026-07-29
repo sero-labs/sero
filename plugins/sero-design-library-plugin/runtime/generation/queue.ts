@@ -26,7 +26,7 @@ import {
 import { mutateVariant, readDesign } from '../design-store';
 import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
 import { mutateJob, readJob } from '../store';
-import { createGenerationProgressReporter } from './progress';
+import { createGenerationMediaProgressReporter, createGenerationProgressReporter } from './progress';
 import { collectReferenceLanguage, runGeneration } from './run';
 
 /**
@@ -43,7 +43,6 @@ import { collectReferenceLanguage, runGeneration } from './run';
  */
 
 const MAX_CONCURRENT = 2;
-
 export interface VariantQueueContext {
   host: AppRuntimeHost;
   paths: DesignLibraryPaths;
@@ -250,9 +249,7 @@ export class VariantQueue {
 
     // Media rides in as `customTools` (D5). The budget is per run, so it is
     // built here and lives exactly as long as this generation does.
-    const media = await this.mediaTools(
-      design, state.settings.media, jobId, variant.id, controller, progress.report,
-    );
+    const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller, progress.report);
 
     const outcome = await runGeneration(
       design,
@@ -312,7 +309,14 @@ export class VariantQueue {
     if (capped !== null) this.context.onError(capped, null);
   }
 
-  /** No media tools when there is no key or allowance; the task explains why. */
+  /**
+   * The media surface for one run.
+   *
+   * Absent — not merely refusing — when there is no key or the cap is zero. A
+   * model handed tools that fail every call spends the run arguing with them
+   * instead of writing the page, so the run is told in its task that it has none
+   * and what to do instead.
+   */
   private async mediaTools(
     design: DesignRecord,
     settings: MediaSettings,
@@ -352,7 +356,9 @@ export class VariantQueue {
       jobId,
       originVariantId: variantId,
       librarySources: 'plugin-owned',
-      onProgress,
+      // Provider queue states are useful for direct media actions, but they are
+      // too low-level for the Design's single plain-English progress line.
+      onProgress: createGenerationMediaProgressReporter(onProgress),
     });
     return { tools, budget };
   }

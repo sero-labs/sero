@@ -224,7 +224,7 @@ function tweakRules(): string {
     'Every page must route its typography through the seven standard custom properties below. Declare each property once at `:root`, read it with `var()` on the element it names, and declare its control first in the exact order shown.',
     'Font applies to `h1` and `h2`. H1 size, weight and tracking apply to `h1`. H2 size applies to `h2`. Body font and body size apply to `body` and inherited body copy.',
     'Font and Body font each offer exactly two values: `system-ui, sans-serif` and `ui-monospace, monospace`. H1 weight choices must include the weight the page ships with. Size ranges carry a sensible CSS unit; H1 tracking uses `em`.',
-    'Connect the baseline to its intended text with direct CSS rules: `h1` owns Font, H1 size, H1 weight and H1 tracking; `h2` owns H2 size; `body` owns Body font and Body size. The page must contain an `h1` and an `h2`.',
+    'Connect the baseline to its intended text with CSS rules that target `h1`, `h2` and `body`: `h1` owns Font, H1 size, H1 weight and H1 tracking; `h2` owns H2 size; `body` owns Body font and Body size. Qualified selectors such as `.hero h1` are valid. The page must contain an `h1` and an `h2`.',
     `Required baseline controls:\n${baselineTweakInstructions()}`,
     'After the baseline, add only the page-specific decisions worth revisiting. A dense metrics dashboard may want density and accent controls; an editorial page may want measure. Two to six page-specific controls is usually right.',
     'Call `design_library_declare_tweaks` once, with the baseline followed by those page-specific controls.',

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createGenerationProgressReporter } from './progress';
+import {
+  createGenerationMediaProgressReporter,
+  createGenerationProgressReporter,
+} from './progress';
 
 describe('generation progress writes', () => {
   it('keeps tool-owned updates in order and waits for them', async () => {
@@ -15,5 +18,15 @@ describe('generation progress writes', () => {
     await reporter.settle();
 
     expect(written).toEqual(['Planning the design…', 'Writing the design files…']);
+  });
+
+  it('maps provider queue details to the stable artwork message', () => {
+    const messages: string[] = [];
+    const report = createGenerationMediaProgressReporter((message) => messages.push(message));
+
+    report('Queued, position 3');
+    report('Downloading result');
+
+    expect(messages).toEqual(['Creating artwork…', 'Creating artwork…']);
   });
 });

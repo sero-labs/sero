@@ -1,6 +1,11 @@
 /**
- * Reactive summaries shared by the extension, UI and runtime. Full records and
- * binaries stay in plugin-owned files, so this projection can always be rebuilt.
+ * Reactive state — the single JSON document shared by the extension, the UI
+ * and the background runtime.
+ *
+ * It holds lightweight summaries only. Full records and binaries are
+ * plugin-owned files (spec §12), and every summary here is a pure projection
+ * of those records, which is what makes an interrupted index write
+ * recoverable: the projection can always be rebuilt from the records.
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
@@ -56,7 +61,13 @@ export interface JobSummary {
   error?: string;
 }
 
-/** One lightweight variant summary; the UI reads its document through `previewPath`. */
+/**
+ * One variant, as the sessions rail and the variant tabs need it.
+ *
+ * No code and no file contents: reactive state carries summaries only, and a
+ * generated page runs to tens of kilobytes. The UI reads the built document
+ * through the asset tool using `previewPath`.
+ */
 export interface DesignVariantSummary {
   id: string;
   index: number;
