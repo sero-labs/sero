@@ -3,6 +3,7 @@ import { RotateCcw } from 'lucide-react';
 
 import type { TweakDefinition, TweakValue } from '../../../shared/tweaks';
 import { tweakValueToCss } from '../../../shared/tweaks';
+import { FontPicker } from './FontPicker';
 
 /**
  * One authored control (spec §6.5).
@@ -25,15 +26,18 @@ export interface TweakControlProps {
 }
 
 export function TweakControl({ definition, value, edited, onChange, onReset }: TweakControlProps) {
+  const isFont = definition.id === 'font' || definition.id === 'body-font';
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
         <label className="text-sm" htmlFor={controlId(definition)}>
           {definition.label}
         </label>
-        <span className="text-muted-foreground ml-auto font-mono text-xs tabular-nums">
-          {tweakValueToCss(definition.control, value)}
-        </span>
+        {!isFont && (
+          <span className="text-muted-foreground ml-auto font-mono text-xs tabular-nums">
+            {tweakValueToCss(definition.control, value)}
+          </span>
+        )}
         {/* Only once it differs: a reset that is always there reads as an
             action the control needs rather than one it is offering. */}
         {edited && (
@@ -41,7 +45,7 @@ export function TweakControl({ definition, value, edited, onChange, onReset }: T
             type="button"
             variant="ghost"
             size="icon"
-            className="size-5"
+            className={isFont ? 'ml-auto size-5' : 'size-5'}
             aria-label={`Reset ${definition.label}`}
             title="Back to what this design shipped with"
             onClick={onReset}
@@ -82,6 +86,17 @@ function Input({
       );
 
     case 'choice':
+      if (definition.id === 'font' || definition.id === 'body-font') {
+        return (
+          <FontPicker
+            id={controlId(definition)}
+            label={definition.label}
+            value={value}
+            options={control.options}
+            onChange={onChange}
+          />
+        );
+      }
       return (
         <div className="flex flex-wrap gap-1" role="group" aria-label={definition.label}>
           {control.options.map((option) => (

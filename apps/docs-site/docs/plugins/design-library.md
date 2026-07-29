@@ -93,11 +93,11 @@ Each variant is its own piece of work. They run a couple at a time and appear as
 
 ### The preview
 
-Generated work runs in a sealed frame: no network, no access to Sero, your files or your workspace, no cookies or storage, and nothing outside what the plugin bundles. Everything it needs is inside the one file it runs from.
+Generated work runs in a sealed frame: no access to Sero, your files or your workspace, no cookies or storage, and no general network access. The only network exception is the font selected from the fixed Design font list.
 
 If the design tried to do something the frame does not allow — load a font from the web, call an API, open a new window — the preview blocks it, still shows everything else, and lists what it stopped underneath the frame. A warning always means the thing was blocked. It never means it was allowed.
 
-Because there is no network, generated designs use the system fonts, CSS gradients and shapes, and SVG they draw themselves.
+Generated designs can use the Design font picker, system fonts, CSS gradients and shapes, and SVG they draw themselves. Generated code cannot request its own remote fonts or assets.
 
 There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
 
@@ -121,7 +121,9 @@ The rail down the left lists your designs, with the ones still generating at the
 
 ### Tweaks
 
-Every result starts with the same typography controls: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. The page is built to use them, so each control changes the preview.
+Every result starts with the same typography controls: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls show the standard Design font catalog. Body size drives common copy, controls, tables, labels and utility text through a small shared type scale.
+
+Revisions made before this typography contract keep their original controls. Revise or regenerate them to get the font catalog and shared type scale.
 
 After those, the result has a small set of controls written for **that page** — display scale, grid gap, signal accent, or whatever the page is about. A dense dashboard and an editorial page still get different page controls.
 

@@ -1,4 +1,5 @@
 import type { TweakControl, TweakDefinition } from './tweaks';
+import { DESIGN_FONT_OPTIONS } from './fonts';
 
 export interface BaselineTweak {
   id: string;
@@ -7,10 +8,7 @@ export interface BaselineTweak {
   type: TweakControl['type'];
 }
 
-export const BASELINE_FONT_OPTIONS = [
-  { label: 'Sans', value: 'system-ui, sans-serif' },
-  { label: 'Mono', value: 'ui-monospace, monospace' },
-] as const;
+export const BASELINE_FONT_OPTIONS = DESIGN_FONT_OPTIONS;
 
 /** Standard typography controls every generated page must support, in UI order. */
 export const BASELINE_TWEAKS = [
@@ -102,7 +100,7 @@ export function baselineTweakProblem(
         !allowed.every((value) => values.has(value)) ||
         !allowed.includes(String(control.defaultValue) as (typeof allowed)[number])
       ) {
-        return `${required.label} must offer only the system Sans and Mono stacks, with one of them as its default.`;
+        return `${required.label} must use the standard Design font list, with one of those fonts as its default.`;
       }
     }
     const rule = BASELINE_RULES[required.id as keyof typeof BASELINE_RULES];
@@ -112,6 +110,11 @@ export function baselineTweakProblem(
     if ((rule.selector === 'h1' || rule.selector === 'h2') && !new RegExp(`<${rule.selector}(?:\\s|>)`, 'i').test(source)) {
       return `${required.label} cannot work because the page has no \`<${rule.selector}>\` element.`;
     }
+  }
+  const fixedSize = /\bfont-size\s*:\s*-?(?:\d*\.)?\d+(?:px|rem|em|pt)\b/i.exec(source);
+  const fixedShorthand = /\bfont\s*:[^;{}]*\b\d+(?:\.\d+)?(?:px|rem|em|pt)\b/i.exec(source);
+  if (fixedSize !== null || fixedShorthand !== null) {
+    return 'Body size must drive the page typography. Use `var(--body-size)` and a small derived type scale such as `--text-xs`, `--text-sm`, `--text-base` and `--text-lg`; do not hard-code text sizes.';
   }
   return null;
 }

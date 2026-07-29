@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TweakDefinition } from './tweaks';
-import { BASELINE_TWEAKS, baselineTweakProblem } from './baseline-tweaks';
+import {
+  BASELINE_FONT_OPTIONS,
+  BASELINE_TWEAKS,
+  baselineTweakProblem,
+} from './baseline-tweaks';
 
 const SOURCE = `<style>
 h1 { font-family: var(--font-family); font-size: var(--h1-size); font-weight: var(--h1-weight); letter-spacing: var(--h1-tracking); }
@@ -19,10 +23,7 @@ function controls(): TweakDefinition[] {
       required.type === 'choice'
         ? {
             type: 'choice',
-            options: [
-              { label: 'Sans', value: 'system-ui, sans-serif' },
-              { label: 'Mono', value: 'ui-monospace, monospace' },
-            ],
+            options: BASELINE_FONT_OPTIONS.map(({ label, value }) => ({ label, value })),
           }
         : { type: 'range', min: 1, max: 100, step: 1, unit: 'px' },
     defaultValue: required.type === 'choice' ? 'system-ui, sans-serif' : 16,
@@ -55,7 +56,7 @@ describe('baseline tweak contract', () => {
       defaultValue: 'Inter',
     };
 
-    expect(baselineTweakProblem(wrong, SOURCE)).toContain('only the system Sans and Mono stacks');
+    expect(baselineTweakProblem(wrong, SOURCE)).toContain('standard Design font list');
   });
 
   it('refuses a property connected to the wrong element', () => {
@@ -80,6 +81,14 @@ describe('baseline tweak contract', () => {
 
     expect(baselineTweakProblem(controls(), childSource)).toContain(
       'h1 { font-family: var(--font-family); }',
+    );
+  });
+
+  it('refuses fixed text sizes that make Body size mostly inert', () => {
+    const fixedSource = SOURCE.replace('</style>', '.label { font: 600 10px monospace; }</style>');
+
+    expect(baselineTweakProblem(controls(), fixedSource)).toContain(
+      'Body size must drive the page typography',
     );
   });
 });

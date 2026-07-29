@@ -238,7 +238,7 @@ One target per Design:
 1. **HTML** — self-contained HTML, CSS and minimal JavaScript.
 2. **React** — React, TypeScript and Tailwind.
 
-Both run entirely from what the plugin bundles. Generated code may not import anything outside the approved bundled set. Fonts are limited to the Sero theme sans/mono stacks or font files bundled locally with the Design, because previews have no network.
+Generated code may not import anything outside the approved bundled set. The preview harness can load only fonts from the fixed Design font catalog through Google Fonts. No generated URL or font request is accepted.
 
 A Design does not maintain both targets.
 
@@ -250,7 +250,7 @@ Revising asks whether to replace the visible result or keep it as a separate vis
 
 ### 6.5 Tweaks
 
-Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. The model then adds the high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated.
+Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls use the fixed Design font catalog. Body size must drive common body copy, controls, tables, labels and utility text through inheritance or a small derived custom-property type scale. The model then adds the high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated.
 
 ```ts
 type TweakValue = string | number | boolean;
@@ -314,12 +314,12 @@ Designs autosave continuously. Navigating away does not stop work while Sero run
 
 ## 7. Preview
 
-Generated output runs in an isolated frame built locally, with no workspace, no install and no network.
+Generated output runs in an isolated frame built locally, with no workspace or install. Network access is closed except for font stylesheets and files selected from the fixed Design font catalog.
 
 - **HTML** renders directly.
 - **React** is transpiled and bundled in the plugin runtime; React and Tailwind come from the plugin's own dependencies and are inlined into the document.
 
-The boundary blocks network access, Sero UI/APIs/state/secrets, the filesystem, Node.js and Electron, cookies and persistent storage, main-window navigation and uncontrolled pop-ups, and any dependency outside the approved bundle.
+The boundary blocks general network access, Sero UI/APIs/state/secrets, the filesystem, Node.js and Electron, cookies and persistent storage, main-window navigation and uncontrolled pop-ups, and any dependency outside the approved bundle. The harness alone can add a Google Fonts stylesheet for an exact catalog value.
 
 The only live-edit input the frame accepts is a validated value update for a control declared by that revision's own manifest.
 
@@ -528,7 +528,7 @@ The first release is complete when:
 2. The Librarian runs automatically; reanalysis preserves manual fields; every field resets independently.
 3. Search, filters, favourites, collections and derived style groups operate over the uniform grid.
 4. A Design accepts up to six ordered references with primary-reference semantics, and only incompatible guardrails block.
-5. Both HTML and React targets generate runnable output previewed from a self-contained frame with no workspace, install or network.
+5. Both HTML and React targets generate runnable output previewed from a sealed frame with no workspace or install and no network except the controlled Design font provider.
 6. One to five variants survive failure, cancellation and restart independently.
 7. Every generated page exposes the required typography baseline plus relevant, validated, design-specific Tweaks that update the preview live; overrides reset, autosave, survive restart and coalesce into one revision per editing session.
 8. Media generation works for all four capabilities from both the agent and explicit actions; results are local; failure yields a placeholder with asset-only retry.

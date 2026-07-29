@@ -327,6 +327,33 @@ describe('a page that cannot be talked out of its guards', () => {
     );
   });
 
+  it('loads only a standard Google Font selected through the font control', () => {
+    const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }], [
+      '--font-family',
+    ]);
+    const preview = load(built.document!);
+
+    preview.window.dispatchEvent(
+      new preview.window.MessageEvent('message', {
+        source: preview.window.parent,
+        data: {
+          source: 'sero-design-preview',
+          kind: 'tweak',
+          cssVariable: '--font-family',
+          value: 'Inter, system-ui, sans-serif',
+        },
+      }),
+    );
+
+    const fontLink = preview.window.document.querySelector<HTMLLinkElement>(
+      'link[href^="https://fonts.googleapis.com/"]',
+    );
+    expect(fontLink?.href).toContain('family=Inter');
+    expect(preview.window.document.documentElement.style.getPropertyValue('--font-family')).toBe(
+      'Inter, system-ui, sans-serif',
+    );
+  });
+
   it('refuses a property this revision never declared a control for', () => {
     const built = buildHtmlDocument([{ name: 'index.html', content: '<body>x</body>' }], [
       '--signal',
@@ -381,7 +408,7 @@ describe('the assembled document', () => {
     expect(built.document).toContain('Still renders');
   });
 
-  it('closes every fetching directive in the policy', () => {
+  it('keeps the network closed except for the standard font provider', () => {
     // `default-src 'none'` is the claim; these are the directives people assume it
     // does not cover, stated so a later edit cannot quietly widen one.
     for (const directive of [
@@ -397,8 +424,9 @@ describe('the assembled document', () => {
     ]) {
       expect(PREVIEW_CSP).toContain(directive);
     }
-    // Nothing may name a scheme or a wildcard that could reach a server.
-    expect(PREVIEW_CSP).not.toMatch(/https?:/);
+    expect(PREVIEW_CSP).toContain("style-src 'unsafe-inline' https://fonts.googleapis.com");
+    expect(PREVIEW_CSP).toContain('font-src data: https://fonts.gstatic.com');
+    expect(PREVIEW_CSP.match(/https:\/\//g)).toHaveLength(2);
     expect(PREVIEW_CSP).not.toContain('*');
   });
 

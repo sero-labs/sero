@@ -7,7 +7,11 @@ import {
   baselineTweakProblem,
 } from '../../shared/baseline-tweaks';
 import type { EmittedFile } from '../../shared/targets';
-import { MAX_TWEAK_CONTROLS, MAX_TWEAK_OPTIONS } from '../../shared/tweaks';
+import {
+  MAX_TWEAK_CONTROLS,
+  MAX_TWEAK_OPTIONS,
+  normalizeTweakManifest,
+} from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
 import { validateTweakControls } from '../../shared/tweaks-validate';
 
@@ -63,12 +67,15 @@ export function createDeclareTweaksTool(
   // The revision id is stamped on when the revision is stored; at this point it
   // does not exist yet, and inventing one here would let a manifest claim to
   // belong to a revision that was never written.
-  const validate = (entries: unknown[]) => validateTweakControls(entries, sourceOf(), '');
+  const validate = (entries: unknown[]) => {
+    const result = validateTweakControls(entries, sourceOf(), '');
+    return { ...result, manifest: normalizeTweakManifest(result.manifest) };
+  };
 
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
     label: 'Declare Design Tweaks',
-    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nFont and Body font must offer exactly \`system-ui, sans-serif\` and \`ui-monospace, monospace\`. Connect each baseline property to its named element with a direct \`h1\`, \`h2\` or \`body\` CSS rule. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
+    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nDeclare Font and Body font as choices; the runtime supplies their standard font catalog. Connect each baseline property to its named \`h1\`, \`h2\` or \`body\` element. Body copy, controls, tables, labels and utility text must inherit Body size or use a small custom-property type scale derived from \`--body-size\`; do not hard-code text sizes. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
     promptSnippet:
       'design_library_declare_tweaks — declares the live CSS controls for the page you wrote',
     parameters: Type.Object({

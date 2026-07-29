@@ -11,9 +11,8 @@ import type { BuildResult } from './types';
  * simply would not arrive. Inlining is what makes the document work at all, and
  * it is also what makes an export runnable from a folder.
  *
- * Anything remote is removed and reported. Leaving the tag in place would let the
- * platform block it silently and the page would render half-styled with no
- * explanation; removing it without saying so would be worse.
+ * Anything remote from generated markup is removed and reported. The preview
+ * harness owns the one controlled font-provider exception.
  */
 
 const LINK_PATTERN = /<link\b[^>]*>/gi;

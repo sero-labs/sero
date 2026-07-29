@@ -19,13 +19,13 @@
  */
 
 import { PREVIEW_MESSAGE_SOURCE } from '../../shared/preview-message';
+import { DESIGN_FONT_OPTIONS, googleFontStylesheet } from '../../shared/fonts';
 
 export { PREVIEW_MESSAGE_SOURCE, isPreviewMessage, type PreviewMessage } from '../../shared/preview-message';
 
 /**
- * `default-src 'none'` with the two exceptions a self-contained document cannot
- * do without: its own inlined script and its own inlined styles. Every fetching
- * directive stays closed, so there is nothing for a blocked call to fall back to.
+ * `default-src 'none'` with narrow exceptions for inlined page code and the
+ * standard font picker. Generated code still has no general network access.
  *
  * `img-src data:` is deliberate — inline SVG and CSS gradients are how a preview
  * is allowed to have imagery at all (spec §6.3), and a data URI cannot reach the
@@ -35,9 +35,9 @@ export { PREVIEW_MESSAGE_SOURCE, isPreviewMessage, type PreviewMessage } from '.
 export const PREVIEW_CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline'",
-  "style-src 'unsafe-inline'",
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
   'img-src data:',
-  'font-src data:',
+  'font-src data: https://fonts.gstatic.com',
   "connect-src 'none'",
   "frame-src 'none'",
   "child-src 'none'",
@@ -59,10 +59,18 @@ export const PREVIEW_CSP = [
  * out of: a list that arrived by message could be replaced by a message.
  */
 export function buildPreviewHarness(allowedTweakVariables: readonly string[] = []): string {
+  const googleFonts = Object.fromEntries(
+    DESIGN_FONT_OPTIONS.flatMap((option) => {
+      const href = googleFontStylesheet(option.value);
+      return href === null ? [] : [[option.value, href]];
+    }),
+  );
   return `(function () {
   var SOURCE = ${JSON.stringify(PREVIEW_MESSAGE_SOURCE)};
   var ALLOWED = ${JSON.stringify([...allowedTweakVariables])};
+  var GOOGLE_FONTS = ${JSON.stringify(googleFonts)};
   var reported = Object.create(null);
+  var loadedFonts = Object.create(null);
 
   function report(kind, capability, detail) {
     // One report per capability per load. A render loop calling fetch on every
@@ -121,6 +129,16 @@ export function buildPreviewHarness(allowedTweakVariables: readonly string[] = [
         target[name] = value;
       } catch (alsoIgnored) {}
     }
+  }
+
+  function loadFont(value) {
+    var href = GOOGLE_FONTS[value];
+    if (!href || loadedFonts[href]) return;
+    loadedFonts[href] = true;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
   }
 
   replace(window, 'fetch', denyAsync('fetch'));
@@ -230,6 +248,10 @@ export function buildPreviewHarness(allowedTweakVariables: readonly string[] = [
     if (ALLOWED.indexOf(data.cssVariable) === -1) return;
     if (typeof data.value !== 'string' || data.value.length > 128) return;
     if (/[;{}()<>"'\\\\]/.test(data.value)) return;
+    if (data.cssVariable === '--font-family' || data.cssVariable === '--body-font') {
+      if (!GOOGLE_FONTS[data.value] && data.value !== 'system-ui, sans-serif' && data.value !== 'ui-monospace, monospace') return;
+      loadFont(data.value);
+    }
     document.documentElement.style.setProperty(data.cssVariable, data.value);
   });
 

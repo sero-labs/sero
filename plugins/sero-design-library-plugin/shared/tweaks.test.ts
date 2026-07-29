@@ -236,4 +236,58 @@ describe('reading a manifest back', () => {
 
     expect(document.dropped).toEqual([{ label: 'Ghost', reason: 'the page never declares `--ghost`' }]);
   });
+
+  it('supplies the standard font catalog for a current manifest', () => {
+    const document = normalizeTweakDocument({
+      manifest: {
+        schemaVersion: 2,
+        controls: [
+          {
+            id: 'font',
+            group: 'Typography',
+            label: 'Font',
+            cssVariable: '--font-family',
+            control: {
+              type: 'choice',
+              options: [
+                { label: 'Sans', value: 'system-ui, sans-serif' },
+                { label: 'Mono', value: 'ui-monospace, monospace' },
+              ],
+            },
+            defaultValue: 'system-ui, sans-serif',
+          },
+        ],
+      },
+    });
+
+    const font = document.manifest.controls[0];
+    expect(font?.control.type === 'choice' ? font.control.options.map((option) => option.label) : []).toContain(
+      'Inter',
+    );
+  });
+
+  it('does not offer web fonts to an old preview that cannot load them', () => {
+    const document = normalizeTweakDocument({
+      manifest: {
+        schemaVersion: 1,
+        controls: [
+          {
+            id: 'font',
+            cssVariable: '--font-family',
+            control: {
+              type: 'choice',
+              options: [
+                { label: 'Sans', value: 'system-ui, sans-serif' },
+                { label: 'Mono', value: 'ui-monospace, monospace' },
+              ],
+            },
+            defaultValue: 'system-ui, sans-serif',
+          },
+        ],
+      },
+    });
+
+    const font = document.manifest.controls[0];
+    expect(font?.control.type === 'choice' ? font.control.options : []).toHaveLength(2);
+  });
 });

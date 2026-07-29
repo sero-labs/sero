@@ -18,7 +18,9 @@
  *    missing one: it makes the user doubt the ones that work.
  */
 
-export const TWEAK_SCHEMA_VERSION = 1;
+import { DESIGN_FONT_OPTIONS } from './fonts';
+
+export const TWEAK_SCHEMA_VERSION = 2;
 
 /** Enough for a control-heavy page; past this it is a settings screen. */
 export const MAX_TWEAK_CONTROLS = 24;
@@ -281,16 +283,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function normalizeTweakManifest(value: unknown): TweakManifest {
   if (!isRecord(value) || !Array.isArray(value.controls)) return EMPTY_MANIFEST;
+  const schemaVersion =
+    typeof value.schemaVersion === 'number' ? value.schemaVersion : TWEAK_SCHEMA_VERSION;
   const controls = value.controls.flatMap((entry) => {
     const definition = normalizeTweakDefinition(entry);
-    return definition === null ? [] : [definition];
+    if (definition === null) return [];
+    return [schemaVersion >= 2 ? withStandardFontOptions(definition) : definition];
   });
   return {
-    schemaVersion: typeof value.schemaVersion === 'number' ? value.schemaVersion : TWEAK_SCHEMA_VERSION,
+    schemaVersion,
     variantRevisionId:
       typeof value.variantRevisionId === 'string' ? value.variantRevisionId : '',
     controls: controls.slice(0, MAX_TWEAK_CONTROLS),
   };
+}
+
+/** Migrate old two-option font controls and ignore model-authored font catalogs. */
+function withStandardFontOptions(definition: TweakDefinition): TweakDefinition {
+  const isHeadingFont = definition.id === 'font' && definition.cssVariable === '--font-family';
+  const isBodyFont = definition.id === 'body-font' && definition.cssVariable === '--body-font';
+  if (!isHeadingFont && !isBodyFont) return definition;
+  if (definition.control.type !== 'choice') return definition;
+  const options = DESIGN_FONT_OPTIONS.map(({ label, value }) => ({ label, value }));
+  const defaultValue = options.some((option) => option.value === definition.defaultValue)
+    ? definition.defaultValue
+    : options[0]!.value;
+  return { ...definition, control: { type: 'choice', options }, defaultValue };
 }
 
 /**
