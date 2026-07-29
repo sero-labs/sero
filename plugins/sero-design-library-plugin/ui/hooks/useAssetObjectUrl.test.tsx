@@ -167,3 +167,28 @@ describe('a read that does not come back whole', () => {
     expect(screen.getByTestId('url').textContent).toBe('none');
   });
 });
+
+/**
+ * The identity check has to fail closed.
+ *
+ * It was optional once: a slice that simply omitted it settled the expected
+ * identity to `undefined`, and every later omission then matched. Dropping it
+ * on the other side would have turned the protection off without a sound.
+ */
+describe('a reader that stops saying which file the bytes came from', () => {
+  it('refuses the read rather than trusting it', async () => {
+    bend = (slice) => {
+      const { identity: _identity, ...rest } = slice;
+      return rest;
+    };
+
+    render(<Probe itemId="item-1" />);
+    await waitFor(() => {
+      expect(offsets.length).toBeGreaterThan(0);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(screen.getByTestId('url').textContent).toBe('none');
+    expect(blobs).toHaveLength(0);
+  });
+});

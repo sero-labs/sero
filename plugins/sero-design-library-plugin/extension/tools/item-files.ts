@@ -151,7 +151,8 @@ export async function streamItemAsset(
       // reopened for every slice, so a caller stitching them together has no
       // other way to know they all came from the same one — and a replacement
       // of identical size satisfies every other check while producing a clip
-      // made of two different files.
+      // made of two different files. The caller refuses a slice without one, so
+      // dropping it here fails the read rather than losing the check quietly.
       identity: `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}`,
       data: buffer.subarray(0, bytesRead).toString('base64'),
     });

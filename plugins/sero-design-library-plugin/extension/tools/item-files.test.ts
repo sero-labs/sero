@@ -92,12 +92,20 @@ describe('the asset tool streams an original in slices', () => {
   it('hands back ordered pieces that rebuild the file exactly', async () => {
     const id = await seedClip();
     const parts: Buffer[] = [];
+    const identities: string[] = [];
     let offset = 0;
     let total = 0;
 
     for (let guard = 0; guard < 10; guard += 1) {
       const result = await call('design_library_assets', { action: 'stream', itemId: id, offset });
-      const details = result.details as { total: number; bytes: number; data: string; mediaType: string };
+      const details = result.details as {
+        total: number;
+        bytes: number;
+        data: string;
+        mediaType: string;
+        identity: string;
+      };
+      identities.push(details.identity);
       expect(details.mediaType).toBe('video/mp4');
       // Never more than one chunk at a time, whatever the file's size.
       expect(details.bytes).toBeLessThanOrEqual(UPLOAD_CHUNK_BYTES);
@@ -109,6 +117,13 @@ describe('the asset tool streams an original in slices', () => {
 
     expect(total).toBe(CONTENT.byteLength);
     expect(Buffer.concat(parts)).toEqual(CONTENT);
+
+    // The identity is what stops slices being stitched across two files, and
+    // it has to actually come back: the caller rejects a slice without one, so
+    // a reader that stopped sending it would fail rather than quietly lose the
+    // protection. Every slice of one unchanged file says the same thing.
+    expect(identities.every((entry) => typeof entry === 'string' && entry !== '')).toBe(true);
+    expect(new Set(identities).size).toBe(1);
   });
 
   it('says nothing is left rather than failing, past the end', async () => {

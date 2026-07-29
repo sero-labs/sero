@@ -27,6 +27,11 @@ const MAX_PLAYABLE_BYTES = 128 * 1024 * 1024;
 /** Enough for the ceiling above at any sane slice size, and no more. */
 const MAX_SLICES = 4096;
 
+/**
+ * What a slice is expected to carry. Every field is optional here and required
+ * at runtime: this is an unvalidated tool result, and saying otherwise in the
+ * type would only hide the check that has to happen anyway.
+ */
 interface Slice {
   total?: number;
   bytes?: number;
@@ -70,7 +75,7 @@ export function useAssetObjectUrl(itemId: string | undefined): string | null {
       const parts: Uint8Array[] = [];
       let offset = 0;
       let total: number | null = null;
-      let identity: string | undefined;
+      let identity: string | null = null;
       let mediaType = 'application/octet-stream';
 
       // Sequential on purpose. The parts have to arrive in order to be a file,
@@ -86,7 +91,18 @@ export function useAssetObjectUrl(itemId: string | undefined): string | null {
           offset,
         });
         const slice = result.details as Slice;
-        if (slice.data === undefined || slice.total === undefined || slice.bytes === undefined) {
+        // Every field is required, `identity` most of all. Left optional, a
+        // slice that simply omitted it settled the expected identity to
+        // `undefined` and then matched every later omission — so dropping it on
+        // the other side would have quietly turned the check off rather than
+        // failing. It fails closed instead.
+        if (
+          slice.data === undefined ||
+          slice.total === undefined ||
+          slice.bytes === undefined ||
+          typeof slice.identity !== 'string' ||
+          slice.identity === ''
+        ) {
           throw new Error('That file could not be read.');
         }
 
