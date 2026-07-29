@@ -10,8 +10,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DesignRecord } from '../../shared/design';
 import { orderedRevisions } from '../../shared/design';
+import type { MediaCapability, MediaModelOptions } from '../../shared/media';
+import { assetIsReady, currentAttempt } from '../../shared/media';
 import type { DesignLibrarySettings, RevisionBehaviour } from '../../shared/settings';
 import type { DesignSummary, ItemSummary } from '../../shared/types';
+import { GenerateDialog, type GenerateSource } from '../components/GenerateDialog';
 import { PreviewFrame } from '../components/design/PreviewFrame';
 import { ReviseBar } from '../components/design/ReviseBar';
 import { SessionsRail } from '../components/design/SessionsRail';
@@ -19,6 +22,8 @@ import { VariantInspector } from '../components/design/VariantInspector';
 import { VariantTabs } from '../components/design/VariantTabs';
 import { referenceViews } from '../components/design/references';
 import type { DesignActions } from '../hooks/useDesigns';
+import { useMedia } from '../hooks/useMedia';
+import { useVideoFrames } from '../hooks/useVideoFrames';
 import { useTweaks } from '../hooks/useTweaks';
 import type { PreviewTarget } from '../hooks/usePreviewDocument';
 
@@ -42,6 +47,8 @@ export interface DesignPageProps {
   /** Live Library items, for naming the references this Design drew on. */
   items: ItemSummary[];
   settings: DesignLibrarySettings;
+  /** What each capability's model accepts, for the generate dialog's pickers. */
+  mediaOptions: Partial<Record<MediaCapability, MediaModelOptions>>;
   /** The persisted selection, so reopening a Design lands where you left it. */
   activeVariantId: string | undefined;
   actions: DesignActions;
@@ -53,6 +60,7 @@ export function DesignPage({
   designs,
   items,
   settings,
+  mediaOptions,
   activeVariantId,
   actions,
   onBack,
@@ -76,6 +84,8 @@ export function DesignPage({
    * inspector's width.
    */
   const [focused, setFocused] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const media = useMedia();
 
   // The record holds what the index deliberately leaves out — guardrails, file
   // lists, revisions, tweak values — so it is read on demand and re-read
@@ -121,6 +131,50 @@ export function DesignPage({
     () => referenceViews(design.referenceItemIds, items),
     [design.referenceItemIds, items],
   );
+
+  const assets = useMemo(
+    () => (record?.assets ?? []).filter((asset) => asset.deletedAt === undefined),
+    [record],
+  );
+
+  // Only artwork that exists can be restyled or upscaled, and a Design's own
+  // assets come first: within a Design that is the one just made.
+  const assetSources = useMemo<GenerateSource[]>(
+    () =>
+      assets.flatMap((asset) =>
+        assetIsReady(asset)
+          ? [
+              {
+                id: asset.id,
+                label: asset.request.prompt === '' ? asset.reference : asset.request.prompt,
+              },
+            ]
+          : [],
+      ),
+    [assets],
+  );
+
+  // A tray video with no poster is one the renderer has not looked at yet.
+  const assetsAwaitingFrames = useMemo(
+    () =>
+      assets.flatMap((asset) => {
+        const attempt = currentAttempt(asset);
+        return asset.kind === 'video' &&
+          attempt?.outcome === 'ready' &&
+          attempt.posterFile === undefined
+          ? [
+              {
+                kind: 'asset' as const,
+                designId: design.id,
+                assetId: asset.id,
+                attemptId: attempt.id,
+              },
+            ]
+          : [];
+      }),
+    [assets, design.id],
+  );
+  useVideoFrames(assetsAwaitingFrames);
 
   const persistWidth = useLayoutPersist(actions);
 
@@ -218,12 +272,18 @@ export function DesignPage({
                   references={references}
                   ownReferenceId={active.referenceItemId}
                   tweaks={tweaks}
+                  designId={design.id}
+                  assets={assets}
                   onRetry={() => void actions.retryVariant(design.id, active.id)}
                   onCancel={() => void actions.cancelVariant(design.id, active.id)}
                   onSelectRevision={(revisionId) => {
                     tweaks.checkpoint();
                     void actions.showRevision(design.id, active.id, revisionId);
                   }}
+                  onRetryAsset={(assetId) => void media.retry(design.id, assetId)}
+                  onCopyAssetToLibrary={(assetId) => void media.copyToLibrary(design.id, assetId)}
+                  onDeleteAsset={(assetId) => void media.remove(design.id, assetId)}
+                  onGenerateAsset={() => setGenerating(true)}
                 />
               </ResizablePanel>
               )}
@@ -251,6 +311,19 @@ export function DesignPage({
           </>
         )}
       </div>
+
+      <GenerateDialog
+        open={generating}
+        target={{ kind: 'design', designId: design.id, designTitle: design.title }}
+        sources={assetSources}
+        modelOptions={mediaOptions}
+        onOpenChange={setGenerating}
+        onGenerate={(request) => {
+          // Nothing waits on the result: the asset is reserved immediately and
+          // the tray paints whatever the record says about it from then on.
+          void media.generate(design.id, request);
+        }}
+      />
     </div>
   );
 }

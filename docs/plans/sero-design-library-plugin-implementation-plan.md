@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b — the working surface — in progress.
-**Branch:** `feat/design-library-working-surface` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320)
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — in review (#326). **Then #328** — four gaps from the first manual pass (design loading state, using generated Library images as real source material, opening a design's files, baseline Tweaks controls). PR 3b — Gallery and export — not started, and starts after #328.
+**Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -215,22 +215,59 @@ Turn references into runnable work.
 
 Generation of imagery and video, and a permanent archive.
 
+**Split into 3a and 3b**, agreed part-way through 3a for the same reason PR 2
+was split: the two halves together are larger than PR 2a and 2b combined, and one
+PR at that size is not reviewable. The build order below is unchanged — the cut
+falls between item 9 and item 10, and the hardening pass splits along the same
+line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
+
+---
+
+## PR 3a — Media
+
+**Status: built.** Generation of imagery and video, everywhere it is invoked from.
+
 **Build**
 
-1. `runtime/media/contract.ts` — capability, request, result, error, provenance, context. No vendor types.
-2. `providers/fal.ts` — the only importer of `@fal-ai/client`. Queue-subscribe with `AbortSignal` forwarding and progress reporting; storage upload for image-to-image and upscale sources; every result downloaded through `context.store`; failures normalised to `MediaError` with an honest `retryable`.
-3. `providers/fake.ts` — deterministic test double; contract tests run against both.
-4. Credential resolution: `FAL_KEY` env, then `secrets.json`. Never in reactive state, never returned to the UI; the UI sees `env | stored | missing`.
-5. `budget.ts` — per-run call cap, mandatory video confirmation, cost capture. Exceeding the cap stops further calls and reports it without failing the run.
-6. `tools.ts` — capability-shaped `ToolDefinition`s passed as `customTools` to generation runs and bridged to the main agent.
-7. Library entry points: Generate inspiration, Restyle/vary. Generated items analyse automatically and keep generation provenance.
-8. Video support: storage, thumbnail, playback, frame-based Librarian analysis with motion language.
-9. Design asset tray: reuse across variants, placeholder on failure, asset-only retry preserving history, per-asset and per-Design cost, Copy to Library.
+1. [x] `runtime/media/contract.ts` — capability, request, result, error, provenance, context. No vendor types.
+2. [x] `providers/fal.ts` — the only importer of `@fal-ai/client`. Queue-subscribe with `AbortSignal` forwarding and progress reporting; storage upload for image-to-image and upscale sources; every result downloaded through `context.store`; failures normalised to `MediaError` with an honest `retryable`.
+3. [x] `providers/fake.ts` — deterministic test double; contract tests run against both.
+4. [x] Credential resolution: `FAL_KEY` env, then `secrets.json`. Never in reactive state, never returned to the UI; the UI sees `env | stored | missing`.
+5. [x] `budget.ts` — per-run call cap, mandatory video confirmation, cost capture. Exceeding the cap stops further calls and reports it without failing the run.
+6. [x] `tools.ts` — capability-shaped `ToolDefinition`s passed as `customTools` to generation runs and bridged to the main agent.
+7. [x] Library entry points: Generate inspiration, Restyle/vary. Generated items analyse automatically and keep generation provenance.
+8. [x] Video support: storage, thumbnail, playback, frame-based Librarian analysis with motion language.
+9. [x] Design asset tray: reuse across variants, placeholder on failure, asset-only retry preserving history, per-asset and per-Design cost, Copy to Library.
+9a. [x] Media hardening: keyboard and screen-reader operation for the tray and the generation actions, job announcements, reduced motion for video playback, fault injection for media recovery and cleanup.
+
+**Decisions taken while building 3a**
+
+- **An asset's `reference` never changes.** It is fixed at reservation (`assets/<id>.png`). By the time an attempt lands the model has already written `src="assets/<id>.png"` into the page, so a reference that moved to match the actual media type would break every page pointing at it.
+- **Attempts append, never replace.** A successful retry changes what the tray shows while the failure stays on the record — the same rule as 2b's revisions, and the only way "preserves history" is true.
+- **An interrupted media job comes back as a retryable placeholder**, and reconciliation was wrong about this in two different places. `abandonAsset` only ran for jobs already in a terminal state; the likelier case — the process dying with the provider call in flight — went down the ordinary resume path and would have re-run, and re-charged, on every quit-mid-generation. Media now leaves the resume path entirely.
+- **Ids for explicit actions are allocated by the caller.** The request log is at-least-once; an id minted in the handler makes a replay produce a second asset *and* a second charge.
+- **The runtime never queues requests for itself.** It calls `ingestUpload` directly and hands the item id back through `onItemCreated`; a request appended by the runtime would only be picked up when the host's watcher noticed the runtime's own write.
+- **The provider key is written directly by the settings tool, not through the request log.** The log lives in `state.json`, which the UI reads, and §8.3 says the key never enters reactive state. That is the one deliberate exception to the single-writer rule. `shared/credentials.ts` holds it because both processes now need it.
+- **Video is decoded in the renderer**, and the Librarian is shown a *filmstrip* — several moments in one image — rather than four attachments. Analysis is held until frames exist: analysing an mp4 the model cannot decode produces a confident profile of nothing, which is the failure the image tool's "was it called?" check already exists to prevent.
+- **`job.dismiss` was added** because a failed job stayed visible until the retention sweep collected it a day later, leaving a red tile in the Library with nothing the user could do about it. It refuses to forget a job that is still working.
+- **The inspector's tab row collapses to icons when narrow.** Five labels do not fit at the panel's 280px minimum; it measures itself with a container query, because the panel is drag-resizable and the viewport's width says nothing about it. Signed off before changing tabs that shipped in 2b.
+- **Component tests arrived here**, on per-file jsdom rather than a second vitest project — almost everything in this plugin is node-side and would pay for a DOM it never uses.
+
+**Accept when** all four capabilities work from both the agent and explicit actions; results are local and no remote URL reaches a preview; provider failure does not fail the whole variant; no vendor type exists outside the adapter and the fake adapter passes the same contract tests; caps hold and video is confirmed; costs are visible; an interrupted generation comes back retryable rather than re-running; a generated video gets its thumbnail and motion analysis once the app is open.
+
+---
+
+## PR 3b — Gallery and export
+
+A permanent archive of what was made, and a way to take it out.
+
+**Build**
+
 10. Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, deterministic snapshot re-render preview in a scaled `sandbox=""` iframe mounted on scroll, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge.
 11. Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
-12. Hardening: keyboard and screen-reader operation for every generated tweak control, job announcements, reduced motion including generated motion controls, incremental grid rendering, bounded preview cache, fault injection for recovery and cleanup, external plugin installation test.
+12. Remaining hardening: keyboard and screen-reader operation for every generated tweak control, reduced motion including generated motion controls, incremental grid rendering, bounded preview cache, external plugin installation test.
 
-**Accept when** all four capabilities work from both the agent and explicit actions; results are local and no remote URL reaches a preview or export; provider failure does not fail the whole variant; no vendor type exists outside the adapter and the fake adapter passes the same contract tests; caps hold and video is confirmed; costs are visible; Gallery versions stay byte-identical after source deletion; old versions never mutate; export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work.
+**Accept when** Gallery versions stay byte-identical after source deletion; old versions never mutate; export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work.
 
 ---
 
@@ -248,7 +285,8 @@ Manual verification per PR:
 
 - **PR 1** — global discovery; all three import paths; duplicate handling; search, filters, collections; analysis, reanalysis and per-field reset; restart mid-analysis; model picker persistence.
 - **PR 2** — reference ordering and conflict blocking; both output targets; variant failure, cancellation and restart; hostile previews and invalid tweak messages; tweak relevance, live update, reset, Copy CSS and revision coalescing.
-- **PR 3** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; Gallery source deletion; both export destinations; external plugin installation.
+- **PR 3a** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; quit mid-generation and reopen; a generated video's thumbnail and motion analysis.
+- **PR 3b** — Gallery source deletion; reopening at an exact revision; both export destinations; external plugin installation.
 
 ## 8. Notes
 

@@ -11,6 +11,7 @@ import { appendRequest, readState } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { invokeTool } from './librarian/test-support';
+import { createFakeProvider, type FakeProviderOptions } from './media/providers/fake';
 import { readItem } from './store';
 
 /**
@@ -130,7 +131,10 @@ export async function nameDesign(
  * looks at the reference before analysing, and writes and names a design. Which
  * run it is answering is decided by the tool it was handed.
  */
-function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi.fn> } {
+function stubHost(options: HarnessOptions = {}): {
+  host: AppRuntimeHost;
+  runStructured: ReturnType<typeof vi.fn>;
+} {
   const runStructured = vi.fn(async (params: AppRuntimeSubagentRunParams) => {
     if (toolNamed(params, 'design_library_write_file')) {
       await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
@@ -140,7 +144,23 @@ function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi
     await viewReference(params);
     return { response: ANALYSIS_REPLY, modelId: 'stub-model', providerId: 'stub' };
   });
-  return { host: { subagents: { runStructured } } as unknown as AppRuntimeHost, runStructured };
+
+  // Media generation asks before it spends on video. The stub declines, which
+  // is the right default for a test: an approval nobody wrote is exactly the
+  // thing the confirmation exists to prevent, so a test that wants video has to
+  // say so.
+  const notifications = {
+    notify: () => undefined,
+    requestChoice: async () => ({
+      choiceId: options.approveVideo === true ? 'generate' : 'skip',
+      timedOut: false,
+    }),
+  };
+
+  return {
+    host: { subagents: { runStructured }, notifications } as unknown as AppRuntimeHost,
+    runStructured,
+  };
 }
 
 /**
@@ -148,7 +168,24 @@ function stubHost(): { host: AppRuntimeHost; runStructured: ReturnType<typeof vi
  * registers its own `beforeEach`/`afterEach`, and every field is read through
  * the returned object so it always sees the current test's instances.
  */
-export function useCoordinator(label: string): CoordinatorHarness {
+export interface HarnessOptions {
+  /**
+   * Options for the fake media provider — how it should fail, how slowly, what
+   * it should claim to cost. This is the fault-injection seam: the whole
+   * request → job → record path runs against it with no network and no spend.
+   */
+  provider?: FakeProviderOptions;
+  /**
+   * Answer the video confirmation with "generate".
+   *
+   * Off by default and deliberately so: an approval nobody wrote is exactly
+   * what the confirmation exists to prevent, so a test that wants video has to
+   * say so out loud.
+   */
+  approveVideo?: boolean;
+}
+
+export function useCoordinator(label: string, options: HarnessOptions = {}): CoordinatorHarness {
   let home = '';
   let paths: DesignLibraryPaths;
   let coordinator: Coordinator;
@@ -157,14 +194,21 @@ export function useCoordinator(label: string): CoordinatorHarness {
   beforeEach(async () => {
     home = await mkdtemp(path.join(tmpdir(), `design-library-${label}-`));
     paths = designLibraryPathsFromHome(home);
-    const stub = stubHost();
+    const stub = stubHost(options);
     runStructured = stub.runStructured;
+    // One provider for the whole test, not one per job. The fake counts calls
+    // so `failFirst` can let a retry succeed, and a fresh instance per job
+    // would reset that counter and fail every attempt forever.
+    const provider = createFakeProvider({ costUsd: 0.01, ...options.provider });
     coordinator = new Coordinator({
       host: stub.host,
       paths,
       workspaceId: 'ws',
       sessionId: 'session',
       onError: () => undefined,
+      // Deterministic media, so the request → job → record path is exercised
+      // without network or spend.
+      createMediaProvider: async () => provider,
     });
   });
 

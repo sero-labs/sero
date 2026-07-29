@@ -1,12 +1,15 @@
 import { Button } from '@sero-ai/ui';
-import { Plus, Settings2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Plus, Settings2, Sparkles } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
 import './styles.css';
 
 import type { ItemSummary } from '../shared/types';
+import { GenerateDialog, type GenerateSource } from './components/GenerateDialog';
 import { CreateDesignDialog } from './components/design/CreateDesignDialog';
 import { useDesigns } from './hooks/useDesigns';
+import { useMedia } from './hooks/useMedia';
+import { useVideoFrames } from './hooks/useVideoFrames';
 import { useImport } from './hooks/useImport';
 import { useLibrary } from './hooks/useLibrary';
 import { importableFiles } from './lib/import';
@@ -33,6 +36,9 @@ export function DesignLibraryApp() {
   const { state: importState, importFiles, dismissErrors } = useImport();
   const [surface, setSurface] = useState<Surface>('library');
   const [creatingFrom, setCreatingFrom] = useState<ItemSummary[] | null>(null);
+  /** Null when closed; the item to work from, or undefined for a fresh one. */
+  const [generatingFrom, setGeneratingFrom] = useState<{ item?: ItemSummary } | null>(null);
+  const media = useMedia();
   const fileInput = useRef<HTMLInputElement>(null);
 
   // The reference the grid should hand its image to. It outlives the opening,
@@ -48,6 +54,30 @@ export function DesignLibraryApp() {
   const backToLibrary = () => navigateWithTransition(() => library.actions.select(undefined));
 
   const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
+
+  // Videos generated while Sero was closed have no stills yet, and the runtime
+  // cannot make them. Done here rather than on the Library page so it keeps
+  // going while the user is inside a Design (D4).
+  const awaitingFrames = useMemo(
+    () =>
+      library.state.items.flatMap((item) =>
+        item.awaitingFrames === true && item.deletedAt === undefined
+          ? [{ kind: 'item' as const, itemId: item.id }]
+          : [],
+      ),
+    [library.state.items],
+  );
+  useVideoFrames(awaitingFrames);
+
+  // Anything live can be restyled or upscaled — unlike a Design reference, this
+  // does not need the Librarian to have read it first.
+  const librarySources = useMemo<GenerateSource[]>(
+    () =>
+      library.state.items.flatMap((item) =>
+        item.deletedAt === undefined ? [{ id: item.id, label: item.title }] : [],
+      ),
+    [library.state.items],
+  );
 
   return (
     <div className="bg-background text-foreground flex h-full min-h-0 flex-col">
@@ -92,7 +122,16 @@ export function DesignLibraryApp() {
           </Button>
         </nav>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setGeneratingFrom({})}
+          >
+            <Sparkles className="size-3.5" />
+            Generate
+          </Button>
           <Button type="button" size="sm" onClick={() => fileInput.current?.click()}>
             <Plus className="size-3.5" />
             Add inspiration
@@ -108,6 +147,7 @@ export function DesignLibraryApp() {
           designs={designs.list}
           items={library.state.items}
           settings={library.state.settings}
+          mediaOptions={library.state.mediaOptions}
           activeVariantId={designs.state.view.activeVariantId}
           actions={designs.actions}
           onBack={() => void designs.actions.open(undefined)}
@@ -130,6 +170,8 @@ export function DesignLibraryApp() {
           onPickFiles={() => fileInput.current?.click()}
           onOpenItem={openItem}
           onCreateDesign={setCreatingFrom}
+          onGenerate={(sourceItem) => setGeneratingFrom(sourceItem ? { item: sourceItem } : {})}
+          onDismissJob={(jobId) => void media.dismissJob(jobId)}
           {...(transitioningItemId === undefined ? {} : { transitioningItemId })}
           transitionName={REFERENCE_TRANSITION_NAME}
         />
@@ -147,6 +189,29 @@ export function DesignLibraryApp() {
           // Creating a Design opens it: the runtime selects it, and this surface
           // follows the selection.
           onCreated={() => setCreatingFrom(null)}
+        />
+      )}
+
+      {generatingFrom !== null && (
+        <GenerateDialog
+          // Keyed on the source so opening Restyle on a different reference
+          // starts from that one, rather than reusing the last dialog's state.
+          key={generatingFrom.item?.id ?? 'new'}
+          open
+          target={{ kind: 'library' }}
+          sources={librarySources}
+          modelOptions={library.state.mediaOptions}
+          {...(generatingFrom.item === undefined ? {} : { initialSourceId: generatingFrom.item.id })}
+          onOpenChange={(open) => {
+            if (!open) setGeneratingFrom(null);
+          }}
+          onGenerate={(request) => {
+            const { sourceId, ...rest } = request;
+            void media.generateIntoLibrary({
+              ...rest,
+              ...(sourceId === undefined ? {} : { sourceItemId: sourceId }),
+            });
+          }}
         />
       )}
 

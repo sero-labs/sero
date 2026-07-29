@@ -1,10 +1,12 @@
 import type { OutputTarget } from '../../shared/design';
 import type { EmittedFile } from '../../shared/targets';
+import { inlineAssets, type BuildAsset } from './assets';
 import { buildHtmlDocument } from './html';
 import { buildReactDocument, type ReactBuildOptions } from './react';
 import type { BuildResult } from './types';
 
 export type { BuildResult } from './types';
+export type { BuildAsset } from './assets';
 
 export interface PreviewBuildOptions extends ReactBuildOptions {
   /**
@@ -12,6 +14,8 @@ export interface PreviewBuildOptions extends ReactBuildOptions {
    * document, which then accepts a live value for these and nothing else.
    */
   tweakVariables?: readonly string[];
+  /** Generated media the page may refer to, folded in as `data:` URIs. */
+  assets?: BuildAsset[];
 }
 
 /** The one entry point: emitted files in, one self-contained document out. */
@@ -20,9 +24,20 @@ export async function buildPreviewDocument(
   files: EmittedFile[],
   options: PreviewBuildOptions = {},
 ): Promise<BuildResult> {
-  return target === 'html'
-    ? buildHtmlDocument(files, options.tweakVariables ?? [])
-    : buildReactDocument(files, options);
+  const built =
+    target === 'html'
+      ? buildHtmlDocument(files, options.tweakVariables ?? [])
+      : await buildReactDocument(files, options);
+
+  // Assets are folded into the finished document rather than into each file:
+  // one pass covers `src` in markup, `url()` in CSS and a path in a script,
+  // and it cannot miss whichever of the three the model happened to use.
+  if (built.document === undefined) return built;
+  const inlined = inlineAssets(built.document, options.assets ?? []);
+  return {
+    document: inlined.document,
+    warnings: [...built.warnings, ...inlined.warnings],
+  };
 }
 
 /** The document's file name inside a revision directory. */

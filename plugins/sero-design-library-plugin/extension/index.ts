@@ -16,6 +16,7 @@ import { registerAnalysisTool } from './tools/analysis';
 import { registerAssetTool } from './tools/assets';
 import { registerDesignTool } from './tools/designs';
 import { registerItemTool } from './tools/items';
+import { registerMediaTool } from './tools/media';
 import { registerSettingsTool } from './tools/settings';
 
 export default function designLibraryExtension(pi: ExtensionAPI): void {
@@ -25,5 +26,6 @@ export default function designLibraryExtension(pi: ExtensionAPI): void {
   registerItemTool(pi, paths);
   registerAnalysisTool(pi, paths);
   registerDesignTool(pi, paths);
+  registerMediaTool(pi, paths);
   registerSettingsTool(pi, paths);
 }

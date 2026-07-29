@@ -125,12 +125,15 @@ async function assembleItem(
       bytes: original.byteLength,
       ...(manifest.width === undefined ? {} : { width: manifest.width }),
       ...(manifest.height === undefined ? {} : { height: manifest.height }),
+      ...(manifest.durationMs === undefined ? {} : { durationMs: manifest.durationMs }),
       checksum,
     },
     profile: { generated: emptyAnalysis(initialTitle(manifest.fileName)), overrides: {} },
     analysis: { status: 'pending', attempts: 0 },
     favourite: false,
     collectionIds: [],
+    ...(manifest.generation === undefined ? {} : { generation: manifest.generation }),
+    ...(manifest.awaitingFrames === true ? { awaitingFrames: true } : {}),
   };
 
   await saveItem(paths, item);

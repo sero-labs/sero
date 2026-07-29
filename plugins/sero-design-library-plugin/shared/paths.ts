@@ -29,6 +29,13 @@ export interface DesignLibraryPaths {
   jobsDir: string;
   uploadsDir: string;
   tombstonesDir: string;
+  galleryDir: string;
+  /**
+   * The user-supplied provider key, written `0600` (spec §8.3). Deliberately a
+   * file rather than reactive state: state is read by the UI, and the key must
+   * never reach it.
+   */
+  secretsFile: string;
 }
 
 export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
@@ -42,7 +49,13 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     jobsDir: path.join(home, 'jobs'),
     uploadsDir: path.join(home, 'uploads'),
     tombstonesDir: path.join(home, 'tombstones'),
+    galleryDir: path.join(home, 'gallery'),
+    secretsFile: path.join(home, 'secrets.json'),
   };
+}
+
+export function secretsFile(paths: DesignLibraryPaths): string {
+  return paths.secretsFile;
 }
 
 /**
@@ -115,6 +128,49 @@ export function revisionDir(
   revisionId: string,
 ): string {
   return path.join(variantDir(paths, designId, variantId), assertSafeId(revisionId, 'revision id'));
+}
+
+/**
+ * Generated media belongs to the Design, not to a variant: the same artwork is
+ * reusable across variants and outlives any one of them (spec §6.6).
+ */
+export function designAssetsDir(paths: DesignLibraryPaths, designId: string): string {
+  return path.join(designDir(paths, designId), 'assets');
+}
+
+export function designAssetDir(
+  paths: DesignLibraryPaths,
+  designId: string,
+  assetId: string,
+): string {
+  return path.join(designAssetsDir(paths, designId), assertSafeId(assetId, 'asset id'));
+}
+
+/**
+ * One directory per Gallery family, holding its versions (spec §9.1).
+ *
+ * The family record is mutable — the featured pointer moves, the family can be
+ * deleted and restored — while everything under `versions/` is written once and
+ * never touched again, including its own copies of every asset.
+ */
+export function galleryFamilyDir(paths: DesignLibraryPaths, familyId: string): string {
+  return path.join(paths.galleryDir, assertSafeId(familyId, 'gallery family id'));
+}
+
+export function galleryFamilyRecordFile(paths: DesignLibraryPaths, familyId: string): string {
+  return path.join(galleryFamilyDir(paths, familyId), 'record.json');
+}
+
+export function galleryVersionDir(
+  paths: DesignLibraryPaths,
+  familyId: string,
+  versionId: string,
+): string {
+  return path.join(
+    galleryFamilyDir(paths, familyId),
+    'versions',
+    assertSafeId(versionId, 'gallery version id'),
+  );
 }
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {

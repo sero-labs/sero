@@ -1,15 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { normalizeDesignRecord } from '../../shared/design-normalize';
 import { effectiveField } from '../../shared/librarian';
+import { currentAttempt } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { isSafeId, itemRecordFile, resolveInsideHome, revisionDir } from '../../shared/paths';
+import {
+  designAssetDir,
+  designRecordFile,
+  isSafeId,
+  itemRecordFile,
+  resolveInsideHome,
+  revisionDir,
+} from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
+import type { LibraryRequestBody } from '../../shared/requests';
 import { appendRequest, readJsonFile } from '../../shared/state-io';
 import type { UploadManifest, UploadRole } from '../../shared/uploads';
 import {
@@ -19,6 +29,13 @@ import {
   discardUpload,
   writeUploadChunk,
 } from '../../shared/uploads';
+import {
+  locationError,
+  mediaTypeFor,
+  readItemAsset,
+  realPathInsideHome,
+  streamItemAsset,
+} from './item-files';
 import { checkId, failure, image, text, type ToolResult } from './result';
 
 /**
@@ -38,7 +55,10 @@ const ACTIONS = [
   'abort',
   'preview',
   'original',
+  'stream',
   'design-file',
+  'design-asset',
+  'attach-frames',
 ] as const;
 
 /**
@@ -48,10 +68,6 @@ const ACTIONS = [
  * text and the UI turns it into a blob itself.
  */
 const MAX_DESIGN_FILE_BYTES = 4 * 1024 * 1024;
-
-function isInside(root: string, candidate: string): boolean {
-  return candidate === root || candidate.startsWith(root + path.sep);
-}
 
 async function readDesignFile(
   paths: DesignLibraryPaths,
@@ -78,60 +94,97 @@ async function readDesignFile(
     return failure(`${fileName} is ${Math.round(stats.size / 1024)} KB, too large to read.`);
   }
 
-  // A lexical check cannot see a symlink. Resolving the real path and checking
-  // it again is what stops a link inside the plugin's storage from becoming a
-  // read of anything on the machine.
-  //
-  // Both sides are resolved, not just the file: on macOS the app directory
-  // itself usually sits under a symlinked prefix (`/var` → `/private/var`), so
-  // comparing a real path against the unresolved home would refuse every
-  // legitimate read.
-  const [real, realHome] = await Promise.all([
-    realpath(resolved).catch(() => null),
-    realpath(paths.home).catch(() => null),
-  ]);
-  if (real === null || realHome === null || !isInside(realHome, real)) {
-    return failure('Refusing to read a path outside the Design Library directory.');
-  }
+  const located = await realPathInsideHome(paths, path.relative(paths.home, file));
+  if ('error' in located) return locationError(located, `${fileName}`);
 
-  const content = await readFile(real, 'utf8');
+  const content = await readFile(located.path, 'utf8');
   return text(content, { name: fileName, bytes: stats.size });
 }
 
-const MEDIA_TYPES: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  gif: 'image/gif',
-  avif: 'image/avif',
-  svg: 'image/svg+xml',
-  mp4: 'video/mp4',
-  webm: 'video/webm',
-};
 
-function mediaTypeFor(filePath: string): string {
-  return MEDIA_TYPES[path.extname(filePath).slice(1).toLowerCase()] ?? 'application/octet-stream';
-}
-
-async function readItemAsset(
+/**
+ * Read what a Design asset currently shows (spec §6.6).
+ *
+ * The record names the file, exactly as an item's record does, so the caller
+ * never supplies a path. `poster` is the still frame a video carries: a tray of
+ * assets paints from posters rather than decoding video, and a video whose frame
+ * has not been captured yet has none to give.
+ */
+async function readDesignAsset(
   paths: DesignLibraryPaths,
-  itemId: string,
-  which: 'preview' | 'original',
+  designId: string,
+  assetId: string,
+  which: 'media' | 'poster',
 ): Promise<ToolResult> {
-  // The record names its own files, so the caller never supplies a path.
-  const record = await readJsonFile<ItemRecord>(itemRecordFile(paths, itemId));
-  if (!record) return failure(`No Library item ${itemId}.`);
+  const design = normalizeDesignRecord(
+    await readJsonFile<unknown>(designRecordFile(paths, designId)),
+  );
+  const asset = design?.assets.find((entry) => entry.id === assetId);
+  if (!asset) return failure(`No asset ${assetId} in Design ${designId}.`);
 
-  const fileName = which === 'preview' ? record.asset.previewFile : record.asset.originalFile;
-  const resolved = resolveInsideHome(paths, `items/${itemId}/${fileName}`);
+  const attempt = currentAttempt(asset);
+  if (attempt?.outcome !== 'ready') {
+    // Not an error: a pending or failed asset is an ordinary tray state, and the
+    // tray needs to tell the two apart to choose between a spinner and a retry.
+    return text('That asset has no artwork yet.', {
+      ok: false,
+      state: asset.attempts.length === 0 ? 'pending' : 'failed',
+    });
+  }
+
+  const fileName = which === 'poster' ? attempt.posterFile : attempt.file;
+  if (fileName === undefined) {
+    return text(
+      which === 'poster'
+        ? 'That video has no still frame yet.'
+        : 'That attempt stored no file.',
+      { ok: false, state: which === 'poster' ? 'awaiting-frames' : 'failed' },
+    );
+  }
+
+  const resolved = resolveInsideHome(
+    paths,
+    path.relative(paths.home, path.join(designAssetDir(paths, designId, assetId), fileName)),
+  );
   if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
 
   const bytes = await readFile(resolved).catch(() => null);
-  if (!bytes) return failure(`The ${which} for ${itemId} is missing.`);
+  if (!bytes) return failure(`The ${which} for asset ${assetId} is missing.`);
 
-  const title = effectiveField(record.profile, 'title');
-  return image(bytes.toString('base64'), mediaTypeFor(resolved), `${title} (${which})`);
+  const mediaType = which === 'poster' ? mediaTypeFor(resolved) : attempt.mediaType ?? mediaTypeFor(resolved);
+  return image(bytes.toString('base64'), mediaType, asset.request.prompt || asset.reference);
+}
+
+type FramesTarget = Extract<LibraryRequestBody, { kind: 'frames.attach' }>['target'];
+
+/**
+ * What the captured frames belong to — a Library item, or a Design asset.
+ *
+ * Named by the caller and checked here, because both ids build filesystem paths
+ * on the far side and the caller is the renderer.
+ */
+function framesTarget(params: {
+  itemId?: string;
+  designId?: string;
+  assetId?: string;
+  attemptId?: string;
+}): { target: FramesTarget } | { error: ToolResult } {
+  if (params.itemId !== undefined) {
+    const checked = checkId(params.itemId, 'item id');
+    return 'error' in checked ? checked : { target: { kind: 'item', itemId: checked.id } };
+  }
+
+  const design = checkId(params.designId, 'design id');
+  if ('error' in design) return design;
+  const asset = checkId(params.assetId, 'asset id');
+  if ('error' in asset) return asset;
+  // Required, not optional: without it the runtime cannot tell frames captured
+  // from the clip on show from frames captured before a retry replaced it.
+  const attempt = checkId(params.attemptId, 'attempt id');
+  if ('error' in attempt) return attempt;
+  return {
+    target: { kind: 'asset', designId: design.id, assetId: asset.id, attemptId: attempt.id },
+  };
 }
 
 export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
@@ -143,7 +196,10 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which asset operation to perform' }),
       uploadId: Type.Optional(Type.String({ description: 'Returned by `begin`; required by chunk/complete/abort' })),
-      itemId: Type.Optional(Type.String({ description: 'Required by preview/original' })),
+      itemId: Type.Optional(Type.String({ description: 'Required by preview/original/stream' })),
+      offset: Type.Optional(
+        Type.Number({ description: 'Byte to start at, for `stream`. Defaults to 0.' }),
+      ),
       fileName: Type.Optional(Type.String()),
       mediaType: Type.Optional(Type.String({ description: 'e.g. image/png' })),
       previewMediaType: Type.Optional(Type.String({ description: 'Defaults to image/webp' })),
@@ -153,12 +209,24 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       previewChunks: Type.Optional(Type.Number({ description: 'Chunk count for the preview; 0 to send none' })),
       width: Type.Optional(Type.Number()),
       height: Type.Optional(Type.Number()),
-      role: Type.Optional(StringEnum(['original', 'preview'] as const)),
+      role: Type.Optional(StringEnum(['original', 'preview', 'frames'] as const)),
+      framesChunks: Type.Optional(
+        Type.Number({ description: 'Chunk count for a video filmstrip; 0 to send none' }),
+      ),
       index: Type.Optional(Type.Number({ description: 'Zero-based chunk index' })),
       data: Type.Optional(Type.String({ description: 'Base64 chunk payload' })),
-      designId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      designId: Type.Optional(Type.String({ description: 'Required by design-file and design-asset' })),
       variantId: Type.Optional(Type.String({ description: 'Required by design-file' })),
       revisionId: Type.Optional(Type.String({ description: 'Required by design-file' })),
+      assetId: Type.Optional(Type.String({ description: 'Required by design-asset' })),
+      attemptId: Type.Optional(
+        Type.String({ description: 'The attempt frames were captured from, for attach-frames' }),
+      ),
+      which: Type.Optional(
+        StringEnum(['media', 'poster'] as const, {
+          description: 'design-asset: the artwork itself, or a video’s still frame',
+        }),
+      ),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       switch (params.action) {
@@ -183,6 +251,7 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
             chunkCounts: {
               original: params.originalChunks ?? 0,
               preview: params.previewChunks ?? 0,
+              frames: params.framesChunks ?? 0,
             },
             previewMediaType: params.previewMediaType ?? 'image/webp',
             ...(params.width === undefined ? {} : { width: params.width }),
@@ -236,6 +305,16 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           return readItemAsset(paths, checked.id, params.action);
         }
 
+        case 'stream': {
+          const checked = checkId(params.itemId, 'item id');
+          if ('error' in checked) return checked.error;
+          const offset = params.offset ?? 0;
+          if (!Number.isSafeInteger(offset) || offset < 0) {
+            return failure(`${JSON.stringify(params.offset ?? null)} is not a valid offset.`);
+          }
+          return streamItemAsset(paths, checked.id, offset);
+        }
+
         case 'design-file': {
           const design = checkId(params.designId, 'design id');
           if ('error' in design) return design.error;
@@ -245,6 +324,34 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
           if ('error' in revision) return revision.error;
           if (params.fileName === undefined) return failure('`design-file` needs a fileName.');
           return readDesignFile(paths, design.id, variant.id, revision.id, params.fileName);
+        }
+
+        case 'attach-frames': {
+          const checked = checkId(params.uploadId, 'upload id');
+          if ('error' in checked) return checked.error;
+          const target = framesTarget(params);
+          if ('error' in target) return target.error;
+
+          const rejected = await completeUpload(paths, checked.id).then(
+            () => null,
+            (error: unknown) => (error instanceof Error ? error.message : String(error)),
+          );
+          if (rejected !== null) return failure(rejected);
+
+          await appendRequest(paths, {
+            kind: 'frames.attach',
+            uploadId: checked.id,
+            target: target.target,
+          });
+          return text('Frames queued.');
+        }
+
+        case 'design-asset': {
+          const design = checkId(params.designId, 'design id');
+          if ('error' in design) return design.error;
+          const asset = checkId(params.assetId, 'asset id');
+          if ('error' in asset) return asset.error;
+          return readDesignAsset(paths, design.id, asset.id, params.which ?? 'media');
         }
       }
     },

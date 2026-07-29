@@ -1,11 +1,13 @@
 import { Button, Progress, ScrollArea } from '@sero-ai/ui';
-import { ImagePlus, Upload } from 'lucide-react';
+import { ImagePlus, Sparkles, Upload } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { filesFromClipboard, importableFiles } from '../lib/import';
 import { ItemCard } from '../components/ItemCard';
 import { LibraryRail } from '../components/LibraryRail';
 import { LibraryToolbar } from '../components/LibraryToolbar';
+import { PendingItemTile } from '../components/PendingItemTile';
+import { pendingGenerations } from '../lib/pending-generations';
 import { SelectionBar } from '../components/SelectionBar';
 import type { ImportState } from '../hooks/useImport';
 import type { ImportSourceKind } from '../lib/import';
@@ -29,6 +31,9 @@ interface LibraryPageProps {
   onOpenItem(itemId: string): void;
   /** Ordered as the user picked them, because the first reference leads. */
   onCreateDesign(references: ItemSummary[]): void;
+  /** Open the generate dialog, optionally working from a chosen reference. */
+  onGenerate(sourceItem?: ItemSummary): void;
+  onDismissJob(jobId: string): void;
   /** The card that should carry the transition name, if any. */
   transitioningItemId?: string;
   transitionName: string;
@@ -42,6 +47,8 @@ export function LibraryPage({
   onPickFiles,
   onOpenItem,
   onCreateDesign,
+  onGenerate,
+  onDismissJob,
   transitioningItemId,
   transitionName,
 }: LibraryPageProps) {
@@ -51,6 +58,14 @@ export function LibraryPage({
   const [dragging, setDragging] = useState(false);
 
   const inTrash = view.scope.kind === 'trash';
+  // A generation has no item until the provider answers and the bytes take the
+  // import route, so the grid would otherwise say nothing had happened — and
+  // the obvious thing to do about that is press Generate again and pay twice.
+  // Trash is the one scope they do not belong in: nothing there is arriving.
+  const pending = useMemo(
+    () => (inTrash ? [] : pendingGenerations(state.jobs)),
+    [state.jobs, inTrash],
+  );
   // A Set because both of these are consulted once per card in the grid.
   const pickedIds = useMemo(() => new Set(picked), [picked]);
   // Mapped over `picked` rather than filtered out of `state.items`: reference
@@ -119,6 +134,10 @@ export function LibraryPage({
           onRestore={() => applyToPicked((id) => actions.restore(id))}
           onPurge={() => applyToPicked((id) => actions.purge(id))}
           onCreateDesign={() => onCreateDesign(pickedItems)}
+          onRestyle={() => {
+            const [first] = pickedItems;
+            if (first) onGenerate(first);
+          }}
         />
 
         {importState.active && (
@@ -157,7 +176,7 @@ export function LibraryPage({
           )}
 
           <ScrollArea className="h-full">
-            {visible.length === 0 ? (
+            {visible.length === 0 && pending.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
                 <ImagePlus className="text-muted-foreground size-8" />
                 <p className="text-muted-foreground text-sm">
@@ -166,13 +185,29 @@ export function LibraryPage({
                     : 'Nothing matches the current scope and filters.'}
                 </p>
                 {state.items.length === 0 && (
-                  <Button type="button" size="sm" onClick={onPickFiles}>
-                    Add inspiration
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" size="sm" onClick={onPickFiles}>
+                      Add inspiration
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => onGenerate()}>
+                      <Sparkles className="size-3.5" />
+                      Generate one
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-4">
+                {/* Ahead of the grid: what is arriving is the thing you are
+                    waiting to see, and a tile appended after forty references
+                    is one you would have to go looking for. */}
+                {pending.map((generation) => (
+                  <PendingItemTile
+                    key={generation.slotId}
+                    generation={generation}
+                    onDismiss={onDismissJob}
+                  />
+                ))}
                 {visible.map((item) => (
                   <ItemCard
                     key={item.id}

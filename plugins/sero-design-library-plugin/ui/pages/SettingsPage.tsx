@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import type { ModelSelection, PromptRecipe, RevisionBehaviour } from '../../shared/settings';
 import type { DesignLibraryState } from '../../shared/types';
+import { MediaSettings } from '../components/MediaSettings';
 
 /**
  * Settings (spec §10).
@@ -106,6 +107,8 @@ export function SettingsPage({ state }: SettingsPageProps) {
             placeholder="Use Sero's configured model"
           />
         </SettingsSection>
+
+        <MediaSettings media={settings.media} />
 
         <SettingsSection title="Generation defaults">
           <div className="grid gap-4 sm:grid-cols-2">

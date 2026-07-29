@@ -33,6 +33,12 @@ import type { ItemRecord } from '../../shared/records';
  * screenshots at retina resolution, and sending those untouched spends a large
  * part of the context window on pixels the model does not need — quietly making
  * the analysis worse rather than failing.
+ *
+ * A video is a different problem: the model cannot watch one, and the original
+ * is an mp4 it cannot decode. It is shown the filmstrip instead — several
+ * moments of the clip side by side in one image, captured by the renderer (D4).
+ * A video with no filmstrip never reaches this tool, because analysis is held
+ * back until the frames exist.
  */
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -44,9 +50,31 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   '.avif': 'image/avif',
 };
 
-function mimeTypeFor(item: ItemRecord): string {
-  if (item.asset.mediaType.startsWith('image/')) return item.asset.mediaType;
-  return MIME_BY_EXTENSION[path.extname(item.asset.originalFile).toLowerCase()] ?? 'image/png';
+function mimeTypeFor(item: ItemRecord, fileName: string): string {
+  const byExtension = MIME_BY_EXTENSION[path.extname(fileName).toLowerCase()];
+  if (byExtension !== undefined) return byExtension;
+  return item.asset.mediaType.startsWith('image/') ? item.asset.mediaType : 'image/png';
+}
+
+/**
+ * What to show the model, and what to say about it.
+ *
+ * For an image, the original rather than the stored preview: the preview is a
+ * 768px thumbnail built for the grid, and the budget below lands nearer 1600px,
+ * so starting from the original gives the model markedly more to look at for
+ * the same trip through the resizer.
+ */
+function viewableOf(item: ItemRecord): { fileName: string; caption: string } {
+  if (item.kind === 'video' && item.asset.framesFile !== undefined) {
+    return {
+      fileName: item.asset.framesFile,
+      caption:
+        'This is a video. The frames below are moments from it in order, left to right, ' +
+        'read as one strip. Describe what moves and how — pacing, direction, easing — ' +
+        'as well as the visual language, and treat the motion as part of the design.',
+    };
+  }
+  return { fileName: item.asset.originalFile, caption: 'The reference image follows. Analyse this image.' };
 }
 
 export interface ReferenceImageTool {
@@ -91,15 +119,12 @@ export function createReferenceImageTool(
     name: 'design_library_view_reference',
     label: 'View Reference',
     description:
-      'Returns the reference image you have been asked to analyse. Call this first — it is the only way to see the image.',
-    promptSnippet: 'design_library_view_reference — returns the reference image to analyse',
+      'Returns the reference you have been asked to analyse — the image, or for a video a strip of its frames in order. Call this first; it is the only way to see it.',
+    promptSnippet: 'design_library_view_reference — returns the reference to analyse',
     parameters: Type.Object({}),
     async execute() {
-      // The original, not the stored preview. The preview is a 768px thumbnail
-      // built for the grid; the budget below lands nearer 1600px, so starting
-      // from the original gives the model markedly more to look at for the same
-      // trip through the resizer.
-      const file = path.join(itemDir(paths, item.id), item.asset.originalFile);
+      const viewable = viewableOf(item);
+      const file = path.join(itemDir(paths, item.id), viewable.fileName);
       const bytes = await readFile(file).catch((error: unknown) => {
         failure = error instanceof Error ? error.message : String(error);
         return null;
@@ -107,7 +132,7 @@ export function createReferenceImageTool(
 
       if (!bytes) {
         return {
-          content: [{ type: 'text' as const, text: `The reference image could not be read: ${failure}` }],
+          content: [{ type: 'text' as const, text: `The reference could not be read: ${failure}` }],
           details: { ok: false },
           isError: true,
         };
@@ -116,8 +141,8 @@ export function createReferenceImageTool(
       const prepared = await withinBudget(
         host,
         bytes.toString('base64'),
-        mimeTypeFor(item),
-        'The reference image follows. Analyse this image.',
+        mimeTypeFor(item, viewable.fileName),
+        viewable.caption,
       );
 
       viewed = true;

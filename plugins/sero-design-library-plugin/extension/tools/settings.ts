@@ -4,8 +4,11 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { clearFalKey, falKeyStatus, storeFalKey } from '../../shared/credentials';
+import { MEDIA_CAPABILITIES, type MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { DesignLibrarySettings, PromptRecipe } from '../../shared/settings';
+import { MAX_CALLS_PER_RUN } from '../../shared/settings';
 import { appendRequest, readState } from '../../shared/state-io';
 import type { ViewPatch } from '../../shared/types';
 import { failure, text, type ToolResult } from './result';
@@ -15,6 +18,12 @@ import { failure, text, type ToolResult } from './result';
  *
  * Model selections are provider + model pairs, and an empty pair means "use
  * Sero's configured model" — the same default the model picker shows.
+ *
+ * The three key actions are the exception to everything else in this file: they
+ * call `shared/credentials` directly instead of appending a request. A request
+ * is a line in `state.json`, which the UI reads, so routing a key through it
+ * would put the key in reactive state — the one thing §8.3 forbids. What comes
+ * back out is `env | stored | missing` and never the key itself.
  */
 
 const ACTIONS = [
@@ -25,9 +34,20 @@ const ACTIONS = [
   'delete-recipe',
   'set-layout',
   'set-view',
+  'set-media-model',
+  'set-media-cap',
+  'key-status',
+  'store-key',
+  'clear-key',
 ] as const;
 
 const MODEL_ROLES = ['librarian', 'design'] as const;
+
+const KEY_STATUS_TEXT: Record<string, string> = {
+  env: 'Using FAL_KEY from the environment.',
+  stored: 'Using a key stored in the Design Library settings.',
+  missing: 'No provider key — generation will fail until one is set.',
+};
 
 function renderSettings(settings: DesignLibrarySettings): ToolResult {
   const model = (selection: { providerId: string; modelId: string }) =>
@@ -38,6 +58,11 @@ function renderSettings(settings: DesignLibrarySettings): ToolResult {
     `Default variants: ${settings.generation.variantCount}`,
     `Revision behaviour: ${settings.generation.revisionBehaviour}`,
     `Prompt recipes: ${settings.generation.recipes.map((recipe) => recipe.name).join(', ') || 'none'}`,
+    `Media calls per run: ${settings.media.callsPerRun}`,
+    ...MEDIA_CAPABILITIES.map(
+      (capability) =>
+        `Media model (${capability}): ${settings.media.models[capability] || "the adapter's default"}`,
+    ),
   ];
   return text(lines.join('\n'), { settings });
 }
@@ -62,6 +87,18 @@ export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths
       view: Type.Optional(
         Type.Unknown({ description: 'Partial view preferences: scope, query, filters, sort, selectedItemId' }),
       ),
+      capability: Type.Optional(
+        StringEnum(MEDIA_CAPABILITIES as MediaCapability[], {
+          description: 'Which media capability `set-media-model` applies to',
+        }),
+      ),
+      mediaModel: Type.Optional(
+        Type.String({ description: "Provider model id; empty to use the adapter's default" }),
+      ),
+      callsPerRun: Type.Optional(
+        Type.Number({ description: `Media calls one generation run may make, 0–${MAX_CALLS_PER_RUN}` }),
+      ),
+      key: Type.Optional(Type.String({ description: 'Provider key, for `store-key`' })),
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       const state = await readState(paths);
@@ -163,6 +200,66 @@ export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths
             patch: params.view as ViewPatch,
           });
           return text('View preferences saved.');
+        }
+
+        case 'set-media-model': {
+          if (!params.capability) return failure('`set-media-model` needs a capability.');
+          const modelId = params.mediaModel ?? '';
+          await appendRequest(paths, {
+            kind: 'settings.update',
+            patch: {
+              media: {
+                ...settings.media,
+                models: { ...settings.media.models, [params.capability]: modelId },
+              },
+            },
+          });
+          return text(
+            modelId === ''
+              ? `${params.capability} now uses the adapter's default model.`
+              : `${params.capability} now uses ${modelId}.`,
+          );
+        }
+
+        case 'set-media-cap': {
+          if (params.callsPerRun === undefined) return failure('`set-media-cap` needs callsPerRun.');
+          if (params.callsPerRun < 0 || params.callsPerRun > MAX_CALLS_PER_RUN) {
+            return failure(`callsPerRun must be 0–${MAX_CALLS_PER_RUN}.`);
+          }
+          await appendRequest(paths, {
+            kind: 'settings.update',
+            patch: { media: { ...settings.media, callsPerRun: Math.round(params.callsPerRun) } },
+          });
+          return text(
+            `A generation run may now make ${Math.round(params.callsPerRun)} media call(s). Going over stops further calls and is reported; it does not fail the run.`,
+          );
+        }
+
+        case 'key-status': {
+          const status = await falKeyStatus(paths);
+          return text(KEY_STATUS_TEXT[status] ?? status, { status });
+        }
+
+        case 'store-key': {
+          const key = (params.key ?? '').trim();
+          if (key === '') return failure('`store-key` needs a key.');
+          await storeFalKey(paths, key);
+          // Read back rather than assumed: `FAL_KEY` in the environment still
+          // wins, and saying "stored" when the environment is what will be used
+          // would make a wrong key look like the cause of the next failure.
+          const status = await falKeyStatus(paths);
+          return text(
+            status === 'env'
+              ? 'Saved, but FAL_KEY in the environment takes precedence and is what will be used.'
+              : 'Saved to the Design Library settings, readable only by you.',
+            { status },
+          );
+        }
+
+        case 'clear-key': {
+          await clearFalKey(paths);
+          const status = await falKeyStatus(paths);
+          return text(KEY_STATUS_TEXT[status] ?? status, { status });
         }
       }
     },

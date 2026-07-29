@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
+import { recordAttempt, reserveAsset } from '../../runtime/media/assets';
+import { seedDesign } from '../../runtime/test-fixtures';
+import type { MediaAttempt } from '../../shared/media';
+import { designAssetDir, designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
 import { readState } from '../../shared/state-io';
+import { UPLOAD_CHUNK_BYTES } from '../../shared/uploads';
 import { registerAssetTool } from './assets';
 import { registerItemTool } from './items';
 
@@ -235,6 +239,100 @@ describe('the asset tool guards design files', () => {
     });
 
     expect(textOf(result)).toContain('No file preview.html');
+  });
+});
+
+describe('the asset tool reads Design assets', () => {
+  /** Seed a Design carrying one asset with the attempt this test needs. */
+  async function seedAsset(attempt: Partial<MediaAttempt> & { id: string }) {
+    await seedDesign(paths, 'dsn-1');
+    const asset = await reserveAsset(paths, 'dsn-1', {
+      capability: 'text-to-image',
+      prompt: 'a gradient',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+    await recordAttempt(paths, 'dsn-1', asset.id, {
+      outcome: 'ready',
+      startedAt: 0,
+      completedAt: 1,
+      ...attempt,
+    });
+    return asset.id;
+  }
+
+  it('refuses a traversal in either id', async () => {
+    for (const key of ['designId', 'assetId'] as const) {
+      const result = await call('design_library_assets', {
+        action: 'design-asset',
+        designId: 'dsn-1',
+        assetId: 'ast-1',
+        [key]: TRAVERSAL,
+      });
+      expect(textOf(result), key).toMatch(/not a valid (design|asset) id/);
+    }
+  });
+
+  it('returns the artwork the record names, as image content', async () => {
+    const assetId = await seedAsset({ id: 'attempt-1', file: 'art.png', mediaType: 'image/png' });
+    const directory = designAssetDir(paths, 'dsn-1', assetId);
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, 'art.png'), Buffer.from('png-bytes'));
+
+    const result = await call('design_library_assets', {
+      action: 'design-asset',
+      designId: 'dsn-1',
+      assetId,
+    });
+
+    const block = result.content.find((entry) => entry.type === 'image');
+    expect(block && 'data' in block ? Buffer.from(String(block.data), 'base64').toString() : '').toBe(
+      'png-bytes',
+    );
+  });
+
+  it('tells a pending asset from a failed one instead of erroring', async () => {
+    await seedDesign(paths, 'dsn-1');
+    const asset = await reserveAsset(paths, 'dsn-1', {
+      capability: 'text-to-image',
+      prompt: 'a gradient',
+    });
+    if (!asset) throw new Error('the asset was not reserved');
+
+    // Nothing has come back yet — the tray shows progress, not an error.
+    const pending = await call('design_library_assets', {
+      action: 'design-asset',
+      designId: 'dsn-1',
+      assetId: asset.id,
+    });
+    expect(pending.details).toMatchObject({ state: 'pending' });
+
+    await recordAttempt(paths, 'dsn-1', asset.id, {
+      id: 'attempt-1',
+      outcome: 'failed',
+      startedAt: 0,
+      completedAt: 1,
+      error: { code: 'provider', message: 'The provider failed.', retryable: true },
+    });
+    const failed = await call('design_library_assets', {
+      action: 'design-asset',
+      designId: 'dsn-1',
+      assetId: asset.id,
+    });
+    // The distinction is what the tray turns into a retry button.
+    expect(failed.details).toMatchObject({ state: 'failed' });
+  });
+
+  it('reports a video still waiting for its frame rather than failing', async () => {
+    const assetId = await seedAsset({ id: 'attempt-1', file: 'clip.mp4', mediaType: 'video/mp4' });
+
+    const result = await call('design_library_assets', {
+      action: 'design-asset',
+      designId: 'dsn-1',
+      assetId,
+      which: 'poster',
+    });
+
+    expect(result.details).toMatchObject({ state: 'awaiting-frames' });
   });
 });
 

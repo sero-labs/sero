@@ -15,6 +15,8 @@ import type { TweakManifestDocument } from '../../shared/tweaks';
 import { TWEAK_MANIFEST_FILE } from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
 import { PREVIEW_DOCUMENT_FILE, buildPreviewDocument } from '../build';
+import { readDesign } from '../design-store';
+import { readAssetBytes } from '../media/assets';
 
 /**
  * Turning what a run produced into a revision on disk.
@@ -67,11 +69,17 @@ export async function storeRevisionFiles(
           dropped: naming.tweaks.dropped,
         };
 
+  // Assets are read back from the record rather than taken from the `design`
+  // this function was handed: the run generates media *while* it goes, so the
+  // record read before it started names none of what it produced.
+  const current = (await readDesign(paths, design.id)) ?? design;
+
   // The document accepts live values for exactly the properties the manifest
   // declared, and it is built with that list inside it — so the allow-list can
   // never drift from the panel that sends against it.
   const built = await buildPreviewDocument(design.brief.target, files, {
     tweakVariables: tweaks?.manifest.controls.map((control) => control.cssVariable) ?? [],
+    assets: await readAssetBytes(paths, current),
   });
 
   await writeRevisionDirectory(directory, [

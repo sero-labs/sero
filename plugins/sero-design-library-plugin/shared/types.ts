@@ -9,12 +9,14 @@
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
+import type { MediaCapability, MediaModelOptions } from './media';
+import { MEDIA_CAPABILITIES, normalizeModelOptions } from './media';
 import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
 import { normalizeJobRecord } from './records';
 import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
-import type { DesignLibrarySettings } from './settings';
-import { DEFAULT_SETTINGS } from './settings';
+import type { DesignLibrarySettings, MediaSettings } from './settings';
+import { DEFAULT_SETTINGS, MAX_CALLS_PER_RUN } from './settings';
 
 export const STATE_SCHEMA_VERSION = 1;
 
@@ -29,6 +31,11 @@ export interface ItemSummary {
   /** Path relative to the app state directory, for the UI to request bytes. */
   previewPath: string;
   analysisStatus: AnalysisStatus;
+  /**
+   * A generated video whose stills have not been captured yet (D4). The open
+   * app looks for this, captures them, and the flag clears.
+   */
+  awaitingFrames?: boolean;
   /** Why analysis failed. Carried in the summary so a failure explains itself. */
   analysisError?: string;
   favourite: boolean;
@@ -154,6 +161,16 @@ export interface DesignLibraryState {
   collections: Collection[];
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
+  /**
+   * What each capability's model accepts — clip lengths, aspect ratios — as the
+   * provider last reported it (D7).
+   *
+   * A cache, not a record. An absent entry means "nobody could say", never "no
+   * constraints", so the pickers fall back rather than offering nothing. The
+   * generation path settles against the provider directly and does not read
+   * this.
+   */
+  mediaOptions: Partial<Record<MediaCapability, MediaModelOptions>>;
   view: ViewPreferences;
   requests: LibraryRequest[];
   nextRequestId: number;
@@ -178,6 +195,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
+  mediaOptions: {},
   view: {
     scope: { kind: 'all' },
     query: '',
@@ -213,6 +231,7 @@ function normalizeItem(value: unknown): ItemSummary | null {
     kind: value.kind === 'video' ? 'video' : 'image',
     previewPath: typeof value.previewPath === 'string' ? value.previewPath : '',
     analysisStatus: normalizeAnalysisStatus(value.analysisStatus),
+    ...(value.awaitingFrames === true ? { awaitingFrames: true } : {}),
     ...(typeof value.analysisError === 'string' ? { analysisError: value.analysisError } : {}),
     favourite: value.favourite === true,
     collectionIds: stringArray(value.collectionIds),
@@ -249,7 +268,10 @@ function normalizeJob(value: unknown): JobSummary | null {
   const status = value.status;
   return {
     id: value.id,
-    kind: value.kind === 'ingest' || value.kind === 'generate' ? value.kind : 'analysis',
+    kind:
+      value.kind === 'ingest' || value.kind === 'generate' || value.kind === 'media'
+        ? value.kind
+        : 'analysis',
     status:
       status === 'running' || status === 'succeeded' || status === 'failed' || status === 'cancelled'
         ? status
@@ -382,10 +404,31 @@ function normalizeSettings(value: unknown): DesignLibrarySettings {
       revisionBehaviour: generation.revisionBehaviour === 'retain' ? 'retain' : 'replace',
       recipes: recipes.filter((recipe) => recipe.id !== ''),
     },
+    media: normalizeMedia(value.media),
     layout: {
       inspectorWidth: Math.min(720, Math.max(280, num(layout.inspectorWidth, 352))),
       sessionsRailCollapsed: layout.sessionsRailCollapsed === true,
     },
+  };
+}
+
+function normalizeMedia(value: unknown): MediaSettings {
+  const media = isRecord(value) ? value : {};
+  const stored = isRecord(media.models) ? media.models : {};
+  const models = Object.fromEntries(
+    MEDIA_CAPABILITIES.map((capability) => [
+      capability,
+      typeof stored[capability] === 'string' ? stored[capability] : '',
+    ]),
+  ) as MediaSettings['models'];
+  return {
+    models,
+    // Clamped rather than trusted: the cap is the whole spend protection, and a
+    // state file edited to zero or to a million is a file, not an impossibility.
+    callsPerRun: Math.min(
+      MAX_CALLS_PER_RUN,
+      Math.max(0, Math.round(num(media.callsPerRun, DEFAULT_SETTINGS.media.callsPerRun))),
+    ),
   };
 }
 
@@ -395,6 +438,17 @@ function normalizeModel(value: unknown): DesignLibrarySettings['librarianModel']
     providerId: typeof value.providerId === 'string' ? value.providerId : '',
     modelId: typeof value.modelId === 'string' ? value.modelId : '',
   };
+}
+
+function normalizeMediaOptions(value: unknown): Partial<Record<MediaCapability, MediaModelOptions>> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    MEDIA_CAPABILITIES.flatMap((capability) => {
+      if (!(capability in value)) return [];
+      const options = normalizeModelOptions(value[capability]);
+      return Object.keys(options).length === 0 ? [] : [[capability, options] as const];
+    }),
+  );
 }
 
 export function normalizeState(value: unknown): DesignLibraryState {
@@ -431,6 +485,7 @@ export function normalizeState(value: unknown): DesignLibraryState {
         })
       : [],
     settings: normalizeSettings(value.settings),
+    mediaOptions: normalizeMediaOptions(value.mediaOptions),
     view: normalizeView(value.view),
     requests,
     nextRequestId: Math.max(num(value.nextRequestId, 1), highestRequestId + 1),

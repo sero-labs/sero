@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import type { MediaProvenance } from './media';
 import type { DesignLibraryPaths } from './paths';
 import { uploadDir, uploadManifestFile } from './paths';
 import { readJsonFile, writeJsonFile } from './state-io';
@@ -22,7 +24,19 @@ import type { ItemSourceKind, MediaKind } from './records';
 export const UPLOAD_CHUNK_BYTES = 512 * 1024;
 export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
 
-export type UploadRole = 'original' | 'preview';
+/**
+ * `frames` is a filmstrip: one image holding several moments of a video side by
+ * side (D4, and the UI-decode decision). One attachment rather than four —
+ * the Librarian sees the progression in a single look, and the upload stays one
+ * role rather than a variable number of them.
+ */
+export type UploadRole = 'original' | 'preview' | 'frames';
+
+export const UPLOAD_ROLES: readonly UploadRole[] = ['original', 'preview', 'frames'] as const;
+
+export function isUploadRole(value: unknown): value is UploadRole {
+  return typeof value === 'string' && (UPLOAD_ROLES as readonly string[]).includes(value);
+}
 
 export interface UploadManifest {
   id: string;
@@ -30,12 +44,30 @@ export interface UploadManifest {
   mediaType: string;
   kind: MediaKind;
   sourceKind: ItemSourceKind;
-  /** Number of chunks the uploader will send for each role. */
-  chunkCounts: Record<UploadRole, number>;
+  /**
+   * Number of chunks the uploader will send for each role.
+   *
+   * Partial because `frames` arrived after the first manifests were written, and
+   * a stored upload without the key must still verify rather than counting
+   * `undefined` chunks and refusing itself.
+   */
+  chunkCounts: Partial<Record<UploadRole, number>> & { original: number; preview: number };
   previewMediaType: string;
   width?: number;
   height?: number;
+  durationMs?: number;
   parentItemId?: string;
+  /**
+   * Present when the bytes were generated rather than imported, so the item this
+   * becomes keeps its provenance (spec §6.6).
+   */
+  generation?: MediaProvenance;
+  /**
+   * A generated video whose frames have not been extracted yet. Video is decoded
+   * in the renderer, so the item is created before there is anything to
+   * thumbnail or analyse.
+   */
+  awaitingFrames?: boolean;
   createdAt: number;
   complete: boolean;
 }
@@ -48,8 +80,9 @@ export async function beginUpload(
   paths: DesignLibraryPaths,
   manifest: UploadManifest,
 ): Promise<void> {
-  await mkdir(roleDir(paths, manifest.id, 'original'), { recursive: true });
-  await mkdir(roleDir(paths, manifest.id, 'preview'), { recursive: true });
+  for (const role of UPLOAD_ROLES) {
+    await mkdir(roleDir(paths, manifest.id, role), { recursive: true });
+  }
   await writeJsonFile(uploadManifestFile(paths, manifest.id), manifest);
 }
 
@@ -116,11 +149,11 @@ export async function verifyUpload(
   paths: DesignLibraryPaths,
   manifest: UploadManifest,
 ): Promise<string[]> {
-  const roles: UploadRole[] = ['original', 'preview'];
+  const roles = UPLOAD_ROLES;
   const parts = await Promise.all(roles.map((role) => inspectRole(paths, manifest.id, role)));
 
   const problems = roles.flatMap((role, position) => {
-    const expected = manifest.chunkCounts[role];
+    const expected = manifest.chunkCounts[role] ?? 0;
     const { indices } = parts[position] ?? { indices: [], bytes: 0 };
     if (indices.length !== expected) {
       return [`${role}: the manifest promised ${expected} chunk(s) but ${indices.length} arrived`];
@@ -155,6 +188,38 @@ export async function completeUpload(paths: DesignLibraryPaths, uploadId: string
     throw new Error(`Upload ${uploadId} cannot be assembled — ${problems.join('; ')}`);
   }
   await writeJsonFile(uploadManifestFile(paths, uploadId), { ...manifest, complete: true });
+}
+
+/**
+ * Stage bytes the runtime already holds, as one complete upload.
+ *
+ * Generated media takes the same route into the Library as an import rather than
+ * writing an item directly, and deliberately: duplicate detection, asset layout
+ * and the automatic analysis kick-off are defined once in `ingestUpload`, and a
+ * second path to creating an item is a second place for them to drift. The
+ * chunking is skipped because there is no process boundary to cross — the bytes
+ * are already here.
+ */
+export async function stageGeneratedUpload(
+  paths: DesignLibraryPaths,
+  bytes: Uint8Array,
+  details: Omit<UploadManifest, 'id' | 'chunkCounts' | 'createdAt' | 'complete'>,
+): Promise<string> {
+  const id = randomUUID();
+  const manifest: UploadManifest = {
+    ...details,
+    id,
+    chunkCounts: { original: 1, preview: 0, frames: 0 },
+    createdAt: Date.now(),
+    complete: false,
+  };
+  await beginUpload(paths, manifest);
+
+  // Written directly rather than through `writeUploadChunk`, which caps a chunk
+  // at the size the tool boundary needs; there is no such boundary here.
+  await writeFile(path.join(roleDir(paths, id, 'original'), '0.part'), bytes);
+  await completeUpload(paths, id);
+  return id;
 }
 
 /** Assemble one role's chunks in index order. Returns null when nothing was sent. */

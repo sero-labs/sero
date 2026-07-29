@@ -5,6 +5,8 @@ import type {
   InspirationStrength,
 } from '../../shared/design';
 import type { LibrarianUserFacingAnalysis } from '../../shared/librarian';
+import type { DesignAsset } from '../../shared/media';
+import { assetIsReady } from '../../shared/media';
 import type { PromptRecipe } from '../../shared/settings';
 import type { EmittedFile } from '../../shared/targets';
 import { TARGET_CONTRACTS } from '../../shared/targets';
@@ -79,14 +81,20 @@ function guardrailBlock(guardrails: AppliedGuardrails): string {
   return lines.length === 0 ? '' : `## Guardrails\n\nThese are not suggestions.\n\n${lines.join('\n')}`;
 }
 
-function targetRules(brief: DesignBrief): string {
+function targetRules(brief: DesignBrief, mediaAvailable: boolean): string {
   const contract = TARGET_CONTRACTS[brief.target];
   const shared = [
     `Write ${contract.label}.`,
     `Start with \`${contract.entry}\`. Allowed file types: ${contract.extensions.join(', ')}.`,
     'The preview has no network. No remote fonts, images, scripts, stylesheets or analytics — none of them will load.',
     'Fonts are limited to the system sans and mono stacks. Use `font-family: system-ui, sans-serif` or `ui-monospace, monospace`.',
-    'Imagery is CSS — gradients, shapes, masks — or inline SVG you write yourself.',
+    // Conditional, and it has to be: as a flat rule this sat above the Imagery
+    // section contradicting it, and a run given both read this one and never
+    // touched the media tools at all — a brief that asked in as many words for
+    // a hero image and two illustrations came back with four gradients.
+    mediaAvailable
+      ? 'Photographic and illustrative artwork comes from the media tools, described under Imagery below. Everything else — interface icons, dividers, decorative shapes — is CSS or inline SVG you write yourself.'
+      : 'Imagery is CSS — gradients, shapes, masks — or inline SVG you write yourself.',
     'Use realistic content lengths. Placeholder text that is all the same width makes a layout look untested.',
     'The page must be responsive and must not scroll horizontally at any width.',
   ];
@@ -115,6 +123,92 @@ function targetRules(brief: DesignBrief): string {
  * told only to declare controls at the end will declare them over a page whose
  * values are all hard-coded, and every one of them will be dropped.
  */
+/**
+ * What the run may do about imagery (spec §6.6).
+ *
+ * Stated in both directions on purpose. When the tools are absent the run is
+ * told so and told what to do instead, because a model that assumes it can
+ * generate a hero image writes markup pointing at one that never arrives — and
+ * the page ships with a placeholder where its focal point should be.
+ */
+/** Enough of the tray to choose from, without it becoming the brief. */
+const MAX_LISTED_ASSETS = 12;
+const MAX_DESCRIPTION_CHARS = 160;
+
+/** One line, always — a caption for a reference, not a section of the prompt. */
+function describeArtwork(prompt: string): string {
+  const flat = prompt.replace(/\s+/g, ' ').trim();
+  if (flat === '') return 'no description';
+  return flat.length <= MAX_DESCRIPTION_CHARS ? flat : `${flat.slice(0, MAX_DESCRIPTION_CHARS)}…`;
+}
+
+function mediaRules(
+  available: boolean,
+  existing: DesignAsset[] = [],
+  callsRemaining?: number,
+): string {
+  // Artwork the Design already has, whoever asked for it — an earlier variant,
+  // an explicit press, or this very run before it was interrupted.
+  //
+  // Load-bearing on a resumed run. A generation that restarts is a fresh
+  // conversation: the model has no memory of the tool calls it already made, so
+  // without being told, it asks for the same hero image again and pays for it
+  // again. The durable cap bounds how much that can cost; this is what stops it
+  // happening at all. It is also just true the rest of the time — assets belong
+  // to the Design, and reusing one is free where generating another is not.
+  const ready = existing.filter((asset) => asset.deletedAt === undefined && assetIsReady(asset));
+  // Newest first and bounded. A tray grows without limit, and every description
+  // in it is text a model wrote — left whole, a long tray crowds out the brief
+  // it is meant to support, and a description running to several lines reads as
+  // structure rather than as a caption.
+  const reusable = ready.toSorted((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_LISTED_ASSETS);
+  const omitted = ready.length - reusable.length;
+  const reuse =
+    reusable.length === 0
+      ? []
+      : [
+          '',
+          'This Design already has artwork. Use these before generating anything new — they cost nothing and they are already what this Design looks like:',
+          ...reusable.map(
+            (asset) => `- \`${asset.reference}\` — ${describeArtwork(asset.request.prompt)}`,
+          ),
+          ...(omitted === 0
+            ? []
+            : [`(and ${omitted} older ${omitted === 1 ? 'one' : 'ones'}, listed by the media tools.)`]),
+        ];
+
+  if (!available) {
+    return [
+      '## Imagery',
+      '',
+      reusable.length === 0
+        ? 'You cannot generate imagery in this run. Build any illustrative artwork out of CSS — gradients, shapes, layered blends — or inline SVG you write yourself. Do not reference an image file: nothing will resolve it.'
+        : 'You cannot generate new imagery in this run. Use the artwork this Design already has, listed below, and build anything else out of CSS or inline SVG you write yourself. Do not reference any other image file: nothing will resolve it.',
+      ...reuse,
+    ].join('\n');
+  }
+  // Stated as a budget rather than as "sparingly". A vague instruction to
+  // restrain itself is the one a model resolves by generating nothing at all,
+  // and nothing at all is what a brief asking for a hero image got.
+  const allowance =
+    callsRemaining === undefined
+      ? 'Generate what the design genuinely needs and no more.'
+      : callsRemaining <= 0
+        ? 'You have no generations left in this run. Use the artwork this Design already has and build the rest out of CSS or inline SVG.'
+        : `You may generate up to ${callsRemaining} ${callsRemaining === 1 ? 'image or clip' : 'images or clips'} in this run. Spend them on what the design genuinely needs — a brief that asks for photography, illustration or a hero image is asking for these tools.`;
+
+  return [
+    '## Imagery',
+    '',
+    'You can generate illustrative artwork — a hero image, a texture, a photographic background, an abstract graphic — with the media tools. Each returns a reference like `assets/<id>.png`; use it as the `src` or in `url()` and it resolves in the preview and in the export.',
+    '',
+    allowance,
+    '',
+    'Routine interface icons come from inline SVG you write yourself, never from the media tools. If a tool refuses — a limit reached, a video declined — carry on and finish the page without it rather than asking again.',
+    ...reuse,
+  ].join('\n');
+}
+
 function tweakRules(): string {
   const rules = [
     'Route the decisions worth revisiting through CSS custom properties: declare them once at the top (`:root { --display-scale: 34px; }`) and read them everywhere else with `var(--display-scale)`.',
@@ -152,6 +246,16 @@ export interface GenerationTaskInput {
   variant: DesignVariant;
   /** Total variants in this Design, so the run knows how to differ from siblings. */
   variantCount: number;
+  /** Whether the media tools are on this run's tool surface (spec §6.6). */
+  mediaAvailable?: boolean;
+  /**
+   * Artwork this Design already has. Listed in the prompt so a run reuses it
+   * rather than generating it again — which a *resumed* run would otherwise do
+   * every time, having no memory of the tool calls it already paid for.
+   */
+  existingAssets?: DesignAsset[];
+  /** Media calls this run may still make, so the allowance is a number not a mood. */
+  mediaCallsRemaining?: number;
   recipe?: PromptRecipe;
   /** Present when this run is a revise rather than a first attempt. */
   revision?: { instruction: string; files: EmittedFile[] };
@@ -216,8 +320,9 @@ export function buildGenerationTask(input: GenerationTaskInput): string {
       .map(describeReference)
       .join('\n\n')}`,
     guardrailBlock(input.guardrails),
-    targetRules(brief),
+    targetRules(brief, input.mediaAvailable === true),
     tweakRules(),
+    mediaRules(input.mediaAvailable === true, input.existingAssets ?? [], input.mediaCallsRemaining),
     // Only for a first attempt: a revise has siblings it already differs from,
     // and telling it to diverge again would undo the design it is editing.
     diversity === '' || input.revision !== undefined ? '' : `## This variant\n\n${diversity}`,

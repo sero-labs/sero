@@ -4,6 +4,7 @@ import { ChevronRight, ImageOff } from 'lucide-react';
 import type { Collection } from '../../shared/records';
 import type { ItemSummary } from '../../shared/types';
 import { ItemInspector } from '../components/ItemInspector';
+import { useAssetObjectUrl } from '../hooks/useAssetObjectUrl';
 import { useAssetSrc } from '../hooks/useAssetSrc';
 import { useItemDetail } from '../hooks/useItemDetail';
 import type { LibraryActions } from '../hooks/useLibrary';
@@ -43,7 +44,19 @@ function formatDate(timestamp: number): string {
 
 export function ItemPage({ item, collections, revision, actions, onBack }: ItemPageProps) {
   const detail = useItemDetail(item.id, revision);
-  const src = useAssetSrc(item.id, 'original');
+  // A still comes back whole, as base64; a clip is read in slices and becomes a
+  // Blob URL. The media element needs a URL it can seek and stream, which a
+  // `data:` URL of eleven megabytes is not — that produced a player that
+  // rendered and would not play.
+  //
+  // A clip plays whether or not its frames have been captured. The capture is
+  // only what gives the grid a thumbnail, and gating playback on it meant a
+  // capture that failed, or never ran, left a stored video that could never be
+  // watched.
+  const video = item.kind === 'video';
+  const still = useAssetSrc(video || item.awaitingFrames === true ? undefined : item.id, 'original');
+  const clip = useAssetObjectUrl(video ? item.id : undefined);
+  const src = video ? clip : still;
 
   // The first collection the reference belongs to, purely as a breadcrumb hint.
   const memberOf = new Set(item.collectionIds);
@@ -78,7 +91,20 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
 
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
           <div className="bg-muted border-border flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border">
-            {src ? (
+            {src && item.kind === 'video' ? (
+              // Controls, and no autoplay: a reference that started moving the
+              // moment it was opened would be motion the user never asked for,
+              // which is the one thing a reduced-motion preference is about.
+              // eslint-disable-next-line jsx-a11y/media-has-caption -- generated artwork has no dialogue
+              <video
+                src={src}
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={item.title}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : src ? (
               <img
                 src={src}
                 alt={item.title}
@@ -90,7 +116,7 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
             ) : (
               <span className="text-muted-foreground flex flex-col items-center gap-2 text-sm">
                 <ImageOff className="size-6" />
-                Loading image…
+                {item.awaitingFrames === true ? 'Capturing frames…' : 'Loading…'}
               </span>
             )}
           </div>

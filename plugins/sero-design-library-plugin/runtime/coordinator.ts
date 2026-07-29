@@ -7,6 +7,7 @@ import type { JobKind, TombstonedProvenance } from '../shared/records';
 import { itemTarget } from '../shared/records';
 import type { LibraryRequest, LibraryRequestBody } from '../shared/requests';
 import { pendingRequests, readState, updateState, writeJsonFile } from '../shared/state-io';
+import type { MediaSettings } from '../shared/settings';
 import type { DesignLibraryState } from '../shared/types';
 import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
@@ -15,7 +16,13 @@ import { resumePendingVariants, startPendingVariants } from './designs';
 import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
-import { destroyItem, mutateItem, readItem, readJob, scanItems } from './store';
+import { MediaQueue, type MediaQueueContext } from './media/queue';
+import { attachFrames } from './frames';
+import type { MediaProvider } from './media/contract';
+import { mediaModelsChanged, refreshMediaOptions } from './media/options';
+import { createMediaProviderForRun } from './media/provider';
+import { MediaRequests, isMediaRequest } from './media/requests';
+import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
  * Applies intent submitted by extension tools.
@@ -33,14 +40,21 @@ export interface CoordinatorContext {
   workspaceId: string;
   sessionId: string;
   onError(message: string, error: unknown): void;
+  /** Test and fault-injection seam; defaults to the shipped fal adapter. */
+  createMediaProvider?: MediaQueueContext['createProvider'];
 }
 
 export class Coordinator {
   private readonly queue: AnalysisQueue;
   private readonly variants: VariantQueue;
   private readonly designs: DesignRequests;
+  private readonly mediaQueue: MediaQueue;
+  private readonly media: MediaRequests;
   private draining = false;
   private drainAgain = false;
+  /** Best-effort option reads in flight, so disposal waits for their writes. */
+  private readonly optionsRefreshes = new Set<Promise<void>>();
+  private readonly shutdown = new AbortController();
 
   constructor(private readonly context: CoordinatorContext) {
     const shared = {
@@ -53,6 +67,19 @@ export class Coordinator {
     this.queue = new AnalysisQueue(shared);
     this.variants = new VariantQueue(shared);
     this.designs = new DesignRequests(context.paths, this.variants);
+    this.mediaQueue = new MediaQueue({
+      host: context.host,
+      paths: context.paths,
+      onError: context.onError,
+      // A generated Library item starts analysing itself, as an imported one
+      // does. The kick-off stays here rather than in the queue, so there is one
+      // place that decides when a new item starts being looked at.
+      onItemCreated: (itemId) => this.startAnalysis(itemId, true),
+      ...(context.createMediaProvider === undefined
+        ? {}
+        : { createProvider: context.createMediaProvider }),
+    });
+    this.media = new MediaRequests(context.paths, this.mediaQueue);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -69,15 +96,56 @@ export class Coordinator {
     await this.resumeAbandonedAnalyses();
 
     await this.drain();
+
+    // Deliberately last and deliberately not awaited: it reaches the network,
+    // and nothing here should wait on a schema endpoint to resume work that is
+    // already paid for. What it publishes only affects the pickers, and they
+    // fall back until it lands.
+    this.refreshMediaOptions();
+  }
+
+  /**
+   * Publish what each capability's model accepts, for the UI's pickers.
+   *
+   * Fire and forget. A failure is reported and changes nothing: generation
+   * settles against the provider itself, so it stays correct whether this ever
+   * succeeded or not.
+   */
+  private refreshMediaOptions(): void {
+    // Tracked so `dispose` can wait for it. It writes state, and a write landing
+    // after the runtime is gone is the same hazard the generation queue tracks
+    // its cancellations for.
+    const pending = (async () => {
+      const state = await readState(this.context.paths);
+      const provider = await this.createProvider(state.settings.media);
+      await refreshMediaOptions(this.context.paths, provider, this.shutdown.signal);
+    })().catch((error: unknown) => {
+      if (this.shutdown.signal.aborted) return;
+      this.context.onError('Could not read what the media models accept', error);
+    });
+    this.optionsRefreshes.add(pending);
+    void pending.finally(() => this.optionsRefreshes.delete(pending));
+  }
+
+  private async createProvider(settings: MediaSettings): Promise<MediaProvider> {
+    const create = this.context.createMediaProvider ?? createMediaProviderForRun;
+    return create(this.context.paths, settings);
   }
 
   async dispose(): Promise<void> {
-    await Promise.all([this.queue.dispose(), this.variants.dispose()]);
+    this.shutdown.abort();
+    await Promise.all([
+      this.queue.dispose(),
+      this.variants.dispose(),
+      this.mediaQueue.dispose(),
+      ...this.optionsRefreshes,
+    ]);
   }
 
   private route(kind: JobKind, jobId: string): void {
     if (kind === 'analysis') this.queue.enqueue(jobId);
     if (kind === 'generate') this.variants.enqueue(jobId);
+    if (kind === 'media') this.mediaQueue.enqueue(jobId);
   }
 
   /**
@@ -142,6 +210,14 @@ export class Coordinator {
     // own module; everything else is here.
     if (isDesignRequest(body)) {
       await this.designs.apply(body, requestId);
+      return;
+    }
+
+    // Media has its own module for the same reason the Design surface does, and
+    // hands back any item it created so the analysis kick-off stays in one place.
+    if (isMediaRequest(body)) {
+      const { analyse } = await this.media.apply(body);
+      if (analyse !== undefined) await this.startAnalysis(analyse, true);
       return;
     }
 
@@ -255,11 +331,34 @@ export class Coordinator {
         return;
       }
 
+      case 'frames.attach': {
+        const outcome = await attachFrames(paths, body);
+        // Forced, because the item is still sitting at `pending` — that is what
+        // being held back looks like — and the unforced path reads `pending` as
+        // "already queued" and does nothing. There is no job to displace: the
+        // hold is exactly the absence of one.
+        if (outcome.analyse !== undefined) await this.startAnalysis(outcome.analyse, true);
+        return;
+      }
+
+      case 'job.dismiss': {
+        // Idempotent: a job already forgotten, or one still running and so
+        // refused, both leave nothing to do rather than failing the request.
+        await dismissJob(paths, body.jobId);
+        return;
+      }
+
       case 'settings.update': {
-        await updateState(paths, (current) => ({
-          ...current,
-          settings: { ...current.settings, ...body.patch },
-        }));
+        let modelsChanged = false;
+        await updateState(paths, (current) => {
+          const settings = { ...current.settings, ...body.patch };
+          modelsChanged = mediaModelsChanged(current.settings.media, settings.media);
+          return { ...current, settings };
+        });
+        // A new model id means new options — a different set of clip lengths,
+        // possibly a different set of aspect ratios — and the pickers would
+        // otherwise keep offering the old model's.
+        if (modelsChanged) this.refreshMediaOptions();
         return;
       }
 
@@ -306,6 +405,13 @@ export class Coordinator {
   private async startAnalysis(itemId: string, force: boolean): Promise<void> {
     const item = await readItem(this.context.paths, itemId);
     if (!item || item.deletedAt !== undefined) return;
+
+    // A video with no frames is a video the Librarian cannot see. Running
+    // anyway would produce a well-formed profile describing nothing — the same
+    // failure the image tool's "was it called?" check exists to prevent — and
+    // it would burn a model call doing it. The open app captures frames and
+    // `frames.attach` starts this again.
+    if (item.awaitingFrames === true) return;
 
     const busy = item.analysis.status === 'running' || item.analysis.status === 'pending';
     if (!force && (item.analysis.status === 'ready' || busy)) return;

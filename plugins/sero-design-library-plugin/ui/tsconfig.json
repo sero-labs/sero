@@ -11,5 +11,11 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"]
   },
   "include": ["./**/*", "../shared/**/*"],
-  "exclude": ["../shared/**/*.test.ts", "../shared/file-lock.ts", "../shared/state-io.ts", "../shared/paths.ts"]
+  "exclude": [
+    "../shared/**/*.test.ts",
+    "../shared/file-lock.ts",
+    "../shared/state-io.ts",
+    "../shared/paths.ts",
+    "../shared/credentials.ts"
+  ]
 }
