@@ -1,6 +1,6 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — in review (#326). **Then #328** — four gaps from the first manual pass (design loading state, using generated Library images as real source material, opening a design's files, baseline Tweaks controls). PR 3b — Gallery and export — not started, and starts after #328.
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). **#328 built** — design loading state, generated Library images as source material, opening a design's files, and baseline Tweaks controls. PR 3b — Gallery and export — next.
 **Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
@@ -16,7 +16,7 @@ Product behaviour lives in `docs/specs/sero-design-library-plugin-spec.md`. Rati
 - No direct filesystem access from UI code.
 - No binary payloads in reactive state.
 - No vendor types outside the media adapter.
-- No reference pixels in generated output.
+- Imported reference pixels never enter generated output. Images made by Design Library may be copied into a Design and used as its actual artwork.
 - No mutable Gallery snapshots.
 - Never exceed 500 LOC in a source file.
 
@@ -173,7 +173,7 @@ Turn references into runnable work.
 1. [x] Design records, continuous autosave, sessions rail, restore-to-position.
 2. [x] Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
 3. [~] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel. *(Built; the prototype's polish lands with 2b.)*
-4. [x] Generation runs with `platformTools: 'none'` — structured language in, no pixels. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
+4. [x] Generation runs with `platformTools: 'none'` — imported references enter as structured language; plugin-made reference images may also enter as local Design artwork. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
 5. [x] `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
 6. [x] `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
 7. [x] Tweaks: AI-authored manifest emitted with each successful revision, validator that drops invalid/duplicate/inert controls and reports them in one collapsible line, generic control rendering, value-only postMessage channel, per-control and panel reset, Copy CSS. Rendered as a fourth inspector tab inside a `ResizablePanel` (`@sero-ai/ui`) whose width persists, with a collapsible sessions rail.
@@ -204,10 +204,11 @@ Turn references into runnable work.
 - **A failed revise keeps its instruction; a cancelled one drops it.** Retry then repeats the change rather than regenerating the page from the brief, and an explicit stop means the next run is whatever is asked for then.
 - The create dialog matches prototype state 3 in full. The one remaining difference — no reference thumbnails in the synthesis rail — is PR 1's deliberate decision, unchanged.
 - **The tweak write path is its own module, not hook internals.** `ui/lib/tweak-writes.ts` owns batching, targeting and ordering, as `view-sync.ts` owns the view's reconciliation and for the same reason: every bug here is about *time* — a batch outliving the revision it was set on, a checkpoint overtaking the values it closes over, a failed write undoing a newer one — and none of it needs a component to be true or to test. Four rules came out of review and are enforced there: a batch carries its own target, sends are chained, the chain keeps a settled tail so one failure cannot silence the writer, and a failure is reported only to the write that still owns the control.
+- **The typography baseline is the one fixed part of Tweaks.** Font, H1 size/weight/tracking, H2 size and Body font/size must be the first controls in every manifest. Font controls use the standard Design font picker. Body size owns a small derived type scale for common text instead of one isolated paragraph. The generation contract requires matching custom properties and rules that target their intended text. Qualified selectors such as `.hero h1` are valid. Repair gets a chance to fix omissions. The runtime never rewrites a generated page to add them.
 - **Shutdown is not cancellation, for the instruction as well as the job.** Clearing a pending revise on abort before checking for shutdown would have made quitting Sero mid-revise come back to a variant that regenerates itself from the original brief. The check runs first, and the restart path is tested end to end: the resumed run receives the instruction and the page it was editing.
 - **Replay safety is per request, not per value.** A restore names its checkpoint after the request that made it, so applying the request twice appends once. Deciding it from the values was wrong in the case that matters — a restore over values that already matched the newest checkpoint wrote no marker at all.
 
-**Accept when** only incompatible guardrails block; reference pixels never enter output; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a self-contained frame with no workspace, install or network; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
+**Accept when** only incompatible guardrails block; imported reference pixels never enter output while plugin-made images can be used as local artwork; sibling variants survive failure and cancellation; work restores to the previous position; both targets render from a sealed frame with no workspace, install or network; bundled Design fonts still load; restricted calls are blocked while safe output still renders; an invalid tweak message cannot alter undeclared CSS or execute code; manifests are design-specific and validated, never drawn from a fixed catalogue; tweak state autosaves, survives restart and restores exactly without revision spam.
 
 ---
 
@@ -242,7 +243,7 @@ line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
 
 **Decisions taken while building 3a**
 
-- **An asset's `reference` never changes.** It is fixed at reservation (`assets/<id>.png`). By the time an attempt lands the model has already written `src="assets/<id>.png"` into the page, so a reference that moved to match the actual media type would break every page pointing at it.
+- **An asset's `reference` never changes.** It is fixed at reservation (`assets/<id>.image` for an image). By the time an attempt lands the model has already written that virtual key into the page, so a reference that moved to match the provider's actual media type would break every page pointing at it.
 - **Attempts append, never replace.** A successful retry changes what the tray shows while the failure stays on the record — the same rule as 2b's revisions, and the only way "preserves history" is true.
 - **An interrupted media job comes back as a retryable placeholder**, and reconciliation was wrong about this in two different places. `abandonAsset` only ran for jobs already in a terminal state; the likelier case — the process dying with the provider call in flight — went down the ordinary resume path and would have re-run, and re-charged, on every quit-mid-generation. Media now leaves the resume path entirely.
 - **Ids for explicit actions are allocated by the caller.** The request log is at-least-once; an id minted in the handler makes a replay produce a second asset *and* a second charge.

@@ -36,6 +36,15 @@ const BASE = {
 } as unknown as Parameters<typeof buildGenerationTask>[0];
 
 describe('artwork the Design already has', () => {
+  it('requires the stable typography controls before page-specific ones', () => {
+    const prompt = buildGenerationTask(BASE);
+
+    expect(prompt).toContain('`font` — “Font” — `--font-family` — choice');
+    expect(prompt).toContain('`h1-tracking` — “H1 tracking” — `--h1-tracking` — range');
+    expect(prompt).toContain('`body-size` — “Body size” — `--body-size` — range');
+    expect(prompt).toContain('add only the page-specific decisions');
+  });
+
   it('names it, so a resumed run reuses it rather than paying again', () => {
     const prompt = buildGenerationTask({
       ...BASE,
@@ -60,6 +69,36 @@ describe('artwork the Design already has', () => {
 
     expect(prompt).toContain('assets/asset-1.png');
     expect(prompt).toContain('cannot generate new imagery');
+  });
+
+  it('identifies plugin-made reference artwork as something the page may use directly', () => {
+    const prompt = buildGenerationTask({
+      ...BASE,
+      mediaAvailable: false,
+      existingAssets: [asset({ sourceItemId: 'item-1' })],
+    });
+
+    expect(prompt).toContain('selected reference artwork made by Design Library');
+    expect(prompt).toContain('assets/asset-1.png');
+  });
+
+  it('offers a per-reference variant only the artwork from its own reference', () => {
+    const prompt = buildGenerationTask({
+      ...BASE,
+      variant: { ...BASE.variant, referenceItemId: 'item-1' },
+      references: [
+        ...BASE.references,
+        { itemId: 'item-2', order: 1, analysis: emptyAnalysis('Second') },
+      ],
+      mediaAvailable: false,
+      existingAssets: [
+        asset({ sourceItemId: 'item-1', reference: 'assets/first.png' }),
+        asset({ id: 'asset-2', sourceItemId: 'item-2', reference: 'assets/second.png' }),
+      ],
+    });
+
+    expect(prompt).toContain('assets/first.png');
+    expect(prompt).not.toContain('assets/second.png');
   });
 
   it('does not offer artwork that failed or was deleted', () => {

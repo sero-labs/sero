@@ -3,10 +3,9 @@ import { PREVIEW_CSP, buildPreviewHarness } from './harness';
 /**
  * Assembling the one file a preview runs from.
  *
- * Self-contained is not a nicety here: the frame has no network, and an export
- * has to run from a folder on someone's disk (spec §6.3, §7). So everything —
- * the policy, the harness, the styles, the script — is inlined into a single
- * document, and nothing in it references anything outside itself.
+ * The generated page is folded into one document. Design fonts arrive as bundled
+ * bytes from the parent and are installed by the trusted harness; generated
+ * markup and code cannot add network dependencies (spec §6.3, §7).
  */
 
 /** `</script>` inside inlined code would end the tag early and escape the block. */

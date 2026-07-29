@@ -2,9 +2,8 @@
  * Tweaks — the AI-authored controls that belong to one generated page (spec §6.5).
  *
  * A manifest is written by the run that produced the revision, from what it
- * actually emitted: the groups, labels, ranges and options describe *that* page.
- * There is no catalogue of standard controls here on purpose — a fixed slider set
- * would be applied mechanically to pages it says nothing true about.
+ * actually emitted. Seven standard typography controls form the baseline; the
+ * remaining groups, labels, ranges and options describe *that* page.
  *
  * Two rules hold the whole feature together, and everything below exists to keep
  * them:
@@ -19,7 +18,9 @@
  *    missing one: it makes the user doubt the ones that work.
  */
 
-export const TWEAK_SCHEMA_VERSION = 1;
+import { DESIGN_FONT_OPTIONS } from './fonts';
+
+export const TWEAK_SCHEMA_VERSION = 2;
 
 /** Enough for a control-heavy page; past this it is a settings screen. */
 export const MAX_TWEAK_CONTROLS = 24;
@@ -44,7 +45,7 @@ export interface TweakOption {
 
 export interface TweakDefinition {
   id: string;
-  /** The section it appears under. The model chooses these, not a fixed list. */
+  /** The section it appears under. Only the baseline Typography group is fixed. */
   group: string;
   label: string;
   cssVariable: `--${string}`;
@@ -282,16 +283,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function normalizeTweakManifest(value: unknown): TweakManifest {
   if (!isRecord(value) || !Array.isArray(value.controls)) return EMPTY_MANIFEST;
+  const schemaVersion =
+    typeof value.schemaVersion === 'number' ? value.schemaVersion : TWEAK_SCHEMA_VERSION;
   const controls = value.controls.flatMap((entry) => {
     const definition = normalizeTweakDefinition(entry);
-    return definition === null ? [] : [definition];
+    if (definition === null) return [];
+    return [schemaVersion >= 2 ? withStandardFontOptions(definition) : definition];
   });
   return {
-    schemaVersion: typeof value.schemaVersion === 'number' ? value.schemaVersion : TWEAK_SCHEMA_VERSION,
+    schemaVersion,
     variantRevisionId:
       typeof value.variantRevisionId === 'string' ? value.variantRevisionId : '',
     controls: controls.slice(0, MAX_TWEAK_CONTROLS),
   };
+}
+
+/** Supply the catalog only when doing so will not change the shipped default. */
+function withStandardFontOptions(definition: TweakDefinition): TweakDefinition {
+  const isHeadingFont = definition.id === 'font' && definition.cssVariable === '--font-family';
+  const isBodyFont = definition.id === 'body-font' && definition.cssVariable === '--body-font';
+  if (!isHeadingFont && !isBodyFont) return definition;
+  if (definition.control.type !== 'choice') return definition;
+  const options = DESIGN_FONT_OPTIONS.map(({ label, value }) => ({ label, value }));
+  if (!options.some((option) => option.value === definition.defaultValue)) return definition;
+  return { ...definition, control: { type: 'choice', options } };
 }
 
 /**

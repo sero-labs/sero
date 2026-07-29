@@ -26,6 +26,7 @@ import {
 import { mutateVariant, readDesign } from '../design-store';
 import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
 import { mutateJob, readJob } from '../store';
+import { createGenerationMediaProgressReporter, createGenerationProgressReporter } from './progress';
 import { collectReferenceLanguage, runGeneration } from './run';
 
 /**
@@ -42,7 +43,6 @@ import { collectReferenceLanguage, runGeneration } from './run';
  */
 
 const MAX_CONCURRENT = 2;
-
 export interface VariantQueueContext {
   host: AppRuntimeHost;
   paths: DesignLibraryPaths;
@@ -208,6 +208,7 @@ export class VariantQueue {
     const claimed = await this.applyIfCurrent(jobId, target, (current) => ({
       ...current,
       status: 'running',
+      progress: 'Starting your design…',
       startedAt: Date.now(),
       error: undefined,
     }));
@@ -237,9 +238,18 @@ export class VariantQueue {
       return;
     }
 
+    // Settle status writes before the terminal write, so a late update cannot
+    // put "Writing…" back onto a completed variant.
+    const progress = createGenerationProgressReporter(
+      async (message) => {
+        await this.applyIfCurrent(jobId, target, (current) => ({ ...current, progress: message }), 'running');
+      },
+      (error) => this.context.onError('Could not update generation progress', error),
+    );
+
     // Media rides in as `customTools` (D5). The budget is per run, so it is
     // built here and lives exactly as long as this generation does.
-    const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller);
+    const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller, progress.report);
 
     const outcome = await runGeneration(
       design,
@@ -255,9 +265,11 @@ export class VariantQueue {
         signal: controller.signal,
         mediaTools: media.tools,
         mediaCallsRemaining: media.budget.callsRemaining,
+        onProgress: progress.report,
       },
       revise ?? undefined,
     );
+    await progress.settle();
 
     if (outcome.status === 'cancelled') {
       // Shutting down is not cancelling. Both arrive here as an aborted run, and
@@ -311,6 +323,7 @@ export class VariantQueue {
     jobId: string,
     variantId: string,
     controller: AbortController,
+    onProgress: (message: string) => void,
   ): Promise<{ tools: ToolDefinition[]; budget: MediaBudget }> {
     // Seeded from the job, so a run interrupted after spending its allowance
     // does not come back with the whole allowance again (D10). The cap bounds
@@ -342,6 +355,10 @@ export class VariantQueue {
       signal: controller.signal,
       jobId,
       originVariantId: variantId,
+      librarySources: 'plugin-owned',
+      // Provider queue states are useful for direct media actions, but they are
+      // too low-level for the Design's single plain-English progress line.
+      onProgress: createGenerationMediaProgressReporter(onProgress),
     });
     return { tools, budget };
   }
@@ -410,6 +427,7 @@ export class VariantQueue {
       (variant) => ({
         ...variant,
         status: 'ready',
+        progress: undefined,
         error: undefined,
         attempts: variant.attempts + 1,
         // `replace` retires the revision it was asked to replace; `retain` leaves
@@ -444,6 +462,7 @@ export class VariantQueue {
       (variant) => ({
         ...variant,
         status: 'failed',
+        progress: undefined,
         error: reason,
         attempts: variant.attempts + 1,
         completedAt: Date.now(),
@@ -473,6 +492,7 @@ export class VariantQueue {
     await this.applyIfCurrent(job.id, target, (variant) => ({
       ...variant,
       status: 'cancelled',
+      progress: undefined,
       completedAt: Date.now(),
     }));
   }

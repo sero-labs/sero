@@ -19,13 +19,14 @@
  */
 
 import { PREVIEW_MESSAGE_SOURCE } from '../../shared/preview-message';
+import { DESIGN_FONT_OPTIONS, designFontFaces } from '../../shared/fonts';
 
 export { PREVIEW_MESSAGE_SOURCE, isPreviewMessage, type PreviewMessage } from '../../shared/preview-message';
 
 /**
- * `default-src 'none'` with the two exceptions a self-contained document cannot
- * do without: its own inlined script and its own inlined styles. Every fetching
- * directive stays closed, so there is nothing for a blocked call to fall back to.
+ * `default-src 'none'` with only the inlined code and data the preview document
+ * carries. Font bytes arrive from the parent as bundled ArrayBuffers, so opening
+ * the font picker does not widen the generated document's network authority.
  *
  * `img-src data:` is deliberate — inline SVG and CSS gradients are how a preview
  * is allowed to have imagery at all (spec §6.3), and a data URI cannot reach the
@@ -59,10 +60,19 @@ export const PREVIEW_CSP = [
  * out of: a list that arrived by message could be replaced by a message.
  */
 export function buildPreviewHarness(allowedTweakVariables: readonly string[] = []): string {
+  const fontFaces = Object.fromEntries(
+    DESIGN_FONT_OPTIONS.map((option) => [option.value, designFontFaces(option.value)]),
+  );
   return `(function () {
   var SOURCE = ${JSON.stringify(PREVIEW_MESSAGE_SOURCE)};
   var ALLOWED = ${JSON.stringify([...allowedTweakVariables])};
+  var FONT_FACES = ${JSON.stringify(fontFaces)};
   var reported = Object.create(null);
+  var loadedFonts = Object.create(null);
+  var FontFaceConstructor = window.FontFace;
+  var addFontFace = document.fonts && typeof document.fonts.add === 'function'
+    ? document.fonts.add.bind(document.fonts)
+    : null;
 
   function report(kind, capability, detail) {
     // One report per capability per load. A render loop calling fetch on every
@@ -121,6 +131,29 @@ export function buildPreviewHarness(allowedTweakVariables: readonly string[] = [
         target[name] = value;
       } catch (alsoIgnored) {}
     }
+  }
+
+  function loadFont(data) {
+    if (!addFontFace || typeof FontFaceConstructor !== 'function') return;
+    var faces = FONT_FACES[data.fontStack];
+    if (!faces || !(data.bytes instanceof ArrayBuffer) || data.bytes.byteLength > 524288) return;
+    var definition = null;
+    for (var i = 0; i < faces.length; i++) {
+      if (faces[i].id === data.faceId) definition = faces[i];
+    }
+    if (!definition || loadedFonts[definition.id]) return;
+    loadedFonts[definition.id] = true;
+    var face = new FontFaceConstructor(definition.family, data.bytes, {
+      style: 'normal',
+      weight: definition.weight,
+    });
+    Promise.resolve(face.load()).then(
+      function (loaded) { addFontFace(loaded); },
+      function () {
+        delete loadedFonts[definition.id];
+        report('error', 'font', definition.family);
+      }
+    );
   }
 
   replace(window, 'fetch', denyAsync('fetch'));
@@ -225,11 +258,19 @@ export function buildPreviewHarness(allowedTweakVariables: readonly string[] = [
   window.addEventListener('message', function (event) {
     if (event.source !== parent) return;
     var data = event.data;
-    if (!data || data.source !== SOURCE || data.kind !== 'tweak') return;
+    if (!data || data.source !== SOURCE) return;
+    if (data.kind === 'font') {
+      loadFont(data);
+      return;
+    }
+    if (data.kind !== 'tweak') return;
     if (typeof data.cssVariable !== 'string' || !/^--[A-Za-z0-9_-]+$/.test(data.cssVariable)) return;
     if (ALLOWED.indexOf(data.cssVariable) === -1) return;
     if (typeof data.value !== 'string' || data.value.length > 128) return;
     if (/[;{}()<>"'\\\\]/.test(data.value)) return;
+    if (data.cssVariable === '--font-family' || data.cssVariable === '--body-font') {
+      if (!FONT_FACES[data.value]) return;
+    }
     document.documentElement.style.setProperty(data.cssVariable, data.value);
   });
 

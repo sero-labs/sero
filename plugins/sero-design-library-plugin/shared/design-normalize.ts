@@ -212,6 +212,9 @@ function normalizeVariant(value: unknown, fallbackIndex: number): DesignVariant 
     id: value.id,
     index: num(value.index, fallbackIndex),
     status: variantStatus(value.status),
+    ...(typeof value.progress === 'string' && value.progress !== ''
+      ? { progress: value.progress }
+      : {}),
     // The job id is read back as a file name, so an unsafe one is dropped: the
     // variant then looks unowned, which recovery can repair, rather than
     // throwing from inside a path helper on every sweep.

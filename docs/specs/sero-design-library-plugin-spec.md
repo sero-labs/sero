@@ -217,7 +217,9 @@ Normal deletion hides an item until restore or permanent deletion. Permanent del
 
 A Design takes one to six Library references and **order matters**: the first is primary and leads the visual direction; the rest contribute compatible traits. Style differences may be blended. Only genuinely incompatible guardrails block generation, and blocking conflicts must be resolved explicitly before work starts — surfaced in the create dialog's synthesis panel (prototype, state 3).
 
-Reference images are supplied for *understanding* only, and only to the Librarian. The design-generation run receives the Librarian's structured language, never the pixels.
+Imported reference images are supplied for *understanding* only, and only to the Librarian. The design-generation run receives their structured language, never their pixels.
+
+Images made by Design Library are different: they are original work owned by the plugin. When one is selected as a reference, the new Design receives its own local copy as reusable artwork. The run still receives the Librarian's language, but it may also place that artwork through the supplied `assets/...` reference. Derived images follow the same rule; imported images never do.
 
 ### 6.2 The create dialog
 
@@ -236,7 +238,7 @@ One target per Design:
 1. **HTML** — self-contained HTML, CSS and minimal JavaScript.
 2. **React** — React, TypeScript and Tailwind.
 
-Both run entirely from what the plugin bundles. Generated code may not import anything outside the approved bundled set. Fonts are limited to the Sero theme sans/mono stacks or font files bundled locally with the Design, because previews have no network.
+Generated code may not import anything outside the approved bundled set. Fonts in the fixed Design font catalog are bundled with the plugin and passed to the preview harness as local data. No generated URL or font request is accepted.
 
 A Design does not maintain both targets.
 
@@ -248,7 +250,7 @@ Revising asks whether to replace the visible result or keep it as a separate vis
 
 ### 6.5 Tweaks
 
-Every successful variant revision emits CSS custom properties **and** a versioned manifest describing the high-value controls for that exact page. The model chooses the groups, labels, ranges and options from what it actually generated. It must not emit a standard set of controls mechanically.
+Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls use the fixed Design font catalog. Body size must drive common body copy, controls, tables, labels and utility text through inheritance or a small derived custom-property type scale. The model then adds the high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated.
 
 ```ts
 type TweakValue = string | number | boolean;
@@ -280,15 +282,17 @@ interface VariantTweakState {
 }
 ```
 
-A manifest may cover typography, colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS concern. Font options are limited to fonts already available to the Design.
+A manifest may also cover colour, spacing, geometry, layout, imagery treatment, motion or any other design-specific CSS concern. Font options are limited to the system sans and mono stacks available to every Design.
 
-Every definition must bind to a declared custom property and visibly change the page. A validator drops invalid, duplicate or inert controls and reports them, without preventing the valid page from rendering.
+Every definition must bind to a declared custom property and visibly change the page. For the baseline, the validator also proves that each property reaches its intended `h1`, `h2` or `body` rule and that font choices use only the two available system stacks. A validator drops invalid, duplicate or inert page-specific controls and reports them, without preventing the valid page from rendering. The baseline is part of the generation contract: missing or inert baseline controls trigger in-session repair, and a page that still lacks them is not accepted. Revising a revision made before this contract must add the baseline before the new revision is accepted.
 
 Changing a control validates and normalises the value, stores it as an override and applies it immediately. **The message sent to the preview carries only a manifest id and a value** — never a selector, arbitrary CSS or JavaScript.
 
 Each control has Reset; the panel has Reset all; Copy CSS yields the effective scoped custom-property block. Omitted controls are reported as one compact line that expands on demand, never a persistent block of warning text.
 
 **Placement.** Tweaks is a fourth tab in the variant inspector, alongside Design, Files and History. The inspector is drag-resizable using `ResizablePanel` from `@sero-ai/ui`, and its width persists in plugin state, so a control-heavy design can be given room and narrowed again afterwards. The sessions rail collapses to icons, which is what makes a widened inspector affordable.
+
+**Files.** The Files tab lists the authored files for the visible revision and can show that revision in the host file manager. The action resolves the folder from the validated Design record and uses Sero's generic shell bridge. It does not give the UI filesystem access, and the action can later open the same files in the Editor instead.
 
 Tweak state autosaves continuously, but one *editing session* checkpoints as **one** recoverable revision — when the panel closes, the active variant changes, a new revision starts, Gallery saves, or Sero shuts down. Slider input must never create revision spam.
 
@@ -300,7 +304,7 @@ Media is for illustrative artwork — hero imagery, textures, abstract graphics.
 
 Results are downloaded and stored locally; no remote URL ever reaches a preview or an export. Failure inserts a local placeholder with asset-only retry; a successful retry replaces the placeholder and preserves history. Assets are reusable across variants in the same Design and stay in the tray until deleted.
 
-**Copy to Library** creates an independent Library item with full generation provenance and automatic analysis.
+**Copy to Library** creates an independent Library item with full generation provenance and automatic analysis. A Design-owned copy of an existing Library item does not offer this action because it already has a Library source.
 
 ### 6.7 Persistence
 
@@ -310,12 +314,12 @@ Designs autosave continuously. Navigating away does not stop work while Sero run
 
 ## 7. Preview
 
-Generated output runs in an isolated frame built locally, with no workspace, no install and no network.
+Generated output runs in an isolated frame built locally, with no workspace, install or network. Fonts selected from the fixed Design font catalog arrive as bundled local data.
 
 - **HTML** renders directly.
 - **React** is transpiled and bundled in the plugin runtime; React and Tailwind come from the plugin's own dependencies and are inlined into the document.
 
-The boundary blocks network access, Sero UI/APIs/state/secrets, the filesystem, Node.js and Electron, cookies and persistent storage, main-window navigation and uncontrolled pop-ups, and any dependency outside the approved bundle.
+The boundary blocks network access, Sero UI/APIs/state/secrets, the filesystem, Node.js and Electron, cookies and persistent storage, main-window navigation and uncontrolled pop-ups, and any dependency outside the approved bundle. The harness alone can install bundled font data for an exact catalog value.
 
 The only live-edit input the frame accepts is a validated value update for a control declared by that revision's own manifest.
 
@@ -524,9 +528,9 @@ The first release is complete when:
 2. The Librarian runs automatically; reanalysis preserves manual fields; every field resets independently.
 3. Search, filters, favourites, collections and derived style groups operate over the uniform grid.
 4. A Design accepts up to six ordered references with primary-reference semantics, and only incompatible guardrails block.
-5. Both HTML and React targets generate runnable output previewed from a self-contained frame with no workspace, install or network.
+5. Both HTML and React targets generate runnable output previewed from a sealed frame with no workspace, install or network; bundled Design fonts still load.
 6. One to five variants survive failure, cancellation and restart independently.
-7. Every generated page exposes relevant, validated, design-specific Tweaks that update the preview live; overrides reset, autosave, survive restart and coalesce into one revision per editing session.
+7. Every generated page exposes the required typography baseline plus relevant, validated, design-specific Tweaks that update the preview live; overrides reset, autosave, survive restart and coalesce into one revision per editing session.
 8. Media generation works for all four capabilities from both the agent and explicit actions; results are local; failure yields a placeholder with asset-only retry.
 9. No vendor type appears outside the adapter, and the fake adapter satisfies the same contract.
 10. Media call caps hold, video is confirmed, and costs are visible.

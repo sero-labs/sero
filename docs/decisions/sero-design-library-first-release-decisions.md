@@ -102,6 +102,14 @@ Its known weakness — a fixed 274px is cramped for a control-heavy page — is 
 
 Rendering the comparison also surfaced a real UI problem: a permanent multi-line "controls omitted" warning box pushed a whole control group off-screen. It collapses to one line that expands on demand.
 
+### D14 · Baseline typography Tweaks belong to the generation contract
+
+The first manual pass reversed the earlier decision to make every control page-specific. Each generated page must now provide Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size before its own controls. Font controls use a fixed catalog bundled with the plugin. Body size drives a small page-wide type scale, not only one inherited paragraph.
+
+This is enforced in the generation prompt and the finished manifest validator. Each property must be declared and connected to its intended `h1`, `h2` or `body` rule through `var()`. Font choices use the fixed Design font catalog. A missing or inert baseline control sends the model back through the existing repair loop; a page that still lacks the baseline is not accepted. This also applies when revising a revision created before the baseline existed. The runtime does not rewrite generated CSS, and the UI does not show controls that only happen to work on some pages.
+
+Page-specific controls remain AI-authored and validated as before. The fixed baseline is the only catalogue.
+
 ### D12 · Three PRs, not one — and in practice five
 
 **Reverses R1-§11**, which required the complete first release in a single PR.
@@ -144,7 +152,7 @@ These decisions were reviewed and stand.
 
 **References.** Up to six per Design; the first is primary and leads; secondaries contribute compatible traits; differences may be blended; only incompatible guardrails block, and blocking conflicts must be resolved explicitly. Reference pixels never reach generated output.
 
-**Output rules.** One target per Design, no automatic parity between targets. Only approved bundled dependencies and icons. Sero theme sans/mono stacks, or locally bundled font files — previews have no network.
+**Output rules.** One target per Design, no automatic parity between targets. Only approved bundled dependencies and icons. Generated code has no network. Design fonts are bundled with the plugin and passed to the trusted preview harness as local data.
 
 **Variants.** Default three, range one to five. The model decides how different they should be. Each is an independently cancellable job; successes survive partial failure; failures and cancellations retry independently.
 
@@ -152,11 +160,11 @@ These decisions were reviewed and stand.
 
 **Persistence.** Continuous autosave; generation continues when the user navigates away; durable job state survives quit and resumes on restart; reopening restores the previous working position.
 
-**Tweaks.** AI-authored per revision, never from a pre-canned category list. Rendered through generic range/toggle/colour/choice primitives. Every control must change a declared custom property; invalid, duplicate or inert controls are omitted and reported. The preview channel accepts only a declared id and a schema-valid value — never selectors, CSS text or JavaScript. Defaults and overrides stored separately, each resettable. One editing session checkpoints as one revision. Copy CSS returns the effective scoped block. Gallery and export use resolved effective values and do not depend on the Tweaks runtime.
+**Tweaks.** Each revision starts with the required typography baseline from D14, then adds AI-authored controls specific to the page. The two standard font choices use the Design font picker; other controls use the generic range/toggle/colour/choice primitives. Every control must change a declared custom property; invalid, duplicate or inert page-specific controls are omitted and reported, while a missing baseline refuses the run after repair. The preview channel accepts only a declared id and a schema-valid value — never selectors, CSS text or JavaScript. Defaults and overrides stored separately, each resettable. One editing session checkpoints as one revision. Copy CSS returns the effective scoped block. Gallery and export use resolved effective values and do not depend on the Tweaks runtime.
 
 **Media lifecycle.** Illustrative artwork, not routine icons. Results downloaded and stored locally. Reusable across variants in one Design; wider reuse requires explicit Copy to Library, which creates an independent item with retained generation provenance and automatic analysis. Provider unavailability yields a local placeholder with asset-only retry. Gallery snapshots bundle their own copies, so deleting a Design asset cannot alter a saved version.
 
-**Preview isolation.** Blocked: network, Sero APIs/state/secrets, filesystem, Node, Electron, cookies and persistent storage, host navigation, uncontrolled pop-ups, and unapproved dependencies. Safe output still renders when a violation is detected, and warnings never weaken the boundary.
+**Preview isolation.** Blocked: network access, Sero APIs/state/secrets, filesystem, Node, Electron, cookies and persistent storage, host navigation, uncontrolled pop-ups, and unapproved dependencies. The harness can install only bundled font data for a fixed Design font value. Safe output still renders when a violation is detected, and warnings never weaken the boundary.
 
 **Gallery.** Immutable versions; saving a revised variant adds to the existing family; new families only via explicit Duplicate or Remix; one card per family with a revision selector; newest save featured by default; changing the featured pointer preserves history. Reopening restores the source Design at that revision and never edits the snapshot. Deletion is recoverable and never cascades. Export reproduces exact code, effective tweak values and assets plus a metadata manifest, to Downloads or the active workspace, and never regenerates.
 
@@ -170,7 +178,7 @@ Selected from evidence already in this repository. None introduces a Design Libr
 
 **Bounded ingestion.** `AppToolResult` carries text, `details` JSON and image content blocks, and the desktop passes image blocks through to the renderer unchanged. All three import methods stream base64 chunks of at most 512 KiB per call into `uploads/<id>/`, then queue one ingest request. Previews are read back as image content blocks into a bounded renderer cache. No binary enters reactive state; no preload API is added.
 
-**Multimodal Librarian.** Pi's read tool sends images as model attachments with bounded resizing, and `platformTools: 'readOnly'` gives a run exactly that tool. The Librarian runs with `platformTools: 'readOnly'` and a `cwd` of the item's directory, and is asked to read the stored original; structured output uses the existing `repair` contract. Design generation runs with `platformTools: 'none'`, so reference pixels can never reach it.
+**Multimodal Librarian and owned artwork.** Pi's read tool sends images as model attachments with bounded resizing, and `platformTools: 'readOnly'` gives a run exactly that tool. The Librarian runs with `platformTools: 'readOnly'` and a `cwd` of the item's directory, and is asked to read the stored original; structured output uses the existing `repair` contract. Design generation runs with `platformTools: 'none'`, so imported reference pixels can never reach it. Images generated or derived by Design Library are original plugin-owned work: creating a Design copies them into its asset tray and gives the run only their stable local `assets/...` references, so the page can use the real artwork without weakening the imported-reference boundary.
 
 **Preview isolation.** `HtmlPreview.tsx` already renders untrusted HTML from a `blob:` URL in an `allow-scripts`-only iframe, yielding an opaque origin with no access to the host renderer, cookies or storage. Previews use the same boundary plus a strict document CSP (`default-src 'none'`) and a guard harness that reports blocked attempts. React is transpiled by esbuild in the runtime with React bundled from the plugin's dependencies and Tailwind compiled in-frame from a bundled browser build; imports outside the approved set are refused and reported.
 

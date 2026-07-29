@@ -188,7 +188,9 @@ export interface MediaAttempt {
 export interface DesignAsset {
   id: string;
   kind: MediaKind;
-  /** How the page refers to it, e.g. `assets/hero.png`. Stable across retries. */
+  /** Library artwork copied in when this Design was created. */
+  sourceItemId?: string;
+  /** How the page refers to it, e.g. `assets/<id>.image`. Stable across retries. */
   reference: string;
   request: StoredMediaRequest;
   /** Oldest first; the last one is what the tray shows. */
@@ -257,7 +259,7 @@ export function assetReference(fileName: string): string {
  * how the two would drift.
  */
 export function assetReferenceFor(assetId: string, capability: MediaCapability): string {
-  return assetReference(`${assetId}.${kindFor(capability) === 'video' ? 'mp4' : 'png'}`);
+  return assetReference(`${assetId}.${kindFor(capability) === 'video' ? 'mp4' : 'image'}`);
 }
 
 /**
@@ -399,6 +401,7 @@ export function normalizeDesignAsset(value: unknown): DesignAsset | null {
     attempts,
     createdAt: optionalNumber(value.createdAt) ?? 0,
     updatedAt: optionalNumber(value.updatedAt) ?? 0,
+    ...withOptional('sourceItemId', optionalString(value.sourceItemId)),
     ...withOptional('originVariantId', optionalString(value.originVariantId)),
     ...withOptional('jobId', optionalString(value.jobId)),
     ...withOptional('copiedItemId', optionalString(value.copiedItemId)),

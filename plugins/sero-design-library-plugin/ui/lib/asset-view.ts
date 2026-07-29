@@ -127,7 +127,9 @@ export function assetView(asset: DesignAsset): AssetView {
     // A copy needs bytes, and copying twice would make a second item saying the
     // same thing — so the tray offers it once and then says it is done.
     canCopy:
-      (state === 'ready' || state === 'awaiting-frames') && asset.copiedItemId === undefined,
+      (state === 'ready' || state === 'awaiting-frames') &&
+      asset.sourceItemId === undefined &&
+      asset.copiedItemId === undefined,
     copiedItemId: asset.copiedItemId,
     deleted: asset.deletedAt !== undefined,
   };

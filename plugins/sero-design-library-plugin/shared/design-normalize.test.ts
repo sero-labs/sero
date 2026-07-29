@@ -139,6 +139,24 @@ describe('reading variants and revisions', () => {
 
     expect(design?.variants[0]?.status).toBe('pending');
   });
+
+  it('keeps generation progress as plain record data', () => {
+    const design = normalizeDesignRecord(
+      validDesign({
+        variants: [
+          {
+            id: 'var-1',
+            index: 0,
+            status: 'running',
+            progress: 'Writing the design files…',
+            attempts: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(design?.variants[0]?.progress).toBe('Writing the design files…');
+  });
 });
 
 describe('reading a Design', () => {

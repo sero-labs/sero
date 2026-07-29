@@ -56,6 +56,7 @@ export interface VariantInspectorProps {
   onRetry(): void;
   onCancel(): void;
   onSelectRevision(revisionId: string): void;
+  onOpenFiles?: () => void;
   onRetryAsset(assetId: string): void;
   onCopyAssetToLibrary(assetId: string): void;
   onDeleteAsset(assetId: string): void;
@@ -75,6 +76,7 @@ export function VariantInspector({
   onRetry,
   onCancel,
   onSelectRevision,
+  onOpenFiles,
   onRetryAsset,
   onCopyAssetToLibrary,
   onDeleteAsset,
@@ -190,7 +192,7 @@ export function VariantInspector({
         </TabsContent>
 
         <TabsContent value="files" className="mt-2 flex min-h-0 flex-1 flex-col">
-          <FilesTab files={revision?.files ?? []} />
+          <FilesTab files={revision?.files ?? []} {...(onOpenFiles === undefined ? {} : { onOpen: onOpenFiles })} />
         </TabsContent>
 
         <TabsContent value="history" className="mt-2 flex min-h-0 flex-1 flex-col">

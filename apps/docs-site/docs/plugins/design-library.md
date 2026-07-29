@@ -77,7 +77,9 @@ If one reference requires something another forbids, that rule is held back and 
 
 What you choose is recorded on the design, so *"why is this design ignoring that rule?"* stays answerable later. Editing a reference afterwards does not change a design that was already generated under the old rules.
 
-A reference has to be analysed before you can design from it. The design run is given the Librarian's written description and never the image itself, so a reference with no description has nothing to contribute.
+A reference has to be analysed before you can design from it. For an image you imported, the design run receives the Librarian's written description and never the image itself.
+
+An image made by Design Library can also be used as the actual artwork. When you start a design from a generated or restyled image, the Design gets its own copy and can use it across variants. Removing the Library item later does not break the Design.
 
 ### Watching it generate
 
@@ -91,11 +93,11 @@ Each variant is its own piece of work. They run a couple at a time and appear as
 
 ### The preview
 
-Generated work runs in a sealed frame: no network, no access to Sero, your files or your workspace, no cookies or storage, and nothing outside what the plugin bundles. Everything it needs is inside the one file it runs from.
+Generated work runs in a sealed frame: no network, no access to Sero, your files or your workspace, and no cookies or storage. Design fonts are bundled with the plugin and passed into the frame as local data.
 
 If the design tried to do something the frame does not allow — load a font from the web, call an API, open a new window — the preview blocks it, still shows everything else, and lists what it stopped underneath the frame. A warning always means the thing was blocked. It never means it was allowed.
 
-Because there is no network, generated designs use the system fonts, CSS gradients and shapes, and SVG they draw themselves.
+Generated designs can use the Design font picker, system fonts, CSS gradients and shapes, and SVG they draw themselves. Generated code cannot request remote fonts or assets.
 
 There is one thing a page can do that no guard can stop in advance: send itself to another address, the way following a link would. The preview notices, empties the frame straight away and says so — but by then that one request has gone out, and a page can write whatever it holds into the address it asks for. What it holds is only itself: the frame never had your files, your storage or anything of Sero's to put there.
 
@@ -106,7 +108,7 @@ Underneath the preview you can set the width the page is rendered at, and reload
 Five tabs, all about the variant on screen:
 
 - **Design** — what the run made and what it was made from: its concept, the references it drew on, and the visual language it took from them.
-- **Files** — what it wrote, and how big each file is.
+- **Files** — what it wrote and how big each file is. **Show in folder** opens that revision in your file manager.
 - **History** — every result this variant has had, and the tweak values you had set earlier. Selecting one puts it back on screen; nothing is generated and nothing is lost.
 - **Tweaks** — the live controls for this exact page (below).
 - **Art** — the pictures and video this design uses (below).
@@ -119,7 +121,11 @@ The rail down the left lists your designs, with the ones still generating at the
 
 ### Tweaks
 
-Every result comes with a small set of controls written for **that page** — display scale, grid gap, signal accent, whatever the page is actually about. They are not a standard set of sliders: the model that wrote the page chooses them from what it built, so a dense dashboard and an editorial page get different controls.
+Every result starts with the same typography controls: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls show the standard Design font catalog. Body size drives common copy, controls, tables, labels and utility text through a small shared type scale.
+
+Revisions made before this typography contract keep their original controls. Revise or regenerate them to get the font catalog and shared type scale.
+
+After those, the result has a small set of controls written for **that page** — display scale, grid gap, signal accent, or whatever the page is about. A dense dashboard and an editorial page still get different page controls.
 
 Moving one changes the preview immediately. Each control has a reset, the panel has **Reset all**, and **Copy CSS** gives you the values as a block you can paste into the page's own stylesheet.
 
@@ -139,7 +145,7 @@ Each piece shows what it is, what it cost, and the name the page refers to it by
 | --- | --- |
 | Generate artwork | Ask for a new picture or a short video |
 | Retry | Try again for one that failed. The failure stays on the record, and the page needs no change |
-| Copy to Library | Copy it into your Library as a reference of its own, with its own copy of the file |
+| Copy to Library | Copy new artwork into your Library as a reference of its own. Artwork copied from an existing Library item does not offer this action |
 | Delete | Hide it from the tray. The file stays until the design is deleted |
 
 Only the buttons that apply are shown: nothing to retry on a picture that worked, and nothing to copy until one has actually arrived. Retry appears only where trying again could give a different answer — a provider that was busy, or a run that never finished. Where the request itself was refused, trying again would only be refused the same way, so the button is not offered.

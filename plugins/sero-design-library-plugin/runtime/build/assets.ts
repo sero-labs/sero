@@ -2,7 +2,7 @@
  * Folding generated media into the preview document.
  *
  * A preview has no network and no origin to resolve a relative path against, so
- * `src="assets/x.png"` would simply not load — the same reason a local
+ * `src="assets/x.image"` would simply not load — the same reason a local
  * stylesheet has to be inlined. Every asset therefore becomes a `data:` URI
  * inside the document, which is also what keeps the promise that no remote URL
  * ever reaches a preview (spec §6.6).
@@ -14,7 +14,7 @@
  */
 
 export interface BuildAsset {
-  /** How the page refers to it, e.g. `assets/<id>.png`. */
+  /** How the page refers to it, e.g. `assets/<id>.image`. */
   reference: string;
   bytes: Uint8Array;
   mediaType: string;

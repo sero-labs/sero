@@ -2,8 +2,16 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 
+import {
+  baselineTweakInstructions,
+  baselineTweakProblem,
+} from '../../shared/baseline-tweaks';
+import { DESIGN_FONT_OPTIONS } from '../../shared/fonts';
 import type { EmittedFile } from '../../shared/targets';
-import { MAX_TWEAK_CONTROLS, MAX_TWEAK_OPTIONS } from '../../shared/tweaks';
+import {
+  MAX_TWEAK_CONTROLS,
+  MAX_TWEAK_OPTIONS,
+} from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
 import { validateTweakControls } from '../../shared/tweaks-validate';
 
@@ -45,7 +53,10 @@ export interface DeclareTweaksTool {
 
 const CONTROL_TYPES = ['range', 'toggle', 'colour', 'choice'] as const;
 
-export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTweaksTool {
+export function createDeclareTweaksTool(
+  files: () => EmittedFile[],
+  onExecute?: () => void,
+): DeclareTweaksTool {
   let declared: unknown[] | null = null;
 
   const sourceOf = () =>
@@ -56,12 +67,14 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
   // The revision id is stamped on when the revision is stored; at this point it
   // does not exist yet, and inventing one here would let a manifest claim to
   // belong to a revision that was never written.
-  const validate = (entries: unknown[]) => validateTweakControls(entries, sourceOf(), '');
+  const validate = (entries: unknown[]) => {
+    return validateTweakControls(entries.map(withRuntimeFontCatalog), sourceOf(), '');
+  };
 
   const definition: ToolDefinition = {
     name: 'design_library_declare_tweaks',
     label: 'Declare Design Tweaks',
-    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Each control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped, because a control that changes nothing on screen is worse than no control. Choose what is worth adjusting on *this* page (at most ${MAX_TWEAK_CONTROLS}); do not emit a standard set.`,
+    description: `Declares the live controls for the page you just wrote. Call it once, after every file is written. Start with the required Typography controls in this exact order:\n${baselineTweakInstructions()}\nDeclare Font and Body font as choices with an exact standard default: ${DESIGN_FONT_OPTIONS.map((option) => `\`${option.value}\``).join(', ')}. The runtime supplies their options, so omit \`options\` for those two controls. Connect each baseline property to its named \`h1\`, \`h2\` or \`body\` element. Body copy, controls, tables, labels and utility text must inherit Body size or use a small custom-property type scale derived from \`--body-size\`; do not hard-code text sizes. Each other control must bind to a CSS custom property your page both declares and reads through \`var()\` — anything else is dropped. Add the controls specific to this page after the baseline (at most ${MAX_TWEAK_CONTROLS} total).`,
     promptSnippet:
       'design_library_declare_tweaks — declares the live CSS controls for the page you wrote',
     parameters: Type.Object({
@@ -98,6 +111,7 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
       ),
     }),
     async execute(_toolCallId, params) {
+      onExecute?.();
       const { controls } = params as { controls: unknown[] };
 
       if (sourceOf() === '') {
@@ -115,9 +129,11 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
 
       declared = controls.map(toDefinitionShape);
       const answer = validate(declared);
+      const baselineProblem = baselineTweakProblem(answer.manifest.controls, sourceOf());
 
       const kept = answer.manifest.controls.length;
       const lines = [`Accepted ${kept} control${kept === 1 ? '' : 's'}.`];
+      if (baselineProblem !== null) lines.push(`Baseline not accepted: ${baselineProblem}`);
       if (answer.dropped.length > 0) {
         lines.push(
           `Dropped ${answer.dropped.length}:`,
@@ -130,7 +146,11 @@ export function createDeclareTweaksTool(files: () => EmittedFile[]): DeclareTwea
       );
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
-        details: { ok: kept > 0, accepted: kept, dropped: answer.dropped.length },
+        details: {
+          ok: kept > 0 && baselineProblem === null,
+          accepted: kept,
+          dropped: answer.dropped.length,
+        },
         isError: false,
       };
     },
@@ -163,6 +183,25 @@ function toDefinitionShape(entry: unknown): unknown {
       ...(value.onValue === undefined ? {} : { onValue: value.onValue }),
       ...(value.offValue === undefined ? {} : { offValue: value.offValue }),
       ...(value.options === undefined ? {} : { options: value.options }),
+    },
+  };
+}
+
+/** The model chooses the shipped stack; the runtime owns the fixed catalog. */
+function withRuntimeFontCatalog(entry: unknown): unknown {
+  if (typeof entry !== 'object' || entry === null) return entry;
+  const definition = entry as Record<string, unknown>;
+  const control = definition.control;
+  if (typeof control !== 'object' || control === null) return entry;
+  const isHeading = definition.id === 'font' && definition.cssVariable === '--font-family';
+  const isBody = definition.id === 'body-font' && definition.cssVariable === '--body-font';
+  if ((!isHeading && !isBody) || (control as Record<string, unknown>).type !== 'choice') return entry;
+  if (!DESIGN_FONT_OPTIONS.some((option) => option.value === definition.defaultValue)) return entry;
+  return {
+    ...definition,
+    control: {
+      ...(control as Record<string, unknown>),
+      options: DESIGN_FONT_OPTIONS.map(({ label, value }) => ({ label, value })),
     },
   };
 }

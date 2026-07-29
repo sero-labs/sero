@@ -9,6 +9,7 @@ import { revisionDir } from '../shared/paths';
 import { appendRequest } from '../shared/state-io';
 import { TWEAK_MANIFEST_FILE, normalizeTweakDocument } from '../shared/tweaks';
 import {
+  BASELINE_CONTROLS,
   STUB_TWEAKABLE_PAGE,
   declareTweaks,
   isGenerationRun,
@@ -119,7 +120,11 @@ describe('a manifest authored with the revision', () => {
     // Bound to the revision it describes, not to the variant: a retry produces a
     // different page, and a manifest that outlived its code would describe none.
     expect(manifest.variantRevisionId).toBe(revision.id);
-    expect(manifest.controls.map((control) => control.id)).toEqual(['signal', 'gap']);
+    expect(manifest.controls.map((control) => control.id)).toEqual([
+      ...BASELINE_CONTROLS.map((control) => control.id),
+      'signal',
+      'gap',
+    ]);
     expect(dropped).toEqual([]);
   });
 
@@ -132,7 +137,9 @@ describe('a manifest authored with the revision', () => {
       'utf8',
     );
 
-    expect(document).toContain('var ALLOWED = ["--signal","--gap"]');
+    expect(document).toContain(
+      '"--font-family","--h1-size","--h1-weight","--h1-tracking","--h2-size","--body-font","--body-size","--signal","--gap"',
+    );
   });
 
   it('records what validation dropped, and still renders the page', async () => {
@@ -158,25 +165,13 @@ describe('a manifest authored with the revision', () => {
       ),
     );
 
-    expect(manifest.controls).toHaveLength(2);
+    expect(manifest.controls).toHaveLength(BASELINE_CONTROLS.length + 2);
     expect(dropped.map((entry) => entry.label)).toEqual(['Paper tone']);
     // A dropped control is a note about a page that works, never a reason to
     // fail the variant that produced it.
     expect(revision.builtFile).toBeDefined();
   });
 
-  it('leaves no manifest at all when the run declared nothing', async () => {
-    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
-      if (!isGenerationRun(params)) return stubAnalysisRun(params);
-      await writeDesignFiles(params, [{ name: 'index.html', content: STUB_TWEAKABLE_PAGE }]);
-      await nameDesign(params, { name: 'Signal ledger', summary: 'Typography-led panel.' });
-      return { response: 'done', modelId: 'stub-model', providerId: 'stub' };
-    });
-    const { revision } = await createDesign();
-
-    expect(revision.tweakManifestFile).toBeUndefined();
-    expect(revision.builtFile).toBeDefined();
-  });
 });
 
 describe('tweak values', () => {

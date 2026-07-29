@@ -5,8 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
+import {
+  designLibraryPathsFromHome,
+  revisionDir,
+  type DesignLibraryPaths,
+} from '../../shared/paths';
 import { readState } from '../../shared/state-io';
+import { createDesign } from '../../runtime/designs';
+import { mutateVariant } from '../../runtime/design-store';
 import { seedItem } from '../../runtime/test-fixtures';
 import { registerDesignTool } from './designs';
 
@@ -119,6 +125,64 @@ describe('refusing to start a Design', () => {
       resolutions: [{ rule: 'Use generous whitespace', keep: 'never' }],
     });
     expect(textOf(allowed)).toContain('Queued');
+  });
+});
+
+describe('opening Design files', () => {
+  it('returns only the folder for a revision that belongs to the Design', async () => {
+    await seedItem(paths, 'itm-ready', { status: 'ready' });
+    const outcome = await createDesign(paths, {
+      designId: 'dsn-1',
+      title: 'Files',
+      brief: {
+        request: 'A page',
+        target: 'html',
+        variationMode: 'blend',
+        variantCount: 1,
+        inspirationStrength: 'balanced',
+      },
+      referenceItemIds: ['itm-ready'],
+      resolutions: [],
+    });
+    if (outcome.status !== 'created') throw new Error('Design was refused');
+    const variantId = outcome.design.variants[0]!.id;
+    await mutateVariant(paths, 'dsn-1', variantId, (variant) => ({
+      ...variant,
+      revisions: [
+        {
+          id: 'rev-1',
+          jobId: 'job-1',
+          createdAt: 1,
+          files: [{ name: 'index.html', bytes: 20 }],
+          buildWarnings: [],
+          summary: '',
+          name: '',
+        },
+      ],
+    }));
+
+    const result = await call({
+      action: 'files-location',
+      designId: 'dsn-1',
+      variantId,
+      revisionId: 'rev-1',
+    });
+
+    expect((result.details as { folder?: string }).folder).toBe(
+      revisionDir(paths, 'dsn-1', variantId, 'rev-1'),
+    );
+  });
+
+  it('does not return a path for a revision that is not on the record', async () => {
+    const result = await call({
+      action: 'files-location',
+      designId: 'dsn-missing',
+      variantId: 'var-missing',
+      revisionId: 'rev-missing',
+    });
+
+    expect((result.details as { ok?: boolean }).ok).toBe(false);
+    expect((result.details as { folder?: string }).folder).toBeUndefined();
   });
 });
 

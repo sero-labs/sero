@@ -72,6 +72,8 @@ export interface DesignVariantSummary {
   id: string;
   index: number;
   status: VariantStatus;
+  /** Latest generation activity, shown in the preview pane while working. */
+  progress?: string;
   /** What the run called this design. Absent until it has produced one. */
   name?: string;
   error?: string;
@@ -292,6 +294,9 @@ function normalizeVariantSummary(value: unknown, fallbackIndex: number): DesignV
       status === 'running' || status === 'ready' || status === 'failed' || status === 'cancelled'
         ? status
         : 'pending',
+    ...(typeof value.progress === 'string' && value.progress !== ''
+      ? { progress: value.progress }
+      : {}),
     ...(typeof value.name === 'string' && value.name !== '' ? { name: value.name } : {}),
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     ...(typeof value.previewPath === 'string' ? { previewPath: value.previewPath } : {}),

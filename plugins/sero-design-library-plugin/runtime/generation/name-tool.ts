@@ -30,7 +30,7 @@ export interface NameDesignTool {
   naming(): DesignNaming | null;
 }
 
-export function createNameDesignTool(): NameDesignTool {
+export function createNameDesignTool(onExecute?: () => void): NameDesignTool {
   let naming: DesignNaming | null = null;
 
   const definition: ToolDefinition = {
@@ -48,6 +48,7 @@ export function createNameDesignTool(): NameDesignTool {
       }),
     }),
     async execute(_toolCallId, params) {
+      onExecute?.();
       const { name, summary } = params as { name: string; summary: string };
       const trimmed = name.trim().slice(0, MAX_NAME_CHARS).trim();
       if (trimmed === '') {

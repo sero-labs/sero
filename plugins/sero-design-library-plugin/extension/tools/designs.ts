@@ -9,7 +9,7 @@ import { MAX_REFERENCES, MAX_VARIANTS, MIN_VARIANTS, plannedVariantCount } from 
 import { normalizeDesignBrief, normalizeDesignRecord } from '../../shared/design-normalize';
 import { effectiveAnalysis } from '../../shared/librarian';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { designRecordFile, itemRecordFile } from '../../shared/paths';
+import { designRecordFile, itemRecordFile, revisionDir } from '../../shared/paths';
 import type { ItemRecord } from '../../shared/records';
 import { normalizeItemRecord } from '../../shared/records';
 import { appendRequest, readJsonFile, readState } from '../../shared/state-io';
@@ -37,6 +37,7 @@ const ACTIONS = [
   'cancel-variant',
   'revise-variant',
   'show-revision',
+  'files-location',
   'delete-revision',
   'delete',
   'restore',
@@ -57,7 +58,12 @@ const TWEAK_ACTIONS: readonly string[] = [
 ];
 
 /** Actions that name one revision of one variant. */
-const REVISION_ACTIONS: readonly string[] = ['show-revision', 'delete-revision', ...TWEAK_ACTIONS];
+const REVISION_ACTIONS: readonly string[] = [
+  'show-revision',
+  'files-location',
+  'delete-revision',
+  ...TWEAK_ACTIONS,
+];
 
 const DESIGN_ID_ACTIONS: readonly string[] = [
   'get', 'open', 'rename', 'retry-variant', 'cancel-variant', 'revise-variant', 'delete', 'restore',
@@ -355,6 +361,18 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
             revisionId,
           });
           return text('Showing that revision.');
+        }
+
+        case 'files-location': {
+          const design = normalizeDesignRecord(
+            await readJsonFile<unknown>(designRecordFile(paths, designId)),
+          );
+          const variant = design?.variants.find((entry) => entry.id === variantId);
+          const revision = variant?.revisions.find((entry) => entry.id === revisionId);
+          if (!revision) return failure('That revision is no longer there.');
+          return text('Files are ready to open.', {
+            folder: revisionDir(paths, designId, variantId, revisionId),
+          });
         }
 
         case 'delete-revision': {

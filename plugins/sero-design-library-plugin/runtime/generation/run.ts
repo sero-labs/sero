@@ -1,6 +1,7 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
+import { baselineTweakProblem } from '../../shared/baseline-tweaks';
 import type { DesignRecord, DesignVariant } from '../../shared/design';
 import { effectiveAnalysis } from '../../shared/librarian';
 import type { DesignLibraryPaths } from '../../shared/paths';
@@ -52,6 +53,8 @@ export interface GenerationRunContext {
   mediaTools?: ToolDefinition[];
   /** What is left of this run's media allowance, for the task to plan against. */
   mediaCallsRemaining?: number;
+  /** Persist a short status line for the Design surface. */
+  onProgress?(message: string): void;
 }
 
 /**
@@ -117,9 +120,16 @@ export async function runGeneration(
     };
   }
 
-  const emitter = createEmitFileTool(design.brief.target, revision?.files ?? []);
-  const namer = createNameDesignTool();
-  const tweaker = createDeclareTweaksTool(emitter.files);
+  const emitter = createEmitFileTool(
+    design.brief.target,
+    revision?.files ?? [],
+    () => context.onProgress?.('Writing the design files…'),
+  );
+  const namer = createNameDesignTool(() => context.onProgress?.('Finishing the design…'));
+  const tweaker = createDeclareTweaksTool(
+    emitter.files,
+    () => context.onProgress?.('Adding design controls…'),
+  );
 
   const mediaTools = context.mediaTools ?? [];
   const task = buildGenerationTask({
@@ -159,12 +169,13 @@ export async function runGeneration(
             'You have not named the design. Call `design_library_name_design` with a two or three word name and one sentence on the direction you took.',
           );
         }
-        return tweakRepair(tweaker.result());
+        return tweakRepair(tweaker.result(), emitter.files());
       },
     },
     ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
   };
 
+  context.onProgress?.('Planning the design…');
   const result = await context.host.subagents.runStructured(params);
 
   if (context.signal.aborted || result.error?.startsWith('Aborted')) return { status: 'cancelled' };
@@ -198,17 +209,28 @@ export async function runGeneration(
   // a label. Repair has already asked for the name twice by this point.
   const naming = namer.naming();
 
-  // Tweaks are survivable for the same reason, and it matters more here: the
-  // controls are an addition to a page that works without them. A revision with
-  // no manifest shows an empty Tweaks tab and can be revised into having one —
-  // failing the whole run over it would throw away the page as well.
+  // Page-specific controls remain survivable: a dropped accent slider does not
+  // invalidate a page. The standard typography controls are different because
+  // the product promises them on every page; that contract is checked below.
+  const tweaks = tweaker.result();
+  const baselineProblem = baselineTweakProblem(
+    tweaks?.manifest.controls ?? [],
+    files.map((file) => file.content).join('\n'),
+  );
+  if (baselineProblem !== null) {
+    return {
+      status: 'failed',
+      reason: `The page did not provide its required typography controls. ${baselineProblem}`,
+    };
+  }
+
   return {
     status: 'ok',
     files,
     name: naming?.name ?? '',
     summary: naming?.summary ?? '',
     refusals: emitter.refusals(),
-    tweaks: tweaker.result(),
+    tweaks,
   };
 }
 
@@ -219,7 +241,16 @@ export async function runGeneration(
  * means the run declared properties its own page does not use. The tool already
  * said which and why, so this only has to ask for the fix.
  */
-function tweakRepair(result: TweakValidation | null): string | null {
+function tweakRepair(result: TweakValidation | null, files: EmittedFile[]): string | null {
+  const baselineProblem = baselineTweakProblem(
+    result?.manifest.controls ?? [],
+    files.map((file) => file.content).join('\n'),
+  );
+  if (baselineProblem !== null) {
+    return buildGenerationRepair(
+      `The required typography controls are missing or invalid. ${baselineProblem} Add or fix the properties in the page, then declare the complete controls again.`,
+    );
+  }
   if (result === null) {
     return buildGenerationRepair(
       'You have not declared any live controls. Call `design_library_declare_tweaks` with the handful of CSS custom properties worth adjusting on this page.',

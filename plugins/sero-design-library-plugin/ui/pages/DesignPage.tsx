@@ -26,6 +26,7 @@ import { useMedia } from '../hooks/useMedia';
 import { useVideoFrames } from '../hooks/useVideoFrames';
 import { useTweaks } from '../hooks/useTweaks';
 import type { PreviewTarget } from '../hooks/usePreviewDocument';
+import { canShowItemInFolder } from '../lib/host-files';
 
 /**
  * The Design surface: the Designs on the go down the left, variants across the
@@ -243,6 +244,15 @@ export function DesignPage({
                     tweakValues={tweaks.cssValues}
                     focused={focused}
                     onFocus={() => setFocused((current) => !current)}
+                    {...(working
+                      ? {
+                          generationMessage:
+                            active.progress ??
+                            (active.status === 'pending'
+                              ? 'Waiting to start…'
+                              : 'Building your design…'),
+                        }
+                      : {})}
                   />
                 </div>
               </ResizablePanel>
@@ -280,6 +290,12 @@ export function DesignPage({
                     tweaks.checkpoint();
                     void actions.showRevision(design.id, active.id, revisionId);
                   }}
+                  {...(revision === undefined || !canShowItemInFolder()
+                    ? {}
+                    : {
+                        onOpenFiles: () =>
+                          void actions.openFiles(design.id, active.id, revision.id),
+                      })}
                   onRetryAsset={(assetId) => void media.retry(design.id, assetId)}
                   onCopyAssetToLibrary={(assetId) => void media.copyToLibrary(design.id, assetId)}
                   onDeleteAsset={(assetId) => void media.remove(design.id, assetId)}

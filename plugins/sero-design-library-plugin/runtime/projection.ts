@@ -101,6 +101,7 @@ function projectVariant(design: DesignRecord, variant: DesignVariant): DesignVar
     id: variant.id,
     index: variant.index,
     status: variant.status,
+    ...(variant.progress === undefined ? {} : { progress: variant.progress }),
     ...(variant.error === undefined ? {} : { error: variant.error }),
     ...built,
     ...(revision?.name === undefined || revision.name === '' ? {} : { name: revision.name }),
@@ -130,4 +131,3 @@ export function projectDesign(design: DesignRecord): DesignSummary {
     ...(design.deletedAt === undefined ? {} : { deletedAt: design.deletedAt }),
   };
 }
-
