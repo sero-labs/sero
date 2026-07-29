@@ -43,7 +43,9 @@ function formatDate(timestamp: number): string {
 
 export function ItemPage({ item, collections, revision, actions, onBack }: ItemPageProps) {
   const detail = useItemDetail(item.id, revision);
-  const src = useAssetSrc(item.id, 'original');
+  // Same reason as the grid: a clip with no still yet has nothing worth
+  // fetching, and its "preview" is the whole video until one arrives.
+  const src = useAssetSrc(item.awaitingFrames === true ? undefined : item.id, 'original');
 
   // The first collection the reference belongs to, purely as a breadcrumb hint.
   const memberOf = new Set(item.collectionIds);

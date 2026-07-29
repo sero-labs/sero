@@ -53,7 +53,15 @@ function statusLabel(item: ItemSummary): string {
 }
 
 export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelect }: ItemCardProps) {
-  const src = useAssetSrc(item.id);
+  // Nothing is asked for until there is a still to ask for. A generated clip
+  // arrives with no thumbnail of its own, and an item's stored preview falls
+  // back to the original when it has none — so asking early fetched the whole
+  // video and painted it into an `img`, which is a broken image icon and
+  // several megabytes to produce it. Skipping also means the first fetch
+  // happens once the poster exists, which is what makes the tile appear by
+  // itself when the frames land.
+  const awaiting = item.awaitingFrames === true;
+  const src = useAssetSrc(awaiting ? undefined : item.id);
 
   return (
     <article
@@ -86,8 +94,9 @@ export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelec
               {...(transitionName === undefined ? {} : { style: { viewTransitionName: transitionName } })}
             />
           ) : (
-            <span className="text-muted-foreground flex size-full items-center justify-center">
+            <span className="text-muted-foreground flex size-full flex-col items-center justify-center gap-1.5 text-xs">
               <ImageOff className="size-5" />
+              {awaiting && 'Capturing frames…'}
             </span>
           )}
         </div>
