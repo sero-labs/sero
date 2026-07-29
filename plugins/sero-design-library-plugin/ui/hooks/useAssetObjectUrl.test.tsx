@@ -15,23 +15,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const CHUNK = 4;
 let file: Uint8Array;
 const offsets: number[] = [];
+/** Lets a test bend one answer, to stand in for a file that moved underneath. */
+let bend: ((slice: Record<string, unknown>, call: number) => Record<string, unknown>) | null = null;
 
 vi.mock('@sero-ai/app-runtime', () => ({
   useAppTools: () => ({
     run: async (_name: string, params: Record<string, unknown>) => {
       const offset = Number(params.offset ?? 0);
-      offsets.push(offset);
+      const call = offsets.push(offset);
       const slice = file.slice(offset, offset + CHUNK);
-      return {
-        content: [],
-        details: {
-          total: file.byteLength,
-          offset,
-          bytes: slice.byteLength,
-          mediaType: 'video/mp4',
-          data: Buffer.from(slice).toString('base64'),
-        },
+      const details: Record<string, unknown> = {
+        total: file.byteLength,
+        offset,
+        bytes: slice.byteLength,
+        mediaType: 'video/mp4',
+        data: Buffer.from(slice).toString('base64'),
       };
+      return { content: [], details: bend ? bend(details, call) : details };
     },
   }),
 }));
@@ -62,6 +62,7 @@ beforeEach(() => {
   offsets.length = 0;
   blobs.length = 0;
   revoked.length = 0;
+  bend = null;
   file = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   URL.createObjectURL = vi.fn((blob: Blob) => {
     blobs.push(blob);
@@ -98,5 +99,62 @@ describe('a clip read through the tool channel', () => {
     // held for the life of the window.
     unmount();
     expect(revoked).toEqual(['blob:fake/1']);
+  });
+});
+
+/**
+ * Nothing half-read ever reaches the player.
+ *
+ * A truncated video that plays is worse than one that does not: it looks like
+ * the artwork that was paid for, and it is not. Every one of these ends with no
+ * URL rather than a short one.
+ */
+describe('a read that does not come back whole', () => {
+  async function expectNoUrl() {
+    render(<Probe itemId="item-1" />);
+    // Long enough for every slice the happy path would have taken.
+    await waitFor(() => {
+      expect(offsets.length).toBeGreaterThan(0);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId('url').textContent).toBe('none');
+    expect(blobs).toHaveLength(0);
+  }
+
+  it('refuses a file that changed size mid-read', async () => {
+    bend = (slice, call) => (call === 2 ? { ...slice, total: 6 } : slice);
+    await expectNoUrl();
+  });
+
+  it('refuses a slice that stops early', async () => {
+    bend = (slice, call) => (call === 2 ? { ...slice, bytes: 0, data: '' } : slice);
+    await expectNoUrl();
+  });
+
+  it('refuses a slice that answers about the wrong place', async () => {
+    bend = (slice, call) => (call === 2 ? { ...slice, offset: 99 } : slice);
+    await expectNoUrl();
+  });
+
+  it('refuses a slice whose bytes do not match what it claims', async () => {
+    bend = (slice, call) => (call === 2 ? { ...slice, bytes: 4, data: 'AQ==' } : slice);
+    await expectNoUrl();
+  });
+
+  it('refuses a file too large to hold in memory', async () => {
+    bend = (slice) => ({ ...slice, total: 512 * 1024 * 1024 });
+    await expectNoUrl();
+  });
+
+  it('asks for nothing more once the item changes mid-read', async () => {
+    const { rerender } = render(<Probe itemId="item-1" />);
+    rerender(<Probe itemId={undefined} />);
+    const asked = offsets.length;
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The abandoned read stops rather than running to completion, and never
+    // publishes the clip nobody is looking at any more.
+    expect(offsets.length).toBeLessThanOrEqual(asked + 1);
+    expect(screen.getByTestId('url').textContent).toBe('none');
   });
 });

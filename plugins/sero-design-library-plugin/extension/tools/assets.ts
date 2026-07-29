@@ -66,6 +66,33 @@ function isInside(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(root + path.sep);
 }
 
+/**
+ * The real path of a file, or null if it is not really inside the storage.
+ *
+ * A lexical check cannot see a symlink, and every reader here builds its path
+ * from a record rather than from the caller — which is not the same as the file
+ * on disk being where the record says. Resolving and re-checking is what stops
+ * a link inside the plugin's storage becoming a read of anything on the
+ * machine.
+ *
+ * Both sides are resolved, not just the file: on macOS the app directory itself
+ * usually sits under a symlinked prefix (`/var` → `/private/var`), so comparing
+ * a real path against the unresolved home would refuse every legitimate read.
+ */
+async function realPathInsideHome(
+  paths: DesignLibraryPaths,
+  relative: string,
+): Promise<string | null> {
+  const resolved = resolveInsideHome(paths, relative);
+  if (!resolved) return null;
+
+  const [real, realHome] = await Promise.all([
+    realpath(resolved).catch(() => null),
+    realpath(paths.home).catch(() => null),
+  ]);
+  return real !== null && realHome !== null && isInside(realHome, real) ? real : null;
+}
+
 async function readDesignFile(
   paths: DesignLibraryPaths,
   designId: string,
@@ -91,19 +118,8 @@ async function readDesignFile(
     return failure(`${fileName} is ${Math.round(stats.size / 1024)} KB, too large to read.`);
   }
 
-  // A lexical check cannot see a symlink. Resolving the real path and checking
-  // it again is what stops a link inside the plugin's storage from becoming a
-  // read of anything on the machine.
-  //
-  // Both sides are resolved, not just the file: on macOS the app directory
-  // itself usually sits under a symlinked prefix (`/var` → `/private/var`), so
-  // comparing a real path against the unresolved home would refuse every
-  // legitimate read.
-  const [real, realHome] = await Promise.all([
-    realpath(resolved).catch(() => null),
-    realpath(paths.home).catch(() => null),
-  ]);
-  if (real === null || realHome === null || !isInside(realHome, real)) {
+  const real = await realPathInsideHome(paths, path.relative(paths.home, file));
+  if (real === null) {
     return failure('Refusing to read a path outside the Design Library directory.');
   }
 
@@ -137,7 +153,7 @@ async function readItemAsset(
   if (!record) return failure(`No Library item ${itemId}.`);
 
   const fileName = which === 'preview' ? record.asset.previewFile : record.asset.originalFile;
-  const resolved = resolveInsideHome(paths, `items/${itemId}/${fileName}`);
+  const resolved = await realPathInsideHome(paths, `items/${itemId}/${fileName}`);
   if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
 
   const bytes = await readFile(resolved).catch(() => null);
@@ -170,7 +186,7 @@ async function streamItemAsset(
   const record = await readJsonFile<ItemRecord>(itemRecordFile(paths, itemId));
   if (!record) return failure(`No Library item ${itemId}.`);
 
-  const resolved = resolveInsideHome(paths, `items/${itemId}/${record.asset.originalFile}`);
+  const resolved = await realPathInsideHome(paths, `items/${itemId}/${record.asset.originalFile}`);
   if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
 
   const handle = await open(resolved, 'r').catch(() => null);

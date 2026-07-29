@@ -48,10 +48,14 @@ export function ItemPage({ item, collections, revision, actions, onBack }: ItemP
   // Blob URL. The media element needs a URL it can seek and stream, which a
   // `data:` URL of eleven megabytes is not — that produced a player that
   // rendered and would not play.
+  //
+  // A clip plays whether or not its frames have been captured. The capture is
+  // only what gives the grid a thumbnail, and gating playback on it meant a
+  // capture that failed, or never ran, left a stored video that could never be
+  // watched.
   const video = item.kind === 'video';
-  const ready = item.awaitingFrames !== true;
-  const still = useAssetSrc(ready && !video ? item.id : undefined, 'original');
-  const clip = useAssetObjectUrl(ready && video ? item.id : undefined);
+  const still = useAssetSrc(video || item.awaitingFrames === true ? undefined : item.id, 'original');
+  const clip = useAssetObjectUrl(video ? item.id : undefined);
   const src = video ? clip : still;
 
   // The first collection the reference belongs to, purely as a breadcrumb hint.

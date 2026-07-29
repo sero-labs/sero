@@ -437,3 +437,48 @@ describe('the asset tool streams an original in slices', () => {
     expect(textOf(result)).toContain('not a valid offset');
   });
 });
+
+describe('the asset tool will not follow a link out of its storage for an item', () => {
+  async function seedItemPointingAt(target: string): Promise<string> {
+    const id = 'itm-link';
+    const directory = path.join(paths.home, 'items', id);
+    await mkdir(directory, { recursive: true });
+    await symlink(target, path.join(directory, 'original.mp4'));
+    await writeFile(
+      path.join(directory, 'record.json'),
+      JSON.stringify({
+        id,
+        schemaVersion: 1,
+        createdAt: 0,
+        updatedAt: 0,
+        kind: 'video',
+        source: { kind: 'generated', fileName: 'clip.mp4' },
+        asset: {
+          originalFile: 'original.mp4',
+          previewFile: 'original.mp4',
+          mediaType: 'video/mp4',
+          bytes: 9,
+          checksum: 'x',
+        },
+        analysis: { status: 'ready' },
+        collectionIds: [],
+      }),
+      'utf8',
+    );
+    return id;
+  }
+
+  it('refuses to stream or read a file that links somewhere else', async () => {
+    const secret = path.join(home, 'outside.bin');
+    await writeFile(secret, 'not yours', 'utf8');
+    const id = await seedItemPointingAt(secret);
+
+    // Every reader of an item's files, not only the new one: the record names
+    // the file, and the record is not proof of where the file actually is.
+    for (const action of ['stream', 'original', 'preview']) {
+      const result = await call('design_library_assets', { action, itemId: id });
+      expect(textOf(result)).toContain('outside the Design Library directory');
+      expect(JSON.stringify(result)).not.toContain(Buffer.from('not yours').toString('base64'));
+    }
+  });
+});
