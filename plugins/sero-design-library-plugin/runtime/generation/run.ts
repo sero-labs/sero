@@ -52,6 +52,8 @@ export interface GenerationRunContext {
   mediaTools?: ToolDefinition[];
   /** What is left of this run's media allowance, for the task to plan against. */
   mediaCallsRemaining?: number;
+  /** Persist a short status line for the Design surface. */
+  onProgress?(message: string): void;
 }
 
 /**
@@ -162,6 +164,14 @@ export async function runGeneration(
         return tweakRepair(tweaker.result());
       },
     },
+    ...(context.onProgress === undefined
+      ? {}
+      : {
+          onUpdate: (update: string) => {
+            const message = generationProgressMessage(update);
+            if (message !== null) context.onProgress?.(message);
+          },
+        }),
     ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
   };
 
@@ -210,6 +220,23 @@ export async function runGeneration(
     refusals: emitter.refusals(),
     tweaks: tweaker.result(),
   };
+}
+
+/** Turn host/tool activity into stable, plain-English UI copy. */
+export function generationProgressMessage(update: string): string | null {
+  if (update.includes('design_library_write_file')) return 'Writing the design files…';
+  if (update.includes('design_library_declare_tweaks')) return 'Adding design controls…';
+  if (update.includes('design_library_name_design')) return 'Finishing the design…';
+  if (
+    update.includes('design_library_generate_image') ||
+    update.includes('design_library_restyle_image') ||
+    update.includes('design_library_upscale_image') ||
+    update.includes('design_library_generate_video')
+  ) {
+    return 'Creating artwork…';
+  }
+  if (update.includes('started')) return 'Planning the design…';
+  return null;
 }
 
 /**

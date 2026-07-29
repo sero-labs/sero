@@ -10,6 +10,7 @@ import { decidePreviewLoad } from '../../lib/preview-navigation';
 import { useElementSize } from '../../hooks/useElementSize';
 import { usePreviewDocument, type PreviewTarget } from '../../hooks/usePreviewDocument';
 import { PreviewControls, VIEWPORTS, type Viewport } from './PreviewControls';
+import { DesignLoadingState } from './DesignLoadingState';
 
 /**
  * The isolated frame a generated design runs in (spec §7).
@@ -45,6 +46,8 @@ export interface PreviewFrameProps {
   /** The inspector is hidden; the toggle for it lives with the other controls. */
   focused?: boolean;
   onFocus?: () => void;
+  /** Present while this variant is generating or revising. */
+  generationMessage?: string;
 }
 
 export function PreviewFrame({
@@ -54,6 +57,7 @@ export function PreviewFrame({
   tweakValues,
   focused,
   onFocus,
+  generationMessage,
 }: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
@@ -272,6 +276,9 @@ export function PreviewFrame({
             >
               {frameElement}
             </div>
+          )}
+          {generationMessage !== undefined && (
+            <DesignLoadingState message={generationMessage} />
           )}
         </div>
 

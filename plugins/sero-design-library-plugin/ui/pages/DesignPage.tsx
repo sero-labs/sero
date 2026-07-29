@@ -243,6 +243,15 @@ export function DesignPage({
                     tweakValues={tweaks.cssValues}
                     focused={focused}
                     onFocus={() => setFocused((current) => !current)}
+                    {...(working
+                      ? {
+                          generationMessage:
+                            active.progress ??
+                            (active.status === 'pending'
+                              ? 'Waiting to start…'
+                              : 'Building your design…'),
+                        }
+                      : {})}
                   />
                 </div>
               </ResizablePanel>

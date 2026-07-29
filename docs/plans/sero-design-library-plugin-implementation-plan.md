@@ -1,6 +1,6 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — in review (#326). **Then #328** — four gaps from the first manual pass (design loading state, using generated Library images as real source material, opening a design's files, baseline Tweaks controls). PR 3b — Gallery and export — not started, and starts after #328.
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). **Then #328** — four gaps from the first manual pass (design loading state, using generated Library images as real source material, opening a design's files, baseline Tweaks controls). PR 3b — Gallery and export — not started, and starts after #328.
 **Branch:** `feat/design-library-media-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`

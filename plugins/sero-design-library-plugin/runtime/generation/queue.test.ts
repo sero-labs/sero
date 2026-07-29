@@ -64,6 +64,40 @@ async function settled(designId: string, timeout = 5_000) {
 }
 
 describe('generating a variant', () => {
+  it('projects the latest run activity while the design is being built', async () => {
+    let finish: (() => void) | undefined;
+    harness.runStructured.mockImplementation(async (params: AppRuntimeSubagentRunParams) => {
+      if (!isGenerationRun(params)) return stubAnalysisRun(params);
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      await writeDesignFiles(params, [{ name: 'index.html', content: STUB_PAGE }]);
+      await nameDesign(params, { name: 'Signal ledger', summary: 'Typography-led panel.' });
+      return { response: 'Done.' };
+    });
+
+    const designId = await createDesign({ variantCount: 1 });
+    const generation = await vi.waitFor(() => {
+      const found = harness.runStructured.mock.calls
+        .map((call) => call[0] as AppRuntimeSubagentRunParams)
+        .find(isGenerationRun);
+      expect(found).toBeDefined();
+      return found!;
+    });
+    try {
+      expect(generation.onUpdate).toEqual(expect.any(Function));
+      generation.onUpdate?.('  📂 design_library_write_file: index.html');
+      await vi.waitFor(async () => {
+        const state = await readState(harness.paths);
+        expect(state.designs[0]?.variants[0]?.progress).toBe('Writing the design files…');
+      });
+    } finally {
+      finish?.();
+    }
+    const design = await settled(designId);
+    expect(design.variants[0]?.progress).toBeUndefined();
+  });
+
   it('renders every variant and points each at a built document', async () => {
     const designId = await createDesign();
     const design = await settled(designId);

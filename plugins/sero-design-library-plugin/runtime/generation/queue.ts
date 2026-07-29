@@ -208,6 +208,7 @@ export class VariantQueue {
     const claimed = await this.applyIfCurrent(jobId, target, (current) => ({
       ...current,
       status: 'running',
+      progress: 'Starting your design…',
       startedAt: Date.now(),
       error: undefined,
     }));
@@ -241,6 +242,17 @@ export class VariantQueue {
     // built here and lives exactly as long as this generation does.
     const media = await this.mediaTools(design, state.settings.media, jobId, variant.id, controller);
 
+    // Settle status writes before the terminal write, so a late update cannot
+    // put "Writing…" back onto a completed variant.
+    let progressWrites = Promise.resolve();
+    const onProgress = (progress: string) => {
+      progressWrites = progressWrites
+        .then(async () => {
+          await this.applyIfCurrent(jobId, target, (current) => ({ ...current, progress }), 'running');
+        })
+        .catch((error: unknown) => this.context.onError('Could not update generation progress', error));
+    };
+
     const outcome = await runGeneration(
       design,
       variant,
@@ -255,9 +267,11 @@ export class VariantQueue {
         signal: controller.signal,
         mediaTools: media.tools,
         mediaCallsRemaining: media.budget.callsRemaining,
+        onProgress,
       },
       revise ?? undefined,
     );
+    await progressWrites;
 
     if (outcome.status === 'cancelled') {
       // Shutting down is not cancelling. Both arrive here as an aborted run, and
@@ -410,6 +424,7 @@ export class VariantQueue {
       (variant) => ({
         ...variant,
         status: 'ready',
+        progress: undefined,
         error: undefined,
         attempts: variant.attempts + 1,
         // `replace` retires the revision it was asked to replace; `retain` leaves
@@ -444,6 +459,7 @@ export class VariantQueue {
       (variant) => ({
         ...variant,
         status: 'failed',
+        progress: undefined,
         error: reason,
         attempts: variant.attempts + 1,
         completedAt: Date.now(),
@@ -473,6 +489,7 @@ export class VariantQueue {
     await this.applyIfCurrent(job.id, target, (variant) => ({
       ...variant,
       status: 'cancelled',
+      progress: undefined,
       completedAt: Date.now(),
     }));
   }

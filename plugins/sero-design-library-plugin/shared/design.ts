@@ -171,6 +171,8 @@ export interface DesignVariant {
   /** 0-based position in the Design, for stable display order. */
   index: number;
   status: VariantStatus;
+  /** Short, user-facing description of the latest generation activity. */
+  progress?: string;
   /** The persisted job currently responsible for this variant. */
   jobId?: string;
   error?: string;
