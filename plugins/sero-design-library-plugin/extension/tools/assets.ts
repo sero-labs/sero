@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { open, readFile, realpath, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
@@ -29,6 +29,13 @@ import {
   discardUpload,
   writeUploadChunk,
 } from '../../shared/uploads';
+import {
+  locationError,
+  mediaTypeFor,
+  readItemAsset,
+  realPathInsideHome,
+  streamItemAsset,
+} from './item-files';
 import { checkId, failure, image, text, type ToolResult } from './result';
 
 /**
@@ -62,37 +69,6 @@ const ACTIONS = [
  */
 const MAX_DESIGN_FILE_BYTES = 4 * 1024 * 1024;
 
-function isInside(root: string, candidate: string): boolean {
-  return candidate === root || candidate.startsWith(root + path.sep);
-}
-
-/**
- * The real path of a file, or null if it is not really inside the storage.
- *
- * A lexical check cannot see a symlink, and every reader here builds its path
- * from a record rather than from the caller — which is not the same as the file
- * on disk being where the record says. Resolving and re-checking is what stops
- * a link inside the plugin's storage becoming a read of anything on the
- * machine.
- *
- * Both sides are resolved, not just the file: on macOS the app directory itself
- * usually sits under a symlinked prefix (`/var` → `/private/var`), so comparing
- * a real path against the unresolved home would refuse every legitimate read.
- */
-async function realPathInsideHome(
-  paths: DesignLibraryPaths,
-  relative: string,
-): Promise<string | null> {
-  const resolved = resolveInsideHome(paths, relative);
-  if (!resolved) return null;
-
-  const [real, realHome] = await Promise.all([
-    realpath(resolved).catch(() => null),
-    realpath(paths.home).catch(() => null),
-  ]);
-  return real !== null && realHome !== null && isInside(realHome, real) ? real : null;
-}
-
 async function readDesignFile(
   paths: DesignLibraryPaths,
   designId: string,
@@ -118,100 +94,13 @@ async function readDesignFile(
     return failure(`${fileName} is ${Math.round(stats.size / 1024)} KB, too large to read.`);
   }
 
-  const real = await realPathInsideHome(paths, path.relative(paths.home, file));
-  if (real === null) {
-    return failure('Refusing to read a path outside the Design Library directory.');
-  }
+  const located = await realPathInsideHome(paths, path.relative(paths.home, file));
+  if ('error' in located) return locationError(located, `${fileName}`);
 
-  const content = await readFile(real, 'utf8');
+  const content = await readFile(located.path, 'utf8');
   return text(content, { name: fileName, bytes: stats.size });
 }
 
-const MEDIA_TYPES: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  gif: 'image/gif',
-  avif: 'image/avif',
-  svg: 'image/svg+xml',
-  mp4: 'video/mp4',
-  webm: 'video/webm',
-};
-
-function mediaTypeFor(filePath: string): string {
-  return MEDIA_TYPES[path.extname(filePath).slice(1).toLowerCase()] ?? 'application/octet-stream';
-}
-
-async function readItemAsset(
-  paths: DesignLibraryPaths,
-  itemId: string,
-  which: 'preview' | 'original',
-): Promise<ToolResult> {
-  // The record names its own files, so the caller never supplies a path.
-  const record = await readJsonFile<ItemRecord>(itemRecordFile(paths, itemId));
-  if (!record) return failure(`No Library item ${itemId}.`);
-
-  const fileName = which === 'preview' ? record.asset.previewFile : record.asset.originalFile;
-  const resolved = await realPathInsideHome(paths, `items/${itemId}/${fileName}`);
-  if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
-
-  const bytes = await readFile(resolved).catch(() => null);
-  if (!bytes) return failure(`The ${which} for ${itemId} is missing.`);
-
-  const title = effectiveField(record.profile, 'title');
-  return image(bytes.toString('base64'), mediaTypeFor(resolved), `${title} (${which})`);
-}
-
-/**
- * One slice of an item's original file (D4).
- *
- * Video needs this and images do not. A still comes back whole as a base64
- * image block, which is fine at thumbnail size; a clip is megabytes, and a
- * `data:` URL of it cannot be seeked or streamed — the media element has to
- * take the entire string at once, and a generated clip therefore rendered a
- * player that would not play. Read in slices, the renderer can assemble a Blob
- * and hand the element a real, seekable URL.
- *
- * The slice rides in `details` rather than as an image block: it is bytes of a
- * video, and an image block holding video is the mislabelling that started
- * this. `total` comes back on every call so the caller knows when to stop
- * without a second round trip.
- */
-async function streamItemAsset(
-  paths: DesignLibraryPaths,
-  itemId: string,
-  offset: number,
-): Promise<ToolResult> {
-  const record = await readJsonFile<ItemRecord>(itemRecordFile(paths, itemId));
-  if (!record) return failure(`No Library item ${itemId}.`);
-
-  const resolved = await realPathInsideHome(paths, `items/${itemId}/${record.asset.originalFile}`);
-  if (!resolved) return failure('Refusing to read a path outside the Design Library directory.');
-
-  const handle = await open(resolved, 'r').catch(() => null);
-  if (!handle) return failure(`The original for ${itemId} is missing.`);
-
-  try {
-    const { size } = await handle.stat();
-    // A start past the end is not an error: it is how a caller that has read
-    // everything finds out, and how a file that shrank underneath one stops.
-    const start = Math.max(0, Math.min(offset, size));
-    const buffer = Buffer.alloc(Math.min(UPLOAD_CHUNK_BYTES, size - start));
-    const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, start);
-
-    return text(`Bytes ${start}–${start + bytesRead} of ${size}.`, {
-      ok: true,
-      total: size,
-      offset: start,
-      bytes: bytesRead,
-      mediaType: record.asset.mediaType,
-      data: buffer.subarray(0, bytesRead).toString('base64'),
-    });
-  } finally {
-    await handle.close();
-  }
-}
 
 /**
  * Read what a Design asset currently shows (spec §6.6).

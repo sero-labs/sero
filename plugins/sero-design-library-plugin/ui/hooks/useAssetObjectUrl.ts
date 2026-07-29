@@ -32,6 +32,8 @@ interface Slice {
   bytes?: number;
   offset?: number;
   mediaType?: string;
+  /** Which file the bytes came from, so slices cannot be stitched across two. */
+  identity?: string;
   data?: string;
 }
 
@@ -68,6 +70,7 @@ export function useAssetObjectUrl(itemId: string | undefined): string | null {
       const parts: Uint8Array[] = [];
       let offset = 0;
       let total: number | null = null;
+      let identity: string | undefined;
       let mediaType = 'application/octet-stream';
 
       // Sequential on purpose. The parts have to arrive in order to be a file,
@@ -87,14 +90,16 @@ export function useAssetObjectUrl(itemId: string | undefined): string | null {
           throw new Error('That file could not be read.');
         }
 
-        // The size is settled by the first answer and never moves. A file
-        // rewritten underneath a read would otherwise mix two files together
-        // and hand the result to the player as though it were one.
+        // Which file, and how big, are both settled by the first answer and
+        // neither moves. Size alone was not enough: a file replaced by one of
+        // exactly the same length satisfied every other check and produced a
+        // clip made of two different files.
         if (total === null) {
           total = slice.total;
+          identity = slice.identity;
           if (total > MAX_PLAYABLE_BYTES) throw new Error('That file is too large to play here.');
           if (slice.mediaType !== undefined) mediaType = slice.mediaType;
-        } else if (slice.total !== total) {
+        } else if (slice.total !== total || slice.identity !== identity) {
           throw new Error('That file changed while it was being read.');
         }
 

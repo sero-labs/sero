@@ -29,6 +29,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
         offset,
         bytes: slice.byteLength,
         mediaType: 'video/mp4',
+        identity: '1:2:10:1700000000000',
         data: Buffer.from(slice).toString('base64'),
       };
       return { content: [], details: bend ? bend(details, call) : details };
@@ -138,6 +139,14 @@ describe('a read that does not come back whole', () => {
 
   it('refuses a slice whose bytes do not match what it claims', async () => {
     bend = (slice, call) => (call === 2 ? { ...slice, bytes: 4, data: 'AQ==' } : slice);
+    await expectNoUrl();
+  });
+
+  it('refuses a file swapped for another of exactly the same size', async () => {
+    // The size check cannot see this one: the file is reopened for every slice,
+    // so a replacement of identical length satisfies it while the bytes come
+    // from two different files.
+    bend = (slice, call) => (call === 2 ? { ...slice, identity: '1:9:10:1700000009999' } : slice);
     await expectNoUrl();
   });
 
