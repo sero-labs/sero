@@ -22,7 +22,8 @@ Make the Design Library options page simpler and safer to use.
 9. Keep saved and manual endpoint choices available when discovery fails.
 10. Show catalogue errors with Retry and remove the grouped-list display cap.
 11. Give the shared stepper an accessible group and direct entry for media calls.
-12. Update the product specification and user documentation.
+12. Split catalogue options into a readable name and a smaller endpoint line.
+13. Update the product specification and user documentation.
 
 ## 3. Verification
 

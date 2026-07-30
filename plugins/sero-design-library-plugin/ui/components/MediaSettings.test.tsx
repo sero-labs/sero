@@ -123,6 +123,7 @@ describe('media models', () => {
     expect(screen.getByText('openai')).toBeDefined();
     await userEvent.clear(screen.getByLabelText('Image'));
     await userEvent.type(screen.getByLabelText('Image'), 'OpenAI');
+    expect(screen.getByText('openai/image').classList.contains('text-xs')).toBe(true);
     await userEvent.click(screen.getByRole('option', { name: /OpenAI Image/ }));
 
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({

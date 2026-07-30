@@ -22,6 +22,8 @@ Each media capability uses the single-choice `Combobox` from `@sero-ai/ui`. The 
 
 The list includes the provider default and the current saved value. The current value stays available if it is absent from the latest provider response. A user can also enter a model endpoint that is not in the working set.
 
+Catalogue options show the readable model name on the first line and the endpoint ID in smaller text on the second line.
+
 **Reason.** Model selection is a fixed choice from live provider data. A long Select is slow to open and hard to scan. Search and provider groups make the same catalogue practical.
 
 ## E3 · Count settings share one stepper

@@ -39,6 +39,8 @@ const MEDIA_MODEL_USAGE: Record<MediaCapability, string> = {
 interface ModelOption {
   value: string;
   label: string;
+  displayName: string;
+  modelId?: string;
   provider: string;
 }
 
@@ -170,13 +172,20 @@ function ModelSelect({
       choice.label.toLocaleLowerCase() === trimmedQuery.toLocaleLowerCase(),
   );
   const options: ModelOption[] = [
-    { value: PROVIDER_DEFAULT, label: 'Provider default', provider: 'Default' },
+    {
+      value: PROVIDER_DEFAULT,
+      label: 'Provider default',
+      displayName: 'Provider default',
+      provider: 'Default',
+    },
     ...(value !== '' && !selectedIsListed
-      ? [{ value, label: value, provider: 'Saved choice' }]
+      ? [{ value, label: value, displayName: value, provider: 'Saved choice' }]
       : []),
     ...choices.map((choice) => ({
       value: choice.id,
       label: choice.label,
+      displayName: displayName(choice),
+      modelId: choice.id,
       provider: choice.provider,
     })),
     ...(trimmedQuery !== '' && trimmedQuery !== selectedLabel && !customIsListed
@@ -184,6 +193,7 @@ function ModelSelect({
           {
             value: trimmedQuery,
             label: trimmedQuery,
+            displayName: trimmedQuery,
             provider: 'Custom model ID',
           },
         ]
@@ -223,7 +233,14 @@ function ModelSelect({
                 <ComboboxCollection>
                   {(option: ModelOption) => (
                     <ComboboxItem key={`${group.value}:${option.value}`} value={option}>
-                      {option.label}
+                      <span className="min-w-0 leading-tight">
+                        <span className="block">{option.displayName}</span>
+                        {option.modelId !== undefined && (
+                          <span className="text-muted-foreground mt-0.5 block break-all text-xs">
+                            {option.modelId}
+                          </span>
+                        )}
+                      </span>
                     </ComboboxItem>
                   )}
                 </ComboboxCollection>
@@ -234,6 +251,13 @@ function ModelSelect({
       </Combobox>
     </div>
   );
+}
+
+function displayName(choice: MediaModelChoice): string {
+  const endpointSuffix = ` · ${choice.id}`;
+  return choice.label.endsWith(endpointSuffix)
+    ? choice.label.slice(0, -endpointSuffix.length)
+    : choice.label;
 }
 
 function MediaModelLabel({ capability }: { capability: MediaCapability }) {
