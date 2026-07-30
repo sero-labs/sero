@@ -37,8 +37,8 @@ Gallery uses the shared `SearchInput` in the same compact toolbar layout as Libr
 
 **Consequence.** Search keeps the same filtering behaviour and gains the Library search icon, size, and spacing.
 
-## E4 · The Gallery header has no aggregate sign
+## E4 · Gallery has no introduction header
 
-Remove the “versions · families” summary from the Gallery header.
+Remove the full “Your Gallery” introduction block, including its description and aggregate summary. Search is the first row of the Gallery page.
 
-**Reason.** The rail counts provide useful scope totals where people act on them. The header summary repeats data without helping a decision.
+**Reason.** The main navigation already names the Gallery. The introduction repeats that name and takes space without supporting an action. The rail counts provide useful totals where people act on them.

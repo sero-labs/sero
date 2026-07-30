@@ -98,6 +98,7 @@ describe('Gallery navigation and search', () => {
     expect(screen.getByRole('button', { name: 'Recently saved 2' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Trash 1' })).toBeDefined();
     expect(screen.queryByText(/versions · families/)).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Your Gallery' })).toBeNull();
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Search Gallery' }), {
       target: { value: 'signal' },

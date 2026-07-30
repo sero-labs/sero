@@ -457,7 +457,7 @@ Subsequent saves add versions to the same family. A family shows as one card usi
 
 New families come only from explicit Duplicate or Remix into a linked Design family.
 
-The Gallery rail matches the Library rail and shows live counts for All designs, Favourites, Recently saved, and Trash. Search uses the same shared search control and compact toolbar layout as Library. The Gallery header does not repeat aggregate family or version totals.
+The Gallery rail matches the Library rail and shows live counts for All designs, Favourites, Recently saved, and Trash. Search uses the same shared search control and compact toolbar layout as Library, and it is the first row of the page. Gallery has no separate introduction header.
 
 ### 9.2 Previews
 

@@ -64,14 +64,6 @@ export function GalleryPage({
   }, [families, query, scope]);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-border border-b px-5 py-5">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Your Gallery</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Finished work worth keeping, revisiting, and remixing.
-          </p>
-        </div>
-      </div>
       <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
         <SearchInput
           value={query}
