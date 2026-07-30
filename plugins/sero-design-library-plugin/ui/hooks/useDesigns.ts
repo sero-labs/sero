@@ -30,6 +30,7 @@ export interface CreateDesignInput {
   resolutions: ConflictResolution[];
   /** Rules the user added for this Design alone. */
   sessionRules: string[];
+  galleryParent?: { familyId: string; versionId: string };
 }
 
 export interface DesignActions {
@@ -92,7 +93,17 @@ export function useDesigns(): Designs {
       },
 
       create: async (input) => {
-        const result = await run({ action: 'create', ...input });
+        const { galleryParent, ...request } = input;
+        const result = await run({
+          action: 'create',
+          ...request,
+          ...(galleryParent === undefined
+            ? {}
+            : {
+                galleryParentFamilyId: galleryParent.familyId,
+                galleryParentVersionId: galleryParent.versionId,
+              }),
+        });
         // A refusal comes back as an ordinary result, not a throw, and the text
         // is written to be shown: it names the reference or the conflict.
         const ok = detailsOf(result).ok !== false && detailsOf(result).designId !== undefined;

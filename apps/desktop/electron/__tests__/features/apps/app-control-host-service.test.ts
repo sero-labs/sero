@@ -123,6 +123,34 @@ describe('appControlHostService', () => {
     expect(mocks.captureRegion).not.toHaveBeenCalled();
   });
 
+  it('captures only the requested part inside the active app panel', async () => {
+    mocks.executeJavaScript.mockResolvedValue({ x: 100, y: 80, width: 600, height: 400 });
+    mocks.captureRegion.mockResolvedValue('cropped-png');
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(
+      appControlHostService.captureAppRegion({ x: 50, y: 120, width: 800, height: 200 }),
+    ).resolves.toBe('cropped-png');
+
+    expect(mocks.captureRegion).toHaveBeenCalledWith(mocks.fakeWindow, {
+      x: 100,
+      y: 120,
+      width: 600,
+      height: 200,
+    });
+  });
+
+  it('refuses a region outside the active app panel', async () => {
+    mocks.executeJavaScript.mockResolvedValue({ x: 100, y: 80, width: 600, height: 400 });
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(
+      appControlHostService.captureAppRegion({ x: 0, y: 0, width: 50, height: 50 }),
+    ).resolves.toBeNull();
+
+    expect(mocks.captureRegion).not.toHaveBeenCalled();
+  });
+
   it('records active browser tabs through the browser view instead of the window', async () => {
     mocks.executeJavaScript
       .mockResolvedValueOnce(true)

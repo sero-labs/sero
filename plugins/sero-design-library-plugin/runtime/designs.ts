@@ -48,6 +48,8 @@ export interface DesignCreateInput {
   resolutions: ConflictResolution[];
   /** Extra rules for this Design alone, on top of the references' own. */
   sessionRules?: string[];
+  galleryFamilyId?: string;
+  galleryLineage?: NonNullable<DesignRecord['galleryLineage']>;
 }
 
 export type DesignCreateOutcome =
@@ -117,6 +119,9 @@ export async function createDesign(
   input: DesignCreateInput,
 ): Promise<DesignCreateOutcome> {
   if (!isSafeId(input.designId)) return { status: 'refused', reason: 'Unusable design id.' };
+  if (input.galleryFamilyId !== undefined && !isSafeId(input.galleryFamilyId)) {
+    return { status: 'refused', reason: 'Unusable Gallery family id.' };
+  }
 
   // Checked before anything else, because a replayed request must be a no-op
   // rather than a refusal: by the time it replays, a reference may have been
@@ -174,6 +179,8 @@ export async function createDesign(
     variants: planVariants(brief, references),
     appliedGuardrails,
     assets,
+    ...(input.galleryFamilyId === undefined ? {} : { galleryFamilyId: input.galleryFamilyId }),
+    ...(input.galleryLineage === undefined ? {} : { galleryLineage: input.galleryLineage }),
   };
 
   // Create-if-absent rather than save: two requests carrying the same id must

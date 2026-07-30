@@ -300,6 +300,7 @@ export class VariantQueue {
       name: outcome.name,
       summary: outcome.summary,
       tweaks: outcome.tweaks,
+      ...(outcome.model === undefined ? {} : { model: outcome.model }),
       ...(revise === null ? {} : { revision: variant.pendingRevision }),
     });
 

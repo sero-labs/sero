@@ -78,6 +78,7 @@ export type GenerationOutcome =
       refusals: string[];
       /** Null when the run never declared any controls; see the note below. */
       tweaks: TweakValidation | null;
+      model?: ModelSelection;
     }
   | { status: 'cancelled' }
   | { status: 'failed'; reason: string };
@@ -208,6 +209,8 @@ export async function runGeneration(
   // exists and renders — so the variant keeps its number rather than failing on
   // a label. Repair has already asked for the name twice by this point.
   const naming = namer.naming();
+  const providerId = result.providerId ?? context.model.providerId;
+  const modelId = result.modelId ?? context.model.modelId;
 
   // Page-specific controls remain survivable: a dropped accent slider does not
   // invalidate a page. The standard typography controls are different because
@@ -231,6 +234,7 @@ export async function runGeneration(
     summary: naming?.summary ?? '',
     refusals: emitter.refusals(),
     tweaks,
+    ...(providerId === '' && modelId === '' ? {} : { model: { providerId, modelId } }),
   };
 }
 

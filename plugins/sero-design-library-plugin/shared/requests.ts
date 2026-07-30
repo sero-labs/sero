@@ -8,7 +8,7 @@
  * nothing.
  */
 
-import type { DesignBrief } from './design';
+import type { DesignBrief, DesignRecord } from './design';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
 import type { MediaCapability, StoredMediaRequest } from './media';
 import type { DesignLibrarySettings, RevisionBehaviour } from './settings';
@@ -46,6 +46,8 @@ export type LibraryRequestBody =
       resolutions: ConflictResolution[];
       /** Rules the user set for this Design alone (spec §6.2). */
       sessionRules: string[];
+      galleryFamilyId?: string;
+      galleryLineage?: NonNullable<DesignRecord['galleryLineage']>;
     }
   | { kind: 'design.rename'; designId: string; title: string }
   | { kind: 'design.retry-variant'; designId: string; variantId: string }
@@ -92,6 +94,31 @@ export type LibraryRequestBody =
   | { kind: 'media.purge'; designId: string; assetId: string }
   /** Make an independent Library item from a tray asset (spec §6.6). */
   | { kind: 'media.copy-to-library'; designId: string; assetId: string }
+  | {
+      kind: 'gallery.save';
+      familyId: string;
+      versionId: string;
+      designId: string;
+      variantId: string;
+      revisionId: string;
+      previewUploadId: string;
+    }
+  | { kind: 'gallery.feature'; familyId: string; versionId: string }
+  | { kind: 'gallery.favourite'; familyId: string; favourite: boolean }
+  | { kind: 'gallery.open'; familyId: string; versionId: string }
+  | {
+      kind: 'gallery.duplicate';
+      familyId: string;
+      versionId: string;
+      designId: string;
+      newFamilyId: string;
+      variantId: string;
+      revisionId: string;
+    }
+  | { kind: 'gallery.delete-version'; familyId: string; versionId: string; deleted: boolean }
+  | { kind: 'gallery.purge-version'; familyId: string; versionId: string }
+  | { kind: 'gallery.delete-family'; familyId: string; deleted: boolean }
+  | { kind: 'gallery.purge-family'; familyId: string }
   /**
    * Generate straight into the Library — Generate inspiration, or Restyle/vary
    * when `sourceItemId` is set (D3). `slotId` is what the grid renders a pending
@@ -182,6 +209,15 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'media.delete',
   'media.purge',
   'media.copy-to-library',
+  'gallery.save',
+  'gallery.feature',
+  'gallery.favourite',
+  'gallery.open',
+  'gallery.duplicate',
+  'gallery.delete-version',
+  'gallery.purge-version',
+  'gallery.delete-family',
+  'gallery.purge-family',
   'library.generate',
   'job.dismiss',
   'frames.attach',

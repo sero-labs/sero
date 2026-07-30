@@ -27,6 +27,7 @@ import {
   beginUpload,
   completeUpload,
   discardUpload,
+  readUploadManifest,
   writeUploadChunk,
 } from '../../shared/uploads';
 import {
@@ -205,6 +206,7 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       previewMediaType: Type.Optional(Type.String({ description: 'Defaults to image/webp' })),
       kind: Type.Optional(StringEnum(['image', 'video'] as const)),
       sourceKind: Type.Optional(StringEnum(['file', 'drop', 'paste'] as const)),
+      purpose: Type.Optional(StringEnum(['import', 'gallery-preview'] as const)),
       originalChunks: Type.Optional(Type.Number({ description: 'Chunk count for the original' })),
       previewChunks: Type.Optional(Type.Number({ description: 'Chunk count for the preview; 0 to send none' })),
       width: Type.Optional(Type.Number()),
@@ -248,6 +250,7 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
             mediaType: params.mediaType,
             kind: 'image',
             sourceKind: params.sourceKind ?? 'file',
+            purpose: params.purpose ?? 'import',
             chunkCounts: {
               original: params.originalChunks ?? 0,
               preview: params.previewChunks ?? 0,
@@ -287,6 +290,10 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
             (error: unknown) => (error instanceof Error ? error.message : String(error)),
           );
           if (rejected !== null) return failure(rejected);
+          const manifest = await readUploadManifest(paths, checked.id);
+          if (manifest?.purpose === 'gallery-preview') {
+            return text('Gallery preview upload complete.', { uploadId: checked.id });
+          }
           const requestId = await appendRequest(paths, { kind: 'ingest', uploadId: checked.id });
           return text('Upload complete; import queued.', { requestId });
         }

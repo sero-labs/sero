@@ -76,6 +76,10 @@ export interface PreviewFrameProps {
   onFocus?: () => void;
   /** Present while this variant is generating or revising. */
   generationMessage?: string;
+  /** The visible page area used for a bounded Gallery capture. */
+  onCaptureTarget?: (element: HTMLDivElement | null) => void;
+  /** True after the frame announced itself and had a short paint settle. */
+  onCaptureReady?: (ready: boolean) => void;
 }
 
 export function PreviewFrame({
@@ -86,6 +90,8 @@ export function PreviewFrame({
   focused,
   onFocus,
   generationMessage,
+  onCaptureTarget,
+  onCaptureReady,
 }: PreviewFrameProps) {
   const { url, error, loading } = usePreviewDocument(target);
   const [runtimeMessages, setRuntimeMessages] = useState<PreviewMessage[]>([]);
@@ -94,7 +100,15 @@ export function PreviewFrame({
   // it can reach in and refresh it.
   const [reloads, setReloads] = useState(0);
   const pane = useElementSize<HTMLDivElement>();
+  const attachPane = useCallback((element: HTMLDivElement | null) => {
+    pane.ref.current = element;
+    onCaptureTarget?.(element);
+  }, [onCaptureTarget, pane.ref]);
   const frame = useRef<HTMLIFrameElement | null>(null);
+  const captureReady = useRef(onCaptureReady);
+  useEffect(() => {
+    captureReady.current = onCaptureReady;
+  }, [onCaptureReady]);
   // Counted rather than flagged: the first load is the document being put there,
   // and any load after it is the page navigating itself somewhere else.
   const loads = useRef(0);
@@ -103,6 +117,7 @@ export function PreviewFrame({
   const announced = useRef(false);
   const blanked = useRef(false);
   const graceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Reset when the element itself is created, not from an effect: `key={url}`
@@ -126,6 +141,7 @@ export function PreviewFrame({
       // Replace rather than clear: an asset read for the old frame may still be
       // in flight, and it must not mark a face as sent in the new frame's set.
       sentFonts.current = new Set<string>();
+      captureReady.current?.(false);
     }
     frame.current = element;
   }, []);
@@ -193,6 +209,8 @@ export function PreviewFrame({
         // reload — or coming back to a variant edited earlier — restores exactly
         // what was on screen rather than the design's own defaults.
         sendTweaks(valuesRef.current);
+        if (captureTimer.current !== null) clearTimeout(captureTimer.current);
+        captureTimer.current = setTimeout(() => captureReady.current?.(true), 250);
         return;
       }
       report(event.data);
@@ -201,11 +219,12 @@ export function PreviewFrame({
     return () => {
       window.removeEventListener('message', onMessage);
       if (graceTimer.current !== null) clearTimeout(graceTimer.current);
+      if (captureTimer.current !== null) clearTimeout(captureTimer.current);
     };
     // A reload replaces the document, so what the old one reported no longer
     // describes what is on screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, reloads]);
+  }, [url, reloads, sendTweaks]);
 
   // A control moving is a change to a live document, which is an imperative
   // handle rather than something React can render — so it goes out from here.
@@ -291,7 +310,7 @@ export function PreviewFrame({
     // inside it is, and a wide design pushes the detail panel off screen.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="border-border flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
-        <div ref={pane.ref} className="bg-muted/30 relative flex min-h-0 flex-1 justify-center">
+        <div ref={attachPane} className="bg-muted/30 relative flex min-h-0 flex-1 justify-center">
           {frameElement === null ? (
             <p className="text-muted-foreground flex h-full items-center text-sm">
               {loading ? 'Loading the preview…' : (error ?? 'Nothing to preview yet.')}

@@ -180,6 +180,8 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
           description: 'Extra rules for this Design alone, on top of the references\' guardrails',
         }),
       ),
+      galleryParentFamilyId: Type.Optional(Type.String()),
+      galleryParentVersionId: Type.Optional(Type.String()),
       includeDeleted: Type.Optional(Type.Boolean({ description: 'Include Designs in Trash in `list`' })),
       revisionId: Type.Optional(
         Type.String({ description: 'Revision to show, delete, or set a tweak on' }),
@@ -285,6 +287,16 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
           }
 
           const designId = randomUUID();
+          const hasGalleryParent = params.galleryParentFamilyId !== undefined ||
+            params.galleryParentVersionId !== undefined;
+          const parentFamily = hasGalleryParent
+            ? checkId(params.galleryParentFamilyId, 'Gallery parent family id')
+            : null;
+          if (parentFamily && 'error' in parentFamily) return parentFamily.error;
+          const parentVersion = hasGalleryParent
+            ? checkId(params.galleryParentVersionId, 'Gallery parent version id')
+            : null;
+          if (parentVersion && 'error' in parentVersion) return parentVersion.error;
           await appendRequest(paths, {
             kind: 'design.create',
             designId,
@@ -293,6 +305,16 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
             referenceItemIds: references.items.map((item) => item.id),
             resolutions,
             sessionRules,
+            ...(parentFamily && 'id' in parentFamily && parentVersion && 'id' in parentVersion
+              ? {
+                  galleryFamilyId: randomUUID(),
+                  galleryLineage: {
+                    mode: 'remix' as const,
+                    parentFamilyId: parentFamily.id,
+                    parentVersionId: parentVersion.id,
+                  },
+                }
+              : {}),
           });
           const count = plannedVariantCount(brief, references.items.length);
           return text(

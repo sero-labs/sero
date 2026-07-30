@@ -14,6 +14,7 @@ import type { EmittedFile } from '../../shared/targets';
 import type { TweakManifestDocument } from '../../shared/tweaks';
 import { TWEAK_MANIFEST_FILE } from '../../shared/tweaks';
 import type { TweakValidation } from '../../shared/tweaks-validate';
+import type { ModelSelection } from '../../shared/settings';
 import { PREVIEW_DOCUMENT_FILE, buildPreviewDocument } from '../build';
 import { readDesign } from '../design-store';
 import { readAssetBytes } from '../media/assets';
@@ -31,6 +32,7 @@ export interface RevisionNaming {
   name: string;
   summary: string;
   tweaks: TweakValidation | null;
+  model?: ModelSelection;
 }
 
 export interface AssembledRevision {
@@ -98,6 +100,7 @@ export async function storeRevisionFiles(
       id: revisionId,
       createdAt: Date.now(),
       jobId,
+      ...(naming.model === undefined ? {} : { model: naming.model }),
       files: files.map((file) => ({
         name: file.name,
         bytes: Buffer.byteLength(file.content, 'utf8'),

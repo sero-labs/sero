@@ -47,13 +47,15 @@
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
         "tool.cli",
-        "appRuntime.background"
+        "appRuntime.background",
+        "appControl.capture"
       ],
       "bridgeTools": [
         "design_library_items",
         "design_library_analysis",
         "design_library_designs",
-        "design_library_media"
+        "design_library_media",
+        "design_library_gallery"
       ]
     }
   },

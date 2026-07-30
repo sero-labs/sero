@@ -3,3 +3,8 @@
 /* REQUIRED: scan plugin-local UI files so external remotes emit the utility
    classes they use instead of accidentally depending on host CSS. */
 @source "./**/*.{ts,tsx}";
+
+.gallery-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}

@@ -9,6 +9,9 @@
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
+import { normalizeDesignSummary } from './design-summary';
+import type { GalleryFamilyRecord } from './gallery';
+import { normalizeGalleryFamily } from './gallery';
 import type { MediaCapability, MediaModelOptions } from './media';
 import { MEDIA_CAPABILITIES, normalizeModelOptions } from './media';
 import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
@@ -160,6 +163,7 @@ export interface DesignLibraryState {
   revision: number;
   items: ItemSummary[];
   designs: DesignSummary[];
+  galleryFamilies: GalleryFamilyRecord[];
   collections: Collection[];
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
@@ -194,6 +198,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   revision: 0,
   items: [],
   designs: [],
+  galleryFamilies: [],
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
@@ -281,53 +286,6 @@ function normalizeJob(value: unknown): JobSummary | null {
     target,
     createdAt: num(value.createdAt, 0),
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
-  };
-}
-
-function normalizeVariantSummary(value: unknown, fallbackIndex: number): DesignVariantSummary | null {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') return null;
-  const status = value.status;
-  return {
-    id: value.id,
-    index: num(value.index, fallbackIndex),
-    status:
-      status === 'running' || status === 'ready' || status === 'failed' || status === 'cancelled'
-        ? status
-        : 'pending',
-    ...(typeof value.progress === 'string' && value.progress !== ''
-      ? { progress: value.progress }
-      : {}),
-    ...(typeof value.name === 'string' && value.name !== '' ? { name: value.name } : {}),
-    ...(typeof value.error === 'string' ? { error: value.error } : {}),
-    ...(typeof value.previewPath === 'string' ? { previewPath: value.previewPath } : {}),
-    warningCount: num(value.warningCount, 0),
-    revisionCount: num(value.revisionCount, 0),
-    ...(typeof value.visibleRevisionId === 'string'
-      ? { visibleRevisionId: value.visibleRevisionId }
-      : {}),
-    ...(typeof value.referenceItemId === 'string'
-      ? { referenceItemId: value.referenceItemId }
-      : {}),
-  };
-}
-
-function normalizeDesignSummary(value: unknown): DesignSummary | null {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') return null;
-  return {
-    id: value.id,
-    title: typeof value.title === 'string' ? value.title : 'Untitled design',
-    target: value.target === 'html' ? 'html' : 'react',
-    variationMode: value.variationMode === 'per-reference' ? 'per-reference' : 'blend',
-    referenceItemIds: stringArray(value.referenceItemIds),
-    variants: Array.isArray(value.variants)
-      ? value.variants.flatMap((entry, index) => {
-          const variant = normalizeVariantSummary(entry, index);
-          return variant === null ? [] : [variant];
-        })
-      : [],
-    createdAt: num(value.createdAt, 0),
-    updatedAt: num(value.updatedAt, 0),
-    ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
   };
 }
 
@@ -475,6 +433,12 @@ export function normalizeState(value: unknown): DesignLibraryState {
       ? value.designs.flatMap((entry) => {
           const design = normalizeDesignSummary(entry);
           return design === null ? [] : [design];
+        })
+      : [],
+    galleryFamilies: Array.isArray(value.galleryFamilies)
+      ? value.galleryFamilies.flatMap((entry) => {
+          const family = normalizeGalleryFamily(entry);
+          return family === null ? [] : [family];
         })
       : [],
     collections: Array.isArray(value.collections)

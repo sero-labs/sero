@@ -64,6 +64,7 @@ These values are currently recognized by the host:
 - `tool.cli`
 - `appRuntime.background`
 - `appRuntime.media`
+- `appControl.capture`
 - `ui.explorerView`
 - `ui.titlebar`
 
@@ -96,6 +97,14 @@ Declare this when your extension depends on tool-level CLI bridging, including:
 Declare this when your plugin contributes an Explorer view
 (`sero.app.explorerView`). Hosts without it show no activity-bar entry for the
 view at all.
+
+### `appControl.capture`
+
+Declare this when a federated UI must capture a visible rectangle inside its
+active app panel. The UI calls `window.sero.appControl.captureRegion(...)` with
+window-relative CSS coordinates. The host clips the request to the app panel
+and returns PNG bytes. Keep domain rules, image storage and later processing in
+the plugin; this capability only captures pixels already on screen.
 
 ### `ui.titlebar`
 

@@ -69,6 +69,8 @@ export class DesignRequests {
           referenceItemIds: body.referenceItemIds,
           resolutions: body.resolutions,
           sessionRules: body.sessionRules ?? [],
+          ...(body.galleryFamilyId === undefined ? {} : { galleryFamilyId: body.galleryFamilyId }),
+          ...(body.galleryLineage === undefined ? {} : { galleryLineage: body.galleryLineage }),
         });
         // A refusal is thrown rather than swallowed so it reaches the runtime's
         // error reporting; the request log has no channel back to the caller,

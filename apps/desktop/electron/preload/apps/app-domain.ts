@@ -123,6 +123,8 @@ export const appControlBridge = {
     ipcRenderer.invoke(IpcChannels.appControl.openFile, workspaceId, filePath),
   screenshot: (): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.appControl.screenshot),
+  captureRegion: (rect: AppPanelRect): Promise<string | null> =>
+    ipcRenderer.invoke(IpcChannels.appControl.captureRegion, rect),
   interact: (params: AppInteractionParams): Promise<AppInteractionResult> =>
     ipcRenderer.invoke(IpcChannels.appControl.interact, params),
   getAppRect: (): Promise<AppPanelRect | null> =>

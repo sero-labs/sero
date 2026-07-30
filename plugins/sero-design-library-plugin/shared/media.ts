@@ -9,6 +9,7 @@
  */
 
 import type { MediaKind } from './records';
+import { isSafeId } from './safe-id';
 
 export type MediaCapability = 'text-to-image' | 'image-to-image' | 'upscale' | 'text-to-video';
 
@@ -360,14 +361,16 @@ export function normalizeStoredRequest(value: unknown): StoredMediaRequest | nul
 }
 
 function normalizeAttempt(value: unknown): MediaAttempt | null {
-  if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  if (!isRecordObject(value) || typeof value.id !== 'string' || !isSafeId(value.id)) return null;
+  const file = optionalString(value.file);
+  const posterFile = optionalString(value.posterFile);
   return {
     id: value.id,
     outcome: value.outcome === 'ready' ? 'ready' : 'failed',
     startedAt: optionalNumber(value.startedAt) ?? 0,
     completedAt: optionalNumber(value.completedAt) ?? 0,
-    ...withOptional('file', optionalString(value.file)),
-    ...withOptional('posterFile', optionalString(value.posterFile)),
+    ...withOptional('file', file !== undefined && isSafeId(file) ? file : undefined),
+    ...withOptional('posterFile', posterFile !== undefined && isSafeId(posterFile) ? posterFile : undefined),
     ...withOptional('mediaType', optionalString(value.mediaType)),
     ...withOptional('bytes', optionalNumber(value.bytes)),
     ...withOptional('width', optionalNumber(value.width)),
@@ -384,7 +387,10 @@ function normalizeAttempt(value: unknown): MediaAttempt | null {
  * being handed back unchecked to code that will dereference it.
  */
 export function normalizeDesignAsset(value: unknown): DesignAsset | null {
-  if (!isRecordObject(value) || typeof value.id !== 'string' || value.id === '') return null;
+  if (!isRecordObject(value) || typeof value.id !== 'string' || !isSafeId(value.id)) return null;
+  if (typeof value.reference === 'string' && !/^assets\/[A-Za-z0-9._-]+$/.test(value.reference)) {
+    return null;
+  }
   const request = normalizeStoredRequest(value.request);
   if (!request) return null;
   const attempts = Array.isArray(value.attempts)

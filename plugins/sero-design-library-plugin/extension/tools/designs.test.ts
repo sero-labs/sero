@@ -237,6 +237,26 @@ describe('queuing work on a Design', () => {
     expect(request?.body).toMatchObject({ referenceItemIds: ['itm-b', 'itm-a'] });
   });
 
+  it('starts a Remix in a new family with the saved version as lineage', async () => {
+    await seedItem(paths, 'itm-a', { status: 'ready' });
+
+    await call({
+      ...CREATE,
+      referenceItemIds: ['itm-a'],
+      galleryParentFamilyId: 'fam-1',
+      galleryParentVersionId: 'ver-1',
+    });
+
+    const [request] = (await readState(paths)).requests;
+    expect(request?.body).toMatchObject({
+      kind: 'design.create',
+      galleryLineage: {
+        mode: 'remix', parentFamilyId: 'fam-1', parentVersionId: 'ver-1',
+      },
+    });
+    expect(request?.body).toHaveProperty('galleryFamilyId');
+  });
+
   it('queues a revise carrying the instruction and what to do with the old result', async () => {
     const result = await call({
       action: 'revise-variant',

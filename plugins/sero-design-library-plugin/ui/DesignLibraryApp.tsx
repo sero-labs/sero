@@ -5,9 +5,11 @@ import { useMemo, useRef, useState } from 'react';
 import './styles.css';
 
 import type { ItemSummary } from '../shared/types';
+import type { GalleryVersionRecord } from '../shared/gallery';
 import { GenerateDialog, type GenerateSource } from './components/GenerateDialog';
 import { CreateDesignDialog } from './components/design/CreateDesignDialog';
 import { useDesigns } from './hooks/useDesigns';
+import { useGallery } from './hooks/useGallery';
 import { useMedia } from './hooks/useMedia';
 import { useVideoFrames } from './hooks/useVideoFrames';
 import { useImport } from './hooks/useImport';
@@ -18,6 +20,7 @@ import { DesignPage } from './pages/DesignPage';
 import { ItemPage } from './pages/ItemPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { GalleryPage } from './pages/GalleryPage';
 
 /**
  * The Design Library shell.
@@ -28,14 +31,21 @@ import { SettingsPage } from './pages/SettingsPage';
  * opened from the Library's selection but has to outlive a navigation.
  */
 
-type Surface = 'library' | 'settings';
+type Surface = 'library' | 'gallery' | 'settings';
 
 export function DesignLibraryApp() {
   const library = useLibrary();
   const designs = useDesigns();
+  const gallery = useGallery();
   const { state: importState, importFiles, dismissErrors } = useImport();
   const [surface, setSurface] = useState<Surface>('library');
   const [creatingFrom, setCreatingFrom] = useState<ItemSummary[] | null>(null);
+  const [remixing, setRemixing] = useState<{
+    familyId: string;
+    version: GalleryVersionRecord;
+    references: ItemSummary[];
+  } | null>(null);
+  const [galleryError, setGalleryError] = useState<string>();
   /** Null when closed; the item to work from, or undefined for a fresh one. */
   const [generatingFrom, setGeneratingFrom] = useState<{ item?: ItemSummary } | null>(null);
   const media = useMedia();
@@ -54,6 +64,10 @@ export function DesignLibraryApp() {
   const backToLibrary = () => navigateWithTransition(() => library.actions.select(undefined));
 
   const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
+  const galleryVersionCount = gallery.families.reduce(
+    (total, family) => total + family.versions.filter((version) => version.deletedAt === undefined).length,
+    0,
+  );
 
   // Videos generated while Sero was closed have no stills yet, and the runtime
   // cannot make them. Done here rather than on the Library page so it keeps
@@ -113,6 +127,18 @@ export function DesignLibraryApp() {
           )}
           <Button
             type="button"
+            variant={surface === 'gallery' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setSurface('gallery');
+              void designs.actions.open(undefined);
+            }}
+          >
+            Gallery
+            <span className="text-muted-foreground tabular-nums">{galleryVersionCount}</span>
+          </Button>
+          <Button
+            type="button"
             variant={surface === 'settings' ? 'secondary' : 'ghost'}
             size="sm"
             aria-label="Settings"
@@ -122,6 +148,7 @@ export function DesignLibraryApp() {
           </Button>
         </nav>
 
+        {surface === 'library' && designs.open === undefined && library.selected === undefined && (
         <div className="ml-auto flex items-center gap-2">
           <Button
             type="button"
@@ -137,10 +164,36 @@ export function DesignLibraryApp() {
             Add inspiration
           </Button>
         </div>
+        )}
       </header>
 
       {surface === 'settings' ? (
         <SettingsPage state={library.state} />
+      ) : surface === 'gallery' ? (
+        <GalleryPage
+          families={gallery.families}
+          trash={gallery.trash}
+          actions={gallery.actions}
+          onOpened={() => setSurface('library')}
+          {...(galleryError === undefined ? {} : { error: galleryError })}
+          onRemix={(familyId, versionId) => {
+            setGalleryError(undefined);
+            void gallery.actions.read(familyId, versionId).then((version) => {
+              if (!version) return;
+              const references = version.references.flatMap((reference) => {
+                const item = library.state.items.find(
+                  (candidate) => candidate.id === reference.itemId && candidate.deletedAt === undefined,
+                );
+                return item ? [item] : [];
+              });
+              if (references.length !== version.references.length) {
+                setGalleryError('Restore every source reference before remixing this version.');
+                return;
+              }
+              setRemixing({ familyId, version, references });
+            });
+          }}
+        />
       ) : designs.open !== undefined ? (
         <DesignPage
           design={designs.open}
@@ -189,6 +242,25 @@ export function DesignLibraryApp() {
           // Creating a Design opens it: the runtime selects it, and this surface
           // follows the selection.
           onCreated={() => setCreatingFrom(null)}
+        />
+      )}
+
+      {remixing !== null && (
+        <CreateDesignDialog
+          key={remixing.version.id}
+          open
+          references={remixing.references}
+          settings={library.state.settings}
+          actions={designs.actions}
+          initialBrief={remixing.version.brief}
+          galleryParent={{ familyId: remixing.familyId, versionId: remixing.version.id }}
+          onOpenChange={(open) => {
+            if (!open) setRemixing(null);
+          }}
+          onCreated={() => {
+            setRemixing(null);
+            setSurface('library');
+          }}
         />
       )}
 
