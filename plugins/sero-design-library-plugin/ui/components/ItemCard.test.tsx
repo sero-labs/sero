@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ItemSummary } from '../../shared/types';
@@ -43,10 +44,16 @@ function item(overrides: Partial<ItemSummary> = {}): ItemSummary {
   } as ItemSummary;
 }
 
-function renderCard(summary: ItemSummary) {
+function renderCard(summary: ItemSummary, onFavourite = vi.fn()) {
   runs.length = 0;
   return render(
-    <ItemCard item={summary} selected={false} onOpen={vi.fn()} onToggleSelect={vi.fn()} />,
+    <ItemCard
+      item={summary}
+      selected={false}
+      onOpen={vi.fn()}
+      onToggleSelect={vi.fn()}
+      onFavourite={onFavourite}
+    />,
   );
 }
 
@@ -62,5 +69,16 @@ describe('a clip whose frames have not been captured', () => {
     renderCard(item());
 
     expect(runs).toEqual([{ action: 'preview', itemId: 'item-1' }]);
+  });
+});
+
+describe('a favourite reference', () => {
+  it('can be removed from favourites from its card', async () => {
+    const onFavourite = vi.fn();
+    renderCard(item({ favourite: true }), onFavourite);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from favourites' }));
+
+    expect(onFavourite).toHaveBeenCalledWith(false);
   });
 });

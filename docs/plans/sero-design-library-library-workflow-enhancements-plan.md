@@ -45,8 +45,8 @@ The Library header **Generate** action starts without a source reference. The pa
 
 It offers only:
 
-- **New image** — text-to-image
-- **New video** — text-to-video
+- **Image** — text-to-image
+- **Video** — text-to-video
 
 It does not show Restyle or Upscale. It does not show a source picker.
 
@@ -57,13 +57,13 @@ When one reference is selected, the action bar shows **Remix** instead of **Rest
 The Remix panel starts with that reference selected. It has two groups:
 
 - **Create new**
-  - New image — image-to-image
-  - New video — image-to-video
+  - Image — image-to-image
+  - Video — image-to-video
 - **Edit this reference**
   - Restyle — image-to-image
   - Upscale — upscale
 
-**New image** creates a new composition from the reference. **Restyle** changes its visual style. Both use image-to-image, create a derived item, and keep the source item unchanged.
+**Image** creates a new composition from the reference. **Restyle** changes its visual style. Both use image-to-image, create a derived item, and keep the source item unchanged.
 
 Image-to-video is a new application capability backed by the configured fal.ai image-to-video model. It sends the selected reference as the source. It does not reuse text-to-video and does not discard the source.
 
@@ -182,7 +182,7 @@ The model id remains editable in Settings. The user chooses a capability, not an
 
 - [x] Add the vendor-neutral capability and settings migration.
 - [x] Add fal.ai request and result mapping.
-- [x] Route Remix → New video through the source-aware capability.
+- [x] Route Remix → Video through the source-aware capability.
 - [x] Confirm spend before every video request.
 - [x] Add provider contract, runtime, and UI tests.
 
@@ -199,9 +199,9 @@ The model id remains editable in Settings. The user chooses a capability, not an
 
 ## 7. Acceptance checks
 
-1. Fresh Generate has only New image and New video.
+1. Fresh Generate has only Image and Video.
 2. Remix opens with the selected reference and shows two clear operation groups.
-3. Remix → New video sends the reference to an image-to-video fal.ai model.
+3. Remix → Video sends the reference to an image-to-video fal.ai model.
 4. No operation silently ignores a selected source.
 5. The original prompt appears only when provenance exists and is last in the inspector.
 6. The Librarian generation prompt remains editable and distinct from the original prompt.
@@ -224,6 +224,6 @@ The scope does not include video import, webpage capture, clipboard HTML, semant
 ## 9. Resolved review questions
 
 1. Use **Create new** and **Edit this reference** as the group names.
-2. **New image** keeps the first-release Restyle behavior and creates a derived item.
+2. **Image** creates a derived item from the selected reference.
 3. Do not show two controls that send the same image-to-image request.
 4. Shared `@sero-ai/ui` Combobox behavior supplies search, bounded height, multi-select and right-side ticks. Do not duplicate these controls in the plugin.

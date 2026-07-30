@@ -27,6 +27,7 @@ interface ItemCardProps {
   transitionName?: string;
   onOpen(): void;
   onToggleSelect(): void;
+  onFavourite(favourite: boolean): void;
 }
 
 function StatusMark({ status }: { status: ItemSummary['analysisStatus'] }) {
@@ -52,7 +53,14 @@ function statusLabel(item: ItemSummary): string {
   }
 }
 
-export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelect }: ItemCardProps) {
+export function ItemCard({
+  item,
+  selected,
+  transitionName,
+  onOpen,
+  onToggleSelect,
+  onFavourite,
+}: ItemCardProps) {
   // Nothing is asked for until there is a still to ask for. A generated clip
   // arrives with no thumbnail of its own, and an item's stored preview falls
   // back to the original when it has none — so asking early fetched the whole
@@ -142,12 +150,15 @@ export function ItemCard({ item, selected, transitionName, onOpen, onToggleSelec
           its own surface to stay legible over an arbitrary image. */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
         {item.favourite && (
-          <span
-            className="bg-background/85 flex size-6 items-center justify-center rounded-md backdrop-blur-sm"
-            aria-label="Favourite"
+          <button
+            type="button"
+            className="bg-background/85 hover:bg-background focus-visible:ring-ring flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            aria-label="Remove from favourites"
+            title="Remove from favourites"
+            onClick={() => onFavourite(false)}
           >
             <Star className="text-primary size-3.5 fill-current" />
-          </span>
+          </button>
         )}
         <button
           type="button"

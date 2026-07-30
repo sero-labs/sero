@@ -216,6 +216,7 @@ export function LibraryPage({
                     {...(item.id === transitioningItemId ? { transitionName } : {})}
                     onOpen={() => onOpenItem(item.id)}
                     onToggleSelect={() => togglePicked(item.id)}
+                    onFavourite={(favourite) => void actions.favourite(item.id, favourite)}
                   />
                 ))}
               </div>

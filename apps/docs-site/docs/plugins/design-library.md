@@ -207,8 +207,8 @@ You can also generate straight into the Library, from the **Generate** button in
 | What | How |
 | --- | --- |
 | A new image or video from a description | **Generate**, then choose the media type |
-| A new image based on a reference | Select one reference, choose **Remix**, then **New image** |
-| A video based on a reference | Select one reference, choose **Remix**, then **New video** |
+| A new image based on a reference | Select one reference, choose **Remix**, then **Image** |
+| A video based on a reference | Select one reference, choose **Remix**, then **Video** |
 | A restyled copy | Select one reference, choose **Remix**, then **Restyle** |
 | A sharper copy | Select one reference, choose **Remix**, then **Upscale** |
 

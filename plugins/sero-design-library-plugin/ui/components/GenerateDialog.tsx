@@ -109,17 +109,17 @@ type GenerationOperation =
 interface OperationChoice {
   value: GenerationOperation;
   label: string;
-  description: string;
+  description?: string;
 }
 
 const FRESH_OPERATIONS: OperationChoice[] = [
-  { value: 'fresh-image', label: 'New image', description: 'Create from your description' },
-  { value: 'fresh-video', label: 'New video', description: 'Create from your description' },
+  { value: 'fresh-image', label: 'Image' },
+  { value: 'fresh-video', label: 'Video' },
 ];
 
 const CREATE_OPERATIONS: OperationChoice[] = [
-  { value: 'reference-image', label: 'New image', description: 'Use this as visual direction' },
-  { value: 'reference-video', label: 'New video', description: 'Animate from this reference' },
+  { value: 'reference-image', label: 'Image', description: 'Use this as visual direction' },
+  { value: 'reference-video', label: 'Video', description: 'Animate from this reference' },
 ];
 
 const EDIT_OPERATIONS: OperationChoice[] = [
@@ -240,22 +240,28 @@ export function GenerateDialog({
                 value={group.choices.some((choice) => choice.value === operation) ? operation : ''}
                 onValueChange={(value) => setOperation(value as GenerationOperation)}
               >
-                <TabsList variant="line" className="w-full justify-start border-b">
+                <TabsList variant="line" className="justify-start">
                   {group.choices.map((choice) => (
-                    <TabsTrigger key={choice.value} value={choice.value} className="flex-none px-3">
+                    <TabsTrigger
+                      key={choice.value}
+                      value={choice.value}
+                      className="data-[state=active]:text-primary after:bg-primary flex-none px-3"
+                    >
                       {choice.label}
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                {group.choices.map((choice) => (
-                  <TabsContent
-                    key={choice.value}
-                    value={choice.value}
-                    className="text-muted-foreground text-sm"
-                  >
-                    {choice.description}
-                  </TabsContent>
-                ))}
+                {group.choices.map((choice) =>
+                  choice.description ? (
+                    <TabsContent
+                      key={choice.value}
+                      value={choice.value}
+                      className="text-muted-foreground text-sm"
+                    >
+                      {choice.description}
+                    </TabsContent>
+                  ) : null,
+                )}
               </Tabs>
             </section>
           ))}
@@ -352,13 +358,12 @@ export function GenerateDialog({
         </div>
 
         <div className="flex items-center gap-3">
-          <p className="text-muted-foreground flex-1 text-xs">
-            {tooLong ??
-              (needsConfirmation(capability)
-                ? 'Video is the most expensive capability and asks again before it spends.'
-                : 'The model behind each capability is a setting, not a choice made here.')}
-          </p>
-          <Button type="button" onClick={submit} disabled={blocked}>
+          {(tooLong !== null || needsConfirmation(capability)) && (
+            <p className="text-muted-foreground flex-1 text-xs">
+              {tooLong ?? 'Video is the most expensive capability and asks again before it spends.'}
+            </p>
+          )}
+          <Button type="button" onClick={submit} disabled={blocked} className="ml-auto">
             <Sparkles className="size-3.5" />
             {ACTION_LABEL[operation]}
           </Button>

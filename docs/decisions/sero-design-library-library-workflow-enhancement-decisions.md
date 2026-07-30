@@ -28,11 +28,11 @@ Text-to-video remains the fresh video operation.
 
 ## E3 · Remix keeps explicit create and edit actions
 
-The selected-reference action is named **Remix**. Inside the panel, **New image** uses image-to-image, **New video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
+The selected-reference action is named **Remix**. Inside the panel, **Image** uses image-to-image, **Video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
 
 **Reason.** The group labels show the intended result. New image makes a new composition from the reference. Restyle changes the current reference's visual style. Both results remain derived items so the source is safe.
 
-**Consequence.** New image and Restyle both use the vendor-neutral image-to-image capability. Persisted media capability names do not change.
+**Consequence.** Image and Restyle both use the vendor-neutral image-to-image capability. Persisted media capability names do not change.
 
 ## E4 · Original provenance is read-only and last
 

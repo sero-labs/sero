@@ -41,10 +41,16 @@ describe('fresh generation', () => {
     renderDialog();
 
     expect(screen.getByRole('heading', { name: 'Generate' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'New image' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'New video' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Image' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
     expect(screen.queryByRole('tab', { name: 'Restyle' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Upscale' })).toBeNull();
+    expect(screen.queryByText('Create from your description')).toBeNull();
+    expect(
+      screen.queryByText('The model behind each capability is a setting, not a choice made here.'),
+    ).toBeNull();
+    expect(screen.getByRole('tablist').className).not.toContain('border-b');
+    expect(screen.getByRole('tab', { name: 'Image' }).className).toContain('after:bg-primary');
     expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
   });
 });
@@ -54,7 +60,7 @@ describe('a video model that only makes long clips', () => {
 
   it('says why, and will not let the generation be started', async () => {
     const { onGenerate } = renderDialog({ modelOptions: longOnly });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.getByText(/shorter/)).toBeDefined();
@@ -67,7 +73,7 @@ describe('a video model that only makes long clips', () => {
 
   it('lets a model through as soon as one length fits', async () => {
     renderDialog({ modelOptions: { 'text-to-video': { durationsSeconds: [5, 20] } } });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.queryByText(/shorter/)).toBeNull();
@@ -84,7 +90,7 @@ describe('remixing a reference', () => {
     expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
 
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
     await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
 
@@ -117,7 +123,7 @@ describe('remixing a reference', () => {
       initialSourceId: 'item-1',
       modelOptions: { 'image-to-video': { supportsAspectRatio: false } },
     });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
 
     expect(screen.queryByLabelText('Aspect')).toBeNull();
