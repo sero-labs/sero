@@ -1,7 +1,8 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). Issue #328 merged as #329. PR 3b — Gallery — merged as #330. PR 3c — Export and release hardening — complete and awaiting review.
-**Branch:** `feat/design-library-export-hardening` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
+**Status:** Complete. The first release merged through PRs #318, #320, #324, #326, #329, #330 and #331.
+**Closed:** 2026-07-30
+**Branch:** `main` (delivery used separate feature branches for each PR)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -172,7 +173,7 @@ Turn references into runnable work.
 
 1. [x] Design records, continuous autosave, sessions rail, restore-to-position.
 2. [x] Ordered reference selection up to six, primary semantics, guardrail synthesis and blocking-conflict resolution.
-3. [~] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel. *(Built; the prototype's polish lands with 2b.)*
+3. [x] Create dialog: request, prompt recipe, output target, variation mode, variant count, inspiration strength, applied guardrails, synthesis panel.
 4. [x] Generation runs with `platformTools: 'none'` — imported references enter as structured language; plugin-made reference images may also enter as local Design artwork. One to five independently persisted, cancellable variant jobs with partial success and independent retry.
 5. [x] `runtime/build/`: esbuild TSX transform, React bundled from plugin dependencies, Tailwind browser build inlined, document assembly for both targets, refusal and reporting of imports outside the approved set.
 6. [x] `runtime/preview/`: blob URL, `sandbox="allow-scripts"`, `default-src 'none'` CSP, guard harness, warning surface outside the frame, resource cleanup. Hostile fixtures for both targets.
@@ -226,7 +227,7 @@ line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
 
 ## PR 3a — Media
 
-**Status: built.** Generation of imagery and video, everywhere it is invoked from.
+**Status: merged** as [#326](https://github.com/sero-labs/sero/pull/326).
 
 **Build**
 
@@ -262,9 +263,11 @@ line. 3b depends on 3a: a Gallery version bundles the assets 3a produces.
 
 A permanent archive of what was made.
 
+**Status: merged** as [#330](https://github.com/sero-labs/sero/pull/330).
+
 **Build**
 
-10. Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, bounded immutable visual preview, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge. Prefer Sero's native capture path and a cropped, card-sized PNG. A thin generic host method for capturing a visible app-panel region is valid; Gallery records, snapshot rules and image management stay in the plugin. The preview mechanism is an implementation choice: it must stay local, inert and useful, but a sandboxed iframe is only a fallback rather than a product constraint. Use incremental grid rendering and a bounded preview cache.
+10. [x] Gallery: immutable snapshot transaction, family grouping, featured pointer, revision selector, bounded immutable visual preview, reopen at exact revision, explicit Duplicate and Remix, recoverable deletion and purge. Prefer Sero's native capture path and a cropped, card-sized PNG. A thin generic host method for capturing a visible app-panel region is valid; Gallery records, snapshot rules and image management stay in the plugin. The preview mechanism is an implementation choice: it must stay local, inert and useful, but a sandboxed iframe is only a fallback rather than a product constraint. Use incremental grid rendering and a bounded preview cache.
 
 **Accept when** Gallery versions stay byte-identical after source deletion; old versions never mutate; exact revisions reopen; Duplicate and Remix create the correct linked Design family; a large Gallery remains responsive.
 
@@ -273,6 +276,8 @@ A permanent archive of what was made.
 ## PR 3c — Export and release hardening
 
 Take an exact Gallery version out of Sero and complete the first-release hardening pass.
+
+**Status: merged** as [#331](https://github.com/sero-labs/sero/pull/331).
 
 **Build**
 
@@ -313,6 +318,8 @@ Manual verification per PR:
 - **PR 3c** — Both export destinations; standalone output; shared-control behavior and reduced motion; external plugin installation.
 
 ## 8. Notes
+
+This plan is closed. Revisions, improvements and deferred features need new scoped plans. Do not reopen this first-release build order.
 
 - `@sero-ai/ui` and any other `packages/*` change needs republishing to npm before external plugins pick it up.
 - Update `apps/docs-site` before opening each PR.
