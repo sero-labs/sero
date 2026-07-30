@@ -493,6 +493,7 @@ All settings persist to plugin state.
 
 - Active provider and its credential status (`env | stored | missing`).
 - One shared, single-choice Sero Combobox per capability. Choices come from a provider-neutral catalogue backed by the active provider's API. The menu is searchable, groups choices by model provider, and limits initial visible matches. The empty choice uses the provider default.
+- An accessible info tooltip beside each capability label explains where that model is used.
 - Maximum media calls per generation run, set with the same bounded stepper as Create Design variants.
 - Video confirmation (on by default).
 

@@ -35,3 +35,11 @@ The Create Design variant count and **Media calls per run** use one local `Count
 The options page removes the help lines under Librarian model, Design model, and Media models.
 
 **Reason.** The labels and control values explain these settings. The extra text adds visual noise.
+
+## E5 · Capability help stays behind an info tooltip
+
+Each media-model label has an info icon. Its tooltip explains where that capability is used.
+
+**Reason.** The short labels keep the page easy to scan, but terms such as **Remix** and **Animate** do not explain their input and output. A tooltip gives this detail only when it is needed.
+
+**Consequence.** Each icon supports pointer hover and keyboard focus and has an accessible name.

@@ -244,7 +244,7 @@ Importing your own video files is not supported yet.
 | Variants per design | 3 | How many directions a new design starts with |
 | On revise | Replace what is visible | Or keep each revision separately |
 | Prompt recipes | Three built in | Named instruction templates applied on top of a request |
-| Media models | The provider's defaults | Search live models by name or endpoint for each kind of generation. Choices are grouped by model provider |
+| Media models | The provider's defaults | Search live models by name or endpoint for each kind of generation. Choices are grouped by model provider. Use the info icon beside a label to see where that model is used |
 | Media calls per run | 4 | Use the stepper to set how many pictures one design run may ask for. Going over stops further calls and says so, and the design still finishes |
 | Provider key | From the environment | See below |
 

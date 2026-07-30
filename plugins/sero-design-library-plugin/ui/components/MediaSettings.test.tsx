@@ -33,6 +33,10 @@ const MEDIA: MediaSettingsValue = {
   callsPerRun: 6,
 };
 
+function renderSettings() {
+  return render(<MediaSettings media={MEDIA} />);
+}
+
 function callsFor(action: string) {
   return run.mock.calls.filter(([, params]) => params?.action === action);
 }
@@ -71,7 +75,7 @@ beforeEach(() => {
 describe('the provider key', () => {
   it('asks where the key came from and says so', async () => {
     run.mockResolvedValue({ content: [], details: { status: 'env' } });
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
 
     await waitFor(() =>
       expect(screen.getByText('Using FAL_KEY from the environment')).toBeDefined(),
@@ -81,7 +85,7 @@ describe('the provider key', () => {
   });
 
   it('saves a key and re-reads the status rather than assuming it', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(callsFor('key-status')).toHaveLength(1));
 
     await userEvent.type(screen.getByLabelText('Provider key'), 'secret-key');
@@ -95,14 +99,14 @@ describe('the provider key', () => {
   });
 
   it('will not submit an empty key', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(callsFor('key-status')).toHaveLength(1));
 
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('offers Remove only when there is a saved key to remove', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(screen.getByText(/No key/)).toBeDefined());
     // Nothing stored: removing would be a button that does nothing.
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
@@ -111,7 +115,7 @@ describe('the provider key', () => {
 
 describe('media models', () => {
   it('searches grouped provider choices and saves the selected opaque model id', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
@@ -128,7 +132,7 @@ describe('media models', () => {
   });
 
   it('keeps a saved model that the provider no longer lists', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
@@ -137,18 +141,28 @@ describe('media models', () => {
   });
 
   it('shows each capability separately', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     for (const label of ['Image', 'Reference image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
+      expect(screen.getByRole('button', { name: `How ${label} is used` }), label).toBeDefined();
     }
+  });
+
+  it('explains where each model is used', async () => {
+    renderSettings();
+
+    await userEvent.hover(screen.getByRole('button', { name: 'How Animate is used' }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Used when a Design animates an existing image.',
+    );
   });
 });
 
 describe('the per-run cap', () => {
   it('uses the bounded stepper to update the cap', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await userEvent.click(screen.getByRole('button', { name: 'One more media call' }));
 
     const written = callsFor('set-media-cap').map(([, params]) => params?.callsPerRun);

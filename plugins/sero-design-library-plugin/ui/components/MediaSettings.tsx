@@ -11,8 +11,13 @@ import {
   ComboboxList,
   Input,
   Label,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@sero-ai/ui';
 import { useAppTools } from '@sero-ai/app-runtime';
+import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { CredentialStatus, MediaCapability } from '../../shared/media';
@@ -43,6 +48,16 @@ const KEY_STATUS_LABEL: Record<CredentialStatus, string> = {
 const PROVIDER_DEFAULT = 'provider-default';
 const VISIBLE_MODEL_LIMIT = 50;
 
+const MEDIA_MODEL_USAGE: Record<MediaCapability, string> = {
+  'text-to-image': 'Used when a Design creates a new image from a text prompt.',
+  'reference-to-image':
+    'Used when a Design creates a new image from one or more Library references.',
+  'image-to-image': 'Used when a Design edits or restyles an existing image.',
+  upscale: 'Used when a Design increases the resolution of an existing image.',
+  'text-to-video': 'Used when a Design creates a video from a text prompt.',
+  'image-to-video': 'Used when a Design animates an existing image.',
+};
+
 interface ModelOption {
   value: string;
   label: string;
@@ -64,7 +79,7 @@ export function MediaSettings({ media }: MediaSettingsProps) {
   const run = (params: Record<string, unknown>) => tools.run('design_library_settings', params);
 
   return (
-    <>
+    <TooltipProvider>
       <ModelIds media={media} onChange={(capability, mediaModel) =>
         void run({ action: 'set-media-model', capability, mediaModel })
       } />
@@ -75,7 +90,7 @@ export function MediaSettings({ media }: MediaSettingsProps) {
       />
 
       <ProviderKey />
-    </>
+    </TooltipProvider>
   );
 }
 
@@ -212,7 +227,7 @@ function ModelSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={`media-model-${capability}`}>{capabilityLabel(capability)}</Label>
+      <MediaModelLabel capability={capability} />
       <Combobox
         items={groups}
         value={selectedValue}
@@ -246,6 +261,31 @@ function ModelSelect({
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
+    </div>
+  );
+}
+
+function MediaModelLabel({ capability }: { capability: MediaCapability }) {
+  const label = capabilityLabel(capability);
+  return (
+    <div className="flex items-center gap-1">
+      <Label htmlFor={`media-model-${capability}`}>{label}</Label>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground size-5"
+            aria-label={`How ${label} is used`}
+          >
+            <Info className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {MEDIA_MODEL_USAGE[capability]}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
