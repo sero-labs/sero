@@ -33,19 +33,49 @@ const MEDIA: MediaSettingsValue = {
   callsPerRun: 6,
 };
 
+function renderSettings() {
+  return render(<MediaSettings media={MEDIA} />);
+}
+
 function callsFor(action: string) {
   return run.mock.calls.filter(([, params]) => params?.action === action);
 }
 
 beforeEach(() => {
   run.mockReset();
-  run.mockResolvedValue({ content: [], details: { status: 'missing' } });
+  run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => ({
+    content: [],
+    details:
+      params.action === 'list-media-models'
+        ? {
+            models: {
+              'text-to-image': [
+                {
+                  id: 'fal-ai/flux/dev',
+                  label: 'FLUX Dev · fal-ai/flux/dev',
+                  provider: 'fal-ai',
+                },
+                {
+                  id: 'openai/image',
+                  label: 'OpenAI Image · openai/image',
+                  provider: 'openai',
+                },
+              ],
+              'reference-to-image': [],
+              'image-to-image': [],
+              upscale: [],
+              'text-to-video': [],
+              'image-to-video': [],
+            },
+          }
+        : { status: 'missing' },
+  }));
 });
 
 describe('the provider key', () => {
   it('asks where the key came from and says so', async () => {
     run.mockResolvedValue({ content: [], details: { status: 'env' } });
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
 
     await waitFor(() =>
       expect(screen.getByText('Using FAL_KEY from the environment')).toBeDefined(),
@@ -55,7 +85,7 @@ describe('the provider key', () => {
   });
 
   it('saves a key and re-reads the status rather than assuming it', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(callsFor('key-status')).toHaveLength(1));
 
     await userEvent.type(screen.getByLabelText('Provider key'), 'secret-key');
@@ -69,14 +99,14 @@ describe('the provider key', () => {
   });
 
   it('will not submit an empty key', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(callsFor('key-status')).toHaveLength(1));
 
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('offers Remove only when there is a saved key to remove', async () => {
-    render(<MediaSettings media={MEDIA} />);
+    renderSettings();
     await waitFor(() => expect(screen.getByText(/No key/)).toBeDefined());
     // Nothing stored: removing would be a button that does nothing.
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
@@ -84,50 +114,111 @@ describe('the provider key', () => {
 });
 
 describe('media models', () => {
-  it('commits an endpoint id when the field is done, not on every keystroke', async () => {
-    render(<MediaSettings media={MEDIA} />);
+  it('searches grouped provider choices and saves the selected opaque model id', async () => {
+    renderSettings();
 
-    const field = screen.getByLabelText('Video');
-    await userEvent.type(field, 'veo/fast');
-    // A model id is meaningless half-written; a per-keystroke write would queue
-    // eight settings updates for values that were never a real endpoint.
-    expect(callsFor('set-media-model')).toHaveLength(0);
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
+    await userEvent.click(screen.getByLabelText('Image'));
+    expect(screen.getByText('fal-ai')).toBeDefined();
+    expect(screen.getByText('openai')).toBeDefined();
+    await userEvent.clear(screen.getByLabelText('Image'));
+    await userEvent.type(screen.getByLabelText('Image'), 'OpenAI');
+    expect(screen.getByText('openai/image').classList.contains('text-xs')).toBe(true);
+    await userEvent.click(screen.getByRole('option', { name: /OpenAI Image/ }));
 
-    await userEvent.tab();
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
-      capability: 'text-to-video',
-      mediaModel: 'veo/fast',
+      capability: 'text-to-image',
+      mediaModel: 'openai/image',
     });
   });
 
-  it('writes nothing when the value comes back unchanged', async () => {
-    render(<MediaSettings media={MEDIA} />);
+  it('keeps a saved model that the provider no longer lists', async () => {
+    renderSettings();
 
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
-    await userEvent.tab();
-
-    expect(callsFor('set-media-model')).toHaveLength(0);
+    expect(screen.getByText('Saved choice')).toBeDefined();
+    expect(screen.getByRole('option', { name: 'flux/dev' })).toBeDefined();
   });
 
-  it('shows each capability separately', () => {
-    render(<MediaSettings media={MEDIA} />);
+  it('keeps manual entry available and retries after a catalogue error', async () => {
+    run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => {
+      if (params.action === 'list-media-models') {
+        throw new Error('The media provider model catalogue returned 429.');
+      }
+      return { content: [], details: { status: 'missing' } };
+    });
+    renderSettings();
 
+    expect((await screen.findByRole('alert')).textContent).toContain('returned 429');
+    const input = screen.getByLabelText('Image');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'private/image-model');
+    await userEvent.click(screen.getByRole('option', { name: 'private/image-model' }));
+
+    expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
+      capability: 'text-to-image',
+      mediaModel: 'private/image-model',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(2));
+    expect(callsFor('list-media-models')[1]?.[1]).toMatchObject({ refresh: true });
+  });
+
+  it('does not hide later provider groups in a long catalogue', async () => {
+    run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => ({
+      content: [],
+      details:
+        params.action === 'list-media-models'
+          ? {
+              models: {
+                ...MEDIA.models,
+                'text-to-image': [
+                  ...Array.from({ length: 55 }, (_, index) => ({
+                    id: `fal-ai/model-${index}`,
+                    label: `FAL model ${index}`,
+                    provider: 'fal-ai',
+                  })),
+                  { id: 'openai/image', label: 'OpenAI Image', provider: 'openai' },
+                ],
+              },
+            }
+          : { status: 'missing' },
+    }));
+    renderSettings();
+
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
+    await userEvent.click(screen.getByLabelText('Image'));
+    expect(screen.getByText('openai')).toBeDefined();
+  });
+
+  it('shows each capability separately', async () => {
+    renderSettings();
+
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     for (const label of ['Image', 'Reference image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
+      expect(screen.getByRole('button', { name: `How ${label} is used` }), label).toBeDefined();
     }
+  });
+
+  it('explains where each model is used', async () => {
+    renderSettings();
+
+    await userEvent.hover(screen.getByRole('button', { name: 'How Animate is used' }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Used when a Design animates an existing image.',
+    );
   });
 });
 
 describe('the per-run cap', () => {
-  it('refuses a value outside the range instead of storing it', async () => {
-    render(<MediaSettings media={MEDIA} />);
-    const field = screen.getByLabelText('Media calls per run');
+  it('uses the bounded stepper to update the cap', async () => {
+    renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'One more media call' }));
 
-    await userEvent.clear(field);
-    await userEvent.type(field, '99');
-
-    // 9 is in range and is written; 99 is not and is not.
     const written = callsFor('set-media-cap').map(([, params]) => params?.callsPerRun);
-    expect(written).not.toContain(99);
+    expect(written).toEqual([7]);
   });
 });

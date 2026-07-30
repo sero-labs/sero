@@ -1,19 +1,18 @@
-import { Button, Input, Label } from '@sero-ai/ui';
 import { useAppTools } from '@sero-ai/app-runtime';
+import { Button, Input, TooltipProvider } from '@sero-ai/ui';
 import { useEffect, useState } from 'react';
 
-import type { CredentialStatus, MediaCapability } from '../../shared/media';
-import { MEDIA_CAPABILITIES } from '../../shared/media';
+import type { CredentialStatus } from '../../shared/media';
 import type { MediaSettings as MediaSettingsValue } from '../../shared/settings';
 import { MAX_CALLS_PER_RUN } from '../../shared/settings';
-import { capabilityLabel } from '../lib/asset-view';
+import { CountStepper } from './CountStepper';
+import { MediaModelSettings } from './MediaModelSettings';
 
 /**
  * Media configuration (spec §8.3, §10, D7, D9, D10).
  *
- * Configured by *capability*, never by provider: the endpoint ids are editable
- * text because the provider exposes hundreds of them and a live browser would
- * need a catalogue API and network at settings time for marginal benefit.
+ * Configured by *capability*, never by provider. The settings tool translates
+ * the active provider's catalogue into opaque model ids and display labels.
  *
  * The key is the one value here that never touches reactive state. It is read
  * and written through the tool directly, and what comes back is where the key
@@ -35,10 +34,15 @@ export function MediaSettings({ media }: MediaSettingsProps) {
   const run = (params: Record<string, unknown>) => tools.run('design_library_settings', params);
 
   return (
-    <>
-      <ModelIds media={media} onChange={(capability, mediaModel) =>
-        void run({ action: 'set-media-model', capability, mediaModel })
-      } />
+    <TooltipProvider>
+      <Section title="Media models">
+        <MediaModelSettings
+          media={media}
+          onChange={(capability, mediaModel) =>
+            void run({ action: 'set-media-model', capability, mediaModel })
+          }
+        />
+      </Section>
 
       <CallCap
         callsPerRun={media.callsPerRun}
@@ -46,7 +50,7 @@ export function MediaSettings({ media }: MediaSettingsProps) {
       />
 
       <ProviderKey />
-    </>
+    </TooltipProvider>
   );
 }
 
@@ -56,88 +60,17 @@ function Section({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="border-border border-b px-6 py-5 last:border-b-0">
       <h3 className="text-sm font-medium">{title}</h3>
-      <p className="text-muted-foreground mt-0.5 mb-3 text-sm">{description}</p>
-      {children}
+      {description !== undefined && (
+        <p className="text-muted-foreground mt-0.5 mb-3 text-sm">{description}</p>
+      )}
+      <div className={description === undefined ? 'mt-3' : ''}>{children}</div>
     </section>
-  );
-}
-
-function ModelIds({
-  media,
-  onChange,
-}: {
-  media: MediaSettingsValue;
-  onChange(capability: MediaCapability, modelId: string): void;
-}) {
-  return (
-    <Section
-      title="Media models"
-      description="One model per capability. Leave empty to use the adapter's default."
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        {MEDIA_CAPABILITIES.map((capability) => (
-          <ModelIdField
-            key={capability}
-            capability={capability}
-            value={media.models[capability]}
-            onChange={(modelId) => onChange(capability, modelId)}
-          />
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-/**
- * One endpoint id, committed on blur rather than on every keystroke.
- *
- * A model id is typed in one go and is meaningless half-written, so a debounce
- * would queue several settings writes of values that were never a real
- * endpoint. Blur is the moment the user is done with the field.
- */
-function ModelIdField({
-  capability,
-  value,
-  onChange,
-}: {
-  capability: MediaCapability;
-  value: string;
-  onChange(modelId: string): void;
-}) {
-  const [draft, setDraft] = useState(value);
-  // The stored value can change underneath — the agent can set it too — and the
-  // field should follow unless it is being edited right now.
-  const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    if (!focused) setDraft(value);
-  }, [value, focused]);
-
-  const commit = () => {
-    setFocused(false);
-    if (draft.trim() !== value) onChange(draft.trim());
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={`media-model-${capability}`}>{capabilityLabel(capability)}</Label>
-      <Input
-        id={`media-model-${capability}`}
-        value={draft}
-        placeholder="The adapter's default"
-        onFocus={() => setFocused(true)}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') event.currentTarget.blur();
-        }}
-      />
-    </div>
   );
 }
 
@@ -153,18 +86,18 @@ function CallCap({
       title="Media calls per run"
       description={`How many images or clips one generation run may ask for, 0–${MAX_CALLS_PER_RUN}. Going over stops further calls and is reported; it does not fail the run.`}
     >
-      <Input
-        type="number"
-        min={0}
-        max={MAX_CALLS_PER_RUN}
-        className="w-24"
-        aria-label="Media calls per run"
-        value={callsPerRun}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-          if (Number.isFinite(next) && next >= 0 && next <= MAX_CALLS_PER_RUN) onChange(next);
-        }}
-      />
+      <div className="max-w-sm">
+        <CountStepper
+          label="Media calls per run"
+          decrementLabel="One fewer media call"
+          incrementLabel="One more media call"
+          min={0}
+          max={MAX_CALLS_PER_RUN}
+          value={callsPerRun}
+          editable
+          onChange={onChange}
+        />
+      </div>
     </Section>
   );
 }

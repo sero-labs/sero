@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
+import type { MediaModelCatalog } from '../../shared/media-model-catalog';
 import { designLibraryPathsFromHome, secretsFile, type DesignLibraryPaths } from '../../shared/paths';
 import { readState } from '../../shared/state-io';
 import { registerSettingsTool } from './settings';
@@ -23,6 +24,18 @@ import { registerSettingsTool } from './settings';
 let home: string;
 let paths: DesignLibraryPaths;
 let tools: Map<string, ToolDefinition>;
+const mediaModelCatalog: MediaModelCatalog = {
+  async list() {
+    return {
+      'text-to-image': [{ id: 'image/model', label: 'Image model', provider: 'image' }],
+      'reference-to-image': [],
+      'image-to-image': [],
+      upscale: [],
+      'text-to-video': [],
+      'image-to-video': [],
+    };
+  },
+};
 
 function collectTools(): ExtensionAPI {
   tools = new Map();
@@ -54,7 +67,7 @@ beforeEach(async () => {
   delete process.env.FAL_KEY;
   home = await mkdtemp(path.join(tmpdir(), 'design-library-settings-tool-'));
   paths = designLibraryPathsFromHome(path.join(home, 'apps', 'design-library'));
-  registerSettingsTool(collectTools(), paths);
+  registerSettingsTool(collectTools(), paths, mediaModelCatalog);
 });
 
 afterEach(async () => {
@@ -108,6 +121,14 @@ describe('the provider key', () => {
 });
 
 describe('media settings', () => {
+  it('returns provider-neutral model choices', async () => {
+    expect((await call({ action: 'list-media-models' })).details).toMatchObject({
+      models: {
+        'text-to-image': [{ id: 'image/model', label: 'Image model', provider: 'image' }],
+      },
+    });
+  });
+
   it('sets one capability’s model without disturbing the others', async () => {
     await call({ action: 'set-media-model', capability: 'text-to-video', mediaModel: 'fast-video' });
 

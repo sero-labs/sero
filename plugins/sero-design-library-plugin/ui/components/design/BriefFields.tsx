@@ -1,5 +1,4 @@
 import {
-  Button,
   Label,
   Select,
   SelectContent,
@@ -11,12 +10,12 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@sero-ai/ui';
-import { Minus, Plus } from 'lucide-react';
 
 import type { DesignBrief } from '../../../shared/design';
 import { MAX_VARIANTS, MIN_VARIANTS } from '../../../shared/design';
 import type { GuardrailSynthesis } from '../../../shared/synthesis';
 import type { DesignLibrarySettings, PromptRecipe } from '../../../shared/settings';
+import { CountStepper } from '../CountStepper';
 import { GuardrailChips } from './GuardrailChips';
 
 /**
@@ -141,8 +140,13 @@ export function BriefFields({
         </Field>
 
         <Field label="Variants">
-          <VariantStepper
+          <CountStepper
             value={perReference ? referenceCount : brief.variantCount}
+            min={MIN_VARIANTS}
+            max={MAX_VARIANTS}
+            label="Variants"
+            decrementLabel="One fewer variant"
+            incrementLabel="One more variant"
             // One variant per reference: the count is the reference list, and a
             // stepper that silently disagreed with the footer would be a lie.
             disabled={perReference}
@@ -211,67 +215,5 @@ function Field({
       </div>
       {children}
     </div>
-  );
-}
-
-function VariantStepper({
-  value,
-  disabled,
-  onChange,
-}: {
-  value: number;
-  disabled: boolean;
-  onChange(value: number): void;
-}) {
-  return (
-    <div
-      className={`border-input flex h-9 items-center justify-between rounded-md border ${
-        disabled ? 'opacity-50' : ''
-      }`}
-    >
-      <StepButton
-        label="One fewer variant"
-        disabled={disabled || value <= MIN_VARIANTS}
-        onClick={() => onChange(value - 1)}
-      >
-        <Minus className="size-3.5" />
-      </StepButton>
-      <span className="tabular-nums" aria-live="polite">
-        {value}
-      </span>
-      <StepButton
-        label="One more variant"
-        disabled={disabled || value >= MAX_VARIANTS}
-        onClick={() => onChange(value + 1)}
-      >
-        <Plus className="size-3.5" />
-      </StepButton>
-    </div>
-  );
-}
-
-function StepButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled: boolean;
-  onClick(): void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="size-8"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
   );
 }
