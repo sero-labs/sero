@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sero-ai/ui';
-import { ExternalLink, Heart, ImageOff, MoreHorizontal } from 'lucide-react';
+import { SquareArrowOutUpRight, Heart, ImageOff, MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { GalleryFamilyRecord } from '../../../shared/gallery';
@@ -128,7 +128,7 @@ export function GalleryCard({
             title="Open Design"
             onClick={() => onOpen(selected.id)}
           >
-            <ExternalLink className="size-3.5" />
+            <SquareArrowOutUpRight className="size-3.5" />
           </Button>
         </div>
       </div>
