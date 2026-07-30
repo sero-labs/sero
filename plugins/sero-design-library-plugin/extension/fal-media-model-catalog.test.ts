@@ -35,6 +35,7 @@ describe('fal media model catalogue', () => {
     expect(models['text-to-image'][0]).toEqual({
       id: 'model/text-to-image',
       label: 'Model text-to-image · model/text-to-image',
+      provider: 'model',
     });
     expect(models['reference-to-image']).toEqual(models['image-to-image']);
     expect(fetch).toHaveBeenCalledTimes(5);

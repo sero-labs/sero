@@ -9,6 +9,8 @@ import type { MediaCapability } from './media';
 export interface MediaModelChoice {
   id: string;
   label: string;
+  /** Provider label used to group choices. Its source is adapter-owned. */
+  provider: string;
 }
 
 export type MediaModelChoices = Record<MediaCapability, MediaModelChoice[]>;

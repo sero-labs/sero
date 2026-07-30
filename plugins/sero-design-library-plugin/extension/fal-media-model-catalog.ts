@@ -50,6 +50,7 @@ function modelChoice(value: unknown): MediaModelChoice | null {
       typeof displayName === 'string' && displayName !== ''
         ? `${displayName} · ${model.endpoint_id}`
         : model.endpoint_id,
+    provider: model.endpoint_id.split('/')[0] ?? 'Other',
   };
 }
 

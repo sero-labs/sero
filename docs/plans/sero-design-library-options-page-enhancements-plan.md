@@ -14,7 +14,7 @@ Make the Design Library options page simpler and safer to use.
 1. Remove the marked help text from the model settings.
 2. Add a provider-neutral media-model catalogue contract.
 3. Read active model choices from the fal.ai Model Search API.
-4. Replace media-model text fields with the shared Select.
+4. Replace media-model text fields with the shared searchable, grouped, single-choice Combobox.
 5. Extract the Create Design count stepper.
 6. Use the shared stepper for Media calls per run.
 7. Update the product specification and user documentation.
@@ -22,7 +22,7 @@ Make the Design Library options page simpler and safer to use.
 ## 3. Verification
 
 1. Test catalogue pagination, authentication, and capability mapping.
-2. Test media-model selection and fallback choices.
+2. Test media-model search, provider groups, selection, and fallback choices.
 3. Test the media-call stepper boundaries and settings action.
 4. Run the Design Library plugin tests.
 5. Run the Design Library plugin typecheck and build.

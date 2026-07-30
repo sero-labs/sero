@@ -1,12 +1,16 @@
 import {
   Button,
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@sero-ai/ui';
 import { useAppTools } from '@sero-ai/app-runtime';
 import { useEffect, useState } from 'react';
@@ -37,6 +41,19 @@ const KEY_STATUS_LABEL: Record<CredentialStatus, string> = {
 };
 
 const PROVIDER_DEFAULT = 'provider-default';
+const VISIBLE_MODEL_LIMIT = 50;
+
+interface ModelOption {
+  value: string;
+  label: string;
+  provider: string;
+}
+
+interface ModelOptionGroup {
+  value: string;
+  label: string;
+  items: ModelOption[];
+}
 
 export interface MediaSettingsProps {
   media: MediaSettingsValue;
@@ -145,7 +162,8 @@ function modelChoices(value: unknown): MediaModelChoice[] {
       typeof choice === 'object' &&
       choice !== null &&
       typeof (choice as Record<string, unknown>).id === 'string' &&
-      typeof (choice as Record<string, unknown>).label === 'string',
+      typeof (choice as Record<string, unknown>).label === 'string' &&
+      typeof (choice as Record<string, unknown>).provider === 'string',
   );
 }
 
@@ -176,30 +194,74 @@ function ModelSelect({
   onChange(modelId: string): void;
 }) {
   const selectedIsListed = choices.some((choice) => choice.id === value);
+  const options: ModelOption[] = [
+    { value: PROVIDER_DEFAULT, label: 'Provider default', provider: 'Default' },
+    ...(value !== '' && !selectedIsListed
+      ? [{ value, label: value, provider: 'Saved choice' }]
+      : []),
+    ...choices.map((choice) => ({
+      value: choice.id,
+      label: choice.label,
+      provider: choice.provider,
+    })),
+  ];
+  const groups = groupModelOptions(options);
+  const selectedValue = options.find(
+    (option) => option.value === (value === '' ? PROVIDER_DEFAULT : value),
+  );
 
   return (
     <div className="space-y-1.5">
       <Label htmlFor={`media-model-${capability}`}>{capabilityLabel(capability)}</Label>
-      <Select
-        value={value === '' ? PROVIDER_DEFAULT : value}
+      <Combobox
+        items={groups}
+        value={selectedValue}
         disabled={loading}
-        onValueChange={(modelId) => onChange(modelId === PROVIDER_DEFAULT ? '' : modelId)}
+        limit={VISIBLE_MODEL_LIMIT}
+        isItemEqualToValue={(item, selected) => item.value === selected.value}
+        onValueChange={(model) => {
+          if (model !== null) onChange(model.value === PROVIDER_DEFAULT ? '' : model.value);
+        }}
       >
-        <SelectTrigger id={`media-model-${capability}`} className="w-full">
-          <SelectValue placeholder="Loading models…" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={PROVIDER_DEFAULT}>Provider default</SelectItem>
-          {value !== '' && !selectedIsListed && <SelectItem value={value}>{value}</SelectItem>}
-          {choices.map((choice) => (
-            <SelectItem key={choice.id} value={choice.id}>
-              {choice.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <ComboboxInput
+          id={`media-model-${capability}`}
+          className="w-full"
+          placeholder={loading ? 'Loading models…' : 'Search models'}
+        />
+        <ComboboxContent>
+          <ComboboxEmpty>No models found</ComboboxEmpty>
+          <ComboboxList>
+            {(group: ModelOptionGroup) => (
+              <ComboboxGroup key={group.value} items={group.items}>
+                <ComboboxLabel>{group.label}</ComboboxLabel>
+                <ComboboxCollection>
+                  {(option: ModelOption) => (
+                    <ComboboxItem key={option.value} value={option}>
+                      {option.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxCollection>
+              </ComboboxGroup>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
     </div>
   );
+}
+
+function groupModelOptions(options: ModelOption[]): ModelOptionGroup[] {
+  const grouped = new Map<string, ModelOption[]>();
+  for (const option of options) {
+    const group = grouped.get(option.provider);
+    if (group === undefined) grouped.set(option.provider, [option]);
+    else group.push(option);
+  }
+  return [...grouped].map(([provider, items]) => ({
+    value: provider,
+    label: provider,
+    items,
+  }));
 }
 
 function CallCap({

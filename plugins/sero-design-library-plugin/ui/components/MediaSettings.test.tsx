@@ -46,8 +46,16 @@ beforeEach(() => {
         ? {
             models: {
               'text-to-image': [
-                { id: 'fal-ai/flux/dev', label: 'FLUX Dev · fal-ai/flux/dev' },
-                { id: 'fal-ai/flux/schnell', label: 'FLUX Schnell · fal-ai/flux/schnell' },
+                {
+                  id: 'fal-ai/flux/dev',
+                  label: 'FLUX Dev · fal-ai/flux/dev',
+                  provider: 'fal-ai',
+                },
+                {
+                  id: 'openai/image',
+                  label: 'OpenAI Image · openai/image',
+                  provider: 'openai',
+                },
               ],
               'reference-to-image': [],
               'image-to-image': [],
@@ -102,16 +110,20 @@ describe('the provider key', () => {
 });
 
 describe('media models', () => {
-  it('loads provider choices and saves the selected opaque model id', async () => {
+  it('searches grouped provider choices and saves the selected opaque model id', async () => {
     render(<MediaSettings media={MEDIA} />);
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
-    await userEvent.click(screen.getByRole('option', { name: /FLUX Schnell/ }));
+    expect(screen.getByText('fal-ai')).toBeDefined();
+    expect(screen.getByText('openai')).toBeDefined();
+    await userEvent.clear(screen.getByLabelText('Image'));
+    await userEvent.type(screen.getByLabelText('Image'), 'OpenAI');
+    await userEvent.click(screen.getByRole('option', { name: /OpenAI Image/ }));
 
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
       capability: 'text-to-image',
-      mediaModel: 'fal-ai/flux/schnell',
+      mediaModel: 'openai/image',
     });
   });
 
@@ -120,6 +132,7 @@ describe('media models', () => {
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
+    expect(screen.getByText('Saved choice')).toBeDefined();
     expect(screen.getByRole('option', { name: 'flux/dev' })).toBeDefined();
   });
 

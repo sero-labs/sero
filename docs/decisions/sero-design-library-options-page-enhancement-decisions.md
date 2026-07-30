@@ -16,13 +16,13 @@ The active provider owns its API URL, authentication, pagination, category mappi
 
 **Consequence.** The first adapter reads active models from the fal.ai Model Search API. A later provider can implement the same catalogue contract without changing the settings page.
 
-## E2 · Media model choices use the shared Select
+## E2 · Media model choices use the shared Combobox
 
-Each media capability uses `Select` from `@sero-ai/ui`.
+Each media capability uses the single-choice `Combobox` from `@sero-ai/ui`. The menu is searchable, groups models by provider, and limits the initial visible matches so opening a long catalogue stays responsive.
 
 The list includes the provider default and the current saved value. The current value stays available if it is absent from the latest provider response.
 
-**Reason.** Model selection is a fixed choice from live provider data. Free text is error-prone and does not match Sero controls.
+**Reason.** Model selection is a fixed choice from live provider data. A long Select is slow to open and hard to scan. Search and provider groups make the same catalogue practical.
 
 ## E3 · Count settings share one stepper
 

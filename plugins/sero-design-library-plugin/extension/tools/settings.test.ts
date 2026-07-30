@@ -27,7 +27,7 @@ let tools: Map<string, ToolDefinition>;
 const mediaModelCatalog: MediaModelCatalog = {
   async list() {
     return {
-      'text-to-image': [{ id: 'image/model', label: 'Image model' }],
+      'text-to-image': [{ id: 'image/model', label: 'Image model', provider: 'image' }],
       'reference-to-image': [],
       'image-to-image': [],
       upscale: [],
@@ -123,7 +123,9 @@ describe('the provider key', () => {
 describe('media settings', () => {
   it('returns provider-neutral model choices', async () => {
     expect((await call({ action: 'list-media-models' })).details).toMatchObject({
-      models: { 'text-to-image': [{ id: 'image/model', label: 'Image model' }] },
+      models: {
+        'text-to-image': [{ id: 'image/model', label: 'Image model', provider: 'image' }],
+      },
     });
   });
 
