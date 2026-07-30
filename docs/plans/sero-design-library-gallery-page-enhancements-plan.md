@@ -15,7 +15,7 @@ Make Gallery controls consistent with the Library and shared Sero UI.
 2. Put the selected version tick on the right through the shared Select item.
 3. Add live counts to every Gallery scope.
 4. Match the Gallery rail to the Library rail.
-5. Match Gallery search to Library search.
+5. Match Gallery search styling and placement to Library search.
 6. Remove the Gallery introduction header.
 7. Update the product specification and user documentation.
 

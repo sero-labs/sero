@@ -63,56 +63,57 @@ export function GalleryPage({
       : scoped.filter((family) => family.title.toLowerCase().includes(needle));
   }, [families, query, scope]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        <SearchInput
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search saved designs"
-          aria-label="Search Gallery"
-          className="h-8 max-w-96 min-w-56 flex-1"
-        />
-      </div>
-      {error && (
-        <p className="text-destructive border-border border-b px-5 py-2 text-sm" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="flex min-h-0 flex-1">
-        <ScrollArea className="border-border h-full w-56 shrink-0 border-r">
-          <nav className="p-2" aria-label="Gallery navigation">
-            <NavigationRailHeading>Gallery</NavigationRailHeading>
-            <NavigationRailRow
-              active={scope === 'all'}
-              label="All designs"
-              count={counts.all}
-              icon={<Images className="size-3.5" />}
-              onClick={() => setScope('all')}
-            />
-            <NavigationRailRow
-              active={scope === 'favourites'}
-              label="Favourites"
-              count={counts.favourites}
-              icon={<Heart className="size-3.5" />}
-              onClick={() => setScope('favourites')}
-            />
-            <NavigationRailRow
-              active={scope === 'recent'}
-              label="Recently saved"
-              count={counts.recent}
-              icon={<Clock className="size-3.5" />}
-              onClick={() => setScope('recent')}
-            />
-            <NavigationRailHeading>&nbsp;</NavigationRailHeading>
-            <NavigationRailRow
-              active={scope === 'trash'}
-              label="Trash"
-              count={counts.trash}
-              icon={<Trash2 className="size-3.5" />}
-              onClick={() => setScope('trash')}
-            />
-          </nav>
-        </ScrollArea>
+    <div className="flex min-h-0 flex-1">
+      <ScrollArea className="border-border h-full w-56 shrink-0 border-r">
+        <nav className="p-2" aria-label="Gallery navigation">
+          <NavigationRailHeading>Gallery</NavigationRailHeading>
+          <NavigationRailRow
+            active={scope === 'all'}
+            label="All designs"
+            count={counts.all}
+            icon={<Images className="size-3.5" />}
+            onClick={() => setScope('all')}
+          />
+          <NavigationRailRow
+            active={scope === 'favourites'}
+            label="Favourites"
+            count={counts.favourites}
+            icon={<Heart className="size-3.5" />}
+            onClick={() => setScope('favourites')}
+          />
+          <NavigationRailRow
+            active={scope === 'recent'}
+            label="Recently saved"
+            count={counts.recent}
+            icon={<Clock className="size-3.5" />}
+            onClick={() => setScope('recent')}
+          />
+          <NavigationRailHeading>&nbsp;</NavigationRailHeading>
+          <NavigationRailRow
+            active={scope === 'trash'}
+            label="Trash"
+            count={counts.trash}
+            icon={<Trash2 className="size-3.5" />}
+            onClick={() => setScope('trash')}
+          />
+        </nav>
+      </ScrollArea>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
+          <SearchInput
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search saved designs"
+            aria-label="Search Gallery"
+            className="h-8 max-w-96 min-w-56 flex-1"
+          />
+        </div>
+        {error && (
+          <p className="text-destructive border-border border-b px-5 py-2 text-sm" role="alert">
+            {error}
+          </p>
+        )}
         <ScrollArea className="min-h-0 flex-1">
           {scope === 'trash' ? (
             <GalleryTrash families={trash} actions={actions} />

@@ -31,11 +31,11 @@ Each scope shows a live count:
 
 ## E3 · Gallery search matches Library search
 
-Gallery uses the shared `SearchInput` in the same compact toolbar layout as Library.
+Gallery uses the shared `SearchInput` in the same compact toolbar layout as Library. The toolbar sits in the content column beside the rail and above the Gallery cards.
 
 **Reason.** A full input inside a separate padded panel gives one simple search action too much visual weight.
 
-**Consequence.** Search keeps the same filtering behaviour and gains the Library search icon, size, and spacing.
+**Consequence.** Search keeps the same filtering behaviour and gains the Library search icon, size, spacing, and placement. It does not span above the navigation rail.
 
 ## E4 · Gallery has no introduction header
 
