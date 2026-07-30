@@ -206,12 +206,13 @@ You can also generate straight into the Library, from the **Generate** button in
 
 | What | How |
 | --- | --- |
-| A new reference from a description | **Generate**, describe what you want |
-| A variation of something you have | Select one reference, then **Restyle** |
-| A sharper copy | **Generate** → Upscale, and choose the reference |
-| A short video | **Generate** → Video |
+| A new image or video from a description | **Generate**, then choose the media type |
+| A new image based on a reference | Select one reference, choose **Remix**, then **New image** |
+| A video based on a reference | Select one reference, choose **Remix**, then **New video** |
+| A restyled copy | Select one reference, choose **Remix**, then **New image** |
+| A sharper copy | Select one reference, choose **Remix**, then **Upscale** |
 
-Generated references arrive in the Library like any other and are read by the Librarian automatically, keeping the prompt that made them. While one is on its way it shows as a tile in the grid, so you can see that it is coming rather than wondering whether the button worked.
+Generated references arrive in the Library like any other and are read by the Librarian automatically. Open one to see the original prompt and model at the end of the inspector. While one is on its way it shows as a tile in the grid, so you can see that it is coming rather than wondering whether the button worked.
 
 ### Video
 
@@ -240,7 +241,7 @@ Importing your own video files is not supported yet.
 | Variants per design | 3 | How many directions a new design starts with |
 | On revise | Replace what is visible | Or keep each revision separately |
 | Prompt recipes | Three built in | Named instruction templates applied on top of a request |
-| Media models | The provider's defaults | One model per kind of generation: image, restyle, upscale, video |
+| Media models | The provider's defaults | One model per kind of generation: image, restyle, upscale, text-to-video and image-to-video |
 | Media calls per run | 4 | How many pictures one design run may ask for. The run is told the number, so it plans around it; going over stops further calls and says so, and the design still finishes |
 | Provider key | From the environment | See below |
 

@@ -134,7 +134,7 @@ export function LibraryPage({
           onRestore={() => applyToPicked((id) => actions.restore(id))}
           onPurge={() => applyToPicked((id) => actions.purge(id))}
           onCreateDesign={() => onCreateDesign(pickedItems)}
-          onRestyle={() => {
+          onRemix={() => {
             const [first] = pickedItems;
             if (first) onGenerate(first);
           }}

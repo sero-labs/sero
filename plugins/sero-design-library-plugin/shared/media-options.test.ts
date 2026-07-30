@@ -36,6 +36,19 @@ describe('settling a video request', () => {
     expect(settleMediaRequest({ ...video, durationSeconds: 8 }, fixed).durationSeconds).toBe(10);
   });
 
+  it('applies the same video limits to image-to-video', () => {
+    const request = {
+      capability: 'image-to-video' as const,
+      prompt: 'a slow push in',
+      sourceAssetIds: ['reference'],
+      durationSeconds: 8,
+    };
+    expect(settleMediaRequest(request, fixed).durationSeconds).toBe(10);
+    expect(videoLengthRefusal('image-to-video', { durationsSeconds: [20] })).toContain(
+      String(MAX_VIDEO_SECONDS),
+    );
+  });
+
   it('fills in a default when nobody asked for a length', () => {
     expect(settleMediaRequest(video, fixed).durationSeconds).toBe(DEFAULT_VIDEO_SECONDS);
   });

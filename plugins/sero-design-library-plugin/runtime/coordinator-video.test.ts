@@ -4,6 +4,7 @@ import { appendRequest, readState } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { useCoordinator } from './coordinator-harness';
 import { readItem } from './store';
+import { seedItem } from './test-fixtures';
 
 /**
  * Generated video, end to end (D4).
@@ -44,6 +45,30 @@ describe('a generated video', () => {
     // Held, not failed: it resolves by itself the next time the app is open.
     expect(item?.analysis.status).toBe('pending');
     expect(item?.analysis.jobId).toBeUndefined();
+  });
+
+  it('creates a derived video from a source image', async () => {
+    await seedItem(harness.paths, 'source-image');
+    await appendRequest(harness.paths, {
+      kind: 'library.generate',
+      slotId: 'slot-image-video',
+      capability: 'image-to-video',
+      prompt: 'a slow push in',
+      sourceItemId: 'source-image',
+    });
+    await harness.coordinator.drain();
+
+    const generated = await vi.waitFor(async () => {
+      const state = await readState(harness.paths);
+      const item = state.items.find((entry) => entry.sourceKind === 'derived');
+      expect(item).toBeDefined();
+      return readItem(harness.paths, item!.id);
+    });
+
+    expect(generated?.kind).toBe('video');
+    expect(generated?.source.parentItemId).toBe('source-image');
+    expect(generated?.generation?.capability).toBe('image-to-video');
+    expect(generated?.awaitingFrames).toBe(true);
   });
 
   it('analyses once the renderer has sent frames', async () => {

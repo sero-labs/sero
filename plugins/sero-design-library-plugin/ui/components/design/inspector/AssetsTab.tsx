@@ -1,5 +1,5 @@
 import { Button, ScrollArea } from '@sero-ai/ui';
-import { Copy, Library, RotateCw, Trash2 } from 'lucide-react';
+import { Copy, Library, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import type { DesignAsset } from '../../../../shared/media';
@@ -29,6 +29,8 @@ export interface AssetsTabProps {
   onDelete(assetId: string): void;
   /** Opens the generation dialog for this Design. */
   onGenerate(): void;
+  /** Opens Remix with this ready image selected as its source. */
+  onRemix(assetId: string): void;
 }
 
 export function AssetsTab({
@@ -38,6 +40,7 @@ export function AssetsTab({
   onCopyToLibrary,
   onDelete,
   onGenerate,
+  onRemix,
 }: AssetsTabProps) {
   const tray = trayView(assets);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -104,6 +107,7 @@ export function AssetsTab({
           onRetry={() => onRetry(selected.id)}
           onCopyToLibrary={() => onCopyToLibrary(selected.id)}
           onDelete={() => onDelete(selected.id)}
+          onRemix={() => onRemix(selected.id)}
         />
       )}
     </ScrollArea>
@@ -115,9 +119,10 @@ interface AssetDetailProps {
   onRetry(): void;
   onCopyToLibrary(): void;
   onDelete(): void;
+  onRemix(): void;
 }
 
-function AssetDetail({ view, onRetry, onCopyToLibrary, onDelete }: AssetDetailProps) {
+function AssetDetail({ view, onRetry, onCopyToLibrary, onDelete, onRemix }: AssetDetailProps) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -181,6 +186,19 @@ function AssetDetail({ view, onRetry, onCopyToLibrary, onDelete }: AssetDetailPr
             to this asset are drawn: a disabled button beside a failed generation
             says the tray is broken, where its absence says nothing at all. */}
         <div className="flex flex-wrap items-center gap-2">
+          {view.state === 'ready' && view.kind === 'image' && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-w-0 flex-1"
+              onClick={onRemix}
+            >
+              <Shuffle className="size-3.5" />
+              Remix
+            </Button>
+          )}
+
           {view.canRetry && (
             <Button
               type="button"

@@ -118,8 +118,8 @@ Exact duplicates are detected by content checksum; importing one opens the exist
 
 Two further routes create items through the media contract (§8):
 
-- **Generate inspiration** — a prompt produces a new image or video item.
-- **Restyle / vary** — an existing item produces a derived item, linked to its parent.
+- **Generate** — a prompt produces a new image or video item.
+- **Remix** — an existing item can produce a new image or video, a restyled image, or an upscale. The derived item links to its parent.
 
 Generated items are ordinary Library items: they analyse automatically and carry generation provenance alongside their Librarian profile.
 
@@ -127,7 +127,7 @@ Generated items are ordinary Library items: they analyse automatically and carry
 
 Analysis starts automatically after a successful import or generation, using the configured **Librarian model**.
 
-The inspector presents editable title, tags and notes; primary style and design types; a one-sentence summary and a short intent; aesthetic vocabulary; colour, typography, layout, density, shape, surface, imagery and motion observations; a palette; editable Always/Never guardrails; and an editable generation prompt. Source, checksum, model and analysis provenance are immutable.
+The inspector presents editable title, tags and notes; primary style and design types; a one-sentence summary and a short intent; aesthetic vocabulary; colour, typography, layout, density, shape, surface, imagery and motion observations; a palette; editable Always/Never guardrails; and an editable generation prompt. A generated item also shows its original request last in the inspector. Source, checksum, model and analysis provenance are immutable.
 
 ```ts
 interface LibrarianVisualProfile {
@@ -340,14 +340,15 @@ type MediaCapability =
   | 'text-to-image'
   | 'image-to-image'
   | 'upscale'
-  | 'text-to-video';
+  | 'text-to-video'
+  | 'image-to-video';
 
 interface MediaRequest {
   capability: MediaCapability;
   prompt: string;
   /** Opaque provider model id. Defaults come from settings. */
   model?: string;
-  /** Local source assets for image-to-image and upscale. */
+  /** Local source assets for image-to-image, upscale and image-to-video. */
   sourceAssetIds?: string[];
   aspectRatio?: string;
   seed?: number;
@@ -433,7 +434,7 @@ The key is never placed in reactive state and never returned to the UI. The UI s
 Two entry points, one implementation:
 
 - **Agent tools.** Media tools are passed as `customTools` into the design-generation run and bridged to the main Sero agent. The model decides when to call them.
-- **Explicit actions.** Generate inspiration and Restyle/vary in Library; Generate asset in the Design asset tray.
+- **Explicit actions.** Generate and Remix in Library; Generate asset in the Design asset tray.
 
 Spend protection, all configurable:
 

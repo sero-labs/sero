@@ -20,7 +20,7 @@ export function PendingItemTile({ generation, onDismiss }: PendingItemTileProps)
 
   return (
     <div
-      className={`border-border flex aspect-4/3 flex-col items-center justify-center gap-2 rounded-lg border p-4 text-center ${
+      className={`border-border flex h-full min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-4 text-center ${
         failed ? 'border-destructive/40 bg-destructive/5' : 'bg-muted/40'
       }`}
     >

@@ -26,8 +26,8 @@ interface SelectionBarProps {
   onRestore(): void;
   onPurge(): void;
   onCreateDesign(): void;
-  /** Generate a variation of the one selected reference (D3). */
-  onRestyle(): void;
+  /** Generate new work from the one selected reference (E3). */
+  onRemix(): void;
 }
 
 export function SelectionBar({
@@ -42,7 +42,7 @@ export function SelectionBar({
   onRestore,
   onPurge,
   onCreateDesign,
-  onRestyle,
+  onRemix,
 }: SelectionBarProps) {
   if (selected.length === 0) return null;
   const count = `${selected.length} reference${selected.length === 1 ? '' : 's'} selected`;
@@ -83,10 +83,10 @@ export function SelectionBar({
             </Button>
             {/* One reference only: a variation is made *from* something, and
                 "restyle these four" has no single source to work from. */}
-            {selected.length === 1 && (
-              <Button type="button" variant="ghost" size="sm" onClick={onRestyle}>
+            {selected.length === 1 && selected[0]?.kind === 'image' && (
+              <Button type="button" variant="ghost" size="sm" onClick={onRemix}>
                 <Shuffle className="size-3.5" />
-                Restyle
+                Remix
               </Button>
             )}
             <Button type="button" variant="ghost" size="sm" onClick={onFavourite}>

@@ -2,6 +2,8 @@ import { useAppTools } from '@sero-ai/app-runtime';
 import { useEffect, useState } from 'react';
 
 import type { LibrarianField, LibrarianUserFacingAnalysis } from '../../shared/librarian';
+import type { MediaProvenance } from '../../shared/media';
+import { isMediaCapability } from '../../shared/media';
 
 /**
  * The full analysis behind one item.
@@ -25,6 +27,7 @@ export interface ItemDetail {
   width: number;
   height: number;
   bytes: number;
+  generation?: Pick<MediaProvenance, 'capability' | 'prompt' | 'model'>;
 }
 
 interface DetailPayload {
@@ -35,11 +38,29 @@ function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function parseGeneration(value: unknown): ItemDetail['generation'] {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const generation = value as Record<string, unknown>;
+  if (
+    !isMediaCapability(generation.capability) ||
+    typeof generation.prompt !== 'string' ||
+    typeof generation.model !== 'string'
+  ) {
+    return undefined;
+  }
+  return {
+    capability: generation.capability,
+    prompt: generation.prompt,
+    model: generation.model,
+  };
+}
+
 function parse(details: unknown): ItemDetail | null {
   const item = (details as DetailPayload | undefined)?.item;
   if (!item || typeof item.id !== 'string' || typeof item.analysis !== 'object' || item.analysis === null) {
     return null;
   }
+  const parsedGeneration = parseGeneration((item as Record<string, unknown>).generation);
   return {
     id: item.id,
     analysis: item.analysis as LibrarianUserFacingAnalysis,
@@ -51,6 +72,7 @@ function parse(details: unknown): ItemDetail | null {
     width: num(item.width),
     height: num(item.height),
     bytes: num(item.bytes),
+    ...(parsedGeneration === undefined ? {} : { generation: parsedGeneration }),
   };
 }
 

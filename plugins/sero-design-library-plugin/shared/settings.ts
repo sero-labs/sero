@@ -109,6 +109,7 @@ export const DEFAULT_SETTINGS: DesignLibrarySettings = {
       'image-to-image': '',
       upscale: '',
       'text-to-video': '',
+      'image-to-video': '',
     },
     callsPerRun: 4,
   },

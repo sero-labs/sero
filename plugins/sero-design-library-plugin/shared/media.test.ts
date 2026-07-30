@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DesignAsset } from './media';
-import { assetCostUsd, normalizeDesignAsset } from './media';
+import { assetCostUsd, normalizeDesignAsset, normalizeModelOptions } from './media';
 
 function asset(overrides: Partial<DesignAsset> = {}): DesignAsset {
   return {
@@ -51,5 +51,13 @@ describe('Design reference assets', () => {
         id: 'attempt-1', outcome: 'ready', startedAt: 1, completedAt: 2, file: '../secret',
       }],
     }))?.attempts[0]?.file).toBeUndefined();
+  });
+});
+
+describe('model options', () => {
+  it('keeps explicit aspect-ratio support from the provider schema', () => {
+    expect(normalizeModelOptions({ supportsAspectRatio: false })).toEqual({
+      supportsAspectRatio: false,
+    });
   });
 });

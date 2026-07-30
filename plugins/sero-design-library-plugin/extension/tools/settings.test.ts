@@ -119,7 +119,7 @@ describe('media settings', () => {
     // The other three keep whatever they had, rather than being cleared by a
     // patch that only named one.
     const patch = (queued?.body as { patch: { media: { models: Record<string, string> } } }).patch;
-    expect(Object.keys(patch.media.models)).toHaveLength(4);
+    expect(Object.keys(patch.media.models)).toHaveLength(5);
   });
 
   it('keeps the per-run cap inside its range', async () => {

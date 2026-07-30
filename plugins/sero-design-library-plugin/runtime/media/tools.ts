@@ -23,8 +23,8 @@ import { executeMedia } from './execute';
  * The media capabilities, as tools (spec §8.4, D5).
  *
  * One tool per capability rather than one tool with a mode: the model chooses a
- * *capability* and never an endpoint, and four narrow descriptions say when each
- * is worth using far better than one description covering all four.
+ * *capability* and never an endpoint, and narrow descriptions say when each is
+ * worth using far better than one description covering every operation.
  *
  * The same definitions serve both entry points. Inside a generation run they go
  * in as `customTools` and execute in-process here; for the main Sero agent the
@@ -98,6 +98,20 @@ const SHAPES: Record<MediaCapability, CapabilityShape> = {
       'Generates a short video from a description. This always asks the user first and is the most expensive capability, so use it only when motion is the point.',
     parameters: Type.Object({
       prompt: Type.String({ description: 'What the video should show, including the motion.' }),
+      durationSeconds: Type.Optional(
+        Type.Number({ description: `Seconds of footage, up to ${MAX_VIDEO_SECONDS}.` }),
+      ),
+      aspectRatio: Type.Optional(Type.String()),
+    }),
+  },
+  'image-to-video': {
+    name: 'design_library_animate_image',
+    label: 'Animate Image',
+    summary:
+      'Generates a short video from an existing image. This always asks the user first and is expensive, so use it only when motion is the point.',
+    parameters: Type.Object({
+      prompt: Type.String({ description: 'How the source should move and what the video should show.' }),
+      sourceId: Type.String({ description: 'Id of an asset you generated, or a Library item.' }),
       durationSeconds: Type.Optional(
         Type.Number({ description: `Seconds of footage, up to ${MAX_VIDEO_SECONDS}.` }),
       ),

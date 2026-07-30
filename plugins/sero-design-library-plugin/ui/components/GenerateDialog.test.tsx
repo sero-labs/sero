@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +23,7 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
     <GenerateDialog
       open
       target={{ kind: 'library' }}
-      sources={[{ id: 'item-1', label: 'A warm gradient' }]}
+      sources={[{ id: 'item-1', label: 'A warm gradient', kind: 'image' }]}
       onOpenChange={() => {}}
       onGenerate={onGenerate}
       {...overrides}
@@ -32,16 +32,29 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
   return { onGenerate };
 }
 
-async function chooseCapability(label: string) {
+async function chooseOperation(label: string) {
   await userEvent.click(screen.getByRole('radio', { name: label }));
 }
+
+describe('fresh generation', () => {
+  it('shows only source-free operations and gives the prompt more space', () => {
+    renderDialog();
+
+    expect(screen.getByRole('heading', { name: 'Generate' })).toBeDefined();
+    expect(screen.getByRole('radio', { name: 'New image' })).toBeDefined();
+    expect(screen.getByRole('radio', { name: 'New video' })).toBeDefined();
+    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Upscale' })).toBeNull();
+    expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
+  });
+});
 
 describe('a video model that only makes long clips', () => {
   const longOnly = { 'text-to-video': { durationsSeconds: [20, 40] } };
 
   it('says why, and will not let the generation be started', async () => {
     const { onGenerate } = renderDialog({ modelOptions: longOnly });
-    await chooseCapability('Video');
+    await chooseOperation('New video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.getByText(/shorter/)).toBeDefined();
@@ -54,7 +67,7 @@ describe('a video model that only makes long clips', () => {
 
   it('lets a model through as soon as one length fits', async () => {
     renderDialog({ modelOptions: { 'text-to-video': { durationsSeconds: [5, 20] } } });
-    await chooseCapability('Video');
+    await chooseOperation('New video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.queryByText(/shorter/)).toBeNull();
@@ -62,22 +75,87 @@ describe('a video model that only makes long clips', () => {
   });
 });
 
-describe('a reference the capability cannot use', () => {
-  it('says so rather than dropping it in silence', async () => {
+describe('remixing a reference', () => {
+  it('offers grouped source operations and sends the source to image-to-video', async () => {
     const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
-    // Restyle opens working from the chosen picture; Video cannot use one.
     expect(screen.getByLabelText('Work from')).toBeDefined();
+    expect(screen.getByText('Create new')).toBeDefined();
+    expect(screen.getByText('Edit this reference')).toBeDefined();
+    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Upscale' })).toBeDefined();
 
-    await chooseCapability('Video');
+    await chooseOperation('New video');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
+    await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: 'image-to-video',
+        prompt: 'animate this',
+        sourceId: 'item-1',
+      }),
+    );
+  });
+
+  it('hides aspect ratio when the image-to-video endpoint does not accept it', async () => {
+    const { onGenerate } = renderDialog({
+      initialSourceId: 'item-1',
+      modelOptions: { 'image-to-video': { supportsAspectRatio: false } },
+    });
+    await chooseOperation('New video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
 
-    expect(screen.getByText(/will not be used/)).toBeDefined();
-
-    await userEvent.click(screen.getByRole('button', { name: /Generate/ }));
-    // And what goes out matches what was said: no source on the request.
+    expect(screen.queryByLabelText('Aspect')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
     expect(onGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({ capability: 'text-to-video', prompt: 'animate this' }),
+      expect.not.objectContaining({ aspectRatio: expect.anything() }),
     );
-    expect(onGenerate.mock.calls[0]?.[0].sourceId).toBeUndefined();
+  });
+
+  it('finds a different source in a large Library by typing', async () => {
+    const sources = Array.from({ length: 1_000 }, (_, index) => ({
+      id: `item-${index}`,
+      label: `Reference ${index}`,
+      kind: 'image' as const,
+    }));
+    const { onGenerate } = renderDialog({
+      sources,
+      initialSourceId: 'item-0',
+    });
+
+    const source = screen.getByLabelText('Work from');
+    source.focus();
+    fireEvent.change(source, { target: { value: 'Reference 999' } });
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
+    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'item-999' }),
+    );
+  });
+
+  it('does not offer a video as an image source', () => {
+    renderDialog({
+      sources: [{ id: 'video-1', label: 'A short clip', kind: 'video' }],
+      initialSourceId: 'video-1',
+    });
+
+    expect(screen.getByText('Nothing in the Library to work from yet.')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
+  it('clears the selected source when the combobox is cleared', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    const source = screen.getByLabelText('Work from');
+    await userEvent.clear(source);
+    await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
+
+    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(onGenerate).not.toHaveBeenCalled();
   });
 });

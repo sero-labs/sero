@@ -11,13 +11,19 @@
 import type { MediaKind } from './records';
 import { isSafeId } from './safe-id';
 
-export type MediaCapability = 'text-to-image' | 'image-to-image' | 'upscale' | 'text-to-video';
+export type MediaCapability =
+  | 'text-to-image'
+  | 'image-to-image'
+  | 'upscale'
+  | 'text-to-video'
+  | 'image-to-video';
 
 export const MEDIA_CAPABILITIES: readonly MediaCapability[] = [
   'text-to-image',
   'image-to-image',
   'upscale',
   'text-to-video',
+  'image-to-video',
 ] as const;
 
 export function isMediaCapability(value: unknown): value is MediaCapability {
@@ -25,7 +31,11 @@ export function isMediaCapability(value: unknown): value is MediaCapability {
 }
 
 /** Capabilities that consume local source assets, so callers can check before asking. */
-export const SOURCE_CAPABILITIES: readonly MediaCapability[] = ['image-to-image', 'upscale'] as const;
+export const SOURCE_CAPABILITIES: readonly MediaCapability[] = [
+  'image-to-image',
+  'upscale',
+  'image-to-video',
+] as const;
 
 export function needsSource(capability: MediaCapability): boolean {
   return (SOURCE_CAPABILITIES as readonly string[]).includes(capability);
@@ -33,7 +43,11 @@ export function needsSource(capability: MediaCapability): boolean {
 
 /** The one capability that always costs a confirmation before it runs (D10). */
 export function needsConfirmation(capability: MediaCapability): boolean {
-  return capability === 'text-to-video';
+  return isVideoCapability(capability);
+}
+
+export function isVideoCapability(capability: MediaCapability): boolean {
+  return capability === 'text-to-video' || capability === 'image-to-video';
 }
 
 /**
@@ -81,6 +95,8 @@ export interface MediaModelOptions {
   durationRange?: { min: number; max: number };
   /** The only aspect ratios this model accepts, as `w:h`. */
   aspectRatios?: string[];
+  /** False when the provider schema explicitly has no aspect-ratio input. */
+  supportsAspectRatio?: boolean;
 }
 
 export function normalizeModelOptions(value: unknown): MediaModelOptions {
@@ -100,11 +116,14 @@ export function normalizeModelOptions(value: unknown): MediaModelOptions {
     ...(durations === undefined || durations.length === 0 ? {} : { durationsSeconds: durations }),
     ...(min === undefined || max === undefined || max < min ? {} : { durationRange: { min, max } }),
     ...(ratios === undefined || ratios.length === 0 ? {} : { aspectRatios: ratios }),
+    ...(typeof value.supportsAspectRatio === 'boolean'
+      ? { supportsAspectRatio: value.supportsAspectRatio }
+      : {}),
   };
 }
 
 export function kindFor(capability: MediaCapability): MediaKind {
-  return capability === 'text-to-video' ? 'video' : 'image';
+  return isVideoCapability(capability) ? 'video' : 'image';
 }
 
 export type MediaErrorCode =

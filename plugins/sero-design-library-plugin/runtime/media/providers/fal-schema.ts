@@ -123,6 +123,7 @@ export function parseFalSchema(document: unknown): FalModelSchema {
   return {
     options: {
       ...durationOptions(properties.duration, tokens),
+      supportsAspectRatio: properties.aspect_ratio !== undefined,
       ...(ratios === undefined ? {} : { aspectRatios: ratios }),
     },
     durationTokens: tokens,

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 
 import type { MediaCapability, MediaModelOptions } from '../../../shared/media';
-import { MEDIA_CAPABILITIES, needsSource } from '../../../shared/media';
+import { MEDIA_CAPABILITIES, isVideoCapability, needsSource } from '../../../shared/media';
 import type { MediaContext, MediaProvider, MediaRequest, MediaResult } from '../contract';
 import { MediaError } from '../contract';
 
@@ -24,6 +24,7 @@ const CAPABILITY_MODELS: Record<MediaCapability, string> = {
   'image-to-image': 'fake/image-edit',
   upscale: 'fake/upscale',
   'text-to-video': 'fake/video',
+  'image-to-video': 'fake/image-video',
 };
 
 /** How the fake can be told to fail, for the recovery and retry tests. */
@@ -161,7 +162,7 @@ export function createFakeProvider(options: FakeProviderOptions = {}): MediaProv
 
       const hash = digest(request);
       const model = request.model ?? CAPABILITY_MODELS[request.capability];
-      const isVideo = request.capability === 'text-to-video';
+      const isVideo = isVideoCapability(request.capability);
       const { width, height } = dimensions(request.aspectRatio);
       const bytes = solidPng(width, height, [hash[0], hash[1], hash[2]]);
       const name = `${hash.toString('hex').slice(0, 16)}.${isVideo ? 'mp4' : 'png'}`;

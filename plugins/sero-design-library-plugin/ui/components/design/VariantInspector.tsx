@@ -61,6 +61,7 @@ export interface VariantInspectorProps {
   onCopyAssetToLibrary(assetId: string): void;
   onDeleteAsset(assetId: string): void;
   onGenerateAsset(): void;
+  onRemixAsset(assetId: string): void;
 }
 
 export function VariantInspector({
@@ -81,6 +82,7 @@ export function VariantInspector({
   onCopyAssetToLibrary,
   onDeleteAsset,
   onGenerateAsset,
+  onRemixAsset,
 }: VariantInspectorProps) {
   const [tab, setTab] = useState<TabId>('design');
   const running = variant.status === 'pending' || variant.status === 'running';
@@ -221,6 +223,7 @@ export function VariantInspector({
             onCopyToLibrary={onCopyAssetToLibrary}
             onDelete={onDeleteAsset}
             onGenerate={onGenerateAsset}
+            onRemix={onRemixAsset}
           />
         </TabsContent>
       </Tabs>

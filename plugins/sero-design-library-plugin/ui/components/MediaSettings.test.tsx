@@ -27,6 +27,7 @@ const MEDIA: MediaSettingsValue = {
     'image-to-image': '',
     upscale: '',
     'text-to-video': '',
+    'image-to-video': '',
   },
   callsPerRun: 6,
 };
@@ -107,10 +108,10 @@ describe('media models', () => {
     expect(callsFor('set-media-model')).toHaveLength(0);
   });
 
-  it('shows each capability separately, so one does not stand for all four', () => {
+  it('shows each capability separately, so one does not stand for all five', () => {
     render(<MediaSettings media={MEDIA} />);
 
-    for (const label of ['Image', 'Restyle', 'Upscale', 'Video']) {
+    for (const label of ['Image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
     }
   });

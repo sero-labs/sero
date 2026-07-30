@@ -93,6 +93,15 @@ function renderItem(record: ItemRecord): ToolResult {
       width: record.asset.width ?? 0,
       height: record.asset.height ?? 0,
       bytes: record.asset.bytes,
+      ...(record.generation === undefined
+        ? {}
+        : {
+            generation: {
+              capability: record.generation.capability,
+              prompt: record.generation.prompt,
+              model: record.generation.model,
+            },
+          }),
     },
   });
 }

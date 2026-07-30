@@ -17,6 +17,18 @@ import { PendingItemTile } from './PendingItemTile';
 
 
 describe('the tile', () => {
+  it('fills the grid row like a completed reference card', () => {
+    const { container } = render(
+      <PendingItemTile
+        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined }}
+        onDismiss={vi.fn()}
+      />,
+    );
+
+    expect(container.firstElementChild?.classList.contains('h-full')).toBe(true);
+    expect(container.firstElementChild?.classList.contains('aspect-4/3')).toBe(false);
+  });
+
   it('says something is coming, and announces it', () => {
     render(
       <PendingItemTile

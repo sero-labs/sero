@@ -345,4 +345,27 @@ describe('executeMedia', () => {
 
     expect(attempt.error).toEqual({ code: 'rate-limit', message: 'Slow down.', retryable: true });
   });
+
+  it('refuses a video used where an image source is required', async () => {
+    const provider = createFakeProvider();
+    const attempt = await executeMedia(
+      provider,
+      { capability: 'image-to-video', prompt: 'move', sourceAssetIds: ['video-1'] },
+      {
+        directory,
+        signal: new AbortController().signal,
+        readAsset: async () => ({
+          path: '/tmp/source.mp4',
+          bytes: new Uint8Array(),
+          mediaType: 'video/mp4',
+        }),
+      },
+    );
+
+    expect(attempt.error).toEqual({
+      code: 'invalid-request',
+      message: 'image-to-video needs an image source.',
+      retryable: false,
+    });
+  });
 });
