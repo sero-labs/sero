@@ -82,10 +82,7 @@ export function SettingsPage({ state }: SettingsPageProps) {
   return (
     <ScrollArea className="min-h-0 flex-1">
       <div className="mx-auto max-w-3xl">
-        <SettingsSection
-          title="Librarian model"
-          description="Reads each reference and writes its design language. Leave empty to follow Sero's configured model."
-        >
+        <SettingsSection title="Librarian model">
           <AvailableModelPicker
             groups={groups}
             value={modelKeyOf(settings.librarianModel)}
@@ -95,10 +92,7 @@ export function SettingsPage({ state }: SettingsPageProps) {
           />
         </SettingsSection>
 
-        <SettingsSection
-          title="Design model"
-          description="Generates, revises and authors tweaks. Leave empty to follow Sero's configured model."
-        >
+        <SettingsSection title="Design model">
           <AvailableModelPicker
             groups={groups}
             value={modelKeyOf(settings.designModel)}

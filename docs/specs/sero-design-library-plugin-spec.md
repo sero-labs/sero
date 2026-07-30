@@ -487,12 +487,13 @@ All settings persist to plugin state.
 
 - **Librarian model** — used for analysis. `AvailableModelPicker` fed by `useAvailableModels()`, empty meaning "use Sero's configured model".
 - **Design model** — used for generation, revision and tweak authoring. Same control and default.
+- The model controls do not add help text below their labels.
 
 **Media**
 
 - Active provider and its credential status (`env | stored | missing`).
-- One editable model id per capability, pre-filled with a sensible default.
-- Maximum media calls per generation run.
+- One shared Sero Select per capability. Choices come from a provider-neutral catalogue backed by the active provider's API. The empty choice uses the provider default.
+- Maximum media calls per generation run, set with the same bounded stepper as Create Design variants.
 - Video confirmation (on by default).
 
 **Layout** (persisted, not user-editable in a settings form)

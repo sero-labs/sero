@@ -4,13 +4,15 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { clearFalKey, falKeyStatus, storeFalKey } from '../../shared/credentials';
+import { clearFalKey, falKeyStatus, resolveFalKey, storeFalKey } from '../../shared/credentials';
+import type { MediaModelCatalog } from '../../shared/media-model-catalog';
 import { MEDIA_CAPABILITIES, type MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { DesignLibrarySettings, PromptRecipe } from '../../shared/settings';
 import { MAX_CALLS_PER_RUN } from '../../shared/settings';
 import { appendRequest, readState } from '../../shared/state-io';
 import type { ViewPatch } from '../../shared/types';
+import { createFalMediaModelCatalog } from '../fal-media-model-catalog';
 import { failure, text, type ToolResult } from './result';
 
 /**
@@ -35,6 +37,7 @@ const ACTIONS = [
   'set-layout',
   'set-view',
   'set-media-model',
+  'list-media-models',
   'set-media-cap',
   'key-status',
   'store-key',
@@ -67,7 +70,13 @@ function renderSettings(settings: DesignLibrarySettings): ToolResult {
   return text(lines.join('\n'), { settings });
 }
 
-export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
+export function registerSettingsTool(
+  pi: ExtensionAPI,
+  paths: DesignLibraryPaths,
+  mediaModelCatalog: MediaModelCatalog = createFalMediaModelCatalog({
+    credentials: () => resolveFalKey(paths),
+  }),
+): void {
   pi.registerTool({
     name: 'design_library_settings',
     label: 'Design Library Settings',
@@ -100,7 +109,7 @@ export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths
       ),
       key: Type.Optional(Type.String({ description: 'Provider key, for `store-key`' })),
     }),
-    async execute(_toolCallId, params): Promise<ToolResult> {
+    async execute(_toolCallId, params, signal): Promise<ToolResult> {
       const state = await readState(paths);
       const settings = state.settings;
 
@@ -219,6 +228,11 @@ export function registerSettingsTool(pi: ExtensionAPI, paths: DesignLibraryPaths
               ? `${params.capability} now uses the adapter's default model.`
               : `${params.capability} now uses ${modelId}.`,
           );
+        }
+
+        case 'list-media-models': {
+          const models = await mediaModelCatalog.list(signal);
+          return text('Media models loaded.', { models });
         }
 
         case 'set-media-cap': {

@@ -39,7 +39,25 @@ function callsFor(action: string) {
 
 beforeEach(() => {
   run.mockReset();
-  run.mockResolvedValue({ content: [], details: { status: 'missing' } });
+  run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => ({
+    content: [],
+    details:
+      params.action === 'list-media-models'
+        ? {
+            models: {
+              'text-to-image': [
+                { id: 'fal-ai/flux/dev', label: 'FLUX Dev · fal-ai/flux/dev' },
+                { id: 'fal-ai/flux/schnell', label: 'FLUX Schnell · fal-ai/flux/schnell' },
+              ],
+              'reference-to-image': [],
+              'image-to-image': [],
+              upscale: [],
+              'text-to-video': [],
+              'image-to-video': [],
+            },
+          }
+        : { status: 'missing' },
+  }));
 });
 
 describe('the provider key', () => {
@@ -84,34 +102,31 @@ describe('the provider key', () => {
 });
 
 describe('media models', () => {
-  it('commits an endpoint id when the field is done, not on every keystroke', async () => {
+  it('loads provider choices and saves the selected opaque model id', async () => {
     render(<MediaSettings media={MEDIA} />);
 
-    const field = screen.getByLabelText('Video');
-    await userEvent.type(field, 'veo/fast');
-    // A model id is meaningless half-written; a per-keystroke write would queue
-    // eight settings updates for values that were never a real endpoint.
-    expect(callsFor('set-media-model')).toHaveLength(0);
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
+    await userEvent.click(screen.getByLabelText('Image'));
+    await userEvent.click(screen.getByRole('option', { name: /FLUX Schnell/ }));
 
-    await userEvent.tab();
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
-      capability: 'text-to-video',
-      mediaModel: 'veo/fast',
+      capability: 'text-to-image',
+      mediaModel: 'fal-ai/flux/schnell',
     });
   });
 
-  it('writes nothing when the value comes back unchanged', async () => {
+  it('keeps a saved model that the provider no longer lists', async () => {
     render(<MediaSettings media={MEDIA} />);
 
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     await userEvent.click(screen.getByLabelText('Image'));
-    await userEvent.tab();
-
-    expect(callsFor('set-media-model')).toHaveLength(0);
+    expect(screen.getByRole('option', { name: 'flux/dev' })).toBeDefined();
   });
 
-  it('shows each capability separately', () => {
+  it('shows each capability separately', async () => {
     render(<MediaSettings media={MEDIA} />);
 
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
     for (const label of ['Image', 'Reference image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
     }
@@ -119,15 +134,11 @@ describe('media models', () => {
 });
 
 describe('the per-run cap', () => {
-  it('refuses a value outside the range instead of storing it', async () => {
+  it('uses the bounded stepper to update the cap', async () => {
     render(<MediaSettings media={MEDIA} />);
-    const field = screen.getByLabelText('Media calls per run');
+    await userEvent.click(screen.getByRole('button', { name: 'One more media call' }));
 
-    await userEvent.clear(field);
-    await userEvent.type(field, '99');
-
-    // 9 is in range and is written; 99 is not and is not.
     const written = callsFor('set-media-cap').map(([, params]) => params?.callsPerRun);
-    expect(written).not.toContain(99);
+    expect(written).toEqual([7]);
   });
 });
