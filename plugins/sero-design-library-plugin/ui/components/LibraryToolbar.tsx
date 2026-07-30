@@ -83,11 +83,15 @@ function FacetMenu<Value extends string>({
         <ComboboxEmpty>No options found</ComboboxEmpty>
         <ComboboxList>
           {(item) => (
-            <ComboboxItem key={item.value} value={item}>
+            <ComboboxItem
+              key={item.value}
+              value={item}
+              className={showColourSwatch ? 'gap-3 py-1' : undefined}
+            >
               {showColourSwatch && (
                 <span
                   aria-hidden="true"
-                  className="border-border h-4 w-8 shrink-0 border"
+                  className="min-h-8 w-12 shrink-0 self-stretch"
                   style={{ backgroundColor: item.value }}
                 />
               )}

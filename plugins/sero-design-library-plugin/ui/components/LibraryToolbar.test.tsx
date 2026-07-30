@@ -65,8 +65,11 @@ describe('large Library facets', () => {
     const option = screen.getByRole('option', { name: '#03090c' });
     const swatch = option.querySelector('[aria-hidden="true"]');
     expect(swatch?.getAttribute('style')).toContain('background-color: rgb(3, 9, 12)');
-    expect(swatch?.className).toContain('w-8');
-    expect(swatch?.className).toContain('h-4');
+    expect(swatch?.className).toContain('w-12');
+    expect(swatch?.className).toContain('min-h-8');
+    expect(swatch?.className).toContain('self-stretch');
+    expect(swatch?.className).not.toContain('border');
     expect(swatch?.className).toContain('shrink-0');
+    expect(option.className).toContain('gap-3');
   });
 });
