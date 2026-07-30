@@ -44,6 +44,7 @@ interface FacetMenuProps<Value extends string> {
   label: string;
   options: Value[];
   selected: Value[];
+  showColourSwatch?: boolean;
   onChange(values: Value[]): void;
 }
 
@@ -51,6 +52,7 @@ function FacetMenu<Value extends string>({
   label,
   options,
   selected,
+  showColourSwatch = false,
   onChange,
 }: FacetMenuProps<Value>) {
   const [open, setOpen] = useState(false);
@@ -82,7 +84,14 @@ function FacetMenu<Value extends string>({
         <ComboboxList>
           {(item) => (
             <ComboboxItem key={item.value} value={item}>
-              {item.label}
+              {showColourSwatch && (
+                <span
+                  aria-hidden="true"
+                  className="border-border size-4 shrink-0 rounded-sm border"
+                  style={{ backgroundColor: item.value }}
+                />
+              )}
+              <span className={showColourSwatch ? 'font-mono' : undefined}>{item.label}</span>
             </ComboboxItem>
           )}
         </ComboboxList>
@@ -138,6 +147,7 @@ export function LibraryToolbar({
         label="Colour"
         options={facets.colours}
         selected={filters.colours}
+        showColourSwatch
         onChange={(values) => onFiltersChange({ ...filters, colours: values })}
       />
       <FacetMenu

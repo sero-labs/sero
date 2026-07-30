@@ -26,7 +26,7 @@ describe('large Library facets', () => {
         facets={{
           styles: Array.from({ length: 1_000 }, (_, index) => `Style ${index}`),
           tags: [],
-          colours: [],
+          colours: ['#03090c', '#f4a261'],
           sourceKinds: [],
         }}
         sort="newest"
@@ -45,5 +45,26 @@ describe('large Library facets', () => {
 
     expect(onFiltersChange).toHaveBeenCalledWith({ ...FILTERS, styles: ['Style 999'] });
     expect(screen.getByRole('listbox')).toBeDefined();
+  });
+
+  it('shows aligned previews beside colour codes', async () => {
+    render(
+      <LibraryToolbar
+        query=""
+        filters={FILTERS}
+        facets={{ styles: [], tags: [], colours: ['#03090c', '#f4a261'], sourceKinds: [] }}
+        sort="newest"
+        onQueryChange={() => {}}
+        onFiltersChange={() => {}}
+        onSortChange={() => {}}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Colour' }));
+
+    const option = screen.getByRole('option', { name: '#03090c' });
+    const swatch = option.querySelector('[aria-hidden="true"]');
+    expect(swatch?.getAttribute('style')).toContain('background-color: rgb(3, 9, 12)');
+    expect(swatch?.className).toContain('shrink-0');
   });
 });
