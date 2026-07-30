@@ -19,6 +19,14 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 import type { SettingsPackageSource } from '../src/types/ipc';
 
+// electron-builder's `productName: Sero` only names the packaged macOS app
+// bundle. In dev mode (`electron .`), the process name — and so the macOS
+// menu bar app name — falls back to package.json's `name` field
+// (`@sero/desktop`), which Electron then mangles to "Electron". Setting it
+// explicitly here fixes the menu bar in both dev and packaged builds, and
+// must run before `app.whenReady()`.
+app.setName('Sero');
+
 // ── Per-profile Chromium userData isolation ──────────────────
 // Set userData path BEFORE app.whenReady() so Chromium initialises with the
 // correct directory. This isolates cookies, localStorage, caches, and
