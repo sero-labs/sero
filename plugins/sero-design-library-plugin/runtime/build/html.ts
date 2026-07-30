@@ -33,6 +33,7 @@ export function buildHtmlDocument(
   tweakVariables: readonly string[] = [],
   assembleDocument: (input: PreviewDocumentInput) => string = assemblePreviewDocument,
   supplementalStyles: readonly string[] = [],
+  rootVariables?: Readonly<Record<string, string>>,
 ): BuildResult {
   const warnings: string[] = [];
   const byName = new Map(files.map((file) => [file.name, file.content]));
@@ -115,6 +116,7 @@ export function buildHtmlDocument(
       scripts: inlinedScripts,
       body,
       tweakVariables,
+      rootVariables,
     }),
     warnings,
   };

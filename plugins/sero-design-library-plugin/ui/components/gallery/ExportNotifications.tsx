@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import type { ExportSummary } from '../../../shared/export';
-import { showItemInFolder } from '../../lib/host-files';
+import { canShowItemInFolder, showItemInFolder } from '../../lib/host-files';
 
 const TOASTER_ID = 'design-library-exports';
 
@@ -18,7 +18,7 @@ async function openExport(summary: ExportSummary, workspaceId: string): Promise<
   if (!opened) await showItemInFolder(summary.path);
 }
 
-export function notifyExport(summary: ExportSummary, workspaceId: string): void {
+function notifyExport(summary: ExportSummary, workspaceId: string): void {
   const options = { id: summary.id, toasterId: TOASTER_ID };
   if (summary.status === 'running') {
     toast.loading('Exporting saved version…', options);
@@ -33,10 +33,14 @@ export function notifyExport(summary: ExportSummary, workspaceId: string): void 
     {
       ...options,
       duration: 10_000,
-      action: {
-        label: summary.destination === 'downloads' ? 'Open folder' : 'Open in Explorer',
-        onClick: () => void openExport(summary, workspaceId),
-      },
+      ...(canShowItemInFolder()
+        ? {
+            action: {
+              label: summary.destination === 'downloads' ? 'Open folder' : 'Open in Explorer',
+              onClick: () => void openExport(summary, workspaceId),
+            },
+          }
+        : {}),
     },
   );
 }

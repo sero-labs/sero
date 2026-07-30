@@ -198,7 +198,7 @@ Each export contains:
 - `effective-tweaks.css` — the saved values as ordinary CSS;
 - `design-library.json` — Gallery provenance, dependencies, Tweaks and file checksums.
 
-Export verifies the saved Gallery files before it writes. It never regenerates and never reads the mutable source Design. The page runs without Sero or the Tweaks panel. CSS motion also follows the operating system's reduced-motion preference.
+Export verifies the saved Gallery files before it writes. It never regenerates and never reads the mutable source Design. The page applies the saved Tweak values directly and runs without Sero or the Tweaks panel. CSS motion also follows the operating system's reduced-motion preference.
 
 ## Generating references
 

@@ -114,17 +114,21 @@ async function validateWorkspaceDestination(
   return manifest;
 }
 
-async function commitExport(
+type RemoveDirectory = (target: string, options: { recursive: true; force: true }) => Promise<void>;
+
+/** @internal Exported only so backup cleanup failure can be tested directly. */
+export async function commitExport(
   temporary: string,
   destination: string,
   replaceExisting: boolean,
+  remove: RemoveDirectory = rm,
 ): Promise<void> {
   if (!replaceExisting) {
     await rename(temporary, destination);
     return;
   }
   const backup = `${temporary}.previous`;
-  await rm(backup, { recursive: true, force: true });
+  await remove(backup, { recursive: true, force: true });
   await rename(destination, backup);
   try {
     await rename(temporary, destination);
@@ -132,7 +136,9 @@ async function commitExport(
     await rename(backup, destination);
     throw error;
   }
-  await rm(backup, { recursive: true, force: true });
+  // The destination is complete at this point. Backup cleanup is best effort;
+  // it must not turn a successful export into a reported failure.
+  await remove(backup, { recursive: true, force: true }).catch(() => undefined);
 }
 
 async function verifiedFile(
@@ -230,7 +236,8 @@ export async function runGalleryExport(
     const built = await buildStandaloneDocument(
       version.target,
       emitted,
-      [fonts.css, tweakCss].filter((value) => value !== ''),
+      fonts.css === '' ? [] : [fonts.css],
+      version.effectiveTweakValues,
     );
     if (!built.document) throw new Error('The saved source could not be built as a standalone page.');
 

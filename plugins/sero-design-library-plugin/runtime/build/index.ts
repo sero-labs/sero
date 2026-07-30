@@ -49,8 +49,13 @@ export async function buildStandaloneDocument(
   target: OutputTarget,
   files: EmittedFile[],
   supplementalStyles: readonly string[] = [],
+  rootVariables: Readonly<Record<string, string>> = {},
 ): Promise<BuildResult> {
   return target === 'html'
-    ? buildHtmlDocument(files, [], assembleStandaloneOutput, supplementalStyles)
-    : buildReactDocument(files, { assembleDocument: assembleStandaloneOutput, supplementalStyles });
+    ? buildHtmlDocument(files, [], assembleStandaloneOutput, supplementalStyles, rootVariables)
+    : buildReactDocument(files, {
+      assembleDocument: assembleStandaloneOutput,
+      supplementalStyles,
+      rootVariables,
+    });
 }

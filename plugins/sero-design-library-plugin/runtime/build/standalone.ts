@@ -23,6 +23,14 @@ function inlineStyle(css: string): string {
   return css.replace(/<\/style/gi, '<\\/style');
 }
 
+function rootStyle(variables: Readonly<Record<string, string>>): string {
+  const declarations: string[] = [];
+  for (const [name, value] of Object.entries(variables)) {
+    if (/^--[A-Za-z0-9_-]+$/.test(name)) declarations.push(`${name}: ${value}`);
+  }
+  return declarations.join('; ');
+}
+
 /** Assemble a runnable document with no preview harness or Tweaks channel. */
 export function assembleStandaloneDocument(input: PreviewDocumentInput): string {
   const styles = [...input.styles, REDUCED_MOTION_CSS]
@@ -33,9 +41,10 @@ export function assembleStandaloneDocument(input: PreviewDocumentInput): string 
       script.trim() === '' ? [] : [`<script>\n${inlineScript(script)}\n</script>`],
     )
     .join('\n');
+  const rootVariables = rootStyle(input.rootVariables ?? {});
 
   return `<!doctype html>
-<html lang="en">
+<html lang="en"${rootVariables === '' ? '' : ` style="${escapeHtml(rootVariables)}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

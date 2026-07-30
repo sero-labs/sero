@@ -77,8 +77,10 @@ export interface ReactBuildOptions {
   tweakVariables?: readonly string[];
   /** Different final wrapper for an export, which has no preview harness. */
   assembleDocument?: (input: PreviewDocumentInput) => string;
-  /** Trusted CSS applied after the generated stylesheet. */
+  /** Trusted standalone CSS, such as bundled local font faces. */
   supplementalStyles?: readonly string[];
+  /** Trusted custom properties baked onto a standalone document root. */
+  rootVariables?: Readonly<Record<string, string>>;
 }
 
 async function readTailwindRuntime(): Promise<string> {
@@ -233,6 +235,7 @@ export async function buildReactDocument(
           : `<style type="text/tailwindcss">\n${custom.replace(/<\/style/gi, '<\\/style')}\n</style>`,
       body: '<div id="root"></div>',
       tweakVariables: options.tweakVariables ?? [],
+      rootVariables: options.rootVariables,
     }),
     warnings,
   };

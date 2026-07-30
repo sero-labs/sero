@@ -28,6 +28,8 @@ export interface PreviewDocumentInput {
   body: string;
   /** Extra `<head>` content the target needs — the Tailwind compiler, say. */
   head?: string;
+  /** Trusted values baked onto the root element by standalone exports. */
+  rootVariables?: Readonly<Record<string, string>>;
   /**
    * Custom properties this revision's tweak manifest declared. The document
    * accepts a live value for these and for nothing else (spec §6.5).

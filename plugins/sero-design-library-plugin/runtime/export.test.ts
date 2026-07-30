@@ -13,6 +13,7 @@ import { tweakCssBlock, type TweakManifest } from '../shared/tweaks';
 import { TEST_BRIEF } from './test-fixtures';
 import {
   EXPORT_MANIFEST_FILE,
+  commitExport,
   runGalleryExport,
   type DesignLibraryExportManifest,
 } from './export';
@@ -107,7 +108,7 @@ describe('standalone Gallery export', () => {
     await expect(access(path.join(output, 'fonts/inter-latin.woff2'))).resolves.toBeUndefined();
     await expect(readFile(path.join(output, 'effective-tweaks.css'), 'utf8')).resolves.toContain('--signal: #ff0000');
     const page = await readFile(path.join(output, 'index.html'), 'utf8');
-    expect(page).toContain('--signal: #ff0000');
+    expect(page).toContain('style="--signal: #ff0000; --font-family: Inter, system-ui, sans-serif"');
     expect(page).toContain('assets/art.image');
     expect(page).toContain('prefers-reduced-motion: reduce');
     expect(page).not.toContain('sero-design-preview');
@@ -149,6 +150,26 @@ describe('standalone Gallery export', () => {
     const manifest = await readJsonFile<DesignLibraryExportManifest>(path.join(second, EXPORT_MANIFEST_FILE));
     expect(manifest?.exportId).toBe('exp-new');
     await expect(access(path.join(second, 'obsolete.txt'))).rejects.toThrow();
+  });
+
+  it('keeps a completed replacement when backup cleanup fails', async () => {
+    const temporary = path.join(workspace, '.signal-ledger.tmp');
+    const destination = path.join(workspace, 'signal-ledger');
+    await Promise.all([mkdir(temporary, { recursive: true }), mkdir(destination, { recursive: true })]);
+    await Promise.all([
+      writeFile(path.join(temporary, 'new.txt'), 'new export', 'utf8'),
+      writeFile(path.join(destination, 'old.txt'), 'old export', 'utf8'),
+    ]);
+    let removeCalls = 0;
+
+    await expect(commitExport(temporary, destination, true, async (target, options) => {
+      removeCalls += 1;
+      if (removeCalls === 2) throw new Error('cleanup denied');
+      await rm(target, options);
+    })).resolves.toBeUndefined();
+
+    await expect(readFile(path.join(destination, 'new.txt'), 'utf8')).resolves.toBe('new export');
+    await expect(readFile(`${temporary}.previous/old.txt`, 'utf8')).resolves.toBe('old export');
   });
 
   it('does not replace an unrelated workspace folder with the same name', async () => {

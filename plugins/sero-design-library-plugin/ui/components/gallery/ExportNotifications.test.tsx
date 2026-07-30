@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   error: vi.fn(),
   openSeroFile: vi.fn(),
   showItemInFolder: vi.fn(),
+  canShowItemInFolder: vi.fn(),
 }));
 
 vi.mock('@sero-ai/ui', () => ({
@@ -25,7 +26,10 @@ vi.mock('sonner', () => ({
   },
 }));
 vi.mock('@sero-ai/app-runtime', () => ({ openSeroFile: mocks.openSeroFile }));
-vi.mock('../../lib/host-files', () => ({ showItemInFolder: mocks.showItemInFolder }));
+vi.mock('../../lib/host-files', () => ({
+  canShowItemInFolder: mocks.canShowItemInFolder,
+  showItemInFolder: mocks.showItemInFolder,
+}));
 
 function summary(overrides: Partial<ExportSummary> = {}): ExportSummary {
   return {
@@ -52,6 +56,7 @@ describe('export notifications', () => {
     vi.clearAllMocks();
     mocks.openSeroFile.mockResolvedValue(true);
     mocks.showItemInFolder.mockResolvedValue(undefined);
+    mocks.canShowItemInFolder.mockReturnValue(true);
   });
 
   it('updates one notification from progress to a clickable Downloads result', async () => {
@@ -98,5 +103,21 @@ describe('export notifications', () => {
       expect.objectContaining({ id: 'exp-1' }),
     ));
     expect(mocks.success).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { destination: 'downloads' as const, path: '/Downloads/signal' },
+    { destination: 'workspace' as const, path: '/workspace/signal' },
+  ])('does not offer a $destination action when the host cannot open files', async ({
+    destination,
+    path,
+  }) => {
+    mocks.canShowItemInFolder.mockReturnValue(false);
+    render(<ExportNotifications summary={summary({
+      destination, status: 'succeeded', path, completedAt: 2,
+    })} workspaceId="ws-1" />);
+
+    await waitFor(() => expect(mocks.success).toHaveBeenCalledOnce());
+    expect(mocks.success.mock.calls[0]?.[1]).not.toHaveProperty('action');
   });
 });
