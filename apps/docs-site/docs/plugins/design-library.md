@@ -172,9 +172,11 @@ Choose **Save to Gallery** when a Design revision is worth keeping. The save con
 
 Each Design has one Gallery family. Saving it again adds another immutable version to the same card and makes the new version featured. Use the version selector to inspect an older save or feature it again.
 
+The Gallery rail shows live family totals for all designs, favourites, recent saves, and Trash. The Gallery tab shows the same family total. Search works like Library search and narrows live Gallery items and Trash by title.
+
 | Action | What it does |
 | --- | --- |
-| Open Design | Opens the source Design at the exact saved revision |
+| Open icon | Opens the source Design at the exact saved revision |
 | Duplicate | Creates an exact editable copy in a new family |
 | Remix | Opens generation with the saved brief and references filled in |
 | Delete version | Moves one saved version to Gallery Trash |

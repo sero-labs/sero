@@ -65,10 +65,7 @@ export function DesignLibraryApp() {
   const backToLibrary = () => navigateWithTransition(() => library.actions.select(undefined));
 
   const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
-  const galleryVersionCount = gallery.families.reduce(
-    (total, family) => total + family.versions.filter((version) => version.deletedAt === undefined).length,
-    0,
-  );
+  const galleryFamilyCount = gallery.families.length;
 
   // Videos generated while Sero was closed have no stills yet, and the runtime
   // cannot make them. Done here rather than on the Library page so it keeps
@@ -136,7 +133,7 @@ export function DesignLibraryApp() {
             }}
           >
             Gallery
-            <span className="text-muted-foreground tabular-nums">{galleryVersionCount}</span>
+            <span className="text-muted-foreground tabular-nums">{galleryFamilyCount}</span>
           </Button>
           <Button
             type="button"

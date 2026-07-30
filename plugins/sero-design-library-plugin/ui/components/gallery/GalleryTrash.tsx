@@ -7,9 +7,11 @@ import { useVisible } from '../../hooks/useVisible';
 
 export function GalleryTrash({
   families,
+  query,
   actions,
 }: {
   families: GalleryFamilyRecord[];
+  query: string;
   actions: GalleryActions;
 }) {
   const entries = families.flatMap<TrashEntry>((family) =>
@@ -22,9 +24,24 @@ export function GalleryTrash({
   if (entries.length === 0) {
     return <p className="text-muted-foreground px-6 py-24 text-center text-sm">Gallery Trash is empty.</p>;
   }
+  const needle = query.trim().toLowerCase();
+  const visible = needle === ''
+    ? entries
+    : entries.filter(
+        (entry) =>
+          entry.family.title.toLowerCase().includes(needle) ||
+          (entry.kind === 'version' && entry.version.title.toLowerCase().includes(needle)),
+      );
+  if (visible.length === 0) {
+    return (
+      <p className="text-muted-foreground px-6 py-24 text-center text-sm">
+        No Gallery Trash entry matches.
+      </p>
+    );
+  }
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4 p-5">
-      {entries.map((entry) => (
+      {visible.map((entry) => (
         <TrashCard
           key={entry.kind === 'family' ? entry.family.id : entry.version.id}
           entry={entry}
