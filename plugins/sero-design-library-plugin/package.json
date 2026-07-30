@@ -55,7 +55,8 @@
         "design_library_analysis",
         "design_library_designs",
         "design_library_media",
-        "design_library_gallery"
+        "design_library_gallery",
+        "design_library_export"
       ]
     }
   },
@@ -72,6 +73,7 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "sonner": "^2.0.7",
     "typebox": "catalog:"
   },
   "peerDependencies": {

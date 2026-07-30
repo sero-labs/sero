@@ -181,6 +181,25 @@ Each Design has one Gallery family. Saving it again adds another immutable versi
 
 Deleted versions and families remain recoverable until you delete them permanently from Gallery Trash. Each version owns its files and artwork, so deleting the source Design, a Design asset or a Library reference cannot change the saved result.
 
+### Exporting a saved version
+
+Open a Gallery card's action menu and choose **Export to Downloads** or **Export to workspace**. Export always uses the version selected on that card. It does not use the featured version unless that is the selected one.
+
+The workspace destination creates one folder named after the Design at the active workspace root. Exporting that Design again replaces its earlier managed export. Design Library does not replace an unrelated folder with the same name. The Downloads destination creates the design folder in your Downloads directory.
+
+Export progress and completion appear in a compact notification. Use its action to show a Downloads export in your file manager or open a workspace export in Sero Explorer.
+
+Each export contains:
+
+- `index.html` — the runnable standalone page;
+- `source/` — the exact files saved in Gallery;
+- `assets/` — every piece of artwork the page uses;
+- `fonts/` — any selected Design fonts;
+- `effective-tweaks.css` — the saved values as ordinary CSS;
+- `design-library.json` — Gallery provenance, dependencies, Tweaks and file checksums.
+
+Export verifies the saved Gallery files before it writes. It never regenerates and never reads the mutable source Design. The page applies the saved Tweak values directly and runs without Sero or the Tweaks panel. CSS motion also follows the operating system's reduced-motion preference.
+
 ## Generating references
 
 You can also generate straight into the Library, from the **Generate** button in the header.
@@ -244,6 +263,7 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_designs` | List and read designs, preview the combined guardrails, start a design from named references, retry, stop or revise a variant, switch or delete revisions, and set tweak values |
 | `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
 | `design_library_gallery` | List saved families, read versions, open or duplicate an exact revision, feature versions, and manage Gallery Trash |
+| `design_library_export` | Export an exact Gallery version to Downloads or the active workspace, and read export status |
 
 Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 

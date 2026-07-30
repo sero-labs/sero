@@ -23,6 +23,7 @@ import { mediaModelsChanged, refreshMediaOptions } from './media/options';
 import { createMediaProviderForRun } from './media/provider';
 import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
+import { ExportRequests, isExportRequest } from './export-requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
@@ -52,10 +53,10 @@ export class Coordinator {
   private readonly mediaQueue: MediaQueue;
   private readonly media: MediaRequests;
   private readonly gallery: GalleryRequests;
+  private readonly exports: ExportRequests;
   private draining = false;
   private drainAgain = false;
-  /** Best-effort option reads in flight, so disposal waits for their writes. */
-  private readonly optionsRefreshes = new Set<Promise<void>>();
+  private readonly optionsRefreshes = new Set<Promise<void>>(); // Disposal waits for these writes.
   private readonly shutdown = new AbortController();
 
   constructor(private readonly context: CoordinatorContext) {
@@ -83,6 +84,7 @@ export class Coordinator {
     });
     this.media = new MediaRequests(context.paths, this.mediaQueue);
     this.gallery = new GalleryRequests(context.paths);
+    this.exports = new ExportRequests(context.paths, context.host.workspace);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -226,6 +228,11 @@ export class Coordinator {
 
     if (isGalleryRequest(body)) {
       await this.gallery.apply(body);
+      return;
+    }
+
+    if (isExportRequest(body)) {
+      await this.exports.apply(body);
       return;
     }
 

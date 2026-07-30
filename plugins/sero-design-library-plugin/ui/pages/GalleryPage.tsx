@@ -34,7 +34,6 @@ export function GalleryPage({ families, trash, actions, onOpened, onRemix, error
     (total, family) => total + family.versions.filter((version) => version.deletedAt === undefined).length,
     0,
   );
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-border flex items-end gap-4 border-b px-5 py-5">
@@ -89,6 +88,9 @@ export function GalleryPage({ families, trash, actions, onOpened, onRemix, error
                   });
                 }}
                 onRemix={(versionId) => onRemix(family.id, versionId)}
+                onExport={(versionId, destination) => {
+                  void actions.exportVersion(family.id, versionId, destination);
+                }}
                 onFavourite={(favourite) => void actions.favourite(family.id, favourite)}
                 onDelete={() => void actions.removeFamily(family.id)}
                 onDeleteVersion={(versionId) => void actions.removeVersion(family.id, versionId)}

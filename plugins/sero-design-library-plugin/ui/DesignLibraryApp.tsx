@@ -21,6 +21,7 @@ import { ItemPage } from './pages/ItemPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GalleryPage } from './pages/GalleryPage';
+import { ExportNotifications } from './components/gallery/ExportNotifications';
 
 /**
  * The Design Library shell.
@@ -229,6 +230,11 @@ export function DesignLibraryApp() {
           transitionName={REFERENCE_TRANSITION_NAME}
         />
       )}
+
+      <ExportNotifications
+        summary={gallery.latestExport}
+        workspaceId={gallery.latestExportWorkspaceId ?? ''}
+      />
 
       {creatingFrom !== null && (
         <CreateDesignDialog

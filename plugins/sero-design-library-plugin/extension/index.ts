@@ -15,6 +15,7 @@ import { resolveDesignLibraryPaths } from '../shared/paths';
 import { registerAnalysisTool } from './tools/analysis';
 import { registerAssetTool } from './tools/assets';
 import { registerDesignTool } from './tools/designs';
+import { registerExportTool } from './tools/export';
 import { registerItemTool } from './tools/items';
 import { registerMediaTool } from './tools/media';
 import { registerGalleryTool } from './tools/gallery';
@@ -27,6 +28,7 @@ export default function designLibraryExtension(pi: ExtensionAPI): void {
   registerItemTool(pi, paths);
   registerAnalysisTool(pi, paths);
   registerDesignTool(pi, paths);
+  registerExportTool(pi, paths);
   registerMediaTool(pi, paths);
   registerGalleryTool(pi, paths);
   registerSettingsTool(pi, paths);

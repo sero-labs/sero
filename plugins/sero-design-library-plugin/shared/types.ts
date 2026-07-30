@@ -10,6 +10,8 @@
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
 import { normalizeDesignSummary } from './design-summary';
+import type { ExportSummary } from './export';
+import { normalizeExportSummary } from './export';
 import type { GalleryFamilyRecord } from './gallery';
 import { normalizeGalleryFamily } from './gallery';
 import type { MediaCapability, MediaModelOptions } from './media';
@@ -164,6 +166,7 @@ export interface DesignLibraryState {
   items: ItemSummary[];
   designs: DesignSummary[];
   galleryFamilies: GalleryFamilyRecord[];
+  exports: ExportSummary[];
   collections: Collection[];
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
@@ -199,6 +202,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   items: [],
   designs: [],
   galleryFamilies: [],
+  exports: [],
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
@@ -439,6 +443,12 @@ export function normalizeState(value: unknown): DesignLibraryState {
       ? value.galleryFamilies.flatMap((entry) => {
           const family = normalizeGalleryFamily(entry);
           return family === null ? [] : [family];
+        })
+      : [],
+    exports: Array.isArray(value.exports)
+      ? value.exports.flatMap((entry) => {
+          const summary = normalizeExportSummary(entry);
+          return summary === null ? [] : [summary];
         })
       : [],
     collections: Array.isArray(value.collections)

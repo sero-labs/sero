@@ -23,10 +23,9 @@ import { normalizeItemRecord } from '../shared/records';
 import { readJsonFile, writeJsonFile } from '../shared/state-io';
 import { TARGET_CONTRACTS } from '../shared/targets';
 import {
-  effectiveTweakValue,
+  effectiveTweakCssValues,
   normalizeTweakDocument,
   tweakCssBlock,
-  tweakValueToCss,
 } from '../shared/tweaks';
 import { assembleUpload, discardUpload, readUploadManifest } from '../shared/uploads';
 import { mutateDesign, readDesign } from './design-store';
@@ -105,16 +104,6 @@ async function referenceSnapshots(
   }));
 }
 
-function effectiveValues(
-  manifest: ReturnType<typeof normalizeTweakDocument>['manifest'],
-  overrides: Record<string, string | number | boolean>,
-): Record<string, string> {
-  return Object.fromEntries(manifest.controls.map((definition) => {
-    const value = effectiveTweakValue(definition, overrides);
-    return [definition.cssVariable, tweakValueToCss(definition.control, value)];
-  }));
-}
-
 async function buildVersion(
   paths: DesignLibraryPaths,
   input: SaveGalleryInput,
@@ -184,7 +173,7 @@ async function buildVersion(
     tweakManifest: manifestDocument.manifest,
     ...(effectiveTweaksFile === undefined ? {} : { effectiveTweaksFile }),
     tweakOverrides: overrides,
-    effectiveTweakValues: effectiveValues(manifestDocument.manifest, overrides),
+    effectiveTweakValues: effectiveTweakCssValues(manifestDocument.manifest, overrides),
     dependencyManifest: [...TARGET_CONTRACTS[design.brief.target].approvedImports],
   };
   await writeJsonFile(path.join(temporaryDir, 'record.json'), record);

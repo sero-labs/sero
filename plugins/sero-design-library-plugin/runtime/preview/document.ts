@@ -1,4 +1,5 @@
 import { PREVIEW_CSP, buildPreviewHarness } from './harness';
+import { REDUCED_MOTION_CSS } from '../build/motion';
 
 /**
  * Assembling the one file a preview runs from.
@@ -27,6 +28,8 @@ export interface PreviewDocumentInput {
   body: string;
   /** Extra `<head>` content the target needs — the Tailwind compiler, say. */
   head?: string;
+  /** Trusted values baked onto the root element by standalone exports. */
+  rootVariables?: Readonly<Record<string, string>>;
   /**
    * Custom properties this revision's tweak manifest declared. The document
    * accepts a live value for these and for nothing else (spec §6.5).
@@ -40,14 +43,14 @@ export interface PreviewDocumentInput {
  * at the top of `<body>` would have called `fetch` before it was replaced.
  */
 export function assemblePreviewDocument(input: PreviewDocumentInput): string {
-  const styles = input.styles
-    .filter((style) => style.trim() !== '')
-    .map((style) => forInlineStyle(style))
+  const styles = [...input.styles, REDUCED_MOTION_CSS]
+    .flatMap((style) => style.trim() === '' ? [] : [forInlineStyle(style)])
     .join('\n\n');
 
   const scripts = input.scripts
-    .filter((script) => script.trim() !== '')
-    .map((script) => `<script>\n${forInlineScript(script)}\n</script>`)
+    .flatMap((script) =>
+      script.trim() === '' ? [] : [`<script>\n${forInlineScript(script)}\n</script>`],
+    )
     .join('\n');
 
   return `<!doctype html>
