@@ -4,6 +4,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@sero-ai/ui';
 import { Heart, ImageOff, MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -98,18 +103,19 @@ export function GalleryCard({
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 text-xs">
-            Version
-            <select
-              value={selected.id}
-              onChange={(event) => setSelectedId(event.target.value)}
-              className="border-border bg-background h-8 min-w-0 flex-1 rounded border px-2"
-            >
+          <span className="text-muted-foreground text-xs">Version</span>
+          <Select value={selected.id} onValueChange={setSelectedId}>
+            <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Version">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {live.map((version, index) => (
-                <option key={version.id} value={version.id}>V{index + 1} · {version.title}</option>
+                <SelectItem key={version.id} value={version.id}>
+                  V{index + 1} · {version.title}
+                </SelectItem>
               ))}
-            </select>
-          </label>
+            </SelectContent>
+          </Select>
           {selected.id !== family.featuredVersionId && (
             <Button type="button" size="sm" variant="outline" onClick={() => onFeature(selected.id)}>
               Feature

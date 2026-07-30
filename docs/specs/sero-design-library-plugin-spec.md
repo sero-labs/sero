@@ -453,9 +453,11 @@ Each asset records tool, provider, capability, model, prompt, parameters, seed, 
 
 Saving creates an immutable version containing exact source files with effective tweak values resolved, the tweak manifest and saved overrides, bundled local assets, a bounded visual preview, the prompt and guardrail snapshot, source and model provenance, and the output target and dependency manifest.
 
-Subsequent saves add versions to the same family. A family shows as one card using its featured version; older versions are reachable through a revision selector. The newest save becomes featured by default, and changing that pointer never mutates a version.
+Subsequent saves add versions to the same family. A family shows as one card using its featured version; older versions are reachable through the shared Sero Select, with the selected tick on the right. The newest save becomes featured by default, and changing that pointer never mutates a version.
 
 New families come only from explicit Duplicate or Remix into a linked Design family.
+
+The Gallery rail matches the Library rail and shows live counts for All designs, Favourites, Recently saved, and Trash. Search uses the same shared search control and compact toolbar layout as Library. The Gallery header does not repeat aggregate family or version totals.
 
 ### 9.2 Previews
 

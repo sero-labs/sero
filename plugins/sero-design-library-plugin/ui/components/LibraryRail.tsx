@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react';
 import type { Collection } from '../../shared/records';
 import { deriveStyleGroups, matchesScope } from '../../shared/search';
 import type { ItemSummary, LibraryScope } from '../../shared/types';
+import { NavigationRailHeading, NavigationRailRow } from './NavigationRail';
 
 /**
  * The left rail: fixed scopes, then the user's own collections, then style
@@ -37,40 +38,6 @@ function sameScope(a: LibraryScope, b: LibraryScope): boolean {
   if (a.kind === 'collection' && b.kind === 'collection') return a.collectionId === b.collectionId;
   if (a.kind === 'style' && b.kind === 'style') return a.style === b.style;
   return true;
-}
-
-interface RailRowProps {
-  active: boolean;
-  label: string;
-  count: number;
-  icon?: React.ReactNode;
-  onClick(): void;
-}
-
-function RailRow({ active, label, count, icon, onClick }: RailRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
-        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-      }`}
-    >
-      {icon}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="text-muted-foreground text-xs tabular-nums">{count}</span>
-    </button>
-  );
-}
-
-function RailHeading({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="text-muted-foreground flex items-center justify-between px-2 pt-4 pb-1 text-xs font-medium tracking-wide uppercase">
-      <span>{children}</span>
-      {action}
-    </div>
-  );
 }
 
 function CollectionRow({
@@ -152,29 +119,29 @@ export function LibraryRail({
   return (
     <ScrollArea className="border-border h-full w-56 shrink-0 border-r">
       <nav className="p-2" aria-label="Library navigation">
-        <RailHeading>Library</RailHeading>
-        <RailRow
+        <NavigationRailHeading>Library</NavigationRailHeading>
+        <NavigationRailRow
           active={sameScope(scope, { kind: 'all' })}
           label="All inspiration"
           count={countFor({ kind: 'all' })}
           icon={<Diamond className="size-3.5" />}
           onClick={() => onScopeChange({ kind: 'all' })}
         />
-        <RailRow
+        <NavigationRailRow
           active={sameScope(scope, { kind: 'favourites' })}
           label="Favourites"
           count={countFor({ kind: 'favourites' })}
           icon={<Star className="size-3.5" />}
           onClick={() => onScopeChange({ kind: 'favourites' })}
         />
-        <RailRow
+        <NavigationRailRow
           active={sameScope(scope, { kind: 'awaiting' })}
           label="Awaiting analysis"
           count={countFor({ kind: 'awaiting' })}
           icon={<Clock className="size-3.5" />}
           onClick={() => onScopeChange({ kind: 'awaiting' })}
         />
-        <RailRow
+        <NavigationRailRow
           active={sameScope(scope, { kind: 'recent' })}
           label="Recently added"
           count={countFor({ kind: 'recent' })}
@@ -182,7 +149,7 @@ export function LibraryRail({
           onClick={() => onScopeChange({ kind: 'recent' })}
         />
 
-        <RailHeading
+        <NavigationRailHeading
           action={
             <Button
               type="button"
@@ -197,7 +164,7 @@ export function LibraryRail({
           }
         >
           Collections
-        </RailHeading>
+        </NavigationRailHeading>
         {newCollection !== null && (
           <Input
             autoFocus
@@ -225,9 +192,9 @@ export function LibraryRail({
 
         {styleGroups.length > 0 && (
           <>
-            <RailHeading>Style groups</RailHeading>
+            <NavigationRailHeading>Style groups</NavigationRailHeading>
             {styleGroups.map((group) => (
-              <RailRow
+              <NavigationRailRow
                 key={group.style}
                 active={sameScope(scope, { kind: 'style', style: group.style })}
                 label={group.style}
@@ -239,8 +206,8 @@ export function LibraryRail({
           </>
         )}
 
-        <RailHeading>&nbsp;</RailHeading>
-        <RailRow
+        <NavigationRailHeading>&nbsp;</NavigationRailHeading>
+        <NavigationRailRow
           active={sameScope(scope, { kind: 'trash' })}
           label="Trash"
           count={countFor({ kind: 'trash' })}
