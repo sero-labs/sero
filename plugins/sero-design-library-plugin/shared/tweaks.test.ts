@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { TweakDefinition, TweakManifest } from './tweaks';
 import {
   editedTweakCount,
+  effectiveTweakCssValues,
   effectiveTweakValue,
   groupTweaks,
   normalizeTweakControl,
@@ -116,6 +117,14 @@ describe('effective values', () => {
     // A revise can replace the manifest under a stored value. The default is
     // always something the current page accepts; the stale override is not.
     expect(effectiveTweakValue(choice, { weight: '900' })).toBe('600');
+  });
+
+  it('builds the effective custom-property values from the manifest', () => {
+    expect(effectiveTweakCssValues(manifest, { scale: 48, accent: '#2f6fb5' })).toMatchObject({
+      '--display-scale': '48px',
+      '--heading-weight': '600',
+      '--signal': '#2f6fb5',
+    });
   });
 
   it('drops overrides for controls the manifest no longer declares', () => {

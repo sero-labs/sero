@@ -173,6 +173,19 @@ export function effectiveTweakValue(
   return normalizeTweakValue(definition.control, override) ?? definition.defaultValue;
 }
 
+/** The effective CSS custom properties for one manifest and override set. */
+export function effectiveTweakCssValues(
+  manifest: TweakManifest,
+  overrides: TweakOverrides,
+): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const definition of manifest.controls) {
+    const value = effectiveTweakValue(definition, overrides);
+    values[definition.cssVariable] = tweakValueToCss(definition.control, value);
+  }
+  return values;
+}
+
 /** Overrides that still name a control this manifest declares. */
 export function pruneOverrides(
   manifest: TweakManifest,

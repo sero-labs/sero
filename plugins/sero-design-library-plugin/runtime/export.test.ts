@@ -62,6 +62,16 @@ async function seedVersion(): Promise<GalleryVersionRecord> {
     controls: [{
       id: 'signal', group: 'Colour', label: 'Signal', cssVariable: '--signal',
       control: { type: 'colour' as const }, defaultValue: '#000000',
+    }, {
+      id: 'font', group: 'Typography', label: 'Font', cssVariable: '--font-family',
+      control: {
+        type: 'choice' as const,
+        options: [
+          { label: 'Inter', value: 'Inter, system-ui, sans-serif' },
+          { label: 'Monospace', value: 'ui-monospace, monospace' },
+        ],
+      },
+      defaultValue: 'Inter, system-ui, sans-serif',
     }],
   };
   const tweakOverrides = { signal: '#ff0000' };
@@ -99,6 +109,12 @@ async function seedVersion(): Promise<GalleryVersionRecord> {
 describe('standalone Gallery export', () => {
   it('writes exact source, assets, fonts, resolved Tweaks and metadata to Downloads', async () => {
     const version = await seedVersion();
+    // This cached field is not the export authority. The verified manifest and
+    // overrides must produce the page, font bundle and export metadata.
+    await writeJsonFile(galleryVersionRecordFile(paths, 'fam-1', 'ver-1'), {
+      ...version,
+      effectiveTweakValues: { '--signal': '#0000ff' },
+    });
     const output = await runGalleryExport(paths, {
       exportId: 'exp-1', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
     }, { workspacePath: workspace, downloadsDir: downloads, now: () => 20 });
@@ -116,7 +132,10 @@ describe('standalone Gallery export', () => {
     const manifest = await readJsonFile<DesignLibraryExportManifest>(path.join(output, EXPORT_MANIFEST_FILE));
     expect(manifest).toMatchObject({
       exportId: 'exp-1', exportedAt: 20, familyId: 'fam-1', versionId: 'ver-1',
-      effectiveTweakValues: version.effectiveTweakValues,
+      effectiveTweakValues: {
+        '--signal': '#ff0000',
+        '--font-family': 'Inter, system-ui, sans-serif',
+      },
       entry: { file: 'index.html' },
     });
     expect(manifest?.fonts[0]?.id).toBe('inter-latin');

@@ -1,3 +1,4 @@
+import { CSS_VARIABLE_PATTERN } from '../../shared/tweaks';
 import type { PreviewDocumentInput } from '../preview/document';
 import { escapeHtml } from '../preview/document';
 import { REDUCED_MOTION_CSS } from './motion';
@@ -26,7 +27,7 @@ function inlineStyle(css: string): string {
 function rootStyle(variables: Readonly<Record<string, string>>): string {
   const declarations: string[] = [];
   for (const [name, value] of Object.entries(variables)) {
-    if (/^--[A-Za-z0-9_-]+$/.test(name)) declarations.push(`${name}: ${value}`);
+    if (CSS_VARIABLE_PATTERN.test(name)) declarations.push(`${name}: ${value}`);
   }
   return declarations.join('; ');
 }

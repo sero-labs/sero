@@ -11,7 +11,7 @@ import type { DesignLibraryPaths } from '../shared/paths';
 import { galleryVersionDir } from '../shared/paths';
 import { readJsonFile, writeJsonFile } from '../shared/state-io';
 import type { EmittedFile } from '../shared/targets';
-import { tweakCssBlock } from '../shared/tweaks';
+import { effectiveTweakCssValues, tweakCssBlock } from '../shared/tweaks';
 import { buildStandaloneDocument } from './build';
 import { exportDesignFonts, type ExportedFontFile } from './export-fonts';
 import { readGalleryVersion } from './gallery-store';
@@ -173,9 +173,12 @@ async function copySnapshot(
   return emitted;
 }
 
-function selectedFontStacks(version: GalleryVersionRecord, emitted: EmittedFile[]): string[] {
+function selectedFontStacks(
+  effectiveValues: Record<string, string>,
+  emitted: EmittedFile[],
+): string[] {
   const effective = ['--font-family', '--body-font'].flatMap((variable) => {
-    const value = version.effectiveTweakValues[variable];
+    const value = effectiveValues[variable];
     return value === undefined ? [] : [value];
   });
   const source = emitted.map((file) => file.content).join('\n');
@@ -228,16 +231,19 @@ export async function runGalleryExport(
     const tweakCss = version.tweakManifest
       ? tweakCssBlock(version.tweakManifest, version.tweakOverrides)
       : '';
+    const effectiveValues = version.tweakManifest
+      ? effectiveTweakCssValues(version.tweakManifest, version.tweakOverrides)
+      : {};
     if (version.effectiveTweaksFile) {
       const saved = await readFile(path.join(versionDir, version.effectiveTweaksFile), 'utf8');
       if (saved !== tweakCss) throw new Error('The Gallery snapshot Tweaks no longer match its metadata.');
     }
-    const fonts = await exportDesignFonts(temporary, selectedFontStacks(version, emitted));
+    const fonts = await exportDesignFonts(temporary, selectedFontStacks(effectiveValues, emitted));
     const built = await buildStandaloneDocument(
       version.target,
       emitted,
       fonts.css === '' ? [] : [fonts.css],
-      version.effectiveTweakValues,
+      effectiveValues,
     );
     if (!built.document) throw new Error('The saved source could not be built as a standalone page.');
 
@@ -267,7 +273,7 @@ export async function runGalleryExport(
       ...(effectiveTweaks === undefined ? {} : { effectiveTweaks }),
       ...(version.tweakManifest === undefined ? {} : { tweakManifest: version.tweakManifest }),
       tweakOverrides: version.tweakOverrides,
-      effectiveTweakValues: version.effectiveTweakValues,
+      effectiveTweakValues: effectiveValues,
       dependencies: version.dependencyManifest,
       ...(version.model === undefined ? {} : { model: version.model }),
       brief: version.brief,
