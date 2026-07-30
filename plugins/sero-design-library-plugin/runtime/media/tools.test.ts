@@ -57,6 +57,7 @@ describe('media tools', () => {
 
     expect(tools.map((tool) => tool.name)).toEqual([
       'design_library_generate_image',
+      'design_library_generate_image_from_reference',
       'design_library_restyle_image',
       'design_library_upscale_image',
       'design_library_generate_video',

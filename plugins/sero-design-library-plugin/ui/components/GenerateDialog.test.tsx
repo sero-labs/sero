@@ -89,7 +89,7 @@ describe('remixing a reference', () => {
     expect(screen.getByLabelText('Work from')).toBeDefined();
     expect(screen.getByText('Create new')).toBeDefined();
     expect(screen.getByText('Edit this reference')).toBeDefined();
-    expect(screen.queryByRole('tab', { name: 'Image' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Image' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
@@ -106,6 +106,21 @@ describe('remixing a reference', () => {
       expect.objectContaining({
         capability: 'image-to-video',
         prompt: 'animate this',
+        sourceId: 'item-1',
+      }),
+    );
+  });
+
+  it('creates a new image from the current reference', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Image');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'a new coastal composition');
+    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: 'reference-to-image',
+        prompt: 'a new coastal composition',
         sourceId: 'item-1',
       }),
     );

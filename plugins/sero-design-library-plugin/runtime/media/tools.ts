@@ -71,6 +71,17 @@ const SHAPES: Record<MediaCapability, CapabilityShape> = {
       seed: Type.Optional(Type.Number({ description: 'For a repeatable result.' })),
     }),
   },
+  'reference-to-image': {
+    name: 'design_library_generate_image_from_reference',
+    label: 'Generate Image from Reference',
+    summary: 'Generates new artwork that uses an existing image as visual direction.',
+    parameters: Type.Object({
+      prompt: Type.String({ description: 'What the new image should show, in detail.' }),
+      sourceId: Type.String({ description: 'Id of an asset you generated, or a Library item.' }),
+      aspectRatio: Type.Optional(Type.String()),
+      seed: Type.Optional(Type.Number()),
+    }),
+  },
   'image-to-image': {
     name: 'design_library_restyle_image',
     label: 'Restyle Image',

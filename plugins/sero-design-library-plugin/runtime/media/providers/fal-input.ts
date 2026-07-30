@@ -48,6 +48,7 @@ export function buildFalInput(
         ...(size === undefined ? {} : { image_size: size }),
         ...shared,
       };
+    case 'reference-to-image':
     case 'image-to-image':
       return {
         prompt: request.prompt,

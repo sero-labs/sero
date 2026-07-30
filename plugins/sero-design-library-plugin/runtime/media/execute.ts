@@ -26,7 +26,7 @@ export interface ExecuteMediaOptions {
   /** Directory the produced files land in. Created if it is not there. */
   directory: string;
   signal: AbortSignal;
-  /** Resolves a local source for image-to-image and upscale. */
+  /** Resolves a local source for a source-aware capability. */
   readAsset(assetId: string): Promise<MediaSourceAsset>;
   onProgress?(message: string): void;
 }

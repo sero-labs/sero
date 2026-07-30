@@ -18,21 +18,21 @@ The selected-reference **Remix** action opens a source-led panel. That panel sep
 
 ## E2 · Remix can create an image or a video from a reference
 
-Remix offers source-aware restyling and video generation. Restyle uses image-to-image. Video uses a new vendor-neutral `image-to-video` capability backed by a configured fal.ai model.
+Remix offers source-aware image generation, restyling, and video generation. Image uses the vendor-neutral `reference-to-image` capability. Restyle uses `image-to-image`. Video uses `image-to-video`. Each capability is backed by a configured fal.ai model.
 
 Text-to-video remains the fresh video operation.
 
-**Reason.** A movie based on a reference must send that reference to the provider. Reusing text-to-video would silently ignore it.
+**Reason.** New media based on a reference must send that reference to the provider. Reusing text-only capabilities would silently ignore it.
 
-**Consequence.** Settings gain one editable image-to-video model id. Existing profiles normalize with an empty override and therefore use the adapter default.
+**Consequence.** Settings gain editable reference-to-image and image-to-video model ids. Existing profiles normalize with empty overrides and therefore use the adapter defaults.
 
 ## E3 · Remix keeps explicit create and edit actions
 
-The selected-reference action is named **Remix**. Inside the panel, **Video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
+The selected-reference action is named **Remix**. **Image** and **Video** remain under **Create new**. **Restyle** and **Upscale** remain under **Edit this reference**.
 
-**Reason.** Restyle and Image previously sent the same request. One image-to-image action states the real capability without offering a duplicate control.
+**Reason.** Image and Restyle have different user intentions. Image makes new artwork that uses the source as visual direction. Restyle edits the source's visual style.
 
-**Consequence.** Restyle is the only image-to-image operation. Persisted media capability names do not change.
+**Consequence.** Image sends `reference-to-image`. Restyle sends `image-to-image`. Existing profiles gain an empty reference-to-image model override and use the fal.ai adapter default.
 
 ## E4 · Original provenance is read-only and last
 

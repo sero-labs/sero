@@ -39,6 +39,7 @@ import { MediaError } from '../contract';
  */
 export const FAL_DEFAULT_MODELS: Record<MediaCapability, string> = {
   'text-to-image': 'fal-ai/flux/dev',
+  'reference-to-image': 'fal-ai/flux/dev/image-to-image',
   'image-to-image': 'fal-ai/flux/dev/image-to-image',
   upscale: 'fal-ai/clarity-upscaler',
   'text-to-video': 'fal-ai/kling-video/v1/standard/text-to-video',

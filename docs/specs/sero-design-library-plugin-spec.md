@@ -338,6 +338,7 @@ The application speaks in capabilities and opaque model ids. Vendor specifics li
 ```ts
 type MediaCapability =
   | 'text-to-image'
+  | 'reference-to-image'
   | 'image-to-image'
   | 'upscale'
   | 'text-to-video'
@@ -348,7 +349,7 @@ interface MediaRequest {
   prompt: string;
   /** Opaque provider model id. Defaults come from settings. */
   model?: string;
-  /** Local source assets for image-to-image, upscale and image-to-video. */
+  /** Local source assets for reference-to-image, image-to-image, upscale and image-to-video. */
   sourceAssetIds?: string[];
   aspectRatio?: string;
   seed?: number;
@@ -414,7 +415,7 @@ No vendor type appears in this contract, in UI code, in Design or Gallery domain
 
 - configures credentials at call time and never persists them;
 - maps each capability to a configured endpoint id and runs it through the client's queue-subscribe API, forwarding the `AbortSignal` and reporting queue progress through `onProgress`;
-- uploads local source assets through the client's storage API for image-to-image and upscale;
+- uploads local source assets through the client's storage API for reference-to-image, image-to-image, upscale and image-to-video;
 - downloads every result into plugin-owned storage via `context.store` before returning, so no remote URL escapes the adapter;
 - normalises failures into `MediaError` with an honest `retryable`.
 

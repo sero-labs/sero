@@ -106,6 +106,7 @@ export const DEFAULT_SETTINGS: DesignLibrarySettings = {
     // endpoint reaches every profile that never edited it.
     models: {
       'text-to-image': '',
+      'reference-to-image': '',
       'image-to-image': '',
       upscale: '',
       'text-to-video': '',

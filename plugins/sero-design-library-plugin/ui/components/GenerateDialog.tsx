@@ -51,7 +51,7 @@ export type GenerateTarget =
   | { kind: 'design'; designId: string; designTitle: string }
   | { kind: 'library' };
 
-/** Something a restyle or an upscale can work from. */
+/** An image that a reference generation, restyle, upscale, or video can use. */
 export interface GenerateSource {
   id: string;
   label: string;
@@ -101,6 +101,7 @@ const FALLBACK_DURATIONS = [DEFAULT_VIDEO_SECONDS, 10].filter(
 type GenerationOperation =
   | 'fresh-image'
   | 'fresh-video'
+  | 'reference-image'
   | 'reference-video'
   | 'restyle'
   | 'upscale';
@@ -116,6 +117,7 @@ const FRESH_OPERATIONS: OperationChoice[] = [
 ];
 
 const CREATE_OPERATIONS: OperationChoice[] = [
+  { value: 'reference-image', label: 'Image' },
   { value: 'reference-video', label: 'Video' },
 ];
 
@@ -127,6 +129,7 @@ const EDIT_OPERATIONS: OperationChoice[] = [
 const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
   'fresh-image': 'text-to-image',
   'fresh-video': 'text-to-video',
+  'reference-image': 'reference-to-image',
   'reference-video': 'image-to-video',
   restyle: 'image-to-image',
   upscale: 'upscale',
@@ -135,6 +138,7 @@ const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
 const ACTION_LABEL: Record<GenerationOperation, string> = {
   'fresh-image': 'Generate image',
   'fresh-video': 'Generate video',
+  'reference-image': 'Generate image',
   'reference-video': 'Generate video',
   restyle: 'Restyle',
   upscale: 'Upscale',

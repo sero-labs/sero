@@ -57,12 +57,13 @@ When one reference is selected, the action bar shows **Remix** instead of **Rest
 The Remix panel starts with that reference selected. It has two groups:
 
 - **Create new**
+  - Image — reference-to-image
   - Video — image-to-video
 - **Edit this reference**
   - Restyle — image-to-image
   - Upscale — upscale
 
-**Restyle** creates a derived image and keeps the source item unchanged. It is the only image-to-image operation.
+**Image** creates new artwork that uses the selected reference as visual direction. **Restyle** changes the selected image's visual style. Both create a derived Library item and keep the source item unchanged.
 
 Image-to-video is a new application capability backed by the configured fal.ai image-to-video model. It sends the selected reference as the source. It does not reuse text-to-video and does not discard the source.
 
@@ -174,6 +175,8 @@ The model id remains editable in Settings. The user chooses a capability, not an
 - [x] Replace the flat capability tabs with grouped option controls.
 - [x] Hide source operations from fresh Generate.
 - [x] Rename the selection action to Remix.
+- [x] Keep Image and Video under Create new.
+- [x] Give reference-based Image and Restyle separate capabilities.
 - [x] Increase the prompt area.
 - [x] Add dialog behavior and accessibility tests.
 
@@ -200,16 +203,18 @@ The model id remains editable in Settings. The user chooses a capability, not an
 
 1. Fresh Generate has only Image and Video.
 2. Remix opens with the selected reference and shows two clear operation groups.
-3. Remix → Video sends the reference to an image-to-video fal.ai model.
-4. No operation silently ignores a selected source.
-5. The original prompt appears only when provenance exists and is last in the inspector.
-6. The Librarian generation prompt remains editable and distinct from the original prompt.
-7. A source among 5,000 references can be found by typing part of its title.
-8. A filter facet with 5,000 values has a fixed-height searchable list.
-9. Filter ticks appear on the right.
-10. The prompt area is visibly larger than the first-release control.
-11. Existing generated and imported records still normalize without data loss.
-12. Video confirmation and duration limits apply to text-to-video and image-to-video.
+3. Remix → Image sends the reference to a reference-to-image fal.ai model.
+4. Remix → Restyle sends an image-to-image request that is distinct from Image.
+5. Remix → Video sends the reference to an image-to-video fal.ai model.
+6. No operation silently ignores a selected source.
+7. The original prompt appears only when provenance exists and is last in the inspector.
+8. The Librarian generation prompt remains editable and distinct from the original prompt.
+9. A source among 5,000 references can be found by typing part of its title.
+10. A filter facet with 5,000 values has a fixed-height searchable list.
+11. Filter ticks appear on the right.
+12. The prompt area is visibly larger than the first-release control.
+13. Existing generated and imported records still normalize without data loss.
+14. Video confirmation and duration limits apply to text-to-video and image-to-video.
 
 ## 8. Small workflow improvements included
 
@@ -226,6 +231,6 @@ The scope does not include video import, webpage capture, clipboard HTML, semant
 
 1. Use **Create new** and **Edit this reference** as the group names.
 2. **Restyle** creates a derived item from the selected reference.
-3. Restyle is the only control that sends an image-to-image request.
+3. Image creates new artwork from a reference. Restyle changes the reference's style.
 4. Shared `@sero-ai/ui` Combobox behavior supplies search, bounded height, multi-select and right-side ticks. Do not duplicate these controls in the plugin.
 5. The Colour Combobox shows named colour families instead of raw colour codes.

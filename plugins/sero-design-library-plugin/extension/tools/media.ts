@@ -115,7 +115,7 @@ export function registerMediaTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
       capability: Type.Optional(
         StringEnum(MEDIA_CAPABILITIES as MediaCapability[], {
           description:
-            'text-to-image makes artwork from a description; image-to-image restyles a source; upscale raises a source\'s resolution; text-to-video makes a short clip; image-to-video animates a source image',
+            'text-to-image makes artwork from a description; reference-to-image makes new artwork from a source; image-to-image restyles a source; upscale raises a source\'s resolution; text-to-video makes a short clip; image-to-video animates a source image',
         }),
       ),
       prompt: Type.Optional(

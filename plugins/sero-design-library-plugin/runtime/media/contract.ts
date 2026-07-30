@@ -24,7 +24,7 @@ export interface MediaRequest {
   prompt: string;
   /** Opaque provider model id. Defaults come from settings (spec §10). */
   model?: string;
-  /** Local source assets for image-to-image and upscale. */
+  /** Local source assets for source-aware image and video capabilities. */
   sourceAssetIds?: string[];
   aspectRatio?: string;
   seed?: number;
@@ -70,7 +70,7 @@ export function isMediaError(value: unknown): value is MediaError {
   return value instanceof MediaError;
 }
 
-/** A local asset an adapter may upload as a source for image-to-image or upscale. */
+/** A local asset an adapter may upload for a source-aware capability. */
 export interface MediaSourceAsset {
   path: string;
   bytes: Uint8Array;
