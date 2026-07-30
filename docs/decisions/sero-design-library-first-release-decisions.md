@@ -1,9 +1,9 @@
 # Sero Design Library: Decision Log
 
-**Status:** Current
-**Latest revision:** 2026-07-27
+**Status:** Final for the first release
+**Latest revision:** 2026-07-30
 **Applies to:** first usable release of `@sero-ai/plugin-design-library`
-**Branch:** `feat/design-library-plugin-v2`
+**Branch:** `main`
 
 This document records *what was decided and why*. The specification records *what the product does*. Where a decision here is more recent than prose elsewhere, this document wins.
 

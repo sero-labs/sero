@@ -1,6 +1,6 @@
 # Sero Design Library Plugin Specification
 
-**Status:** Approved for implementation
+**Status:** Implemented. The first release completed in PR #331 on 2026-07-30.
 **Package:** `@sero-ai/plugin-design-library`
 **Directory:** `plugins/sero-design-library-plugin`
 **App ID:** `design-library`
@@ -545,10 +545,12 @@ The first release is complete when:
 13. The main Sero agent can search the library and create a Design.
 14. Gallery versions remain byte-identical after source deletion; export reproduces a snapshot exactly and runs standalone.
 15. Deletion and revision stay recoverable until explicit permanent deletion.
-16. The plugin installs as an external plugin with no host changes.
+16. The plugin installs as an external plugin through public Sero contracts, with no Design Library-specific host API or host-owned domain logic.
 
 ---
 
 ## 14. Authority
 
 Where documents disagree: this specification and the decision log govern product behaviour; the prototype governs layout, hierarchy and visual language; the implementation plan governs build order only.
+
+This specification is the closed first-release baseline. Future revisions and deferred features must update it through a new scoped plan and decision entry.
