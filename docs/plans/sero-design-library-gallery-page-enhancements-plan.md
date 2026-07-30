@@ -23,7 +23,7 @@ Make Gallery controls consistent with the Library and shared Sero UI.
 ## 3. Verification
 
 1. Test version selection with the shared Select.
-2. Test Gallery scope counts and search.
+2. Test Gallery scope counts and search, including Trash.
 3. Run the Design Library plugin tests.
 4. Run the Design Library plugin typecheck and build.
 5. Run React Doctor.

@@ -42,26 +42,30 @@ export function GalleryPage({
 }: GalleryPageProps) {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<GalleryScope>('all');
-  const counts = useMemo(() => {
+  const recent = useMemo(() => {
     const now = Date.now();
+    return families.filter((family) => now - family.updatedAt < RECENT_MS);
+  }, [families]);
+  const counts = useMemo(() => {
     return {
       all: families.length,
       favourites: families.filter((family) => family.favourite).length,
-      recent: families.filter((family) => now - family.updatedAt < RECENT_MS).length,
+      recent: recent.length,
       trash: trashEntryCount(trash),
     };
-  }, [families, trash]);
+  }, [families, recent, trash]);
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const scoped = families.filter((family) => {
-      if (scope === 'favourites') return family.favourite;
-      if (scope === 'recent') return Date.now() - family.updatedAt < RECENT_MS;
-      return true;
-    });
+    const scoped =
+      scope === 'favourites'
+        ? families.filter((family) => family.favourite)
+        : scope === 'recent'
+          ? recent
+          : families;
     return needle === ''
       ? scoped
       : scoped.filter((family) => family.title.toLowerCase().includes(needle));
-  }, [families, query, scope]);
+  }, [families, query, recent, scope]);
   return (
     <div className="flex min-h-0 flex-1">
       <ScrollArea className="border-border h-full w-56 shrink-0 border-r">
@@ -116,7 +120,7 @@ export function GalleryPage({
         )}
         <ScrollArea className="min-h-0 flex-1">
           {scope === 'trash' ? (
-            <GalleryTrash families={trash} actions={actions} />
+            <GalleryTrash families={trash} query={query} actions={actions} />
           ) : visible.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center gap-3 px-6 py-24 text-center text-sm">
               <Images className="size-8" />

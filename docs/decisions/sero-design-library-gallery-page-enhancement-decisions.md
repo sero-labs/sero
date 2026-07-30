@@ -29,13 +29,15 @@ Each scope shows a live count:
 
 **Consequence.** Shared local navigation components keep both rails aligned. Counts derive from current Gallery state and update when that state changes.
 
+The top Gallery badge and **All designs** both count families, because one Gallery item is one family card. The recent count and recent grid use the same derived family set.
+
 ## E3 · Gallery search matches Library search
 
 Gallery uses the shared `SearchInput` in the same compact toolbar layout as Library. The toolbar sits in the content column beside the rail and above the Gallery cards.
 
 **Reason.** A full input inside a separate padded panel gives one simple search action too much visual weight.
 
-**Consequence.** Search keeps the same filtering behaviour and gains the Library search icon, size, spacing, and placement. It does not span above the navigation rail.
+**Consequence.** Search keeps the same filtering behaviour and gains the Library search icon, size, spacing, and placement. It does not span above the navigation rail, and it filters both live Gallery cards and Gallery Trash.
 
 ## E4 · Gallery has no introduction header
 
