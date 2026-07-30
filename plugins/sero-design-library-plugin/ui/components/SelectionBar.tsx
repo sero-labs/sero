@@ -126,6 +126,7 @@ export function SelectionBar({
                     return (
                       <DropdownMenuCheckboxItem
                         key={collection.id}
+                        className="pr-8 pl-2 [&>span:first-child]:right-2 [&>span:first-child]:left-auto"
                         checked={checked}
                         onCheckedChange={(next) => onCollect(collection.id, next === true)}
                       >
