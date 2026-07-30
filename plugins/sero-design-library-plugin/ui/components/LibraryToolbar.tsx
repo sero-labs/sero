@@ -87,7 +87,7 @@ function FacetMenu<Value extends string>({
               {showColourSwatch && (
                 <span
                   aria-hidden="true"
-                  className="border-border size-4 shrink-0 rounded-sm border"
+                  className="border-border h-4 w-8 shrink-0 border"
                   style={{ backgroundColor: item.value }}
                 />
               )}
