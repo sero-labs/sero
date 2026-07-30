@@ -231,6 +231,7 @@ function tweakRules(): string {
     'After the baseline, add only the page-specific decisions worth revisiting. A dense metrics dashboard may want density and accent controls; an editorial page may want measure. Two to six page-specific controls is usually right.',
     'Call `design_library_declare_tweaks` once, with the baseline followed by those page-specific controls.',
     'Every control must bind to a property the page declares **and** reads. One that does not is dropped, and a control that visibly does nothing is worse than a missing one.',
+    'Any animation, transition or page-specific motion control must respect `prefers-reduced-motion: reduce`. CSS motion gets a guaranteed short-duration fallback, but JavaScript motion must check the media query itself and stop or show its final state.',
     'Ranges carry a unit and sensible bounds either side of the value you shipped. Page-specific choices carry two or more real alternatives, not a scale in disguise.',
   ];
   return `## Live controls\n\n${rules.map((rule) => `- ${rule}`).join('\n')}`;

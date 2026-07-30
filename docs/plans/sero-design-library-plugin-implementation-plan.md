@@ -1,7 +1,7 @@
 # Sero Design Library Plugin — Implementation Plan
 
-**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). Issue #328 merged as #329. PR 3b — Gallery — built and awaiting review; PR 3c — Export and release hardening — follows it.
-**Branch:** `feat/design-library-gallery` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
+**Status:** PR 1 merged (#318). PR 2a merged (#320). PR 2b merged (#324). PR 3a — Media — merged (#326). Issue #328 merged as #329. PR 3b — Gallery — merged as #330. PR 3c — Export and release hardening — complete and awaiting review.
+**Branch:** `feat/design-library-export-hardening` (PR 1 landed on `feat/design-library-plugin-v2`, merged as #318; PR 2a on `feat/design-library-design`, merged as #320; PR 2b on `feat/design-library-working-surface`, merged as #324)
 **Plugin:** `@sero-ai/plugin-design-library`
 **App ID:** `design-library` · **Scope:** Global · **Dev port:** `5190` (verified unused) · **Icon:** `palette`
 **Supersedes:** the 2026-07-25 draft of this file, including its Gate A structure and single-PR delivery
@@ -276,10 +276,20 @@ Take an exact Gallery version out of Sero and complete the first-release hardeni
 
 **Build**
 
-11. Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
-12. Remaining hardening: keyboard and screen-reader operation for every generated tweak control, reduced motion including generated motion controls, external plugin installation test, final documentation and first-release acceptance pass.
+11. [x] Export: exact code with effective tweak values resolved, bundled assets, metadata manifest, to Downloads or the active workspace.
+12. [x] Remaining hardening: keep generated Tweak controls on the shared components and their built-in keyboard and accessibility behavior; reduced motion including generated motion controls; external plugin installation test; final documentation and first-release acceptance pass. No custom keyboard or screen-reader layer is required beyond the shared controls.
 
 **Accept when** export matches the snapshot, runs standalone and does not depend on the Tweaks runtime; both export destinations work; the plugin installs and runs as an external plugin.
+
+**Decisions taken while building 3c**
+
+- **The Gallery snapshot is the only export source.** Export verifies every saved source and artwork checksum before it builds. It never reads the mutable source Design and never regenerates.
+- **One folder carries both the exact source and the runnable result.** `source/` keeps the saved files byte-for-byte; `index.html` is the standalone build; `assets/` and `fonts/` own every local dependency; `effective-tweaks.css` records the resolved values; `design-library.json` records provenance, checksums, Tweaks and dependencies.
+- **The standalone page has no preview harness.** Saved Tweaks are ordinary CSS in the document. React, Tailwind and approved dependencies are bundled. A local-only CSP remains, but there is no Sero message channel or Tweaks runtime.
+- **The active workspace is carried by the UI and verified by the host workspace list.** A global app runtime receives a profile-global pseudo-workspace, so using its context path would export to the wrong place. The runtime accepts only a path inside an open, registered workspace and exports at that workspace root.
+- **Reduced motion is guaranteed at document assembly.** Preview and export add a final `prefers-reduced-motion` rule for CSS animation, transitions and smooth scrolling. Generation also requires JavaScript motion to check the media query.
+- **Generated Tweak controls use the shared component behavior.** This release adds no parallel keyboard or screen-reader implementation. Slider, switch, button, popover and colour controls keep the behavior of their shared components.
+- **The installable bundle was tested as the installed owner of the app id.** The built-in source registration was removed for the test, the package was installed through Sero, its UI and runtime loaded, and a Gallery version exported to the active workspace. The external package was then uninstalled and the profile restored.
 
 ---
 
@@ -299,7 +309,7 @@ Manual verification per PR:
 - **PR 2** — reference ordering and conflict blocking; both output targets; variant failure, cancellation and restart; hostile previews and invalid tweak messages; tweak relevance, live update, reset, Copy CSS and revision coalescing.
 - **PR 3a** — each capability from both entry points; provider failure and asset-only retry; cap and video confirmation; quit mid-generation and reopen; a generated video's thumbnail and motion analysis.
 - **PR 3b** — Gallery source deletion; reopening at an exact revision; Duplicate and Remix; a large Gallery.
-- **PR 3c** — Both export destinations; standalone output; generated-control accessibility and reduced motion; external plugin installation.
+- **PR 3c** — Both export destinations; standalone output; shared-control behavior and reduced motion; external plugin installation.
 
 ## 8. Notes
 

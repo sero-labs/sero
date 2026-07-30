@@ -174,6 +174,7 @@ export function DesignLibraryApp() {
           families={gallery.families}
           trash={gallery.trash}
           actions={gallery.actions}
+          latestExport={gallery.latestExport}
           onOpened={() => setSurface('library')}
           {...(galleryError === undefined ? {} : { error: galleryError })}
           onRemix={(familyId, versionId) => {

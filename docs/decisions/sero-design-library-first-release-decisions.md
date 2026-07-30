@@ -168,6 +168,10 @@ These decisions were reviewed and stand.
 
 **Gallery.** Immutable versions; saving a revised variant adds to the existing family; new families only via explicit Duplicate or Remix; one card per family with a revision selector; newest save featured by default; changing the featured pointer preserves history. Reopening restores the source Design at that revision and never edits the snapshot. Deletion is recoverable and never cascades. Export reproduces exact code, effective tweak values and assets plus a metadata manifest, to Downloads or the active workspace, and never regenerates.
 
+**Export.** The immutable Gallery version is the only input. Its saved checksums must pass before export. The folder keeps exact source files and copied assets beside a standalone build, selected local Design fonts, resolved Tweaks CSS and a JSON manifest. The standalone build has no Sero preview or Tweaks channel. A workspace destination must match an open workspace from the generic runtime host list; the global app runtime's pseudo-workspace is never treated as active.
+
+**Release accessibility scope.** Generated Tweak controls use Sero's shared slider, switch, button, popover and native colour controls. Their existing keyboard and accessibility behavior is the release contract. Design Library does not add a second custom keyboard or screen-reader layer. Preview and exported documents add a guaranteed reduced-motion CSS fallback, and the generation contract requires JavaScript motion to honor the same preference.
+
 ---
 
 ## Technical mechanisms (resolved)

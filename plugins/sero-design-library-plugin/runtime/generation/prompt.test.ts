@@ -43,6 +43,7 @@ describe('artwork the Design already has', () => {
     expect(prompt).toContain('`h1-tracking` — “H1 tracking” — `--h1-tracking` — range');
     expect(prompt).toContain('`body-size` — “Body size” — `--body-size` — range');
     expect(prompt).toContain('add only the page-specific decisions');
+    expect(prompt).toContain('prefers-reduced-motion: reduce');
   });
 
   it('names it, so a resumed run reuses it rather than paying again', () => {

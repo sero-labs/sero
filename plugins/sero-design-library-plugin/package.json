@@ -55,7 +55,8 @@
         "design_library_analysis",
         "design_library_designs",
         "design_library_media",
-        "design_library_gallery"
+        "design_library_gallery",
+        "design_library_export"
       ]
     }
   },

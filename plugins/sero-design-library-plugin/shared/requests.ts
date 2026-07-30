@@ -9,6 +9,7 @@
  */
 
 import type { DesignBrief, DesignRecord } from './design';
+import type { ExportDestination } from './export';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
 import type { MediaCapability, StoredMediaRequest } from './media';
 import type { DesignLibrarySettings, RevisionBehaviour } from './settings';
@@ -119,6 +120,14 @@ export type LibraryRequestBody =
   | { kind: 'gallery.purge-version'; familyId: string; versionId: string }
   | { kind: 'gallery.delete-family'; familyId: string; deleted: boolean }
   | { kind: 'gallery.purge-family'; familyId: string }
+  | {
+      kind: 'export.run';
+      exportId: string;
+      familyId: string;
+      versionId: string;
+      destination: ExportDestination;
+      workspacePath?: string;
+    }
   /**
    * Generate straight into the Library — Generate inspiration, or Restyle/vary
    * when `sourceItemId` is set (D3). `slotId` is what the grid renders a pending
@@ -218,6 +227,7 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
   'gallery.purge-version',
   'gallery.delete-family',
   'gallery.purge-family',
+  'export.run',
   'library.generate',
   'job.dismiss',
   'frames.attach',

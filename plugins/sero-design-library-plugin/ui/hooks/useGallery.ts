@@ -1,7 +1,8 @@
-import { useAppState, useAppTools } from '@sero-ai/app-runtime';
+import { useAppInfo, useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { GalleryFamilyRecord, GalleryVersionRecord } from '../../shared/gallery';
+import type { ExportDestination, ExportSummary } from '../../shared/export';
 import type { DesignLibraryState } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { captureGalleryPreview } from '../lib/gallery-capture';
@@ -13,6 +14,7 @@ export interface GalleryActions {
   favourite(familyId: string, favourite: boolean): Promise<void>;
   open(familyId: string, versionId: string): Promise<boolean>;
   duplicate(familyId: string, versionId: string): Promise<boolean>;
+  exportVersion(familyId: string, versionId: string, destination: ExportDestination): Promise<void>;
   removeFamily(familyId: string): Promise<void>;
   restoreFamily(familyId: string): Promise<void>;
   purgeFamily(familyId: string): Promise<void>;
@@ -26,15 +28,22 @@ export function useGallery(): {
   trash: GalleryFamilyRecord[];
   saving: boolean;
   error?: string;
+  latestExport?: ExportSummary;
   actions: GalleryActions;
 } {
   const [state] = useAppState<DesignLibraryState>(DEFAULT_STATE);
   const tools = useAppTools();
+  const { workspacePath } = useAppInfo();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [visibleExportId, setVisibleExportId] = useState<string>();
 
   const run = useCallback(
     (params: Record<string, unknown>) => tools.run('design_library_gallery', params),
+    [tools],
+  );
+  const runExport = useCallback(
+    (params: Record<string, unknown>) => tools.run('design_library_export', params),
     [tools],
   );
   const actions = useMemo<GalleryActions>(() => ({
@@ -81,6 +90,22 @@ export function useGallery(): {
       const result = await run({ action: 'duplicate', familyId, versionId });
       return typeof result.details?.designId === 'string';
     },
+    exportVersion: async (familyId, versionId, destination) => {
+      setError(undefined);
+      try {
+        const result = await runExport({
+          action: 'run', familyId, versionId, destination,
+          ...(destination === 'workspace' ? { workspacePath } : {}),
+        });
+        if (typeof result.details?.exportId !== 'string') {
+          const message = result.content.find((entry) => entry.type === 'text');
+          throw new Error(message && 'text' in message ? String(message.text) : 'The export was refused.');
+        }
+        setVisibleExportId(result.details.exportId);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
     removeFamily: async (familyId) => {
       await run({ action: 'delete-family', familyId });
     },
@@ -99,7 +124,7 @@ export function useGallery(): {
     purgeVersion: async (familyId, versionId) => {
       await run({ action: 'purge-version', familyId, versionId });
     },
-  }), [run, saving, tools]);
+  }), [run, runExport, saving, tools, workspacePath]);
 
   const families = useMemo(
     () => state.galleryFamilies
@@ -117,5 +142,13 @@ export function useGallery(): {
     ),
     [state.galleryFamilies],
   );
-  return { families, trash, saving, ...(error === undefined ? {} : { error }), actions };
+  const latestExport = state.exports.find((entry) => entry.id === visibleExportId);
+  return {
+    families,
+    trash,
+    saving,
+    ...(error === undefined ? {} : { error }),
+    ...(latestExport === undefined ? {} : { latestExport }),
+    actions,
+  };
 }

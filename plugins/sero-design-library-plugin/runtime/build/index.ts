@@ -3,6 +3,7 @@ import type { EmittedFile } from '../../shared/targets';
 import { inlineAssets, type BuildAsset } from './assets';
 import { buildHtmlDocument } from './html';
 import { buildReactDocument, type ReactBuildOptions } from './react';
+import { assembleStandaloneDocument as assembleStandaloneOutput } from './standalone';
 import type { BuildResult } from './types';
 
 export type { BuildResult } from './types';
@@ -42,3 +43,14 @@ export async function buildPreviewDocument(
 
 /** The document's file name inside a revision directory. */
 export const PREVIEW_DOCUMENT_FILE = 'preview.html';
+
+/** Build the same saved source as a local page with no Sero preview runtime. */
+export async function buildStandaloneDocument(
+  target: OutputTarget,
+  files: EmittedFile[],
+  supplementalStyles: readonly string[] = [],
+): Promise<BuildResult> {
+  return target === 'html'
+    ? buildHtmlDocument(files, [], assembleStandaloneOutput, supplementalStyles)
+    : buildReactDocument(files, { assembleDocument: assembleStandaloneOutput, supplementalStyles });
+}

@@ -469,6 +469,8 @@ Deletion hides versions or families until restore or permanent deletion, and aff
 
 Export reproduces the exact saved code, effective tweak values and bundled assets, plus a small metadata manifest carrying the saved tweak manifest and values. Exported output is standalone — it does not depend on Sero's Tweaks panel or runtime. You choose Downloads or the active workspace each time. Export never regenerates.
 
+The exported folder contains a runnable `index.html`, byte-identical saved files under `source/`, referenced artwork under `assets/`, selected bundled Design fonts under `fonts/`, resolved values in `effective-tweaks.css`, and provenance and checksums in `design-library.json`. Export verifies the Gallery checksums before it writes the folder. The runnable page has no preview message channel. It includes a local-only content policy and reduced-motion fallback.
+
 ---
 
 ## 10. Settings

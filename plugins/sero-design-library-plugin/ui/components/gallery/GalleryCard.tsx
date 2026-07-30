@@ -9,6 +9,7 @@ import { Heart, ImageOff, MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { GalleryFamilyRecord } from '../../../shared/gallery';
+import type { ExportDestination } from '../../../shared/export';
 import { useGalleryPreviewSrc } from '../../hooks/useAssetSrc';
 import { useVisible } from '../../hooks/useVisible';
 import { relativeTime } from '../../lib/time';
@@ -19,6 +20,7 @@ interface GalleryCardProps {
   onFeature(versionId: string): void;
   onDuplicate(versionId: string): void;
   onRemix(versionId: string): void;
+  onExport(versionId: string, destination: ExportDestination): void;
   onFavourite(favourite: boolean): void;
   onDelete(): void;
   onDeleteVersion(versionId: string): void;
@@ -30,6 +32,7 @@ export function GalleryCard({
   onFeature,
   onDuplicate,
   onRemix,
+  onExport,
   onFavourite,
   onDelete,
   onDeleteVersion,
@@ -86,6 +89,8 @@ export function GalleryCard({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => onDuplicate(selected.id)}>Duplicate</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onRemix(selected.id)}>Remix</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExport(selected.id, 'downloads')}>Export to Downloads</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExport(selected.id, 'workspace')}>Export to workspace</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onDeleteVersion(selected.id)}>Delete version</DropdownMenuItem>
               <DropdownMenuItem onSelect={onDelete}>Delete family</DropdownMenuItem>
             </DropdownMenuContent>

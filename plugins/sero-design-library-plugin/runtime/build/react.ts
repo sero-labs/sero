@@ -7,6 +7,7 @@ import * as esbuild from 'esbuild';
 import type { EmittedFile } from '../../shared/targets';
 import { TARGET_CONTRACTS } from '../../shared/targets';
 import { assemblePreviewDocument } from '../preview/document';
+import type { PreviewDocumentInput } from '../preview/document';
 import type { BuildResult } from './types';
 
 /**
@@ -74,6 +75,10 @@ export interface ReactBuildOptions {
   tailwindRuntime?: () => Promise<string>;
   /** Custom properties the document will accept a live tweak value for. */
   tweakVariables?: readonly string[];
+  /** Different final wrapper for an export, which has no preview harness. */
+  assembleDocument?: (input: PreviewDocumentInput) => string;
+  /** Trusted CSS applied after the generated stylesheet. */
+  supplementalStyles?: readonly string[];
 }
 
 async function readTailwindRuntime(): Promise<string> {
@@ -216,9 +221,9 @@ export async function buildReactDocument(
   const custom = tailwindEntrySource(styles.map((file) => file.content));
 
   return {
-    document: assemblePreviewDocument({
+    document: (options.assembleDocument ?? assemblePreviewDocument)({
       title: 'Design preview',
-      styles: [],
+      styles: [...(options.supplementalStyles ?? [])],
       // The compiler must run before the page mounts, so the first paint already
       // has its stylesheet. Both are inline scripts in document order.
       scripts: [tailwind, script].filter((entry) => entry !== ''),

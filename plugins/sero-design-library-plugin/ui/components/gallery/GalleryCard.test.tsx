@@ -38,6 +38,7 @@ describe('Gallery family card', () => {
     const onOpen = vi.fn();
     const onDuplicate = vi.fn();
     const onRemix = vi.fn();
+    const onExport = vi.fn();
     render(
       <GalleryCard
         family={family}
@@ -48,6 +49,7 @@ describe('Gallery family card', () => {
         onDeleteVersion={vi.fn()}
         onDuplicate={onDuplicate}
         onRemix={onRemix}
+        onExport={onExport}
       />,
     );
 
@@ -57,9 +59,12 @@ describe('Gallery family card', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
     await user.click(screen.getByRole('button', { name: 'Gallery family actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Remix' }));
+    await user.click(screen.getByRole('button', { name: 'Gallery family actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export to Downloads' }));
 
     expect(onOpen).toHaveBeenCalledWith('ver-1');
     expect(onDuplicate).toHaveBeenCalledWith('ver-1');
     expect(onRemix).toHaveBeenCalledWith('ver-1');
+    expect(onExport).toHaveBeenCalledWith('ver-1', 'downloads');
   });
 });

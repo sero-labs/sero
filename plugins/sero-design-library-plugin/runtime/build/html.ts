@@ -1,6 +1,7 @@
 import type { EmittedFile } from '../../shared/targets';
 import { remoteFetchesOf } from '../../shared/targets';
 import { assemblePreviewDocument } from '../preview/document';
+import type { PreviewDocumentInput } from '../preview/document';
 import type { BuildResult } from './types';
 
 /**
@@ -30,6 +31,8 @@ function isRemote(reference: string): boolean {
 export function buildHtmlDocument(
   files: EmittedFile[],
   tweakVariables: readonly string[] = [],
+  assembleDocument: (input: PreviewDocumentInput) => string = assemblePreviewDocument,
+  supplementalStyles: readonly string[] = [],
 ): BuildResult {
   const warnings: string[] = [];
   const byName = new Map(files.map((file) => [file.name, file.content]));
@@ -106,9 +109,9 @@ export function buildHtmlDocument(
   const { head, body, title } = splitDocument(markup);
 
   return {
-    document: assemblePreviewDocument({
+    document: assembleDocument({
       title: title === '' ? 'Design preview' : title,
-      styles: [...extractInlineStyles(head), ...inlinedStyles],
+      styles: [...extractInlineStyles(head), ...inlinedStyles, ...supplementalStyles],
       scripts: inlinedScripts,
       body,
       tweakVariables,
