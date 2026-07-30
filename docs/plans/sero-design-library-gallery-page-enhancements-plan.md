@@ -17,7 +17,8 @@ Make Gallery controls consistent with the Library and shared Sero UI.
 4. Match the Gallery rail to the Library rail.
 5. Match Gallery search styling and placement to Library search.
 6. Remove the Gallery introduction header.
-7. Update the product specification and user documentation.
+7. Replace the Open Design text button with an accessible open icon.
+8. Update the product specification and user documentation.
 
 ## 3. Verification
 

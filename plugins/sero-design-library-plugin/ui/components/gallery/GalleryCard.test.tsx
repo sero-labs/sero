@@ -55,6 +55,7 @@ describe('Gallery family card', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Version' }));
     await user.click(screen.getByRole('option', { name: 'V1 · First' }));
+    expect(screen.queryByText('Open Design')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Open Design' }));
     await user.click(screen.getByRole('button', { name: 'Gallery family actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }));

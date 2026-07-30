@@ -42,3 +42,9 @@ Gallery uses the shared `SearchInput` in the same compact toolbar layout as Libr
 Remove the full “Your Gallery” introduction block, including its description and aggregate summary. Search is the first row of the Gallery page.
 
 **Reason.** The main navigation already names the Gallery. The introduction repeats that name and takes space without supporting an action. The rail counts provide useful totals where people act on them.
+
+## E5 · Open Design is an icon action
+
+Gallery cards use an open icon instead of an **Open Design** text button. The button keeps **Open Design** as its accessible name and tooltip.
+
+**Reason.** The text action takes space from the version selector and repeats a standard navigation symbol.

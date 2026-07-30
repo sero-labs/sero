@@ -176,7 +176,7 @@ The Gallery rail shows live totals for all designs, favourites, recent saves, an
 
 | Action | What it does |
 | --- | --- |
-| Open Design | Opens the source Design at the exact saved revision |
+| Open icon | Opens the source Design at the exact saved revision |
 | Duplicate | Creates an exact editable copy in a new family |
 | Remix | Opens generation with the saved brief and references filled in |
 | Delete version | Moves one saved version to Gallery Trash |
