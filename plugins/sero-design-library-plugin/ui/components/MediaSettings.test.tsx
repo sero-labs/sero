@@ -24,6 +24,7 @@ import { MediaSettings } from './MediaSettings';
 const MEDIA: MediaSettingsValue = {
   models: {
     'text-to-image': 'flux/dev',
+    'reference-to-image': '',
     'image-to-image': '',
     upscale: '',
     'text-to-video': '',
@@ -108,10 +109,10 @@ describe('media models', () => {
     expect(callsFor('set-media-model')).toHaveLength(0);
   });
 
-  it('shows each capability separately, so one does not stand for all five', () => {
+  it('shows each capability separately', () => {
     render(<MediaSettings media={MEDIA} />);
 
-    for (const label of ['Image', 'Remix', 'Upscale', 'Video', 'Animate']) {
+    for (const label of ['Image', 'Reference image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
     }
   });

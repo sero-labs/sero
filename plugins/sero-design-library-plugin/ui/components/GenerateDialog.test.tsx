@@ -33,7 +33,7 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
 }
 
 async function chooseOperation(label: string) {
-  await userEvent.click(screen.getByRole('radio', { name: label }));
+  await userEvent.click(screen.getByRole('tab', { name: label }));
 }
 
 describe('fresh generation', () => {
@@ -41,10 +41,18 @@ describe('fresh generation', () => {
     renderDialog();
 
     expect(screen.getByRole('heading', { name: 'Generate' })).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'New image' })).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'New video' })).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
-    expect(screen.queryByRole('radio', { name: 'Upscale' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Image' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
+    expect(screen.queryByRole('tab', { name: 'Restyle' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Upscale' })).toBeNull();
+    expect(screen.queryByText('Create from your description')).toBeNull();
+    expect(
+      screen.queryByText('The model behind each capability is a setting, not a choice made here.'),
+    ).toBeNull();
+    expect(screen.getByRole('tablist').className).not.toContain('border-b');
+    const imageTab = screen.getByRole('tab', { name: 'Image' });
+    expect(imageTab.className).toContain('after:bg-primary');
+    expect(document.getElementById(imageTab.getAttribute('aria-controls') ?? '')).not.toBeNull();
     expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
   });
 });
@@ -54,7 +62,7 @@ describe('a video model that only makes long clips', () => {
 
   it('says why, and will not let the generation be started', async () => {
     const { onGenerate } = renderDialog({ modelOptions: longOnly });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.getByText(/shorter/)).toBeDefined();
@@ -67,7 +75,7 @@ describe('a video model that only makes long clips', () => {
 
   it('lets a model through as soon as one length fits', async () => {
     renderDialog({ modelOptions: { 'text-to-video': { durationsSeconds: [5, 20] } } });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.queryByText(/shorter/)).toBeNull();
@@ -81,10 +89,16 @@ describe('remixing a reference', () => {
     expect(screen.getByLabelText('Work from')).toBeDefined();
     expect(screen.getByText('Create new')).toBeDefined();
     expect(screen.getByText('Edit this reference')).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
-    expect(screen.getByRole('radio', { name: 'Upscale' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Image' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
+    expect(screen.queryByText('Use this as visual direction')).toBeNull();
+    expect(screen.queryByText('Animate from this reference')).toBeNull();
+    expect(screen.queryByText('Change its visual style')).toBeNull();
+    expect(screen.queryByText('Increase its resolution')).toBeNull();
 
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
     await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
 
@@ -97,12 +111,51 @@ describe('remixing a reference', () => {
     );
   });
 
+  it('creates a new image from the current reference', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Image');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'a new coastal composition');
+    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: 'reference-to-image',
+        prompt: 'a new coastal composition',
+        sourceId: 'item-1',
+      }),
+    );
+  });
+
+  it('does not change the operation when another tab receives focus', async () => {
+    renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Upscale');
+
+    screen.getByRole('tab', { name: 'Video' }).focus();
+
+    expect(screen.getByRole('button', { name: 'Upscale' })).toBeDefined();
+  });
+
+  it('restyles the current reference', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Restyle');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'use a paper collage style');
+    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: 'image-to-image',
+        prompt: 'use a paper collage style',
+        sourceId: 'item-1',
+      }),
+    );
+  });
+
   it('hides aspect ratio when the image-to-video endpoint does not accept it', async () => {
     const { onGenerate } = renderDialog({
       initialSourceId: 'item-1',
       modelOptions: { 'image-to-video': { supportsAspectRatio: false } },
     });
-    await chooseOperation('New video');
+    await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
 
     expect(screen.queryByLabelText('Aspect')).toBeNull();
@@ -128,7 +181,7 @@ describe('remixing a reference', () => {
     fireEvent.change(source, { target: { value: 'Reference 999' } });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
-    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ sourceId: 'item-999' }),
@@ -142,7 +195,7 @@ describe('remixing a reference', () => {
     });
 
     expect(screen.getByText('Nothing in the Library to work from yet.')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+    expect(screen.getByRole('button', { name: 'Restyle' }).hasAttribute('disabled')).toBe(
       true,
     );
   });
@@ -153,7 +206,7 @@ describe('remixing a reference', () => {
     await userEvent.clear(source);
     await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
 
-    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+    expect(screen.getByRole('button', { name: 'Restyle' }).hasAttribute('disabled')).toBe(
       true,
     );
     expect(onGenerate).not.toHaveBeenCalled();

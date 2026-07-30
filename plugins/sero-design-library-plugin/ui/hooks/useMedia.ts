@@ -16,7 +16,7 @@ import type { MediaCapability } from '../../shared/media';
 export interface GenerateAssetInput {
   capability: MediaCapability;
   prompt: string;
-  /** A sibling asset or a Library item, for image-to-image and upscale. */
+  /** A sibling asset or Library item for a source-aware capability. */
   sourceId?: string;
   aspectRatio?: string;
   seed?: number;

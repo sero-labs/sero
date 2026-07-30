@@ -21,6 +21,7 @@ import { MediaError } from '../contract';
 
 const CAPABILITY_MODELS: Record<MediaCapability, string> = {
   'text-to-image': 'fake/image',
+  'reference-to-image': 'fake/reference-image',
   'image-to-image': 'fake/image-edit',
   upscale: 'fake/upscale',
   'text-to-video': 'fake/video',

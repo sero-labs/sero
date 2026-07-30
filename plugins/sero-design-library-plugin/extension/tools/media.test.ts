@@ -94,8 +94,8 @@ describe('refusing a generation', () => {
     expect(await requests()).toEqual([]);
   });
 
-  it('needs a source for image-to-image and upscale, naming the parameter', async () => {
-    for (const capability of ['image-to-image', 'upscale']) {
+  it('needs a source for reference images, restyles and upscale, naming the parameter', async () => {
+    for (const capability of ['reference-to-image', 'image-to-image', 'upscale']) {
       const result = await call({ ...GENERATE, capability, prompt: 'sharper' });
       expect(textOf(result), capability).toContain('`sourceId`');
     }

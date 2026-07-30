@@ -51,20 +51,10 @@
     .body { flex: 1; padding: 19px 21px 22px; }
     .group + .group { margin-top: 18px; }
     .group-label { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
-    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .option {
-      min-height: 64px;
-      padding: 11px 12px;
-      text-align: left;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .option strong { display: block; color: var(--text); font-size: 13px; font-weight: 600; }
-    .option span { display: block; margin-top: 3px; color: var(--quiet); font-size: 11px; }
-    .option.active { border-color: var(--accent); background: var(--accent-wash); }
-    .option.active strong { color: #a9ddf2; }
+    .tabs { display: flex; gap: 6px; }
+    .tab { position: relative; padding: 7px 10px; color: var(--muted); background: transparent; border: 0; }
+    .tab.active { color: var(--accent); }
+    .tab.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; content: ""; background: var(--accent); }
     .field { margin-top: 18px; }
     label { display: block; margin-bottom: 7px; color: #ddddE2; font-size: 12px; font-weight: 560; }
     .picker {
@@ -96,7 +86,7 @@
     .select span { margin-left: auto; color: var(--quiet); }
     .foot { min-height: 67px; display: flex; align-items: center; gap: 16px; padding: 13px 21px; border-top: 1px solid var(--line); }
     .foot p { flex: 1; margin: 0; color: var(--quiet); font-size: 11px; }
-    .primary { height: 37px; padding: 0 15px; color: #071319; background: var(--accent); border: 0; border-radius: 8px; font-weight: 670; }
+    .primary { height: 37px; margin-left: auto; padding: 0 15px; color: #071319; background: var(--accent); border: 0; border-radius: 8px; font-weight: 670; }
     .callout { margin-top: 28px; padding: 16px 18px; border-left: 2px solid var(--accent); background: #0d0d10; color: var(--muted); font-size: 12px; }
     .callout b { color: var(--text); }
   </style>
@@ -116,10 +106,7 @@
           </div>
           <div class="body">
             <div class="group">
-              <div class="options">
-                <button class="option active"><strong>New image</strong><span>Create an image from your description</span></button>
-                <button class="option"><strong>New video</strong><span>Create a video from your description</span></button>
-              </div>
+              <div class="tabs"><button class="tab active">Image</button><button class="tab">Video</button></div>
             </div>
             <div class="field">
               <label for="fresh-prompt">Describe it</label>
@@ -129,7 +116,7 @@
               <div><label>Aspect</label><div class="select">16:9 <span>⌄</span></div></div>
             </div>
           </div>
-          <div class="foot"><p>The model behind each capability is a setting, not a choice made here.</p><button class="primary">Generate image</button></div>
+          <div class="foot"><button class="primary">Generate image</button></div>
         </div>
       </section>
 
@@ -143,16 +130,11 @@
           <div class="body">
             <div class="group">
               <div class="group-label">Create new</div>
-              <div class="options">
-                <button class="option active"><strong>New image</strong><span>Use this reference as visual direction</span></button>
-                <button class="option"><strong>New video</strong><span>Animate from this reference</span></button>
-              </div>
+              <div class="tabs"><button class="tab">Image</button><button class="tab">Video</button></div>
             </div>
             <div class="group">
               <div class="group-label">Edit this reference</div>
-              <div class="options" style="grid-template-columns:1fr">
-                <button class="option"><strong>Upscale</strong><span>Increase its resolution</span></button>
-              </div>
+              <div class="tabs"><button class="tab active">Restyle</button><button class="tab">Upscale</button></div>
             </div>
             <div class="field">
               <label>Work from</label>

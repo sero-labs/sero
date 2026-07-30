@@ -13,6 +13,7 @@ import { isSafeId } from './safe-id';
 
 export type MediaCapability =
   | 'text-to-image'
+  | 'reference-to-image'
   | 'image-to-image'
   | 'upscale'
   | 'text-to-video'
@@ -20,6 +21,7 @@ export type MediaCapability =
 
 export const MEDIA_CAPABILITIES: readonly MediaCapability[] = [
   'text-to-image',
+  'reference-to-image',
   'image-to-image',
   'upscale',
   'text-to-video',
@@ -32,6 +34,7 @@ export function isMediaCapability(value: unknown): value is MediaCapability {
 
 /** Capabilities that consume local source assets, so callers can check before asking. */
 export const SOURCE_CAPABILITIES: readonly MediaCapability[] = [
+  'reference-to-image',
   'image-to-image',
   'upscale',
   'image-to-video',

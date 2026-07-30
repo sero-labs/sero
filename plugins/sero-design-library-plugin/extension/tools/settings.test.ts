@@ -116,10 +116,10 @@ describe('media settings', () => {
       kind: 'settings.update',
       patch: { media: { models: { 'text-to-video': 'fast-video' } } },
     });
-    // The other three keep whatever they had, rather than being cleared by a
+    // The other capabilities keep whatever they had, rather than being cleared by a
     // patch that only named one.
     const patch = (queued?.body as { patch: { media: { models: Record<string, string> } } }).patch;
-    expect(Object.keys(patch.media.models)).toHaveLength(5);
+    expect(Object.keys(patch.media.models)).toHaveLength(6);
   });
 
   it('keeps the per-run cap inside its range', async () => {

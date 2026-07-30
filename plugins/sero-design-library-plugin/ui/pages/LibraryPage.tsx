@@ -109,6 +109,12 @@ export function LibraryPage({
           actions.setScope(scope);
         }}
         onCreateCollection={(name) => void actions.createCollection(name, 'primary')}
+        onDeleteCollection={(collectionId) => {
+          if (view.scope.kind === 'collection' && view.scope.collectionId === collectionId) {
+            actions.setScope({ kind: 'all' });
+          }
+          void actions.deleteCollection(collectionId);
+        }}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -128,7 +134,9 @@ export function LibraryPage({
           inTrash={inTrash}
           onClear={() => setPicked([])}
           onFavourite={() => applyToPicked((id) => actions.favourite(id, true))}
-          onCollect={(collectionId) => applyToPicked((id) => actions.collect(id, collectionId, true))}
+          onCollect={(collectionId, member) =>
+            applyToPicked((id) => actions.collect(id, collectionId, member))
+          }
           onReanalyse={() => applyToPicked((id) => actions.reanalyse(id))}
           onDelete={() => applyToPicked((id) => actions.remove(id))}
           onRestore={() => applyToPicked((id) => actions.restore(id))}
@@ -216,6 +224,7 @@ export function LibraryPage({
                     {...(item.id === transitioningItemId ? { transitionName } : {})}
                     onOpen={() => onOpenItem(item.id)}
                     onToggleSelect={() => togglePicked(item.id)}
+                    onFavourite={(favourite) => void actions.favourite(item.id, favourite)}
                   />
                 ))}
               </div>

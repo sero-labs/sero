@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 
 import { buildFalInput } from './fal-input';
 
+describe('fal reference-to-image input', () => {
+  it('sends the source image and new composition prompt', () => {
+    expect(
+      buildFalInput(
+        {
+          capability: 'reference-to-image',
+          prompt: 'a new coastal composition',
+          sourceAssetIds: ['reference'],
+          aspectRatio: '16:9',
+        },
+        ['https://fal.media/source.png'],
+        new Map(),
+      ),
+    ).toEqual({
+      prompt: 'a new coastal composition',
+      image_url: 'https://fal.media/source.png',
+      image_size: 'landscape_16_9',
+    });
+  });
+});
+
 describe('fal image-to-video input', () => {
   it('sends the source image and normalized video controls', () => {
     expect(

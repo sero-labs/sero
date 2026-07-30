@@ -40,6 +40,7 @@ export interface AssetView {
 
 const CAPABILITY_LABELS: Record<DesignAsset['request']['capability'], string> = {
   'text-to-image': 'Image',
+  'reference-to-image': 'Reference image',
   'image-to-image': 'Remix',
   upscale: 'Upscale',
   'text-to-video': 'Video',

@@ -18,21 +18,21 @@ The selected-reference **Remix** action opens a source-led panel. That panel sep
 
 ## E2 · Remix can create an image or a video from a reference
 
-Remix offers source-aware image and video generation. Image generation uses image-to-image. Video generation uses a new vendor-neutral `image-to-video` capability backed by a configured fal.ai model.
+Remix offers source-aware image generation, restyling, and video generation. Image uses the vendor-neutral `reference-to-image` capability. Restyle uses `image-to-image`. Video uses `image-to-video`. Each capability is backed by a configured fal.ai model.
 
 Text-to-video remains the fresh video operation.
 
-**Reason.** A movie based on a reference must send that reference to the provider. Reusing text-to-video would silently ignore it.
+**Reason.** New media based on a reference must send that reference to the provider. Reusing text-only capabilities would silently ignore it.
 
-**Consequence.** Settings gain one editable image-to-video model id. Existing profiles normalize with an empty override and therefore use the adapter default.
+**Consequence.** Settings gain editable reference-to-image and image-to-video model ids. Existing profiles normalize with empty overrides and therefore use the adapter defaults.
 
-## E3 · Remix has one image-to-image operation
+## E3 · Remix keeps explicit create and edit actions
 
-The selected-reference action is named **Remix**. Inside the panel, **New image** uses image-to-image, **New video** uses image-to-video, and **Upscale** remains under **Edit this reference**.
+The selected-reference action is named **Remix**. **Image** and **Video** remain under **Create new**. **Restyle** and **Upscale** remain under **Edit this reference**.
 
-**Reason.** New image and Restyle sent the same request. Two labels must not promise two operations when the runtime cannot tell them apart.
+**Reason.** Image and Restyle have different user intentions. Image makes new artwork that uses the source as visual direction. Restyle edits the source's visual style.
 
-**Consequence.** The first-release Restyle action becomes Remix → New image. Persisted media capability names do not change.
+**Consequence.** Image sends `reference-to-image`. Restyle sends `image-to-image`. Existing profiles gain an empty reference-to-image model override and use the fal.ai adapter default.
 
 ## E4 · Original provenance is read-only and last
 
@@ -50,20 +50,22 @@ The source picker and facet menus use the searchable Combobox from `@sero-ai/ui`
 
 Facet menus use multi-select. Selection ticks appear on the right through the shared component.
 
+The Colour menu groups exact analysed values into named families such as Reds, Greens, Blues, Purples, and Neutrals. Selecting a family includes all current Library colours in that family.
+
 **Reason.** A plain select or complete menu does not scale to thousands of values. A scroll area alone moves the problem into a long scroll.
 
 **Consequence.** Users type to narrow large lists. Selection, keyboard control, filtering and focus behavior stay consistent with other Sero pickers.
 
-## E6 · The generation choice uses grouped controls, not flat tabs
+## E6 · Generation choices use shared line tabs
 
-Fresh Generate uses a small option grid. Remix uses two labelled option groups:
+Fresh Generate uses one line-tab row. Remix uses line tabs in two labelled groups:
 
 - **Create new**
 - **Edit this reference**
 
-**Reason.** Tabs imply peer views. These controls select an operation and include an important source-versus-output distinction.
+**Reason.** The shared `@sero-ai/ui` line tabs match the inspector and give each group a clear, standard selection state.
 
-**Consequence.** The panel uses selectable controls that match the inspector’s border, spacing, focus, and selected-state language.
+**Consequence.** The panel does not implement a local operation picker.
 
 ## E7 · Video protections apply to both video capabilities
 
@@ -72,3 +74,11 @@ Mandatory confirmation, duration limits, cost tracking, pending states, frame ca
 **Reason.** Source input does not change the spend or lifecycle risks of video generation.
 
 **Consequence.** Shared video checks use an explicit video-capability predicate instead of one direct equality check.
+
+## E8 · Collection membership and deletion are visible
+
+The selected-reference bar lists collections as checked items. Clearing a check removes the selected references from that collection. Each custom collection row has an action menu with **Delete collection**.
+
+**Reason.** An add-only menu and collection rows with no actions hide existing runtime capabilities.
+
+**Consequence.** Deleting a collection returns an active collection view to All inspiration. It does not delete the references in the collection.

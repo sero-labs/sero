@@ -46,8 +46,9 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 ## Finding things
 
 - **Search** covers titles, tags, notes and every part of the analysis you can see.
-- **Filters** narrow by media, style, tag, colour and source. Values inside one filter widen the results; different filters narrow them.
+- **Filters** narrow by media, style, tag, colour and source. The colour filter uses families such as Reds, Greens, Blues and Neutrals. Values inside one filter widen the results; different filters narrow them.
 - **Favourites** and **Collections** are yours to arrange. A collection is a plain group you name.
+- Select references and open **Collections** to add or remove them. Use the action menu beside a custom collection to delete the collection; its references stay in the Library.
 - **Style groups** appear on their own once two references share a primary style. They are simply what the Librarian already said, counted — nothing extra runs to produce them.
 
 ## Designing from your references
@@ -207,9 +208,9 @@ You can also generate straight into the Library, from the **Generate** button in
 | What | How |
 | --- | --- |
 | A new image or video from a description | **Generate**, then choose the media type |
-| A new image based on a reference | Select one reference, choose **Remix**, then **New image** |
-| A video based on a reference | Select one reference, choose **Remix**, then **New video** |
-| A restyled copy | Select one reference, choose **Remix**, then **New image** |
+| A new image based on a reference | Select one reference, choose **Remix**, then **Image** |
+| A restyled image based on a reference | Select one reference, choose **Remix**, then **Restyle** |
+| A video based on a reference | Select one reference, choose **Remix**, then **Video** |
 | A sharper copy | Select one reference, choose **Remix**, then **Upscale** |
 
 Generated references arrive in the Library like any other and are read by the Librarian automatically. Open one to see the original prompt and model at the end of the inspector. While one is on its way it shows as a tile in the grid, so you can see that it is coming rather than wondering whether the button worked.

@@ -29,7 +29,7 @@ describe('retiring optimistic view keys', () => {
       filters: {
         analysisStatuses: [],
         sourceKinds: [],
-        colours: [],
+        colourFamilies: [],
         tags: ['editorial'],
         styles: [],
         mediaKinds: [],

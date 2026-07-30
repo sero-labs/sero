@@ -17,9 +17,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
-  ToggleGroup,
-  ToggleGroupItem,
 } from '@sero-ai/ui';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -49,7 +51,7 @@ export type GenerateTarget =
   | { kind: 'design'; designId: string; designTitle: string }
   | { kind: 'library' };
 
-/** Something a restyle or an upscale can work from. */
+/** An image that a reference generation, restyle, upscale, or video can use. */
 export interface GenerateSource {
   id: string;
   label: string;
@@ -101,33 +103,35 @@ type GenerationOperation =
   | 'fresh-video'
   | 'reference-image'
   | 'reference-video'
+  | 'restyle'
   | 'upscale';
 
 interface OperationChoice {
   value: GenerationOperation;
   label: string;
-  description: string;
 }
 
 const FRESH_OPERATIONS: OperationChoice[] = [
-  { value: 'fresh-image', label: 'New image', description: 'Create from your description' },
-  { value: 'fresh-video', label: 'New video', description: 'Create from your description' },
+  { value: 'fresh-image', label: 'Image' },
+  { value: 'fresh-video', label: 'Video' },
 ];
 
 const CREATE_OPERATIONS: OperationChoice[] = [
-  { value: 'reference-image', label: 'New image', description: 'Use this as visual direction' },
-  { value: 'reference-video', label: 'New video', description: 'Animate from this reference' },
+  { value: 'reference-image', label: 'Image' },
+  { value: 'reference-video', label: 'Video' },
 ];
 
 const EDIT_OPERATIONS: OperationChoice[] = [
-  { value: 'upscale', label: 'Upscale', description: 'Increase its resolution' },
+  { value: 'restyle', label: 'Restyle' },
+  { value: 'upscale', label: 'Upscale' },
 ];
 
 const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
   'fresh-image': 'text-to-image',
   'fresh-video': 'text-to-video',
-  'reference-image': 'image-to-image',
+  'reference-image': 'reference-to-image',
   'reference-video': 'image-to-video',
+  restyle: 'image-to-image',
   upscale: 'upscale',
 };
 
@@ -136,6 +140,7 @@ const ACTION_LABEL: Record<GenerationOperation, string> = {
   'fresh-video': 'Generate video',
   'reference-image': 'Generate image',
   'reference-video': 'Generate video',
+  restyle: 'Restyle',
   upscale: 'Upscale',
 };
 
@@ -150,11 +155,11 @@ export function GenerateDialog({
 }: GenerateDialogProps) {
   const remix = initialSourceId !== undefined;
   const [operation, setOperation] = useState<GenerationOperation>(
-    remix ? 'reference-image' : 'fresh-image',
+    remix ? 'restyle' : 'fresh-image',
   );
   const capability = OPERATION_CAPABILITY[operation];
   const [prompt, setPrompt] = useState('');
-  const [sourceId, setSourceId] = useState<string>(initialSourceId ?? '');
+  const [sourceId, setSourceId] = useState(initialSourceId ?? '');
   const [chosenAspect, setChosenAspect] = useState<string | null>(null);
   const [chosenDuration, setChosenDuration] = useState<number | null>(null);
 
@@ -230,29 +235,32 @@ export function GenerateDialog({
           ).map((group) => (
             <section key={group.label ?? 'fresh'} className="space-y-2">
               {group.label && <h3 className="text-muted-foreground text-xs font-medium">{group.label}</h3>}
-              <ToggleGroup
-                type="single"
-                value={operation}
-                onValueChange={(value) => value !== '' && setOperation(value as GenerationOperation)}
-                className={`grid gap-2 ${group.choices.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
-                aria-label={group.label ?? 'Media type'}
+              <Tabs
+                activationMode="manual"
+                value={group.choices.some((choice) => choice.value === operation) ? operation : ''}
+                onValueChange={(value) => setOperation(value as GenerationOperation)}
               >
+                <TabsList
+                  variant="line"
+                  className="justify-start"
+                  aria-label={group.label ?? 'Output type'}
+                >
+                  {group.choices.map((choice) => (
+                    <TabsTrigger
+                      key={choice.value}
+                      value={choice.value}
+                      className="data-[state=active]:text-primary after:bg-primary flex-none px-3"
+                    >
+                      {choice.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
                 {group.choices.map((choice) => (
-                  <ToggleGroupItem
-                    key={choice.value}
-                    value={choice.value}
-                    className="h-auto min-h-16 items-start justify-start px-3 py-2.5 text-left"
-                    aria-label={choice.label}
-                  >
-                    <span>
-                      <span className="block text-sm font-medium">{choice.label}</span>
-                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                        {choice.description}
-                      </span>
-                    </span>
-                  </ToggleGroupItem>
+                  <TabsContent key={choice.value} value={choice.value} className="sr-only">
+                    {choice.label} operation selected
+                  </TabsContent>
                 ))}
-              </ToggleGroup>
+              </Tabs>
             </section>
           ))}
 
@@ -348,13 +356,12 @@ export function GenerateDialog({
         </div>
 
         <div className="flex items-center gap-3">
-          <p className="text-muted-foreground flex-1 text-xs">
-            {tooLong ??
-              (needsConfirmation(capability)
-                ? 'Video is the most expensive capability and asks again before it spends.'
-                : 'The model behind each capability is a setting, not a choice made here.')}
-          </p>
-          <Button type="button" onClick={submit} disabled={blocked}>
+          {(tooLong !== null || needsConfirmation(capability)) && (
+            <p className="text-muted-foreground flex-1 text-xs">
+              {tooLong ?? 'Video is the most expensive capability and asks again before it spends.'}
+            </p>
+          )}
+          <Button type="button" onClick={submit} disabled={blocked} className="ml-auto">
             <Sparkles className="size-3.5" />
             {ACTION_LABEL[operation]}
           </Button>

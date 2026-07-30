@@ -5,6 +5,7 @@
  */
 
 import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, ViewPreferences } from './types';
+import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -46,7 +47,11 @@ export function matchesFilters(item: ItemSummary, filters: LibraryFilters): bool
   if (!passesList(filters.mediaKinds, (kind) => item.kind === kind)) return false;
   if (!passesList(filters.styles, (style) => item.primaryStyle === style)) return false;
   if (!passesList(filters.tags, (tag) => item.tags.includes(tag))) return false;
-  if (!passesList(filters.colours, (colour) => item.colours.includes(colour))) return false;
+  if (
+    !passesList(filters.colourFamilies, (family) =>
+      item.colours.some((colour) => colourFamily(colour) === family),
+    )
+  ) return false;
   if (!passesList(filters.sourceKinds, (source) => item.sourceKind === source)) return false;
   if (!passesList(filters.analysisStatuses, (status) => item.analysisStatus === status)) return false;
   if (filters.createdAfter !== undefined && item.createdAt < filters.createdAfter) return false;
