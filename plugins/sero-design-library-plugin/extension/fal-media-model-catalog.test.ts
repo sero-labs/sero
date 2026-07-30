@@ -2,81 +2,96 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createFalMediaModelCatalog } from './fal-media-model-catalog';
 
-function response(body: unknown): Response {
+function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
 describe('fal media model catalogue', () => {
-  it('maps provider data to capability choices and shares duplicate queries', async () => {
-    const fetch = vi.fn(async (input: Parameters<typeof globalThis.fetch>[0]) => {
-      const url = new URL(String(input));
-      const category = url.searchParams.get('category');
-      return response({
-        models: [
-          {
-            endpoint_id: `model/${category}`,
-            metadata: { display_name: `Model ${category}` },
-          },
-        ],
-        has_more: false,
-        next_cursor: null,
-      });
-    });
-    const catalog = createFalMediaModelCatalog({
-      credentials: async () => undefined,
-      fetch: fetch as typeof globalThis.fetch,
-    });
+  it('maps one anonymous working set to provider-neutral capability choices', async () => {
+    const fetch = vi.fn(
+      async (
+        _input: Parameters<typeof globalThis.fetch>[0],
+        _init?: Parameters<typeof globalThis.fetch>[1],
+      ) =>
+        response({
+          models: [
+            {
+              endpoint_id: 'fal-ai/flux/dev',
+              metadata: { display_name: 'FLUX Dev', category: 'text-to-image' },
+            },
+            {
+              endpoint_id: 'partner/editor',
+              metadata: { display_name: 'Editor', category: 'image-to-image' },
+            },
+            {
+              endpoint_id: 'partner/upscaler',
+              metadata: { display_name: 'Photo Upscale', category: 'image-to-image' },
+            },
+            {
+              endpoint_id: 'partner/video',
+              metadata: { display_name: 'Video', category: 'text-to-video' },
+            },
+            {
+              endpoint_id: 'partner/animate',
+              metadata: { display_name: 'Animate', category: 'image-to-video' },
+            },
+          ],
+        }),
+    );
+    const catalog = createFalMediaModelCatalog({ fetch: fetch as typeof globalThis.fetch });
 
     const models = await catalog.list();
 
     expect(models['text-to-image'][0]).toEqual({
-      id: 'model/text-to-image',
-      label: 'Model text-to-image · model/text-to-image',
-      provider: 'model',
+      id: 'fal-ai/flux/dev',
+      label: 'FLUX Dev · fal-ai/flux/dev',
+      provider: 'fal-ai',
     });
     expect(models['reference-to-image']).toEqual(models['image-to-image']);
-    expect(fetch).toHaveBeenCalledTimes(5);
-    const upscaleUrl = fetch.mock.calls
-      .map(([input]) => new URL(String(input)))
-      .find((url) => url.searchParams.get('q') === 'upscale');
-    expect(upscaleUrl?.searchParams.get('category')).toBe('image-to-image');
+    expect(models.upscale.map((model) => model.id)).toEqual(['partner/upscaler']);
+    expect(models['text-to-video'][0]?.id).toBe('partner/video');
+    expect(models['image-to-video'][0]?.id).toBe('partner/animate');
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    const url = new URL(String(input));
+    expect(url.searchParams.get('limit')).toBe('100');
+    expect(url.searchParams.get('status')).toBe('active');
+    expect(init?.headers).toBeUndefined();
   });
 
-  it('reads every page and sends the key only in the provider adapter', async () => {
-    const fetch = vi.fn(
-      async (
-        input: Parameters<typeof globalThis.fetch>[0],
-        init?: Parameters<typeof globalThis.fetch>[1],
-      ) => {
-        const url = new URL(String(input));
-        const cursor = url.searchParams.get('cursor');
-        if (url.searchParams.get('category') !== 'text-to-image') {
-          return response({ models: [], has_more: false, next_cursor: null });
-        }
-        return cursor === null
-          ? response({
-              models: [{ endpoint_id: 'model/b', metadata: { display_name: 'B' } }],
-              has_more: true,
-              next_cursor: 'page-2',
-            })
-          : response({
-              models: [{ endpoint_id: 'model/a', metadata: { display_name: 'A' } }],
-              has_more: false,
-              next_cursor: null,
-            });
-      },
-    );
-    const catalog = createFalMediaModelCatalog({
-      credentials: async () => 'secret',
-      fetch: fetch as typeof globalThis.fetch,
-    });
+  it('caches successful results until an explicit refresh', async () => {
+    const fetch = vi.fn(async () => response({ models: [] }));
+    const catalog = createFalMediaModelCatalog({ fetch: fetch as typeof globalThis.fetch });
 
-    const models = await catalog.list();
+    await catalog.list();
+    await catalog.list();
+    await catalog.list({ refresh: true });
 
-    expect(models['text-to-image'].map((model) => model.id)).toEqual(['model/a', 'model/b']);
-    expect(fetch.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: 'Key secret' });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the cached result when a refresh fails', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response({
+          models: [
+            {
+              endpoint_id: 'provider/model',
+              metadata: { display_name: 'Model', category: 'text-to-image' },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(response({}, 429));
+    const catalog = createFalMediaModelCatalog({ fetch: fetch as typeof globalThis.fetch });
+
+    const cached = await catalog.list();
+    await expect(catalog.list({ refresh: true })).rejects.toThrow('returned 429');
+    expect(await catalog.list()).toEqual(cached);
   });
 });

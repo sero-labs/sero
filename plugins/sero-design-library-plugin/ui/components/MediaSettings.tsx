@@ -1,32 +1,12 @@
-import {
-  Button,
-  Combobox,
-  ComboboxCollection,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxGroup,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxLabel,
-  ComboboxList,
-  Input,
-  Label,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@sero-ai/ui';
 import { useAppTools } from '@sero-ai/app-runtime';
-import { Info } from 'lucide-react';
+import { Button, Input, TooltipProvider } from '@sero-ai/ui';
 import { useEffect, useState } from 'react';
 
-import type { CredentialStatus, MediaCapability } from '../../shared/media';
-import { MEDIA_CAPABILITIES } from '../../shared/media';
-import type { MediaModelChoice, MediaModelChoices } from '../../shared/media-model-catalog';
+import type { CredentialStatus } from '../../shared/media';
 import type { MediaSettings as MediaSettingsValue } from '../../shared/settings';
 import { MAX_CALLS_PER_RUN } from '../../shared/settings';
-import { capabilityLabel } from '../lib/asset-view';
 import { CountStepper } from './CountStepper';
+import { MediaModelSettings } from './MediaModelSettings';
 
 /**
  * Media configuration (spec §8.3, §10, D7, D9, D10).
@@ -45,31 +25,6 @@ const KEY_STATUS_LABEL: Record<CredentialStatus, string> = {
   missing: 'No key — generation will fail until one is set',
 };
 
-const PROVIDER_DEFAULT = 'provider-default';
-const VISIBLE_MODEL_LIMIT = 50;
-
-const MEDIA_MODEL_USAGE: Record<MediaCapability, string> = {
-  'text-to-image': 'Used when a Design creates a new image from a text prompt.',
-  'reference-to-image':
-    'Used when a Design creates a new image from one or more Library references.',
-  'image-to-image': 'Used when a Design edits or restyles an existing image.',
-  upscale: 'Used when a Design increases the resolution of an existing image.',
-  'text-to-video': 'Used when a Design creates a video from a text prompt.',
-  'image-to-video': 'Used when a Design animates an existing image.',
-};
-
-interface ModelOption {
-  value: string;
-  label: string;
-  provider: string;
-}
-
-interface ModelOptionGroup {
-  value: string;
-  label: string;
-  items: ModelOption[];
-}
-
 export interface MediaSettingsProps {
   media: MediaSettingsValue;
 }
@@ -80,9 +35,14 @@ export function MediaSettings({ media }: MediaSettingsProps) {
 
   return (
     <TooltipProvider>
-      <ModelIds media={media} onChange={(capability, mediaModel) =>
-        void run({ action: 'set-media-model', capability, mediaModel })
-      } />
+      <Section title="Media models">
+        <MediaModelSettings
+          media={media}
+          onChange={(capability, mediaModel) =>
+            void run({ action: 'set-media-model', capability, mediaModel })
+          }
+        />
+      </Section>
 
       <CallCap
         callsPerRun={media.callsPerRun}
@@ -114,196 +74,6 @@ function Section({
   );
 }
 
-function ModelIds({
-  media,
-  onChange,
-}: {
-  media: MediaSettingsValue;
-  onChange(capability: MediaCapability, modelId: string): void;
-}) {
-  const tools = useAppTools();
-  const [choices, setChoices] = useState<MediaModelChoices | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void tools
-      .run('design_library_settings', { action: 'list-media-models' })
-      .then((result) => {
-        if (active) setChoices(normalizeChoices(result.details?.models));
-      })
-      .catch(() => {
-        if (active) setChoices(emptyChoices());
-      });
-    return () => {
-      active = false;
-    };
-    // The catalogue is read once when Settings opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <Section title="Media models">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {MEDIA_CAPABILITIES.map((capability) => (
-          <ModelSelect
-            key={capability}
-            capability={capability}
-            value={media.models[capability]}
-            choices={choices?.[capability] ?? []}
-            loading={choices === null}
-            onChange={(modelId) => onChange(capability, modelId)}
-          />
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-function emptyChoices(): MediaModelChoices {
-  return {
-    'text-to-image': [],
-    'reference-to-image': [],
-    'image-to-image': [],
-    upscale: [],
-    'text-to-video': [],
-    'image-to-video': [],
-  };
-}
-
-function modelChoices(value: unknown): MediaModelChoice[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (choice): choice is MediaModelChoice =>
-      typeof choice === 'object' &&
-      choice !== null &&
-      typeof (choice as Record<string, unknown>).id === 'string' &&
-      typeof (choice as Record<string, unknown>).label === 'string' &&
-      typeof (choice as Record<string, unknown>).provider === 'string',
-  );
-}
-
-function normalizeChoices(value: unknown): MediaModelChoices {
-  if (typeof value !== 'object' || value === null) return emptyChoices();
-  const source = value as Record<string, unknown>;
-  return {
-    'text-to-image': modelChoices(source['text-to-image']),
-    'reference-to-image': modelChoices(source['reference-to-image']),
-    'image-to-image': modelChoices(source['image-to-image']),
-    upscale: modelChoices(source.upscale),
-    'text-to-video': modelChoices(source['text-to-video']),
-    'image-to-video': modelChoices(source['image-to-video']),
-  };
-}
-
-function ModelSelect({
-  capability,
-  value,
-  choices,
-  loading,
-  onChange,
-}: {
-  capability: MediaCapability;
-  value: string;
-  choices: MediaModelChoice[];
-  loading: boolean;
-  onChange(modelId: string): void;
-}) {
-  const selectedIsListed = choices.some((choice) => choice.id === value);
-  const options: ModelOption[] = [
-    { value: PROVIDER_DEFAULT, label: 'Provider default', provider: 'Default' },
-    ...(value !== '' && !selectedIsListed
-      ? [{ value, label: value, provider: 'Saved choice' }]
-      : []),
-    ...choices.map((choice) => ({
-      value: choice.id,
-      label: choice.label,
-      provider: choice.provider,
-    })),
-  ];
-  const groups = groupModelOptions(options);
-  const selectedValue = options.find(
-    (option) => option.value === (value === '' ? PROVIDER_DEFAULT : value),
-  );
-
-  return (
-    <div className="space-y-1.5">
-      <MediaModelLabel capability={capability} />
-      <Combobox
-        items={groups}
-        value={selectedValue}
-        disabled={loading}
-        limit={VISIBLE_MODEL_LIMIT}
-        isItemEqualToValue={(item, selected) => item.value === selected.value}
-        onValueChange={(model) => {
-          if (model !== null) onChange(model.value === PROVIDER_DEFAULT ? '' : model.value);
-        }}
-      >
-        <ComboboxInput
-          id={`media-model-${capability}`}
-          className="w-full"
-          placeholder={loading ? 'Loading models…' : 'Search models'}
-        />
-        <ComboboxContent>
-          <ComboboxEmpty>No models found</ComboboxEmpty>
-          <ComboboxList>
-            {(group: ModelOptionGroup) => (
-              <ComboboxGroup key={group.value} items={group.items}>
-                <ComboboxLabel>{group.label}</ComboboxLabel>
-                <ComboboxCollection>
-                  {(option: ModelOption) => (
-                    <ComboboxItem key={option.value} value={option}>
-                      {option.label}
-                    </ComboboxItem>
-                  )}
-                </ComboboxCollection>
-              </ComboboxGroup>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-    </div>
-  );
-}
-
-function MediaModelLabel({ capability }: { capability: MediaCapability }) {
-  const label = capabilityLabel(capability);
-  return (
-    <div className="flex items-center gap-1">
-      <Label htmlFor={`media-model-${capability}`}>{label}</Label>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground size-5"
-            aria-label={`How ${label} is used`}
-          >
-            <Info className="size-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          {MEDIA_MODEL_USAGE[capability]}
-        </TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
-
-function groupModelOptions(options: ModelOption[]): ModelOptionGroup[] {
-  const grouped = new Map<string, ModelOption[]>();
-  for (const option of options) {
-    const group = grouped.get(option.provider);
-    if (group === undefined) grouped.set(option.provider, [option]);
-    else group.push(option);
-  }
-  return [...grouped].map(([provider, items]) => ({
-    value: provider,
-    label: provider,
-    items,
-  }));
-}
-
 function CallCap({
   callsPerRun,
   onChange,
@@ -324,6 +94,7 @@ function CallCap({
           min={0}
           max={MAX_CALLS_PER_RUN}
           value={callsPerRun}
+          editable
           onChange={onChange}
         />
       </div>

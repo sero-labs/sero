@@ -18,13 +18,17 @@ Make the Design Library options page simpler and safer to use.
 5. Extract the Create Design count stepper.
 6. Use the shared stepper for Media calls per run.
 7. Add an accessible usage tooltip beside each media-model label.
-8. Update the product specification and user documentation.
+8. Bound fal.ai discovery to one anonymous request and cache successful results.
+9. Keep saved and manual endpoint choices available when discovery fails.
+10. Show catalogue errors with Retry and remove the grouped-list display cap.
+11. Give the shared stepper an accessible group and direct entry for media calls.
+12. Update the product specification and user documentation.
 
 ## 3. Verification
 
-1. Test catalogue pagination, authentication, and capability mapping.
-2. Test media-model search, provider groups, selection, fallback choices, and usage tooltips.
-3. Test the media-call stepper boundaries and settings action.
+1. Test the anonymous catalogue request, capability mapping, cache, refresh, and failure fallback.
+2. Test media-model search, all provider groups, manual entry, Retry, fallback choices, and usage tooltips.
+3. Test the media-call stepper boundaries, direct entry, accessibility, and settings action.
 4. Run the Design Library plugin tests.
 5. Run the Design Library plugin typecheck and build.
 6. Run React Doctor.

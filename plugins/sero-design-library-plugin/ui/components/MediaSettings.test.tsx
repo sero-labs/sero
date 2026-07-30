@@ -140,6 +140,58 @@ describe('media models', () => {
     expect(screen.getByRole('option', { name: 'flux/dev' })).toBeDefined();
   });
 
+  it('keeps manual entry available and retries after a catalogue error', async () => {
+    run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => {
+      if (params.action === 'list-media-models') {
+        throw new Error('The media provider model catalogue returned 429.');
+      }
+      return { content: [], details: { status: 'missing' } };
+    });
+    renderSettings();
+
+    expect((await screen.findByRole('alert')).textContent).toContain('returned 429');
+    const input = screen.getByLabelText('Image');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'private/image-model');
+    await userEvent.click(screen.getByRole('option', { name: 'private/image-model' }));
+
+    expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
+      capability: 'text-to-image',
+      mediaModel: 'private/image-model',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(2));
+    expect(callsFor('list-media-models')[1]?.[1]).toMatchObject({ refresh: true });
+  });
+
+  it('does not hide later provider groups in a long catalogue', async () => {
+    run.mockImplementation(async (_tool: string, params: Record<string, unknown>) => ({
+      content: [],
+      details:
+        params.action === 'list-media-models'
+          ? {
+              models: {
+                ...MEDIA.models,
+                'text-to-image': [
+                  ...Array.from({ length: 55 }, (_, index) => ({
+                    id: `fal-ai/model-${index}`,
+                    label: `FAL model ${index}`,
+                    provider: 'fal-ai',
+                  })),
+                  { id: 'openai/image', label: 'OpenAI Image', provider: 'openai' },
+                ],
+              },
+            }
+          : { status: 'missing' },
+    }));
+    renderSettings();
+
+    await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
+    await userEvent.click(screen.getByLabelText('Image'));
+    expect(screen.getByText('openai')).toBeDefined();
+  });
+
   it('shows each capability separately', async () => {
     renderSettings();
 

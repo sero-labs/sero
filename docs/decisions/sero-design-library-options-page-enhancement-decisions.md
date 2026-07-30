@@ -10,7 +10,7 @@ This is a separate decision entry for options-page enhancement work. It does not
 
 The settings tool returns model choices by media capability. Each choice has an opaque ID and a display label.
 
-The active provider owns its API URL, authentication, pagination, category mapping, and response parsing. The UI does not read provider-specific data.
+The active provider owns its API URL, catalogue access, category mapping, and response parsing. The UI does not read provider-specific data.
 
 **Reason.** The current text fields make people find and type endpoint IDs. A provider-neutral contract lets the UI use live choices without coupling it to fal.ai.
 
@@ -18,9 +18,9 @@ The active provider owns its API URL, authentication, pagination, category mappi
 
 ## E2 · Media model choices use the shared Combobox
 
-Each media capability uses the single-choice `Combobox` from `@sero-ai/ui`. The menu is searchable, groups models by provider, and limits the initial visible matches so opening a long catalogue stays responsive.
+Each media capability uses the single-choice `Combobox` from `@sero-ai/ui`. The menu is searchable and groups models by provider.
 
-The list includes the provider default and the current saved value. The current value stays available if it is absent from the latest provider response.
+The list includes the provider default and the current saved value. The current value stays available if it is absent from the latest provider response. A user can also enter a model endpoint that is not in the working set.
 
 **Reason.** Model selection is a fixed choice from live provider data. A long Select is slow to open and hard to scan. Search and provider groups make the same catalogue practical.
 
@@ -43,3 +43,17 @@ Each media-model label has an info icon. Its tooltip explains where that capabil
 **Reason.** The short labels keep the page easy to scan, but terms such as **Remix** and **Animate** do not explain their input and output. A tooltip gives this detail only when it is needed.
 
 **Consequence.** Each icon supports pointer hover and keyboard focus and has an accessible name.
+
+## E6 · Catalogue discovery is bounded and cached
+
+The fal.ai adapter reads one anonymous working set of active models and classifies it by capability. It caches a successful result across Settings visits. Retry asks the adapter to refresh the cache.
+
+**Reason.** Crawling every page for several categories exceeds the public endpoint's rate limit. The model-discovery endpoint does not need the generation key. One bounded request avoids request bursts and prevents a stale key from blocking discovery.
+
+**Consequence.** Settings shows the provider error and a Retry action when discovery fails. Manual endpoint entry and saved choices stay available.
+
+## E7 · The shared stepper has accessible value entry
+
+The stepper is an accessible named group. **Media calls per run** also provides direct numeric entry inside the group.
+
+**Reason.** Increment and decrement buttons are useful for small changes. Direct entry prevents many clicks across the 0–20 range.

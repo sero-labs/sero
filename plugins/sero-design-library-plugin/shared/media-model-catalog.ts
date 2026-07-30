@@ -15,7 +15,12 @@ export interface MediaModelChoice {
 
 export type MediaModelChoices = Record<MediaCapability, MediaModelChoice[]>;
 
+export interface ListMediaModelsOptions {
+  refresh?: boolean;
+  signal?: AbortSignal;
+}
+
 /** Provider-neutral model discovery used by the settings tool. */
 export interface MediaModelCatalog {
-  list(signal?: AbortSignal): Promise<MediaModelChoices>;
+  list(options?: ListMediaModelsOptions): Promise<MediaModelChoices>;
 }

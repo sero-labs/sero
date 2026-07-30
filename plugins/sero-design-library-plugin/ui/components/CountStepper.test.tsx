@@ -24,6 +24,7 @@ describe('CountStepper', () => {
     await userEvent.click(screen.getByRole('button', { name: 'One fewer item' }));
     await userEvent.click(screen.getByRole('button', { name: 'One more item' }));
     expect(onChange.mock.calls.map(([value]) => value)).toEqual([1, 3]);
+    expect(screen.getByRole('group', { name: 'Items' })).toBeDefined();
 
     rerender(
       <CountStepper
@@ -39,5 +40,28 @@ describe('CountStepper', () => {
     expect(screen.getByRole('button', { name: 'One fewer item' }).hasAttribute('disabled')).toBe(
       true,
     );
+  });
+
+  it('allows direct entry when the range is large', async () => {
+    const onChange = vi.fn();
+    render(
+      <CountStepper
+        value={4}
+        min={0}
+        max={20}
+        label="Media calls per run"
+        decrementLabel="One fewer media call"
+        incrementLabel="One more media call"
+        editable
+        onChange={onChange}
+      />,
+    );
+
+    const input = screen.getByRole('spinbutton', { name: 'Media calls per run value' });
+    await userEvent.clear(input);
+    await userEvent.type(input, '20');
+    await userEvent.tab();
+
+    expect(onChange).toHaveBeenLastCalledWith(20);
   });
 });

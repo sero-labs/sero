@@ -4,7 +4,7 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { clearFalKey, falKeyStatus, resolveFalKey, storeFalKey } from '../../shared/credentials';
+import { clearFalKey, falKeyStatus, storeFalKey } from '../../shared/credentials';
 import type { MediaModelCatalog } from '../../shared/media-model-catalog';
 import { MEDIA_CAPABILITIES, type MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
@@ -73,9 +73,7 @@ function renderSettings(settings: DesignLibrarySettings): ToolResult {
 export function registerSettingsTool(
   pi: ExtensionAPI,
   paths: DesignLibraryPaths,
-  mediaModelCatalog: MediaModelCatalog = createFalMediaModelCatalog({
-    credentials: () => resolveFalKey(paths),
-  }),
+  mediaModelCatalog: MediaModelCatalog = createFalMediaModelCatalog(),
 ): void {
   pi.registerTool({
     name: 'design_library_settings',
@@ -106,6 +104,9 @@ export function registerSettingsTool(
       ),
       callsPerRun: Type.Optional(
         Type.Number({ description: `Media calls one generation run may make, 0–${MAX_CALLS_PER_RUN}` }),
+      ),
+      refresh: Type.Optional(
+        Type.Boolean({ description: 'Refresh the cached media-model catalogue' }),
       ),
       key: Type.Optional(Type.String({ description: 'Provider key, for `store-key`' })),
     }),
@@ -231,7 +232,7 @@ export function registerSettingsTool(
         }
 
         case 'list-media-models': {
-          const models = await mediaModelCatalog.list(signal);
+          const models = await mediaModelCatalog.list({ refresh: params.refresh, signal });
           return text('Media models loaded.', { models });
         }
 
