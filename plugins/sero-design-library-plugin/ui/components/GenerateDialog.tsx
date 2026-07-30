@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
@@ -109,7 +108,6 @@ type GenerationOperation =
 interface OperationChoice {
   value: GenerationOperation;
   label: string;
-  description?: string;
 }
 
 const FRESH_OPERATIONS: OperationChoice[] = [
@@ -118,13 +116,13 @@ const FRESH_OPERATIONS: OperationChoice[] = [
 ];
 
 const CREATE_OPERATIONS: OperationChoice[] = [
-  { value: 'reference-image', label: 'Image', description: 'Use this as visual direction' },
-  { value: 'reference-video', label: 'Video', description: 'Animate from this reference' },
+  { value: 'reference-image', label: 'Image' },
+  { value: 'reference-video', label: 'Video' },
 ];
 
 const EDIT_OPERATIONS: OperationChoice[] = [
-  { value: 'restyle', label: 'Restyle', description: 'Change its visual style' },
-  { value: 'upscale', label: 'Upscale', description: 'Increase its resolution' },
+  { value: 'restyle', label: 'Restyle' },
+  { value: 'upscale', label: 'Upscale' },
 ];
 
 const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
@@ -251,17 +249,6 @@ export function GenerateDialog({
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                {group.choices.map((choice) =>
-                  choice.description ? (
-                    <TabsContent
-                      key={choice.value}
-                      value={choice.value}
-                      className="text-muted-foreground text-sm"
-                    >
-                      {choice.description}
-                    </TabsContent>
-                  ) : null,
-                )}
               </Tabs>
             </section>
           ))}

@@ -89,6 +89,10 @@ describe('remixing a reference', () => {
     expect(screen.getByText('Edit this reference')).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
+    expect(screen.queryByText('Use this as visual direction')).toBeNull();
+    expect(screen.queryByText('Animate from this reference')).toBeNull();
+    expect(screen.queryByText('Change its visual style')).toBeNull();
+    expect(screen.queryByText('Increase its resolution')).toBeNull();
 
     await chooseOperation('Video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
