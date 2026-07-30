@@ -130,35 +130,35 @@ export function VariantInspector({
             )}
           </div>
 
-          {/* Beside the title, where the reference panel keeps its actions. */}
-          <div className="flex shrink-0 items-center">
-            {running ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                aria-label="Stop generating"
-                title="Stop generating this variant"
-                onClick={onCancel}
-              >
-                <Square className="size-4" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                disabled={variant.status === 'ready'}
-                aria-label="Try again"
-                title="Generate this variant again"
-                onClick={onRetry}
-              >
-                <RotateCw className="size-4" />
-              </Button>
-            )}
-          </div>
+          {(running || variant.status === 'failed' || variant.status === 'cancelled') && (
+            <div className="flex shrink-0 items-center">
+              {running ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  aria-label="Stop generating"
+                  title="Stop generating this variant"
+                  onClick={onCancel}
+                >
+                  <Square className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  aria-label="Try again"
+                  title="Generate this variant again"
+                  onClick={onRetry}
+                >
+                  <RotateCw className="size-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -173,9 +173,15 @@ export function VariantInspector({
             the window's width says nothing about it: when it gets tight the
             labels give way to icons, and the label stays as the accessible
             name so nothing is lost to a screen reader. */}
-        <TabsList className="@container mx-3 mt-2 grid w-auto grid-cols-5">
+        <TabsList variant="line" className="@container mx-3 mt-2 grid w-auto grid-cols-5">
           {TABS.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} aria-label={tab.label} title={tab.label}>
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="data-[state=active]:text-primary after:bg-primary"
+              aria-label={tab.label}
+              title={tab.label}
+            >
               <tab.icon className="size-3.5 @[280px]:hidden" />
               <span className="hidden @[280px]:inline">{tab.label}</span>
               {tab.id === 'tweaks' && controlCount > 0 && (

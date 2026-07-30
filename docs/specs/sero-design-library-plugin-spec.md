@@ -246,11 +246,11 @@ A Design does not maintain both targets.
 
 One to five variants (default three), each a separately persisted, independently cancellable job. Successes survive partial failure or cancellation; failures retry independently. The model chooses an appropriate diversity strategy from the request and the variation mode.
 
-Revising asks whether to replace the visible result or keep it as a separate visible revision. The choice can be saved as a default and changed later. Replacement is always recoverable; revisions persist until manually deleted.
+Revising asks whether to replace the visible result or keep it as a separate visible revision. **Replace it** marks the current revision as replaced when the new revision succeeds. **Keep both** leaves the current revision as an equal alternative. Both choices show the new result and keep the old revision in History. The choice can be saved as a default and changed later. Replacement is always recoverable; revisions persist until manually deleted.
 
 ### 6.5 Tweaks
 
-Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls use the fixed Design font catalog. Body size must drive common body copy, controls, tables, labels and utility text through inheritance or a small derived custom-property type scale. The model then adds the high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated.
+Every successful variant revision emits CSS custom properties **and** a versioned manifest. The first group is a required typography baseline: Font, H1 size, H1 weight, H1 tracking, H2 size, Body font and Body size. Font controls use the fixed Design font catalog. Body size must drive common body copy, controls, tables, labels and utility text through inheritance or a small derived custom-property type scale. The model then adds four to eight high-value controls for that exact page, choosing their groups, labels, ranges and options from what it generated. These controls cover at least three relevant areas from colour, composition, spacing, shape and atmosphere. The model does not add weak or duplicate controls only to meet the range.
 
 ```ts
 type TweakValue = string | number | boolean;
@@ -290,7 +290,7 @@ Changing a control validates and normalises the value, stores it as an override 
 
 Each control has Reset; the panel has Reset all; Copy CSS yields the effective scoped custom-property block. Omitted controls are reported as one compact line that expands on demand, never a persistent block of warning text.
 
-**Placement.** Tweaks is a fourth tab in the variant inspector, alongside Design, Files and History. The inspector is drag-resizable using `ResizablePanel` from `@sero-ai/ui`, and its width persists in plugin state, so a control-heavy design can be given room and narrowed again afterwards. The sessions rail collapses to icons, which is what makes a widened inspector affordable.
+**Placement.** Tweaks is a fourth tab in the variant inspector, alongside Design, Files and History. The inspector tabs use the shared `@sero-ai/ui` line style and theme selection colour. The inspector is drag-resizable using `ResizablePanel` from `@sero-ai/ui`, and its width persists in plugin state, so a control-heavy design can be given room and narrowed again afterwards. The sessions rail collapses to icons, which is what makes a widened inspector affordable.
 
 **Files.** The Files tab lists the authored files for the visible revision and can show that revision in the host file manager. The action resolves the folder from the validated Design record and uses Sero's generic shell bridge. It does not give the UI filesystem access, and the action can later open the same files in the Editor instead.
 
