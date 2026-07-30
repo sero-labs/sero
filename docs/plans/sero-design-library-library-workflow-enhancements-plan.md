@@ -227,3 +227,4 @@ The scope does not include video import, webpage capture, clipboard HTML, semant
 2. **Image** creates a derived item from the selected reference.
 3. Do not show two controls that send the same image-to-image request.
 4. Shared `@sero-ai/ui` Combobox behavior supplies search, bounded height, multi-select and right-side ticks. Do not duplicate these controls in the plugin.
+5. The Colour Combobox shows named colour families instead of raw colour codes.

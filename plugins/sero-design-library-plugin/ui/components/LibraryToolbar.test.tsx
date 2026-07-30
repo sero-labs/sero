@@ -47,29 +47,37 @@ describe('large Library facets', () => {
     expect(screen.getByRole('listbox')).toBeDefined();
   });
 
-  it('shows aligned previews beside colour codes', async () => {
+  it('groups exact colours into named families', async () => {
+    const onFiltersChange = vi.fn();
     render(
       <LibraryToolbar
         query=""
         filters={FILTERS}
-        facets={{ styles: [], tags: [], colours: ['#03090c', '#f4a261'], sourceKinds: [] }}
+        facets={{
+          styles: [],
+          tags: [],
+          colours: ['#e53935', '#b71c1c', '#43a047', '#1e88e5', '#777777'],
+          sourceKinds: [],
+        }}
         sort="newest"
         onQueryChange={() => {}}
-        onFiltersChange={() => {}}
+        onFiltersChange={onFiltersChange}
         onSortChange={() => {}}
       />,
     );
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Colour' }));
 
-    const option = screen.getByRole('option', { name: '#03090c' });
-    const swatch = option.querySelector('[aria-hidden="true"]');
-    expect(swatch?.getAttribute('style')).toContain('background-color: rgb(3, 9, 12)');
-    expect(swatch?.className).toContain('w-12');
-    expect(swatch?.className).toContain('min-h-8');
-    expect(swatch?.className).toContain('self-stretch');
-    expect(swatch?.className).not.toContain('border');
-    expect(swatch?.className).toContain('shrink-0');
-    expect(option.className).toContain('gap-3');
+    expect(screen.getByRole('option', { name: 'Reds' })).toBeDefined();
+    expect(screen.getByRole('option', { name: 'Greens' })).toBeDefined();
+    expect(screen.getByRole('option', { name: 'Blues' })).toBeDefined();
+    expect(screen.getByRole('option', { name: 'Neutrals' })).toBeDefined();
+    expect(screen.queryByRole('option', { name: '#e53935' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('option', { name: 'Reds' }));
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      ...FILTERS,
+      colours: ['#e53935', '#b71c1c'],
+    });
   });
 });

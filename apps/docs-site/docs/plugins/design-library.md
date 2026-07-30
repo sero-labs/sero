@@ -46,7 +46,7 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 ## Finding things
 
 - **Search** covers titles, tags, notes and every part of the analysis you can see.
-- **Filters** narrow by media, style, tag, colour and source. Values inside one filter widen the results; different filters narrow them.
+- **Filters** narrow by media, style, tag, colour and source. The colour filter uses families such as Reds, Greens, Blues and Neutrals. Values inside one filter widen the results; different filters narrow them.
 - **Favourites** and **Collections** are yours to arrange. A collection is a plain group you name.
 - **Style groups** appear on their own once two references share a primary style. They are simply what the Librarian already said, counted — nothing extra runs to produce them.
 

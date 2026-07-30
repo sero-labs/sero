@@ -50,6 +50,8 @@ The source picker and facet menus use the searchable Combobox from `@sero-ai/ui`
 
 Facet menus use multi-select. Selection ticks appear on the right through the shared component.
 
+The Colour menu groups exact analysed values into named families such as Reds, Greens, Blues, Purples, and Neutrals. Selecting a family includes all current Library colours in that family.
+
 **Reason.** A plain select or complete menu does not scale to thousands of values. A scroll area alone moves the problem into a long scroll.
 
 **Consequence.** Users type to narrow large lists. Selection, keyboard control, filtering and focus behavior stay consistent with other Sero pickers.
