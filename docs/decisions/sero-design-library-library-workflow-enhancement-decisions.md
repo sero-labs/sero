@@ -26,13 +26,13 @@ Text-to-video remains the fresh video operation.
 
 **Consequence.** Settings gain one editable image-to-video model id. Existing profiles normalize with an empty override and therefore use the adapter default.
 
-## E3 · Remix has one image-to-image operation
+## E3 · Remix keeps explicit create and edit actions
 
-The selected-reference action is named **Remix**. Inside the panel, **New image** uses image-to-image, **New video** uses image-to-video, and **Upscale** remains under **Edit this reference**.
+The selected-reference action is named **Remix**. Inside the panel, **New image** uses image-to-image, **New video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
 
-**Reason.** New image and Restyle sent the same request. Two labels must not promise two operations when the runtime cannot tell them apart.
+**Reason.** The group labels show the intended result. New image makes a new composition from the reference. Restyle changes the current reference's visual style. Both results remain derived items so the source is safe.
 
-**Consequence.** The first-release Restyle action becomes Remix → New image. Persisted media capability names do not change.
+**Consequence.** New image and Restyle both use the vendor-neutral image-to-image capability. Persisted media capability names do not change.
 
 ## E4 · Original provenance is read-only and last
 
@@ -54,16 +54,16 @@ Facet menus use multi-select. Selection ticks appear on the right through the sh
 
 **Consequence.** Users type to narrow large lists. Selection, keyboard control, filtering and focus behavior stay consistent with other Sero pickers.
 
-## E6 · The generation choice uses grouped controls, not flat tabs
+## E6 · Generation choices use shared line tabs
 
-Fresh Generate uses a small option grid. Remix uses two labelled option groups:
+Fresh Generate uses one line-tab row. Remix uses line tabs in two labelled groups:
 
 - **Create new**
 - **Edit this reference**
 
-**Reason.** Tabs imply peer views. These controls select an operation and include an important source-versus-output distinction.
+**Reason.** The shared `@sero-ai/ui` line tabs match the inspector and give each group a clear, standard selection state.
 
-**Consequence.** The panel uses selectable controls that match the inspector’s border, spacing, focus, and selected-state language.
+**Consequence.** The panel does not implement a local operation picker.
 
 ## E7 · Video protections apply to both video capabilities
 

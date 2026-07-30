@@ -36,12 +36,14 @@ describe('large Library facets', () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Style' }));
-    fireEvent.change(screen.getByPlaceholderText('Search style'), {
+    const style = screen.getByRole('combobox', { name: 'Style' });
+    await userEvent.click(style);
+    fireEvent.change(style, {
       target: { value: 'Style 999' },
     });
     await userEvent.click(screen.getByRole('option', { name: 'Style 999' }));
 
     expect(onFiltersChange).toHaveBeenCalledWith({ ...FILTERS, styles: ['Style 999'] });
+    expect(screen.getByRole('listbox')).toBeDefined();
   });
 });

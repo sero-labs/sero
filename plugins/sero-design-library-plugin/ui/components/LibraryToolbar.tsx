@@ -6,7 +6,6 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-  ComboboxTrigger,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -65,26 +64,20 @@ function FacetMenu<Value extends string>({
       items={items}
       multiple
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(nextOpen, details) => {
+        if (!nextOpen && details.reason === 'item-press') return;
+        setOpen(nextOpen);
+      }}
       value={chosen}
       isItemEqualToValue={(item, value) => item.value === value.value}
       onValueChange={(values) => onChange(values.map((value) => value.value))}
     >
-      <ComboboxTrigger
+      <ComboboxInput
         aria-label={label}
-        onClick={() => setOpen((current) => !current)}
-        render={
-          <Button type="button" variant={selected.length > 0 ? 'secondary' : 'outline'} size="sm" />
-        }
-      >
-          {label}
-          {selected.length > 0 && <span className="tabular-nums">{selected.length}</span>}
-      </ComboboxTrigger>
-      <ComboboxContent>
-        <ComboboxInput
-          showTrigger={false}
-          placeholder={`Search ${label.toLocaleLowerCase()}`}
-        />
+        placeholder={selected.length > 0 ? `${label} (${selected.length})` : label}
+        className="h-8 w-32"
+      />
+      <ComboboxContent className="min-w-64">
         <ComboboxEmpty>No options found</ComboboxEmpty>
         <ComboboxList>
           {(item) => (

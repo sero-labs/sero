@@ -33,7 +33,7 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
 }
 
 async function chooseOperation(label: string) {
-  await userEvent.click(screen.getByRole('radio', { name: label }));
+  await userEvent.click(screen.getByRole('tab', { name: label }));
 }
 
 describe('fresh generation', () => {
@@ -41,10 +41,10 @@ describe('fresh generation', () => {
     renderDialog();
 
     expect(screen.getByRole('heading', { name: 'Generate' })).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'New image' })).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'New video' })).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
-    expect(screen.queryByRole('radio', { name: 'Upscale' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'New image' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'New video' })).toBeDefined();
+    expect(screen.queryByRole('tab', { name: 'Restyle' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Upscale' })).toBeNull();
     expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
   });
 });
@@ -81,8 +81,8 @@ describe('remixing a reference', () => {
     expect(screen.getByLabelText('Work from')).toBeDefined();
     expect(screen.getByText('Create new')).toBeDefined();
     expect(screen.getByText('Edit this reference')).toBeDefined();
-    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
-    expect(screen.getByRole('radio', { name: 'Upscale' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
 
     await chooseOperation('New video');
     await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
@@ -92,6 +92,21 @@ describe('remixing a reference', () => {
       expect.objectContaining({
         capability: 'image-to-video',
         prompt: 'animate this',
+        sourceId: 'item-1',
+      }),
+    );
+  });
+
+  it('restyles the current reference', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Restyle');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'use a paper collage style');
+    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: 'image-to-image',
+        prompt: 'use a paper collage style',
         sourceId: 'item-1',
       }),
     );

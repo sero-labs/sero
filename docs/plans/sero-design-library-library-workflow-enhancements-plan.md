@@ -60,9 +60,10 @@ The Remix panel starts with that reference selected. It has two groups:
   - New image — image-to-image
   - New video — image-to-video
 - **Edit this reference**
+  - Restyle — image-to-image
   - Upscale — upscale
 
-**New image** replaces the separate Restyle operation. Both controls sent the same image-to-image request, so separate labels promised a difference that did not exist. It creates a derived item and keeps the source item unchanged.
+**New image** creates a new composition from the reference. **Restyle** changes its visual style. Both use image-to-image, create a derived item, and keep the source item unchanged.
 
 Image-to-video is a new application capability backed by the configured fal.ai image-to-video model. It sends the selected reference as the source. It does not reuse text-to-video and does not discard the source.
 

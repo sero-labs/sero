@@ -17,9 +17,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
-  ToggleGroup,
-  ToggleGroupItem,
 } from '@sero-ai/ui';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -101,6 +103,7 @@ type GenerationOperation =
   | 'fresh-video'
   | 'reference-image'
   | 'reference-video'
+  | 'restyle'
   | 'upscale';
 
 interface OperationChoice {
@@ -120,6 +123,7 @@ const CREATE_OPERATIONS: OperationChoice[] = [
 ];
 
 const EDIT_OPERATIONS: OperationChoice[] = [
+  { value: 'restyle', label: 'Restyle', description: 'Change its visual style' },
   { value: 'upscale', label: 'Upscale', description: 'Increase its resolution' },
 ];
 
@@ -128,6 +132,7 @@ const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
   'fresh-video': 'text-to-video',
   'reference-image': 'image-to-image',
   'reference-video': 'image-to-video',
+  restyle: 'image-to-image',
   upscale: 'upscale',
 };
 
@@ -136,6 +141,7 @@ const ACTION_LABEL: Record<GenerationOperation, string> = {
   'fresh-video': 'Generate video',
   'reference-image': 'Generate image',
   'reference-video': 'Generate video',
+  restyle: 'Restyle',
   upscale: 'Upscale',
 };
 
@@ -230,29 +236,27 @@ export function GenerateDialog({
           ).map((group) => (
             <section key={group.label ?? 'fresh'} className="space-y-2">
               {group.label && <h3 className="text-muted-foreground text-xs font-medium">{group.label}</h3>}
-              <ToggleGroup
-                type="single"
-                value={operation}
-                onValueChange={(value) => value !== '' && setOperation(value as GenerationOperation)}
-                className={`grid gap-2 ${group.choices.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
-                aria-label={group.label ?? 'Media type'}
+              <Tabs
+                value={group.choices.some((choice) => choice.value === operation) ? operation : ''}
+                onValueChange={(value) => setOperation(value as GenerationOperation)}
               >
+                <TabsList variant="line" className="w-full justify-start border-b">
+                  {group.choices.map((choice) => (
+                    <TabsTrigger key={choice.value} value={choice.value} className="flex-none px-3">
+                      {choice.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
                 {group.choices.map((choice) => (
-                  <ToggleGroupItem
+                  <TabsContent
                     key={choice.value}
                     value={choice.value}
-                    className="h-auto min-h-16 items-start justify-start px-3 py-2.5 text-left"
-                    aria-label={choice.label}
+                    className="text-muted-foreground text-sm"
                   >
-                    <span>
-                      <span className="block text-sm font-medium">{choice.label}</span>
-                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                        {choice.description}
-                      </span>
-                    </span>
-                  </ToggleGroupItem>
+                    {choice.description}
+                  </TabsContent>
                 ))}
-              </ToggleGroup>
+              </Tabs>
             </section>
           ))}
 

@@ -51,20 +51,11 @@
     .body { flex: 1; padding: 19px 21px 22px; }
     .group + .group { margin-top: 18px; }
     .group-label { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
-    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .option {
-      min-height: 64px;
-      padding: 11px 12px;
-      text-align: left;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .option strong { display: block; color: var(--text); font-size: 13px; font-weight: 600; }
-    .option span { display: block; margin-top: 3px; color: var(--quiet); font-size: 11px; }
-    .option.active { border-color: var(--accent); background: var(--accent-wash); }
-    .option.active strong { color: #a9ddf2; }
+    .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+    .tab { position: relative; padding: 7px 10px; color: var(--muted); background: transparent; border: 0; }
+    .tab.active { color: var(--text); }
+    .tab.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; content: ""; background: var(--text); }
+    .tab-note { margin: 9px 0 0; color: var(--quiet); font-size: 12px; }
     .field { margin-top: 18px; }
     label { display: block; margin-bottom: 7px; color: #ddddE2; font-size: 12px; font-weight: 560; }
     .picker {
@@ -116,10 +107,8 @@
           </div>
           <div class="body">
             <div class="group">
-              <div class="options">
-                <button class="option active"><strong>New image</strong><span>Create an image from your description</span></button>
-                <button class="option"><strong>New video</strong><span>Create a video from your description</span></button>
-              </div>
+              <div class="tabs"><button class="tab active">New image</button><button class="tab">New video</button></div>
+              <p class="tab-note">Create an image from your description</p>
             </div>
             <div class="field">
               <label for="fresh-prompt">Describe it</label>
@@ -143,16 +132,12 @@
           <div class="body">
             <div class="group">
               <div class="group-label">Create new</div>
-              <div class="options">
-                <button class="option active"><strong>New image</strong><span>Use this reference as visual direction</span></button>
-                <button class="option"><strong>New video</strong><span>Animate from this reference</span></button>
-              </div>
+              <div class="tabs"><button class="tab active">New image</button><button class="tab">New video</button></div>
+              <p class="tab-note">Use this reference as visual direction</p>
             </div>
             <div class="group">
               <div class="group-label">Edit this reference</div>
-              <div class="options" style="grid-template-columns:1fr">
-                <button class="option"><strong>Upscale</strong><span>Increase its resolution</span></button>
-              </div>
+              <div class="tabs"><button class="tab">Restyle</button><button class="tab">Upscale</button></div>
             </div>
             <div class="field">
               <label>Work from</label>

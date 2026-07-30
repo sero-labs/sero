@@ -209,7 +209,7 @@ You can also generate straight into the Library, from the **Generate** button in
 | A new image or video from a description | **Generate**, then choose the media type |
 | A new image based on a reference | Select one reference, choose **Remix**, then **New image** |
 | A video based on a reference | Select one reference, choose **Remix**, then **New video** |
-| A restyled copy | Select one reference, choose **Remix**, then **New image** |
+| A restyled copy | Select one reference, choose **Remix**, then **Restyle** |
 | A sharper copy | Select one reference, choose **Remix**, then **Upscale** |
 
 Generated references arrive in the Library like any other and are read by the Librarian automatically. Open one to see the original prompt and model at the end of the inspector. While one is on its way it shows as a tile in the grid, so you can see that it is coming rather than wondering whether the button worked.
