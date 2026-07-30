@@ -185,7 +185,9 @@ Deleted versions and families remain recoverable until you delete them permanent
 
 Open a Gallery card's action menu and choose **Export to Downloads** or **Export to workspace**. Export always uses the version selected on that card. It does not use the featured version unless that is the selected one.
 
-The workspace destination creates `design-library-exports/` at the active workspace root. The Downloads destination creates the design folder in your Downloads directory. When it finishes, **Show in folder** opens the result.
+The workspace destination creates one folder named after the Design at the active workspace root. Exporting that Design again replaces its earlier managed export. Design Library does not replace an unrelated folder with the same name. The Downloads destination creates the design folder in your Downloads directory.
+
+Export progress and completion appear in a compact notification. Use its action to show a Downloads export in your file manager or open a workspace export in Sero Explorer.
 
 Each export contains:
 

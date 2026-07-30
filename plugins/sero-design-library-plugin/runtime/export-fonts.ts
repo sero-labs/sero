@@ -38,9 +38,11 @@ export async function exportDesignFonts(
   destination: string,
   fontStacks: readonly string[],
 ): Promise<{ files: ExportedFontFile[]; css: string }> {
-  const faces = [...new Map(
-    fontStacks.flatMap((stack) => designFontFaces(stack)).map((face) => [face.id, face]),
-  ).values()];
+  const facesById = new Map<string, ReturnType<typeof designFontFaces>[number]>();
+  for (const stack of fontStacks) {
+    for (const face of designFontFaces(stack)) facesById.set(face.id, face);
+  }
+  const faces = [...facesById.values()];
   if (faces.length === 0) return { files: [], css: '' };
 
   const fontDir = path.join(destination, 'fonts');

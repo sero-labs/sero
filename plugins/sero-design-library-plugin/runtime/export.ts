@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -83,7 +84,55 @@ function slug(value: string): string {
 function destinationRoot(destination: ExportDestination, environment: ExportEnvironment): string {
   if (destination === 'downloads') return environment.downloadsDir ?? path.join(os.homedir(), 'Downloads');
   if (environment.workspacePath.trim() === '') throw new Error('There is no active workspace for this export.');
-  return path.join(environment.workspacePath, 'design-library-exports');
+  return environment.workspacePath;
+}
+
+async function validateWorkspaceDestination(
+  workspacePath: string,
+  destination: string,
+  familyId: string,
+): Promise<DesignLibraryExportManifest | null> {
+  const workspaceRoot = await realpath(workspacePath);
+  if (!existsSync(destination)) return null;
+  const stats = await lstat(destination);
+  if (stats.isSymbolicLink()) {
+    throw new Error('The workspace export folder cannot be a symbolic link.');
+  }
+  const resolved = await realpath(destination);
+  if (!resolved.startsWith(`${workspaceRoot}${path.sep}`)) {
+    throw new Error('The workspace export folder resolves outside the active workspace.');
+  }
+  const manifest = await readJsonFile<DesignLibraryExportManifest>(
+    path.join(destination, EXPORT_MANIFEST_FILE),
+  );
+  if (manifest?.schemaVersion !== EXPORT_SCHEMA_VERSION) {
+    throw new Error(`A folder named ${path.basename(destination)} already exists in the active workspace.`);
+  }
+  if (manifest.familyId !== familyId) {
+    throw new Error(`Another Gallery Design already exports to ${path.basename(destination)}.`);
+  }
+  return manifest;
+}
+
+async function commitExport(
+  temporary: string,
+  destination: string,
+  replaceExisting: boolean,
+): Promise<void> {
+  if (!replaceExisting) {
+    await rename(temporary, destination);
+    return;
+  }
+  const backup = `${temporary}.previous`;
+  await rm(backup, { recursive: true, force: true });
+  await rename(destination, backup);
+  try {
+    await rename(temporary, destination);
+  } catch (error) {
+    await rename(backup, destination);
+    throw error;
+  }
+  await rm(backup, { recursive: true, force: true });
 }
 
 async function verifiedFile(
@@ -146,19 +195,23 @@ export async function runGalleryExport(
   const version = await readGalleryVersion(paths, input.familyId, input.versionId);
   if (!version) throw new Error('That Gallery version is no longer available.');
   const root = destinationRoot(input.destination, environment);
-  const folderName = `${slug(version.name || version.title)}-${version.id.slice(0, 8)}-${input.exportId.slice(0, 8)}`;
+  const designName = slug(version.name || version.title);
+  const folderName = input.destination === 'workspace'
+    ? designName
+    : `${designName}-${version.id.slice(0, 8)}-${input.exportId.slice(0, 8)}`;
   const destination = path.join(root, folderName);
-  if (await existingExport(destination, input.exportId)) return destination;
 
   await mkdir(root, { recursive: true });
+  let previousWorkspaceExport: DesignLibraryExportManifest | null = null;
   if (input.destination === 'workspace') {
-    const [workspaceRoot, exportRoot] = await Promise.all([
-      realpath(environment.workspacePath),
-      realpath(root),
-    ]);
-    if (exportRoot !== workspaceRoot && !exportRoot.startsWith(`${workspaceRoot}${path.sep}`)) {
-      throw new Error('The workspace export folder resolves outside the active workspace.');
-    }
+    previousWorkspaceExport = await validateWorkspaceDestination(
+      environment.workspacePath,
+      destination,
+      version.familyId,
+    );
+  }
+  if (previousWorkspaceExport?.exportId === input.exportId || await existingExport(destination, input.exportId)) {
+    return destination;
   }
   const temporary = path.join(root, `.${folderName}.tmp`);
   await rm(temporary, { recursive: true, force: true });
@@ -216,7 +269,7 @@ export async function runGalleryExport(
       buildWarnings: built.warnings,
     };
     await writeJsonFile(path.join(temporary, EXPORT_MANIFEST_FILE), manifest);
-    await rename(temporary, destination);
+    await commitExport(temporary, destination, previousWorkspaceExport !== null);
     return destination;
   } catch (error) {
     await rm(temporary, { recursive: true, force: true });

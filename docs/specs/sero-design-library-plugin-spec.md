@@ -471,6 +471,8 @@ Export reproduces the exact saved code, effective tweak values and bundled asset
 
 The exported folder contains a runnable `index.html`, byte-identical saved files under `source/`, referenced artwork under `assets/`, selected bundled Design fonts under `fonts/`, resolved values in `effective-tweaks.css`, and provenance and checksums in `design-library.json`. Export verifies the Gallery checksums before it writes the folder. The runnable page has no preview message channel. It includes a local-only content policy and reduced-motion fallback.
 
+A workspace export writes `<workspace>/<design-name>/`. A later export of the same Design replaces that managed folder atomically. It refuses to replace a folder that does not contain a valid Design Library export manifest. Export progress and completion use a compact notification. Its completion action opens a Downloads result in the system file manager or a workspace result in Sero Explorer.
+
 ---
 
 ## 10. Settings

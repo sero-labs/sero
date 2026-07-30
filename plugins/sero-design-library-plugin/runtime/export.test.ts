@@ -131,7 +131,46 @@ describe('standalone Gallery export', () => {
     const second = await runGalleryExport(paths, input, { workspacePath: workspace });
 
     expect(first).toBe(second);
-    expect(first.startsWith(path.join(workspace, 'design-library-exports'))).toBe(true);
+    expect(first).toBe(path.join(workspace, 'signal-ledger'));
+  });
+
+  it('replaces an earlier managed workspace export with the selected version', async () => {
+    await seedVersion();
+    const first = await runGalleryExport(paths, {
+      exportId: 'exp-old', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
+    }, { workspacePath: workspace });
+    await writeFile(path.join(first, 'obsolete.txt'), 'old export', 'utf8');
+
+    const second = await runGalleryExport(paths, {
+      exportId: 'exp-new', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
+    }, { workspacePath: workspace, now: () => 30 });
+
+    expect(second).toBe(path.join(workspace, 'signal-ledger'));
+    const manifest = await readJsonFile<DesignLibraryExportManifest>(path.join(second, EXPORT_MANIFEST_FILE));
+    expect(manifest?.exportId).toBe('exp-new');
+    await expect(access(path.join(second, 'obsolete.txt'))).rejects.toThrow();
+  });
+
+  it('does not replace an unrelated workspace folder with the same name', async () => {
+    await seedVersion();
+    await mkdir(path.join(workspace, 'signal-ledger'), { recursive: true });
+
+    await expect(runGalleryExport(paths, {
+      exportId: 'exp-occupied', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
+    }, { workspacePath: workspace })).rejects.toThrow('already exists');
+  });
+
+  it('does not replace another Gallery Design with the same folder name', async () => {
+    await seedVersion();
+    const destination = await runGalleryExport(paths, {
+      exportId: 'exp-first', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
+    }, { workspacePath: workspace });
+    const manifest = await readJsonFile<DesignLibraryExportManifest>(path.join(destination, EXPORT_MANIFEST_FILE));
+    await writeJsonFile(path.join(destination, EXPORT_MANIFEST_FILE), { ...manifest, familyId: 'fam-2' });
+
+    await expect(runGalleryExport(paths, {
+      exportId: 'exp-collision', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
+    }, { workspacePath: workspace })).rejects.toThrow('Another Gallery Design');
   });
 
   it('refuses a Gallery source file whose bytes changed', async () => {
@@ -151,10 +190,10 @@ describe('standalone Gallery export', () => {
     await seedVersion();
     const outside = path.join(home, 'outside');
     await Promise.all([mkdir(workspace, { recursive: true }), mkdir(outside, { recursive: true })]);
-    await symlink(outside, path.join(workspace, 'design-library-exports'));
+    await symlink(outside, path.join(workspace, 'signal-ledger'));
 
     await expect(runGalleryExport(paths, {
       exportId: 'exp-4', familyId: 'fam-1', versionId: 'ver-1', destination: 'workspace',
-    }, { workspacePath: workspace })).rejects.toThrow('outside the active workspace');
+    }, { workspacePath: workspace })).rejects.toThrow('cannot be a symbolic link');
   });
 });

@@ -73,6 +73,7 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "sonner": "^2.0.7",
     "typebox": "catalog:"
   },
   "peerDependencies": {

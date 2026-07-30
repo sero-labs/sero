@@ -1,3 +1,7 @@
+import path from 'node:path';
+
+import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
+
 import type { ExportSummary } from '../shared/export';
 import type { DesignLibraryPaths } from '../shared/paths';
 import type { LibraryRequestBody } from '../shared/requests';
@@ -61,8 +65,8 @@ export class ExportRequests {
     if (!requested) throw new Error('There is no active workspace for this export.');
     const candidate = path.resolve(requested);
     const matches = (await this.workspaces.list())
-      .filter((workspace) => workspace.open)
       .filter((workspace) => {
+        if (!workspace.open) return false;
         const root = path.resolve(workspace.path);
         return candidate === root || candidate.startsWith(`${root}${path.sep}`);
       })
@@ -85,6 +89,3 @@ export class ExportRequests {
     }));
   }
 }
-import path from 'node:path';
-
-import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';

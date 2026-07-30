@@ -39,11 +39,11 @@ const workspaces = {
 
 describe('export request state', () => {
   it('publishes the completed path', async () => {
-    vi.mocked(runGalleryExport).mockResolvedValue('/workspace/design-library-exports/signal');
+    vi.mocked(runGalleryExport).mockResolvedValue('/workspace/signal');
     await new ExportRequests(paths, workspaces).apply(REQUEST);
 
     expect((await readState(paths)).exports[0]).toMatchObject({
-      id: 'exp-1', status: 'succeeded', path: '/workspace/design-library-exports/signal',
+      id: 'exp-1', status: 'succeeded', path: '/workspace/signal',
     });
   });
 

@@ -3,17 +3,14 @@ import { Images } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { GalleryFamilyRecord } from '../../shared/gallery';
-import type { ExportSummary } from '../../shared/export';
 import type { GalleryActions } from '../hooks/useGallery';
 import { GalleryCard } from '../components/gallery/GalleryCard';
 import { GalleryTrash } from '../components/gallery/GalleryTrash';
-import { showItemInFolder } from '../lib/host-files';
 
 interface GalleryPageProps {
   families: GalleryFamilyRecord[];
   trash: GalleryFamilyRecord[];
   actions: GalleryActions;
-  latestExport?: ExportSummary;
   onOpened(): void;
   onRemix(familyId: string, versionId: string): void;
   error?: string;
@@ -21,7 +18,7 @@ interface GalleryPageProps {
 
 type GalleryScope = 'all' | 'favourites' | 'recent' | 'trash';
 
-export function GalleryPage({ families, trash, actions, latestExport, onOpened, onRemix, error }: GalleryPageProps) {
+export function GalleryPage({ families, trash, actions, onOpened, onRemix, error }: GalleryPageProps) {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<GalleryScope>('all');
   const visible = useMemo(() => {
@@ -37,8 +34,6 @@ export function GalleryPage({ families, trash, actions, latestExport, onOpened, 
     (total, family) => total + family.versions.filter((version) => version.deletedAt === undefined).length,
     0,
   );
-  const exportPath = latestExport?.status === 'succeeded' ? latestExport.path : undefined;
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-border flex items-end gap-4 border-b px-5 py-5">
@@ -60,28 +55,6 @@ export function GalleryPage({ families, trash, actions, latestExport, onOpened, 
         />
       </div>
       {error && <p className="text-destructive border-border border-b px-5 py-2 text-sm" role="alert">{error}</p>}
-      {latestExport && (
-        <div className="border-border bg-muted/40 flex items-center gap-3 border-b px-5 py-2 text-sm">
-          <span className={latestExport.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
-            {latestExport.status === 'running'
-              ? 'Exporting saved version…'
-              : latestExport.status === 'failed'
-                ? latestExport.error ?? 'Export failed.'
-                : `Exported to ${latestExport.destination === 'downloads' ? 'Downloads' : 'the active workspace'}.`}
-          </span>
-          {exportPath && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="ml-auto"
-              onClick={() => void showItemInFolder(exportPath)}
-            >
-              Show in folder
-            </Button>
-          )}
-        </div>
-      )}
       <div className="flex min-h-0 flex-1">
         <aside className="border-border w-48 shrink-0 space-y-1 border-r p-3">
           <ScopeButton scope="all" current={scope} onSelect={setScope}>All designs</ScopeButton>
