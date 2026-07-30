@@ -15,7 +15,12 @@
  */
 
 import type { MediaCapability, MediaModelOptions } from './media';
-import { DEFAULT_VIDEO_SECONDS, MAX_VIDEO_SECONDS, boundedDuration } from './media';
+import {
+  DEFAULT_VIDEO_SECONDS,
+  MAX_VIDEO_SECONDS,
+  boundedDuration,
+  isVideoCapability,
+} from './media';
 
 /**
  * Every length worth offering for a model, ascending, or null when unknown.
@@ -54,7 +59,7 @@ export function videoLengthRefusal(
   capability: MediaCapability,
   options: MediaModelOptions | undefined,
 ): string | null {
-  if (capability !== 'text-to-video') return null;
+  if (!isVideoCapability(capability)) return null;
   if (allowedDurations(options)?.length !== 0) return null;
   return (
     `The video model in Settings makes nothing shorter than ${MAX_VIDEO_SECONDS} seconds, ` +
@@ -122,7 +127,7 @@ export function settleMediaRequest<
   // A duration on a still image is noise in the record and in the parameters
   // sent to the provider.
   const { durationSeconds: requested, ...rest } = request;
-  if (request.capability !== 'text-to-video') return rest as T;
+  if (!isVideoCapability(request.capability)) return rest as T;
 
   const allowed = allowedDurations(options);
   const preferred = boundedDuration(requested);

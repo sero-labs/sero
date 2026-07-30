@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Design Library generation workflow enhancement</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09090b;
+      --surface: #111114;
+      --raised: #1b1b20;
+      --line: #2c2c33;
+      --strong: #494953;
+      --text: #f4f4f5;
+      --muted: #9b9ba7;
+      --quiet: #6f6f7b;
+      --accent: #4aa9d5;
+      --accent-wash: rgba(74, 169, 213, .12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 1180px;
+      background: #050506;
+      color: var(--text);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    button, textarea { font: inherit; }
+    .page { width: 1160px; margin: 0 auto; padding: 56px 0 80px; }
+    h1 { margin: 0; font-size: 27px; letter-spacing: -.04em; }
+    .lede { width: 710px; margin: 10px 0 34px; color: var(--muted); }
+    .states { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .state-title { margin: 0 0 9px; font-size: 15px; }
+    .state-note { min-height: 42px; margin: 0 0 14px; color: var(--quiet); font-size: 12px; }
+    .dialog {
+      min-height: 678px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--strong);
+      border-radius: 12px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .52);
+      overflow: hidden;
+    }
+    .head { padding: 20px 21px 17px; border-bottom: 1px solid var(--line); }
+    .head-row { display: flex; align-items: start; }
+    .head h2 { margin: 0; font-size: 18px; letter-spacing: -.025em; }
+    .head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .close { margin-left: auto; color: var(--quiet); font-size: 22px; line-height: 1; }
+    .body { flex: 1; padding: 19px 21px 22px; }
+    .group + .group { margin-top: 18px; }
+    .group-label { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .option {
+      min-height: 64px;
+      padding: 11px 12px;
+      text-align: left;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .option strong { display: block; color: var(--text); font-size: 13px; font-weight: 600; }
+    .option span { display: block; margin-top: 3px; color: var(--quiet); font-size: 11px; }
+    .option.active { border-color: var(--accent); background: var(--accent-wash); }
+    .option.active strong { color: #a9ddf2; }
+    .field { margin-top: 18px; }
+    label { display: block; margin-bottom: 7px; color: #ddddE2; font-size: 12px; font-weight: 560; }
+    .picker {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      padding: 0 11px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--strong);
+      border-radius: 7px;
+    }
+    .picker .thumb { width: 20px; height: 20px; margin-right: 8px; border-radius: 4px; background: linear-gradient(140deg, #204352, #a96042); }
+    .picker .chev { margin-left: auto; color: var(--quiet); }
+    textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: none;
+      padding: 11px 12px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--strong);
+      border-radius: 8px;
+      outline: 0;
+    }
+    textarea::placeholder { color: #777789; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .select { height: 37px; display: flex; align-items: center; padding: 0 10px; background: var(--bg); border: 1px solid var(--strong); border-radius: 7px; }
+    .select span { margin-left: auto; color: var(--quiet); }
+    .foot { min-height: 67px; display: flex; align-items: center; gap: 16px; padding: 13px 21px; border-top: 1px solid var(--line); }
+    .foot p { flex: 1; margin: 0; color: var(--quiet); font-size: 11px; }
+    .primary { height: 37px; padding: 0 15px; color: #071319; background: var(--accent); border: 0; border-radius: 8px; font-weight: 670; }
+    .callout { margin-top: 28px; padding: 16px 18px; border-left: 2px solid var(--accent); background: #0d0d10; color: var(--muted); font-size: 12px; }
+    .callout b { color: var(--text); }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Generation workflow enhancement</h1>
+    <p class="lede">Two entry points express two intentions. Generate starts from words. Remix starts from a Library reference and separates new output from edits to that reference.</p>
+
+    <div class="states">
+      <section>
+        <h2 class="state-title">A · Generate</h2>
+        <p class="state-note">Opened from the Library header. Source-only operations do not appear.</p>
+        <div class="dialog">
+          <div class="head">
+            <div class="head-row"><div><h2>Generate</h2><p>New references enter the Library and are analysed automatically.</p></div><span class="close">×</span></div>
+          </div>
+          <div class="body">
+            <div class="group">
+              <div class="options">
+                <button class="option active"><strong>New image</strong><span>Create an image from your description</span></button>
+                <button class="option"><strong>New video</strong><span>Create a video from your description</span></button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="fresh-prompt">Describe it</label>
+              <textarea id="fresh-prompt" placeholder="Hero imagery, textures, abstract graphics — not interface icons."></textarea>
+            </div>
+            <div class="controls">
+              <div><label>Aspect</label><div class="select">16:9 <span>⌄</span></div></div>
+            </div>
+          </div>
+          <div class="foot"><p>The model behind each capability is a setting, not a choice made here.</p><button class="primary">Generate image</button></div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="state-title">B · Remix</h2>
+        <p class="state-note">Opened from one selected reference. Every option uses the shown source.</p>
+        <div class="dialog">
+          <div class="head">
+            <div class="head-row"><div><h2>Remix reference</h2><p>Create new media or edit the current reference.</p></div><span class="close">×</span></div>
+          </div>
+          <div class="body">
+            <div class="group">
+              <div class="group-label">Create new</div>
+              <div class="options">
+                <button class="option active"><strong>New image</strong><span>Use this reference as visual direction</span></button>
+                <button class="option"><strong>New video</strong><span>Animate from this reference</span></button>
+              </div>
+            </div>
+            <div class="group">
+              <div class="group-label">Edit this reference</div>
+              <div class="options">
+                <button class="option"><strong>Restyle</strong><span>Change its visual treatment</span></button>
+                <button class="option"><strong>Upscale</strong><span>Increase its resolution</span></button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Work from</label>
+              <div class="picker"><span class="thumb"></span>Ember in the Blue <span class="chev">⌄</span></div>
+            </div>
+            <div class="field">
+              <label for="remix-prompt">Describe it</label>
+              <textarea id="remix-prompt" placeholder="Describe the new image and what to keep from the reference."></textarea>
+            </div>
+          </div>
+          <div class="foot"><p>The new item keeps a link to this source and records the original request.</p><button class="primary">Generate image</button></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="callout"><b>Large lists:</b> Work from becomes a searchable picker with a fixed-height, bounded result list. Long filter menus use the same rule, keep multi-select, and place ticks on the right.</aside>
+  </main>
+</body>
+</html>

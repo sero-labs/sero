@@ -1,5 +1,20 @@
-import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, SearchInput } from '@sero-ai/ui';
-import { ArrowDownUp, ChevronDown } from 'lucide-react';
+import {
+  Button,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  SearchInput,
+} from '@sero-ai/ui';
+import { ArrowDownUp } from 'lucide-react';
+import { useState } from 'react';
 
 import type { LibraryFacets } from '../../shared/search';
 import type { LibraryFilters, LibrarySort } from '../../shared/types';
@@ -20,51 +35,61 @@ interface LibraryToolbarProps {
   onSortChange(sort: LibrarySort): void;
 }
 
-type ListFilterKey = 'styles' | 'tags' | 'colours' | 'sourceKinds' | 'mediaKinds';
-
 const SORT_LABELS: Record<LibrarySort, string> = {
   newest: 'Newest first',
   oldest: 'Oldest first',
   title: 'By title',
 };
 
-function toggle(values: string[], value: string): string[] {
-  return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
-}
-
 interface FacetMenuProps {
   label: string;
   options: string[];
   selected: string[];
-  onToggle(value: string): void;
+  onChange(values: string[]): void;
 }
 
-function FacetMenu({ label, options, selected, onToggle }: FacetMenuProps) {
+function FacetMenu({ label, options, selected, onChange }: FacetMenuProps) {
+  const [open, setOpen] = useState(false);
   if (options.length === 0) return null;
-  // Checked once per option, so membership is a Set lookup.
-  const chosen = new Set(selected);
+  const items = options.map((option) => ({ value: option, label: option }));
+  const selectedValues = new Set(selected);
+  const chosen = items.filter((item) => selectedValues.has(item.value));
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant={selected.length > 0 ? 'secondary' : 'outline'} size="sm">
+    <Combobox
+      items={items}
+      multiple
+      open={open}
+      onOpenChange={setOpen}
+      value={chosen}
+      isItemEqualToValue={(item, value) => item.value === value.value}
+      onValueChange={(values) => onChange(values.map((value) => value.value))}
+    >
+      <ComboboxTrigger
+        aria-label={label}
+        onClick={() => setOpen((current) => !current)}
+        render={
+          <Button type="button" variant={selected.length > 0 ? 'secondary' : 'outline'} size="sm" />
+        }
+      >
           {label}
           {selected.length > 0 && <span className="tabular-nums">{selected.length}</span>}
-          <ChevronDown className="size-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
-      {/* No heading inside: the trigger already says which facet this is. */}
-      <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-        {options.map((option) => (
-          <DropdownMenuCheckboxItem
-            key={option}
-            checked={chosen.has(option)}
-            onCheckedChange={() => onToggle(option)}
-          >
-            {option}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </ComboboxTrigger>
+      <ComboboxContent>
+        <ComboboxInput
+          showTrigger={false}
+          placeholder={`Search ${label.toLocaleLowerCase()}`}
+        />
+        <ComboboxEmpty>No options found</ComboboxEmpty>
+        <ComboboxList>
+          {(item) => (
+            <ComboboxItem key={item.value} value={item}>
+              {item.label}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 
@@ -77,9 +102,6 @@ export function LibraryToolbar({
   onFiltersChange,
   onSortChange,
 }: LibraryToolbarProps) {
-  const toggleIn = (key: ListFilterKey, value: string) =>
-    onFiltersChange({ ...filters, [key]: toggle(filters[key] as string[], value) });
-
   const active =
     filters.styles.length +
     filters.tags.length +
@@ -100,31 +122,33 @@ export function LibraryToolbar({
         label="Media"
         options={['image', 'video']}
         selected={filters.mediaKinds}
-        onToggle={(value) => toggleIn('mediaKinds', value)}
+        onChange={(values) =>
+          onFiltersChange({ ...filters, mediaKinds: values as LibraryFilters['mediaKinds'] })
+        }
       />
       <FacetMenu
         label="Style"
         options={facets.styles}
         selected={filters.styles}
-        onToggle={(value) => toggleIn('styles', value)}
+        onChange={(values) => onFiltersChange({ ...filters, styles: values })}
       />
       <FacetMenu
         label="Tag"
         options={facets.tags}
         selected={filters.tags}
-        onToggle={(value) => toggleIn('tags', value)}
+        onChange={(values) => onFiltersChange({ ...filters, tags: values })}
       />
       <FacetMenu
         label="Colour"
         options={facets.colours}
         selected={filters.colours}
-        onToggle={(value) => toggleIn('colours', value)}
+        onChange={(values) => onFiltersChange({ ...filters, colours: values })}
       />
       <FacetMenu
         label="Source"
         options={facets.sourceKinds}
         selected={filters.sourceKinds}
-        onToggle={(value) => toggleIn('sourceKinds', value)}
+        onChange={(values) => onFiltersChange({ ...filters, sourceKinds: values })}
       />
 
       {active > 0 && (

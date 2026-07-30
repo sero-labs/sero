@@ -2,6 +2,7 @@ import { ApiError, createFalClient, ValidationError } from '@fal-ai/client';
 
 import type { MediaCapability, MediaErrorCode, MediaModelOptions } from '../../../shared/media';
 import { MEDIA_CAPABILITIES, needsSource } from '../../../shared/media';
+import { buildFalInput } from './fal-input';
 import { createFalSchemaReader } from './fal-schema';
 import type {
   MediaContext,
@@ -41,15 +42,7 @@ export const FAL_DEFAULT_MODELS: Record<MediaCapability, string> = {
   'image-to-image': 'fal-ai/flux/dev/image-to-image',
   upscale: 'fal-ai/clarity-upscaler',
   'text-to-video': 'fal-ai/kling-video/v1/standard/text-to-video',
-};
-
-/** fal takes a named size rather than a ratio; anything unmapped is left to it. */
-const IMAGE_SIZES: Record<string, string> = {
-  '1:1': 'square_hd',
-  '4:3': 'landscape_4_3',
-  '3:4': 'portrait_4_3',
-  '16:9': 'landscape_16_9',
-  '9:16': 'portrait_16_9',
+  'image-to-video': 'fal-ai/kling-video/v2.1/pro/image-to-video',
 };
 
 const DOWNLOAD_TIMEOUT_MS = 120_000;
@@ -167,58 +160,6 @@ export function normalizeFalError(error: unknown): MediaError {
   }
 
   return new MediaError('provider', String(error), true);
-}
-
-function buildInput(
-  request: MediaRequest,
-  sourceUrls: string[],
-  /**
-   * How this endpoint spells a length. `"5"` on one model, `"8s"` on the next —
-   * so the value it published is what goes back, and the seconds are only how
-   * the rest of the plugin refers to it.
-   */
-  durationTokens: Map<number, string | number>,
-): Record<string, unknown> {
-  const size = request.aspectRatio === undefined ? undefined : IMAGE_SIZES[request.aspectRatio];
-  const shared = {
-    ...(request.seed === undefined ? {} : { seed: request.seed }),
-    ...request.extra,
-  };
-
-  switch (request.capability) {
-    case 'text-to-image':
-      return {
-        prompt: request.prompt,
-        num_images: 1,
-        ...(size === undefined ? {} : { image_size: size }),
-        ...shared,
-      };
-    case 'image-to-image':
-      return {
-        prompt: request.prompt,
-        image_url: sourceUrls[0],
-        ...(size === undefined ? {} : { image_size: size }),
-        ...shared,
-      };
-    case 'upscale':
-      return {
-        image_url: sourceUrls[0],
-        ...(request.prompt === '' ? {} : { prompt: request.prompt }),
-        ...shared,
-      };
-    case 'text-to-video':
-      return {
-        prompt: request.prompt,
-        ...(request.durationSeconds === undefined
-          ? {}
-          : {
-              duration:
-                durationTokens.get(request.durationSeconds) ?? String(request.durationSeconds),
-            }),
-        ...(request.aspectRatio === undefined ? {} : { aspect_ratio: request.aspectRatio }),
-        ...shared,
-      };
-  }
 }
 
 function progressMessage(status: { status: string; queue_position?: number }): string {
@@ -411,7 +352,7 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
         // only how to spell it. A schema that cannot be read leaves the number
         // as it stands, which is what the endpoint got before any of this.
         const schema = await readSchema(model, context.signal);
-        const input = buildInput(request, sourceUrls, schema.durationTokens);
+        const input = buildFalInput(request, sourceUrls, schema.durationTokens);
         const result = await client.subscribe(model, {
           input,
           abortSignal: context.signal,

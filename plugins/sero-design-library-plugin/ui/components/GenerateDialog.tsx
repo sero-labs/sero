@@ -1,5 +1,11 @@
 import {
   Button,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -22,13 +28,12 @@ import type { MediaCapability, MediaModelOptions } from '../../shared/media';
 import {
   DEFAULT_VIDEO_SECONDS,
   MAX_VIDEO_SECONDS,
-  MEDIA_CAPABILITIES,
+  isVideoCapability,
   missingRequirement,
   needsConfirmation,
   needsSource,
 } from '../../shared/media';
 import { allowedDurations, videoLengthRefusal } from '../../shared/media-options';
-import { capabilityLabel } from '../lib/asset-view';
 
 /**
  * Asking for artwork, from either place it can be asked for (D5).
@@ -89,6 +94,53 @@ const FALLBACK_DURATIONS = [DEFAULT_VIDEO_SECONDS, 10].filter(
   (seconds) => seconds <= MAX_VIDEO_SECONDS,
 );
 
+type GenerationOperation =
+  | 'fresh-image'
+  | 'fresh-video'
+  | 'reference-image'
+  | 'reference-video'
+  | 'restyle'
+  | 'upscale';
+
+interface OperationChoice {
+  value: GenerationOperation;
+  label: string;
+  description: string;
+}
+
+const FRESH_OPERATIONS: OperationChoice[] = [
+  { value: 'fresh-image', label: 'New image', description: 'Create from your description' },
+  { value: 'fresh-video', label: 'New video', description: 'Create from your description' },
+];
+
+const CREATE_OPERATIONS: OperationChoice[] = [
+  { value: 'reference-image', label: 'New image', description: 'Use this as visual direction' },
+  { value: 'reference-video', label: 'New video', description: 'Animate from this reference' },
+];
+
+const EDIT_OPERATIONS: OperationChoice[] = [
+  { value: 'restyle', label: 'Restyle', description: 'Change its visual treatment' },
+  { value: 'upscale', label: 'Upscale', description: 'Increase its resolution' },
+];
+
+const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
+  'fresh-image': 'text-to-image',
+  'fresh-video': 'text-to-video',
+  'reference-image': 'image-to-image',
+  'reference-video': 'image-to-video',
+  restyle: 'image-to-image',
+  upscale: 'upscale',
+};
+
+const ACTION_LABEL: Record<GenerationOperation, string> = {
+  'fresh-image': 'Generate image',
+  'fresh-video': 'Generate video',
+  'reference-image': 'Generate image',
+  'reference-video': 'Generate video',
+  restyle: 'Restyle',
+  upscale: 'Upscale',
+};
+
 export function GenerateDialog({
   open,
   target,
@@ -98,9 +150,11 @@ export function GenerateDialog({
   onOpenChange,
   onGenerate,
 }: GenerateDialogProps) {
-  const [capability, setCapability] = useState<MediaCapability>(
-    initialSourceId === undefined ? 'text-to-image' : 'image-to-image',
+  const remix = initialSourceId !== undefined;
+  const [operation, setOperation] = useState<GenerationOperation>(
+    remix ? 'reference-image' : 'fresh-image',
   );
+  const capability = OPERATION_CAPABILITY[operation];
   const [prompt, setPrompt] = useState('');
   const [sourceId, setSourceId] = useState<string>(initialSourceId ?? '');
   const [chosenAspect, setChosenAspect] = useState<string | null>(null);
@@ -126,6 +180,9 @@ export function GenerateDialog({
       : (ratios.find((ratio) => ratio === DEFAULT_ASPECT) ?? ratios[0]);
 
   const wantsSource = needsSource(capability);
+  const video = isVideoCapability(capability);
+  const sourceOptions = sources.map((source) => ({ value: source.id, label: source.label }));
+  const selectedSource = sourceOptions.find((source) => source.value === sourceId) ?? null;
   // The same check the tool and the model's own tool run, so the dialog cannot
   // offer a request either of them would refuse.
   const missing = missingRequirement(capability, {
@@ -142,7 +199,7 @@ export function GenerateDialog({
       prompt: prompt.trim(),
       ...(wantsSource ? { sourceId } : {}),
       ...(capability === 'upscale' ? {} : { aspectRatio }),
-      ...(capability === 'text-to-video' ? { durationSeconds } : {}),
+      ...(video ? { durationSeconds } : {}),
     });
     setPrompt('');
     setSourceId('');
@@ -153,45 +210,51 @@ export function GenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {target.kind === 'library' ? 'Generate inspiration' : 'Generate artwork'}
-          </DialogTitle>
+          <DialogTitle>Generate</DialogTitle>
           <DialogDescription>
-            {target.kind === 'library'
-              ? 'New references enter the Library and are analysed automatically.'
-              : `Artwork for ${target.designTitle}, reusable across its variants.`}
+            {remix
+              ? 'Create new media or edit the selected reference.'
+              : target.kind === 'library'
+                ? 'New references enter the Library and are analysed automatically.'
+                : `Artwork for ${target.designTitle}, reusable across its variants.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <ToggleGroup
-            type="single"
-            value={capability}
-            onValueChange={(value) => {
-              if (value !== '') setCapability(value as MediaCapability);
-            }}
-            className="grid grid-cols-4"
-            aria-label="Capability"
-          >
-            {MEDIA_CAPABILITIES.map((entry) => (
-              <ToggleGroupItem key={entry} value={entry}>
-                {capabilityLabel(entry)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-
-          {/*
-            A reference chosen for a restyle stays chosen when the capability
-            changes, and the row that showed it disappears — so the request went
-            out from the words alone while the dialog still looked like it was
-            working from the picture. It says so now instead.
-          */}
-          {!wantsSource && sourceId !== '' && (
-            <p className="text-muted-foreground text-sm">
-              {capabilityLabel(capability)} works from your description alone. The reference you
-              chose will not be used.
-            </p>
-          )}
+          {(remix
+            ? [
+                { label: 'Create new', choices: CREATE_OPERATIONS },
+                { label: 'Edit this reference', choices: EDIT_OPERATIONS },
+              ]
+            : [{ label: undefined, choices: FRESH_OPERATIONS }]
+          ).map((group) => (
+            <section key={group.label ?? 'fresh'} className="space-y-2">
+              {group.label && <h3 className="text-muted-foreground text-xs font-medium">{group.label}</h3>}
+              <ToggleGroup
+                type="single"
+                value={operation}
+                onValueChange={(value) => value !== '' && setOperation(value as GenerationOperation)}
+                className="grid grid-cols-2 gap-2"
+                aria-label={group.label ?? 'Media type'}
+              >
+                {group.choices.map((choice) => (
+                  <ToggleGroupItem
+                    key={choice.value}
+                    value={choice.value}
+                    className="h-auto min-h-16 items-start justify-start px-3 py-2.5 text-left"
+                    aria-label={choice.label}
+                  >
+                    <span>
+                      <span className="block text-sm font-medium">{choice.label}</span>
+                      <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                        {choice.description}
+                      </span>
+                    </span>
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </section>
+          ))}
 
           {wantsSource && (
             <div className="space-y-1.5">
@@ -203,18 +266,23 @@ export function GenerateDialog({
                     : 'This Design has no artwork to work from yet.'}
                 </p>
               ) : (
-                <Select value={sourceId} onValueChange={setSourceId}>
-                  <SelectTrigger id="generate-source">
-                    <SelectValue placeholder="Choose a source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sources.map((source) => (
-                      <SelectItem key={source.id} value={source.id}>
-                        {source.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  items={sourceOptions}
+                  value={selectedSource}
+                  onValueChange={(source) => source && setSourceId(source.value)}
+                >
+                  <ComboboxInput id="generate-source" placeholder="Search references" className="w-full" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No references found</ComboboxEmpty>
+                    <ComboboxList>
+                      {(source) => (
+                        <ComboboxItem key={source.value} value={source}>
+                          {source.label}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               )}
             </div>
           )}
@@ -225,11 +293,12 @@ export function GenerateDialog({
             </Label>
             <Textarea
               id="generate-prompt"
-              rows={4}
+              rows={6}
+              className="min-h-32"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder={
-                capability === 'text-to-video'
+                video
                   ? 'What the video should show, including the motion.'
                   : 'Hero imagery, textures, abstract graphics — not interface icons.'
               }
@@ -255,7 +324,7 @@ export function GenerateDialog({
               </div>
             )}
 
-            {capability === 'text-to-video' && (
+            {video && (
               <div className="space-y-1.5">
                 <Label htmlFor="generate-duration">Length</Label>
                 <Select
@@ -287,7 +356,7 @@ export function GenerateDialog({
           </p>
           <Button type="button" onClick={submit} disabled={blocked}>
             <Sparkles className="size-3.5" />
-            Generate
+            {ACTION_LABEL[operation]}
           </Button>
         </div>
       </DialogContent>

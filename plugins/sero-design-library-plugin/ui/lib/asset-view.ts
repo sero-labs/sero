@@ -43,6 +43,7 @@ const CAPABILITY_LABELS: Record<DesignAsset['request']['capability'], string> = 
   'image-to-image': 'Restyle',
   upscale: 'Upscale',
   'text-to-video': 'Video',
+  'image-to-video': 'Image to video',
 };
 
 export function capabilityLabel(capability: DesignAsset['request']['capability']): string {

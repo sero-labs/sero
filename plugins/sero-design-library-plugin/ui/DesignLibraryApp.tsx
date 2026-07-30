@@ -272,7 +272,7 @@ export function DesignLibraryApp() {
 
       {generatingFrom !== null && (
         <GenerateDialog
-          // Keyed on the source so opening Restyle on a different reference
+          // Keyed on the source so opening Remix on a different reference
           // starts from that one, rather than reusing the last dialog's state.
           key={generatingFrom.item?.id ?? 'new'}
           open

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { effectiveAnalysis } from '../shared/librarian';
 import type { DesignAsset, MediaCapability } from '../shared/media';
-import { assetReferenceFor } from '../shared/media';
+import { assetReferenceFor, isVideoCapability } from '../shared/media';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { designAssetDir } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
@@ -43,7 +43,7 @@ export async function stageReferenceAssets(
     const now = Date.now();
     const generatedWith = item.generation?.capability;
     const capability: MediaCapability =
-      generatedWith === undefined || generatedWith === 'text-to-video'
+      generatedWith === undefined || isVideoCapability(generatedWith)
         ? 'text-to-image'
         : generatedWith;
     assets.push({

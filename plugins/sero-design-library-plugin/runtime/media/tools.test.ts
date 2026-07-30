@@ -60,6 +60,7 @@ describe('media tools', () => {
       'design_library_restyle_image',
       'design_library_upscale_image',
       'design_library_generate_video',
+      'design_library_animate_image',
     ]);
   });
 

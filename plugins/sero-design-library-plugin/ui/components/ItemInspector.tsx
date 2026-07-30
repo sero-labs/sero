@@ -5,6 +5,7 @@ import type { LibrarianField } from '../../shared/librarian';
 import type { ItemSummary } from '../../shared/types';
 import type { LibraryActions } from '../hooks/useLibrary';
 import { useItemDetail, type ItemDetail } from '../hooks/useItemDetail';
+import { capabilityLabel } from '../lib/asset-view';
 import { EditableField, type FieldTone } from './inspector/EditableField';
 import { FieldValue } from './inspector/FieldValue';
 import { InspectorHeader } from './inspector/InspectorHeader';
@@ -96,6 +97,23 @@ function Sections({
           ))}
         </div>
       ))}
+      {detail.generation && (
+        <section className="border-border space-y-3 border-b px-4 py-3 last:border-b-0">
+          <h3 className="text-sm font-medium">Original request</h3>
+          <div>
+            <p className="text-muted-foreground text-xs">Prompt</p>
+            <p className="mt-1 wrap-break-word text-sm whitespace-pre-wrap">
+              {detail.generation.prompt || 'No prompt'}
+            </p>
+          </div>
+          <dl className="text-muted-foreground grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+            <dt>Operation</dt>
+            <dd className="text-foreground">{capabilityLabel(detail.generation.capability)}</dd>
+            <dt>Model</dt>
+            <dd className="text-foreground wrap-break-word">{detail.generation.model}</dd>
+          </dl>
+        </section>
+      )}
     </>
   );
 }
