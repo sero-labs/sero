@@ -18,7 +18,7 @@ The selected-reference **Remix** action opens a source-led panel. That panel sep
 
 ## E2 · Remix can create an image or a video from a reference
 
-Remix offers source-aware image and video generation. Image generation uses image-to-image. Video generation uses a new vendor-neutral `image-to-video` capability backed by a configured fal.ai model.
+Remix offers source-aware restyling and video generation. Restyle uses image-to-image. Video uses a new vendor-neutral `image-to-video` capability backed by a configured fal.ai model.
 
 Text-to-video remains the fresh video operation.
 
@@ -28,11 +28,11 @@ Text-to-video remains the fresh video operation.
 
 ## E3 · Remix keeps explicit create and edit actions
 
-The selected-reference action is named **Remix**. Inside the panel, **Image** uses image-to-image, **Video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
+The selected-reference action is named **Remix**. Inside the panel, **Video** uses image-to-video, and **Restyle** and **Upscale** remain under **Edit this reference**.
 
-**Reason.** The group labels show the intended result. New image makes a new composition from the reference. Restyle changes the current reference's visual style. Both results remain derived items so the source is safe.
+**Reason.** Restyle and Image previously sent the same request. One image-to-image action states the real capability without offering a duplicate control.
 
-**Consequence.** Image and Restyle both use the vendor-neutral image-to-image capability. Persisted media capability names do not change.
+**Consequence.** Restyle is the only image-to-image operation. Persisted media capability names do not change.
 
 ## E4 · Original provenance is read-only and last
 
@@ -74,3 +74,11 @@ Mandatory confirmation, duration limits, cost tracking, pending states, frame ca
 **Reason.** Source input does not change the spend or lifecycle risks of video generation.
 
 **Consequence.** Shared video checks use an explicit video-capability predicate instead of one direct equality check.
+
+## E8 · Collection membership and deletion are visible
+
+The selected-reference bar lists collections as checked items. Clearing a check removes the selected references from that collection. Each custom collection row has an action menu with **Delete collection**.
+
+**Reason.** An add-only menu and collection rows with no actions hide existing runtime capabilities.
+
+**Consequence.** Deleting a collection returns an active collection view to All inspiration. It does not delete the references in the collection.

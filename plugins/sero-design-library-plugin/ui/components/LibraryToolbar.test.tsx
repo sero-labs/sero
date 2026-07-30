@@ -11,7 +11,7 @@ const FILTERS: LibraryFilters = {
   mediaKinds: [],
   styles: [],
   tags: [],
-  colours: [],
+  colourFamilies: [],
   sourceKinds: [],
   analysisStatuses: [],
 };
@@ -45,6 +45,9 @@ describe('large Library facets', () => {
 
     expect(onFiltersChange).toHaveBeenCalledWith({ ...FILTERS, styles: ['Style 999'] });
     expect(screen.getByRole('listbox')).toBeDefined();
+
+    fireEvent.change(style, { target: { value: 'Style 998' } });
+    expect(screen.getByRole('option', { name: 'Style 998' })).toBeDefined();
   });
 
   it('groups exact colours into named families', async () => {
@@ -77,7 +80,7 @@ describe('large Library facets', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Reds' }));
     expect(onFiltersChange).toHaveBeenCalledWith({
       ...FILTERS,
-      colours: ['#e53935', '#b71c1c'],
+      colourFamilies: ['Reds'],
     });
   });
 });

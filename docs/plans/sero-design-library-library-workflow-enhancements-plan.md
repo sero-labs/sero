@@ -57,13 +57,12 @@ When one reference is selected, the action bar shows **Remix** instead of **Rest
 The Remix panel starts with that reference selected. It has two groups:
 
 - **Create new**
-  - Image — image-to-image
   - Video — image-to-video
 - **Edit this reference**
   - Restyle — image-to-image
   - Upscale — upscale
 
-**Image** creates a new composition from the reference. **Restyle** changes its visual style. Both use image-to-image, create a derived item, and keep the source item unchanged.
+**Restyle** creates a derived image and keeps the source item unchanged. It is the only image-to-image operation.
 
 Image-to-video is a new application capability backed by the configured fal.ai image-to-video model. It sends the selected reference as the source. It does not reuse text-to-video and does not discard the source.
 
@@ -218,13 +217,15 @@ These completed changes have low complexity and support the requested flow:
 
 - Keep the last typed prompt when the user changes operation inside one open panel.
 - Clear an invalid aspect or duration choice when the selected model does not support it.
+- Make collection membership a checked action that supports add and remove.
+- Add custom collection deletion without deleting its references.
 
 The scope does not include video import, webpage capture, clipboard HTML, semantic search, plugin output, arbitrary npm dependencies, mixed output targets, pinning, or archiving.
 
 ## 9. Resolved review questions
 
 1. Use **Create new** and **Edit this reference** as the group names.
-2. **Image** creates a derived item from the selected reference.
-3. Do not show two controls that send the same image-to-image request.
+2. **Restyle** creates a derived item from the selected reference.
+3. Restyle is the only control that sends an image-to-image request.
 4. Shared `@sero-ai/ui` Combobox behavior supplies search, bounded height, multi-select and right-side ticks. Do not duplicate these controls in the plugin.
 5. The Colour Combobox shows named colour families instead of raw colour codes.

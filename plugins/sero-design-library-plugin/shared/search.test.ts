@@ -83,6 +83,24 @@ describe('filters', () => {
   it('treats an empty facet as inactive', () => {
     expect(selectItems(ITEMS, view({ filters: EMPTY_FILTERS }), NOW)).toHaveLength(3);
   });
+
+  it('matches a colour family without storing the current exact colours', () => {
+    const red = item({ id: 'red', colours: ['#e53935'] });
+    const laterRed = item({ id: 'later-red', colours: ['#b71c1c'] });
+    const filters = { ...EMPTY_FILTERS, colourFamilies: ['Reds' as const] };
+
+    expect(selectItems([red, laterRed], view({ filters }), NOW).map((entry) => entry.id)).toEqual([
+      'red',
+      'later-red',
+    ]);
+  });
+
+  it('treats near-black tints as neutrals', () => {
+    const nearBlack = item({ id: 'near-black', colours: ['#03090c'] });
+    const filters = { ...EMPTY_FILTERS, colourFamilies: ['Neutrals' as const] };
+
+    expect(selectItems([nearBlack], view({ filters }), NOW)).toEqual([nearBlack]);
+  });
 });
 
 describe('sorting', () => {

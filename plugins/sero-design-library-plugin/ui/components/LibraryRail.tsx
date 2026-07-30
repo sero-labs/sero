@@ -1,5 +1,13 @@
-import { Button, Input, ScrollArea } from '@sero-ai/ui';
-import { Clock, Diamond, Plus, Sparkles, Star, Trash2 } from 'lucide-react';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  ScrollArea,
+} from '@sero-ai/ui';
+import { Clock, Diamond, MoreHorizontal, Plus, Sparkles, Star, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { Collection } from '../../shared/records';
@@ -21,6 +29,7 @@ interface LibraryRailProps {
   scope: LibraryScope;
   onScopeChange(scope: LibraryScope): void;
   onCreateCollection(name: string): void;
+  onDeleteCollection(collectionId: string): void;
 }
 
 function sameScope(a: LibraryScope, b: LibraryScope): boolean {
@@ -64,12 +73,65 @@ function RailHeading({ children, action }: { children: React.ReactNode; action?:
   );
 }
 
+function CollectionRow({
+  collection,
+  active,
+  count,
+  onClick,
+  onDelete,
+}: {
+  collection: Collection;
+  active: boolean;
+  count: number;
+  onClick(): void;
+  onDelete(): void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={active}
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+          active
+            ? 'bg-accent text-accent-foreground'
+            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+        }`}
+      >
+        <span className="bg-primary size-2 shrink-0 rounded-full" />
+        <span className="min-w-0 flex-1 truncate">{collection.name}</span>
+        <span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0"
+            aria-label={`Actions for ${collection.name}`}
+          >
+            <MoreHorizontal className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 className="size-3.5" />
+            Delete collection
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export function LibraryRail({
   items,
   collections,
   scope,
   onScopeChange,
   onCreateCollection,
+  onDeleteCollection,
 }: LibraryRailProps) {
   const [newCollection, setNewCollection] = useState<string | null>(null);
 
@@ -151,13 +213,13 @@ export function LibraryRail({
           />
         )}
         {collections.map((collection) => (
-          <RailRow
+          <CollectionRow
             key={collection.id}
+            collection={collection}
             active={sameScope(scope, { kind: 'collection', collectionId: collection.id })}
-            label={collection.name}
             count={countFor({ kind: 'collection', collectionId: collection.id })}
-            icon={<span className="bg-primary size-2 rounded-full" />}
             onClick={() => onScopeChange({ kind: 'collection', collectionId: collection.id })}
+            onDelete={() => onDeleteCollection(collection.id)}
           />
         ))}
 

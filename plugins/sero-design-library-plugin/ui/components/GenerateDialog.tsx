@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
@@ -100,7 +101,6 @@ const FALLBACK_DURATIONS = [DEFAULT_VIDEO_SECONDS, 10].filter(
 type GenerationOperation =
   | 'fresh-image'
   | 'fresh-video'
-  | 'reference-image'
   | 'reference-video'
   | 'restyle'
   | 'upscale';
@@ -116,7 +116,6 @@ const FRESH_OPERATIONS: OperationChoice[] = [
 ];
 
 const CREATE_OPERATIONS: OperationChoice[] = [
-  { value: 'reference-image', label: 'Image' },
   { value: 'reference-video', label: 'Video' },
 ];
 
@@ -128,7 +127,6 @@ const EDIT_OPERATIONS: OperationChoice[] = [
 const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
   'fresh-image': 'text-to-image',
   'fresh-video': 'text-to-video',
-  'reference-image': 'image-to-image',
   'reference-video': 'image-to-video',
   restyle: 'image-to-image',
   upscale: 'upscale',
@@ -137,7 +135,6 @@ const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
 const ACTION_LABEL: Record<GenerationOperation, string> = {
   'fresh-image': 'Generate image',
   'fresh-video': 'Generate video',
-  'reference-image': 'Generate image',
   'reference-video': 'Generate video',
   restyle: 'Restyle',
   upscale: 'Upscale',
@@ -154,11 +151,11 @@ export function GenerateDialog({
 }: GenerateDialogProps) {
   const remix = initialSourceId !== undefined;
   const [operation, setOperation] = useState<GenerationOperation>(
-    remix ? 'reference-image' : 'fresh-image',
+    remix ? 'restyle' : 'fresh-image',
   );
   const capability = OPERATION_CAPABILITY[operation];
   const [prompt, setPrompt] = useState('');
-  const [sourceId, setSourceId] = useState<string>(initialSourceId ?? '');
+  const [sourceId, setSourceId] = useState(initialSourceId ?? '');
   const [chosenAspect, setChosenAspect] = useState<string | null>(null);
   const [chosenDuration, setChosenDuration] = useState<number | null>(null);
 
@@ -235,10 +232,15 @@ export function GenerateDialog({
             <section key={group.label ?? 'fresh'} className="space-y-2">
               {group.label && <h3 className="text-muted-foreground text-xs font-medium">{group.label}</h3>}
               <Tabs
+                activationMode="manual"
                 value={group.choices.some((choice) => choice.value === operation) ? operation : ''}
                 onValueChange={(value) => setOperation(value as GenerationOperation)}
               >
-                <TabsList variant="line" className="justify-start">
+                <TabsList
+                  variant="line"
+                  className="justify-start"
+                  aria-label={group.label ?? 'Output type'}
+                >
                   {group.choices.map((choice) => (
                     <TabsTrigger
                       key={choice.value}
@@ -249,6 +251,11 @@ export function GenerateDialog({
                     </TabsTrigger>
                   ))}
                 </TabsList>
+                {group.choices.map((choice) => (
+                  <TabsContent key={choice.value} value={choice.value} className="sr-only">
+                    {choice.label} operation selected
+                  </TabsContent>
+                ))}
               </Tabs>
             </section>
           ))}

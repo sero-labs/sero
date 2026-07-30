@@ -1,4 +1,10 @@
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@sero-ai/ui';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@sero-ai/ui';
 import { FolderPlus, RotateCw, Shuffle, Sparkles, Star, Trash2, X } from 'lucide-react';
 
 import { MAX_REFERENCES } from '../../shared/design';
@@ -20,7 +26,7 @@ interface SelectionBarProps {
   inTrash: boolean;
   onClear(): void;
   onFavourite(): void;
-  onCollect(collectionId: string): void;
+  onCollect(collectionId: string, member: boolean): void;
   onReanalyse(): void;
   onDelete(): void;
   onRestore(): void;
@@ -28,6 +34,12 @@ interface SelectionBarProps {
   onCreateDesign(): void;
   /** Generate new work from the one selected reference (E3). */
   onRemix(): void;
+}
+
+function collectionChecked(members: number, selected: number): boolean | 'indeterminate' {
+  if (members === 0) return false;
+  if (members === selected) return true;
+  return 'indeterminate';
 }
 
 export function SelectionBar({
@@ -46,6 +58,12 @@ export function SelectionBar({
 }: SelectionBarProps) {
   if (selected.length === 0) return null;
   const count = `${selected.length} reference${selected.length === 1 ? '' : 's'} selected`;
+  const collectionMembers = new Map<string, number>();
+  for (const item of selected) {
+    for (const collectionId of item.collectionIds) {
+      collectionMembers.set(collectionId, (collectionMembers.get(collectionId) ?? 0) + 1);
+    }
+  }
 
   return (
     <div className="border-border bg-accent/40 flex flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -98,15 +116,23 @@ export function SelectionBar({
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="ghost" size="sm">
                     <FolderPlus className="size-3.5" />
-                    Add to collection
+                    Collections
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {collections.map((collection) => (
-                    <DropdownMenuItem key={collection.id} onSelect={() => onCollect(collection.id)}>
-                      {collection.name}
-                    </DropdownMenuItem>
-                  ))}
+                  {collections.map((collection) => {
+                    const members = collectionMembers.get(collection.id) ?? 0;
+                    const checked = collectionChecked(members, selected.length);
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={collection.id}
+                        checked={checked}
+                        onCheckedChange={(next) => onCollect(collection.id, next === true)}
+                      >
+                        {collection.name}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

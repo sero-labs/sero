@@ -50,7 +50,9 @@ describe('fresh generation', () => {
       screen.queryByText('The model behind each capability is a setting, not a choice made here.'),
     ).toBeNull();
     expect(screen.getByRole('tablist').className).not.toContain('border-b');
-    expect(screen.getByRole('tab', { name: 'Image' }).className).toContain('after:bg-primary');
+    const imageTab = screen.getByRole('tab', { name: 'Image' });
+    expect(imageTab.className).toContain('after:bg-primary');
+    expect(document.getElementById(imageTab.getAttribute('aria-controls') ?? '')).not.toBeNull();
     expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
   });
 });
@@ -87,6 +89,8 @@ describe('remixing a reference', () => {
     expect(screen.getByLabelText('Work from')).toBeDefined();
     expect(screen.getByText('Create new')).toBeDefined();
     expect(screen.getByText('Edit this reference')).toBeDefined();
+    expect(screen.queryByRole('tab', { name: 'Image' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Restyle' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Upscale' })).toBeDefined();
     expect(screen.queryByText('Use this as visual direction')).toBeNull();
@@ -105,6 +109,15 @@ describe('remixing a reference', () => {
         sourceId: 'item-1',
       }),
     );
+  });
+
+  it('does not change the operation when another tab receives focus', async () => {
+    renderDialog({ initialSourceId: 'item-1' });
+    await chooseOperation('Upscale');
+
+    screen.getByRole('tab', { name: 'Video' }).focus();
+
+    expect(screen.getByRole('button', { name: 'Upscale' })).toBeDefined();
   });
 
   it('restyles the current reference', async () => {
@@ -153,7 +166,7 @@ describe('remixing a reference', () => {
     fireEvent.change(source, { target: { value: 'Reference 999' } });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
-    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ sourceId: 'item-999' }),
@@ -167,7 +180,7 @@ describe('remixing a reference', () => {
     });
 
     expect(screen.getByText('Nothing in the Library to work from yet.')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+    expect(screen.getByRole('button', { name: 'Restyle' }).hasAttribute('disabled')).toBe(
       true,
     );
   });
@@ -178,7 +191,7 @@ describe('remixing a reference', () => {
     await userEvent.clear(source);
     await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
 
-    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+    expect(screen.getByRole('button', { name: 'Restyle' }).hasAttribute('disabled')).toBe(
       true,
     );
     expect(onGenerate).not.toHaveBeenCalled();

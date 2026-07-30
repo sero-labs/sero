@@ -15,6 +15,7 @@ import {
 import { ArrowDownUp } from 'lucide-react';
 import { useState } from 'react';
 
+import { availableColourFamilies } from '../../shared/colour-families';
 import type { LibraryFacets } from '../../shared/search';
 import type { LibraryFilters, LibrarySort } from '../../shared/types';
 
@@ -39,75 +40,6 @@ const SORT_LABELS: Record<LibrarySort, string> = {
   oldest: 'Oldest first',
   title: 'By title',
 };
-
-const COLOUR_FAMILY_ORDER = [
-  'Reds',
-  'Oranges',
-  'Yellows',
-  'Greens',
-  'Cyans',
-  'Blues',
-  'Purples',
-  'Pinks',
-  'Neutrals',
-  'Other colours',
-] as const;
-
-type ColourFamily = (typeof COLOUR_FAMILY_ORDER)[number];
-
-interface ColourGroup {
-  name: ColourFamily;
-  colours: string[];
-}
-
-function colourFamily(value: string): ColourFamily {
-  const match = /^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.exec(value);
-  if (!match) return 'Other colours';
-
-  const compact = match[1];
-  const hex = compact.length === 3
-    ? compact.split('').map((digit) => `${digit}${digit}`).join('')
-    : compact.slice(0, 6);
-  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
-  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
-  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
-  const maximum = Math.max(red, green, blue);
-  const minimum = Math.min(red, green, blue);
-  const difference = maximum - minimum;
-
-  if (difference === 0 || difference / (1 - Math.abs(maximum + minimum - 1)) < 0.16) {
-    return 'Neutrals';
-  }
-
-  const hueBase =
-    maximum === red
-      ? (green - blue) / difference
-      : maximum === green
-        ? (blue - red) / difference + 2
-        : (red - green) / difference + 4;
-  const hue = (hueBase * 60 + 360) % 360;
-
-  if (hue < 15 || hue >= 345) return 'Reds';
-  if (hue < 45) return 'Oranges';
-  if (hue < 70) return 'Yellows';
-  if (hue < 165) return 'Greens';
-  if (hue < 200) return 'Cyans';
-  if (hue < 260) return 'Blues';
-  if (hue < 320) return 'Purples';
-  return 'Pinks';
-}
-
-function groupColours(colours: string[]): ColourGroup[] {
-  const groups = new Map<ColourFamily, string[]>();
-  for (const colour of colours) {
-    const family = colourFamily(colour);
-    groups.set(family, [...(groups.get(family) ?? []), colour]);
-  }
-  return COLOUR_FAMILY_ORDER.flatMap((name) => {
-    const grouped = groups.get(name);
-    return grouped ? [{ name, colours: grouped }] : [];
-  });
-}
 
 interface FacetMenuProps<Value extends string> {
   label: string;
@@ -134,7 +66,10 @@ function FacetMenu<Value extends string>({
       multiple
       open={open}
       onOpenChange={(nextOpen, details) => {
-        if (!nextOpen && details.reason === 'item-press') return;
+        if (!nextOpen && details.reason === 'item-press') {
+          details.cancel();
+          return;
+        }
         setOpen(nextOpen);
       }}
       value={chosen}
@@ -169,15 +104,11 @@ export function LibraryToolbar({
   onFiltersChange,
   onSortChange,
 }: LibraryToolbarProps) {
-  const colourGroups = groupColours(facets.colours);
-  const selectedColours = new Set(filters.colours);
-  const selectedColourGroups = colourGroups
-    .filter((group) => group.colours.some((colour) => selectedColours.has(colour)))
-    .map((group) => group.name);
+  const colourFamilies = availableColourFamilies(facets.colours);
   const active =
     filters.styles.length +
     filters.tags.length +
-    filters.colours.length +
+    filters.colourFamilies.length +
     filters.sourceKinds.length +
     filters.mediaKinds.length;
 
@@ -210,16 +141,9 @@ export function LibraryToolbar({
       />
       <FacetMenu
         label="Colour"
-        options={colourGroups.map((group) => group.name)}
-        selected={selectedColourGroups}
-        onChange={(values) =>
-          onFiltersChange({
-            ...filters,
-            colours: colourGroups
-              .filter((group) => values.includes(group.name))
-              .flatMap((group) => group.colours),
-          })
-        }
+        options={colourFamilies}
+        selected={filters.colourFamilies}
+        onChange={(colourFamilies) => onFiltersChange({ ...filters, colourFamilies })}
       />
       <FacetMenu
         label="Source"
@@ -238,7 +162,7 @@ export function LibraryToolbar({
               mediaKinds: [],
               styles: [],
               tags: [],
-              colours: [],
+              colourFamilies: [],
               sourceKinds: [],
               analysisStatuses: [],
             })

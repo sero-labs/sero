@@ -9,6 +9,8 @@
  */
 
 import type { OutputTarget, VariantStatus, VariationMode } from './design';
+import type { ColourFamily } from './colour-families';
+import { isColourFamily } from './colour-families';
 import { normalizeDesignSummary } from './design-summary';
 import type { ExportSummary } from './export';
 import { normalizeExportSummary } from './export';
@@ -120,7 +122,7 @@ export interface LibraryFilters {
   mediaKinds: MediaKind[];
   styles: string[];
   tags: string[];
-  colours: string[];
+  colourFamilies: ColourFamily[];
   sourceKinds: string[];
   analysisStatuses: AnalysisStatus[];
   /** Epoch millis; items created before this are hidden. */
@@ -191,7 +193,7 @@ export const EMPTY_FILTERS: LibraryFilters = {
   mediaKinds: [],
   styles: [],
   tags: [],
-  colours: [],
+  colourFamilies: [],
   sourceKinds: [],
   analysisStatuses: [],
 };
@@ -322,7 +324,9 @@ function normalizeFilters(value: unknown): LibraryFilters {
     mediaKinds,
     styles: stringArray(value.styles),
     tags: stringArray(value.tags),
-    colours: stringArray(value.colours),
+    // Raw colour filters from the first enhancement draft are deliberately
+    // dropped. Families are stable when new references add more exact hexes.
+    colourFamilies: stringArray(value.colourFamilies).filter(isColourFamily),
     sourceKinds: stringArray(value.sourceKinds),
     analysisStatuses,
     ...(typeof value.createdAfter === 'number' ? { createdAfter: value.createdAfter } : {}),
