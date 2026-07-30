@@ -1,5 +1,5 @@
 import { Button } from '@sero-ai/ui';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { DesignSummary } from '../../../shared/types';
 import { relativeTime } from '../../lib/time';
@@ -26,8 +26,6 @@ export interface SessionsRailProps {
   collapsed: boolean;
   onOpen(designId: string): void;
   onToggle(): void;
-  /** Starting a Design begins by choosing references, which lives in the Library. */
-  onNew(): void;
 }
 
 interface RailEntry {
@@ -55,7 +53,6 @@ export function SessionsRail({
   collapsed,
   onOpen,
   onToggle,
-  onNew,
 }: SessionsRailProps) {
   const entries = designs.slice(0, VISIBLE_DESIGNS).map(entryOf);
   const working = entries.filter((entry) => entry.running);
@@ -87,16 +84,6 @@ export function SessionsRail({
             {entry.design.title.slice(0, 2).toUpperCase()}
           </button>
         ))}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          aria-label="New design"
-          onClick={onNew}
-        >
-          <Plus className="size-3.5" />
-        </Button>
       </aside>
     );
   }
@@ -108,17 +95,6 @@ export function SessionsRail({
           Designs
         </h3>
         <div className="ml-auto flex items-center">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-6"
-            aria-label="New design"
-            title="Choose references in the Library"
-            onClick={onNew}
-          >
-            <Plus className="size-3.5" />
-          </Button>
           <Toggle collapsed={false} onToggle={onToggle} />
         </div>
       </div>

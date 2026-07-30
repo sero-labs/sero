@@ -42,7 +42,14 @@ describe('artwork the Design already has', () => {
     expect(prompt).toContain('`font` — “Font” — `--font-family` — choice');
     expect(prompt).toContain('`h1-tracking` — “H1 tracking” — `--h1-tracking` — range');
     expect(prompt).toContain('`body-size` — “Body size” — `--body-size` — range');
-    expect(prompt).toContain('add only the page-specific decisions');
+    expect(prompt).toContain('four to eight high-impact controls');
+    expect(prompt).toContain('Cover at least three relevant style areas');
+    expect(prompt).toContain('Colour');
+    expect(prompt).toContain('Composition');
+    expect(prompt).toContain('Spacing');
+    expect(prompt).toContain('Shape');
+    expect(prompt).toContain('Atmosphere');
+    expect(prompt).toContain('Do not add a weak or duplicate control only to meet the count');
     expect(prompt).toContain('prefers-reduced-motion: reduce');
   });
 

@@ -249,7 +249,7 @@ export function GenerateDialog({
                     <TabsTrigger
                       key={choice.value}
                       value={choice.value}
-                      className="data-[state=active]:text-primary after:bg-primary flex-none px-3"
+                      className="data-[state=active]:text-primary dark:data-[state=active]:text-primary after:bg-primary flex-none px-3"
                     >
                       {choice.label}
                     </TabsTrigger>

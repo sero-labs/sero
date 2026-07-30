@@ -126,7 +126,7 @@ Every result starts with the same typography controls: Font, H1 size, H1 weight,
 
 Revisions made before this typography contract keep their original controls. Revise or regenerate them to get the font catalog and shared type scale.
 
-After those, the result has a small set of controls written for **that page** — display scale, grid gap, signal accent, or whatever the page is about. A dense dashboard and an editorial page still get different page controls.
+After those, the result has four to eight controls written for **that page**. They cover relevant colour, composition, spacing, shape, and atmosphere choices. A dense dashboard and an editorial page still get different page controls.
 
 Moving one changes the preview immediately. Each control has a reset, the panel has **Reset all**, and **Copy CSS** gives you the values as a block you can paste into the page's own stylesheet.
 
@@ -161,8 +161,8 @@ Beside the box you choose what happens to the result you already have:
 
 | Choice | What happens |
 | --- | --- |
-| Replace it | The new result takes its place. The old one stays in History and can be brought back |
-| Keep both | Both stay in the revision list, and you switch between them |
+| Replace it | The new result takes its place. History marks the old result as replaced, but you can still bring it back |
+| Keep both | The new result opens, and the old result stays as an equal alternative in History |
 
 Your choice is remembered as the default, and can also be changed in Settings. Nothing is ever deleted by revising — revisions stay until you delete one yourself.
 
