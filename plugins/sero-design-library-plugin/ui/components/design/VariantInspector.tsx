@@ -178,7 +178,7 @@ export function VariantInspector({
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="data-[state=active]:text-primary after:bg-primary"
+              className="data-[state=active]:text-primary dark:data-[state=active]:text-primary after:bg-primary"
               aria-label={tab.label}
               title={tab.label}
             >
