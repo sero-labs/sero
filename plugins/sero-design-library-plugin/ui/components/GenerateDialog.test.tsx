@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -108,8 +108,8 @@ describe('remixing a reference', () => {
     });
 
     const source = screen.getByLabelText('Work from');
-    await userEvent.clear(source);
-    await userEvent.type(source, 'Reference 999');
+    source.focus();
+    fireEvent.change(source, { target: { value: 'Reference 999' } });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
     await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));

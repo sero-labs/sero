@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +37,9 @@ describe('large Library facets', () => {
     );
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Style' }));
-    await userEvent.type(screen.getByPlaceholderText('Search style'), 'Style 999');
+    fireEvent.change(screen.getByPlaceholderText('Search style'), {
+      target: { value: 'Style 999' },
+    });
     await userEvent.click(screen.getByRole('option', { name: 'Style 999' }));
 
     expect(onFiltersChange).toHaveBeenCalledWith({ ...FILTERS, styles: ['Style 999'] });
