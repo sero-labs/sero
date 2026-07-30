@@ -23,4 +23,23 @@ describe('fal image-to-video input', () => {
       aspect_ratio: '16:9',
     });
   });
+
+  it('omits aspect ratio when the endpoint schema does not accept it', () => {
+    expect(
+      buildFalInput(
+        {
+          capability: 'image-to-video',
+          prompt: 'a slow push in',
+          sourceAssetIds: ['reference'],
+          aspectRatio: '16:9',
+        },
+        ['https://fal.media/source.png'],
+        new Map(),
+        false,
+      ),
+    ).toEqual({
+      prompt: 'a slow push in',
+      image_url: 'https://fal.media/source.png',
+    });
+  });
 });

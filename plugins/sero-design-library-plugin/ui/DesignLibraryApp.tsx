@@ -89,7 +89,7 @@ export function DesignLibraryApp() {
   const librarySources = useMemo<GenerateSource[]>(
     () =>
       library.state.items.flatMap((item) =>
-        item.deletedAt === undefined ? [{ id: item.id, label: item.title }] : [],
+        item.deletedAt === undefined ? [{ id: item.id, label: item.title, kind: item.kind }] : [],
       ),
     [library.state.items],
   );

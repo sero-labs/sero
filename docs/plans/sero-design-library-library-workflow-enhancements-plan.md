@@ -60,10 +60,9 @@ The Remix panel starts with that reference selected. It has two groups:
   - New image — image-to-image
   - New video — image-to-video
 - **Edit this reference**
-  - Restyle — image-to-image
   - Upscale — upscale
 
-“New image” and “Restyle” use the same provider capability in the first enhancement. Their labels explain the result, not a different backend operation. Both create a derived Library item and keep the source item unchanged.
+**New image** replaces the separate Restyle operation. Both controls sent the same image-to-image request, so separate labels promised a difference that did not exist. It creates a derived item and keeps the source item unchanged.
 
 Image-to-video is a new application capability backed by the configured fal.ai image-to-video model. It sends the selected reference as the source. It does not reuse text-to-video and does not discard the source.
 
@@ -224,6 +223,6 @@ The scope does not include video import, webpage capture, clipboard HTML, semant
 ## 9. Resolved review questions
 
 1. Use **Create new** and **Edit this reference** as the group names.
-2. Restyle keeps the current first-release behavior and creates a derived item.
-3. **New image** and **Restyle** share the configured image-to-image model.
+2. **New image** keeps the first-release Restyle behavior and creates a derived item.
+3. Do not show two controls that send the same image-to-image request.
 4. Shared `@sero-ai/ui` Combobox behavior supplies search, bounded height, multi-select and right-side ticks. Do not duplicate these controls in the plugin.

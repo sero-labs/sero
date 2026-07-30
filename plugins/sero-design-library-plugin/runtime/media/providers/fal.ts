@@ -352,7 +352,12 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
         // only how to spell it. A schema that cannot be read leaves the number
         // as it stands, which is what the endpoint got before any of this.
         const schema = await readSchema(model, context.signal);
-        const input = buildFalInput(request, sourceUrls, schema.durationTokens);
+        const input = buildFalInput(
+          request,
+          sourceUrls,
+          schema.durationTokens,
+          schema.options.supportsAspectRatio,
+        );
         const result = await client.subscribe(model, {
           input,
           abortSignal: context.signal,

@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { MediaAttempt, MediaProvenance } from '../../shared/media';
+import { needsSource } from '../../shared/media';
 import type { MediaContext, MediaProvider, MediaRequest, MediaSourceAsset } from './contract';
 import { MediaError } from './contract';
 
@@ -66,6 +67,7 @@ export async function executeMedia(
 ): Promise<MediaAttempt> {
   const attemptId = randomUUID();
   const startedAt = Date.now();
+  const sourceAssets = new Map<string, MediaSourceAsset>();
 
   // Names are generated here, not taken from the adapter, so a provider cannot
   // choose where its bytes land. `store` is the only write it has.
@@ -73,7 +75,13 @@ export async function executeMedia(
   const context: MediaContext = {
     signal: options.signal,
     ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
-    readAsset: options.readAsset,
+    readAsset: async (assetId) => {
+      const cached = sourceAssets.get(assetId);
+      if (cached !== undefined) return cached;
+      const asset = await options.readAsset(assetId);
+      sourceAssets.set(assetId, asset);
+      return asset;
+    },
     async store(name, bytes) {
       const safe = `${attemptId}-${path.basename(name).replace(/[^A-Za-z0-9._-]/g, '_')}`;
       await mkdir(options.directory, { recursive: true });
@@ -98,6 +106,31 @@ export async function executeMedia(
   // is not a property the tenth adapter will have.
   if (options.signal.aborted) {
     return failure(new MediaError('cancelled', 'The request was cancelled.', false));
+  }
+
+  if (needsSource(request.capability)) {
+    const resolved = await Promise.all(
+      (request.sourceAssetIds ?? []).map(async (assetId) => {
+        const asset = await options.readAsset(assetId);
+        sourceAssets.set(assetId, asset);
+        return asset;
+      }),
+    ).then(
+      (assets) => ({ ok: true as const, assets }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    if (!resolved.ok) {
+      return failure(
+        resolved.error instanceof MediaError
+          ? resolved.error
+          : new MediaError('invalid-request', 'The source image could not be read.', false),
+      );
+    }
+    if (resolved.assets.some((asset) => !asset.mediaType.startsWith('image/'))) {
+      return failure(
+        new MediaError('invalid-request', `${request.capability} needs an image source.`, false),
+      );
+    }
   }
 
   // The call is wrapped rather than chained off `provider.generate(...)`: a

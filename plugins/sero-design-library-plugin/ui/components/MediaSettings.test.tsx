@@ -111,7 +111,7 @@ describe('media models', () => {
   it('shows each capability separately, so one does not stand for all five', () => {
     render(<MediaSettings media={MEDIA} />);
 
-    for (const label of ['Image', 'Restyle', 'Upscale', 'Video', 'Image to video']) {
+    for (const label of ['Image', 'Remix', 'Upscale', 'Video', 'Animate']) {
       expect(screen.getByLabelText(label), label).toBeDefined();
     }
   });

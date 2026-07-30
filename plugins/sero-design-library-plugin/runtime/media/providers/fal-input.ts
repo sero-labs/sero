@@ -12,13 +12,16 @@ const IMAGE_SIZES: Record<string, string> = {
 function videoInput(
   request: MediaRequest,
   durationTokens: Map<number, string | number>,
+  supportsAspectRatio: boolean | undefined,
 ): Record<string, unknown> {
   return {
     prompt: request.prompt,
     ...(request.durationSeconds === undefined
       ? {}
       : { duration: durationTokens.get(request.durationSeconds) ?? String(request.durationSeconds) }),
-    ...(request.aspectRatio === undefined ? {} : { aspect_ratio: request.aspectRatio }),
+    ...(request.aspectRatio === undefined || supportsAspectRatio === false
+      ? {}
+      : { aspect_ratio: request.aspectRatio }),
   };
 }
 
@@ -28,6 +31,8 @@ export function buildFalInput(
   sourceUrls: string[],
   /** The endpoint's original token for each normalized duration. */
   durationTokens: Map<number, string | number>,
+  /** False when this endpoint's schema has no aspect-ratio input. */
+  supportsAspectRatio?: boolean,
 ): Record<string, unknown> {
   const size = request.aspectRatio === undefined ? undefined : IMAGE_SIZES[request.aspectRatio];
   const shared = {
@@ -57,10 +62,10 @@ export function buildFalInput(
         ...shared,
       };
     case 'text-to-video':
-      return { ...videoInput(request, durationTokens), ...shared };
+      return { ...videoInput(request, durationTokens, supportsAspectRatio), ...shared };
     case 'image-to-video':
       return {
-        ...videoInput(request, durationTokens),
+        ...videoInput(request, durationTokens, supportsAspectRatio),
         image_url: sourceUrls[0],
         ...shared,
       };

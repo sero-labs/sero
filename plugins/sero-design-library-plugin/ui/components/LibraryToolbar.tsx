@@ -41,14 +41,19 @@ const SORT_LABELS: Record<LibrarySort, string> = {
   title: 'By title',
 };
 
-interface FacetMenuProps {
+interface FacetMenuProps<Value extends string> {
   label: string;
-  options: string[];
-  selected: string[];
-  onChange(values: string[]): void;
+  options: Value[];
+  selected: Value[];
+  onChange(values: Value[]): void;
 }
 
-function FacetMenu({ label, options, selected, onChange }: FacetMenuProps) {
+function FacetMenu<Value extends string>({
+  label,
+  options,
+  selected,
+  onChange,
+}: FacetMenuProps<Value>) {
   const [open, setOpen] = useState(false);
   if (options.length === 0) return null;
   const items = options.map((option) => ({ value: option, label: option }));
@@ -120,11 +125,9 @@ export function LibraryToolbar({
 
       <FacetMenu
         label="Media"
-        options={['image', 'video']}
+        options={['image', 'video'] satisfies LibraryFilters['mediaKinds']}
         selected={filters.mediaKinds}
-        onChange={(values) =>
-          onFiltersChange({ ...filters, mediaKinds: values as LibraryFilters['mediaKinds'] })
-        }
+        onChange={(mediaKinds) => onFiltersChange({ ...filters, mediaKinds })}
       />
       <FacetMenu
         label="Style"

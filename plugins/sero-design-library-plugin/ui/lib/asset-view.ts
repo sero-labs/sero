@@ -40,10 +40,10 @@ export interface AssetView {
 
 const CAPABILITY_LABELS: Record<DesignAsset['request']['capability'], string> = {
   'text-to-image': 'Image',
-  'image-to-image': 'Restyle',
+  'image-to-image': 'Remix',
   upscale: 'Upscale',
   'text-to-video': 'Video',
-  'image-to-video': 'Image to video',
+  'image-to-video': 'Animate',
 };
 
 export function capabilityLabel(capability: DesignAsset['request']['capability']): string {

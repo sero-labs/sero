@@ -86,7 +86,7 @@ export function DesignPage({
    * inspector's width.
    */
   const [focused, setFocused] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [generation, setGeneration] = useState<{ sourceId?: string } | null>(null);
   const [captureReady, setCaptureReady] = useState(false);
   const [startingGallerySave, setStartingGallerySave] = useState(false);
   const [gallerySaveError, setGallerySaveError] = useState<string>();
@@ -157,6 +157,7 @@ export function DesignPage({
               {
                 id: asset.id,
                 label: asset.request.prompt === '' ? asset.reference : asset.request.prompt,
+                kind: asset.kind,
               },
             ]
           : [],
@@ -330,7 +331,8 @@ export function DesignPage({
                   onRetryAsset={(assetId) => void media.retry(design.id, assetId)}
                   onCopyAssetToLibrary={(assetId) => void media.copyToLibrary(design.id, assetId)}
                   onDeleteAsset={(assetId) => void media.remove(design.id, assetId)}
-                  onGenerateAsset={() => setGenerating(true)}
+                  onGenerateAsset={() => setGeneration({})}
+                  onRemixAsset={(sourceId) => setGeneration({ sourceId })}
                 />
               </ResizablePanel>
               )}
@@ -365,11 +367,15 @@ export function DesignPage({
       </div>
 
       <GenerateDialog
-        open={generating}
+        key={generation?.sourceId ?? 'new'}
+        open={generation !== null}
         target={{ kind: 'design', designId: design.id, designTitle: design.title }}
         sources={assetSources}
         modelOptions={mediaOptions}
-        onOpenChange={setGenerating}
+        {...(generation?.sourceId === undefined ? {} : { initialSourceId: generation.sourceId })}
+        onOpenChange={(open) => {
+          if (!open) setGeneration(null);
+        }}
         onGenerate={(request) => {
           // Nothing waits on the result: the asset is reserved immediately and
           // the tray paints whatever the record says about it from then on.

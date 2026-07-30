@@ -43,6 +43,7 @@ const handlers = {
   onCopyToLibrary: vi.fn(),
   onDelete: vi.fn(),
   onGenerate: vi.fn(),
+  onRemix: vi.fn(),
 };
 
 function renderTray(assets: DesignAsset[]) {
@@ -141,6 +142,19 @@ describe('a ready asset', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete this asset' }));
     expect(handlers.onDelete).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('opens Remix from the selected Design asset', async () => {
+    renderTray([ready]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remix' }));
+    expect(handlers.onRemix).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('does not offer a video asset as a Remix source', () => {
+    renderTray([{ ...ready, kind: 'video' }]);
+
+    expect(screen.queryByRole('button', { name: 'Remix' })).toBeNull();
   });
 });
 

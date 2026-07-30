@@ -40,6 +40,7 @@ describe('reading a fal endpoint schema', () => {
     expect(schema.options).toEqual({
       durationsSeconds: [5, 10],
       aspectRatios: ['16:9', '9:16', '1:1'],
+      supportsAspectRatio: true,
     });
   });
 
@@ -50,7 +51,7 @@ describe('reading a fal endpoint schema', () => {
       schemaDocument({ prompt: {}, duration: { type: 'string', enum: ['4s', '6s', '8s'] } }),
     );
 
-    expect(schema.options).toEqual({ durationsSeconds: [4, 6, 8] });
+    expect(schema.options).toEqual({ durationsSeconds: [4, 6, 8], supportsAspectRatio: false });
     expect(schema.durationTokens.get(8)).toBe('8s');
   });
 
@@ -59,13 +60,16 @@ describe('reading a fal endpoint schema', () => {
       schemaDocument({ prompt: {}, duration: { type: 'integer', minimum: 2, maximum: 6 } }),
     );
 
-    expect(schema.options).toEqual({ durationRange: { min: 2, max: 6 } });
+    expect(schema.options).toEqual({
+      durationRange: { min: 2, max: 6 },
+      supportsAspectRatio: false,
+    });
   });
 
   it('says nothing rather than guessing when the schema has nothing to say', () => {
     expect(
       parseFalSchema(schemaDocument({ prompt: {}, image_size: { type: 'string' } })).options,
-    ).toEqual({});
+    ).toEqual({ supportsAspectRatio: false });
     expect(parseFalSchema({ components: {} }).options).toEqual({});
     expect(parseFalSchema('not a schema').options).toEqual({});
   });
@@ -82,7 +86,7 @@ describe('reading a fal endpoint schema', () => {
       },
     });
 
-    expect(schema.options).toEqual({ durationsSeconds: [5] });
+    expect(schema.options).toEqual({ durationsSeconds: [5], supportsAspectRatio: false });
   });
 });
 
@@ -96,8 +100,14 @@ describe('the reader', () => {
     );
     const read = createFalSchemaReader(transport as unknown as typeof globalThis.fetch);
 
-    expect((await read('fal-ai/kling')).options).toEqual({ durationsSeconds: [5, 10] });
-    expect((await read('fal-ai/kling')).options).toEqual({ durationsSeconds: [5, 10] });
+    expect((await read('fal-ai/kling')).options).toEqual({
+      durationsSeconds: [5, 10],
+      supportsAspectRatio: false,
+    });
+    expect((await read('fal-ai/kling')).options).toEqual({
+      durationsSeconds: [5, 10],
+      supportsAspectRatio: false,
+    });
 
     // A round trip in front of every video — including one inside a generation
     // run that is already waiting on a model — for an answer that cannot change

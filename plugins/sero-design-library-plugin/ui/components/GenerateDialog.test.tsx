@@ -23,7 +23,7 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
     <GenerateDialog
       open
       target={{ kind: 'library' }}
-      sources={[{ id: 'item-1', label: 'A warm gradient' }]}
+      sources={[{ id: 'item-1', label: 'A warm gradient', kind: 'image' }]}
       onOpenChange={() => {}}
       onGenerate={onGenerate}
       {...overrides}
@@ -81,7 +81,7 @@ describe('remixing a reference', () => {
     expect(screen.getByLabelText('Work from')).toBeDefined();
     expect(screen.getByText('Create new')).toBeDefined();
     expect(screen.getByText('Edit this reference')).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'Restyle' })).toBeDefined();
+    expect(screen.queryByRole('radio', { name: 'Restyle' })).toBeNull();
     expect(screen.getByRole('radio', { name: 'Upscale' })).toBeDefined();
 
     await chooseOperation('New video');
@@ -97,10 +97,26 @@ describe('remixing a reference', () => {
     );
   });
 
+  it('hides aspect ratio when the image-to-video endpoint does not accept it', async () => {
+    const { onGenerate } = renderDialog({
+      initialSourceId: 'item-1',
+      modelOptions: { 'image-to-video': { supportsAspectRatio: false } },
+    });
+    await chooseOperation('New video');
+    await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
+
+    expect(screen.queryByLabelText('Aspect')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ aspectRatio: expect.anything() }),
+    );
+  });
+
   it('finds a different source in a large Library by typing', async () => {
     const sources = Array.from({ length: 1_000 }, (_, index) => ({
       id: `item-${index}`,
       label: `Reference ${index}`,
+      kind: 'image' as const,
     }));
     const { onGenerate } = renderDialog({
       sources,
@@ -117,5 +133,29 @@ describe('remixing a reference', () => {
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ sourceId: 'item-999' }),
     );
+  });
+
+  it('does not offer a video as an image source', () => {
+    renderDialog({
+      sources: [{ id: 'video-1', label: 'A short clip', kind: 'video' }],
+      initialSourceId: 'video-1',
+    });
+
+    expect(screen.getByText('Nothing in the Library to work from yet.')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
+  it('clears the selected source when the combobox is cleared', async () => {
+    const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
+    const source = screen.getByLabelText('Work from');
+    await userEvent.clear(source);
+    await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
+
+    expect(screen.getByRole('button', { name: 'Generate image' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(onGenerate).not.toHaveBeenCalled();
   });
 });

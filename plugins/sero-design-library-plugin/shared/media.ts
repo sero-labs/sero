@@ -95,6 +95,8 @@ export interface MediaModelOptions {
   durationRange?: { min: number; max: number };
   /** The only aspect ratios this model accepts, as `w:h`. */
   aspectRatios?: string[];
+  /** False when the provider schema explicitly has no aspect-ratio input. */
+  supportsAspectRatio?: boolean;
 }
 
 export function normalizeModelOptions(value: unknown): MediaModelOptions {
@@ -114,6 +116,9 @@ export function normalizeModelOptions(value: unknown): MediaModelOptions {
     ...(durations === undefined || durations.length === 0 ? {} : { durationsSeconds: durations }),
     ...(min === undefined || max === undefined || max < min ? {} : { durationRange: { min, max } }),
     ...(ratios === undefined || ratios.length === 0 ? {} : { aspectRatios: ratios }),
+    ...(typeof value.supportsAspectRatio === 'boolean'
+      ? { supportsAspectRatio: value.supportsAspectRatio }
+      : {}),
   };
 }
 

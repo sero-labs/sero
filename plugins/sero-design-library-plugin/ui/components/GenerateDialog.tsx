@@ -25,6 +25,7 @@ import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 import type { MediaCapability, MediaModelOptions } from '../../shared/media';
+import type { MediaKind } from '../../shared/records';
 import {
   DEFAULT_VIDEO_SECONDS,
   MAX_VIDEO_SECONDS,
@@ -52,6 +53,7 @@ export type GenerateTarget =
 export interface GenerateSource {
   id: string;
   label: string;
+  kind: MediaKind;
 }
 
 export interface GenerateRequest {
@@ -68,7 +70,7 @@ export interface GenerateDialogProps {
   /** Assets in this Design, or Library items — whichever the target can use. */
   sources: GenerateSource[];
   /**
-   * A source the dialog opens already working from — Restyle on a chosen
+   * A source the dialog opens already working from — Remix on a chosen
    * reference. The capability follows it, because arriving on "new image" with
    * a source selected says the source will be used when it will not be.
    */
@@ -99,7 +101,6 @@ type GenerationOperation =
   | 'fresh-video'
   | 'reference-image'
   | 'reference-video'
-  | 'restyle'
   | 'upscale';
 
 interface OperationChoice {
@@ -119,7 +120,6 @@ const CREATE_OPERATIONS: OperationChoice[] = [
 ];
 
 const EDIT_OPERATIONS: OperationChoice[] = [
-  { value: 'restyle', label: 'Restyle', description: 'Change its visual treatment' },
   { value: 'upscale', label: 'Upscale', description: 'Increase its resolution' },
 ];
 
@@ -128,7 +128,6 @@ const OPERATION_CAPABILITY: Record<GenerationOperation, MediaCapability> = {
   'fresh-video': 'text-to-video',
   'reference-image': 'image-to-image',
   'reference-video': 'image-to-video',
-  restyle: 'image-to-image',
   upscale: 'upscale',
 };
 
@@ -137,7 +136,6 @@ const ACTION_LABEL: Record<GenerationOperation, string> = {
   'fresh-video': 'Generate video',
   'reference-image': 'Generate image',
   'reference-video': 'Generate video',
-  restyle: 'Restyle',
   upscale: 'Upscale',
 };
 
@@ -173,6 +171,7 @@ export function GenerateDialog({
     chosenDuration !== null && durations.includes(chosenDuration)
       ? chosenDuration
       : (durations[0] ?? DEFAULT_VIDEO_SECONDS);
+  const supportsAspectRatio = options?.supportsAspectRatio !== false;
   const ratios = options?.aspectRatios ?? FALLBACK_ASPECT_RATIOS;
   const aspectRatio =
     chosenAspect !== null && ratios.includes(chosenAspect)
@@ -181,7 +180,8 @@ export function GenerateDialog({
 
   const wantsSource = needsSource(capability);
   const video = isVideoCapability(capability);
-  const sourceOptions = sources.map((source) => ({ value: source.id, label: source.label }));
+  const imageSources = sources.filter((source) => source.kind === 'image');
+  const sourceOptions = imageSources.map((source) => ({ value: source.id, label: source.label }));
   const selectedSource = sourceOptions.find((source) => source.value === sourceId) ?? null;
   // The same check the tool and the model's own tool run, so the dialog cannot
   // offer a request either of them would refuse.
@@ -189,7 +189,7 @@ export function GenerateDialog({
     prompt,
     ...(sourceId === '' ? {} : { sourceIds: [sourceId] }),
   });
-  const noSources = wantsSource && sources.length === 0;
+  const noSources = wantsSource && imageSources.length === 0;
   const blocked = missing !== null || noSources || tooLong !== null;
 
   const submit = () => {
@@ -198,7 +198,7 @@ export function GenerateDialog({
       capability,
       prompt: prompt.trim(),
       ...(wantsSource ? { sourceId } : {}),
-      ...(capability === 'upscale' ? {} : { aspectRatio }),
+      ...(capability === 'upscale' || !supportsAspectRatio ? {} : { aspectRatio }),
       ...(video ? { durationSeconds } : {}),
     });
     setPrompt('');
@@ -210,7 +210,7 @@ export function GenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Generate</DialogTitle>
+          <DialogTitle>{remix ? 'Remix reference' : 'Generate'}</DialogTitle>
           <DialogDescription>
             {remix
               ? 'Create new media or edit the selected reference.'
@@ -234,7 +234,7 @@ export function GenerateDialog({
                 type="single"
                 value={operation}
                 onValueChange={(value) => value !== '' && setOperation(value as GenerationOperation)}
-                className="grid grid-cols-2 gap-2"
+                className={`grid gap-2 ${group.choices.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
                 aria-label={group.label ?? 'Media type'}
               >
                 {group.choices.map((choice) => (
@@ -269,7 +269,7 @@ export function GenerateDialog({
                 <Combobox
                   items={sourceOptions}
                   value={selectedSource}
-                  onValueChange={(source) => source && setSourceId(source.value)}
+                  onValueChange={(source) => setSourceId(source?.value ?? '')}
                 >
                   <ComboboxInput id="generate-source" placeholder="Search references" className="w-full" />
                   <ComboboxContent>
@@ -306,7 +306,7 @@ export function GenerateDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {capability !== 'upscale' && (
+            {capability !== 'upscale' && supportsAspectRatio && (
               <div className="space-y-1.5">
                 <Label htmlFor="generate-aspect">Aspect</Label>
                 <Select value={aspectRatio} onValueChange={setChosenAspect}>

@@ -26,13 +26,13 @@ Text-to-video remains the fresh video operation.
 
 **Consequence.** Settings gain one editable image-to-video model id. Existing profiles normalize with an empty override and therefore use the adapter default.
 
-## E3 · Restyle and Upscale remain operations, not top-level workflows
+## E3 · Remix has one image-to-image operation
 
-The selected-reference action is named **Remix**. Inside the panel, **Restyle** and **Upscale** stay as operation names under **Edit this reference**.
+The selected-reference action is named **Remix**. Inside the panel, **New image** uses image-to-image, **New video** uses image-to-video, and **Upscale** remains under **Edit this reference**.
 
-**Reason.** Remix describes the broader task. Restyle and Upscale describe specific changes to the source.
+**Reason.** New image and Restyle sent the same request. Two labels must not promise two operations when the runtime cannot tell them apart.
 
-**Consequence.** The first-release Restyle action name changes, but persisted media capability names do not change.
+**Consequence.** The first-release Restyle action becomes Remix → New image. Persisted media capability names do not change.
 
 ## E4 · Original provenance is read-only and last
 

@@ -83,7 +83,7 @@ export function SelectionBar({
             </Button>
             {/* One reference only: a variation is made *from* something, and
                 "restyle these four" has no single source to work from. */}
-            {selected.length === 1 && (
+            {selected.length === 1 && selected[0]?.kind === 'image' && (
               <Button type="button" variant="ghost" size="sm" onClick={onRemix}>
                 <Shuffle className="size-3.5" />
                 Remix
