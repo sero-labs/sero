@@ -6,7 +6,7 @@
 
 Design Library is your private visual memory. You collect screenshots and images you like, Sero reads each one and describes its design language, and later you turn that language into original work.
 
-You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. Designs can generate their own artwork and video, and you can generate references straight into the Library.
+You collect references in the **Library**, turn them into runnable work in **Design**, and keep the results in the **Gallery**. Designs can generate their own artwork and video, and you can generate references straight into the Library. **Sprite Studio** turns a character into finished 2D sprite sheets.
 
 ## Getting started
 
@@ -231,6 +231,70 @@ Until the thumbnail arrives the tile says **Capturing frames…** rather than sh
 
 Importing your own video files is not supported yet.
 
+## Sprite Studio
+
+Sprite Studio turns a character, or a picture of one, into finished 2D sprite sheets with animations. You describe what you want in plain words — "a resting loop, two attacks, a jump and a death" — and get back sprite sheets with hard pixels, one shared palette, planted feet and a machine-readable atlas.
+
+### The character comes first
+
+Start from a picture you upload, a reference already in the Library, or a description alone.
+
+Sprite Studio measures the picture rather than guessing at it. Pixel art has two sizes — the file you have and the artwork inside it — so it finds the real one by looking at where the colour edges fall. A 784 × 1168 file whose artwork is 62 × 136 comes back at 62 × 136. It then reads the palette, cuts the background, and finds the foot line.
+
+You see all of that on the **character sheet**, beside the picture you gave it, before anything is generated. Here you can:
+
+- **cap the palette** — 32, 16, 8, or a fixed set of your own. The character is redrawn on the smaller palette immediately, so you see what the cap costs before you accept it;
+- **set the export scale**, which must be a whole number or the pixels blur;
+- **write style notes** — the hat, the satchel, the whip — which every animation is held to.
+
+Nothing is generated until you approve the character. The palette, the size and the foot line then belong to it, and every animation inherits them. That is what lets you come back next week, ask for a jump, and get a sprite that matches.
+
+### Asking for animations
+
+Describe the animations you want. Sprite Studio plans them and shows you the plan — a name, a frame count, a play rate, a canvas and whether each one loops — before a penny is spent. Change anything you like.
+
+**Frame count and play rate are separate.** A resting loop needs about six drawings however fast it plays; each one is held for several ticks.
+
+The **video model is chosen here, in the open**, because it changes the result more than any other control and the two models fail in opposite directions:
+
+| Model | What it does | What it costs you |
+| --- | --- | --- |
+| Grok Imagine | More character in the movement: a real crouch, arms out, legs apart, a proper landing | The face drifts, which reads as style. It occasionally draws a box around a bright character |
+| Seedance Fast | Follows the instruction closely and holds the face steady | Stiff — it can move a standing pose up and down rather than animate it |
+
+Your choice is remembered for next time.
+
+### What happens to the drawings
+
+A video model draws the movement. Sprite Studio pulls the frames out, cleans them and keeps the ones that carry the action — the first, the last, and the poses where the movement turns around. Each kept frame holds for the time it really held in the clip, so the animation plays at the speed it was drawn at.
+
+Every frame is checked before it is accepted: the palette, the character's size, whether anything unattached was drawn, whether the feet are where the plan said, whether the sprite boils where it should be still, and whether the drawing ran off the edge of the video frame. A frame that fails is redrawn automatically, up to twice, and the repair is declared rather than hidden.
+
+Clips are decoded by the app, so Sprite Studio needs Sero open to finish an animation. One generated while Sero was closed picks up where it left off next time you open it.
+
+### Looping
+
+A loop is one of three things, and Sprite Studio says which you have:
+
+- **once** — a jump, an attack, a death;
+- **forward** — offered only when the character really does return to a pose it held. It is found by comparing every pair of moments in the clip;
+- **ping-pong** — plays forward then backward. It can never fail to join, because both ends are the same frame. It suits breathing, hovering and bouncing, and it does not suit a walk.
+
+**Some walks cannot be looped at all.** About three in five come back with no repeated pose anywhere in them, and no amount of cutting produces a cycle. When that happens Sprite Studio says so and offers the three honest answers: generate it again, ping-pong it and accept the reversed motion, or fix it by hand. It will not quietly ship a walk that jerks every cycle.
+
+### Fixing
+
+Two ways, and **both are available on every frame at all times** — not only when a check failed. A frame can pass every measurement and still be wrong to your eye.
+
+- **Ask the AI** to redraw a frame or re-run a whole animation. Say what is wrong, or say nothing and let it work it out. Repairs are added rather than substituted, so the previous version survives.
+- **Edit it yourself** — pencil, eraser, eyedropper, fill, undo and onion skin, with the character's palette as the only colours available. A hand edit cannot break the palette.
+
+### Export
+
+One PNG sheet and one Aseprite JSON file, which most engines and tools already read. The anchor, the palette and the character id travel inside the atlas, so a game does not have to be told where the character's feet are.
+
+The scale must be a whole number. Ask for a 512 px tall sprite from a 136 px character and you get the nearest whole multiple, with the real size stated rather than blurred pixels. Optional: trim to content, and one cell size for every animation for engines that expect a uniform grid.
+
 ## Deleting
 
 **Delete** moves a reference to Trash, where it stays until you restore it or delete it permanently. Permanent deletion removes the image and its analysis, and leaves behind only a record of what used to be there, so anything that referred to it can still explain what is missing. Deleting a collection never deletes the references inside it.
@@ -270,12 +334,13 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
 | `design_library_gallery` | List saved families, read versions, open or duplicate an exact revision, feature versions, and manage Gallery Trash |
 | `design_library_export` | Export an exact Gallery version to Downloads or the active workspace, and read export status |
+| `design_library_sprites` | Read Sprite Studio characters and animations, ask for animations, approve, fix a frame and export a sprite sheet |
 
 Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 
 ## Where things are stored
 
-Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design, immutable Gallery versions and the search index. Generated pictures are downloaded and kept locally too — a design never points at a web address.
+Everything lives in the active profile's Sero home under `apps/design-library/`: the original images, their previews, the analysis records, every generated design, immutable Gallery versions, Sprite Studio characters under `characters/`, and the search index. Every sprite frame is an indexed PNG carrying its character's palette, so a frame cannot hold a colour the character does not have. Generated pictures are downloaded and kept locally too — a design never points at a web address.
 
 What leaves your machine: the image sent to your configured model for analysis, the written description sent when you generate a design, and the prompt sent to the picture provider when you generate artwork.
 
