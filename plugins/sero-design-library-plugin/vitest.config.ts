@@ -12,6 +12,10 @@ export default defineConfig({
       'extension/**/*.test.ts',
       'ui/lib/**/*.test.ts',
       'ui/**/*.test.tsx',
+      // Sprite Studio keeps all of its code — engine, runtime and page — in one
+      // folder, so that it can be lifted into its own plugin later (D6).
+      'sprite-studio/**/*.test.ts',
+      'sprite-studio/**/*.test.tsx',
     ],
     // Node by default; a component test opts itself into a DOM with
     // `// @vitest-environment jsdom` on its first line. Per-file rather than a

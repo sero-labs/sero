@@ -1,0 +1,157 @@
+/**
+ * Separating the character from what it was drawn on.
+ *
+ * Two routes, because there are two kinds of picture (D7):
+ *
+ *  - Everything **we** generate is drawn on flat magenta, a colour that appears
+ *    nowhere on a character. Keying is then a per-pixel test with no
+ *    connectivity rule and no guessing, so a hole the character encloses — the
+ *    gap inside a coiled whip — comes out transparent like any other background.
+ *  - A picture the **user** supplies is on whatever they had. There the
+ *    background is flood filled inwards from the border, so a background-coloured
+ *    region the character encloses — the whites of the eyes — is not eaten.
+ */
+
+import type { Foreground, SourceImage } from './types';
+
+export const MAGENTA: readonly [number, number, number] = [255, 0, 255];
+
+/** Foreground by the magenta key, with detached matter dropped (D35). */
+export function keyForeground(image: SourceImage): Foreground {
+  const mask = new Uint8Array(image.width * image.height);
+  for (let i = 0; i < mask.length; i++) {
+    const r = image.data[i * 4] ?? 0;
+    const g = image.data[i * 4 + 1] ?? 0;
+    const b = image.data[i * 4 + 2] ?? 0;
+    const key =
+      Math.abs(r - MAGENTA[0]) + Math.abs(g - MAGENTA[1]) + Math.abs(b - MAGENTA[2]) < 90 ||
+      (r > 150 && b > 150 && g < 90 && Math.abs(r - b) < 70);
+    mask[i] = key ? 0 : 1;
+  }
+  return mask;
+}
+
+/**
+ * Foreground for a picture we did not draw: flood fill inwards from the border.
+ *
+ * A colour test alone would eat the whites of the character's eyes, so
+ * background is defined as "reachable from the edge without crossing a colour
+ * boundary" rather than as a colour.
+ */
+export function floodForeground(image: SourceImage, { tolerance = 40 } = {}): Foreground {
+  const { width, height } = image;
+  const total = width * height;
+  const background = new Uint8Array(total);
+  const queue = new Int32Array(total);
+  let head = 0;
+  let tail = 0;
+
+  const push = (at: number, from: number): void => {
+    if (background[at]) return;
+    const a = at * 4;
+    const b = from * 4;
+    const distance =
+      Math.abs((image.data[a] ?? 0) - (image.data[b] ?? 0)) +
+      Math.abs((image.data[a + 1] ?? 0) - (image.data[b + 1] ?? 0)) +
+      Math.abs((image.data[a + 2] ?? 0) - (image.data[b + 2] ?? 0));
+    if (distance > tolerance) return;
+    background[at] = 1;
+    queue[tail++] = at;
+  };
+
+  for (let x = 0; x < width; x++) {
+    for (const at of [x, (height - 1) * width + x]) {
+      if (!background[at]) {
+        background[at] = 1;
+        queue[tail++] = at;
+      }
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    for (const at of [y * width, y * width + width - 1]) {
+      if (!background[at]) {
+        background[at] = 1;
+        queue[tail++] = at;
+      }
+    }
+  }
+
+  while (head < tail) {
+    const at = queue[head++] ?? 0;
+    const x = at % width;
+    const y = (at - x) / width;
+    if (x > 0) push(at - 1, at);
+    if (x < width - 1) push(at + 1, at);
+    if (y > 0) push(at - width, at);
+    if (y < height - 1) push(at + width, at);
+  }
+
+  const foreground = new Uint8Array(total);
+  for (let i = 0; i < total; i++) {
+    // A pixel the source already declared transparent is background whatever
+    // the fill reached, so an image that arrives with an alpha channel keeps it.
+    const opaque = (image.data[i * 4 + 3] ?? 255) >= 128;
+    foreground[i] = !background[i] && opaque ? 1 : 0;
+  }
+  return foreground;
+}
+
+/**
+ * Keep the character and drop everything else the key let through (D35).
+ *
+ * Grok draws a soft shadow on the ground under the character, despite being
+ * told not to. It is washed-out magenta — far enough from the key colour to
+ * survive it, and detached from the body. Left in, it becomes the lowest part
+ * of the "silhouette", so the foot line stops moving and a jump measures as
+ * nothing. It also inflates the canvas.
+ *
+ * A character is one connected mass. Anything not joined to it is not the
+ * character, so the largest connected region wins and the rest goes back to
+ * background. How much was dropped is returned rather than discarded: a large
+ * detached region is a drawn artefact, which is a fact about the frame.
+ */
+export function keepLargestBody(
+  mask: Foreground,
+  width: number,
+  height: number,
+): { foreground: Foreground; detached: number } {
+  const label = new Int32Array(mask.length).fill(-1);
+  const sizes: number[] = [];
+  const queue = new Int32Array(mask.length);
+
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start] || label[start]! >= 0) continue;
+    const id = sizes.length;
+    let head = 0;
+    let tail = 0;
+    let size = 0;
+    queue[tail++] = start;
+    label[start] = id;
+    while (head < tail) {
+      const at = queue[head++] ?? 0;
+      size++;
+      const x = at % width;
+      const y = (at - x) / width;
+      const visit = (next: number): void => {
+        if (mask[next] && label[next]! < 0) {
+          label[next] = id;
+          queue[tail++] = next;
+        }
+      };
+      if (x > 0) visit(at - 1);
+      if (x < width - 1) visit(at + 1);
+      if (y > 0) visit(at - width);
+      if (y < height - 1) visit(at + width);
+    }
+    sizes.push(size);
+  }
+
+  if (sizes.length <= 1) return { foreground: mask, detached: 0 };
+  let best = 0;
+  for (let i = 1; i < sizes.length; i++) if (sizes[i]! > sizes[best]!) best = i;
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+
+  const foreground = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) foreground[i] = label[i] === best ? 1 : 0;
+  return { foreground, detached: total > 0 ? (total - sizes[best]!) / total : 0 };
+}
