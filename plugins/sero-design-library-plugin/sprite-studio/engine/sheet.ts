@@ -47,6 +47,14 @@ export interface PlacedFrame {
   width: number;
   height: number;
   durationMs: number;
+  /** True when empty margin was dropped, so the atlas can say where it was. */
+  trimmed: boolean;
+  /** Where this frame sits inside its untrimmed canvas, in sheet pixels. */
+  offsetX: number;
+  offsetY: number;
+  /** The untrimmed canvas, which is what an engine positions against. */
+  sourceWidth: number;
+  sourceHeight: number;
 }
 
 export interface PlacedAnimation {
@@ -156,6 +164,14 @@ export function buildSheet(animations: SheetAnimation[], options: SheetOptions =
         width: frameWidth,
         height: frameHeight,
         durationMs: frame.durationMs,
+        // Where the trim took the frame from. An atlas that claimed a trimmed
+        // frame was whole would have every consumer place it in the wrong spot
+        // by exactly the margin that was dropped.
+        trimmed: box.x > 0 || box.y > 0 || box.cols < frame.cells.cols || box.rows < frame.cells.rows,
+        offsetX: box.x * scale,
+        offsetY: box.y * scale,
+        sourceWidth: frame.cells.cols * scale,
+        sourceHeight: frame.cells.rows * scale,
       });
       if (layout === 'single-row') cursorX += frameWidth;
     }

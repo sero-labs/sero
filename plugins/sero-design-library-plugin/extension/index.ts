@@ -20,6 +20,7 @@ import { registerItemTool } from './tools/items';
 import { registerMediaTool } from './tools/media';
 import { registerGalleryTool } from './tools/gallery';
 import { registerSettingsTool } from './tools/settings';
+import { registerSpriteTool } from './tools/sprites';
 
 export default function designLibraryExtension(pi: ExtensionAPI): void {
   const paths = resolveDesignLibraryPaths();
@@ -32,4 +33,5 @@ export default function designLibraryExtension(pi: ExtensionAPI): void {
   registerMediaTool(pi, paths);
   registerGalleryTool(pi, paths);
   registerSettingsTool(pi, paths);
+  registerSpriteTool(pi, paths);
 }

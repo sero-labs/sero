@@ -8,6 +8,8 @@
  * nothing.
  */
 
+import type { SpriteRequestBody } from '../sprite-studio/shared/state';
+import { isSpriteRequestKind } from '../sprite-studio/shared/state';
 import type { DesignBrief, DesignRecord } from './design';
 import type { ExportDestination } from './export';
 import type { LibrarianField, LibrarianUserFacingAnalysis } from './librarian';
@@ -169,6 +171,16 @@ export type LibraryRequestBody =
          */
         | { kind: 'asset'; designId: string; assetId: string; attemptId: string };
     }
+  /**
+   * Sprite Studio's own intent (D6).
+   *
+   * It rides this log rather than building a second one: the single-writer rule
+   * and the monotonic watermark are the parts that make a replay safe, and there
+   * is no version of "its own request queue" that is not those two things
+   * written twice. Every kind is namespaced `sprite.`, so lifting the folder
+   * into its own plugin later is a move rather than an untangling.
+   */
+  | SpriteRequestBody
   | { kind: 'settings.update'; patch: Partial<DesignLibrarySettings> }
   /**
    * Search, filter and page preferences. The UI holds these locally for
@@ -236,7 +248,8 @@ const REQUEST_KINDS: readonly LibraryRequestKind[] = [
 ] as const;
 
 export function isLibraryRequestKind(value: unknown): value is LibraryRequestKind {
-  return typeof value === 'string' && (REQUEST_KINDS as readonly string[]).includes(value);
+  if (typeof value !== 'string') return false;
+  return (REQUEST_KINDS as readonly string[]).includes(value) || isSpriteRequestKind(value);
 }
 
 export function isLibraryRequest(value: unknown): value is LibraryRequest {

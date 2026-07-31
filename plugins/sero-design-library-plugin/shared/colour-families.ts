@@ -41,6 +41,7 @@ function rgbFromHex(value: string): Rgb | null {
   if (!match) return null;
 
   const compact = match[1];
+  if (compact === undefined) return null;
   let hex = compact.slice(0, 6);
   if (compact.length === 3) {
     hex = compact.split('').map((digit) => `${digit}${digit}`).join('');

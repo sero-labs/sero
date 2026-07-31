@@ -24,6 +24,8 @@ import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
 import type { DesignLibrarySettings, MediaSettings } from './settings';
 import { DEFAULT_SETTINGS, MAX_CALLS_PER_RUN } from './settings';
+import type { SpriteStudioState } from '../sprite-studio/shared/state';
+import { DEFAULT_SPRITE_STUDIO_STATE, normalizeSpriteState } from '../sprite-studio/shared/state';
 
 export const STATE_SCHEMA_VERSION = 1;
 
@@ -173,6 +175,12 @@ export interface DesignLibraryState {
   jobs: JobSummary[];
   settings: DesignLibrarySettings;
   /**
+   * Sprite Studio's slice (D6). It shares this state file, the fal connection
+   * and the settings surface, and nothing else — everything it owns lives under
+   * `sprite-studio/`.
+   */
+  sprite: SpriteStudioState;
+  /**
    * What each capability's model accepts — clip lengths, aspect ratios — as the
    * provider last reported it (D7).
    *
@@ -208,6 +216,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   collections: [],
   jobs: [],
   settings: DEFAULT_SETTINGS,
+  sprite: DEFAULT_SPRITE_STUDIO_STATE,
   mediaOptions: {},
   view: {
     scope: { kind: 'all' },
@@ -468,6 +477,7 @@ export function normalizeState(value: unknown): DesignLibraryState {
         })
       : [],
     settings: normalizeSettings(value.settings),
+    sprite: normalizeSpriteState(value.sprite),
     mediaOptions: normalizeMediaOptions(value.mediaOptions),
     view: normalizeView(value.view),
     requests,

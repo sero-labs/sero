@@ -70,9 +70,18 @@ export function buildAtlas(
       filename: `${frame.animation} ${frame.index}`,
       frame: { x: frame.x, y: frame.y, w: frame.width, h: frame.height },
       rotated: false,
-      trimmed: false,
-      spriteSourceSize: { x: 0, y: 0, w: frame.width, h: frame.height },
-      sourceSize: { w: frame.width, h: frame.height },
+      // Told honestly. Aseprite's consumers position a trimmed frame by
+      // `spriteSourceSize` inside `sourceSize`, so claiming a trimmed frame is
+      // whole moves the character by exactly the margin that was dropped —
+      // which is the same class of fault as anchoring on the wrong row.
+      trimmed: frame.trimmed,
+      spriteSourceSize: {
+        x: frame.offsetX,
+        y: frame.offsetY,
+        w: frame.width,
+        h: frame.height,
+      },
+      sourceSize: { w: frame.sourceWidth, h: frame.sourceHeight },
       duration: frame.durationMs,
     })),
     meta: {

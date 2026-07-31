@@ -10,5 +10,5 @@
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["./**/*", "../shared/**/*"]
+  "include": ["./**/*", "../shared/**/*", "../sprite-studio/engine/**/*", "../sprite-studio/shared/**/*", "../sprite-studio/runtime/**/*"]
 }

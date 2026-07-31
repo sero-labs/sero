@@ -112,6 +112,16 @@ export function checkAnimation(
     declaredGrounded?: boolean[];
     /** The base pose's ramp usage, for the fidelity comparison (D27). */
     baseRampUsage?: RampUsage[];
+    /**
+     * The join, measured on the frames the loop was cut from.
+     *
+     * Given rather than measured here whenever the sequence has been thinned.
+     * Thinning drops the duplicate end frame, so the last frame that survives is
+     * one step of the movement before the join — measuring closure on it reports
+     * a normal step as a broken loop, and would condemn every good cycle we
+     * found.
+     */
+    loopClosure?: number;
   },
 ): Finding[] {
   const limits = { ...DEFAULT_LIMITS, ...options.limits };
@@ -208,7 +218,8 @@ export function checkAnimation(
   // A ping-pong loop is exempt: it joins by construction, because both ends are
   // the same frame.
   if (options.loop === 'forward') {
-    const closure = loopClosure(animation.frames.map((frame) => frame.cells));
+    const closure =
+      options.loopClosure ?? loopClosure(animation.frames.map((frame) => frame.cells));
     if (closure > 0.12) {
       add('loop', 'refuse', `The last frame does not return to the first: ${(closure * 100).toFixed(0)}% of the sprite differs across the join.`);
     }

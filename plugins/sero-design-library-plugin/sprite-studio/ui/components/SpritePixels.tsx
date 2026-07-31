@@ -1,0 +1,75 @@
+import type { CSSProperties } from 'react';
+
+import { useSpriteAsset } from '../hooks/useSpriteAsset';
+
+/**
+ * A stored sprite, drawn as pixels.
+ *
+ * Whole-number scales and nearest-neighbour only. Anything else blurs the
+ * artwork the whole pipeline exists to recover, and a sprite shown blurred is a
+ * sprite the user cannot judge (D3).
+ */
+
+/** Transparency, shown rather than implied. */
+export const CHECKER_STYLE: CSSProperties = {
+  backgroundImage:
+    'linear-gradient(45deg,var(--muted) 25%,transparent 25%),linear-gradient(-45deg,var(--muted) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--muted) 75%),linear-gradient(-45deg,transparent 75%,var(--muted) 75%)',
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+};
+
+interface SpritePixelsProps {
+  /** Relative to the app state directory, as every record stores it. */
+  path: string | undefined;
+  /** The artwork's size in art pixels. */
+  cols: number;
+  rows: number;
+  scale: number;
+  alt: string;
+  /**
+   * Shrink to the box instead of taking a whole-number scale. Only for the
+   * source file the character was measured from, which is far too big to show
+   * at 1× and is not the artwork anyway.
+   */
+  fit?: boolean;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export function SpritePixels({
+  path,
+  cols,
+  rows,
+  scale,
+  alt,
+  fit = false,
+  className,
+  style,
+}: SpritePixelsProps) {
+  const src = useSpriteAsset(path);
+  const size = fit
+    ? { maxWidth: '100%', maxHeight: '100%' }
+    : { width: cols * scale, height: rows * scale };
+
+  // The box is held at full size before the bytes arrive, so a strip does not
+  // reflow as ten frames land one after another.
+  if (src === null) {
+    return <span className={className} style={{ ...size, ...style }} aria-hidden />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      style={{ ...size, imageRendering: 'pixelated', ...style }}
+      draggable={false}
+    />
+  );
+}
+
+/** The largest whole scale that fits the artwork into a box. */
+export function fitScale(cols: number, rows: number, boxWidth: number, boxHeight: number): number {
+  if (cols <= 0 || rows <= 0) return 1;
+  return Math.max(1, Math.floor(Math.min(boxWidth / cols, boxHeight / rows)));
+}

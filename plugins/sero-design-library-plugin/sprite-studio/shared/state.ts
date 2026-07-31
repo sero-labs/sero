@@ -103,9 +103,24 @@ export const DEFAULT_SPRITE_STUDIO_SETTINGS: SpriteStudioSettings = {
   sampleFps: 12,
 };
 
+/**
+ * A plan the AI wrote, waiting for the user to accept it.
+ *
+ * Held in state rather than returned from the request, because planning takes a
+ * model call and the dialog has to be able to show its result whenever it
+ * arrives — including to a page that was reopened while it was thinking.
+ * Nothing is generated from a plan until the user accepts it.
+ */
+export type PlanResult =
+  | { status: 'ok'; animations: import('./character').AnimationPlan[] }
+  | { status: 'failed'; reason: string }
+  | { status: 'cancelled'; reason: string };
+
 export interface SpriteStudioState {
   characters: CharacterSummary[];
   animations: AnimationSummary[];
+  /** Keyed by the plan id the page allocated when it asked. */
+  plans: Record<string, PlanResult>;
   settings: SpriteStudioSettings;
   /** The character the page is looking at. */
   openCharacterId?: string;
@@ -115,6 +130,7 @@ export interface SpriteStudioState {
 export const DEFAULT_SPRITE_STUDIO_STATE: SpriteStudioState = {
   characters: [],
   animations: [],
+  plans: {},
   settings: DEFAULT_SPRITE_STUDIO_SETTINGS,
 };
 
@@ -204,6 +220,14 @@ export type SpriteRequestBody =
 export interface SpriteExportOptions {
   /** Whole numbers only (D3). */
   scale: number;
+  /**
+   * A wanted pixel height instead of a multiple.
+   *
+   * Resolved to the nearest whole scale, and the real size is reported rather
+   * than silently produced by a fractional one: a request for 512 px from a
+   * 136 px character is 4× and 544 px, and saying so is the point (D3, §7).
+   */
+  height?: number;
   layout: 'rows' | 'single-row';
   /** Pad every animation up to the largest canvas, for engines wanting a grid. */
   uniformCell: boolean;
@@ -264,6 +288,7 @@ export function normalizeSpriteState(value: unknown): SpriteStudioState {
   return {
     characters: Array.isArray(raw.characters) ? raw.characters : [],
     animations: Array.isArray(raw.animations) ? raw.animations : [],
+    plans: typeof raw.plans === 'object' && raw.plans !== null ? raw.plans : {},
     settings: { ...DEFAULT_SPRITE_STUDIO_SETTINGS, ...(raw.settings ?? {}) },
     ...(raw.openCharacterId === undefined ? {} : { openCharacterId: raw.openCharacterId }),
     ...(raw.openAnimationId === undefined ? {} : { openAnimationId: raw.openAnimationId }),

@@ -4,13 +4,17 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // The engine indexes arrays constantly — grids, palettes, offsets — and this
+    // is what makes an out-of-range read a compile error rather than a silently
+    // undefined pixel. It is on here and not in the runtime project because the
+    // runtime imports @sero-ai/common, whose source is checked with it too and
+    // was not written under it.
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["./engine/**/*", "./runtime/**/*", "./shared/**/*"]
+  "include": ["./engine/**/*", "./shared/**/*"]
 }

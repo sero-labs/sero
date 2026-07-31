@@ -62,11 +62,25 @@ function chunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([length, body, crc]);
 }
 
+export interface EncodeOptions {
+  /**
+   * Whether index 0 is declared transparent.
+   *
+   * True for everything stored. False for the plate handed to a video model: a
+   * model given a transparent PNG composites it against whatever it likes, and
+   * the whole keying strategy rests on the background being flat magenta and
+   * nothing else (D7). Entry 0 is magenta either way, so this switch alone is
+   * the difference between a stored frame and a plate.
+   */
+  transparent?: boolean;
+}
+
 export function encodeIndexedPng(
   cells: Int16Array,
   width: number,
   height: number,
   palette: Palette,
+  options: EncodeOptions = {},
 ): Buffer {
   if (palette.length > MAX_PALETTE) {
     throw new Error(`A palette may hold ${MAX_PALETTE} colours; this one has ${palette.length}.`);
@@ -109,7 +123,7 @@ export function encodeIndexedPng(
     SIGNATURE,
     chunk('IHDR', ihdr),
     chunk('PLTE', plte),
-    chunk('tRNS', trns),
+    ...(options.transparent === false ? [] : [chunk('tRNS', trns)]),
     chunk('IDAT', deflateSync(raw, { level: 9 })),
     chunk('IEND', Buffer.alloc(0)),
   ]);

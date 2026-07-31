@@ -7,6 +7,8 @@ import { Coordinator } from './coordinator';
 import { pruneOrphanRevisions, scanDesigns } from './design-store';
 import { reindex } from './store';
 import { pruneGalleryTemps, reindexGallery } from './gallery-store';
+import { pruneStaging } from '../sprite-studio/runtime/staging';
+import { projectSpriteState } from '../sprite-studio/runtime/requests';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -75,10 +77,28 @@ class DesignLibraryRuntime implements AppRuntime {
       for (const design of designs) await pruneOrphanRevisions(paths, design);
     });
 
+    // Sprite Studio's projection is rebuilt at start-up for the same reason the
+    // Library's index is: a projection write interrupted by a crash is a cache
+    // miss, and this is where it heals.
+    await this.attempt('rebuild the Sprite Studio index', () => projectSpriteState(paths));
+
+    // Frames a page pushed across and then never sent a request for — the app
+    // was closed mid-upload — are worth nothing to anyone.
+    await this.attempt('remove abandoned sprite staging', async () => {
+      const state = await readState(paths);
+      const awaited = new Set(
+        pendingRequests(state).flatMap((request) =>
+          'stagingKey' in request.body ? [request.body.stagingKey] : [],
+        ),
+      );
+      return pruneStaging(paths, STALE_UPLOAD_MS, Date.now(), awaited);
+    });
+
     this.coordinator = new Coordinator({
       host: this.ctx.host,
       paths,
       workspaceId: this.ctx.workspaceId,
+      workspacePath: this.ctx.workspacePath,
       sessionId: `design-library-${this.ctx.workspaceId}`,
       onError: (message, error) => this.report(message, error),
     });

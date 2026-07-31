@@ -24,6 +24,8 @@ import { createMediaProviderForRun } from './media/provider';
 import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { ExportRequests, isExportRequest } from './export-requests';
+import { SpriteQueue } from '../sprite-studio/runtime/queue';
+import { applySpriteRequest, isSpriteBody, projectSpriteState } from '../sprite-studio/runtime/requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
@@ -40,6 +42,8 @@ export interface CoordinatorContext {
   host: AppRuntimeHost;
   paths: DesignLibraryPaths;
   workspaceId: string;
+  /** The open workspace, so a Sprite Studio export cannot write outside it. */
+  workspacePath?: string;
   sessionId: string;
   onError(message: string, error: unknown): void;
   /** Test and fault-injection seam; defaults to the shipped fal adapter. */
@@ -54,6 +58,8 @@ export class Coordinator {
   private readonly media: MediaRequests;
   private readonly gallery: GalleryRequests;
   private readonly exports: ExportRequests;
+  /** Sprite Studio's own work: clips, plans, repairs and sheets (D6). */
+  private readonly sprites: SpriteQueue;
   private draining = false;
   private drainAgain = false;
   private readonly optionsRefreshes = new Set<Promise<void>>(); // Disposal waits for these writes.
@@ -85,6 +91,18 @@ export class Coordinator {
     this.media = new MediaRequests(context.paths, this.mediaQueue);
     this.gallery = new GalleryRequests(context.paths);
     this.exports = new ExportRequests(context.paths, context.host.workspace);
+    this.sprites = new SpriteQueue({
+      host: context.host,
+      paths: context.paths,
+      workspaceId: context.workspaceId,
+      sessionId: `${context.sessionId}-sprites`,
+      onError: context.onError,
+      // Records are the authority and state is a projection of them, so the
+      // projection is rebuilt whenever a job finishes rather than each writer
+      // remembering to patch it.
+      onChanged: () => projectSpriteState(context.paths),
+      ...(context.workspacePath === undefined ? {} : { workspacePath: context.workspacePath }),
+    });
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -143,6 +161,7 @@ export class Coordinator {
       this.queue.dispose(),
       this.variants.dispose(),
       this.mediaQueue.dispose(),
+      this.sprites.dispose(),
       ...this.optionsRefreshes,
     ]);
   }
@@ -233,6 +252,15 @@ export class Coordinator {
 
     if (isExportRequest(body)) {
       await this.exports.apply(body);
+      return;
+    }
+
+    if (isSpriteBody(body)) {
+      await applySpriteRequest(body, {
+        paths,
+        queue: this.sprites,
+        onError: this.context.onError,
+      });
       return;
     }
 
