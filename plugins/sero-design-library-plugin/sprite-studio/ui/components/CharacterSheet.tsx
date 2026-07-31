@@ -95,6 +95,7 @@ export function CharacterSheet({
             >
               <SpritePixels
                 path={character.sourceFile}
+                version={character.updatedAt}
                 cols={ingestion.sourceWidth}
                 rows={ingestion.sourceHeight}
                 scale={1}
@@ -110,6 +111,7 @@ export function CharacterSheet({
           >
             <SpritePixels
               path={character.basePoseFile}
+              version={character.updatedAt}
               cols={character.artWidth}
               rows={character.artHeight}
               scale={ARTWORK_SCALE}

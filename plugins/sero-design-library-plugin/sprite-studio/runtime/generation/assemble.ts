@@ -13,6 +13,7 @@
 
 import {
   checkAnimation,
+  checkContinuity,
   compileAnimation,
   loopAdvice,
   loopClosure,
@@ -150,6 +151,13 @@ export function assemble(
         ? cut.cost
         : loopClosure(window.map((frame) => frame.cells));
 
+  // Continuity is measured over the sample, before thinning took the frames in
+  // between away. Every other check is about the frames the user will see.
+  const continuity = checkContinuity(
+    window.map((frame) => frame.cells),
+    kept.map((frame) => frame.index - from),
+  );
+
   const findings = checkAnimation(survivors, {
     loop: mode,
     limits: { artHeight: options.artHeight },
@@ -158,7 +166,7 @@ export function assemble(
       ? {}
       : { declaredGrounded: kept.map((frame) => options.declaredGrounded?.[frame.index] ?? true) }),
     ...(options.baseRampUsage === undefined ? {} : { baseRampUsage: options.baseRampUsage }),
-  });
+  }).concat(continuity);
 
   const footHeights = survivors.frames.map((frame) => frame.footHeight);
   const heights = survivors.frames.map((frame) => frame.silhouette.height / compiled.scale);

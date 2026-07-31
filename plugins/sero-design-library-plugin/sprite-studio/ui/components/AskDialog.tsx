@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react';
 import type { AnimationPlan } from '../../shared/character';
 import type { AnimationSummary } from '../../shared/state';
 import { VIDEO_MODELS } from '../../shared/video-models';
-import { useAnimationPlans } from '../hooks/useSpriteRecord';
+import { useAnimationRecords } from '../hooks/useSpriteRecord';
 import { Chip, Field } from './PanelParts';
 import { PlanTable, type PlanRow } from './PlanTable';
 
@@ -60,7 +60,7 @@ export function AskDialog({
     [animations],
   );
   const plannedIds = useMemo(() => planned.map((animation) => animation.id), [planned]);
-  const records = useAnimationPlans(characterId, plannedIds);
+  const records = useAnimationRecords(characterId, plannedIds);
 
   const rows = useMemo<PlanRow[]>(
     () =>

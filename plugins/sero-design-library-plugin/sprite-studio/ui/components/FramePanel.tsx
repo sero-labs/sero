@@ -64,6 +64,7 @@ export function FramePanel({
           >
             <SpritePixels
               path={frame.file}
+              version={animation.updatedAt}
               cols={canvas.cols}
               rows={canvas.rows}
               scale={scale}

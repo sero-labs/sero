@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 import { recoverArtwork } from './art-grid';
 import { buildAtlas } from './atlas';
-import { checkAnimation, countOrphans } from './checks';
+import { checkAnimation, checkContinuity, countOrphans } from './checks';
 import { compileAnimation } from './compile';
 import { loopAdvice, playOrder, searchLoop } from './loop';
 import { capPalette, capResidual, dedupePalette, remapCells } from './palette';
@@ -380,6 +380,60 @@ describe('the checks refuse rather than report', () => {
       limits: { artHeight: character.rows },
     });
     expect(findings.some((finding) => finding.check === 'loop' && finding.level === 'refuse')).toBe(true);
+  });
+
+  describe('silhouette continuity', () => {
+    /** A clip that is still, then moves fast, then is still again. */
+    function movement(changes: number[]): CellGrid[] {
+      let width = 4;
+      return [
+        grid(40, 12, (x) => (x < width ? 0 : TRANSPARENT)),
+        ...changes.map((change) => {
+          width = Math.max(1, Math.round(width + change));
+          return grid(40, 12, (x) => (x < width ? 0 : TRANSPARENT));
+        }),
+      ];
+    }
+
+    it('allows a fast movement, because its neighbours are moving too', () => {
+      // Measured on a real jump: the legs open over four frames that change 49,
+      // 57, 55 and 37 per cent of the silhouette, and every one of them is a
+      // good frame. Refusing them orders a repair on a perfectly good pose, and
+      // a stiff animation is the failure no repair path can fix (D30).
+      const fast = movement([0, 0, 12, 14, 12, 10, 0, 0]);
+      expect(checkContinuity(fast, [0, 4, 8])).toEqual([]);
+    });
+
+    it('refuses a redraw, which is a change with nothing moving around it', () => {
+      // One frame changes everything while the frames on either side barely
+      // move. That is the model redrawing the character, not animating it.
+      const redraw = movement([0, 0, 0, 30, -30, 0, 0, 0]);
+      const findings = checkContinuity(redraw, [0, 4, 8]);
+      expect(findings.length).toBeGreaterThan(0);
+      expect(findings[0]).toMatchObject({ check: 'continuity', level: 'refuse' });
+    });
+  });
+
+  it('reads a crouch as a pose and a white box as a fault', () => {
+    // The knight's box made his silhouette 205 art pixels against his real 129,
+    // and a crouch on the jump we generated measures 92 against 136. One is a
+    // drawn artefact and the other is the animation, so the check is asymmetric.
+    const crouching = compiled(
+      Array.from({ length: 6 }, () => ({ sprite: testCharacter({ crouch: 12 }) })),
+    );
+    const findings = checkAnimation(crouching, {
+      loop: 'once',
+      limits: { artHeight: character.rows },
+    });
+    expect(findings.filter((finding) => finding.check === 'body-size')).toEqual([]);
+
+    const tall = checkAnimation(crouching, {
+      loop: 'once',
+      limits: { artHeight: Math.round(character.rows / 3) },
+    });
+    expect(tall.some((finding) => finding.check === 'body-size' && finding.level === 'refuse')).toBe(
+      true,
+    );
   });
 
   it('counts the litter the quantiser leaves behind', () => {

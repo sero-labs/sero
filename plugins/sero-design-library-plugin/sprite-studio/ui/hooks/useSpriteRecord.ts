@@ -68,14 +68,15 @@ const pickCharacter = (details: Record<string, unknown>) => details.character;
 const pickAnimation = (details: Record<string, unknown>) => details.animation;
 
 /**
- * The plans of several animations at once.
+ * Several animations at once.
  *
- * The plan dialog needs each animation's motion instruction, which is on the
- * record rather than the summary — and a batch is five of them, so the list is
- * fetched together rather than through one hook per row, which the rules of
- * hooks would not allow anyway.
+ * The plan dialog needs each animation's motion instruction and the export
+ * screen needs every frame's duration, both of which are on the record rather
+ * than the summary. A batch is five of them, so the list is fetched together
+ * rather than through one hook per row — which the rules of hooks would not
+ * allow anyway.
  */
-export function useAnimationPlans(
+export function useAnimationRecords(
   characterId: string | undefined,
   animationIds: string[],
 ): Map<string, AnimationRecord> {

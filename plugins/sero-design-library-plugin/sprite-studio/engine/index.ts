@@ -13,6 +13,7 @@ export { ATLAS_APP, buildAtlas, type Atlas, type AtlasFrame, type AtlasTag } fro
 export {
   DEFAULT_LIMITS,
   checkAnimation,
+  checkContinuity,
   countOrphans,
   framesToRepair,
   refusals,

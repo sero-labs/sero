@@ -81,8 +81,14 @@ export async function requestClip(
       capability: 'image-to-video',
       model: request.model,
       prompt: request.prompt,
+      // The plate, and the end frame after it when one was asked for. The
+      // adapter puts a second source in `end_image_url` on the endpoints that
+      // declare one, and ignores it on the endpoints that do not.
       sourceAssetIds: [...assets.keys()],
       durationSeconds: request.seconds ?? CLIP_SECONDS,
+      // Every one of these is dropped by the adapter for an endpoint that does
+      // not declare it, because fal refuses a request carrying a field it has
+      // never heard of — and Grok has no audio switch while Seedance does.
       extra: {
         resolution: RESOLUTION,
         // Asked for explicitly rather than left to the endpoint's default: a

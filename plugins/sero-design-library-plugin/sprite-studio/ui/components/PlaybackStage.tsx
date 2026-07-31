@@ -111,6 +111,7 @@ export function PlaybackStage({
                 <SpritePixels
                   key={neighbour.id}
                   path={neighbour.file}
+                  version={animation.updatedAt}
                   cols={canvas.cols}
                   rows={canvas.rows}
                   scale={STAGE_SCALE}
@@ -123,6 +124,7 @@ export function PlaybackStage({
         {frame !== undefined && (
           <SpritePixels
             path={frame.file}
+            version={animation.updatedAt}
             cols={canvas.cols}
             rows={canvas.rows}
             scale={STAGE_SCALE}

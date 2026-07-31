@@ -32,17 +32,23 @@ function remember(path: string, dataUrl: string): void {
 /**
  * One stored picture, by its path relative to the app state directory.
  *
- * Frames are written once and never rewritten, so the path is the whole key. A
- * repaired frame is a new file with a new path, which is what makes that safe.
+ * The path alone is not enough to key it. A hand edit rewrites a frame in
+ * place, and capping the palette re-quantises the base pose in place, so a
+ * cache keyed on the path would go on showing the picture from before the
+ * change. `version` is the owning record's `updatedAt`, which moves on every
+ * write — so the cache holds until the thing it is a picture of has changed.
  */
-export function useSpriteAsset(path: string | undefined): string | null {
+export function useSpriteAsset(path: string | undefined, version?: number): string | null {
   const tools = useAppTools();
-  const latest = useRef(tools);
+  // The path travels through the ref so the effect can read it without listing
+  // it: the key is built from exactly the values the request is, and depending
+  // on both would only re-run the effect for an identical call.
+  const latest = useRef({ tools, path });
   useEffect(() => {
-    latest.current = tools;
+    latest.current = { tools, path };
   });
 
-  const key = path ?? '';
+  const key = path === undefined ? '' : `${path}@${version ?? ''}`;
   const [src, setSrc] = useState<string | null>(() => (key === '' ? null : (images.get(key) ?? null)));
 
   useEffect(() => {
@@ -60,8 +66,8 @@ export function useSpriteAsset(path: string | undefined): string | null {
     // Two tiles asking for the same frame share one tool call.
     const pending =
       inFlight.get(key) ??
-      latest.current
-        .run(SPRITE_TOOL, { action: 'asset', path: key })
+      latest.current.tools
+        .run(SPRITE_TOOL, { action: 'asset', path: latest.current.path })
         .then((result) => {
           const block = result.content.find((entry) => entry.type === 'image');
           if (block === undefined) return null;
@@ -94,8 +100,8 @@ export interface FrameCells {
   palette: string[];
 }
 
-function toCells(details: Record<string, unknown> | undefined): FrameCells | null {
-  if (details === undefined) return null;
+function toCells(details: Record<string, unknown> | undefined | null): FrameCells | null {
+  if (details === undefined || details === null) return null;
   const { cols, rows, cells, palette } = details;
   if (typeof cols !== 'number' || typeof rows !== 'number') return null;
   if (!Array.isArray(cells) || !Array.isArray(palette)) return null;

@@ -54,6 +54,7 @@ export function CharacterCard({ character, selected, onOpen, onFavourite }: Char
         )}
         <SpritePixels
           path={character.previewPath}
+          version={character.updatedAt}
           cols={character.artWidth}
           rows={character.artHeight}
           scale={scale}

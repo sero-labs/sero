@@ -111,9 +111,27 @@ export interface FalModelSchema {
   options: MediaModelOptions;
   /** The value to send for a given number of seconds, when the endpoint listed one. */
   durationTokens: Map<number, string | number>;
+  /**
+   * Every input field the endpoint declares.
+   *
+   * Endpoints disagree about the same idea, and the disagreements are not
+   * guessable: one takes `image_url`, another `image_urls`; one accepts
+   * `generate_audio`, another has never heard of it and refuses the whole
+   * request for mentioning it. Reading the field names is the only way to send
+   * a request that is right for the endpoint the *user* chose rather than for
+   * the one this file was written against.
+   *
+   * Empty when the schema could not be read, which means "send it as asked" —
+   * the provider is still the authority, and a rejected request costs nothing.
+   */
+  fields: ReadonlySet<string>;
 }
 
-export const NO_SCHEMA: FalModelSchema = { options: {}, durationTokens: new Map() };
+export const NO_SCHEMA: FalModelSchema = {
+  options: {},
+  durationTokens: new Map(),
+  fields: new Set<string>(),
+};
 
 export function parseFalSchema(document: unknown): FalModelSchema {
   const properties = inputSchema(document);
@@ -127,6 +145,7 @@ export function parseFalSchema(document: unknown): FalModelSchema {
       ...(ratios === undefined ? {} : { aspectRatios: ratios }),
     },
     durationTokens: tokens,
+    fields: new Set(Object.keys(properties)),
   };
 }
 

@@ -191,6 +191,7 @@ export function FrameEditor({ animation, index, onDone, onCancel }: FrameEditorP
                     <SpritePixels
                       key={neighbour.id}
                       path={neighbour.file}
+                      version={animation.updatedAt}
                       cols={animation.canvas.cols}
                       rows={animation.canvas.rows}
                       scale={scale}

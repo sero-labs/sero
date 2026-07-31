@@ -35,8 +35,25 @@ export interface Finding {
 export interface CheckLimits {
   /** The character's height in art pixels, from the approved character sheet. */
   artHeight: number;
-  /** How far a frame's silhouette may sit from that height, in art pixels. */
+  /**
+   * How much **taller** than the character a frame's silhouette may be.
+   *
+   * Asymmetric, and the asymmetry is the whole point. A silhouette that is
+   * taller than the character has something attached to him that is not him —
+   * the knight came back inside a drawn white box measuring 205 art pixels
+   * against his real 129 (D37). A silhouette that is *shorter* is a crouch, a
+   * duck, a death or a jump with the legs thrown apart, and a jump we generated
+   * and looked at spends half its frames there. A single symmetric tolerance
+   * refuses every one of them and orders a repair on a perfectly good pose.
+   */
   heightTolerance: number;
+  /**
+   * How short a frame's silhouette may be, as a share of the character.
+   *
+   * Below this the pose is not a crouch any more: something has been cut off,
+   * or the character has fallen out of the frame.
+   */
+  shortestShare: number;
   /** Share of cells allowed to sit off the palette. */
   offPalette: number;
   /** Share of the drawn mass allowed to be detached from the body. */
@@ -59,9 +76,18 @@ export interface CheckLimits {
 export const DEFAULT_LIMITS: CheckLimits = {
   artHeight: 0,
   heightTolerance: 8,
+  // A deep crouch on the jump we generated measures a little over half the
+  // standing height, so anything above that is a pose rather than a fault.
+  shortestShare: 0.5,
   offPalette: 0.05,
   detached: 0.02,
-  continuity: 0.45,
+  // Between **neighbouring sampled frames**, an twelfth of a second apart. Not
+  // between kept frames: thinning deliberately drops the frames in between, so
+  // consecutive survivors are far apart in time and a jump legitimately changes
+  // most of its silhouette between them. Judged there, this check refuses every
+  // animation with real movement in it — which is the failure no repair path
+  // can fix (D30).
+  continuity: 0.55,
   churn: 0.03,
   orphans: 12,
   footSlack: 1.5,
@@ -150,9 +176,10 @@ export function checkAnimation(
     // pixels tall and came back inside a white box measuring 205.
     if (limits.artHeight > 0) {
       const height = heightInArtPixels(animation, i);
-      const off = Math.abs(height - limits.artHeight);
-      if (off > limits.heightTolerance) {
+      if (height - limits.artHeight > limits.heightTolerance) {
         add('body-size', 'refuse', `The character measures ${height.toFixed(0)} art pixels here against ${limits.artHeight}. Something is being drawn as part of him that is not him.`, i);
+      } else if (height < limits.artHeight * limits.shortestShare) {
+        add('body-size', 'refuse', `Only ${height.toFixed(0)} art pixels of the character are here, against ${limits.artHeight}. Part of him is missing.`, i);
       }
     }
 
@@ -165,13 +192,7 @@ export function checkAnimation(
       add('orphans', 'warn', `${orphans} stray cells sit on their own with nothing around them.`, i);
     }
 
-    const previous = animation.frames[i - 1];
-    if (previous !== undefined) {
-      const change = frameDifference(previous.cells, frame.cells, { silhouetteOnly: true });
-      if (change > limits.continuity) {
-        add('continuity', 'refuse', `${(change * 100).toFixed(0)}% of the silhouette changes between frames ${i} and ${i + 1}, measured at the best alignment. That is a redraw, not a movement.`, i);
-      }
-    }
+    void frame;
 
     // Legal colours are not the right colours. One shade of movement is a
     // warning, because a new pose lights a character differently; two is a
@@ -225,6 +246,73 @@ export function checkAnimation(
     }
   }
 
+  return findings;
+}
+
+/**
+ * Silhouette continuity, over the frames as they were sampled (§2.3).
+ *
+ * Run on the dense sample rather than on what survived thinning, and that is not
+ * a detail. Neighbouring sampled frames are a twelfth of a second apart, where a
+ * huge change means the model redrew the character; neighbouring *kept* frames
+ * are as far apart as thinning decided, and a jump legitimately throws its legs
+ * open between two of them. Judged in the wrong place, this check refuses every
+ * animation with life in it and passes every stiff one — exactly backwards
+ * (D30).
+ *
+ * The finding is attached to the nearest kept frame, so the strip can show it.
+ */
+export function checkContinuity(
+  sampled: CellGrid[],
+  keptIndexes: number[],
+  { continuity = DEFAULT_LIMITS.continuity, isolation = 0.5 } = {},
+): Finding[] {
+  const findings: Finding[] = [];
+  const steps: number[] = [];
+  for (let i = 1; i < sampled.length; i++) {
+    const previous = sampled[i - 1];
+    const current = sampled[i];
+    steps.push(
+      previous && current ? frameDifference(previous, current, { silhouetteOnly: true }) : 0,
+    );
+  }
+
+  // A large change is refused only when the movement did not carry on through
+  // it.
+  //
+  // Measured on a real jump: the clip is still for most of its length and then
+  // changes 49, 57, 55, 37 going up and 58, 74, 61 coming down. Every one of
+  // those is enormous — against the clip's median of 5% — and every one of them
+  // is a perfectly good frame, because the legs open in a twelfth of a second.
+  //
+  // What separates that from a model redrawing the character for one frame is
+  // where the movement went. After a real movement, the frames on either side
+  // of the change are far apart, because the character kept going. After a
+  // redraw, they are nearly identical: the character left and came straight
+  // back. Size alone cannot tell them apart, and neither can how big the
+  // neighbouring steps are — a redraw has a large step on both sides of it by
+  // construction.
+  for (const [index, change] of steps.entries()) {
+    const i = index + 1;
+    const before = sampled[i - 1];
+    const after = sampled[i + 1];
+    const carriedOn =
+      before !== undefined && after !== undefined
+        ? frameDifference(before, after, { silhouetteOnly: true })
+        : change;
+    if (change <= continuity || carriedOn >= change * isolation) continue;
+    const nearest = keptIndexes.reduce(
+      (best, kept, position) =>
+        Math.abs(kept - i) < Math.abs((keptIndexes[best] ?? 0) - i) ? position : best,
+      0,
+    );
+    findings.push({
+      check: 'continuity',
+      level: 'refuse',
+      frame: nearest,
+      message: `${(change * 100).toFixed(0)}% of the silhouette changes between two frames a twelfth of a second apart. That is a redraw, not a movement.`,
+    });
+  }
   return findings;
 }
 

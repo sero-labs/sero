@@ -21,6 +21,11 @@ export const CHECKER_STYLE: CSSProperties = {
 interface SpritePixelsProps {
   /** Relative to the app state directory, as every record stores it. */
   path: string | undefined;
+  /**
+   * The owning record's `updatedAt`. A hand edit and a re-quantise both rewrite
+   * a file in place, so without this the cached picture would outlive it.
+   */
+  version?: number;
   /** The artwork's size in art pixels. */
   cols: number;
   rows: number;
@@ -38,6 +43,7 @@ interface SpritePixelsProps {
 
 export function SpritePixels({
   path,
+  version,
   cols,
   rows,
   scale,
@@ -46,7 +52,7 @@ export function SpritePixels({
   className,
   style,
 }: SpritePixelsProps) {
-  const src = useSpriteAsset(path);
+  const src = useSpriteAsset(path, version);
   const size = fit
     ? { maxWidth: '100%', maxHeight: '100%' }
     : { width: cols * scale, height: rows * scale };

@@ -358,6 +358,7 @@ export function createFalProvider(options: FalProviderOptions): MediaProvider {
           sourceUrls,
           schema.durationTokens,
           schema.options.supportsAspectRatio,
+          schema.fields,
         );
         const result = await client.subscribe(model, {
           input,
