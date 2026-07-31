@@ -1,0 +1,10 @@
+{
+  // The engine's tests may use Node: they read the source tree to assert the
+  // boundary, and they run a second process to prove determinism.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["./**/*"],
+  "exclude": []
+}

@@ -7,6 +7,7 @@ export default defineConfig({
     // `ui/lib` holds pure helpers with no DOM dependency, so they run under the
     // same node environment as everything else.
     include: [
+      'pixel-engine/**/*.test.ts',
       'shared/**/*.test.ts',
       'runtime/**/*.test.ts',
       'extension/**/*.test.ts',

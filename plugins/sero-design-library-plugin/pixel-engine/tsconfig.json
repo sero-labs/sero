@@ -1,0 +1,22 @@
+{
+  // The engine's boundary, enforced by the compiler rather than by discipline.
+  //
+  // `types: []` keeps the Node global types out of the graph, so `node:fs` and
+  // friends do not even resolve here, and `lib` stops at the language itself so
+  // `document` and `window` are equally unavailable. An engine that compiles
+  // under this config runs unchanged in the plugin runtime, in the browser and
+  // in a game. Tests are excluded because they are allowed Node; they have their
+  // own config beside this one.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [],
+    "lib": ["ES2023"]
+  },
+  "include": ["./**/*"],
+  "exclude": ["**/*.test.ts"]
+}

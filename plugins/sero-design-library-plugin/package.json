@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "pnpm exec vitest run --root .",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+    "typecheck": "tsc --noEmit -p pixel-engine/tsconfig.json && tsc --noEmit -p pixel-engine/tsconfig.test.json && tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
   },
   "pi": {
     "extensions": [

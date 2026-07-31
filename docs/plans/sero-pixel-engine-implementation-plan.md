@@ -55,10 +55,15 @@ plugins/sero-design-library-plugin/
 │   │   ├── semantic.ts           # drift, orphans, silhouette, palette hygiene
 │   │   └── kinds.ts              # tile continuity, item readability
 │   ├── render.ts                 # grid + palette → RGBA, whole-number scale
+│   ├── png.ts                    # RGBA → PNG bytes, stored deflate (no platform zlib)
+│   ├── hash.ts                   # SHA-256, for the compile receipt and export checksums
 │   ├── pack.ts                   # sheet layout, padding, edge extrusion
 │   ├── atlas.ts                  # Aseprite-compatible JSON
+│   ├── compile.ts                # resolve → pack → render → encode → hash
 │   ├── player.ts                 # clip timing for a game runtime
 │   ├── migrate.ts                # palette, canvas and pivot migrations
+│   ├── fault.ts                  # one fault type, written to be read by a model
+│   ├── testing/                  # the fixture project and the golden sheet
 │   └── ingest/                   # deterministic, image-in → grid-out
 │       ├── background.ts         # nearest-model classification, hole regions
 │       ├── lattice.ts            # square cells, local peaks, divides rule
@@ -133,18 +138,25 @@ No UI, no AI. The engine and its proof.
 
 **Build**
 
-- [ ] 1. `pixel-engine/schema.ts` and `grid.ts`: project, palette with ramps, part, placement, patch, lock, frame, clip; the rows-of-characters codec with round-trip tests.
-- [ ] 2. `resolve.ts`: placements in order, then patch, then locks. Locks last is a test, not a comment.
-- [ ] 3. `validate/structural.ts`: row count and length, index range, id uniqueness, part bounds, placement bounds, clip bounds. Every fault carries a message written to be read by a model.
-- [ ] 4. `validate/semantic.ts`: drift against a clip's motion budget, part-pixel integrity, orphan cells, silhouette continuity, palette hygiene, lock violation.
-- [ ] 5. `validate/kinds.ts`: tile edge-wrap continuity; item fill ratio and outline completeness.
-- [ ] 6. `render.ts`, `pack.ts`, `atlas.ts`: whole-number nearest-neighbour rendering, sheet packing with padding and edge extrusion, Aseprite-compatible atlas with `frameTags` and a pivot slice.
-- [ ] 7. `player.ts`: clip timing, loop, ping-pong, frame lookup — the API a game calls.
-- [ ] 8. `migrate.ts`: re-tint, append, remove-and-remap, canvas resize on the pivot, pivot move. Each returns a report of what it touched and refuses to clip a locked cell.
-- [ ] 9. Boundary test: `pixel-engine/` must contain no import of anything outside itself.
-- [ ] 10. Determinism test: compile a fixture project twice, and on a second process, and assert byte-identical PNG bytes and hash.
+- [x] 1. `pixel-engine/schema.ts` and `grid.ts`: project, palette with ramps, part, placement, patch, lock, frame, clip; the rows-of-characters codec with round-trip tests.
+- [x] 2. `resolve.ts`: placements in order, then patch, then locks. Locks last is a test, not a comment.
+- [x] 3. `validate/structural.ts`: row count and length, index range, id uniqueness, part bounds, placement bounds, clip bounds. Every fault carries a message written to be read by a model.
+- [x] 4. `validate/semantic.ts`: drift against a clip's motion budget, part-pixel integrity, orphan cells, silhouette continuity, palette hygiene, lock violation.
+- [x] 5. `validate/kinds.ts`: tile edge-wrap continuity; item fill ratio and outline completeness.
+- [x] 6. `render.ts`, `pack.ts`, `atlas.ts`: whole-number nearest-neighbour rendering, sheet packing with padding and edge extrusion, Aseprite-compatible atlas with `frameTags` and a pivot slice.
+- [x] 7. `player.ts`: clip timing, loop, ping-pong, frame lookup — the API a game calls.
+- [x] 8. `migrate.ts`: re-tint, append, remove-and-remap, canvas resize on the pivot, pivot move. Each returns a report of what it touched and refuses to clip a locked cell.
+- [x] 9. Boundary test: `pixel-engine/` must contain no import of anything outside itself.
+- [x] 10. Determinism test: compile a fixture project twice, and on a second process, and assert byte-identical PNG bytes and hash.
 
 **Accept when** the engine builds and tests with zero plugin, Node or React imports; resolution puts locks last; every validator catches its fault class on a fixture built to fail it; an atlas imports into a real engine without editing; the same project renders byte-identically twice.
+
+**Done.** 195 engine tests. The atlas-into-a-real-engine half of the acceptance is the one part PR 1 cannot prove on its own; it is checked against Godot, Unity, Phaser and LÖVE in PR 5.
+
+Two notes for later PRs:
+
+- **PNG size.** `png.ts` writes a *stored* deflate stream, so the same pixels give the same bytes on every platform and in every Node version. Nothing is compressed: a 51×33 sheet is about 7 KB, the same sheet at 8× is 431 KB. Exports are written at 1×, so this is affordable — but PR 5 should measure a real kept sprite before it becomes a surprise.
+- **The whip fixture.** `testing/fixtures.ts` is a rigged 12×16 character with an overlapping joint and a prop of its own. It is not proof that a *stride* can be drawn by placement alone; that still needs part variants and is still owed before PR 4 closes (§7).
 
 # PR 2 — Sprites, projects and the editor
 
