@@ -1,0 +1,271 @@
+/**
+ * Sprite Studio's slice of reactive state, and the intent that changes it.
+ *
+ * The page rides the Design Library's single-writer machinery rather than
+ * building a second one: the UI appends a request, the background runtime is the
+ * only writer, and requests are consumed behind a monotonic watermark. What
+ * Sprite Studio adds is this slice and these request kinds — the whole of its
+ * contact with the rest of the plugin, besides the fal connection and the
+ * settings (D6).
+ *
+ * Summaries only. Palettes are here because a card draws one; pixels never are.
+ */
+
+import type {
+  AnimationReport,
+  AnimationStatus,
+  CharacterSource,
+  CharacterStatus,
+  LoopMode,
+  PaletteCap,
+} from './character';
+
+export interface CharacterSummary {
+  id: string;
+  name: string;
+  status: CharacterStatus;
+  source: CharacterSource;
+  /** The base pose, relative to the app state directory, for the card. */
+  previewPath: string;
+  artWidth: number;
+  artHeight: number;
+  /** The whole palette: a card shows the first few, the sheet shows them all. */
+  palette: string[];
+  animationCount: number;
+  /** Animations still waiting for the user at a checkpoint. */
+  awaitingApproval: number;
+  favourite: boolean;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
+}
+
+export interface AnimationSummary {
+  id: string;
+  characterId: string;
+  name: string;
+  status: AnimationStatus;
+  loop: LoopMode;
+  playRate: number;
+  frameCount: number;
+  canvas: { cols: number; rows: number };
+  /** A short line for the rail: what is happening, or what went wrong. */
+  progress?: string;
+  error?: string;
+  /** True when the sequence has findings the user should look at. */
+  hasWarnings: boolean;
+  report: AnimationReport | null;
+  updatedAt: number;
+  approvedAt?: number;
+  /**
+   * A finished clip whose frames the renderer has not pulled out yet.
+   *
+   * The runtime has no codecs, so a clip arrives with nothing to compile from.
+   * The open page decodes it, uploads the frames, and this clears — the same
+   * arrangement the Library already uses for video thumbnails.
+   */
+  awaitingFrames?: { clipPath: string; sampleFps: number; expectedFrames: number };
+}
+
+/** One video model the user can pick, with its measured character (D29). */
+export interface VideoModelChoice {
+  /** The provider's endpoint id. Opaque everywhere but the adapter. */
+  id: string;
+  name: string;
+  /** What it does, measured — not a recommendation. */
+  strength: string;
+  /** What it costs you, measured. */
+  cost: string;
+  /** Whether it accepts an end frame, which is the open loop lead (§12.1). */
+  endFrame: boolean;
+}
+
+export interface SpriteStudioSettings {
+  /** The video model chosen last time. Remembered and used next time (D29). */
+  videoModel: string;
+  /** The model single frames are repaired with. */
+  repairModel: string;
+  /** 720p is the default and the resolution question is closed (D31). */
+  resolution: '720p' | '1080p';
+  /** How many clips may be in flight at once. */
+  concurrency: number;
+  /** Frames sampled per second of clip. */
+  sampleFps: number;
+}
+
+export const DEFAULT_SPRITE_STUDIO_SETTINGS: SpriteStudioSettings = {
+  videoModel: 'xai/grok-imagine-video/image-to-video',
+  repairModel: 'fal-ai/nano-banana-pro/edit',
+  resolution: '720p',
+  // Three at once: enough to keep a batch moving, low enough that a mistake
+  // costs three clips rather than five.
+  concurrency: 3,
+  sampleFps: 12,
+};
+
+export interface SpriteStudioState {
+  characters: CharacterSummary[];
+  animations: AnimationSummary[];
+  settings: SpriteStudioSettings;
+  /** The character the page is looking at. */
+  openCharacterId?: string;
+  openAnimationId?: string;
+}
+
+export const DEFAULT_SPRITE_STUDIO_STATE: SpriteStudioState = {
+  characters: [],
+  animations: [],
+  settings: DEFAULT_SPRITE_STUDIO_SETTINGS,
+};
+
+/**
+ * Intent, appended by the UI and applied by the runtime.
+ *
+ * Ids are allocated by the caller for anything that creates a record: the
+ * request log is applied at-least-once, and an id chosen by the handler would
+ * make a replay produce a second character — or a second paid-for clip.
+ */
+export type SpriteRequestBody =
+  /**
+   * Turn a staged picture into a character, measuring it first (spec §2.1).
+   *
+   * `stagingKey` names bytes the page has already pushed across; see
+   * `runtime/staging.ts` for why Sprite Studio stages its own files.
+   */
+  | { kind: 'sprite.character.create'; characterId: string; name: string; stagingKey: string }
+  /** Draw the base character from words, then measure that (spec §2.1). */
+  | { kind: 'sprite.character.create-from-text'; characterId: string; name: string; description: string }
+  /** Make a character from a picture already in the Library. */
+  | { kind: 'sprite.character.create-from-item'; characterId: string; name: string; itemId: string }
+  | { kind: 'sprite.character.re-measure'; characterId: string }
+  /** Cap the palette and re-quantise, so the result is visible before approval. */
+  | { kind: 'sprite.character.set-cap'; characterId: string; cap: PaletteCap }
+  | { kind: 'sprite.character.rename'; characterId: string; name: string }
+  | { kind: 'sprite.character.set-export-scale'; characterId: string; scale: number }
+  | { kind: 'sprite.character.set-style-notes'; characterId: string; notes: string }
+  /** The first checkpoint. Nothing is generated until this lands (D5). */
+  | { kind: 'sprite.character.approve'; characterId: string }
+  | { kind: 'sprite.character.favourite'; characterId: string; favourite: boolean }
+  | { kind: 'sprite.character.delete'; characterId: string }
+  | { kind: 'sprite.character.restore'; characterId: string }
+  | { kind: 'sprite.character.purge'; characterId: string }
+  /**
+   * Ask for animations in plain words. The runtime plans them with the AI and
+   * writes the plan back for the dialog to show before a penny is spent.
+   */
+  | { kind: 'sprite.plan'; characterId: string; planId: string; request: string; videoModel: string }
+  /** Start the animations the user accepted, with the plan they edited. */
+  | {
+      kind: 'sprite.generate';
+      characterId: string;
+      videoModel: string;
+      animations: { animationId: string; plan: import('./character').AnimationPlan }[];
+    }
+  /**
+   * Frames the page pulled out of a clip the runtime cannot decode.
+   *
+   * `durationsMs` is the real time each sampled frame held, so the source timing
+   * survives into the finished animation rather than being replaced by a rate
+   * chosen afterwards (D23).
+   */
+  | { kind: 'sprite.frames.attach'; animationId: string; stagingKey: string; durationsMs: number[] }
+  | { kind: 'sprite.animation.approve'; animationId: string }
+  | { kind: 'sprite.animation.cancel'; animationId: string }
+  | { kind: 'sprite.animation.delete'; animationId: string }
+  | { kind: 'sprite.animation.set-loop'; animationId: string; loop: LoopMode }
+  | { kind: 'sprite.animation.set-play-rate'; animationId: string; playRate: number }
+  | { kind: 'sprite.animation.rename'; animationId: string; name: string }
+  /**
+   * Ask the AI to fix something, with or without saying what is wrong (D18).
+   *
+   * Available on every frame and every animation at all times, not only when a
+   * check failed: a frame can pass every measurement and still be wrong to the
+   * eye, and no measurement will ever raise it.
+   */
+  | { kind: 'sprite.fix'; animationId: string; frameId?: string; instruction: string }
+  /** Run the whole sequence again from an amended instruction. */
+  | { kind: 'sprite.animation.redo'; animationId: string; instruction: string }
+  /** A hand edit: the cells the frame editor produced, palette-locked. */
+  | { kind: 'sprite.frame.write'; animationId: string; frameId: string; stagingKey: string }
+  | { kind: 'sprite.frame.duplicate'; animationId: string; frameId: string; newFrameId: string }
+  | { kind: 'sprite.frame.delete'; animationId: string; frameId: string }
+  | { kind: 'sprite.frame.reorder'; animationId: string; frameIds: string[] }
+  | { kind: 'sprite.frame.set-duration'; animationId: string; frameId: string; durationMs: number }
+  | {
+      kind: 'sprite.export';
+      exportId: string;
+      characterId: string;
+      animationIds: string[];
+      options: SpriteExportOptions;
+    }
+  | { kind: 'sprite.settings.update'; patch: Partial<SpriteStudioSettings> }
+  | { kind: 'sprite.open'; characterId?: string; animationId?: string };
+
+export interface SpriteExportOptions {
+  /** Whole numbers only (D3). */
+  scale: number;
+  layout: 'rows' | 'single-row';
+  /** Pad every animation up to the largest canvas, for engines wanting a grid. */
+  uniformCell: boolean;
+  trim: boolean;
+  /** Where the two files go. */
+  destination: { kind: 'workspace'; path: string } | { kind: 'downloads' };
+}
+
+export type SpriteRequestKind = SpriteRequestBody['kind'];
+
+const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
+  'sprite.character.create',
+  'sprite.character.create-from-text',
+  'sprite.character.create-from-item',
+  'sprite.character.re-measure',
+  'sprite.character.set-cap',
+  'sprite.character.rename',
+  'sprite.character.set-export-scale',
+  'sprite.character.set-style-notes',
+  'sprite.character.approve',
+  'sprite.character.favourite',
+  'sprite.character.delete',
+  'sprite.character.restore',
+  'sprite.character.purge',
+  'sprite.plan',
+  'sprite.generate',
+  'sprite.frames.attach',
+  'sprite.animation.approve',
+  'sprite.animation.cancel',
+  'sprite.animation.delete',
+  'sprite.animation.set-loop',
+  'sprite.animation.set-play-rate',
+  'sprite.animation.rename',
+  'sprite.fix',
+  'sprite.animation.redo',
+  'sprite.frame.write',
+  'sprite.frame.duplicate',
+  'sprite.frame.delete',
+  'sprite.frame.reorder',
+  'sprite.frame.set-duration',
+  'sprite.export',
+  'sprite.settings.update',
+  'sprite.open',
+] as const;
+
+export function isSpriteRequestKind(value: unknown): value is SpriteRequestKind {
+  return typeof value === 'string' && (SPRITE_REQUEST_KINDS as readonly string[]).includes(value);
+}
+
+export function isSpriteRequest(body: { kind: string }): body is SpriteRequestBody {
+  return isSpriteRequestKind(body.kind);
+}
+
+/** Fill in anything a stored state file predates, without losing what it holds. */
+export function normalizeSpriteState(value: unknown): SpriteStudioState {
+  if (typeof value !== 'object' || value === null) return structuredClone(DEFAULT_SPRITE_STUDIO_STATE);
+  const raw = value as Partial<SpriteStudioState>;
+  return {
+    characters: Array.isArray(raw.characters) ? raw.characters : [],
+    animations: Array.isArray(raw.animations) ? raw.animations : [],
+    settings: { ...DEFAULT_SPRITE_STUDIO_SETTINGS, ...(raw.settings ?? {}) },
+    ...(raw.openCharacterId === undefined ? {} : { openCharacterId: raw.openCharacterId }),
+    ...(raw.openAnimationId === undefined ? {} : { openAnimationId: raw.openAnimationId }),
+  };
+}
