@@ -1,3 +1,4 @@
+import { useAppTools } from '@sero-ai/app-runtime';
 import { useMemo, useState } from 'react';
 
 import type { ClipFramesTarget } from './lib/clip-frames';
@@ -14,7 +15,6 @@ import { useClipFrames } from './hooks/useClipFrames';
 import { useAnimationRecord, useCharacterRecord } from './hooks/useSpriteRecord';
 import { useSpriteStudio } from './hooks/useSpriteStudio';
 import { writeFrameGrid } from './lib/pixel-edit';
-import { useAppTools } from '@sero-ai/app-runtime';
 
 /**
  * Sprite Studio.
@@ -102,9 +102,11 @@ export function SpriteStudioPage() {
   const atCheckpoint =
     openAnimation?.status === 'ready' && editingId !== openAnimation.id && animation !== null;
 
-  const nextName = openAnimations.find(
-    (one) => one.id !== openAnimation?.id && one.approvedAt === undefined,
-  )?.name;
+  // The one this approval moves on to: the next unapproved animation *after*
+  // this one, so a batch is ruled on in the order it was asked for.
+  const nextName = openAnimations
+    .slice(openAnimations.findIndex((one) => one.id === openAnimation?.id) + 1)
+    .find((one) => one.approvedAt === undefined)?.name;
 
   const rail = approved && (
     <CharacterRail

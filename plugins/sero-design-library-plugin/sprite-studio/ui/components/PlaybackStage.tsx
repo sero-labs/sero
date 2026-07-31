@@ -164,7 +164,7 @@ export function PlaybackStage({
         </span>
         <span className="text-muted-foreground font-mono text-xs">·</span>
         <span className="text-muted-foreground font-mono text-xs tabular-nums">
-          {elapsedLabel(playback.elapsedMs % Math.max(1, playback.cycleMs))}
+          {elapsedLabel(playback.positionMs)}
         </span>
         <button type="button" onClick={playback.cycleSpeed} aria-label="Playback speed">
           <Chip tone={playback.speed === 1 ? 'plain' : 'on'}>{playback.speed}×</Chip>

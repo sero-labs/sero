@@ -39,7 +39,10 @@ export function ExportPage({ character, animations, onExport, onBack }: ExportPa
   const [excluded, setExcluded] = useState<string[]>([]);
   const [options, setOptions] = useState<SpriteExportOptions>(DEFAULT_EXPORT_OPTIONS);
 
-  const included = animations.filter((animation) => !excluded.includes(animation.id));
+  const included = useMemo(
+    () => animations.filter((animation) => !excluded.includes(animation.id)),
+    [animations, excluded],
+  );
   const includedIds = useMemo(() => included.map((animation) => animation.id), [included]);
   const records = useAnimationRecords(character.id, includedIds);
 

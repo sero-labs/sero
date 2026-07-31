@@ -41,8 +41,11 @@ export function CharacterSheetPanel({
   onApprove,
   onAddAnimations,
 }: CharacterSheetPanelProps) {
-  const scale = resolveScale(character.artWidth, character.artHeight, character.artHeight * character.exportScale);
-  const [wantedHeight, setWantedHeight] = useState(String(scale.height));
+  const exported = {
+    width: character.artWidth * character.exportScale,
+    height: character.artHeight * character.exportScale,
+  };
+  const [wantedHeight, setWantedHeight] = useState(String(exported.height));
   const [notes, setNotes] = useState(character.styleNotes);
   const palettePicker = useRef<HTMLInputElement>(null);
   const approved = character.status === 'approved';
@@ -108,7 +111,7 @@ export function CharacterSheetPanel({
             }}
           />
           <span className="text-muted-foreground font-mono text-xs">
-            {scale.scale}× → {scale.width} × {scale.height}
+            {character.exportScale}× → {exported.width} × {exported.height}
           </span>
         </div>
         <p className="text-muted-foreground text-sm">Whole numbers only, or the pixels blur.</p>

@@ -21,6 +21,7 @@ import { ItemPage } from './pages/ItemPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GalleryPage } from './pages/GalleryPage';
+import { SpriteStudioPage } from '../sprite-studio/ui';
 import { ExportNotifications } from './components/gallery/ExportNotifications';
 
 /**
@@ -32,7 +33,7 @@ import { ExportNotifications } from './components/gallery/ExportNotifications';
  * opened from the Library's selection but has to outlive a navigation.
  */
 
-type Surface = 'library' | 'gallery' | 'settings';
+type Surface = 'library' | 'gallery' | 'sprites' | 'settings';
 
 export function DesignLibraryApp() {
   const library = useLibrary();
@@ -66,6 +67,9 @@ export function DesignLibraryApp() {
 
   const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
   const galleryFamilyCount = gallery.families.length;
+  const characterCount = library.state.sprite.characters.filter(
+    (character) => character.deletedAt === undefined,
+  ).length;
 
   // Videos generated while Sero was closed have no stills yet, and the runtime
   // cannot make them. Done here rather than on the Library page so it keeps
@@ -137,6 +141,18 @@ export function DesignLibraryApp() {
           </Button>
           <Button
             type="button"
+            variant={surface === 'sprites' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setSurface('sprites');
+              void designs.actions.open(undefined);
+            }}
+          >
+            Sprite Studio
+            <span className="text-muted-foreground tabular-nums">{characterCount}</span>
+          </Button>
+          <Button
+            type="button"
             variant={surface === 'settings' ? 'secondary' : 'ghost'}
             size="sm"
             aria-label="Settings"
@@ -167,6 +183,11 @@ export function DesignLibraryApp() {
 
       {surface === 'settings' ? (
         <SettingsPage state={library.state} />
+      ) : surface === 'sprites' ? (
+        // Sprite Studio owns its whole surface, including its own rails and
+        // toolbars: all of its code lives in one folder so it can be lifted
+        // into its own plugin later (D6).
+        <SpriteStudioPage />
       ) : surface === 'gallery' ? (
         <GalleryPage
           families={gallery.families}

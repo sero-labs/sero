@@ -67,6 +67,12 @@ export function NewCharacterDialog({
     if (source === 'picture' && file !== null) onCreateFromFile(name.trim(), file);
     if (source === 'words') onCreateFromText(name.trim(), description.trim());
     if (source === 'library') onCreateFromItem(name.trim(), itemId);
+    // Cleared on the way out: the dialog outlives its closing, and opening it
+    // again to add a second character must not offer the first one's answers.
+    setName('');
+    setDescription('');
+    setFile(null);
+    setItemId('');
     onOpenChange(false);
   };
 

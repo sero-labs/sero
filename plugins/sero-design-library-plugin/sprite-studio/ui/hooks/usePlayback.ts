@@ -21,7 +21,8 @@ export interface Playback {
   /** Index into the animation's frames. */
   index: number;
   playing: boolean;
-  elapsedMs: number;
+  /** Where the playhead is within the current pass, for the transport clock. */
+  positionMs: number;
   cycleMs: number;
   speed: number;
   toggle(): void;
@@ -68,12 +69,15 @@ export function usePlayback(durations: readonly number[], loop: LoopMode): Playb
   }, [playing, speed]);
 
   const position = positionAt(durations, loop, elapsed);
+  const cycle = cycleMs(durations, loop);
 
   return {
     index: position.index,
     playing,
-    elapsedMs: elapsed,
-    cycleMs: cycleMs(durations, loop),
+    // A sequence that plays once holds at its end rather than wrapping back to
+    // zero, which is what the clock should say too.
+    positionMs: loop === 'once' ? Math.min(elapsed, cycle) : elapsed % Math.max(1, cycle),
+    cycleMs: cycle,
     speed,
     toggle: () => {
       // Playing on from a finished sequence starts it again, which is what the

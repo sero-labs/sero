@@ -476,6 +476,18 @@ export class SpriteQueue {
       return;
     }
 
+    // An animation with no frames is not ready, whatever the run reported. The
+    // checkpoint would present an empty strip with an Approve button on it,
+    // which is the failure that looks most like a success.
+    if (built.frames.length === 0) {
+      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
+        ...current,
+        status: 'failed',
+        error: 'Nothing survived cleaning the clip, so there is no animation to show you.',
+      }));
+      return;
+    }
+
     await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
       ...current,
       status: 'ready',

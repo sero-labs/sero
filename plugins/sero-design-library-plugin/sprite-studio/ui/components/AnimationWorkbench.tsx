@@ -31,6 +31,7 @@ import { PlaybackStage, type StageOverlays } from './PlaybackStage';
 const PLAY_RATES = [8, 12, 15, 24, 30, 60];
 
 const WORKING: Record<string, string> = {
+  planned: 'Planned, and waiting to start',
   generating: 'Drawing the movement',
   'awaiting-frames': 'Pulling the frames out of the clip',
   compiling: 'Turning the frames into pixel art',
@@ -75,12 +76,14 @@ export function AnimationWorkbench({
     summary.loop,
   );
 
-  const editing = editingIndex === null ? null : frames[editingIndex];
-  if (editing !== null && editing !== undefined && record !== null) {
+  // The editor takes the place of the stage rather than opening a window, so it
+  // is a branch of this surface rather than a screen of its own.
+  const editing = editingIndex === null ? undefined : frames[editingIndex];
+  if (editing !== undefined && editingIndex !== null && record !== null) {
     return (
       <FrameEditor
         animation={record}
-        index={editingIndex ?? 0}
+        index={editingIndex}
         onDone={(grid, palette) => {
           actions.writeFrame(editing.id, grid, palette);
           setEditingIndex(null);
@@ -144,7 +147,7 @@ export function AnimationWorkbench({
               Run it again
             </Button>
           </div>
-        ) : working !== undefined || record === null ? (
+        ) : working !== undefined || record === null || frames.length === 0 ? (
           <div className="text-muted-foreground flex min-h-0 flex-1 items-center justify-center gap-2 text-sm">
             <Spinner className="size-4" />
             {summary.progress ?? working ?? 'Reading the animation'}
