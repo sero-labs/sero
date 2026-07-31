@@ -476,3 +476,51 @@ into.** No git UI and no git state live in `apps/desktop`.
   plugin context and open-file-**and-switch-view**, and nothing about vcs. Any
   later addition is a version bump plus a `requiredHostCapabilities` floor,
   because external plugins pin the package.
+
+---
+
+## AD-026: Sprite Studio Lives Inside the Design Library and Stays Liftable
+
+**Status:** Implemented (2026-08-01)
+**Applies to:** `plugins/sero-design-library-plugin/sprite-studio/`
+**Feature spec:** `docs/features/sprite-studio/spec.md`
+**Decision log:** `docs/decisions/sero-sprite-studio-decisions.md` (D1–D38, which
+wins over any prose elsewhere)
+
+Sprite Studio turns a character into 2D sprite sheets: the AI plans and judges,
+a video model draws the movement, an image model repairs single frames, and
+deterministic code quantises to a locked palette, plants the root and compiles
+the sheet and atlas.
+
+**It is a page in the Design Library, and all of its code is in one folder.** It
+shares the fal connection and the settings surface, and nothing else. Starting a
+separate plugin would have built the provider key, the request log and the
+settings twice; full integration would have made the stated intent — publishing
+it separately later — a rewrite rather than a move.
+
+**Its contact with the rest of the plugin is four seams, all namespaced:**
+- `state.sprite` — one slice of reactive state;
+- `sprite.*` request kinds in the shared request log, so the single-writer rule
+  and the monotonic watermark are not written a second time;
+- one delegation in the coordinator;
+- one bridge tool, `design_library_sprites`.
+
+**Rules:**
+- **The engine is pure and stays pure.** `sprite-studio/engine/` has no file
+  system, no network, no clock and no provider knowledge. PNG encoding lives in
+  the runtime, where `node:zlib` is available. A game engine can take the folder
+  as it stands.
+- **Frames are indexed PNGs, never RGBA.** One palette index per pixel with the
+  palette in `PLTE`, index 0 transparent through `tRNS`, and a file whose
+  palette does not match its character is refused when it is read. RGBA storage
+  would let a frame hold a colour that is not in the palette, which is the one
+  thing the pipeline exists to prevent.
+- **The runtime has no codecs.** A clip is decoded by the open page, which hands
+  the sampled frames back as a request. This is why Sprite Studio stages its own
+  bytes rather than using the Library's one-file-per-upload pipeline, and why an
+  animation cannot finish while Sero is closed.
+- **A threshold is a measurement, not a preference.** Every check limit in
+  `engine/checks.ts` carries the evidence that set it. Three were wrong until a
+  generated jump was rendered and looked at — body size had to become
+  asymmetric, and continuity had to move to the sampled frames and ask where the
+  movement went rather than how large the change was.
