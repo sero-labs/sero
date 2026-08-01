@@ -11,9 +11,8 @@ import {
 import { useMemo, useState } from 'react';
 
 import type { AnimationPlan } from '../../shared/character';
-import type { AnimationSummary } from '../../shared/state';
+import type { PlanResult } from '../../shared/state';
 import { VIDEO_MODELS } from '../../shared/video-models';
-import { useAnimationRecords } from '../hooks/useSpriteRecord';
 import { Chip, Field } from './PanelParts';
 import { PlanTable, type PlanRow } from './PlanTable';
 
@@ -29,21 +28,27 @@ import { PlanTable, type PlanRow } from './PlanTable';
 
 export interface AskDialogProps {
   open: boolean;
-  characterId: string;
   characterName: string;
-  /** The character's animations, which is where a returned plan shows up. */
-  animations: AnimationSummary[];
+  /**
+   * Plans the runtime has written back, by the id the page allocated.
+   *
+   * A plan is **not** an animation. Nothing exists on disk until the user
+   * accepts it and presses Start, which is the whole reason planning is a step
+   * of its own: the frame counts, the rates and the canvases are all changeable
+   * before a penny is spent.
+   */
+  plans: Record<string, PlanResult>;
   videoModel: string;
   onOpenChange(open: boolean): void;
-  onPlan(request: string, videoModel: string): void;
+  /** Returns the id to watch for this plan's answer. */
+  onPlan(request: string, videoModel: string): Promise<string>;
   onStart(videoModel: string, animations: { animationId: string; plan: AnimationPlan }[]): void;
 }
 
 export function AskDialog({
   open,
-  characterId,
   characterName,
-  animations,
+  plans,
   videoModel,
   onOpenChange,
   onPlan,
@@ -51,34 +56,27 @@ export function AskDialog({
 }: AskDialogProps) {
   const [request, setRequest] = useState('');
   const [model, setModel] = useState(videoModel);
-  const [asked, setAsked] = useState(false);
-  /** Edits made to the returned plan, by animation. */
+  const [planId, setPlanId] = useState<string | null>(null);
+  /** Edits made to the returned plan, by position in it. */
   const [edits, setEdits] = useState<Record<string, Partial<AnimationPlan>>>({});
 
-  const planned = useMemo(
-    () => animations.filter((animation) => animation.status === 'planned'),
-    [animations],
-  );
-  const plannedIds = useMemo(() => planned.map((animation) => animation.id), [planned]);
-  const records = useAnimationRecords(characterId, plannedIds);
+  const result = planId === null ? undefined : plans[planId];
 
   const rows = useMemo<PlanRow[]>(
     () =>
-      planned.flatMap((animation) => {
-        const record = records.get(animation.id);
-        if (record === undefined) return [];
-        return [
-          {
-            animationId: animation.id,
-            plan: { ...record.plan, ...edits[animation.id] },
-            canvas: animation.canvas,
-          },
-        ];
-      }),
-    [planned, records, edits],
+      result?.status !== 'ok'
+        ? []
+        : result.animations.map((plan, index) => ({
+            // The id the animation will be created under when Start is pressed.
+            // Allocated here so an edit can be addressed before anything exists.
+            animationId: `anim-${planId ?? ''}-${index}`,
+            plan: { ...plan, ...edits[String(index)] },
+          })),
+    [result, planId, edits],
   );
 
-  const waiting = asked && rows.length === 0;
+  const waiting = planId !== null && result === undefined;
+  const failed = result?.status === 'ok' ? undefined : result?.reason;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -128,16 +126,18 @@ export function AskDialog({
             </div>
           )}
 
+          {failed !== undefined && failed !== '' && (
+            <p className="text-destructive py-4 text-sm">{failed}</p>
+          )}
+
           {rows.length > 0 && (
             <>
               <PlanTable
                 rows={rows}
-                onChange={(animationId, patch) =>
-                  setEdits((current) => ({
-                    ...current,
-                    [animationId]: { ...current[animationId], ...patch },
-                  }))
-                }
+                onChange={(animationId, patch) => {
+                  const index = String(rows.findIndex((row) => row.animationId === animationId));
+                  setEdits((current) => ({ ...current, [index]: { ...current[index], ...patch } }));
+                }}
               />
               <p className="text-muted-foreground text-sm">
                 A resting loop needs six drawings, not thirty — each one is held for several
@@ -159,8 +159,7 @@ export function AskDialog({
                 type="button"
                 disabled={request.trim() === '' || waiting}
                 onClick={() => {
-                  setAsked(true);
-                  onPlan(request.trim(), model);
+                  void onPlan(request.trim(), model).then(setPlanId);
                 }}
               >
                 Plan it

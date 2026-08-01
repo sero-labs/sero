@@ -23,7 +23,13 @@ import type { AnimationPlan, LoopMode } from '../../shared/character';
 export interface PlanRow {
   animationId: string;
   plan: AnimationPlan;
-  canvas: { cols: number; rows: number };
+  /**
+   * Absent while this is still a plan.
+   *
+   * The canvas is derived from the finished frames rather than chosen in
+   * advance (D19), so nothing can honestly state one before the frames exist.
+   */
+  canvas?: { cols: number; rows: number };
 }
 
 const LOOP_LABEL: Record<LoopMode, string> = {
@@ -60,7 +66,9 @@ export function PlanTable({ rows, onChange }: PlanTableProps) {
               {row.plan.playRate} fps
             </span>
             <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs">
-              {row.canvas.cols} × {row.canvas.rows} canvas · {LOOP_LABEL[row.plan.loop]}
+              {row.canvas === undefined
+                ? LOOP_LABEL[row.plan.loop]
+                : `${row.canvas.cols} × ${row.canvas.rows} canvas · ${LOOP_LABEL[row.plan.loop]}`}
               {row.plan.airborne !== undefined &&
                 ` · feet leave the ground for frames ${row.plan.airborne.from}–${row.plan.airborne.to}`}
             </span>

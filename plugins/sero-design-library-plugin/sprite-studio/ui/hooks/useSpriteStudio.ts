@@ -7,6 +7,7 @@ import type { AnimationPlan, LoopMode, PaletteCap } from '../../shared/character
 import type {
   AnimationSummary,
   CharacterSummary,
+  PlanResult,
   SpriteExportOptions,
   SpriteRequestBody,
   SpriteStudioSettings,
@@ -29,6 +30,8 @@ export interface SpriteStudio {
   characters: CharacterSummary[];
   /** The last thing that went wrong, so a refused request is visible. */
   notice: { message: string; at: number } | undefined;
+  /** Plans the runtime has written back, by the id the page allocated. */
+  plans: Record<string, PlanResult>;
   animations: AnimationSummary[];
   settings: SpriteStudioSettings;
   openCharacter: CharacterSummary | undefined;
@@ -241,6 +244,7 @@ export function useSpriteStudio(): SpriteStudio {
 
   return {
     notice: sprite.notice,
+    plans: sprite.plans,
     characters,
     animations: sprite.animations,
     settings: sprite.settings,

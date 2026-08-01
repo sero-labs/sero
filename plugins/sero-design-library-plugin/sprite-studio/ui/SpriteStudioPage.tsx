@@ -199,12 +199,11 @@ export function SpriteStudioPage() {
       {asking && (
         <AskDialog
           open
-          characterId={characterId}
           characterName={openCharacter.name}
-          animations={openAnimations}
+          plans={studio.plans}
           videoModel={studio.settings.videoModel}
           onOpenChange={setAsking}
-          onPlan={(request, videoModel) => void actions.plan(characterId, request, videoModel)}
+          onPlan={(request, videoModel) => actions.plan(characterId, request, videoModel)}
           onStart={(videoModel, animations) => {
             void actions.generate(characterId, videoModel, animations);
             void actions.updateSettings({ videoModel });
