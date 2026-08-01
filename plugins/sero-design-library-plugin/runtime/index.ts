@@ -10,6 +10,7 @@ import { pruneGalleryTemps, reindexGallery } from './gallery-store';
 import { pruneStaging } from '../sprite-studio/runtime/staging';
 import { projectSpriteState } from '../sprite-studio/runtime/projection';
 import { recoverUnfinishedAnimations } from '../sprite-studio/runtime/recover';
+import { migrateSpriteSettings } from '../sprite-studio/runtime/settings-migrate';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -77,6 +78,20 @@ class DesignLibraryRuntime implements AppRuntime {
       const { designs } = await scanDesigns(paths);
       for (const design of designs) await pruneOrphanRevisions(paths, design);
     });
+
+    // Before anything can read a model out of settings. A stored value written
+    // before a measurement outranks the corrected default for ever, and this is
+    // the only place that can put it right — the setting has no interface.
+    const migrated = await this.attempt('correct superseded settings', () =>
+      migrateSpriteSettings(paths),
+    );
+    if (migrated?.replaced != null) {
+      this.report(
+        `Sprite Studio was repairing frames with ${migrated.replaced}, which cannot edit a frame it is given. ` +
+          'It now uses the endpoint that can.',
+        null,
+      );
+    }
 
     // Before the projection, because it changes what the projection will say:
     // the queue is in memory, so an animation whose job was running when the

@@ -175,7 +175,10 @@ function falKeyFromRepoEnv(): string | undefined {
 /** One clip at a time, because the cassette replays entries in call order. */
 const SPRITE_SETTINGS = {
   videoModel: VIDEO_MODEL,
-  repairModel: 'fal-ai/nano-banana-pro/edit',
+  // The endpoint that can actually edit the frame it is handed. Naming a
+  // superseded one here would be rewritten by the start-up migration anyway,
+  // and the test would then be measuring something it did not ask for.
+  repairModel: 'fal-ai/nano-banana-2/edit',
   // Cheaper and quicker than 720p, and this is about the pipeline running
   // rather than the sprite being beautiful.
   resolution: '480p',

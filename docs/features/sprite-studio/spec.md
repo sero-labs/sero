@@ -100,7 +100,7 @@ sets the timing, judges the output and orders repairs. It never writes pixels.
 |---|---|---|---|---|---|
 | Seedance 2.0 | video | 0.5 px | 0.1–1.1% | 0 px | **chosen** |
 | Kling v3 Pro | video | 2.1 px | 0.2–3.0% | 1 px, 6 px on the attack | rejected |
-| Nano Banana Pro | pose | 0.8 px | 0.3–0.8% | 1 px | **chosen for repair** |
+| Nano Banana Pro | pose | 0.8 px | 0.3–0.8% | 1 px | chosen for repair, later superseded (§2.2.1) |
 | Seedream v5 Pro | pose | 0.2 px | 0.4–0.7% | 3 px | rejected |
 
 Kling redrew the character with much finer internal detail, so shrinking it back
@@ -133,6 +133,50 @@ to one movement (`evidence/02-seedance-attack.gif`). The repair model supplies
 measured, but 14% to 78% of the sprite changes between them, so a sequence built
 only from single poses pops rather than flows (`evidence/04-nano-attack.gif`).
 That is why single poses repair a sequence and never build one.
+
+#### 2.2.1 The repair endpoint, measured again
+
+The table above measured how well a model **draws a pose**. It never measured
+whether a model will **edit the frame it is handed**, and those turned out to be
+different questions.
+
+Six edit endpoints were run on one refused frame from a live profile — a
+mid-strike pose whose green had drifted from the base pose — each given the frame
+first, the character reference second, and the prompt the runtime actually sends.
+
+| Endpoint | Cost | Time | Result |
+|---|---|---|---|
+| `fal-ai/nano-banana-2/edit` | $0.08 | 16.7 s | **kept the pose, corrected the colour, nothing refused it** |
+| `fal-ai/nano-banana-pro/edit` | $0.15 | 33.4 s | redrew the standing reference, in the reference's shape |
+| `google/nano-banana-lite/edit` | token-priced | 12.0 s | redrew the standing reference |
+| `fal-ai/nano-banana/edit` | $0.039 | 14.1 s | redrew the standing reference, in portrait |
+| `fal-ai/qwen-image-2/edit` | not published | 13.1 s | redrew the standing reference, in portrait |
+| `xai/grok-imagine-image/edit` | $0.022 | 20.2 s | redrew the standing reference, and changed the shirt colour |
+
+**Five of the six answered a different question**: they took the character
+reference as the thing to draw, and the movement was lost. Four returned the
+reference's portrait proportions, which alone breaks the size measurement — the
+sequence's scale is derived from the returned width, so a 136 pixel character
+measured as 462 and every check refused it.
+
+The cost of this was not the price of a call. Before it was found, one profile
+had bought 51 repair images and kept none of them; `repairedFrames` was empty on
+every record. Three things follow, and all three are now in the code:
+
+1. The repair endpoint is `fal-ai/nano-banana-2/edit` — cheaper than what it
+   replaces and about twice as fast, which was never the deciding factor.
+2. The request states its aspect ratio and asks for PNG. Leaving either to the
+   endpoint is what let a portrait answer through, and Grok's edit endpoint
+   returns JPEG by default, whose ringing on flat pixel art is colours the
+   quantiser then has to undo.
+3. A repair that is bought and refused is **reported at the checkpoint**, on the
+   frame and on the animation. It used to leave no trace at all, which is how
+   this ran unnoticed: "nothing was wrong" and "everything we paid for was thrown
+   away" looked the same to the person deciding whether to approve.
+
+An answer whose proportions are more than a fifth away from the frame's is
+refused without a second attempt. It is not a bad drawing but a different
+question answered, and a second identical call buys the same misunderstanding.
 
 ### 2.3 Validation
 
@@ -401,9 +445,15 @@ Two gates, both cheap to judge:
 2. **Each finished animation.** In a batch of five, the user approves each one
    as it lands rather than at the end.
 
-When a frame fails validation, the runtime repairs it with Nano Banana Pro, up
-to two attempts, then presents the sequence and says which frames were repaired.
-It does not stop to ask first — the checkpoint is where the user rules on it.
+When a frame fails validation, the runtime repairs it with the repair endpoint
+(§2.2.1), up to two attempts, then presents the sequence and says which frames
+were repaired — and which redraws were paid for and refused. It does not stop to
+ask first; the checkpoint is where the user rules on it.
+
+**At most four frames per animation are repaired automatically.** Each is a paid
+call of about twenty seconds, and a clip with more wrong than that is one to run
+again rather than to patch frame by frame. Whatever the budget could not reach is
+named at the checkpoint rather than dropped.
 
 ---
 
@@ -419,8 +469,8 @@ actionable.
 Available on a single frame and on a whole animation. The user may type what is
 wrong, or say nothing and let the model work it out from the sequence.
 
-A frame repair is a single-pose draw with Nano Banana Pro, holding the
-character, the palette, the canvas and the anchor. An animation repair re-runs
+A frame repair is a single-pose draw with the repair endpoint (§2.2.1), holding
+the character, the palette, the canvas and the anchor. An animation repair re-runs
 the sequence from an amended instruction. Both go through the same validation as
 the original, and both append rather than replace, so the previous version
 survives.

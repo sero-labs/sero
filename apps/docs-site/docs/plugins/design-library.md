@@ -268,7 +268,9 @@ Your choice is remembered for next time.
 
 A video model draws the movement. Sprite Studio pulls the frames out, cleans them and keeps the ones that carry the action — the first, the last, and the poses where the movement turns around. Each kept frame holds for the time it really held in the clip, so the animation plays at the speed it was drawn at.
 
-Every frame is checked before it is accepted: the palette, the character's size, whether anything unattached was drawn, whether the feet are where the plan said, whether the sprite boils where it should be still, and whether the drawing ran off the edge of the video frame. A frame that fails is redrawn automatically, up to twice, and the repair is declared rather than hidden.
+Every frame is checked before it is accepted: the palette, the character's size, whether anything unattached was drawn, whether the feet are where the plan said, whether the sprite boils where it should be still, and whether the drawing ran off the edge of the video frame.
+
+A frame that fails is redrawn automatically, up to twice. Four frames per animation are redrawn at most — each redraw is a paid call, and a clip with more wrong than that is one to run again. Every outcome is declared rather than hidden: which frames were repaired, which redraws were paid for and refused, and which frames the limit could not reach.
 
 The frames are also checked against the base pose by an AI, one at a time, to catch a hat or a satchel that has quietly turned into something else. That check only ever warns. If it cannot run, the animation says so rather than looking as though it passed.
 

@@ -195,6 +195,11 @@ export async function buildAnimation(
   // reported rather than dropped.
   const cells: CellGrid[] = built.kept.map((frame) => built.compiled.frames[frame.index]!.cells);
   const repaired = new Map<number, number>();
+  // A repair that was bought and then refused used to leave no trace anywhere.
+  // That silence is how the repair path ran for weeks buying pictures that were
+  // all discarded: "nothing was wrong" and "everything we paid for was thrown
+  // away" looked identical at the checkpoint.
+  const rejected = new Map<number, string>();
   const needing = built.kept.flatMap((_frame, position) => {
     const fixable = built.findings.filter(
       (finding) =>
@@ -229,6 +234,8 @@ export async function buildAnimation(
     if (outcome.status === 'repaired') {
       cells[position] = outcome.cells;
       repaired.set(position, outcome.attempts);
+    } else {
+      rejected.set(position, outcome.reason);
     }
   }
 
@@ -253,7 +260,18 @@ export async function buildAnimation(
         sampledIndex: kept.index,
         createdAt: Date.now(),
       },
-      findings: storedFindings(built.findings, position),
+      findings: [
+        ...storedFindings(built.findings, position),
+        ...(rejected.has(position)
+          ? [
+              {
+                check: 'repair',
+                level: 'warn' as const,
+                message: `A redraw of this frame was paid for and refused, so the frame is as the clip made it. ${rejected.get(position) ?? ''}`,
+              },
+            ]
+          : []),
+      ],
     });
   }
 
@@ -284,6 +302,17 @@ export async function buildAnimation(
               check: 'repair',
               level: 'warn' as const,
               message: `${unrepaired} more frame${unrepaired === 1 ? '' : 's'} failed a check and ${unrepaired === 1 ? 'was' : 'were'} left alone: this animation had more to redraw than one run pays for. Redraw them yourself, ask for them, or run the whole sequence again.`,
+            },
+          ]
+        : []),
+      // Money spent with nothing to show for it is a fact the user is owed at
+      // the checkpoint, not one to find later in a bill.
+      ...(rejected.size > 0
+        ? [
+            {
+              check: 'repair',
+              level: 'warn' as const,
+              message: `${rejected.size} redraw${rejected.size === 1 ? ' was' : 's were'} paid for and then refused, so ${rejected.size === 1 ? 'that frame is' : 'those frames are'} unchanged. Each frame says why.`,
             },
           ]
         : []),

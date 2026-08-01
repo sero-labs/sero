@@ -35,8 +35,33 @@ export const VIDEO_MODELS: VideoModelChoice[] = [
   },
 ];
 
-/** The model single frames are repaired with (D10). */
-export const REPAIR_MODEL = 'fal-ai/nano-banana-pro/edit';
+/**
+ * The model single frames are repaired with (D10).
+ *
+ * Six edit endpoints were run on the same refused frame — a mid-strike pose
+ * whose green had drifted — each given the frame first, the character reference
+ * second, and the prompt the studio actually sends. **Five of the six redrew the
+ * reference standing still**: they took the second picture as the thing to draw
+ * and lost the movement, and the checks then threw the result away. Grok also
+ * returned the shirt in a colour the character does not own, and three returned
+ * the reference's portrait shape, which alone breaks the size measurement.
+ *
+ * Nano Banana 2 was the only one that edited the frame it was given. It is also
+ * cheaper than the endpoint it replaces ($0.08 against $0.15) and about twice as
+ * fast — so the cost of the mistake was never the price of the call. Before
+ * this, 51 repairs had been bought in one profile and none had ever been kept.
+ */
+export const REPAIR_MODEL = 'fal-ai/nano-banana-2/edit';
+
+/**
+ * Repair endpoints that were shipped and then measured as unusable.
+ *
+ * A settings value written before the measurement outranks the corrected
+ * default for ever, so a profile made yesterday would keep buying repairs that
+ * cannot be kept. These are replaced at start-up rather than left to the user,
+ * who has no interface for this setting and no way to know.
+ */
+export const SUPERSEDED_REPAIR_MODELS: readonly string[] = ['fal-ai/nano-banana-pro/edit'];
 
 /** The model that draws a character from words alone. */
 export const CHARACTER_MODEL = 'fal-ai/nano-banana-pro';

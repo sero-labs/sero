@@ -111,9 +111,39 @@ export async function requestClip(
   );
 }
 
+/**
+ * The aspect ratios these endpoints will accept, widest first.
+ *
+ * Asked for explicitly, because leaving it out is what broke the repair path:
+ * given a landscape frame and a portrait character reference, four of six
+ * endpoints returned the reference's shape. The scale is derived from the
+ * returned width, so a portrait answer measured a 136 pixel character as 462 and
+ * every check refused it after the call was paid for.
+ */
+const ASPECT_RATIOS: readonly [string, number][] = [
+  ['21:9', 21 / 9],
+  ['16:9', 16 / 9],
+  ['3:2', 3 / 2],
+  ['4:3', 4 / 3],
+  ['5:4', 5 / 4],
+  ['1:1', 1],
+  ['4:5', 4 / 5],
+  ['3:4', 3 / 4],
+  ['2:3', 2 / 3],
+  ['9:16', 9 / 16],
+];
+
+/** The nearest ratio the endpoint has a name for. */
+export function closestAspectRatio(width: number, height: number): string {
+  const wanted = height === 0 ? 1 : width / height;
+  return ASPECT_RATIOS.reduce((best, entry) =>
+    Math.abs(entry[1] - wanted) < Math.abs(best[1] - wanted) ? entry : best,
+  )[0];
+}
+
 export interface PoseRequest {
   /** The frame to redraw, and the character to hold on to. */
-  plate: { path: string; bytes: Buffer };
+  plate: { path: string; bytes: Buffer; width: number; height: number };
   reference: { path: string; bytes: Buffer };
   /** What is wrong with it, named. */
   prompt: string;
@@ -126,11 +156,11 @@ export interface PoseRequest {
 /**
  * One redrawn pose (D10).
  *
- * Nano Banana Pro produced the sharpest pixel art of anything measured and held
- * the character's identity, clothing and equipment. It is **not** used to build
- * a sequence: even the good model changed 14% to 78% of the sprite between
- * frames, so a sequence built from single poses pops rather than flows. Its job
- * is repairing a frame the video route got wrong.
+ * The endpoint is **not** used to build a sequence: even the best model measured
+ * changed 14% to 78% of the sprite between frames, so a sequence built from
+ * single poses pops rather than flows. Its job is repairing a frame the video
+ * route got wrong — see `REPAIR_MODEL` for which endpoint can actually do that
+ * and how the others failed.
  */
 export async function requestPose(
   provider: MediaProvider,
@@ -149,6 +179,14 @@ export async function requestPose(
       model: request.model ?? REPAIR_MODEL,
       prompt: request.prompt,
       sourceAssetIds: [...assets.keys()],
+      // Both are dropped by the adapter on an endpoint that does not declare
+      // them. The shape stops a model answering in the reference's proportions;
+      // PNG stops one answering in JPEG, whose ringing on flat pixel art is
+      // colours the quantiser then has to undo.
+      extra: {
+        aspect_ratio: closestAspectRatio(request.plate.width, request.plate.height),
+        output_format: 'png',
+      },
     },
     {
       directory: request.directory,

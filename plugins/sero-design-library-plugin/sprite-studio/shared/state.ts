@@ -19,6 +19,8 @@ import type {
   LoopMode,
   PaletteCap,
 } from './character';
+// The repair endpoint has one definition, beside the measurement that chose it.
+import { REPAIR_MODEL } from './video-models';
 
 export interface CharacterSummary {
   id: string;
@@ -100,7 +102,7 @@ export interface SpriteStudioSettings {
 
 export const DEFAULT_SPRITE_STUDIO_SETTINGS: SpriteStudioSettings = {
   videoModel: 'xai/grok-imagine-video/image-to-video',
-  repairModel: 'fal-ai/nano-banana-pro/edit',
+  repairModel: REPAIR_MODEL,
   resolution: '720p',
   // Three at once: enough to keep a batch moving, low enough that a mistake
   // costs three clips rather than five.

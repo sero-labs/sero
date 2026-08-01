@@ -24,6 +24,13 @@ import { readFile } from 'node:fs/promises';
 /** Two attempts, then the sequence is presented with the frame as it stands. */
 export const REPAIR_ATTEMPTS = 2;
 
+/**
+ * How far the answer's proportions may sit from the frame's before it is not an
+ * edit of that frame at all. A fifth is generous: the failures measured were
+ * landscape asked for and portrait returned.
+ */
+export const SHAPE_TOLERANCE = 0.2;
+
 export interface RepairRequest {
   provider: MediaProvider;
   character: CharacterRecord;
@@ -70,7 +77,7 @@ export async function repairFrame(request: RepairRequest): Promise<RepairOutcome
     request.onProgress?.(`Redrawing the frame (attempt ${attempt} of ${REPAIR_ATTEMPTS})…`);
 
     const outcome = await requestPose(request.provider, {
-      plate: { path: 'frame.png', bytes: before.bytes },
+      plate: { path: 'frame.png', bytes: before.bytes, width: before.width, height: before.height },
       reference: { path: 'character.png', bytes: reference.bytes },
       prompt,
       ...(request.model === undefined || request.model === '' ? {} : { model: request.model }),
@@ -95,6 +102,25 @@ export async function repairFrame(request: RepairRequest): Promise<RepairOutcome
     // onto the character's palette. A repair cannot introduce a colour the
     // character does not have, because there is nowhere for one to enter.
     const image = toSourceImage(await readFile(file));
+
+    // A wrong-shaped answer is not a bad drawing, it is a different question
+    // answered: the model took the character reference as the thing to draw and
+    // returned it in the reference's proportions, losing the movement. The
+    // scale is derived from the returned width, so this also measures the
+    // character at several times his real height and every check refuses it.
+    // Stopped here rather than retried, because a second identical call buys
+    // the same misunderstanding.
+    const wanted = before.width / before.height;
+    const drift = Math.abs(image.width / image.height - wanted) / wanted;
+    if (drift > SHAPE_TOLERANCE) {
+      return {
+        status: 'unchanged',
+        reason:
+          `The model answered with a ${image.width} × ${image.height} picture where the frame is ` +
+          `${before.width} × ${before.height}, so it redrew the character instead of editing this frame.`,
+        attempts: attempt,
+      };
+    }
     const compiled = compileAnimation([{ image, durationMs: 0 }], {
       palette: request.palette,
       scale: (image.width / before.width) * before.scale,

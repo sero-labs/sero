@@ -17,6 +17,10 @@ trusting D8, D11, D12, D21 or D22 on their own. D25 in particular replaces half
 of D21, which did not work. The spike outputs are in
 `docs/features/sprite-studio/evidence/`.
 
+**D39 was settled by running the studio for real, and it supersedes the model
+named in D10.** It is the first decision here taken from live use rather than
+from a spike, and it exists because a spike measured the wrong question.
+
 ---
 
 ### D1 · The model directs; it does not draw the pixels
@@ -173,6 +177,9 @@ the user's choice, made in the interface.
 ---
 
 ### D10 · Nano Banana Pro repairs single frames
+
+**Superseded by D39.** The endpoint holds — single poses repair a sequence and
+never build one — but the model named here does not do the repairing any more.
 
 Measured against Seedream v5 Pro on the same poses.
 
@@ -705,3 +712,58 @@ loop of the whole investigation, 10.4%, and the number was false — the endpoin
 dims the background, the key failed, and all 73 frames counted as character.
 The body-size check from D37 caught it immediately: 171 art pixels against a
 136 pixel character. Recorded so the same measurement is not believed twice.
+
+---
+
+### D39 · The repair endpoint is Nano Banana 2, and drawing a pose is not editing a frame
+
+**Supersedes the model named in D10.**
+
+D10 measured how well a model **draws a pose**. It never measured whether a model
+will **edit the frame it is handed**, and those are different questions. Six edit
+endpoints were run on one refused frame from a live profile, each given the frame
+first, the character reference second, and the prompt the runtime sends:
+
+| Endpoint | Cost | Time | Result |
+|---|---|---|---|
+| `fal-ai/nano-banana-2/edit` | $0.08 | 16.7 s | **kept the pose, corrected the colour, nothing refused it** |
+| `fal-ai/nano-banana-pro/edit` | $0.15 | 33.4 s | redrew the standing reference, in its shape |
+| `google/nano-banana-lite/edit` | token-priced | 12.0 s | redrew the standing reference |
+| `fal-ai/nano-banana/edit` | $0.039 | 14.1 s | redrew the standing reference, in portrait |
+| `fal-ai/qwen-image-2/edit` | not published | 13.1 s | redrew the standing reference, in portrait |
+| `xai/grok-imagine-image/edit` | $0.022 | 20.2 s | redrew the standing reference, shirt turned blue |
+
+Five of the six took the character reference as the thing to draw, so the
+movement was lost. Four answered in the reference's portrait proportions, which
+alone breaks the size measurement: the sequence's scale comes from the returned
+width, so a 136 pixel character measured as 462 and every check refused it.
+
+**Nothing said so.** One profile had bought 51 repair images and kept none;
+`repairedFrames` was empty on every record. `repairFrame` returned `unchanged`
+and the caller ignored it, so a repair bought and refused left no trace anywhere.
+That is the same fault as a clip nobody decodes — one side declared something the
+other side never acted on — and it is the reason this ran for weeks.
+
+Four things follow:
+
+1. The repair endpoint is `fal-ai/nano-banana-2/edit`. It is also cheaper and
+   about twice as fast, which was never the deciding factor. **Cheap was not the
+   problem**: the three cheapest candidates all failed on the same thing.
+2. The request states its aspect ratio and asks for PNG, rather than hoping. Both
+   are dropped by the adapter on an endpoint with no such field. Grok's edit
+   endpoint returns JPEG by default, whose ringing on flat pixel art is colours
+   the quantiser then has to undo.
+3. An answer whose proportions sit more than a fifth from the frame's is refused
+   **without a second attempt**. It is not a bad drawing but a different question
+   answered, and a second identical call buys the same misunderstanding.
+4. A repair that is paid for and refused is reported at the checkpoint, on the
+   frame and on the animation.
+
+A stored setting outranks a corrected default for ever, and `repairModel` has no
+interface — the user cannot see it, change it, or know it is wrong. So a
+superseded value is replaced at start-up, and only where it names an endpoint on
+the measured-unusable list. Anything else is somebody's decision, and a start-up
+chore does not get to undo one.
+
+`CHARACTER_MODEL` is untouched. Drawing a character from words is generation
+rather than editing, and this measurement says nothing about it.
