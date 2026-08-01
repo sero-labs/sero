@@ -19,11 +19,12 @@ import { itemDir, type DesignLibraryPaths } from '../../shared/paths';
 import { readItem } from '../../runtime/store';
 import { readState, updateState } from '../../shared/state-io';
 import type { DesignLibraryState } from '../../shared/types';
-import type {
-  AnimationPlan,
-  AnimationRecord,
-  CharacterRecord,
-  FrameRecord,
+import {
+  characterProblem,
+  type AnimationPlan,
+  type AnimationRecord,
+  type CharacterRecord,
+  type FrameRecord,
 } from '../shared/character';
 import type {
   AnimationSummary,
@@ -199,8 +200,15 @@ export async function applySpriteRequest(
     }
 
     case 'sprite.character.approve': {
-      await mutateCharacter(paths, body.characterId, (character) => ({
-        ...character,
+      const character = await readCharacter(paths, body.characterId);
+      if (character === null) return;
+      // Refused here as well as in the interface, because this tool is
+      // reachable from any chat. Approving is what unlocks paid generation, and
+      // a character that cannot produce a usable sprite must not pass it.
+      const problem = characterProblem(character);
+      if (problem !== null) throw new Error(problem);
+      await mutateCharacter(paths, body.characterId, (current) => ({
+        ...current,
         status: 'approved',
       }));
       break;

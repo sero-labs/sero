@@ -260,12 +260,38 @@ export function characterIsApproved(character: CharacterRecord): boolean {
   return character.status === 'approved';
 }
 
-/** A character with no palette cannot generate anything, and says so. */
+/**
+ * No sprite is this big. Above it, "artwork already at its true size" is not a
+ * credible reading of a picture with no grid in it.
+ */
+const LARGEST_SPRITE = 512;
+
+/**
+ * Why this character cannot be used, in words the user can act on.
+ *
+ * Checked before approval, because everything downstream inherits from here: a
+ * character measured wrong produces a wrong sprite from every animation ever
+ * made from it, and each one of those costs a paid clip. This is the cheapest
+ * possible place to say no.
+ */
 export function characterProblem(character: CharacterRecord): string | null {
   if (character.palette.length === 0) return 'This character has no palette.';
   if (character.artHeight <= 0) return 'This character has no measured height.';
   if (!Number.isInteger(character.exportScale) || character.exportScale < 1) {
     return 'The export scale must be a whole number, or the pixels blur.';
+  }
+  // A picture with no grid **and** no plausible sprite size in it. Pixel art
+  // drawn at its true size is small and lands here legitimately; a 1084 pixel
+  // character does not. The usual cause is a JPEG or a resized copy, both of
+  // which destroy the grid before Sprite Studio ever sees the file — and
+  // nothing downstream can put it back.
+  if (character.ingestion.block === 1 && character.artHeight > LARGEST_SPRITE) {
+    return (
+      `No pixel grid was found in this picture, and the artwork measures ` +
+      `${character.artWidth} × ${character.artHeight}, which is far too big for a sprite. ` +
+      'That happens when the file is a JPEG or has been resized — both smear the hard ' +
+      'edges the grid is measured from, and neither can be undone. Use the original PNG.'
+    );
   }
   return null;
 }

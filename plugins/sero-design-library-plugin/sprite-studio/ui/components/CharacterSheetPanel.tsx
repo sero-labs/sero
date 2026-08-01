@@ -1,7 +1,7 @@
 import { Button, Input, Textarea } from '@sero-ai/ui';
 import { useRef, useState } from 'react';
 
-import type { CharacterRecord, PaletteCap } from '../../shared/character';
+import { characterProblem, type CharacterRecord, type PaletteCap } from '../../shared/character';
 import { resolveScale } from '../lib/export-sheet';
 import { paletteLabel, parsePalette } from '../lib/palette-file';
 import { Chip, DetailPanel, Field, Measure } from './PanelParts';
@@ -49,6 +49,9 @@ export function CharacterSheetPanel({
   const [notes, setNotes] = useState(character.styleNotes);
   const palettePicker = useRef<HTMLInputElement>(null);
   const approved = character.status === 'approved';
+  // Written months ago and called by nothing until now, so a character that
+  // could not work was approved as readily as one that could.
+  const problem = characterProblem(character);
 
   const applyHeight = () => {
     const resolved = resolveScale(character.artWidth, character.artHeight, Number(wantedHeight));
@@ -84,9 +87,18 @@ export function CharacterSheetPanel({
             Add animations
           </Button>
         ) : (
-          <Button type="button" onClick={onApprove}>
-            Approve character
-          </Button>
+          <>
+            {/* Said here, beside the button it stops. A character measured
+                wrong makes every animation ever generated from it wrong, and
+                each of those is a paid clip — so this is the cheapest place in
+                the whole feature to refuse. */}
+            {problem !== null && (
+              <p className="text-destructive text-sm leading-relaxed">{problem}</p>
+            )}
+            <Button type="button" onClick={onApprove} disabled={problem !== null}>
+              Approve character
+            </Button>
+          </>
         )
       }
     >

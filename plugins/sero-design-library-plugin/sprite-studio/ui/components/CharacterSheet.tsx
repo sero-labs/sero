@@ -16,6 +16,8 @@ import { Crumbs, Report, ReportRow } from './PanelParts';
 
 /** The recovered artwork is shown at 2×, which is where its pixels read. */
 const ARTWORK_SCALE = 2;
+/** Taller than any pane, so the whole picture would not be on screen. */
+const OVERSIZED = 700;
 
 interface CharacterSheetProps {
   character: CharacterRecord;
@@ -116,12 +118,17 @@ export function CharacterSheet({
             tagline={`${character.artWidth} × ${character.artHeight} · ${character.palette.length} colours`}
             checkered
           >
+            {/* A sprite is drawn at a whole scale, because that is the point.
+                Artwork too big to be a sprite is shrunk to the pane instead —
+                it means the measurement failed, and a picture cropped to its
+                own forehead shows the user nothing about why. */}
             <SpritePixels
               path={character.basePoseFile}
               version={character.updatedAt}
               cols={character.artWidth}
               rows={character.artHeight}
               scale={ARTWORK_SCALE}
+              fit={character.artHeight * ARTWORK_SCALE > OVERSIZED}
               alt={character.name}
             />
           </Pane>
