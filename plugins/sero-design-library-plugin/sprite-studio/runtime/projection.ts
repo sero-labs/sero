@@ -129,4 +129,3 @@ export async function reportSpriteNotice(
     sprite: { ...current.sprite, notice: { message, at: Date.now(), tone } },
   }));
 }
-

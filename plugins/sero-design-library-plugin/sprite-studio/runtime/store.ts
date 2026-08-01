@@ -176,8 +176,24 @@ export async function writeFrame(
   animationId: string,
   frameId: string,
   cells: CellGrid,
+  /**
+   * A file of its own, for a version that must not overwrite the last one.
+   *
+   * A repair appends rather than replaces (D18), and appending only works if
+   * the two versions are two files. Writing back over `<frameId>.png` left the
+   * history entry — which holds the *old* frame records, and therefore the old
+   * paths — pointing at the new bytes, so the version the user disliked was
+   * gone and "recoverable" was a claim the storage did not keep. That is a paid
+   * redraw with nothing to go back to.
+   */
+  version?: string,
 ): Promise<string> {
-  const file = frameFile(paths, character.id, animationId, frameId);
+  const file = frameFile(
+    paths,
+    character.id,
+    animationId,
+    version === undefined ? frameId : `${frameId}-${version}`,
+  );
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, encodeIndexedPng(cells.cells, cells.cols, cells.rows, paletteOf(character)));
   return relativeToHome(paths, file);

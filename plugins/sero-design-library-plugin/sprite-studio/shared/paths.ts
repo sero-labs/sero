@@ -19,6 +19,47 @@ export function charactersDir(paths: DesignLibraryPaths): string {
   return path.join(paths.home, 'characters');
 }
 
+/**
+ * A path a caller asked to read, allowed only if it is one of ours.
+ *
+ * The page has no filesystem, so every picture on screen arrives as a path over
+ * a tool call — and a tool call is reachable by the agent as well as by the
+ * page. "Inside the app directory" is **not** the boundary: the provider key
+ * lives in `secrets.json` at the top of that directory, deliberately kept out
+ * of the interface, and a reader bounded only by the app directory hands it to
+ * anyone who asks for it by name.
+ *
+ * So the boundary is Sprite Studio's own tree. Everything it shows — base
+ * poses, source pictures, frames, samples, clips, sheets — is under
+ * `characters/`, and nothing else is servable.
+ *
+ * The check is on the **resolved real path**, so neither `..` nor a symlink
+ * planted inside the tree can point out of it.
+ */
+export async function resolveSpriteAsset(
+  paths: DesignLibraryPaths,
+  relativePath: string,
+  realpath: (target: string) => Promise<string>,
+): Promise<string | null> {
+  const root = path.resolve(charactersDir(paths));
+  const resolved = path.resolve(paths.home, relativePath);
+  if (!resolved.startsWith(root + path.sep)) return null;
+
+  // Both sides through `realpath`, not just the file. The app directory itself
+  // sits behind a link often enough to matter — every temporary directory on
+  // macOS does — and comparing a resolved file against an unresolved root
+  // refuses everything.
+  //
+  // A file that is not there cannot be resolved, and is refused the same way as
+  // one out of bounds: the caller learns nothing from the difference.
+  const realRoot = await realpath(root).catch(() => root);
+  const real = await realpath(resolved).catch(() => null);
+  if (real === null || !path.resolve(real).startsWith(path.resolve(realRoot) + path.sep)) {
+    return null;
+  }
+  return resolved;
+}
+
 export function characterDir(paths: DesignLibraryPaths, characterId: string): string {
   return path.join(charactersDir(paths), assertSafeId(characterId, 'character id'));
 }

@@ -17,7 +17,7 @@
  *             codec for.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 import { StringEnum } from '@earendil-works/pi-ai';
@@ -25,13 +25,13 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { resolveInsideHome } from '../../shared/paths';
 import { appendRequest, readJsonFile } from '../../shared/state-io';
 import type { LibraryRequestBody } from '../../shared/requests';
 import type { AnimationRecord, CharacterRecord } from '../../sprite-studio/shared/character';
 import {
   animationRecordFile,
   characterRecordFile,
+  resolveSpriteAsset,
 } from '../../sprite-studio/shared/paths';
 import { isSpriteRequestKind } from '../../sprite-studio/shared/state';
 import { decodeIndexedPng } from '../../sprite-studio/runtime/png';
@@ -125,16 +125,22 @@ export function registerSpriteTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         }
 
         case 'asset': {
-          const file = input.path === undefined ? null : resolveInsideHome(paths, input.path);
-          if (file === null) return failure('That file is not inside Sprite Studio storage.');
+          const file =
+            input.path === undefined
+              ? null
+              : await resolveSpriteAsset(paths, input.path, realpath);
+          if (file === null) return failure('That file is not a Sprite Studio picture.');
           const bytes = await readFile(file).catch(() => null);
           if (bytes === null) return failure('That file no longer exists.');
           return image(bytes.toString('base64'), mediaTypeFor(file), path.basename(file));
         }
 
         case 'frame': {
-          const file = input.path === undefined ? null : resolveInsideHome(paths, input.path);
-          if (file === null) return failure('That frame is not inside Sprite Studio storage.');
+          const file =
+            input.path === undefined
+              ? null
+              : await resolveSpriteAsset(paths, input.path, realpath);
+          if (file === null) return failure('That frame is not a Sprite Studio picture.');
           const bytes = await readFile(file).catch(() => null);
           if (bytes === null) return failure('That frame no longer exists.');
           const frame = decodeIndexedPng(bytes);

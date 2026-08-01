@@ -24,6 +24,7 @@ import { createMediaProviderForRun } from './media/provider';
 import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { ExportRequests, isExportRequest } from './export-requests';
+import { resumePlannedAnimations } from '../sprite-studio/runtime/recover';
 import { SpriteQueue } from '../sprite-studio/runtime/queue';
 import { clearSpriteProblem, projectSpriteState, reportSpriteProblem } from '../sprite-studio/runtime/projection';
 import {
@@ -121,6 +122,14 @@ export class Coordinator {
       this.variants.enqueue(jobId);
     }
     await this.resumeAbandonedAnalyses();
+
+    // The same fault one directory over: an animation left `planned` was asked
+    // for, costs nothing yet, and has no job — the process died between the
+    // record being written and the job being queued, or closed while it was
+    // still waiting its turn. Nothing else ever looks at it again.
+    for (const planned of await resumePlannedAnimations(this.context.paths)) {
+      this.sprites.animate(planned.characterId, planned.animationId);
+    }
 
     await this.drain();
 

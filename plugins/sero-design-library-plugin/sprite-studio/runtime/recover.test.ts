@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
 import type { AnimationRecord, AnimationStatus, CharacterRecord } from '../shared/character';
-import { recoverUnfinishedAnimations } from './recover';
+import { recoverUnfinishedAnimations, resumePlannedAnimations } from './recover';
 import { readAnimation, writeAnimation, writeCharacter } from './store';
 
 /**
@@ -120,5 +120,40 @@ describe('recoverUnfinishedAnimations', () => {
         id === 'waiting' ? 'awaiting-frames' : id,
       );
     }
+  });
+});
+
+describe('resumePlannedAnimations', () => {
+  it('finds an animation that was asked for and never started', async () => {
+    // Written when the request landed, then the process died before the job
+    // was queued — or closed while it was still waiting its turn. Replay skips
+    // it because the record exists, and the settlement above ignores it because
+    // no job ever ran. Nothing else looks at it again.
+    await writeAnimation(paths, animation('a', 'planned'));
+
+    expect(await resumePlannedAnimations(paths)).toEqual([
+      { characterId: 'char1', animationId: 'a' },
+    ]);
+  });
+
+  it('leaves alone anything a job is or was working on', async () => {
+    // These are the settlement's business, and two of them have been paid for.
+    for (const [id, status] of [
+      ['a', 'generating'],
+      ['b', 'awaiting-review'],
+      ['c', 'ready'],
+      ['d', 'approved'],
+      ['e', 'failed'],
+    ] as const) {
+      await writeAnimation(paths, animation(id, status));
+    }
+
+    expect(await resumePlannedAnimations(paths)).toEqual([]);
+  });
+
+  it('does not resume one the user has deleted', async () => {
+    await writeAnimation(paths, { ...animation('a', 'planned'), deletedAt: 1 });
+
+    expect(await resumePlannedAnimations(paths)).toEqual([]);
   });
 });

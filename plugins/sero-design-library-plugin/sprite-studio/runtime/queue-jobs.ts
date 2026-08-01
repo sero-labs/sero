@@ -136,8 +136,20 @@ export async function runFix(runner: JobRunner, job: FixJob, signal: AbortSignal
 
   // Appends rather than replaces, so the version the user disliked survives
   // and a repair that came back worse is recoverable (D18).
+  //
+  // Which means a file of its own. The history entry below keeps the frame
+  // records as they were, and those records hold paths — so writing the redraw
+  // back over `<frameId>.png` made the kept version point at the new bytes and
+  // there was nothing to go back to.
   const previous = animation.frames;
-  const file = await writeFrame(runner.paths, character, animation.id, target.id, outcome.cells);
+  const file = await writeFrame(
+    runner.paths,
+    character,
+    animation.id,
+    target.id,
+    outcome.cells,
+    `r${target.provenance.repairs + outcome.attempts}`,
+  );
   await mutateAnimation(runner.paths, character.id, animation.id, (current) => ({
     ...current,
     history: [

@@ -70,6 +70,37 @@ export function isSpriteBody(body: { kind: string }): body is SpriteRequestBody 
   return body.kind.startsWith('sprite.');
 }
 
+/**
+ * Whether re-measuring this character would break frames that already exist.
+ *
+ * Measuring again rebuilds the palette from the picture, and every frame on
+ * disk is an indexed PNG carrying the palette it was written with. `readFrame`
+ * refuses a frame whose palette no longer matches its character — which is the
+ * check that makes the storage format's promise hold — so a re-measure with
+ * animations already built turns every one of them into a sequence that cannot
+ * be played, edited or exported. Nothing repaints them, and there is no way
+ * back: the old palette is gone with the record.
+ *
+ * So it is refused while any frames exist. Before that, and it happens
+ * constantly while a reference is being got right, it is free.
+ */
+async function hasBuiltFrames(paths: DesignLibraryPaths, characterId: string): Promise<boolean> {
+  const animations = await listAnimations(paths, characterId);
+  const built = animations.filter(
+    (animation) => animation.deletedAt === undefined && animation.frames.length > 0,
+  );
+  if (built.length === 0) return false;
+  await reportSpriteProblem(
+    paths,
+    built.length === 1
+      ? `${built[0]?.plan.name ?? 'An animation'} is already built from this character's colours, ` +
+          'so measuring it again would leave that sequence unplayable. Delete it first, or make a new character from the picture.'
+      : `${built.length} animations are already built from this character's colours, ` +
+          'so measuring it again would leave them unplayable. Delete them first, or make a new character from the picture.',
+  );
+  return true;
+}
+
 async function patchSettings(
   paths: DesignLibraryPaths,
   patch: Partial<SpriteStudioSettings>,
@@ -162,11 +193,13 @@ export async function applySpriteRequest(
     }
 
     case 'sprite.character.re-measure': {
+      if (await hasBuiltFrames(paths, body.characterId)) return;
       await remeasure(paths, body.characterId);
       break;
     }
 
     case 'sprite.character.set-cap': {
+      if (await hasBuiltFrames(paths, body.characterId)) return;
       await applyPaletteCap(paths, body.characterId, body.cap);
       break;
     }
@@ -361,6 +394,10 @@ export async function applySpriteRequest(
     case 'sprite.animation.approve': {
       const animation = await findAnimation(paths, body.animationId);
       if (animation === null) return;
+      // Only a finished sequence can be approved. Approval is the last gate
+      // before export, and taking it from any status let a failed animation —
+      // one with no frames at all — be recorded as approved.
+      if (animation.status !== 'ready') return;
       await mutateAnimation(paths, animation.characterId, animation.id, (current) => ({
         ...current,
         status: 'approved',

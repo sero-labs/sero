@@ -97,6 +97,15 @@ type Job =
 /** One job in flight, and what cancelling it matches on. */
 interface Run {
   controller: AbortController;
+  /**
+   * Settles when the run has actually stopped.
+   *
+   * Aborting is a request, not an event: the job is inside a provider call or a
+   * write when the signal fires, and it carries on until it reaches a point
+   * that checks. Shutdown has to wait for that point, or the process leaves
+   * while a frame is half written.
+   */
+  done: Promise<void>;
   characterId?: string;
   animationId?: string;
 }
@@ -117,6 +126,14 @@ export class SpriteQueue implements JobRunner {
   private nextTicket = 1;
   private readonly shutdown = new AbortController();
   private draining = false;
+  /**
+   * Set by `dispose`, and the reason `drain` consults it.
+   *
+   * Every run re-drains on its way out, so aborting the running jobs was not
+   * enough to stop the queue: the last one out started the next thing waiting,
+   * and the queue went on working after the app had been told to close.
+   */
+  private disposed = false;
 
   constructor(private readonly context: SpriteQueueContext) {}
 
@@ -189,12 +206,19 @@ export class SpriteQueue implements JobRunner {
     this.drop((job) => 'characterId' in job && job.characterId === characterId);
   }
 
-  /** Abort every run that matches, however many there are. */
+  /**
+   * Abort every run that matches, however many there are.
+   *
+   * The entry stays in the map until the run itself settles and removes it in
+   * its `finally`. Deleting it here made an aborted run invisible: a second
+   * cancel could not find it, the concurrency cap counted it as gone and
+   * started its replacement, and a purge that had already "cancelled"
+   * everything still had a job running that would write the character's files
+   * back after they had been removed.
+   */
   private stop(matches: (run: Run) => boolean): void {
-    for (const [ticket, run] of this.running) {
-      if (!matches(run)) continue;
-      run.controller.abort();
-      this.running.delete(ticket);
+    for (const run of this.running.values()) {
+      if (matches(run)) run.controller.abort();
     }
   }
 
@@ -206,13 +230,27 @@ export class SpriteQueue implements JobRunner {
     }
   }
 
+  /**
+   * Stop, and be stopped before this returns.
+   *
+   * Three things, and each one was missing: waiting work is dropped, or the
+   * next drain starts it; the flag is set before anything else, or a run
+   * settling mid-shutdown re-drains behind us; and the runs are awaited, so
+   * "disposed" means finished rather than merely asked to stop.
+   */
   async dispose(): Promise<void> {
+    this.disposed = true;
     this.shutdown.abort();
-    for (const run of this.running.values()) run.controller.abort();
-    this.running.clear();
+    this.waiting.length = 0;
+    const settling = [...this.running.values()].map((run) => {
+      run.controller.abort();
+      return run.done;
+    });
+    await Promise.allSettled(settling);
   }
 
   private push(job: Job): void {
+    if (this.disposed) return;
     this.waiting.push(job);
     void this.drain();
   }
@@ -239,31 +277,44 @@ export class SpriteQueue implements JobRunner {
   }
 
   private async drain(): Promise<void> {
-    if (this.draining) return;
+    if (this.draining || this.disposed) return;
     this.draining = true;
     try {
       const limit = await this.concurrency();
-      while (this.waiting.length > 0 && this.running.size < limit) {
+      // Read again after the await: settings are read from disk, and a dispose
+      // during that read would otherwise be overtaken by this loop.
+      while (!this.disposed && this.waiting.length > 0 && this.running.size < limit) {
         const job = this.waiting.shift();
         if (job === undefined) break;
-        void this.run(job);
+        this.run(job);
       }
     } finally {
       this.draining = false;
     }
   }
 
-  private async run(job: Job): Promise<void> {
+  private run(job: Job): void {
     const ticket = this.nextTicket++;
     const controller = new AbortController();
     // What this run is for, recorded beside it. Cancelling matches on these
     // rather than on a key, so a second job for the same animation is a second
     // entry and both are reachable.
-    this.running.set(ticket, {
+    //
+    // Registered before the work starts, and holding the promise the work runs
+    // on, so shutdown can wait for it. `done` is filled in below rather than
+    // here because the body removes this entry on its way out, and it must find
+    // it there to remove.
+    const entry: Run = {
       controller,
+      done: Promise.resolve(),
       ...('characterId' in job ? { characterId: job.characterId } : {}),
       ...('animationId' in job ? { animationId: job.animationId } : {}),
-    });
+    };
+    this.running.set(ticket, entry);
+    entry.done = this.carryOut(job, ticket, controller);
+  }
+
+  private async carryOut(job: Job, ticket: number, controller: AbortController): Promise<void> {
     const onAbort = (): void => controller.abort();
     this.shutdown.signal.addEventListener('abort', onAbort, { once: true });
 

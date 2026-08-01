@@ -70,3 +70,33 @@ export async function recoverUnfinishedAnimations(
 
   return { resumed, failed };
 }
+
+/**
+ * Animations that were asked for and never started.
+ *
+ * `planned` is written when the request lands, and the job is queued straight
+ * afterwards — so a process that died in between, or one that closed while the
+ * job was still waiting its turn behind the concurrency cap, leaves a record
+ * nothing is working on. It is invisible to the settlement above, which only
+ * looks at statuses a *running* job leaves behind, and invisible to the request
+ * log, whose replay skips an animation that already exists. It sits under
+ * "Planned" for ever.
+ *
+ * Resuming is safe rather than merely convenient: `runAnimate` sets
+ * `generating` before it reaches the provider, so anything still at `planned`
+ * has not been paid for. The same fault and the same repair as a Design variant
+ * left `pending` with no job.
+ */
+export async function resumePlannedAnimations(
+  paths: DesignLibraryPaths,
+): Promise<{ characterId: string; animationId: string }[]> {
+  const waiting: { characterId: string; animationId: string }[] = [];
+  for (const character of await listCharacters(paths)) {
+    for (const animation of await listAnimations(paths, character.id)) {
+      if (animation.deletedAt === undefined && animation.status === 'planned') {
+        waiting.push({ characterId: character.id, animationId: animation.id });
+      }
+    }
+  }
+  return waiting;
+}

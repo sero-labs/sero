@@ -55,21 +55,35 @@ export function alphaForeground(image: SourceImage): Foreground {
   return mask;
 }
 
-/** The commonest colour along the border: what the fill is spreading out of. */
+/**
+ * The commonest colour along the border: what the fill is spreading out of.
+ *
+ * All four edges. Counting the top and bottom rows alone read a tall picture
+ * from its two shortest sides — on a 62 × 136 reference that is under a third
+ * of the border — so a character reaching the top and the bottom could decide
+ * what the page colour was, and the fill then spread out of the character.
+ */
 export function borderColour(image: SourceImage): Rgb {
   const { width, height, data } = image;
   const at = (i: number): Rgb => [data[i * 4] ?? 0, data[i * 4 + 1] ?? 0, data[i * 4 + 2] ?? 0];
   const tally = new Map<string, number>();
-  for (let x = 0; x < width; x++)
-    for (const i of [x, (height - 1) * width + x]) {
-      const key = at(i).join();
-      tally.set(key, (tally.get(key) ?? 0) + 1);
-    }
+  const count = (i: number): void => {
+    const key = at(i).join();
+    tally.set(key, (tally.get(key) ?? 0) + 1);
+  };
+  for (let x = 0; x < width; x++) {
+    count(x);
+    count((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    count(y * width);
+    count(y * width + width - 1);
+  }
   let found: Rgb = [255, 255, 255];
   let most = 0;
-  for (const [key, count] of tally) {
-    if (count <= most) continue;
-    most = count;
+  for (const [key, tallied] of tally) {
+    if (tallied <= most) continue;
+    most = tallied;
     const parts = key.split(',').map(Number);
     found = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
   }
@@ -126,21 +140,31 @@ export function floodForeground(
     queue[tail++] = at;
   };
 
+  // Seed only the border pixels that look like the page.
+  //
+  // Taking every border pixel assumed the character never reaches the edge, and
+  // a picture cropped tight to its own artwork breaks that assumption on the
+  // first row: the fill starts *inside* the character and eats outwards. That
+  // is the same fault the alpha route exists to avoid, and it is worse here
+  // because there is no alpha channel to fall back to.
+  const seed = (at: number): void => {
+    if (background[at]) return;
+    const i = at * 4;
+    const strayed =
+      Math.abs((image.data[i] ?? 0) - page[0]) +
+      Math.abs((image.data[i + 1] ?? 0) - page[1]) +
+      Math.abs((image.data[i + 2] ?? 0) - page[2]);
+    if (strayed > reach) return;
+    background[at] = 1;
+    queue[tail++] = at;
+  };
   for (let x = 0; x < width; x++) {
-    for (const at of [x, (height - 1) * width + x]) {
-      if (!background[at]) {
-        background[at] = 1;
-        queue[tail++] = at;
-      }
-    }
+    seed(x);
+    seed((height - 1) * width + x);
   }
   for (let y = 0; y < height; y++) {
-    for (const at of [y * width, y * width + width - 1]) {
-      if (!background[at]) {
-        background[at] = 1;
-        queue[tail++] = at;
-      }
-    }
+    seed(y * width);
+    seed(y * width + width - 1);
   }
 
   while (head < tail) {

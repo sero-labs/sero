@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { enclosedBackground, floodForeground } from './key';
+import { borderColour, enclosedBackground, floodForeground } from './key';
 import type { SourceImage } from './types';
 
 /**
@@ -133,5 +133,65 @@ describe('finding background the fill cannot reach', () => {
     const found = enclosedBackground(image, floodForeground(image));
 
     expect(found.regions).toBe(2);
+  });
+});
+
+describe('a picture cropped tight to the artwork', () => {
+  /** A solid block filling the whole frame but for a one-pixel page margin. */
+  function tightCrop(): SourceImage {
+    const width = 20;
+    const height = 40;
+    const data = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        // The character reaches the left and right edges outright, and comes
+        // within one row of the top and bottom.
+        const page = y === 0 || y === height - 1;
+        const value = page ? PAGE : SHAPE;
+        const i = (y * width + x) * 4;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+        data[i + 3] = 255;
+      }
+    return { width, height, data };
+  }
+
+  it('reads the page colour from all four edges', () => {
+    // A tall picture whose top and bottom rows are the character and whose
+    // sides are the page. Read from the two short edges — 40 pixels of 240 —
+    // the page looks like the character's colour, and the fill would then
+    // spread out of the character. Read from all four it is plainly the page.
+    const width = 20;
+    const height = 100;
+    const data = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const value = y === 0 || y === height - 1 ? SHAPE : PAGE;
+        const i = (y * width + x) * 4;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+        data[i + 3] = 255;
+      }
+
+    expect(borderColour({ width, height, data })).toEqual([PAGE, PAGE, PAGE]);
+  });
+
+  it('is a known limit: a character on most of its own border is eaten', () => {
+    // Not fixed, and deliberately not. The page is found as the commonest
+    // border colour, so where the character holds most of the border the "page"
+    // is one of *his* colours and the fill spreads out of him. The obvious
+    // guard — refuse when the border does not agree well enough — was tried and
+    // measured against the real references: their exact modal share runs 0.12
+    // to 0.15, because JPEG noise makes almost every border pixel a slightly
+    // different value. A guard set anywhere above that would refuse to remove a
+    // background that plainly is one.
+    //
+    // This is why a picture that carries alpha uses it instead, and this test
+    // exists so the limit is written down rather than rediscovered.
+    const foreground = floodForeground(tightCrop());
+
+    expect(foreground[20 * 20 + 10]).toBe(0);
   });
 });

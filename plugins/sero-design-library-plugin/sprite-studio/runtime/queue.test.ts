@@ -137,3 +137,76 @@ describe('how many run at once', () => {
     expect(started.length).toBe(1);
   });
 });
+
+describe('shutting the queue down', () => {
+  it('does not start waiting work on the way out', async () => {
+    // Every run re-drains as it settles, so aborting the running jobs was not
+    // enough: the last one out started the next thing waiting, and the queue
+    // went on spending money after the app had been told to close.
+    queue.animate('char1', 'a');
+    queue.animate('char1', 'b');
+    queue.animate('char1', 'c');
+    queue.animate('char1', 'd');
+    await settle();
+    expect(started.length).toBe(3);
+
+    const closing = queue.dispose();
+    for (const release of parked) release();
+    await closing;
+    await settle();
+
+    expect(started.length).toBe(3);
+  });
+
+  it('waits for the running jobs rather than only asking them to stop', async () => {
+    // Aborting is a request, not an event: the job is inside a provider call or
+    // a write when the signal fires. A dispose that returned first left the
+    // process free to leave with a frame half written.
+    queue.animate('char1', 'a');
+    await settle();
+
+    let finished = false;
+    const closing = queue.dispose().then(() => {
+      finished = true;
+    });
+    await settle();
+    expect(finished).toBe(false);
+
+    for (const release of parked) release();
+    await closing;
+    expect(finished).toBe(true);
+  });
+
+  it('refuses new work once it is closing', async () => {
+    await queue.dispose();
+    queue.animate('char1', 'a');
+    await settle();
+
+    expect(started.length).toBe(0);
+  });
+});
+
+describe('a run that has been told to stop', () => {
+  it('still holds its slot until it has actually stopped', async () => {
+    // The entry used to be removed the moment it was aborted, so the cap
+    // counted it as gone. Queueing anything then drains, and the queue started
+    // a fourth paid call while three aborted-but-still-running jobs were in
+    // flight — four at once, against a cap of three.
+    queue.animate('char1', 'a');
+    queue.animate('char1', 'b');
+    queue.animate('char1', 'c');
+    await settle();
+    expect(started.length).toBe(3);
+
+    queue.cancelCharacter('char1');
+    queue.animate('char2', 'd');
+    await settle();
+
+    // Still three: the aborted runs have not settled, so there is no slot.
+    expect(started.length).toBe(3);
+
+    for (const release of parked) release();
+    await settle();
+    expect(started.length).toBe(4);
+  });
+});

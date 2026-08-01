@@ -7,10 +7,10 @@
  * handlers that touch pixels rather than records.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { DesignLibraryPaths } from '../../shared/paths';
+import { relativeToHome, type DesignLibraryPaths } from '../../shared/paths';
 import type { AnimationRecord, FrameRecord } from '../shared/character';
 import type { SpriteRequestBody } from '../shared/state';
 import { animationDir } from '../shared/paths';
@@ -48,9 +48,20 @@ export async function applyFrameRequest(
     case 'sprite.frame.duplicate': {
       const source = animation.frames.find((frame) => frame.id === body.frameId);
       if (source === undefined) return false;
+      // The request log is applied at-least-once, so a replay must not insert a
+      // second copy under the same id. Two frames with one id also means a hand
+      // edit reaching whichever the search finds first.
+      if (animation.frames.some((frame) => frame.id === body.newFrameId)) return false;
+
+      // Its own bytes, not the source's path. Sharing the file made the copy a
+      // second name for one picture: an edit to either was written to a file
+      // neither record pointed at, so it vanished — and deleting the source
+      // took the copy's picture with it.
+      const file = await copyFrameFile(paths, animation, source, body.newFrameId);
       const copy: FrameRecord = {
         ...source,
         id: body.newFrameId,
+        file,
         provenance: { ...source.provenance, createdAt: Date.now() },
       };
       await mutateAnimation(paths, animation.characterId, animation.id, (current) => {
@@ -127,10 +138,32 @@ async function writeHandEdit(
       frame.id === frameId
         ? {
             ...frame,
+            // The file this edit was actually written to. Leaving the old
+            // pointer in place is how an edit to a duplicated frame
+            // disappeared: the bytes went to `<frameId>.png` and the record
+            // went on naming the frame it was copied from.
+            file: relativeToHome(paths, file),
             provenance: { ...frame.provenance, kind: 'hand-edited', createdAt: Date.now() },
             findings: [],
           }
         : frame,
     ),
   }));
+}
+
+/** A duplicated frame's own copy of the picture. */
+async function copyFrameFile(
+  paths: DesignLibraryPaths,
+  animation: AnimationRecord,
+  source: FrameRecord,
+  newFrameId: string,
+): Promise<string> {
+  const file = path.join(
+    animationDir(paths, animation.characterId, animation.id),
+    'frames',
+    `${newFrameId}.png`,
+  );
+  await mkdir(path.dirname(file), { recursive: true });
+  await copyFile(path.join(paths.home, source.file), file);
+  return relativeToHome(paths, file);
 }
