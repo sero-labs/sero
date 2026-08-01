@@ -83,6 +83,7 @@ export {
   WORTH_KEEPING,
   durationsFor,
   extremesOf,
+  handPickedDurations,
   reachOf,
   thin,
   type ThinOptions,

@@ -27,6 +27,7 @@
  * single fixed threshold was rejected.
  */
 
+import type { LoopMode } from '../shared/character';
 import { frameDifference } from './align';
 import type { CellGrid } from './types';
 
@@ -159,6 +160,30 @@ export function durationsFor(
       cycleEnd === undefined ? sum(index, index + 1) : sum(index, ends) + sum(0, kept[0] ?? 0);
     return { index, durationMs: Math.max(1, Math.round(held)) };
   });
+}
+
+/**
+ * The timing of a set the user picked off the strip.
+ *
+ * Two places need it — the build, and the review screen that plays what the
+ * build will make — so it is one function rather than the same two arguments
+ * assembled twice. A preview that timed its frames differently from the builder
+ * would be a picture of an animation nobody is going to get.
+ *
+ * A cycle ends at the end of the clip, not at the end of the loop search's cut:
+ * the strip shows the whole clip and the cut is only a band drawn on it, so a
+ * user is free to keep a frame past it.
+ */
+export function handPickedDurations(
+  chosen: readonly number[],
+  sampleDurationsMs: readonly number[],
+  loop: LoopMode,
+): ThinnedFrame[] {
+  return durationsFor(
+    chosen.filter((index) => index >= 0 && index < sampleDurationsMs.length),
+    sampleDurationsMs,
+    loop === 'once' ? {} : { cycleEnd: sampleDurationsMs.length },
+  );
 }
 
 export function thin(

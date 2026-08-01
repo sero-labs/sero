@@ -88,7 +88,17 @@ export function AskDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/*
+          `min-w-0`, or the dialog is sized by its own content.
+
+          A dialog is a grid, and a grid item's automatic minimum size is its
+          min-content size. The plan row carries one line that must not wrap, so
+          its min-content is the whole sentence — about 740px — and the body
+          asked the dialog for that much. The dialog is capped, so the ask came
+          out as overflow instead: the row ran past the panel and the Edit button
+          went off the edge with it. Nothing here truncates until this is set.
+        */}
+        <div className="min-w-0 space-y-4">
           <Textarea
             rows={3}
             value={request}
@@ -148,9 +158,9 @@ export function AskDialog({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Chip>Stops after each animation for your approval</Chip>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

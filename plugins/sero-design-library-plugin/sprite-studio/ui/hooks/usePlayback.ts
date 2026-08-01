@@ -31,8 +31,14 @@ export interface Playback {
   cycleSpeed(): void;
 }
 
-export function usePlayback(durations: readonly number[], loop: LoopMode): Playback {
-  const [playing, setPlaying] = useState(false);
+export function usePlayback(
+  durations: readonly number[],
+  loop: LoopMode,
+  // The review screen opens on a clip that is already playing, and a sprite
+  // sitting still beside it reads as broken rather than as paused.
+  { autoPlay = false } = {},
+): Playback {
+  const [playing, setPlaying] = useState(autoPlay);
   const [elapsed, setElapsed] = useState(0);
   const [speed, setSpeed] = useState(1);
 

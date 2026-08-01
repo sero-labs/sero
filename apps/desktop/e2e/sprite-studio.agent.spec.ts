@@ -404,6 +404,18 @@ test('the clip stops at the review before anything is built', async () => {
   expect(previews.length).toBe(review!.sampleCount);
 
   await expect(panel.getByText(/\d+ of \d+ chosen/)).toBeVisible({ timeout: 60_000 });
+
+  // The take and the sprite, both playing. A clip that looks right at 480p can
+  // fall apart at 62 × 136, so the screen shows the thing that will be shipped
+  // beside the thing that was drawn.
+  await expect(panel.locator('video')).toBeVisible();
+  await expect(
+    panel.getByText(new RegExp(`^\\d+ / ${review!.proposed.length}$`)),
+  ).toBeVisible({ timeout: 60_000 });
+  // At the speed it will be built at, which is the clip's own. A flat rate here
+  // would be a preview of an animation nobody is going to get (D23).
+  await expect(panel.getByRole('combobox', { name: 'Speed' })).toHaveText(/As timed/);
+
   await shot('05-review.png');
 });
 

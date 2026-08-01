@@ -266,7 +266,9 @@ Your choice is remembered for next time.
 
 ### You choose the frames
 
-A video model draws the movement, and then **every clip stops for you before anything is built**. One screen shows the clip playing and, underneath it, every moment of it drawn as the sprite it would become — with the ones Sprite Studio would keep already marked. Click any frame to keep it or drop it, then press **Use these frames**.
+A video model draws the movement, and then **every clip stops for you before anything is built**. One screen shows two players side by side: the clip on the left, and on the right the frames you have kept, playing as the finished sprite. Underneath is every moment of the clip drawn as the sprite it would become, with the ones Sprite Studio would keep already marked. Click any frame to keep it or drop it — the sprite on the right changes as you do — then press **Use these frames**.
+
+The sprite plays at the speed it will be built at. You can slow it down, speed it up or change how it loops to look at it; those controls change what you see, not what gets made.
 
 Nothing on that screen costs money. The clip is already paid for, so changing the frames is free, and turning down a bad take here saves every redraw that would have followed. The two buttons that do spend money — drawing the clip again, with or without a changed instruction — say so beside themselves.
 

@@ -78,6 +78,15 @@ export interface AnimationSummary {
   review?: {
     sampleCount: number;
     proposed: number[];
+    /**
+     * The real time each sampled moment held.
+     *
+     * Here so the review can play the frames the user has chosen at the speed
+     * the build will give them. Without it the screen would have to invent a
+     * flat rate, and a preview that plays at a rate the sequence will not be
+     * built at is the one thing this screen must not do.
+     */
+    sampleDurationsMs: number[];
     loopWindow?: { from: number; to: number };
     previewDir: string;
     clipPath?: string;

@@ -25,6 +25,7 @@ import { ReviewPanel } from './ReviewPanel';
 const REVIEW: NonNullable<AnimationSummary['review']> = {
   sampleCount: 6,
   proposed: [0, 3, 5],
+  sampleDurationsMs: [40, 40, 40, 40, 40, 40],
   previewDir: 'characters/explorer/animations/a/samples',
   clipPath: 'characters/explorer/animations/a/clip/clip.mp4',
   proposedAt: 1,
@@ -45,14 +46,14 @@ const SUMMARY: AnimationSummary = {
   review: REVIEW,
 };
 
-function renderPanel(review = REVIEW) {
+function renderPanel(review = REVIEW, summary: Partial<AnimationSummary> = {}) {
   const onChoose = vi.fn();
   const onRedo = vi.fn();
   const onDiscard = vi.fn();
   const onOpenShelf = vi.fn();
   render(
     <ReviewPanel
-      summary={{ ...SUMMARY, review }}
+      summary={{ ...SUMMARY, ...summary, review }}
       review={review}
       characterName="Explorer"
       instruction="He cracks the whip out ahead of him."
@@ -100,6 +101,41 @@ describe('choosing the frames', () => {
     expect(screen.getByRole('button', { name: 'Frame 1' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Frame 2' }).getAttribute('aria-pressed')).toBe(
       'false',
+    );
+  });
+});
+
+describe('the frames playing beside the clip', () => {
+  it('plays what is chosen, and follows a change to it', async () => {
+    renderPanel();
+    // Three chosen, so three to play. The count is the transport's, not the
+    // strip's — the strip shows all six.
+    expect(screen.getByText('1 / 3')).toBeDefined();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Frame 2' }));
+    expect(screen.getByText('1 / 4')).toBeDefined();
+  });
+
+  it('starts at the speed the clip was drawn at, which is the speed it builds at', () => {
+    renderPanel();
+    // Not a rate this screen invented. A frame holds until the next one kept,
+    // and an evenly spaced preview would be a different animation from the one
+    // the button underneath builds.
+    expect(screen.getByRole('combobox', { name: 'Speed' }).textContent).toContain('As timed');
+  });
+
+  it('opens on the cycle the search found', () => {
+    renderPanel({ ...REVIEW, loopWindow: { from: 0, to: 4 } }, { loop: 'forward' });
+    expect(screen.getByRole('combobox', { name: 'How it plays' }).textContent).toContain('Loops');
+  });
+
+  it('does not offer a loop the build is not going to make', () => {
+    // Planned as a loop, but the search found no cycle in the clip — so the
+    // build falls back to playing once (D34). Opening on the plan would show a
+    // seamless loop that nobody is going to get.
+    renderPanel(REVIEW, { loop: 'forward' });
+    expect(screen.getByRole('combobox', { name: 'How it plays' }).textContent).toContain(
+      'Plays once',
     );
   });
 });

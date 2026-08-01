@@ -280,6 +280,7 @@ export function animationSummary(
           review: {
             sampleCount: animation.review.sampleCount,
             proposed: animation.review.proposed,
+            sampleDurationsMs: animation.review.sampleDurationsMs,
             ...(animation.review.loopWindow === undefined
               ? {}
               : { loopWindow: animation.review.loopWindow }),

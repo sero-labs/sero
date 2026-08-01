@@ -1,9 +1,10 @@
 import { Button, Textarea } from '@sero-ai/ui';
 import { RotateCcw, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import type { AnimationSummary } from '../../shared/state';
 import { useSpriteClip } from '../hooks/useSpriteAsset';
+import { LoopPreview } from './LoopPreview';
 import { Crumbs, DetailPanel, Field } from './PanelParts';
 import { SampleStrip } from './SampleStrip';
 
@@ -53,6 +54,13 @@ export function ReviewPanel({
   const [instruction, setInstruction] = useState('');
   const clip = useSpriteClip(review.clipPath);
   const enough = chosen.size >= LEAST_FRAMES;
+  // Source order, once. The preview plays this and the button sends this, so
+  // what the user watched is what gets built.
+  const order = useMemo(() => [...chosen].toSorted((a, b) => a - b), [chosen]);
+  // What the build will do, not what was planned. A forward loop needs a cycle
+  // the search actually found, and `loopWindow` is where it says so (D34).
+  const playsAs =
+    summary.loop === 'forward' && review.loopWindow === undefined ? 'once' : summary.loop;
 
   const toggle = (index: number): void =>
     setChosen((current) => {
@@ -73,25 +81,49 @@ export function ReviewPanel({
         />
 
         <div className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-          <div className="flex min-h-0 flex-1 items-center justify-center p-3">
-            {clip === null ? (
-              <p className="text-muted-foreground text-sm">Reading the clip.</p>
-            ) : (
-              // Muted and looping: this plays the moment the screen opens, and
-              // a clip that made a noise every time would be unusable.
-              // `h-full` rather than `max-h-full`: a 480p clip in a pane twice
-              // its height would otherwise sit at its own small intrinsic size,
-              // and this is the picture the take is being judged on.
-              <video
-                src={clip}
-                controls
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="h-full max-w-full rounded-md object-contain"
+          {/* The take and the sprite, side by side. Judging one from the other
+              is guesswork: the clip is 480p video of a character, and what gets
+              shipped is 62 × 136 indexed pixels of it. */}
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="text-muted-foreground border-border shrink-0 border-b px-3 py-1.5 text-xs font-medium tracking-wide uppercase">
+                The clip
+              </div>
+              <div className="flex min-h-0 flex-1 items-center justify-center p-3">
+                {clip === null ? (
+                  <p className="text-muted-foreground text-sm">Reading the clip.</p>
+                ) : (
+                  // Muted and looping: this plays the moment the screen opens,
+                  // and a clip that made a noise every time would be unusable.
+                  // `h-full` rather than `max-h-full`: a 480p clip in a pane
+                  // twice its height would otherwise sit at its own small
+                  // intrinsic size, and this is the picture the take is being
+                  // judged on.
+                  <video
+                    src={clip}
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="h-full max-w-full rounded-md object-contain"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-l">
+              <div className="text-muted-foreground border-border shrink-0 border-b px-3 py-1.5 text-xs font-medium tracking-wide uppercase">
+                The sprite
+              </div>
+              <LoopPreview
+                previewDir={review.previewDir}
+                version={review.proposedAt}
+                sampleDurationsMs={review.sampleDurationsMs}
+                canvas={summary.canvas}
+                chosen={order}
+                loop={playsAs}
               />
-            )}
+            </div>
           </div>
           <div className="border-border text-muted-foreground flex h-9 shrink-0 items-center gap-2 border-t px-3 text-sm">
             {chosen.size} of {review.sampleCount} chosen
@@ -122,11 +154,7 @@ export function ReviewPanel({
             {/* Sorted here as well as in the runtime. Order is source order by
                 decision, and a request that carried click order would be
                 relying on the far side to know that. */}
-            <Button
-              type="button"
-              disabled={!enough}
-              onClick={() => onChoose([...chosen].toSorted((a, b) => a - b))}
-            >
+            <Button type="button" disabled={!enough} onClick={() => onChoose([...order])}>
               {enough ? `Use these ${chosen.size} frames` : 'Keep at least two frames'}
             </Button>
             <Button

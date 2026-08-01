@@ -378,15 +378,24 @@ the user to look at the same clip twice.
 
 The runtime compiles every sampled moment, writes a small indexed preview of
 each, works out which it would keep, and stops at `awaiting-review`. The screen
-shows the clip playing, a filmstrip of every sample with the proposed ones
+shows two players side by side — the clip on the left, the chosen frames playing
+as the sprite on the right — a filmstrip of every sample with the proposed ones
 marked, and four ways out: use these frames, draw it again, draw it again with a
 changed instruction, or discard.
 
-Three things about it are load-bearing:
+Four things about it are load-bearing:
 
 - **The filmstrip shows the compiled sprite, not the video still.** A still is
   not what the sprite will look like, and judging a 480p video frame would be
   judging something we are not going to ship.
+- **The sprite player plays the build's own timing.** A frame holds until the
+  next one kept, so dropping a near-duplicate lengthens the frame before it
+  (D23) — an evenly spaced preview would be a different animation from the one
+  the button underneath makes. Both sides call `handPickedDurations`, so they
+  cannot drift apart, and the player opens on the loop mode the build will use
+  rather than the one that was planned: a forward loop is only offered where the
+  search found a real cycle (D34). Speed and loop mode are viewing controls and
+  change nothing that is built.
 - **The proposal comes out of the same call the build uses.** A second copy of
   the selection rule could drift, and accepting a proposal unchanged would then
   produce a different animation from the one shown.

@@ -16,7 +16,7 @@ import {
   checkAnimation,
   checkContinuity,
   compileAnimation,
-  durationsFor,
+  handPickedDurations,
   loopAdvice,
   loopClosure,
   rampIndex,
@@ -155,14 +155,12 @@ export function assemble(
             looping: mode !== 'once',
           },
         )
-      : durationsFor(
-          picked.filter((index) => index >= 0 && index < window.length),
+      : // The same call the review screen makes, so the sequence plays at the
+        // speed the user watched it at before pressing the button.
+        handPickedDurations(
+          picked,
           window.map((frame) => frame.durationMs),
-          // The whole reviewed sample, not the cut. The strip shows the entire
-          // clip and the cut is only a band drawn on it, so the cycle a
-          // hand-picked set belongs to is the clip — anything narrower drops
-          // the ticks between the cut and the last frame they kept.
-          mode === 'once' ? {} : { cycleEnd: window.length },
+          mode,
         );
   const kept = selected.map((frame) => ({ index: from + frame.index, durationMs: frame.durationMs }));
   if (kept.length === 0) return null;

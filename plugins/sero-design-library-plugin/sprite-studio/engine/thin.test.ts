@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MAX_FRAMES, durationsFor, extremesOf, thin } from './thin';
+import { MAX_FRAMES, durationsFor, extremesOf, handPickedDurations, thin } from './thin';
 import { TRANSPARENT, type CellGrid } from './types';
 
 /** A block `width` cells wide, so the silhouette changes by a known amount. */
@@ -118,5 +118,32 @@ describe('the time each kept frame holds', () => {
     // These indices come from a request, so they arrive in whatever order the
     // user clicked them in — and order is source order, by decision.
     expect(durationsFor([7, 0, 4, 4], durations).map((frame) => frame.index)).toEqual([0, 4, 7]);
+  });
+});
+
+describe('the timing a hand-picked set gets', () => {
+  const durations = Array.from({ length: 10 }, () => 100);
+
+  it('is the whole clip, for anything that repeats', () => {
+    // The review screen and the builder both call this, so a preview cannot
+    // play at one speed while the sequence is built at another. The cycle ends
+    // at the end of the clip, not at the last frame kept.
+    const held = handPickedDurations([2, 5], durations, 'forward');
+    expect(held.reduce((sum, frame) => sum + frame.durationMs, 0)).toBe(1000);
+    expect(handPickedDurations([2, 5], durations, 'pingpong')).toEqual(held);
+  });
+
+  it('is each frame until the next one, for a sequence that plays once', () => {
+    const held = handPickedDurations([2, 5], durations, 'once');
+    expect(held).toEqual([
+      { index: 2, durationMs: 300 },
+      { index: 5, durationMs: 100 },
+    ]);
+  });
+
+  it('ignores an index the clip does not have', () => {
+    // The indices come off a strip that is redrawn by a redo, so a stale one
+    // is possible and must not become a frame of nothing.
+    expect(handPickedDurations([1, 99, -1], durations, 'once').map((f) => f.index)).toEqual([1]);
   });
 });
