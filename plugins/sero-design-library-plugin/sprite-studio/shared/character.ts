@@ -52,6 +52,17 @@ export interface IngestionReport {
   /** How far the sprite sits from its own palette after the cap, ×1000. */
   residual: number;
   backgroundRemoved: boolean;
+  /**
+   * Background the drawing closed around, which a flood fill cannot reach.
+   *
+   * Zero for a picture that carries real transparency, because there the space
+   * is already transparent. Non-zero means the background was painted on, and
+   * the sheet offers to take the pockets out — it is offered rather than done,
+   * because white showing through a gap and white the artist drew are the same
+   * white (D7).
+   */
+  enclosedRegions?: number;
+  enclosedArtPixels?: number;
 }
 
 export interface CharacterRoot {
@@ -87,6 +98,8 @@ export interface CharacterRecord {
   root: CharacterRoot;
   /** What the AI must preserve, in words. Shown on the character sheet. */
   styleNotes: string;
+  /** Whether the user asked for enclosed background to be taken out. */
+  fillEnclosed?: boolean;
   ingestion: IngestionReport;
   /** The video model this character was last generated with (D29). */
   lastVideoModel?: string;

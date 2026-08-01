@@ -67,6 +67,7 @@ interface Measurement {
   sourceWidth: number;
   sourceHeight: number;
   backgroundRemoved: boolean;
+  enclosed: { regions: number; pixels: number };
 }
 
 interface Settled {
@@ -86,8 +87,12 @@ function backgroundFor(source: CharacterSource): 'magenta' | 'flood' {
   return source === 'text' ? 'magenta' : 'flood';
 }
 
-function measurePicture(image: SourceImage, source: CharacterSource): Measurement {
-  const recovered = recoverArtwork(image, { background: backgroundFor(source) });
+function measurePicture(
+  image: SourceImage,
+  source: CharacterSource,
+  fillEnclosed = false,
+): Measurement {
+  const recovered = recoverArtwork(image, { background: backgroundFor(source), fillEnclosed });
   if (recovered === null) {
     throw new Error('No character was found in that picture: all of it read as background.');
   }
@@ -112,6 +117,7 @@ function measurePicture(image: SourceImage, source: CharacterSource): Measuremen
     sharp: recovered.grid.sharp,
     sourceWidth: image.width,
     sourceHeight: image.height,
+    enclosed: recovered.enclosed,
     // Measured rather than assumed: part of the picture was not the character,
     // either because it lay outside the recovered box or because it left a hole
     // inside one.
@@ -201,6 +207,11 @@ async function settle(
       measuredColours: measurement.palette.length,
       residual: Math.round(residual * 1000),
       backgroundRemoved: measurement.backgroundRemoved,
+      enclosedRegions: measurement.enclosed.regions,
+      // Reported in the units the user is looking at, not in file pixels.
+      enclosedArtPixels: Math.round(
+        measurement.enclosed.pixels / Math.max(1, measurement.block * measurement.block),
+      ),
     },
   };
 }
@@ -261,7 +272,11 @@ async function rebuild(
     throw new Error(`${character.name} was not made from a picture, so there is nothing to measure.`);
   }
   const bytes = await readFile(path.join(paths.home, character.sourceFile));
-  const measurement = measurePicture(toSourceImage(bytes), character.source);
+  const measurement = measurePicture(
+    toSourceImage(bytes),
+    character.source,
+    character.fillEnclosed === true,
+  );
   const settled = await settle(paths, character.id, measurement, cap);
 
   const next: CharacterRecord = {
@@ -301,6 +316,23 @@ export async function applyPaletteCap(
   const character = await readCharacter(paths, characterId);
   if (character === null) return null;
   return rebuild(paths, character, cap);
+}
+
+/**
+ * Take the enclosed background out, or put it back.
+ *
+ * Both directions re-measure from the kept original, so this is a choice the
+ * user can change their mind about rather than an edit that loses the pockets
+ * for good.
+ */
+export async function fillEnclosed(
+  paths: DesignLibraryPaths,
+  characterId: string,
+  fill: boolean,
+): Promise<CharacterRecord | null> {
+  const character = await readCharacter(paths, characterId);
+  if (character === null) return null;
+  return rebuild(paths, { ...character, fillEnclosed: fill }, character.cap);
 }
 
 /** Measure the character again from its kept picture, keeping what the user set. */

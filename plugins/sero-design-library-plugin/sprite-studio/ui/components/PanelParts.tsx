@@ -65,11 +65,14 @@ export function ReportRow({
   found,
   note,
   tone = 'pass',
+  action,
 }: {
   check: string;
   found: string;
   note?: string;
   tone?: ReportTone;
+  /** For the one measurement the user is allowed to answer rather than read. */
+  action?: ReactNode;
 }) {
   return (
     <div className="border-border flex items-center gap-2.5 border-b px-3 py-1.5 text-sm last:border-b-0">
@@ -77,10 +80,15 @@ export function ReportRow({
       <ToneIcon tone={tone} />
       <span className="font-mono text-xs">{found}</span>
       {note !== undefined && (
-        <span className="text-muted-foreground ml-auto hidden truncate font-mono text-xs lg:block">
+        <span
+          className={`text-muted-foreground hidden truncate font-mono text-xs lg:block ${
+            action === undefined ? 'ml-auto' : 'ml-auto mr-2'
+          }`}
+        >
           {note}
         </span>
       )}
+      {action !== undefined && <span className={note === undefined ? 'ml-auto' : ''}>{action}</span>}
     </div>
   );
 }

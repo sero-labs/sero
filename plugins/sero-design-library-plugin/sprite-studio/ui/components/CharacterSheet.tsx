@@ -28,6 +28,7 @@ interface CharacterSheetProps {
   onAddAnimations(): void;
   onReMeasure(): void;
   onDiscard(): void;
+  onFillEnclosed(fill: boolean): void;
   /** Back to the shelf. Nothing else on this screen goes there. */
   onOpenShelf(): void;
 }
@@ -71,6 +72,7 @@ export function CharacterSheet({
   onReMeasure,
   onDiscard,
   onOpenShelf,
+  onFillEnclosed,
 }: CharacterSheetProps) {
   const { ingestion, root } = character;
 
@@ -162,6 +164,31 @@ export function CharacterSheet({
             }
             note="a painted-on checkerboard is not transparency"
           />
+          {/* Offered rather than done. The picture cannot say whether white
+              inside the outline is the page showing through a gap or paint the
+              artist put there, so the choice is the user's — and it is a
+              choice, not an edit: both directions measure again from the
+              original. */}
+          {(ingestion.enclosedRegions ?? 0) > 0 && (
+            <ReportRow
+              check="Background inside the drawing"
+              found={`${ingestion.enclosedRegions} pockets · about ${ingestion.enclosedArtPixels} pixels`}
+              note={
+                character.fillEnclosed === true ? 'taken out' : 'kept, because it may be drawn'
+              }
+              tone={character.fillEnclosed === true ? 'pass' : 'warn'}
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onFillEnclosed(character.fillEnclosed !== true)}
+                >
+                  {character.fillEnclosed === true ? 'Put it back' : 'Take it out'}
+                </Button>
+              }
+            />
+          )}
           <ReportRow
             check="Foot line"
             found={`row ${root.footRow}, centre x ${root.centreCol}`}

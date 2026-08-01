@@ -33,7 +33,7 @@ import type {
   SpriteStudioSettings,
 } from '../shared/state';
 import { animationDir } from '../shared/paths';
-import { applyPaletteCap, ingestCharacter, remeasure } from './ingest';
+import { applyPaletteCap, fillEnclosed, ingestCharacter, remeasure } from './ingest';
 import { applyFrameRequest, isFrameRequest } from './requests-frames';
 import {
   clearSpriteProblem,
@@ -196,6 +196,11 @@ export async function applySpriteRequest(
         ...character,
         styleNotes: body.notes.trim().slice(0, 2000),
       }));
+      break;
+    }
+
+    case 'sprite.character.fill-enclosed': {
+      await fillEnclosed(paths, body.characterId, body.fill);
       break;
     }
 

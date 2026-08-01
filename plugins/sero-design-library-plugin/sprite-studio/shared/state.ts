@@ -202,6 +202,13 @@ export type SpriteRequestBody =
   | { kind: 'sprite.character.rename'; characterId: string; name: string }
   | { kind: 'sprite.character.set-export-scale'; characterId: string; scale: number }
   | { kind: 'sprite.character.set-style-notes'; characterId: string; notes: string }
+  /**
+   * Take out background the drawing closed around, or put it back.
+   *
+   * Re-measures from the kept original either way, so it is a choice rather
+   * than a one-way edit — the same shape as capping the palette (D17).
+   */
+  | { kind: 'sprite.character.fill-enclosed'; characterId: string; fill: boolean }
   /** The first checkpoint. Nothing is generated until this lands (D5). */
   | { kind: 'sprite.character.approve'; characterId: string }
   | { kind: 'sprite.character.favourite'; characterId: string; favourite: boolean }
@@ -309,6 +316,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.character.rename',
   'sprite.character.set-export-scale',
   'sprite.character.set-style-notes',
+  'sprite.character.fill-enclosed',
   'sprite.character.approve',
   'sprite.character.favourite',
   'sprite.character.delete',

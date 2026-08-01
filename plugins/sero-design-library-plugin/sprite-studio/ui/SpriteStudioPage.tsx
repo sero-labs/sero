@@ -221,6 +221,7 @@ export function SpriteStudioPage() {
           actions.open(undefined);
         }}
         onOpenShelf={() => actions.open(undefined)}
+        onFillEnclosed={(fill) => void actions.fillEnclosed(characterId, fill)}
       />
     );
 

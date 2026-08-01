@@ -12,7 +12,14 @@
  * on no grid at all says so instead of producing a plausible wrong answer.
  */
 
-import { alphaForeground, floodForeground, hasAlpha, keepLargestBody, keyForeground } from './key';
+import {
+  alphaForeground,
+  enclosedBackground,
+  floodForeground,
+  hasAlpha,
+  keepLargestBody,
+  keyForeground,
+} from './key';
 import type { Foreground, Rgb, SourceImage } from './types';
 import { TRANSPARENT } from './types';
 
@@ -193,6 +200,8 @@ export function detectArtGrid(
 
 export interface RecoveredArtwork {
   grid: ArtGrid;
+  /** Background pockets the fill could not reach, whether or not they were taken. */
+  enclosed: { regions: number; pixels: number };
   cols: number;
   rows: number;
   /** One palette index per art pixel, `TRANSPARENT` outside the character. */
@@ -211,9 +220,19 @@ export interface RecoverOptions {
   merge?: number;
   /** A cell needs this share of its area drawn to be part of the sprite. */
   coverage?: number;
+  /**
+   * Take out background the drawing has closed around — the inside of a coiled
+   * whip, the gap between an arm and a body. Off by default, because a picture
+   * with a painted-on background cannot say whether white inside the outline is
+   * the page showing through or paint the artist put there (D7).
+   */
+  fillEnclosed?: boolean;
 }
 
-function foregroundOf(image: SourceImage, options: RecoverOptions): Foreground {
+function foregroundOf(
+  image: SourceImage,
+  options: RecoverOptions,
+): { foreground: Foreground; enclosed: { regions: number; pixels: number } } {
   // A picture that carries alpha has already answered the question, and its
   // answer is exact. Only a picture with no transparency in it needs the fill,
   // which is a guess by comparison — and a wrong one for a sprite cropped
@@ -224,7 +243,14 @@ function foregroundOf(image: SourceImage, options: RecoverOptions): Foreground {
       : hasAlpha(image)
         ? alphaForeground(image)
         : floodForeground(image);
-  return keepLargestBody(keyed, image.width, image.height).foreground;
+  const body = keepLargestBody(keyed, image.width, image.height).foreground;
+  // Always measured, so the sheet can offer the choice; only applied when the
+  // choice has been made.
+  const pockets = enclosedBackground(image, body);
+  if (options.fillEnclosed === true) {
+    for (let i = 0; i < body.length; i++) if (pockets.mask[i] === 1) body[i] = 0;
+  }
+  return { foreground: body, enclosed: { regions: pockets.regions, pixels: pockets.pixels } };
 }
 
 /**
@@ -237,7 +263,7 @@ function foregroundOf(image: SourceImage, options: RecoverOptions): Foreground {
 export function recoverArtwork(image: SourceImage, options: RecoverOptions): RecoveredArtwork | null {
   const merge = options.merge ?? 24;
   const coverage = options.coverage ?? 0.5;
-  const foreground = foregroundOf(image, options);
+  const { foreground, enclosed } = foregroundOf(image, options);
 
   let minX = image.width;
   let minY = image.height;
@@ -311,5 +337,5 @@ export function recoverArtwork(image: SourceImage, options: RecoverOptions): Rec
       cells[ry * cols + rx] = index;
     }
 
-  return { grid, cols, rows, cells, palette };
+  return { grid, enclosed, cols, rows, cells, palette };
 }

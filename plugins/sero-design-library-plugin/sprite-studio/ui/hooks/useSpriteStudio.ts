@@ -64,6 +64,8 @@ export interface SpriteActions {
   renameCharacter(characterId: string, name: string): Promise<void>;
   setExportScale(characterId: string, scale: number): Promise<void>;
   setStyleNotes(characterId: string, notes: string): Promise<void>;
+  /** Take the enclosed background out of the sprite, or put it back. */
+  fillEnclosed(characterId: string, fill: boolean): Promise<void>;
   approveCharacter(characterId: string): Promise<void>;
   favourite(characterId: string, favourite: boolean): Promise<void>;
   deleteCharacter(characterId: string): Promise<void>;
@@ -175,6 +177,8 @@ export function useSpriteStudio(): SpriteStudio {
         send({ kind: 'sprite.character.set-export-scale', characterId, scale }),
       setStyleNotes: (characterId, notes) =>
         send({ kind: 'sprite.character.set-style-notes', characterId, notes }),
+      fillEnclosed: (characterId, fill) =>
+        send({ kind: 'sprite.character.fill-enclosed', characterId, fill }),
       approveCharacter: (characterId) => send({ kind: 'sprite.character.approve', characterId }),
       favourite: (characterId, favourite) =>
         send({ kind: 'sprite.character.favourite', characterId, favourite }),

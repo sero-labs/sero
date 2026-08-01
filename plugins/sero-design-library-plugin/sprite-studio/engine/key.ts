@@ -12,7 +12,7 @@
  *    region the character encloses — the whites of the eyes — is not eaten.
  */
 
-import type { Foreground, SourceImage } from './types';
+import type { Foreground, Rgb, SourceImage } from './types';
 
 export const MAGENTA: readonly [number, number, number] = [255, 0, 255];
 
@@ -118,6 +118,99 @@ export function floodForeground(image: SourceImage, { tolerance = 40 } = {}): Fo
     foreground[i] = !background[i] && opaque ? 1 : 0;
   }
   return foreground;
+}
+
+export interface EnclosedBackground {
+  /** True where a pixel is background the fill could not get to. */
+  mask: Uint8Array;
+  /** How many separate pockets there are. */
+  regions: number;
+  pixels: number;
+}
+
+/**
+ * Background the drawing has closed around — and why it cannot be assumed.
+ *
+ * A flood fill enters from the border, so it never reaches the inside of a
+ * coiled whip or the gap between an arm and a body. In a file with real
+ * transparency that space is already transparent and none of this arises. In a
+ * picture whose background was **painted on**, those pockets survive as solid
+ * paint, and the sprite comes out with holes filled in.
+ *
+ * They are found here and removed only when asked, because the picture cannot
+ * say which they are: white showing through a gap and white the artist drew are
+ * the same white. Measured on a real reference the pockets ran 30, 27, 11, 7,
+ * 7, 6, 4, 4, 4, 3, 3 and 2 art pixels — the whip's coil at one end and
+ * something eye-sized at the other, with nothing in between to cut on. So the
+ * user is shown what there is and decides (D7).
+ */
+export function enclosedBackground(
+  image: SourceImage,
+  foreground: Foreground,
+  { tolerance = 40 } = {},
+): EnclosedBackground {
+  const { width, height, data } = image;
+  const total = width * height;
+  const mask = new Uint8Array(total);
+
+  // The background's own colour, taken from the border it was flooded from.
+  const tally = new Map<string, number>();
+  const colourAt = (i: number): Rgb => [
+    data[i * 4] ?? 0,
+    data[i * 4 + 1] ?? 0,
+    data[i * 4 + 2] ?? 0,
+  ];
+  for (let x = 0; x < width; x++)
+    for (const i of [x, (height - 1) * width + x]) {
+      const key = colourAt(i).join();
+      tally.set(key, (tally.get(key) ?? 0) + 1);
+    }
+  let border: Rgb = [255, 255, 255];
+  let most = 0;
+  for (const [key, count] of tally) {
+    if (count <= most) continue;
+    most = count;
+    const parts = key.split(',').map(Number);
+    border = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+  }
+
+  const looksLikeBackground = (i: number): boolean => {
+    if (!foreground[i]) return false;
+    const [r, g, b] = colourAt(i);
+    return (
+      Math.abs(r - border[0]) + Math.abs(g - border[1]) + Math.abs(b - border[2]) <= tolerance
+    );
+  };
+
+  // Every pocket is enclosed by construction: a border pixel is always seeded
+  // as background by the fill, so it can never be foreground and never lands
+  // here.
+  let regions = 0;
+  let pixels = 0;
+  const queue: number[] = [];
+  const visit = (at: number): void => {
+    if (mask[at] === 1 || !looksLikeBackground(at)) return;
+    mask[at] = 1;
+    pixels += 1;
+    queue.push(at);
+  };
+
+  for (let start = 0; start < total; start++) {
+    if (mask[start] === 1 || !looksLikeBackground(start)) continue;
+    regions += 1;
+    visit(start);
+    while (queue.length > 0) {
+      const at = queue.pop() ?? 0;
+      const x = at % width;
+      const y = (at - x) / width;
+      if (x > 0) visit(at - 1);
+      if (x < width - 1) visit(at + 1);
+      if (y > 0) visit(at - width);
+      if (y < height - 1) visit(at + width);
+    }
+  }
+
+  return { mask, regions, pixels };
 }
 
 /**
