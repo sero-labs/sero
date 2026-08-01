@@ -29,6 +29,14 @@ const MAX_BLOCK = 16;
  * for artwork that plainly has one.
  */
 const SHARE_FLOOR = 0.85;
+/**
+ * How much better than chance a *tolerant* match must still be.
+ *
+ * The exact test needs no such rule, because landing on one exact phase of a
+ * grid is already unlikely. Allowing a pixel either side is not: at a cell size
+ * of 2 it allows everything. This is what keeps the rescue honest.
+ */
+const TOLERANT_LIFT = 2;
 
 export interface ArtGrid {
   /** File pixels per art pixel. 1 means the file is already at art size. */
@@ -37,6 +45,17 @@ export interface ArtGrid {
   lift: number;
   phaseX: number;
   phaseY: number;
+  /**
+   * Whether the edges landed on the grid exactly, or had to be allowed a pixel.
+   *
+   * A picture saved by almost anything real — an image host, a screenshot tool,
+   * an editor that resampled on the way out — has block boundaries a pixel
+   * wide rather than infinitely sharp, so every edge is found twice, once each
+   * side. Those files are ordinary pixel art and are read by the tolerant pass;
+   * this says which pass answered, so the character sheet can be honest about
+   * it rather than presenting a rescue as a clean measurement.
+   */
+  sharp: boolean;
 }
 
 function edgesOf(
@@ -61,14 +80,30 @@ function edgesOf(
   return { x, y };
 }
 
-/** What share of edges land on the best single phase of a grid of `block`. */
-function alignment(edges: number[], block: number): { share: number; phase: number } {
+/**
+ * What share of edges land on the best single phase of a grid of `block`.
+ *
+ * With `slack`, an edge one pixel to either side still counts. That is not a
+ * loosening for its own sake: a block boundary that has been softened — by a
+ * resample, by an image host, by anything that did not preserve hard steps — is
+ * found twice, once each side of where it belongs. Both detections are the same
+ * edge, and demanding they land on the same pixel throws away artwork that is
+ * plainly on a grid.
+ */
+function alignment(
+  edges: number[],
+  block: number,
+  slack = 0,
+): { share: number; phase: number } {
   if (edges.length === 0) return { share: 0, phase: 0 };
   let best = 0;
   let phase = 0;
   for (let candidate = 0; candidate < block; candidate++) {
     let hits = 0;
-    for (const edge of edges) if ((edge - candidate) % block === 0) hits++;
+    for (const edge of edges) {
+      const off = (((edge - candidate) % block) + block) % block;
+      if (off <= slack || off >= block - slack) hits++;
+    }
     if (hits > best) {
       best = hits;
       phase = candidate;
@@ -103,24 +138,56 @@ export function detectArtGrid(
   box: { minX: number; minY: number; maxX: number; maxY: number },
 ): ArtGrid {
   const edges = edgesOf(image, box);
-  let block = 1;
-  let share = 1;
-  for (let candidate = 2; candidate <= MAX_BLOCK; candidate++) {
-    const across = alignment(edges.x, candidate);
-    const down = alignment(edges.y, candidate);
-    const both = Math.min(across.share, down.share);
-    if (both >= SHARE_FLOOR) {
-      block = candidate;
-      share = both;
+
+  /**
+   * The largest cell size where essentially all edges land on one phase.
+   *
+   * With slack, a candidate also has to beat chance by a real margin. A pixel
+   * either side of a grid of 2 is every pixel there is, so a tolerant test
+   * without this passes at 2 for artwork that is already at its true size —
+   * and halves the character, losing every other pixel of it.
+   */
+  const largestFitting = (slack: number): number => {
+    const window = 2 * slack + 1;
+    let found = 1;
+    for (let candidate = 2; candidate <= MAX_BLOCK; candidate++) {
+      const across = alignment(edges.x, candidate, slack);
+      const down = alignment(edges.y, candidate, slack);
+      const share = Math.min(across.share, down.share);
+      if (share < SHARE_FLOOR) continue;
+      const chance = Math.min(1, window / candidate);
+      if (share / chance < TOLERANT_LIFT) continue;
+      found = candidate;
     }
-  }
+    return found;
+  };
+
+  // Exact first, because a file with hard edges deserves the exact answer and
+  // gives it. Only when that finds nothing is the pixel of slack allowed, and
+  // the result is marked as the rescue it is.
+  let block = largestFitting(0);
+  const sharp = block > 1;
+  if (!sharp) block = largestFitting(1);
+
+  // Reported the way the evidence states it: how much better than chance the
+  // edges line up **exactly**, whichever pass found the grid. A rescued file
+  // scores lower here by construction, and that is the point — the number says
+  // how sharp the picture was, not how hard we looked.
+  const across = alignment(edges.x, block);
+  const down = alignment(edges.y, block);
+  const exact = Math.min(across.share, down.share);
+  // Phases come from the pass that found it, or a rescued grid would be
+  // aligned to whichever side of its soft edges happened to win.
+  const phases = sharp
+    ? { x: across.phase, y: down.phase }
+    : { x: alignment(edges.x, block, 1).phase, y: alignment(edges.y, block, 1).phase };
+
   return {
     block,
-    // Reported the way the evidence states it: how much better than chance the
-    // edges line up. A grid of 8 that holds perfectly is 8× better than chance.
-    lift: block === 1 ? 0 : share * block,
-    phaseX: alignment(edges.x, block).phase,
-    phaseY: alignment(edges.y, block).phase,
+    lift: block === 1 ? 0 : exact * block,
+    phaseX: phases.x,
+    phaseY: phases.y,
+    sharp,
   };
 }
 

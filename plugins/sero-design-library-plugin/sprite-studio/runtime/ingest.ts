@@ -62,6 +62,8 @@ interface Measurement {
   palette: Rgb[];
   block: number;
   lift: number;
+  /** False when the grid was recovered from softened edges rather than read. */
+  sharp: boolean;
   sourceWidth: number;
   sourceHeight: number;
   backgroundRemoved: boolean;
@@ -107,6 +109,7 @@ function measurePicture(image: SourceImage, source: CharacterSource): Measuremen
     palette,
     block: recovered.grid.block,
     lift: recovered.grid.lift,
+    sharp: recovered.grid.sharp,
     sourceWidth: image.width,
     sourceHeight: image.height,
     // Measured rather than assumed: part of the picture was not the character,
@@ -192,6 +195,7 @@ async function settle(
     ingestion: {
       block: measurement.block,
       lift: measurement.lift,
+      sharp: measurement.sharp,
       sourceWidth: measurement.sourceWidth,
       sourceHeight: measurement.sourceHeight,
       measuredColours: measurement.palette.length,

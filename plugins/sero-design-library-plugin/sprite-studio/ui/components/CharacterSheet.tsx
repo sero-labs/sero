@@ -135,11 +135,23 @@ export function CharacterSheet({
         </div>
 
         <Report>
+          {/* A grid read straight off a sharp file and one recovered from a
+              softened one are both usable, and they are not the same thing.
+              Saying which happened is what lets a surprising measurement be
+              understood instead of doubted. */}
           <ReportRow
             check="Art grid found"
-            found={`${ingestion.block} file pixels per art pixel`}
-            note={`edges land on the grid ${ingestion.lift.toFixed(1)}× more often than chance`}
-            tone={ingestion.lift >= 2 ? 'pass' : 'warn'}
+            found={
+              ingestion.sharp === false
+                ? `${ingestion.block} file pixels per art pixel · recovered`
+                : `${ingestion.block} file pixels per art pixel`
+            }
+            note={
+              ingestion.sharp === false
+                ? 'the edges are soft, so the grid was found by allowing them a pixel'
+                : `edges land on the grid ${ingestion.lift.toFixed(1)}× more often than chance`
+            }
+            tone={ingestion.block === 1 ? 'warn' : 'pass'}
           />
           <ReportRow
             check="Background"

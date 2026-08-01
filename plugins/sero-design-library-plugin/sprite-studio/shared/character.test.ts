@@ -42,22 +42,23 @@ function character(overrides: Partial<CharacterRecord> = {}): CharacterRecord {
   };
 }
 
-describe('a reference whose pixel grid has been destroyed', () => {
-  it('refuses it, and says what to do about it', () => {
-    // The real numbers from a JPEG of the Explorer: no grid found, and the
-    // "artwork" measured at the size of the file. The same picture as a PNG
-    // measures 62 × 136 at 8× with 66 colours.
+describe('a picture that is not enlarged pixel art at all', () => {
+  it('refuses it, without blaming the file format', () => {
+    // Reaching this means no grid was found at either tolerance. It used to
+    // blame JPEG and ask for a PNG; both were wrong, and a user who only ever
+    // had a JPEG was sent looking for a file that did not exist.
     const problem = characterProblem(
       character({
-        artWidth: 493,
-        artHeight: 1084,
+        artWidth: 900,
+        artHeight: 1400,
         exportScale: 1,
         ingestion: {
           block: 1,
           lift: 0,
-          sourceWidth: 784,
-          sourceHeight: 1168,
-          measuredColours: 231,
+          sharp: false,
+          sourceWidth: 900,
+          sourceHeight: 1400,
+          measuredColours: 40000,
           residual: 0,
           backgroundRemoved: true,
         },
@@ -65,9 +66,10 @@ describe('a reference whose pixel grid has been destroyed', () => {
     );
 
     expect(problem).not.toBeNull();
-    expect(problem).toMatch(/JPEG or has been resized/);
+    expect(problem).not.toMatch(/JPEG/);
+    expect(problem).not.toMatch(/PNG/);
     // The size it measured, so the user can see for themselves how wrong it is.
-    expect(problem).toMatch(/493 × 1084/);
+    expect(problem).toMatch(/900 × 1400/);
   });
 
   it('allows real pixel art that is already at its true size', () => {

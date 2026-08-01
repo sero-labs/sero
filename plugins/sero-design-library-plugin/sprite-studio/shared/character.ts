@@ -38,6 +38,13 @@ export interface IngestionReport {
   /** File pixels per art pixel, and how much better than chance that lines up. */
   block: number;
   lift: number;
+  /**
+   * Whether the edges landed on the grid exactly, or the measurement had to
+   * allow them a pixel either side. False means the picture had softened
+   * boundaries — an ordinary saved file — and the grid was recovered rather
+   * than read straight off.
+   */
+  sharp?: boolean;
   sourceWidth: number;
   sourceHeight: number;
   /** Colours before any cap was applied. */
@@ -282,15 +289,20 @@ export function characterProblem(character: CharacterRecord): string | null {
   }
   // A picture with no grid **and** no plausible sprite size in it. Pixel art
   // drawn at its true size is small and lands here legitimately; a 1084 pixel
-  // character does not. The usual cause is a JPEG or a resized copy, both of
-  // which destroy the grid before Sprite Studio ever sees the file — and
-  // nothing downstream can put it back.
+  // character does not.
+  //
+  // This used to blame the file format and ask for a PNG. Both were wrong: a
+  // JPEG of the same artwork measures perfectly, and the softened edges that
+  // really cause it are now read by the tolerant pass. Reaching this means no
+  // grid was found at either tolerance, so the picture is not enlarged pixel
+  // art at all — a photograph, a painting, or artwork drawn at this size.
   if (character.ingestion.block === 1 && character.artHeight > LARGEST_SPRITE) {
     return (
-      `No pixel grid was found in this picture, and the artwork measures ` +
-      `${character.artWidth} × ${character.artHeight}, which is far too big for a sprite. ` +
-      'That happens when the file is a JPEG or has been resized — both smear the hard ' +
-      'edges the grid is measured from, and neither can be undone. Use the original PNG.'
+      `No pixel grid was found in this picture at any cell size, and the artwork measures ` +
+      `${character.artWidth} × ${character.artHeight} — far too big to be a sprite. ` +
+      'Sprite Studio works on pixel art, drawn small and enlarged. If this is pixel art, ' +
+      'it has been through something that lost the grid entirely; try the file it was ' +
+      'exported from.'
     );
   }
   return null;
