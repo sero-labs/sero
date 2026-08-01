@@ -46,7 +46,9 @@ function Pane({
         <span className="ml-auto font-mono text-xs">{tagline}</span>
       </div>
       <div
-        className="grid min-h-0 flex-1 place-items-center overflow-hidden p-4"
+        // `relative` is what the source picture is shrunk against; see the note
+        // in SpritePixels about why a percentage needs something definite here.
+        className="relative grid min-h-0 flex-1 place-items-center overflow-hidden p-4"
         style={checkered === true ? CHECKER_STYLE : undefined}
       >
         {children}

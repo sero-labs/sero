@@ -53,8 +53,23 @@ export function SpritePixels({
   style,
 }: SpritePixelsProps) {
   const src = useSpriteAsset(path, version);
+  // Taken out of the flow to be shrunk.
+  //
+  // `max-height: 100%` alone does nothing here, and it looks like it should:
+  // the box the picture sits in is a content-sized grid area, so its height
+  // depends on the picture and the picture's height would depend on the box.
+  // The browser resolves that circle by ignoring the percentage, and a tall
+  // reference — 496 × 1088 — then rendered at 1060 in a 646 box and had its
+  // legs cut off. Positioning against the box gives the percentage something
+  // definite to be a percentage of.
   const size = fit
-    ? { maxWidth: '100%', maxHeight: '100%' }
+    ? ({
+        position: 'absolute',
+        inset: 0,
+        margin: 'auto',
+        maxWidth: '100%',
+        maxHeight: '100%',
+      } as const)
     : { width: cols * scale, height: rows * scale };
 
   // The box is held at full size before the bytes arrive, so a strip does not
