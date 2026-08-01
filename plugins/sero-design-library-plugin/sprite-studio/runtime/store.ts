@@ -27,6 +27,7 @@ import {
   frameFile,
 } from '../shared/paths';
 import { decodeIndexedPng, encodeIndexedPng, palettesMatch } from './png';
+import { CLIP_SECONDS } from './video';
 import { fromHex, toHex } from '../engine/colour';
 import type { CellGrid, Palette } from '../engine/types';
 
@@ -206,7 +207,6 @@ export async function readFrame(
 export function characterSummary(
   character: CharacterRecord,
   animations: AnimationRecord[],
-  favourite: boolean,
 ): CharacterSummary {
   return {
     id: character.id,
@@ -219,14 +219,28 @@ export function characterSummary(
     palette: character.palette,
     animationCount: animations.filter((animation) => animation.deletedAt === undefined).length,
     awaitingApproval: animations.filter((animation) => animation.status === 'ready').length,
-    favourite,
+    // Off the record, not off the previous projection. The projection is
+    // rebuilt from the records after every change, so a flag held only in state
+    // is cleared by the next thing that happens.
+    favourite: character.favourite === true,
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
     ...(character.deletedAt === undefined ? {} : { deletedAt: character.deletedAt }),
   };
 }
 
-export function animationSummary(animation: AnimationRecord): AnimationSummary {
+/**
+ * How many frames to pull out of a clip.
+ *
+ * The runtime has no codecs, so it cannot ask the clip how long it is. This is
+ * the ceiling; the page samples whichever is smaller, this or what the clip
+ * actually holds.
+ */
+export function samplesPerClip(sampleFps: number): number {
+  return Math.round(CLIP_SECONDS * Math.max(1, sampleFps)) + 1;
+}
+
+export function animationSummary(animation: AnimationRecord, sampleFps: number): AnimationSummary {
   return {
     id: animation.id,
     characterId: animation.characterId,
@@ -243,5 +257,16 @@ export function animationSummary(animation: AnimationRecord): AnimationSummary {
     updatedAt: animation.updatedAt,
     ...(animation.error === undefined ? {} : { error: animation.error }),
     ...(animation.approvedAt === undefined ? {} : { approvedAt: animation.approvedAt }),
+    // The whole second half of an animation hangs off this. Without it the
+    // clip is paid for, stored, and never opened by anything.
+    ...(animation.status === 'awaiting-frames' && animation.clipFile !== undefined
+      ? {
+          awaitingFrames: {
+            clipPath: animation.clipFile,
+            sampleFps,
+            expectedFrames: samplesPerClip(sampleFps),
+          },
+        }
+      : {}),
   };
 }

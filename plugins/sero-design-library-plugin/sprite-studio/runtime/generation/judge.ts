@@ -21,7 +21,7 @@ import { Type } from 'typebox';
 import type { ModelSelection } from '../../../shared/settings';
 import { modelSelectionIsEmpty } from '../../../shared/settings';
 import type { CharacterRecord } from '../../shared/character';
-import { buildJudgeTask } from './prompt';
+import { buildJudgeSystemPrompt, buildJudgeTask } from './prompt';
 
 const RUN_TIMEOUT_MS = 180_000;
 
@@ -122,15 +122,30 @@ export interface JudgeContext {
 }
 
 /**
- * Judge one frame. Returns null when no verdict can be trusted, which is not a
- * failure of the animation — the run carries on and the user is simply not shown
- * an opinion nobody can stand behind.
+ * What came back, including the case where nothing did.
+ *
+ * A judgement that could not be made is not the same as a clean frame, and the
+ * two must not arrive at the caller looking alike. They did once: the judge
+ * failed on every frame of a sequence, returned nothing each time, and the
+ * animation was presented as checked.
+ */
+export type JudgeOutcome =
+  | { status: 'judged'; verdict: JudgeVerdict }
+  | { status: 'unavailable'; reason: string };
+
+/**
+ * Judge one frame.
+ *
+ * A run that fails is not a failure of the animation — the sequence carries on.
+ * But it is reported, because "the identity check found nothing" and "the
+ * identity check never ran" mean opposite things to the person deciding whether
+ * to approve.
  */
 export async function judgeFrame(
   character: CharacterRecord,
   options: { animation: string; frameNumber: number; frameCount: number; images: JudgeImages },
   context: JudgeContext,
-): Promise<JudgeVerdict | null> {
+): Promise<JudgeOutcome> {
   const shower = createFrameImagesTool(options.images);
   const judge = createJudgeTool();
 
@@ -141,6 +156,9 @@ export async function judgeFrame(
       frameNumber: options.frameNumber,
       frameCount: options.frameCount,
     }),
+    // Required. Without it — or a named agent — the run is refused before it
+    // starts, which is how this check managed to never run at all.
+    systemPrompt: buildJudgeSystemPrompt(),
     parentSessionId: context.parentSessionId,
     workspaceId: context.workspaceId,
     platformTools: 'none',
@@ -162,8 +180,16 @@ export async function judgeFrame(
   };
 
   const result = await context.host.subagents.runStructured(params);
-  if (result.error !== undefined && result.error !== '') return null;
+  if (result.error !== undefined && result.error !== '') {
+    return { status: 'unavailable', reason: result.error };
+  }
   // A verdict from a run that never called the image tool is about nothing at
   // all, however confident it sounds.
-  return shower.looked() ? judge.verdict() : null;
+  if (!shower.looked()) {
+    return { status: 'unavailable', reason: 'The run never looked at the frames.' };
+  }
+  const verdict = judge.verdict();
+  return verdict === null
+    ? { status: 'unavailable', reason: 'The run finished without recording a verdict.' }
+    : { status: 'judged', verdict };
 }

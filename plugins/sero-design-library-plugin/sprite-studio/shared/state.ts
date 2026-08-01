@@ -85,8 +85,13 @@ export interface SpriteStudioSettings {
   videoModel: string;
   /** The model single frames are repaired with. */
   repairModel: string;
-  /** 720p is the default and the resolution question is closed (D31). */
-  resolution: '720p' | '1080p';
+  /**
+   * 720p is the default and the resolution question is closed (D31).
+   *
+   * 480p is here for the end-to-end test, which cares that the pipeline runs
+   * rather than that the sprite is good, and 480p is quicker and cheaper.
+   */
+  resolution: '480p' | '720p' | '1080p';
   /** How many clips may be in flight at once. */
   concurrency: number;
   /** Frames sampled per second of clip. */
@@ -129,8 +134,11 @@ export interface SpriteStudioState {
    * simply does nothing — which is what happened, and what took a log file to
    * explain. An animation carries its own error; this is for everything that
    * has no record to carry one yet, and ingestion is most of it.
+   *
+   * It carries finished work as well as failures — an export writes two files
+   * and has no row of its own to say so from — hence the tone.
    */
-  notice?: { message: string; at: number };
+  notice?: { message: string; at: number; tone: 'problem' | 'done' };
   settings: SpriteStudioSettings;
   /** The character the page is looking at. */
   openCharacterId?: string;
@@ -195,6 +203,15 @@ export type SpriteRequestBody =
    * chosen afterwards (D23).
    */
   | { kind: 'sprite.frames.attach'; animationId: string; stagingKey: string; durationsMs: number[] }
+  /**
+   * The page could not open the clip.
+   *
+   * Decoding is the only way out of `awaiting-frames`, so a clip this renderer
+   * has no codec for would otherwise sit under a spinner for ever — on this
+   * session and on every session after it. Saying so moves the animation to
+   * `failed`, where it can be run again.
+   */
+  | { kind: 'sprite.frames.failed'; animationId: string; reason: string }
   | { kind: 'sprite.animation.approve'; animationId: string }
   | { kind: 'sprite.animation.cancel'; animationId: string }
   | { kind: 'sprite.animation.delete'; animationId: string }
@@ -225,6 +242,8 @@ export type SpriteRequestBody =
       options: SpriteExportOptions;
     }
   | { kind: 'sprite.settings.update'; patch: Partial<SpriteStudioSettings> }
+  /** Put the notice bar away. It stays until it is read, not on a timer. */
+  | { kind: 'sprite.notice.dismiss' }
   | { kind: 'sprite.open'; characterId?: string; animationId?: string };
 
 export interface SpriteExportOptions {
@@ -265,6 +284,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.plan',
   'sprite.generate',
   'sprite.frames.attach',
+  'sprite.frames.failed',
   'sprite.animation.approve',
   'sprite.animation.cancel',
   'sprite.animation.delete',
@@ -280,6 +300,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.frame.set-duration',
   'sprite.export',
   'sprite.settings.update',
+  'sprite.notice.dismiss',
   'sprite.open',
 ] as const;
 

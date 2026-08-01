@@ -1,4 +1,5 @@
 import { useAppTools } from '@sero-ai/app-runtime';
+import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { ClipFramesTarget } from './lib/clip-frames';
@@ -130,6 +131,7 @@ export function SpriteStudioPage() {
           characterName={openCharacter.name}
           paletteSize={character.palette.length}
           nextName={nextName}
+          working={openAnimation.progress}
           onApprove={() => void actions.approveAnimation(openAnimation.id)}
           onFix={(instruction) => void actions.fix(openAnimation.id, instruction)}
           onEditFrames={() => setEditingId(openAnimation.id)}
@@ -150,6 +152,15 @@ export function SpriteStudioPage() {
             writeFrame: (frameId, grid, palette) =>
               void writeFrameGrid(tools, openAnimation.id, frameId, grid, palette),
             redo: (instruction) => void actions.redoAnimation(openAnimation.id, instruction),
+            setFrameDuration: (frameId, durationMs) =>
+              void actions.setFrameDuration(openAnimation.id, frameId, durationMs),
+            cancel: () => void actions.cancelAnimation(openAnimation.id),
+            remove: () => {
+              void actions.deleteAnimation(openAnimation.id);
+              // Back to the character sheet: the screen it was showing has just
+              // been deleted, and leaving it up is a page about nothing.
+              actions.open(characterId);
+            },
             addAnimations: () => setAsking(true),
             exportSheet: () => setExporting(true),
           }}
@@ -186,9 +197,21 @@ export function SpriteStudioPage() {
         {studio.notice !== undefined && (
           <div
             role="alert"
-            className="border-destructive/40 bg-destructive/10 text-destructive flex items-start gap-2 border-b px-4 py-2 text-sm"
+            className={`flex items-start gap-2 border-b px-4 py-2 text-sm ${
+              studio.notice.tone === 'done'
+                ? 'border-border bg-muted/40 text-muted-foreground'
+                : 'border-destructive/40 bg-destructive/10 text-destructive'
+            }`}
           >
             <span className="min-w-0 flex-1">{studio.notice.message}</span>
+            <button
+              type="button"
+              className="shrink-0 opacity-70 hover:opacity-100"
+              aria-label="Dismiss"
+              onClick={() => void actions.dismissNotice()}
+            >
+              <X className="size-3.5" />
+            </button>
           </div>
         )}
         <div className="flex min-h-0 flex-1">

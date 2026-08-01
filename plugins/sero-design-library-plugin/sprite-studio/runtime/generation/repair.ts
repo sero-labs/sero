@@ -36,6 +36,8 @@ export interface RepairRequest {
   instruction?: string;
   /** The scale the sequence was compiled at, so the redraw measures the same. */
   scale: number;
+  /** The endpoint that redraws it. Defaults to the shipped repair model (D10). */
+  model?: string;
   directory: string;
   signal: AbortSignal;
   onProgress?(message: string): void;
@@ -71,6 +73,7 @@ export async function repairFrame(request: RepairRequest): Promise<RepairOutcome
       plate: { path: 'frame.png', bytes: before.bytes },
       reference: { path: 'character.png', bytes: reference.bytes },
       prompt,
+      ...(request.model === undefined || request.model === '' ? {} : { model: request.model }),
       directory: request.directory,
       signal: request.signal,
       ...(request.onProgress === undefined ? {} : { onProgress: request.onProgress }),

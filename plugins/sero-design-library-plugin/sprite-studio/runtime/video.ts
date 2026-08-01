@@ -20,7 +20,7 @@ import type { MediaProvider, MediaSourceAsset } from '../../runtime/media/contra
 import { executeMedia } from '../../runtime/media/execute';
 import { CHARACTER_MODEL, REPAIR_MODEL } from '../shared/video-models';
 
-/** 720p, and the resolution question is closed (D31). */
+/** What a clip is drawn at when nothing says otherwise (D31). */
 export const RESOLUTION = '720p';
 /**
  * How long a clip runs.
@@ -50,6 +50,8 @@ export interface ClipRequest {
    */
   endFrame?: { path: string; bytes: Buffer };
   seconds?: number;
+  /** Defaults to 720p. The setting exists so a test can ask for less. */
+  resolution?: string;
   signal: AbortSignal;
   /** Where the clip lands, inside plugin storage. */
   directory: string;
@@ -90,7 +92,7 @@ export async function requestClip(
       // not declare it, because fal refuses a request carrying a field it has
       // never heard of — and Grok has no audio switch while Seedance does.
       extra: {
-        resolution: RESOLUTION,
+        resolution: request.resolution ?? RESOLUTION,
         // Asked for explicitly rather than left to the endpoint's default: a
         // clip with sound is a clip we pay to download and then discard.
         generate_audio: false,

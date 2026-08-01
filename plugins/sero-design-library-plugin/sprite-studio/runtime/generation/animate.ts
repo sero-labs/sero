@@ -48,6 +48,10 @@ export interface AnimateContext {
   workspaceId: string;
   parentSessionId: string;
   model: ModelSelection;
+  /** What the clip is drawn at. Defaults to 720p (D31). */
+  resolution?: string;
+  /** The endpoint a refused frame is redrawn with (D10). */
+  repairModel?: string;
   signal: AbortSignal;
   onProgress?(message: string): void;
 }
@@ -90,6 +94,7 @@ export async function requestAnimationClip(
     plate: { path: plateAt, bytes: plate.bytes },
     directory: path.dirname(clipFile(context.paths, character.id, animation.id, 'clip.mp4')),
     signal: context.signal,
+    ...(context.resolution === undefined ? {} : { resolution: context.resolution }),
     ...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
   });
 
@@ -189,6 +194,7 @@ export async function buildAnimation(
       basePose,
       problem: fixable.map((finding) => finding.message).join(' '),
       scale,
+      ...(context.repairModel === undefined ? {} : { model: context.repairModel }),
       directory: path.join(animationDir(context.paths, character.id, animation.id), 'repairs'),
       signal: context.signal,
       ...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
@@ -226,13 +232,23 @@ export async function buildAnimation(
   // The judge runs last and changes nothing. Its verdict is a warning on the
   // frame, and the user decides — a repair on the strength of an unproven judge
   // would be treating a suspicion by rewriting the evidence (D24, D30).
-  await addIdentityWarnings(character, animation, basePose, cells, frames, context);
+  const unjudged = await addIdentityWarnings(
+    character,
+    animation,
+    basePose,
+    cells,
+    frames,
+    context,
+  );
 
   return {
     frames,
     canvas: built.canvas,
     anchor: built.anchor,
-    findings: storedFindings(built.findings, undefined),
+    findings: [
+      ...storedFindings(built.findings, undefined),
+      ...(unjudged === null ? [] : [unjudged]),
+    ],
     report: { ...built.report, repairedFrames: [...repaired.keys()] },
     loop: built.loop.mode,
     // Both are facts the user should have at the checkpoint: the loop the clip
@@ -266,6 +282,15 @@ function rampUsageOfBasePose(basePose: CellGrid, palette: Palette): RampUsage[] 
   return rampUsage(basePose.cells, ramps, rampIndex(ramps, palette.length));
 }
 
+/**
+ * Ask the judge about every frame, and say so when it could not answer.
+ *
+ * Returns a finding for the animation when the judge never managed a single
+ * verdict. That case used to be indistinguishable from a clean sequence: the
+ * judge failed on all six frames, added no warnings, and the checkpoint said
+ * the identity check had passed. "Nothing found" and "nothing ran" have to look
+ * different to the person deciding whether to approve.
+ */
 async function addIdentityWarnings(
   character: CharacterRecord,
   animation: AnimationRecord,
@@ -273,15 +298,17 @@ async function addIdentityWarnings(
   cells: CellGrid[],
   frames: FrameRecord[],
   context: AnimateContext,
-): Promise<void> {
+): Promise<StoredFinding | null> {
   const palette = paletteOf(character);
   const base = framePlate(basePose, palette, { scale: 8 });
+  let judged = 0;
+  let unavailable = '';
   for (const [position, frame] of frames.entries()) {
-    if (context.signal.aborted) return;
+    if (context.signal.aborted) break;
     const current = cells[position];
     if (current === undefined) continue;
     context.onProgress?.(`Looking at frame ${position + 1} of ${frames.length}…`);
-    const verdict = await judgeFrame(
+    const outcome = await judgeFrame(
       character,
       {
         animation: animation.plan.name,
@@ -305,13 +332,28 @@ async function addIdentityWarnings(
         signal: context.signal,
       },
     );
-    if (verdict !== null && !verdict.sameCharacter && verdict.note !== '') {
+    if (outcome.status === 'unavailable') {
+      unavailable = outcome.reason;
+      continue;
+    }
+    judged += 1;
+    const { verdict } = outcome;
+    if (!verdict.sameCharacter && verdict.note !== '') {
       frame.findings = [
         ...frame.findings,
         { check: 'identity', level: 'warn', message: verdict.note },
       ];
     }
   }
+
+  if (judged > 0 || frames.length === 0) return null;
+  return {
+    check: 'identity',
+    level: 'warn',
+    message: `Nobody looked at these frames — the identity check could not run${
+      unavailable === '' ? '' : `: ${unavailable}`
+    }. The drawings are as measured; whether they are still the same character has not been decided.`,
+  };
 }
 
 /** Read the base pose back off disk, ready to plate or compare against. */

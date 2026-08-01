@@ -11,6 +11,7 @@ import type {
   SpriteExportOptions,
   SpriteRequestBody,
   SpriteStudioSettings,
+  SpriteStudioState,
 } from '../../shared/state';
 import { newSpriteId, sendRequest, stageFile, toPngBytes } from '../lib/requests';
 
@@ -29,7 +30,7 @@ import { newSpriteId, sendRequest, stageFile, toPngBytes } from '../lib/requests
 export interface SpriteStudio {
   characters: CharacterSummary[];
   /** The last thing that went wrong, so a refused request is visible. */
-  notice: { message: string; at: number } | undefined;
+  notice: SpriteStudioState['notice'];
   /** Plans the runtime has written back, by the id the page allocated. */
   plans: Record<string, PlanResult>;
   animations: AnimationSummary[];
@@ -84,6 +85,7 @@ export interface SpriteActions {
     options: SpriteExportOptions,
   ): Promise<void>;
   updateSettings(patch: Partial<SpriteStudioSettings>): Promise<void>;
+  dismissNotice(): Promise<void>;
 }
 
 interface OpenIds {
@@ -218,6 +220,7 @@ export function useSpriteStudio(): SpriteStudio {
           options,
         }),
       updateSettings: (patch) => send({ kind: 'sprite.settings.update', patch }),
+      dismissNotice: () => send({ kind: 'sprite.notice.dismiss' }),
     }),
     [send, tools],
   );

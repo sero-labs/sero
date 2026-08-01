@@ -197,6 +197,26 @@ export interface ClipFramesResult {
   error?: string;
 }
 
+/**
+ * Tell the runtime this clip could not be opened.
+ *
+ * Deliberately a request rather than a note kept in the page: the animation is
+ * stuck in `awaiting-frames` on disk, and a page that only remembered the
+ * failure would leave the next session to discover it again — and the session
+ * after that.
+ */
+export async function reportClipFailure(
+  tools: AppTools,
+  target: Pick<ClipFramesTarget, 'animationId'>,
+  reason: string,
+): Promise<void> {
+  await sendRequest(tools, {
+    kind: 'sprite.frames.failed',
+    animationId: target.animationId,
+    reason,
+  }).catch(() => undefined);
+}
+
 async function stageFrame(
   tools: AppTools,
   stagingKey: string,

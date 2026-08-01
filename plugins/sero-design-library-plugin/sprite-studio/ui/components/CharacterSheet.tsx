@@ -70,7 +70,9 @@ export function CharacterSheet({
   const { ingestion, root } = character;
 
   return (
-    <div className="flex min-h-0 flex-1">
+    // `min-w-0` so this surface shrinks beside the character rail instead of
+    // pushing it off the side of the window.
+    <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-5">
         <div className="flex items-center gap-3">
           <Crumbs trail={['Sprite Studio']} last={character.name} />

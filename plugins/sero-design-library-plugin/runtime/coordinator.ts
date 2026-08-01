@@ -25,12 +25,10 @@ import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { ExportRequests, isExportRequest } from './export-requests';
 import { SpriteQueue } from '../sprite-studio/runtime/queue';
+import { clearSpriteProblem, projectSpriteState, reportSpriteProblem } from '../sprite-studio/runtime/projection';
 import {
   applySpriteRequest,
-  clearSpriteProblem,
   isSpriteBody,
-  projectSpriteState,
-  reportSpriteProblem,
 } from '../sprite-studio/runtime/requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 

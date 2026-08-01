@@ -4,6 +4,7 @@ import type { MediaSettings } from '../../shared/settings';
 import type { MediaProvider } from './contract';
 import { resolveFalKey } from '../../shared/credentials';
 import { createFalProvider } from './providers/fal';
+import { cassetteDir, withCassette } from './cassette';
 
 /**
  * The provider the plugin ships with (D6).
@@ -28,5 +29,9 @@ export async function createMediaProviderForRun(
   const models: Partial<Record<MediaCapability, string>> = Object.fromEntries(
     Object.entries(settings.models).filter(([, model]) => model !== ''),
   );
-  return createFalProvider({ credentials: () => key, models });
+  const provider = createFalProvider({ credentials: () => key, models });
+  // Off unless a directory is named. See `cassette.ts` — this is how the
+  // end-to-end test runs the real pipeline without paying for a clip every time.
+  const cassette = cassetteDir();
+  return cassette === undefined ? provider : withCassette(provider, cassette);
 }

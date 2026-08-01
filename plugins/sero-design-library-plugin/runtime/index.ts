@@ -8,7 +8,7 @@ import { pruneOrphanRevisions, scanDesigns } from './design-store';
 import { reindex } from './store';
 import { pruneGalleryTemps, reindexGallery } from './gallery-store';
 import { pruneStaging } from '../sprite-studio/runtime/staging';
-import { projectSpriteState } from '../sprite-studio/runtime/requests';
+import { projectSpriteState } from '../sprite-studio/runtime/projection';
 
 /**
  * The Design Library background runtime — the single authoritative writer.

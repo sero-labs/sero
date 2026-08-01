@@ -1,4 +1,4 @@
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button, Spinner, Textarea } from '@sero-ai/ui';
 import { Pencil, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +28,14 @@ interface AnimationCheckpointProps {
   paletteSize: number;
   /** The animation this approval moves on to, when there is one. */
   nextName: string | undefined;
+  /**
+   * What the runtime is doing right now, when it is doing something.
+   *
+   * A repair asked for here does not change the animation's status, so without
+   * this the button is pressed, a paid redraw runs for a minute, and the screen
+   * says nothing — so it is pressed again.
+   */
+  working: string | undefined;
   onApprove(): void;
   onFix(instruction: string): void;
   onEditFrames(): void;
@@ -39,6 +47,7 @@ export function AnimationCheckpoint({
   characterName,
   paletteSize,
   nextName,
+  working,
   onApprove,
   onFix,
   onEditFrames,
@@ -46,9 +55,13 @@ export function AnimationCheckpoint({
 }: AnimationCheckpointProps) {
   const [instruction, setInstruction] = useState('');
   const { canvas, frames, plan } = animation;
+  // Nothing that spends money is pressable while something is already running.
+  const busy = working !== undefined;
 
   return (
-    <div className="flex min-h-0 flex-1">
+    // `min-w-0` so this surface shrinks beside the character rail instead of
+    // pushing it off the side of the window.
+    <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-5">
         <Crumbs trail={[characterName, plan.name]} last="ready for approval" />
 
@@ -87,7 +100,13 @@ export function AnimationCheckpoint({
         subtitle={`${frames.length} frames · ${plan.playRate} fps · ${LOOP_LABEL[plan.loop]}`}
         footer={
           <>
-            <Button type="button" onClick={onApprove}>
+            {working !== undefined && (
+              <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                <Spinner className="size-4" />
+                {working}
+              </p>
+            )}
+            <Button type="button" onClick={onApprove} disabled={busy}>
               {nextName === undefined ? 'Approve' : `Approve · continue to ${nextName}`}
             </Button>
             <div className="flex gap-2">
@@ -95,6 +114,7 @@ export function AnimationCheckpoint({
                 type="button"
                 variant="outline"
                 className="flex-1"
+                disabled={busy}
                 onClick={() => {
                   onFix(instruction.trim());
                   setInstruction('');
@@ -112,6 +132,7 @@ export function AnimationCheckpoint({
               type="button"
               variant="outline"
               className="text-amber-400"
+              disabled={busy}
               onClick={() => {
                 onRedo(instruction.trim());
                 setInstruction('');

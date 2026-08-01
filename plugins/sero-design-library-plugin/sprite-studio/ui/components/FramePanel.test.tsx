@@ -70,6 +70,7 @@ function renderPanel(record: AnimationRecord) {
       onEditPixels={onEditPixels}
       onFix={onFix}
       onDuplicate={() => {}}
+      onSetDuration={() => {}}
       onDelete={() => {}}
     />,
   );

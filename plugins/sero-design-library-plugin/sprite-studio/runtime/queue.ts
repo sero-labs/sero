@@ -24,7 +24,11 @@ import type { MediaProvider } from '../../runtime/media/contract';
 import { createMediaProviderForRun } from '../../runtime/media/provider';
 import type { AnimationRecord, FrameRecord } from '../shared/character';
 import { animationDir } from '../shared/paths';
-import type { SpriteExportOptions } from '../shared/state';
+import type { PlanResult, SpriteExportOptions } from '../shared/state';
+import { reportSpriteNotice, reportSpriteProblem } from './projection';
+import { runAnimate, runBuild, runFix, type JobRunner } from './queue-jobs';
+// `requests.ts` imports this file for its type only, so this is not a cycle.
+import { setOpen } from './requests';
 import { buildAnimation, readBasePose, requestAnimationClip } from './generation/animate';
 import { runPlan } from './generation/plan';
 import { buildCharacterPrompt } from './generation/prompt';
@@ -80,7 +84,7 @@ type Job =
       options: SpriteExportOptions;
     };
 
-export class SpriteQueue {
+export class SpriteQueue implements JobRunner {
   private readonly waiting: Job[] = [];
   private readonly running = new Map<string, AbortController>();
   private readonly shutdown = new AbortController();
@@ -195,114 +199,49 @@ export class SpriteQueue {
     }
   }
 
-  private async provider(): Promise<MediaProvider> {
+  async provider(): Promise<MediaProvider> {
     const state = await readState(this.context.paths);
     const create = this.context.createProvider ?? createMediaProviderForRun;
     return create(this.context.paths, state.settings.media);
+  }
+
+  get paths(): DesignLibraryPaths {
+    return this.context.paths;
+  }
+
+  get host(): AppRuntimeHost {
+    return this.context.host;
+  }
+
+  get workspaceId(): string {
+    return this.context.workspaceId;
+  }
+
+  get sessionId(): string {
+    return this.context.sessionId;
+  }
+
+  async changed(): Promise<void> {
+    await this.context.onChanged();
   }
 
   private async execute(job: Job, signal: AbortSignal): Promise<void> {
     switch (job.kind) {
       case 'plan':
         return this.executePlan(job, signal);
+      // The three that make an animation live in `queue-jobs.ts`; this file is
+      // about queueing them.
       case 'animate':
-        return this.executeAnimate(job, signal);
+        return runAnimate(this, job, signal);
       case 'build':
-        return this.executeBuild(job, signal);
+        return runBuild(this, job, signal);
       case 'fix':
-        return this.executeFix(job, signal);
+        return runFix(this, job, signal);
       case 'draw-character':
         return this.executeDrawCharacter(job, signal);
       case 'export':
         return this.executeExport(job);
     }
-  }
-
-  /**
-   * Fixing by AI, on a frame or on a whole animation (D18).
-   *
-   * The same action the automatic repair uses, run because the user asked. On
-   * one frame it is a single-pose redraw; on an animation with no frame named it
-   * is the worst frame the checks complain about, so "fix it" without saying
-   * what is wrong still does something honest.
-   */
-  private async executeFix(job: Extract<Job, { kind: 'fix' }>, signal: AbortSignal): Promise<void> {
-    const animation = await findAnimation(this.context.paths, job.animationId);
-    if (animation === null) return;
-    const character = await readCharacter(this.context.paths, animation.characterId);
-    if (character === null) return;
-
-    const target =
-      job.frameId === undefined
-        ? worstFrame(animation)
-        : animation.frames.find((frame) => frame.id === job.frameId);
-    if (target === undefined) {
-      await this.progress(
-        animation.characterId,
-        'Nothing in this animation is flagged, so say which frame to redraw.',
-        animation.id,
-      );
-      return;
-    }
-
-    await this.progress(animation.characterId, 'Redrawing the frame…', animation.id);
-    const palette = paletteOf(character);
-    const basePose = await readBasePose(this.context.paths, character);
-    const outcome = await repairFrame({
-      provider: await this.provider(),
-      character,
-      palette,
-      frame: await readFrame(this.context.paths, character, target),
-      basePose,
-      problem:
-        target.findings.map((finding) => finding.message).join(' ') ||
-        'The user is not happy with this frame.',
-      instruction: job.instruction,
-      scale: 0,
-      directory: path.join(animationDir(this.context.paths, character.id, animation.id), 'repairs'),
-      signal,
-      onProgress: (message) => void this.progress(character.id, message, animation.id),
-    });
-
-    if (outcome.status !== 'repaired') {
-      await this.progress(character.id, `The redraw did not help: ${outcome.reason}`, animation.id);
-      return;
-    }
-
-    // Appends rather than replaces, so the version the user disliked survives
-    // and a repair that came back worse is recoverable (D18).
-    const previous = animation.frames;
-    const file = await writeFrame(this.context.paths, character, animation.id, target.id, outcome.cells);
-    await mutateAnimation(this.context.paths, character.id, animation.id, (current) => ({
-      ...current,
-      history: [
-        ...current.history,
-        {
-          id: randomUUID(),
-          reason: job.instruction === '' ? 'Redrawn on request' : job.instruction,
-          frames: previous,
-          report: current.report,
-          createdAt: Date.now(),
-        },
-      ],
-      frames: current.frames.map((frame) =>
-        frame.id === target.id
-          ? {
-              ...frame,
-              file,
-              findings: outcome.findings
-                .filter((finding): finding is (typeof outcome.findings)[number] => finding.level === 'warn')
-                .map(({ check, level, message }) => ({ check, level, message })),
-              provenance: {
-                ...frame.provenance,
-                kind: 'pose' as const,
-                repairs: frame.provenance.repairs + outcome.attempts,
-                createdAt: Date.now(),
-              },
-            }
-          : frame,
-      ),
-    }));
   }
 
   /**
@@ -364,7 +303,13 @@ export class SpriteQueue {
     signal: AbortSignal,
   ): Promise<void> {
     const character = await readCharacter(this.context.paths, job.characterId);
-    if (character === null) return;
+    if (character === null) {
+      await this.settlePlan(job.planId, {
+        status: 'failed',
+        reason: 'That character no longer exists.',
+      });
+      return;
+    }
     const state = await readState(this.context.paths);
 
     const outcome = await runPlan(character, job.request, job.videoModel, {
@@ -376,137 +321,38 @@ export class SpriteQueue {
       onProgress: (message) => void this.progress(job.characterId, message),
     });
 
-    // The plan is written into state for the dialog to show. Nothing is
-    // generated from it until the user accepts it, which is the whole reason
-    // planning is a step of its own.
+    await this.settlePlan(
+      job.planId,
+      outcome.status === 'ok'
+        ? { status: 'ok', animations: outcome.animations }
+        : {
+            status: outcome.status,
+            reason: outcome.status === 'failed' ? outcome.reason : 'Cancelled.',
+          },
+    );
+  }
+
+  /**
+   * Write an answer against a plan id, whatever the answer is.
+   *
+   * The dialog waits on this entry and has nothing else to go on: it shows a
+   * spinner until one appears. So **every** way out of planning has to leave
+   * one, including the ways that are not the plan arriving — a model that is
+   * not configured, a host that threw, a character deleted mid-thought. A path
+   * that returns without writing here is a spinner that never stops, with the
+   * only reason in a log file.
+   */
+  private async settlePlan(planId: string, result: PlanResult): Promise<void> {
     await updateState(this.context.paths, (current: DesignLibraryState) => ({
       ...current,
       sprite: {
         ...current.sprite,
-        plans: {
-          ...current.sprite.plans,
-          [job.planId]:
-            outcome.status === 'ok'
-              ? { status: 'ok', animations: outcome.animations }
-              : {
-                  status: outcome.status,
-                  reason: outcome.status === 'failed' ? outcome.reason : 'Cancelled.',
-                },
-        },
+        plans: { ...current.sprite.plans, [planId]: result },
       },
     }));
   }
 
-  private async executeAnimate(
-    job: Extract<Job, { kind: 'animate' }>,
-    signal: AbortSignal,
-  ): Promise<void> {
-    const character = await readCharacter(this.context.paths, job.characterId);
-    const animation = await readAnimation(this.context.paths, job.characterId, job.animationId);
-    if (character === null || animation === null) return;
-
-    await this.setStatus(job.characterId, job.animationId, 'generating', 'Drawing the movement…');
-    const basePose = await readBasePose(this.context.paths, character);
-    const outcome = await requestAnimationClip(
-      character,
-      animation,
-      basePose,
-      animation.videoModel ?? '',
-      {
-        host: this.context.host,
-        paths: this.context.paths,
-        provider: await this.provider(),
-        workspaceId: this.context.workspaceId,
-        parentSessionId: this.context.sessionId,
-        model: (await readState(this.context.paths)).settings.designModel,
-        signal,
-        onProgress: (message) => void this.progress(job.characterId, message, job.animationId),
-      },
-    );
-
-    if (outcome.status === 'failed') {
-      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-        ...current,
-        status: 'failed',
-        error: outcome.reason,
-      }));
-      return;
-    }
-
-    // The clip is here and the runtime cannot open it. The page picks this up,
-    // decodes it and sends the frames back as a request.
-    await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-      ...current,
-      status: 'awaiting-frames',
-      clipFile: outcome.clipPath,
-    }));
-  }
-
-  private async executeBuild(
-    job: Extract<Job, { kind: 'build' }>,
-    signal: AbortSignal,
-  ): Promise<void> {
-    const character = await readCharacter(this.context.paths, job.characterId);
-    const animation = await readAnimation(this.context.paths, job.characterId, job.animationId);
-    if (character === null || animation === null) return;
-
-    await this.setStatus(job.characterId, job.animationId, 'compiling', 'Cleaning the frames…');
-    const staged = await readStaged(this.context.paths, job.stagingKey);
-    const sampled = staged.map((file, index) => ({
-      bytes: file.bytes,
-      durationMs: job.durationsMs[index] ?? Math.round(1000 / 12),
-    }));
-
-    const built = await buildAnimation(character, animation, await readBasePose(this.context.paths, character), sampled, {
-      host: this.context.host,
-      paths: this.context.paths,
-      provider: await this.provider(),
-      workspaceId: this.context.workspaceId,
-      parentSessionId: this.context.sessionId,
-      model: (await readState(this.context.paths)).settings.designModel,
-      signal,
-      onProgress: (message) => void this.progress(job.characterId, message, job.animationId),
-    });
-    await clearStaged(this.context.paths, job.stagingKey);
-
-    if ('failed' in built) {
-      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-        ...current,
-        status: 'failed',
-        error: built.failed,
-      }));
-      return;
-    }
-
-    // An animation with no frames is not ready, whatever the run reported. The
-    // checkpoint would present an empty strip with an Approve button on it,
-    // which is the failure that looks most like a success.
-    if (built.frames.length === 0) {
-      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-        ...current,
-        status: 'failed',
-        error: 'Nothing survived cleaning the clip, so there is no animation to show you.',
-      }));
-      return;
-    }
-
-    await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-      ...current,
-      status: 'ready',
-      frames: built.frames,
-      canvas: built.canvas,
-      anchor: built.anchor,
-      findings: [
-        ...built.findings,
-        ...(built.advice === '' ? [] : [{ check: 'loop', level: 'warn' as const, message: built.advice }]),
-      ],
-      report: built.report,
-      plan: { ...current.plan, loop: built.loop },
-      error: undefined,
-    }));
-  }
-
-  private async setStatus(
+  async setStatus(
     characterId: string,
     animationId: string,
     status: 'generating' | 'compiling' | 'judging',
@@ -516,13 +362,28 @@ export class SpriteQueue {
       ...current,
       status,
     }));
+    // Projected here rather than at the end of the job. A record change the
+    // projection has not caught up with is a screen showing the step before
+    // this one for as long as this one takes, which is minutes.
+    await this.context.onChanged();
     await this.progress(characterId, message, animationId);
   }
 
-  /** A line the rail can show, so a long run says what it is doing. */
-  private async progress(characterId: string, message: string, animationId?: string): Promise<void> {
+  /**
+   * A line the rail can show, so a long run says what it is doing.
+   *
+   * Work that belongs to an animation says so on the animation. Work that
+   * belongs to the character — drawing one from words, exporting a sheet — has
+   * no row to speak from, so it speaks in the notice bar. Dropping it, which is
+   * what used to happen, made an export write two files and say nothing at all,
+   * including where it put them.
+   */
+  async progress(characterId: string, message: string, animationId?: string): Promise<void> {
     void characterId;
-    if (animationId === undefined) return;
+    if (animationId === undefined) {
+      await reportSpriteNotice(this.context.paths, message, 'done');
+      return;
+    }
     await updateState(this.context.paths, (current: DesignLibraryState) => ({
       ...current,
       sprite: {
@@ -534,25 +395,28 @@ export class SpriteQueue {
     }));
   }
 
+  /**
+   * Every failure lands somewhere the user looks.
+   *
+   * An animation carries its own error. A plan settles the entry the dialog is
+   * waiting on. Everything else has no record of its own, so it goes to the
+   * notice — because a job that throws and reports nowhere is a button that
+   * does nothing and a reason that lives in a log file.
+   */
   private async fail(job: Job, error: unknown): Promise<void> {
-    if (!('animationId' in job) || !('characterId' in job)) return;
     const reason = error instanceof Error ? error.message : String(error);
-    await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-      ...current,
-      status: 'failed',
-      error: reason,
-    }));
+    if ('animationId' in job && 'characterId' in job) {
+      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
+        ...current,
+        status: 'failed',
+        error: reason,
+      }));
+      return;
+    }
+    if (job.kind === 'plan') {
+      await this.settlePlan(job.planId, { status: 'failed', reason });
+      return;
+    }
+    await reportSpriteProblem(this.context.paths, reason);
   }
-}
-
-/**
- * The frame worth redrawing when the user said "fix it" and nothing else.
- *
- * The one the checks complain about most. When nothing is flagged there is no
- * honest answer, so nothing is chosen: redrawing whichever frame happened to be
- * first would spend a call to look busy.
- */
-function worstFrame(animation: AnimationRecord): FrameRecord | undefined {
-  const flagged = animation.frames.filter((frame) => frame.findings.length > 0);
-  return flagged.toSorted((a, b) => b.findings.length - a.findings.length)[0];
 }

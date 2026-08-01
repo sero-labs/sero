@@ -17,7 +17,7 @@ import path from 'node:path';
 
 import { itemDir, type DesignLibraryPaths } from '../../shared/paths';
 import { readItem } from '../../runtime/store';
-import { updateState } from '../../shared/state-io';
+import { readState, updateState } from '../../shared/state-io';
 import type { DesignLibraryState } from '../../shared/types';
 import type {
   AnimationPlan,
@@ -33,6 +33,13 @@ import type {
 } from '../shared/state';
 import { animationDir } from '../shared/paths';
 import { applyPaletteCap, ingestCharacter, remeasure } from './ingest';
+import { applyFrameRequest, isFrameRequest } from './requests-frames';
+import {
+  clearSpriteProblem,
+  projectSpriteState,
+  reportSpriteNotice,
+  reportSpriteProblem,
+} from './projection';
 import { clearStaged, readStaged } from './staging';
 import {
   animationSummary,
@@ -60,57 +67,6 @@ export function isSpriteBody(body: { kind: string }): body is SpriteRequestBody 
   return body.kind.startsWith('sprite.');
 }
 
-/**
- * Forget the last problem.
- *
- * Called when a request succeeds, because a notice that outlives the fault it
- * describes is worse than none: it says something is broken while the thing it
- * complained about is working.
- */
-export async function clearSpriteProblem(paths: DesignLibraryPaths): Promise<void> {
-  await updateState(paths, (current: DesignLibraryState) => {
-    if (current.sprite.notice === undefined) return null;
-    const { notice: _dropped, ...sprite } = current.sprite;
-    return { ...current, sprite };
-  });
-}
-
-/** Rebuild the whole slice from the records. Cheap, and always correct. */
-export async function projectSpriteState(paths: DesignLibraryPaths): Promise<void> {
-  const characters = await listCharacters(paths);
-  const summaries: CharacterSummary[] = [];
-  const animations: AnimationSummary[] = [];
-  for (const character of characters) {
-    const owned = await listAnimations(paths, character.id);
-    summaries.push(characterSummary(character, owned, false));
-    for (const animation of owned) {
-      if (animation.deletedAt !== undefined) continue;
-      animations.push(animationSummary(animation));
-    }
-  }
-  await updateState(paths, (current: DesignLibraryState) => ({
-    ...current,
-    sprite: { ...current.sprite, characters: summaries, animations },
-  }));
-}
-
-/**
- * Say what went wrong, where the user can see it.
- *
- * A request is applied in the background, so a refusal has nowhere to appear on
- * its own: the page asks, the runtime throws, the watermark advances and the
- * button looks broken. This is the only reason the notice exists.
- */
-export async function reportSpriteProblem(
-  paths: DesignLibraryPaths,
-  message: string,
-): Promise<void> {
-  await updateState(paths, (current: DesignLibraryState) => ({
-    ...current,
-    sprite: { ...current.sprite, notice: { message, at: Date.now() } },
-  }));
-}
-
 async function patchSettings(
   paths: DesignLibraryPaths,
   patch: Partial<SpriteStudioSettings>,
@@ -121,18 +77,33 @@ async function patchSettings(
   }));
 }
 
-async function setOpen(
+/**
+ * What the page is looking at, said outright.
+ *
+ * Both keys are assigned from the request rather than skipped when absent, so
+ * "the character sheet" is a different instruction from "leave it alone".
+ * Omitting them made closing an animation impossible: the sheet opened, and
+ * reopening the page landed back on the animation.
+ */
+export async function setOpen(
   paths: DesignLibraryPaths,
   open: { characterId?: string; animationId?: string },
 ): Promise<void> {
-  await updateState(paths, (current: DesignLibraryState) => ({
-    ...current,
-    sprite: {
-      ...current.sprite,
-      ...(open.characterId === undefined ? {} : { openCharacterId: open.characterId }),
-      ...(open.animationId === undefined ? {} : { openAnimationId: open.animationId }),
-    },
-  }));
+  await updateState(paths, (current: DesignLibraryState) => {
+    const {
+      openCharacterId: _character,
+      openAnimationId: _animation,
+      ...rest
+    } = current.sprite;
+    return {
+      ...current,
+      sprite: {
+        ...rest,
+        ...(open.characterId === undefined ? {} : { openCharacterId: open.characterId }),
+        ...(open.animationId === undefined ? {} : { openAnimationId: open.animationId }),
+      },
+    };
+  });
 }
 
 function newAnimation(
@@ -164,6 +135,14 @@ export async function applySpriteRequest(
   context: SpriteRequestContext,
 ): Promise<void> {
   const { paths, queue } = context;
+
+  // Frame edits are their own family and live in their own file. They report
+  // whether anything changed, because half of them are no-ops against a frame
+  // the user has since deleted.
+  if (isFrameRequest(body)) {
+    if (await applyFrameRequest(paths, body)) await projectSpriteState(paths);
+    return;
+  }
 
   switch (body.kind) {
     case 'sprite.character.create': {
@@ -253,18 +232,11 @@ export async function applySpriteRequest(
     }
 
     case 'sprite.character.favourite': {
-      await updateState(paths, (current: DesignLibraryState) => ({
-        ...current,
-        sprite: {
-          ...current.sprite,
-          characters: current.sprite.characters.map((character) =>
-            character.id === body.characterId
-              ? { ...character, favourite: body.favourite }
-              : character,
-          ),
-        },
+      await mutateCharacter(paths, body.characterId, (character) => ({
+        ...character,
+        favourite: body.favourite,
       }));
-      return;
+      break;
     }
 
     case 'sprite.character.delete':
@@ -321,6 +293,17 @@ export async function applySpriteRequest(
       }
       queue.build(animation.characterId, animation.id, body.stagingKey, body.durationsMs);
       return;
+    }
+
+    case 'sprite.frames.failed': {
+      const animation = await findAnimation(paths, body.animationId);
+      if (animation === null || animation.status !== 'awaiting-frames') return;
+      await mutateAnimation(paths, animation.characterId, animation.id, (current) => ({
+        ...current,
+        status: 'failed',
+        error: `${body.reason} The clip is still on disk; running the sequence again will draw a new one.`,
+      }));
+      break;
     }
 
     case 'sprite.animation.approve': {
@@ -402,84 +385,14 @@ export async function applySpriteRequest(
         frames: [],
         findings: [],
         report: null,
+        // Cleared here, not when the rebuild succeeds minutes later. The
+        // workbench shows the failure before it shows the work, so leaving it
+        // means "Run it again" looks like it did nothing — and the next press
+        // is another paid clip.
+        error: undefined,
       }));
       queue.animate(animation.characterId, animation.id);
       return;
-    }
-
-    case 'sprite.frame.write': {
-      const animation = await findAnimation(paths, body.animationId);
-      if (animation === null) return;
-      const staged = await readStaged(paths, body.stagingKey);
-      const file = staged[0];
-      if (file === undefined) return;
-      await writeHandEdit(paths, animation, body.frameId, file.bytes);
-      await clearStaged(paths, body.stagingKey);
-      break;
-    }
-
-    case 'sprite.frame.duplicate': {
-      const animation = await findAnimation(paths, body.animationId);
-      if (animation === null) return;
-      const source = animation.frames.find((frame) => frame.id === body.frameId);
-      if (source === undefined) return;
-      const copy: FrameRecord = {
-        ...source,
-        id: body.newFrameId,
-        provenance: { ...source.provenance, createdAt: Date.now() },
-      };
-      await mutateAnimation(paths, animation.characterId, animation.id, (current) => {
-        const at = current.frames.findIndex((frame) => frame.id === body.frameId);
-        return {
-          ...current,
-          frames: [...current.frames.slice(0, at + 1), copy, ...current.frames.slice(at + 1)],
-        };
-      });
-      break;
-    }
-
-    case 'sprite.frame.delete': {
-      const animation = await findAnimation(paths, body.animationId);
-      if (animation === null) return;
-      await mutateAnimation(paths, animation.characterId, animation.id, (current) => ({
-        ...current,
-        frames: current.frames.filter((frame) => frame.id !== body.frameId),
-      }));
-      break;
-    }
-
-    case 'sprite.frame.reorder': {
-      const animation = await findAnimation(paths, body.animationId);
-      if (animation === null) return;
-      await mutateAnimation(paths, animation.characterId, animation.id, (current) => {
-        const byId = new Map(current.frames.map((frame) => [frame.id, frame]));
-        const ordered = body.frameIds.flatMap((id) => {
-          const frame = byId.get(id);
-          return frame === undefined ? [] : [frame];
-        });
-        // Anything the request did not name keeps its place at the end rather
-        // than disappearing: a reorder must never delete a frame.
-        const named = new Set(body.frameIds);
-        return {
-          ...current,
-          frames: [...ordered, ...current.frames.filter((frame) => !named.has(frame.id))],
-        };
-      });
-      break;
-    }
-
-    case 'sprite.frame.set-duration': {
-      const animation = await findAnimation(paths, body.animationId);
-      if (animation === null) return;
-      await mutateAnimation(paths, animation.characterId, animation.id, (current) => ({
-        ...current,
-        frames: current.frames.map((frame) =>
-          frame.id === body.frameId
-            ? { ...frame, durationMs: Math.max(1, Math.round(body.durationMs)) }
-            : frame,
-        ),
-      }));
-      break;
     }
 
     case 'sprite.export': {
@@ -489,6 +402,11 @@ export async function applySpriteRequest(
 
     case 'sprite.settings.update': {
       await patchSettings(paths, body.patch);
+      return;
+    }
+
+    case 'sprite.notice.dismiss': {
+      await clearSpriteProblem(paths);
       return;
     }
 
@@ -502,34 +420,6 @@ export async function applySpriteRequest(
   }
 
   await projectSpriteState(paths);
-}
-
-/**
- * A hand edit lands as an indexed PNG the page produced from the character's own
- * palette, so it cannot introduce a colour the character does not have — the one
- * thing the whole pipeline exists to prevent.
- */
-async function writeHandEdit(
-  paths: DesignLibraryPaths,
-  animation: AnimationRecord,
-  frameId: string,
-  bytes: Buffer,
-): Promise<void> {
-  const file = path.join(animationDir(paths, animation.characterId, animation.id), 'frames', `${frameId}.png`);
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, bytes);
-  await mutateAnimation(paths, animation.characterId, animation.id, (current) => ({
-    ...current,
-    frames: current.frames.map((frame) =>
-      frame.id === frameId
-        ? {
-            ...frame,
-            provenance: { ...frame.provenance, kind: 'hand-edited', createdAt: Date.now() },
-            findings: [],
-          }
-        : frame,
-    ),
-  }));
 }
 
 /**
@@ -547,5 +437,3 @@ async function libraryItemFile(
   if (item === null) throw new Error('That Library item no longer exists.');
   return path.join(itemDir(paths, body.itemId), item.asset.originalFile);
 }
-
-export type { CharacterRecord };

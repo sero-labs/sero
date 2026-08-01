@@ -83,6 +83,8 @@ export interface CharacterRecord {
   ingestion: IngestionReport;
   /** The video model this character was last generated with (D29). */
   lastVideoModel?: string;
+  /** Pinned to the top of the shelf. On the record, so a projection keeps it. */
+  favourite?: boolean;
   createdAt: number;
   updatedAt: number;
   deletedAt?: number;

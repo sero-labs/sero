@@ -40,9 +40,13 @@ export function Measure({
           ? 'text-destructive'
           : 'text-foreground';
   return (
+    // The label is a single word — "palette", "root" — and the value is a
+    // sentence. Letting the label shrink truncated it to "p…" while the
+    // sentence beside it wrapped over three lines, so the value gives way here
+    // rather than the name of the thing it is about.
     <div className="flex items-baseline justify-between gap-3 py-0.5 text-sm">
-      <span className="text-muted-foreground min-w-0 truncate">{label}</span>
-      <b className={`font-mono text-xs font-medium ${colour}`}>{value}</b>
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <b className={`min-w-0 text-right font-mono text-xs font-medium ${colour}`}>{value}</b>
     </div>
   );
 }

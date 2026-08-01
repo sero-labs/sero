@@ -1,7 +1,12 @@
 import { useAppTools } from '@sero-ai/app-runtime';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { attachClipFrames, clipKey, type ClipFramesTarget } from '../lib/clip-frames';
+import {
+  attachClipFrames,
+  clipKey,
+  reportClipFailure,
+  type ClipFramesTarget,
+} from '../lib/clip-frames';
 
 /**
  * Pulling frames out of clips that are waiting for them.
@@ -74,7 +79,15 @@ export function useClipFrames(targets: ClipFramesTarget[]): ClipFramesState {
           ok: false as const,
           error: error instanceof Error ? error.message : String(error),
         }));
-        if (!result.ok && !unmounted.current) setFailed((current) => [...current, key]);
+        if (!result.ok) {
+          // Said out loud rather than only remembered. Decoding is the only way
+          // out of `awaiting-frames`, so a clip this renderer cannot open would
+          // otherwise sit under a spinner for the life of the animation — this
+          // session and every one after it. Reporting it moves the record to
+          // `failed`, where the user can run the sequence again.
+          await reportClipFailure(toolsRef.current, next, result.error ?? 'The clip could not be read.');
+          if (!unmounted.current) setFailed((current) => [...current, key]);
+        }
       }
     };
 

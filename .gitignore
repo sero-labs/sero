@@ -19,6 +19,9 @@ apps/desktop/.sero-e2e/
 apps/desktop/.sero-layout-test/
 apps/desktop/.sero-test-data/
 .sero-test-data/
+# Recorded provider calls for the Sprite Studio e2e. Megabytes of video and
+# generated pictures, recorded on the first run on each machine.
+apps/desktop/e2e/fixtures/sprite-studio/cassette/
 
 # Local agent scratch data
 .superpowers/

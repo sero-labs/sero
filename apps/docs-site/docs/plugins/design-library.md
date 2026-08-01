@@ -270,7 +270,11 @@ A video model draws the movement. Sprite Studio pulls the frames out, cleans the
 
 Every frame is checked before it is accepted: the palette, the character's size, whether anything unattached was drawn, whether the feet are where the plan said, whether the sprite boils where it should be still, and whether the drawing ran off the edge of the video frame. A frame that fails is redrawn automatically, up to twice, and the repair is declared rather than hidden.
 
-Clips are decoded by the app, so Sprite Studio needs Sero open to finish an animation. One generated while Sero was closed picks up where it left off next time you open it.
+The frames are also checked against the base pose by an AI, one at a time, to catch a hat or a satchel that has quietly turned into something else. That check only ever warns. If it cannot run, the animation says so rather than looking as though it passed.
+
+Clips are decoded by the app, so Sprite Studio needs Sero open to finish an animation. One generated while Sero was closed picks up where it left off next time you open it. A clip your machine cannot open is reported as a failure you can run again, not left spinning.
+
+A run in progress can be stopped, and a finished animation can be deleted, from the button beside **Add animation**.
 
 ### Looping
 
@@ -289,11 +293,15 @@ Two ways, and **both are available on every frame at all times** — not only wh
 - **Ask the AI** to redraw a frame or re-run a whole animation. Say what is wrong, or say nothing and let it work it out. Repairs are added rather than substituted, so the previous version survives.
 - **Edit it yourself** — pencil, eraser, eyedropper, fill, undo and onion skin, with the character's palette as the only colours available. A hand edit cannot break the palette.
 
+Each frame holds for the time it really held in the clip. **How long it holds** on the frame panel changes that, in milliseconds, when a pose needs a beat longer.
+
 ### Export
 
 One PNG sheet and one Aseprite JSON file, which most engines and tools already read. The anchor, the palette and the character id travel inside the atlas, so a game does not have to be told where the character's feet are.
 
 The scale must be a whole number. Ask for a 512 px tall sprite from a 136 px character and you get the nearest whole multiple, with the real size stated rather than blurred pixels. Optional: trim to content, and one cell size for every animation for engines that expect a uniform grid.
+
+The two files go to your Downloads folder, and a line at the top of the page says where they went and how big the sprite is.
 
 ## Deleting
 

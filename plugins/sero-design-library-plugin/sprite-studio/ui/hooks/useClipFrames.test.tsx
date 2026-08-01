@@ -16,6 +16,7 @@ import type { ClipFramesTarget } from '../lib/clip-frames';
  */
 
 const attempts: string[] = [];
+const reported: string[] = [];
 let answer: (target: ClipFramesTarget) => Promise<{ ok: boolean; error?: string }> = async () => ({
   ok: true,
 });
@@ -30,6 +31,11 @@ vi.mock('../lib/clip-frames', () => ({
   attachClipFrames: async (_tools: unknown, target: ClipFramesTarget) => {
     attempts.push(`${target.animationId}:${target.clipPath}`);
     return answer(target);
+  },
+  // A clip that cannot be decoded is reported to the runtime, so the animation
+  // moves to `failed` instead of spinning for ever.
+  reportClipFailure: async (_tools: unknown, target: { animationId: string }, reason: string) => {
+    reported.push(`${target.animationId}:${reason}`);
   },
 }));
 
@@ -47,6 +53,7 @@ function target(animationId: string, clipPath = 'clip.mp4'): ClipFramesTarget {
 
 beforeEach(() => {
   attempts.length = 0;
+  reported.length = 0;
   answer = async () => ({ ok: true });
 });
 
@@ -102,5 +109,16 @@ describe('a clip the browser cannot decode', () => {
     const { getByTestId } = render(<Probe targets={[target('a')]} />);
     await waitFor(() => expect(getByTestId('failed').textContent).toBe('a:clip.mp4'));
     expect(attempts).toEqual(['a:clip.mp4']);
+    // Reported, not just remembered. Decoding is the only way out of
+    // `awaiting-frames`, so a failure kept in the page would leave the record
+    // spinning on this session and on every session after it.
+    expect(reported).toEqual(['a:the clip could not be read']);
+  });
+
+  it('reports a clip the decoder refused, not only one that threw', async () => {
+    answer = async () => ({ ok: false, error: 'The clip held no frames.' });
+    const { getByTestId } = render(<Probe targets={[target('a')]} />);
+    await waitFor(() => expect(getByTestId('failed').textContent).toBe('a:clip.mp4'));
+    expect(reported).toEqual(['a:The clip held no frames.']);
   });
 });

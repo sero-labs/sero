@@ -1,4 +1,4 @@
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button, Input, Textarea } from '@sero-ai/ui';
 import { Pencil, Plus, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
@@ -26,6 +26,7 @@ interface FramePanelProps {
   onFix(instruction: string): void;
   onDuplicate(): void;
   onDelete(): void;
+  onSetDuration(durationMs: number): void;
 }
 
 export function FramePanel({
@@ -35,6 +36,7 @@ export function FramePanel({
   onFix,
   onDuplicate,
   onDelete,
+  onSetDuration,
 }: FramePanelProps) {
   const [instruction, setInstruction] = useState('');
   const frame = animation.frames[index];
@@ -111,6 +113,25 @@ export function FramePanel({
           <Sparkles className="size-3.5" />
           Ask the AI to redraw it
         </Button>
+      </Field>
+
+      {/*
+        The source timing survives into the finished animation (D23), and this
+        is where it is overridden — a hold that reads a beat too short is the
+        commonest thing wrong with a sequence that is otherwise right.
+      */}
+      <Field label="How long it holds">
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          value={String(Math.round(frame.durationMs))}
+          aria-label="Hold in milliseconds"
+          onChange={(event) => {
+            const wanted = Number(event.target.value);
+            if (Number.isFinite(wanted) && wanted >= 1) onSetDuration(Math.round(wanted));
+          }}
+        />
       </Field>
 
       <Field label="Tell the AI what is wrong">

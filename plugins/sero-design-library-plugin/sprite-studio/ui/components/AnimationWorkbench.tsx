@@ -46,6 +46,11 @@ export interface WorkbenchActions {
   deleteFrame(frameId: string): void;
   writeFrame(frameId: string, grid: EditableGrid, palette: string[]): void;
   redo(instruction: string): void;
+  setFrameDuration(frameId: string, durationMs: number): void;
+  /** Stop a run that is still going. Releases the slot; the clip is not redone. */
+  cancel(): void;
+  /** Throw the whole sequence away. */
+  remove(): void;
   addAnimations(): void;
   exportSheet(): void;
 }
@@ -96,7 +101,9 @@ export function AnimationWorkbench({
   const working = WORKING[summary.status];
 
   return (
-    <div className="flex min-h-0 flex-1">
+    // `min-w-0` so this surface shrinks beside the character rail instead of
+    // pushing it off the side of the window.
+    <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-border flex items-center gap-2 border-b px-4 py-2.5">
           <Crumbs trail={[characterName]} last={summary.name} />
@@ -131,6 +138,19 @@ export function AnimationWorkbench({
               </SelectContent>
             </Select>
             {record?.videoModel !== undefined && <Chip>{videoModelName(record.videoModel)}</Chip>}
+            {/*
+              One slot, two meanings, and never both: a run in progress can be
+              stopped, and a finished one can be thrown away. Without either,
+              an animation that goes wrong is permanent.
+            */}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={working === undefined ? actions.remove : actions.cancel}
+            >
+              {working === undefined ? 'Delete' : 'Stop'}
+            </Button>
             <Button type="button" size="sm" variant="outline" onClick={actions.addAnimations}>
               Add animation
             </Button>
@@ -191,6 +211,10 @@ export function AnimationWorkbench({
           onDelete={() => {
             const frame = frames[playback.index];
             if (frame !== undefined) actions.deleteFrame(frame.id);
+          }}
+          onSetDuration={(durationMs) => {
+            const frame = frames[playback.index];
+            if (frame !== undefined) actions.setFrameDuration(frame.id, durationMs);
           }}
         />
       )}

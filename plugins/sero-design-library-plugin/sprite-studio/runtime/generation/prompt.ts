@@ -145,6 +145,29 @@ export function buildCharacterPrompt(description: string): string {
  * judge that can order a redraw is worse than no judge, because the repair
  * rewrites the evidence.
  */
+/**
+ * Who the judge is.
+ *
+ * A run needs one of these or a named agent, and the judge had neither: every
+ * call was refused with "Either agent name or systemPrompt is required" before
+ * it started, so the identity check had never run once. What made that survive
+ * is that the judge is advisory — the sequence finished, nothing was flagged,
+ * and a run that never happened looked exactly like a clean one.
+ */
+export function buildJudgeSystemPrompt(): string {
+  return [
+    'You check whether a frame of a sprite animation is still the same character.',
+    '',
+    'You are shown pictures through a tool, and pictures are the only evidence there is: call `sprite_studio_show_frames` before you say anything. A verdict from a run that has not looked is worthless.',
+    '',
+    'You are looking for identity, not quality. Clothing, equipment, proportions and face. Movement is the point of an animation — a shifted weight, a turned head, a different expression or a change of lighting across a movement is not a fault. A missing satchel, a hat of a different shape, a limb that has changed length, or equipment that has turned into something else is.',
+    '',
+    'Your verdict is advice for the person deciding whether to keep the sequence. Nothing is redrawn on the strength of it, so say what you see plainly and do not soften it.',
+    '',
+    'Call `sprite_studio_judge_frame` exactly once. That call is the only output that counts.',
+  ].join('\n');
+}
+
 export function buildJudgeTask(options: {
   character: CharacterRecord;
   animation: string;
