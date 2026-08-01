@@ -4,7 +4,8 @@ import type { AnimationRecord } from '../../shared/character';
 import type { Playback } from '../hooks/usePlayback';
 import { elapsedLabel } from '../lib/playback';
 import { Chip } from './PanelParts';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { BackdropPicker, useBackdrop } from '../backdrop';
 
 /**
  * The sprite is the interface.
@@ -58,6 +59,7 @@ export function PlaybackStage({
   overlays,
   onToggleOverlay,
 }: PlaybackStageProps) {
+  const backdrop = useBackdrop();
   const { canvas, anchor, frames, report } = animation;
   const frame = frames[playback.index];
   const before = frames[playback.index - 1];
@@ -65,7 +67,7 @@ export function PlaybackStage({
   const size = { width: canvas.cols * STAGE_SCALE, height: canvas.rows * STAGE_SCALE };
 
   return (
-    <div className="relative grid min-h-0 flex-1 place-items-center" style={CHECKER_STYLE}>
+    <div className="relative grid min-h-0 flex-1 place-items-center" style={backdrop}>
       <div className="absolute top-3 left-3 z-10 flex gap-1.5">
         <OverlayToggle
           on={overlays.onion}
@@ -169,6 +171,7 @@ export function PlaybackStage({
         <button type="button" onClick={playback.cycleSpeed} aria-label="Playback speed">
           <Chip tone={playback.speed === 1 ? 'plain' : 'on'}>{playback.speed}×</Chip>
         </button>
+        <BackdropPicker />
       </div>
     </div>
   );

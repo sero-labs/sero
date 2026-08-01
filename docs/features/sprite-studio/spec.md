@@ -417,6 +417,16 @@ named as held or they are swept an hour after the clip arrived and the review
 can never be finished. The samples, the previews and the proposal are cleared
 together whenever the review is settled, by any route.
 
+**What a sprite is shown against is a way of looking, not a property of the
+artwork.** Sprites are drawn on a checker, which is honest about the
+transparency and useless for judging an outline; a stray light pixel at the edge
+of a hat is invisible on it and obvious on black. So every screen that shows
+sprites offers nothing / white / black, defaulting to nothing. It is one choice
+for the whole page — a frame picked off a strip and watched in a player must not
+be judged against two different fields — held only for the session, and it is a
+background on the box the picture sits in. The frames stay transparent indexed
+PNGs and the export path never sees it.
+
 Order and timing are **not** editable here, by decision. Order is source order,
 timing is measured from the clip (D23), and the workbench already edits a
 finished sequence — adding both would make this a second workbench.

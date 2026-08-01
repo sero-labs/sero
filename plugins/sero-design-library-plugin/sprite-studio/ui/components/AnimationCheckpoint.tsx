@@ -4,7 +4,8 @@ import { useState } from 'react';
 
 import type { AnimationRecord, LoopMode } from '../../shared/character';
 import { AnimationReportRows } from './AnimationReportRows';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { BackdropPicker, useBackdrop } from '../backdrop';
 import { Crumbs, DetailPanel, Field } from './PanelParts';
 
 /**
@@ -57,6 +58,7 @@ export function AnimationCheckpoint({
   onOpenShelf,
   onOpenCharacter,
 }: AnimationCheckpointProps) {
+  const backdrop = useBackdrop();
   const [instruction, setInstruction] = useState('');
   const { canvas, frames, plan } = animation;
   // Nothing that spends money is pressable while something is already running.
@@ -81,10 +83,11 @@ export function AnimationCheckpoint({
             <span className="ml-auto font-mono text-xs">
               {canvas.cols} × {canvas.rows} canvas · feet on row {animation.anchor.row}
             </span>
+            <BackdropPicker />
           </div>
           <div
             className="flex min-h-0 flex-1 items-center gap-1 overflow-x-auto p-3"
-            style={CHECKER_STYLE}
+            style={backdrop}
           >
             {frames.map((frame, index) => (
               <SpritePixels

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { ClipFramesTarget } from './lib/clip-frames';
+import { BackdropProvider } from './backdrop';
 import type { SpriteExportOptions } from '../shared/state';
 import { AnimationCheckpoint } from './components/AnimationCheckpoint';
 import { AnimationWorkbench } from './components/AnimationWorkbench';
@@ -30,6 +31,17 @@ import { writeFrameGrid } from './lib/pixel-edit';
  */
 
 export function SpriteStudioPage() {
+  return (
+    // One choice of what sprites are shown against, for the whole page, so the
+    // strip a frame was picked off and the player it is watched in never
+    // disagree. It is a way of looking and reaches nothing that is written.
+    <BackdropProvider>
+      <SpriteStudio />
+    </BackdropProvider>
+  );
+}
+
+function SpriteStudio() {
   const studio = useSpriteStudio();
   const tools = useAppTools();
   const { actions, openCharacter, openAnimation, openAnimations } = studio;

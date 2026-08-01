@@ -1,7 +1,8 @@
 import { Check } from 'lucide-react';
 
 import { sampleName } from '../../shared/paths';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * Every moment the clip holds, as the sprite each one would become.
@@ -42,8 +43,9 @@ export function SampleStrip({
   loopWindow,
   onToggle,
 }: SampleStripProps) {
+  const backdrop = useBackdrop();
   return (
-    <div className="flex min-h-0 flex-1 gap-1 overflow-x-auto p-3" style={CHECKER_STYLE}>
+    <div className="flex min-h-0 flex-1 gap-1 overflow-x-auto p-3" style={backdrop}>
       {Array.from({ length: sampleCount }, (_, index) => {
         const kept = chosen.has(index);
         const inCycle =

@@ -2,7 +2,8 @@ import { Pencil, Plus } from 'lucide-react';
 
 import type { AnimationRecord } from '../../shared/character';
 import { ticksOf } from '../lib/playback';
-import { CHECKER_STYLE, SpritePixels, fitScale } from './SpritePixels';
+import { SpritePixels, fitScale } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * The frames, at working size.
@@ -31,6 +32,7 @@ export function FrameStrip({
   onEdit,
   onAddFrame,
 }: FrameStripProps) {
+  const backdrop = useBackdrop();
   const { canvas, frames, plan } = animation;
   const scale = fitScale(canvas.cols, canvas.rows, TILE.width - 10, TILE.thumb - 6);
 
@@ -46,7 +48,7 @@ export function FrameStrip({
           <button
             type="button"
             className="grid w-full place-items-center overflow-hidden"
-            style={{ height: TILE.thumb, ...CHECKER_STYLE }}
+            style={{ height: TILE.thumb, ...backdrop }}
             onClick={() => onSelect(index)}
             onDoubleClick={() => onEdit(frame.id)}
             aria-label={`Frame ${index + 1}${frame.label === undefined ? '' : `, ${frame.label}`}`}

@@ -5,7 +5,8 @@ import { useState } from 'react';
 import type { AnimationRecord } from '../../shared/character';
 import { ticksOf } from '../lib/playback';
 import { DetailPanel, Field, Measure } from './PanelParts';
-import { CHECKER_STYLE, SpritePixels, fitScale } from './SpritePixels';
+import { SpritePixels, fitScale } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * The selected frame, and the way in to both kinds of fixing (D18).
@@ -38,6 +39,7 @@ export function FramePanel({
   onDelete,
   onSetDuration,
 }: FramePanelProps) {
+  const backdrop = useBackdrop();
   const [instruction, setInstruction] = useState('');
   const frame = animation.frames[index];
   if (frame === undefined) return null;
@@ -62,7 +64,7 @@ export function FramePanel({
         <div className="flex items-center gap-2.5">
           <span
             className="grid shrink-0 place-items-center overflow-hidden rounded"
-            style={{ ...THUMB, ...CHECKER_STYLE }}
+            style={{ ...THUMB, ...backdrop }}
           >
             <SpritePixels
               path={frame.file}

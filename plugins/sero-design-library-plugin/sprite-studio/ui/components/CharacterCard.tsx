@@ -1,7 +1,8 @@
 import { Heart } from 'lucide-react';
 
 import type { CharacterSummary } from '../../shared/state';
-import { CHECKER_STYLE, SpritePixels, fitScale } from './SpritePixels';
+import { SpritePixels, fitScale } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * One character on the shelf.
@@ -29,6 +30,7 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, selected, onOpen, onFavourite }: CharacterCardProps) {
+  const backdrop = useBackdrop();
   const scale = fitScale(character.artWidth, character.artHeight, STAGE.width, STAGE.height);
   const draft = character.status === 'draft';
 
@@ -42,7 +44,7 @@ export function CharacterCard({ character, selected, onOpen, onFavourite }: Char
         type="button"
         onClick={onOpen}
         className="relative grid place-items-center p-3.5"
-        style={{ height: STAGE.height + 28, ...CHECKER_STYLE }}
+        style={{ height: STAGE.height + 28, ...backdrop }}
       >
         <span className="bg-background/70 text-muted-foreground absolute top-2 left-2 rounded px-1.5 py-0.5 font-mono text-xs">
           {character.artWidth} × {character.artHeight}

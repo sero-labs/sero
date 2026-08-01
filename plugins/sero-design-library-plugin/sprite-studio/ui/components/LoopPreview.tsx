@@ -16,7 +16,8 @@ import { handPickedDurations } from '../../engine/thin';
 import type { LoopMode } from '../../shared/character';
 import { sampleName } from '../../shared/paths';
 import { usePlayback } from '../hooks/usePlayback';
-import { CHECKER_STYLE, SpritePixels, fitScale } from './SpritePixels';
+import { SpritePixels, fitScale } from './SpritePixels';
+import { BackdropPicker, useBackdrop } from '../backdrop';
 
 /**
  * The chosen frames, playing, beside the clip they came out of.
@@ -79,6 +80,7 @@ export function LoopPreview({
   chosen,
   loop: planned,
 }: LoopPreviewProps) {
+  const backdrop = useBackdrop();
   const [loop, setLoop] = useState<LoopMode>(planned);
   const [rate, setRate] = useState<string>(AS_TIMED);
   const { ref, width, height } = useElementSize<HTMLDivElement>();
@@ -106,7 +108,7 @@ export function LoopPreview({
     <div
       ref={ref}
       className="relative grid min-h-0 flex-1 place-items-center pb-14"
-      style={CHECKER_STYLE}
+      style={backdrop}
     >
       {frame === undefined ? (
         <p className="text-muted-foreground text-sm">Keep a frame to see it play.</p>
@@ -164,6 +166,7 @@ export function LoopPreview({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <BackdropPicker />
         <Select value={rate} onValueChange={setRate}>
           <SelectTrigger className="h-7 w-28" aria-label="Speed">
             <SelectValue />

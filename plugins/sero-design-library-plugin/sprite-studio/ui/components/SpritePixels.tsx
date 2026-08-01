@@ -10,14 +10,6 @@ import { useSpriteAsset } from '../hooks/useSpriteAsset';
  * sprite the user cannot judge (D3).
  */
 
-/** Transparency, shown rather than implied. */
-export const CHECKER_STYLE: CSSProperties = {
-  backgroundImage:
-    'linear-gradient(45deg,var(--muted) 25%,transparent 25%),linear-gradient(-45deg,var(--muted) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--muted) 75%),linear-gradient(-45deg,transparent 75%,var(--muted) 75%)',
-  backgroundSize: '16px 16px',
-  backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-};
-
 interface SpritePixelsProps {
   /** Relative to the app state directory, as every record stores it. */
   path: string | undefined;

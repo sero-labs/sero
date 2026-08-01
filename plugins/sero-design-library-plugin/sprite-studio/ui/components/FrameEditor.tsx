@@ -25,7 +25,8 @@ import {
 } from '../lib/pixel-edit';
 import { Chip, Crumbs } from './PanelParts';
 import { PixelCanvas } from './PixelCanvas';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * Small fixes, nothing more (spec §6.2).
@@ -58,6 +59,7 @@ interface FrameEditorProps {
 }
 
 export function FrameEditor({ animation, index, onDone, onCancel }: FrameEditorProps) {
+  const backdrop = useBackdrop();
   const frame = animation.frames[index];
   const cells = useFrameCells(frame?.file);
 
@@ -183,7 +185,7 @@ export function FrameEditor({ animation, index, onDone, onCancel }: FrameEditorP
         </div>
 
         <div className="relative grid min-h-0 flex-1 place-items-center overflow-auto p-6">
-          <div className="relative" style={CHECKER_STYLE}>
+          <div className="relative" style={backdrop}>
             {onion &&
               [before, after].map(
                 (neighbour) =>

@@ -16,7 +16,8 @@ import { useAnimationRecords } from '../hooks/useSpriteRecord';
 import { DEFAULT_EXPORT_OPTIONS, buildSheet, type SheetAnimation } from '../lib/export-sheet';
 import { NavigationRailHeading, NavigationRailRow } from '../../../ui/components/NavigationRail';
 import { Chip, Crumbs } from './PanelParts';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 
 /**
  * A sheet and an atlas any engine can read (D16).
@@ -36,6 +37,7 @@ interface ExportPageProps {
 }
 
 export function ExportPage({ character, animations, onExport, onBack }: ExportPageProps) {
+  const backdrop = useBackdrop();
   const [excluded, setExcluded] = useState<string[]>([]);
   const [options, setOptions] = useState<SpriteExportOptions>(DEFAULT_EXPORT_OPTIONS);
 
@@ -182,7 +184,7 @@ export function ExportPage({ character, animations, onExport, onBack }: ExportPa
             </div>
             <div
               className="flex min-h-0 flex-1 items-center gap-0 overflow-x-auto p-4"
-              style={CHECKER_STYLE}
+              style={backdrop}
             >
               {previewRecord?.frames.map((frame, index) => (
                 <SpritePixels

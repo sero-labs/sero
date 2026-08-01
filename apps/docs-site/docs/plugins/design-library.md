@@ -270,6 +270,8 @@ A video model draws the movement, and then **every clip stops for you before any
 
 The sprite plays at the speed it will be built at. You can slow it down, speed it up or change how it loops to look at it; those controls change what you see, not what gets made.
 
+Beside them is what to show the sprite against: nothing, white or black. A sprite is transparent, so it is normally drawn on a checker — which is honest and useless for judging an outline. A stray light pixel on the brim of a hat is invisible on the checker and obvious on black. The choice applies everywhere sprites are shown, on this screen and in the workbench, and it is only a way of looking: it is never part of an export.
+
 Nothing on that screen costs money. The clip is already paid for, so changing the frames is free, and turning down a bad take here saves every redraw that would have followed. The two buttons that do spend money — drawing the clip again, with or without a changed instruction — say so beside themselves.
 
 Ask for one animation and its review opens as soon as it is ready. Ask for five and the reviews open together at the end, so a batch is not interrupted five times.

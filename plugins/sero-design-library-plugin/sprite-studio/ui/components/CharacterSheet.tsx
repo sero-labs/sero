@@ -3,7 +3,8 @@ import { RotateCw } from 'lucide-react';
 
 import type { CharacterRecord, PaletteCap } from '../../shared/character';
 import { CharacterSheetPanel } from './CharacterSheetPanel';
-import { CHECKER_STYLE, SpritePixels } from './SpritePixels';
+import { SpritePixels } from './SpritePixels';
+import { useBackdrop } from '../backdrop';
 import { Crumbs, Report, ReportRow } from './PanelParts';
 
 /**
@@ -44,6 +45,7 @@ function Pane({
   checkered?: boolean;
   children: React.ReactNode;
 }) {
+  const backdrop = useBackdrop();
   return (
     <div className="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-lg border">
       <div className="border-border text-muted-foreground flex h-9 items-center gap-2 border-b px-3 text-sm">
@@ -54,7 +56,7 @@ function Pane({
         // `relative` is what the source picture is shrunk against; see the note
         // in SpritePixels about why a percentage needs something definite here.
         className="relative grid min-h-0 flex-1 place-items-center overflow-hidden p-4"
-        style={checkered === true ? CHECKER_STYLE : undefined}
+        style={checkered === true ? backdrop : undefined}
       >
         {children}
       </div>
