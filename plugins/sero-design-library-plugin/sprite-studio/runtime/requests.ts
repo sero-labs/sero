@@ -39,7 +39,9 @@ import {
   projectSpriteState,
   reportSpriteNotice,
   reportSpriteProblem,
+  setOpen,
 } from './projection';
+import { heldStagingKeys, openNextReview, releaseSamples, settleReview } from './review';
 import { clearStaged, readStaged } from './staging';
 import {
   animationSummary,
@@ -77,46 +79,19 @@ async function patchSettings(
   }));
 }
 
-/**
- * What the page is looking at, said outright.
- *
- * Both keys are assigned from the request rather than skipped when absent, so
- * "the character sheet" is a different instruction from "leave it alone".
- * Omitting them made closing an animation impossible: the sheet opened, and
- * reopening the page landed back on the animation.
- */
-export async function setOpen(
-  paths: DesignLibraryPaths,
-  open: { characterId?: string; animationId?: string },
-): Promise<void> {
-  await updateState(paths, (current: DesignLibraryState) => {
-    const {
-      openCharacterId: _character,
-      openAnimationId: _animation,
-      ...rest
-    } = current.sprite;
-    return {
-      ...current,
-      sprite: {
-        ...rest,
-        ...(open.characterId === undefined ? {} : { openCharacterId: open.characterId }),
-        ...(open.animationId === undefined ? {} : { openAnimationId: open.animationId }),
-      },
-    };
-  });
-}
-
 function newAnimation(
   characterId: string,
   animationId: string,
   plan: AnimationPlan,
   videoModel: string,
+  batchId: string,
 ): AnimationRecord {
   const now = Date.now();
   return {
     id: animationId,
     characterId,
     plan,
+    batchId,
     status: 'planned',
     canvas: { cols: 0, rows: 0 },
     anchor: { col: 0, row: 0 },
@@ -252,6 +227,11 @@ export async function applySpriteRequest(
 
     case 'sprite.character.purge': {
       queue.cancelCharacter(body.characterId);
+      // Staged samples live beside the characters, not inside them, so
+      // removing the character's directory does not reach them.
+      for (const animation of await listAnimations(paths, body.characterId)) {
+        await releaseSamples(paths, animation);
+      }
       await destroyCharacter(paths, body.characterId);
       break;
     }
@@ -270,11 +250,17 @@ export async function applySpriteRequest(
           'This character has not been approved yet, so nothing can be generated from it.',
         );
       }
+      // One id for everything this request creates, so the review can wait for
+      // the whole batch without having to guess which animations belong to it.
+      // The first animation's id rather than a fresh one: the request log is
+      // at-least-once, and a replay that reached only half the batch last time
+      // has to brand the rest with the same value.
+      const batchId = body.animations[0]?.animationId ?? body.characterId;
       for (const entry of body.animations) {
         if ((await readAnimation(paths, body.characterId, entry.animationId)) !== null) continue;
         await writeAnimation(
           paths,
-          newAnimation(body.characterId, entry.animationId, entry.plan, body.videoModel),
+          newAnimation(body.characterId, entry.animationId, entry.plan, body.videoModel, batchId),
         );
         queue.animate(body.characterId, entry.animationId);
       }
@@ -285,13 +271,66 @@ export async function applySpriteRequest(
     case 'sprite.frames.attach': {
       const animation = await findAnimation(paths, body.animationId);
       if (animation === null) return;
-      // Already built: a replayed attach must not spend a second round of
-      // repairs on frames that are finished.
+      // Already past this point: a replayed attach must not propose a second
+      // time over frames that have been chosen, or built.
       if (animation.status !== 'awaiting-frames') {
-        await clearStaged(paths, body.stagingKey);
+        // But a replay after the proposal landed names the very key the review
+        // is holding open. Clearing it here would delete the samples out from
+        // under a review nobody could then finish — and the request log is
+        // at-least-once, so this replay is not hypothetical.
+        //
+        // Checked against **every** open review, not just this animation's:
+        // this tool is reachable from any chat, so a body naming one animation
+        // and another's staging key is untrusted input aimed at a delete.
+        if (!(await heldStagingKeys(paths)).includes(body.stagingKey)) {
+          await clearStaged(paths, body.stagingKey);
+        }
         return;
       }
-      queue.build(animation.characterId, animation.id, body.stagingKey, body.durationsMs);
+      queue.propose(animation.characterId, animation.id, body.stagingKey, body.durationsMs);
+      return;
+    }
+
+    case 'sprite.frames.choose': {
+      const animation = await findAnimation(paths, body.animationId);
+      // Ignored unless a proposal is actually waiting. A replayed choose after
+      // the build has started would read samples that have already been
+      // cleared, and a second build is a second round of paid repairs.
+      if (animation === null || animation.status !== 'awaiting-review') return;
+      const review = animation.review;
+      if (review === undefined) return;
+
+      // Refused here and not only in the interface, because the interface is
+      // not the only way in. One frame is a picture, not an animation.
+      const chosen = [...new Set(body.indices)]
+        .filter((index) => Number.isInteger(index) && index >= 0 && index < review.sampleCount)
+        .toSorted((a, b) => a - b);
+      if (chosen.length < 2) {
+        throw new Error('An animation needs at least two frames, so nothing was built.');
+      }
+
+      // Claimed under the record lock before any work is queued, because the
+      // guard above is not enough on its own: the status does not move until
+      // the build job actually starts, so a double press — or a replay — would
+      // pass it twice and pay for two rounds of repairs on one clip.
+      let claimed = false;
+      await mutateAnimation(paths, animation.characterId, animation.id, (current) => {
+        if (current.status !== 'awaiting-review') return current;
+        claimed = true;
+        return { ...current, status: 'compiling' };
+      });
+      if (!claimed) return;
+
+      queue.build(
+        animation.characterId,
+        animation.id,
+        review.stagingKey,
+        review.sampleDurationsMs,
+        chosen,
+      );
+      // Straight on to the next proposal of the batch, so the whole review is
+      // one pass rather than a trip back to the rail between each animation.
+      await openNextReview(paths, animation);
       return;
     }
 
@@ -326,6 +365,7 @@ export async function applySpriteRequest(
         status: 'failed',
         error: 'Cancelled.',
       }));
+      await settleReview(paths, animation);
       break;
     }
 
@@ -333,6 +373,9 @@ export async function applySpriteRequest(
       const animation = await findAnimation(paths, body.animationId);
       if (animation === null) return;
       queue.cancelAnimation(body.animationId);
+      // The staged samples live outside the animation's own directory, so
+      // deleting the directory alone would leave them behind for an hour.
+      await releaseSamples(paths, animation);
       await destroyAnimation(paths, animation.characterId, animation.id);
       break;
     }
@@ -359,7 +402,11 @@ export async function applySpriteRequest(
     }
 
     case 'sprite.fix': {
-      queue.fix(body.animationId, body.instruction, body.frameId);
+      // Resolved here rather than inside the job, so the queue knows whose work
+      // this is and a purge can stop it.
+      const animation = await findAnimation(paths, body.animationId);
+      if (animation === null) return;
+      queue.fix(animation.characterId, body.animationId, body.instruction, body.frameId);
       return;
     }
 
@@ -391,6 +438,9 @@ export async function applySpriteRequest(
         // is another paid clip.
         error: undefined,
       }));
+      // A new clip is being paid for, so the old clip's samples and the
+      // proposal made from them are finished with.
+      await settleReview(paths, animation);
       queue.animate(animation.characterId, animation.id);
       return;
     }

@@ -24,11 +24,10 @@ import type { MediaProvider } from '../../runtime/media/contract';
 import { createMediaProviderForRun } from '../../runtime/media/provider';
 import type { AnimationRecord, FrameRecord } from '../shared/character';
 import { animationDir } from '../shared/paths';
-import type { PlanResult, SpriteExportOptions } from '../shared/state';
+import { DEFAULT_SPRITE_STUDIO_SETTINGS, type PlanResult, type SpriteExportOptions } from '../shared/state';
 import { reportSpriteNotice, reportSpriteProblem } from './projection';
-import { runAnimate, runBuild, runFix, type JobRunner } from './queue-jobs';
-// `requests.ts` imports this file for its type only, so this is not a cycle.
-import { setOpen } from './requests';
+import { openReviewWhenBatchLands, settleReview } from './review';
+import { runAnimate, runBuild, runFix, runPropose, type JobRunner } from './queue-jobs';
 import { buildAnimation, readBasePose, requestAnimationClip } from './generation/animate';
 import { runPlan } from './generation/plan';
 import { buildCharacterPrompt } from './generation/prompt';
@@ -68,13 +67,24 @@ type Job =
   | { kind: 'plan'; characterId: string; planId: string; request: string; videoModel: string }
   | { kind: 'animate'; characterId: string; animationId: string }
   | {
-      kind: 'build';
+      kind: 'propose';
       characterId: string;
       animationId: string;
       stagingKey: string;
       durationsMs: number[];
     }
-  | { kind: 'fix'; animationId: string; instruction: string; frameId?: string }
+  | {
+      kind: 'build';
+      characterId: string;
+      animationId: string;
+      stagingKey: string;
+      durationsMs: number[];
+      chosen: number[];
+    }
+  // Carries its character like every other job, so a purge can reach it. It is
+  // a paid redraw, and one still running against a directory that has just been
+  // deleted is money spent on nothing.
+  | { kind: 'fix'; characterId: string; animationId: string; instruction: string; frameId?: string }
   | { kind: 'draw-character'; characterId: string; name: string; description: string }
   | {
       kind: 'export';
@@ -84,9 +94,27 @@ type Job =
       options: SpriteExportOptions;
     };
 
+/** One job in flight, and what cancelling it matches on. */
+interface Run {
+  controller: AbortController;
+  characterId?: string;
+  animationId?: string;
+}
+
 export class SpriteQueue implements JobRunner {
   private readonly waiting: Job[] = [];
-  private readonly running = new Map<string, AbortController>();
+  /**
+   * What is running, by a ticket of its own rather than by what it works on.
+   *
+   * Keying by animation id looked tidy and was wrong twice over: two jobs for
+   * one animation — a repair asked for while another is running — overwrote
+   * each other, so the first was never abortable, the second's entry was
+   * deleted by the first to finish, and the concurrency cap counted one where
+   * there were two. The ticket makes each run its own thing; the fields beside
+   * it are what cancelling matches on.
+   */
+  private readonly running = new Map<number, Run>();
+  private nextTicket = 1;
   private readonly shutdown = new AbortController();
   private draining = false;
 
@@ -100,12 +128,33 @@ export class SpriteQueue implements JobRunner {
     this.push({ kind: 'animate', characterId, animationId });
   }
 
-  build(characterId: string, animationId: string, stagingKey: string, durationsMs: number[]): void {
-    this.push({ kind: 'build', characterId, animationId, stagingKey, durationsMs });
+  propose(
+    characterId: string,
+    animationId: string,
+    stagingKey: string,
+    durationsMs: number[],
+  ): void {
+    this.push({ kind: 'propose', characterId, animationId, stagingKey, durationsMs });
   }
 
-  fix(animationId: string, instruction: string, frameId?: string): void {
-    this.push({ kind: 'fix', animationId, instruction, ...(frameId === undefined ? {} : { frameId }) });
+  build(
+    characterId: string,
+    animationId: string,
+    stagingKey: string,
+    durationsMs: number[],
+    chosen: number[],
+  ): void {
+    this.push({ kind: 'build', characterId, animationId, stagingKey, durationsMs, chosen });
+  }
+
+  fix(characterId: string, animationId: string, instruction: string, frameId?: string): void {
+    this.push({
+      kind: 'fix',
+      characterId,
+      animationId,
+      instruction,
+      ...(frameId === undefined ? {} : { frameId }),
+    });
   }
 
   drawCharacter(characterId: string, name: string, description: string): void {
@@ -122,21 +171,44 @@ export class SpriteQueue implements JobRunner {
   }
 
   cancelAnimation(animationId: string): void {
-    this.running.get(animationId)?.abort();
-    this.running.delete(animationId);
-    const at = this.waiting.findIndex((job) => 'animationId' in job && job.animationId === animationId);
-    if (at >= 0) this.waiting.splice(at, 1);
+    this.stop((run) => run.animationId === animationId);
+    this.drop((job) => 'animationId' in job && job.animationId === animationId);
   }
 
+  /**
+   * Stop everything belonging to one character.
+   *
+   * By what the job is for, rather than by a key that happened to start with
+   * the character's id. An animation job was keyed by its own id, so matching
+   * keys against the character missed every one of them — purging a character
+   * left its clip still being drawn and paid for, against a directory that had
+   * just been deleted. Nothing reached this until purge was given a button.
+   */
   cancelCharacter(characterId: string): void {
-    for (const [key, controller] of this.running) {
-      if (key.startsWith(characterId)) controller.abort();
+    this.stop((run) => run.characterId === characterId);
+    this.drop((job) => 'characterId' in job && job.characterId === characterId);
+  }
+
+  /** Abort every run that matches, however many there are. */
+  private stop(matches: (run: Run) => boolean): void {
+    for (const [ticket, run] of this.running) {
+      if (!matches(run)) continue;
+      run.controller.abort();
+      this.running.delete(ticket);
+    }
+  }
+
+  /** Take matching jobs out of the queue before they ever start. */
+  private drop(matches: (job: Job) => boolean): void {
+    for (let at = this.waiting.length - 1; at >= 0; at--) {
+      const job = this.waiting[at];
+      if (job !== undefined && matches(job)) this.waiting.splice(at, 1);
     }
   }
 
   async dispose(): Promise<void> {
     this.shutdown.abort();
-    for (const controller of this.running.values()) controller.abort();
+    for (const run of this.running.values()) run.controller.abort();
     this.running.clear();
   }
 
@@ -145,9 +217,25 @@ export class SpriteQueue implements JobRunner {
     void this.drain();
   }
 
+  /**
+   * How many jobs may run at once.
+   *
+   * Falls back rather than throwing. This is read at the top of every drain, and
+   * a drain that throws leaves the queue with work waiting and nothing to
+   * schedule another one — which now means an animation claimed for building
+   * and never built. An unreadable settings file must not cost that.
+   */
   private async concurrency(): Promise<number> {
-    const state = await readState(this.context.paths);
-    return Math.max(1, Math.min(5, state.sprite.settings.concurrency));
+    const state = await readState(this.context.paths).catch(() => null);
+    const stored = state?.sprite.settings.concurrency;
+    // A stored value has to be a real number, not merely present. `NaN` would
+    // make `running.size < limit` false for ever, which is a queue that
+    // silently never runs anything again.
+    const wanted =
+      typeof stored === 'number' && Number.isFinite(stored)
+        ? Math.round(stored)
+        : DEFAULT_SPRITE_STUDIO_SETTINGS.concurrency;
+    return Math.max(1, Math.min(5, wanted));
   }
 
   private async drain(): Promise<void> {
@@ -165,22 +253,17 @@ export class SpriteQueue implements JobRunner {
     }
   }
 
-  /**
-   * What a running job is cancelled by.
-   *
-   * An animation is keyed by its own id, so cancelling it reaches the clip it is
-   * waiting on. Everything else is keyed under its character, so purging a
-   * character stops the work that belongs to it.
-   */
-  private keyOf(job: Job): string {
-    if ('animationId' in job) return job.animationId;
-    return `${job.characterId}:${job.kind}`;
-  }
-
   private async run(job: Job): Promise<void> {
-    const key = this.keyOf(job);
+    const ticket = this.nextTicket++;
     const controller = new AbortController();
-    this.running.set(key, controller);
+    // What this run is for, recorded beside it. Cancelling matches on these
+    // rather than on a key, so a second job for the same animation is a second
+    // entry and both are reachable.
+    this.running.set(ticket, {
+      controller,
+      ...('characterId' in job ? { characterId: job.characterId } : {}),
+      ...('animationId' in job ? { animationId: job.animationId } : {}),
+    });
     const onAbort = (): void => controller.abort();
     this.shutdown.signal.addEventListener('abort', onAbort, { once: true });
 
@@ -193,7 +276,7 @@ export class SpriteQueue implements JobRunner {
       await this.fail(job, error);
     } finally {
       this.shutdown.signal.removeEventListener('abort', onAbort);
-      this.running.delete(key);
+      this.running.delete(ticket);
       await this.context.onChanged();
       void this.drain();
     }
@@ -233,6 +316,8 @@ export class SpriteQueue implements JobRunner {
       // about queueing them.
       case 'animate':
         return runAnimate(this, job, signal);
+      case 'propose':
+        return runPropose(this, job, signal);
       case 'build':
         return runBuild(this, job, signal);
       case 'fix':
@@ -355,7 +440,7 @@ export class SpriteQueue implements JobRunner {
   async setStatus(
     characterId: string,
     animationId: string,
-    status: 'generating' | 'compiling' | 'judging',
+    status: 'generating' | 'proposing' | 'compiling' | 'judging',
     message: string,
   ): Promise<void> {
     await mutateAnimation(this.context.paths, characterId, animationId, (current) => ({
@@ -406,11 +491,21 @@ export class SpriteQueue implements JobRunner {
   private async fail(job: Job, error: unknown): Promise<void> {
     const reason = error instanceof Error ? error.message : String(error);
     if ('animationId' in job && 'characterId' in job) {
-      await mutateAnimation(this.context.paths, job.characterId, job.animationId, (current) => ({
-        ...current,
-        status: 'failed',
-        error: reason,
-      }));
+      const failed = await mutateAnimation(
+        this.context.paths,
+        job.characterId,
+        job.animationId,
+        (current) => ({ ...current, status: 'failed', error: reason }),
+      );
+      // A failed run is not a review anybody can finish, and leaving the
+      // proposal on the record would point it at samples housekeeping is now
+      // free to delete. Both go together or neither does.
+      if (failed !== null) {
+        await settleReview(this.context.paths, failed);
+        // A failure is the batch landing too. Without this, one clip that fell
+        // over holds the reviews of everything beside it shut for ever.
+        await openReviewWhenBatchLands(this.context.paths, failed);
+      }
       return;
     }
     if (job.kind === 'plan') {

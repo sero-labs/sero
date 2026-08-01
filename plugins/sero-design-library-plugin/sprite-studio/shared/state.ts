@@ -67,6 +67,29 @@ export interface AnimationSummary {
    * arrangement the Library already uses for video thumbnails.
    */
   awaitingFrames?: { clipPath: string; sampleFps: number; expectedFrames: number };
+  /**
+   * A proposal waiting at the review screen.
+   *
+   * Everything the screen needs is here, so opening a review is not a record
+   * fetch: the clip to watch, the compiled preview of every sampled frame, and
+   * which of them the selector would keep. Both paths are relative to the app
+   * state directory, as every stored path is.
+   */
+  review?: {
+    sampleCount: number;
+    proposed: number[];
+    loopWindow?: { from: number; to: number };
+    previewDir: string;
+    clipPath?: string;
+    /**
+     * When this proposal was made, as the previews' version.
+     *
+     * A redo writes new previews to the same paths, so a cache keyed on the
+     * path alone would go on showing the previous clip's frames — with the new
+     * clip playing above them.
+     */
+    proposedAt: number;
+  };
 }
 
 /** One video model the user can pick, with its measured character (D29). */
@@ -206,6 +229,14 @@ export type SpriteRequestBody =
    */
   | { kind: 'sprite.frames.attach'; animationId: string; stagingKey: string; durationsMs: number[] }
   /**
+   * The frames the user kept at the review, as indices into the sampled clip.
+   *
+   * Indices rather than pictures: the samples are already staged, and the page
+   * does not compute durations — a chosen frame holds until the next chosen
+   * frame, which is a rule the engine owns.
+   */
+  | { kind: 'sprite.frames.choose'; animationId: string; indices: number[] }
+  /**
    * The page could not open the clip.
    *
    * Decoding is the only way out of `awaiting-frames`, so a clip this renderer
@@ -286,6 +317,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.plan',
   'sprite.generate',
   'sprite.frames.attach',
+  'sprite.frames.choose',
   'sprite.frames.failed',
   'sprite.animation.approve',
   'sprite.animation.cancel',

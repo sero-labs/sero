@@ -34,6 +34,7 @@ const WORKING: Record<string, string> = {
   planned: 'Planned, and waiting to start',
   generating: 'Drawing the movement',
   'awaiting-frames': 'Pulling the frames out of the clip',
+  proposing: 'Working out which frames to offer you',
   compiling: 'Turning the frames into pixel art',
   judging: 'Checking the sequence',
 };
@@ -53,6 +54,8 @@ export interface WorkbenchActions {
   remove(): void;
   addAnimations(): void;
   exportSheet(): void;
+  openShelf(): void;
+  openCharacter(): void;
 }
 
 interface AnimationWorkbenchProps {
@@ -106,7 +109,13 @@ export function AnimationWorkbench({
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-border flex items-center gap-2 border-b px-4 py-2.5">
-          <Crumbs trail={[characterName]} last={summary.name} />
+          <Crumbs
+            trail={[
+              { label: 'Sprite Studio', onClick: actions.openShelf },
+              { label: characterName, onClick: actions.openCharacter },
+            ]}
+            last={summary.name}
+          />
           <div className="ml-auto flex items-center gap-2">
             <Chip>{summary.frameCount} frames</Chip>
             <Select

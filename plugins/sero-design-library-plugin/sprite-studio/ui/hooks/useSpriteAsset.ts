@@ -1,7 +1,7 @@
 import { useAppTools } from '@sero-ai/app-runtime';
 import { useEffect, useRef, useState } from 'react';
 
-import { SPRITE_TOOL } from '../lib/requests';
+import { readAsset, SPRITE_TOOL } from '../lib/requests';
 
 /**
  * Stored pictures and stored cells, read through the tool channel.
@@ -86,6 +86,58 @@ export function useSpriteAsset(path: string | undefined, version?: number): stri
 
     return () => {
       active = false;
+    };
+  }, [key]);
+
+  return src;
+}
+
+/**
+ * A stored clip, as something a `<video>` can actually play.
+ *
+ * Not `useSpriteAsset`. That returns a base64 data URL, which is right for a
+ * two-kilobyte sprite and wrong for a clip: a 720p five second take is about
+ * five megabytes, and as base64 it becomes a seven megabyte string that has to
+ * be parsed before the first frame can be drawn. A blob URL hands the same
+ * bytes over as bytes.
+ *
+ * It is revoked whenever the path changes and when the screen closes, so a
+ * review opened five times does not leave five clips in memory.
+ */
+export function useSpriteClip(path: string | undefined): string | null {
+  const tools = useAppTools();
+  const latest = useRef(tools);
+  useEffect(() => {
+    latest.current = tools;
+  });
+
+  const key = path ?? '';
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (key === '') {
+      setSrc(null);
+      return;
+    }
+    let url: string | null = null;
+    let active = true;
+    setSrc(null);
+    void readAsset(latest.current, key)
+      .then((blob) => {
+        if (blob === null) return;
+        // Nothing is created once the screen has moved on. The cleanup below
+        // has already run by then, so a URL made here would never be revoked —
+        // and it holds a whole clip in memory.
+        if (!active) return;
+        // react-doctor-disable-next-line react-doctor/no-create-object-url-without-revoke
+        url = URL.createObjectURL(blob);
+        setSrc(url);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+      if (url !== null) URL.revokeObjectURL(url);
     };
   }, [key]);
 

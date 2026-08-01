@@ -114,7 +114,7 @@ export function createPlanTool(onExecute?: () => void): PlanTool {
               'The motion instruction sent to the video model. One or two sentences describing the movement from start to finish, in the order it happens.',
           }),
           frameCount: Type.Integer({
-            description: `How many drawings the action needs, between ${MIN_FRAMES} and ${MAX_FRAMES}. This is not the play rate: a resting loop needs about six drawings however fast it plays.`,
+            description: `Roughly how many beats the action has, between ${MIN_FRAMES} and ${MAX_FRAMES}. It describes the shape of the movement and is the unit the airborne range is counted in. It is not the play rate, and it is not how many frames will be kept — that is measured from the clip and then shown to the user to change.`,
           }),
           playRate: Type.Number({ description: 'Frames per second for playback, usually 12 to 30.' }),
           loop: Type.Union([Type.Literal('once'), Type.Literal('forward'), Type.Literal('pingpong')], {

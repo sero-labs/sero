@@ -106,7 +106,7 @@ export function FrameEditor({ animation, index, onDone, onCancel }: FrameEditorP
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-border flex items-center gap-2 border-b px-4 py-2.5">
-        <Crumbs trail={[animation.plan.name]} last={`frame ${index + 1}`} />
+        <Crumbs trail={[{ label: animation.plan.name }]} last={`frame ${index + 1}`} />
         <div className="ml-auto flex items-center gap-2">
           <button type="button" onClick={() => setOnion(!onion)} aria-pressed={onion}>
             <Chip tone={onion ? 'on' : 'plain'}>

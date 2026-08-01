@@ -12,6 +12,7 @@ import { CharacterSheet } from './components/CharacterSheet';
 import { CharacterShelf } from './components/CharacterShelf';
 import { ExportPage } from './components/ExportPage';
 import { NewCharacterDialog } from './components/NewCharacterDialog';
+import { ReviewPanel } from './components/ReviewPanel';
 import { useClipFrames } from './hooks/useClipFrames';
 import { useAnimationRecord, useCharacterRecord } from './hooks/useSpriteRecord';
 import { useSpriteStudio } from './hooks/useSpriteStudio';
@@ -64,11 +65,14 @@ export function SpriteStudioPage() {
       <>
         <CharacterShelf
           characters={studio.characters}
+          deleted={studio.deletedCharacters}
           animations={studio.animations}
           openCharacterId={undefined}
           onOpen={(characterId) => actions.open(characterId)}
           onFavourite={(characterId, favourite) => void actions.favourite(characterId, favourite)}
           onNew={() => setCreating(true)}
+          onRestore={(characterId) => void actions.restoreCharacter(characterId)}
+          onPurge={(characterId) => void actions.purgeCharacter(characterId)}
         />
         <NewCharacterDialog
           open={creating}
@@ -102,6 +106,10 @@ export function SpriteStudioPage() {
   // on its frames instead.
   const atCheckpoint =
     openAnimation?.status === 'ready' && editingId !== openAnimation.id && animation !== null;
+  // The gate between the clip and the sequence. Always on, and it is the
+  // summary rather than the record that carries it: the record has the
+  // proposal, the summary has the paths the screen paints from.
+  const review = openAnimation?.status === 'awaiting-review' ? openAnimation.review : undefined;
 
   // The one this approval moves on to: the next unapproved animation *after*
   // this one, so a batch is ruled on in the order it was asked for.
@@ -120,12 +128,37 @@ export function SpriteStudioPage() {
         actions.open(characterId, animationId);
       }}
       onAddAnimations={() => setAsking(true)}
+      onDeleteAnimation={(animationId) => {
+        void actions.deleteAnimation(animationId);
+        // Only when the screen showing it has just been deleted; deleting
+        // another row from the rail should leave the user where they are.
+        if (animationId === openAnimation?.id) actions.open(characterId);
+      }}
     />
   );
 
   const surface =
     openAnimation !== undefined ? (
-      atCheckpoint && animation !== null && character !== null ? (
+      review !== undefined ? (
+        <ReviewPanel
+          // Keyed, so moving to the next animation of a batch builds a fresh
+          // panel. Without it React reuses this one and the chosen set stays
+          // put — the next animation would inherit the last one's frames.
+          key={openAnimation.id}
+          summary={openAnimation}
+          review={review}
+          characterName={openCharacter.name}
+          instruction={animation?.plan.instruction ?? ''}
+          onOpenShelf={() => actions.open(undefined)}
+          onOpenCharacter={() => actions.open(characterId)}
+          onChoose={(indices) => void actions.chooseFrames(openAnimation.id, indices)}
+          onRedo={(instruction) => void actions.redoAnimation(openAnimation.id, instruction)}
+          onDiscard={() => {
+            void actions.deleteAnimation(openAnimation.id);
+            actions.open(characterId);
+          }}
+        />
+      ) : atCheckpoint && animation !== null && character !== null ? (
         <AnimationCheckpoint
           animation={animation}
           characterName={openCharacter.name}
@@ -136,6 +169,8 @@ export function SpriteStudioPage() {
           onFix={(instruction) => void actions.fix(openAnimation.id, instruction)}
           onEditFrames={() => setEditingId(openAnimation.id)}
           onRedo={(instruction) => void actions.redoAnimation(openAnimation.id, instruction)}
+          onOpenShelf={() => actions.open(undefined)}
+          onOpenCharacter={() => actions.open(characterId)}
         />
       ) : (
         <AnimationWorkbench
@@ -163,6 +198,8 @@ export function SpriteStudioPage() {
             },
             addAnimations: () => setAsking(true),
             exportSheet: () => setExporting(true),
+            openShelf: () => actions.open(undefined),
+            openCharacter: () => actions.open(characterId),
           }}
         />
       )
@@ -183,6 +220,7 @@ export function SpriteStudioPage() {
           void actions.deleteCharacter(characterId);
           actions.open(undefined);
         }}
+        onOpenShelf={() => actions.open(undefined)}
       />
     );
 

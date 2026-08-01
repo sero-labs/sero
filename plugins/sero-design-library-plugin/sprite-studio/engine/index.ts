@@ -77,7 +77,17 @@ export {
   type SheetLayout,
   type SheetOptions,
 } from './sheet';
-export { extremesOf, reachOf, thin, type ThinOptions, type ThinnedFrame } from './thin';
+export {
+  MAX_FRAMES,
+  MIN_FRAMES,
+  WORTH_KEEPING,
+  durationsFor,
+  extremesOf,
+  reachOf,
+  thin,
+  type ThinOptions,
+  type ThinnedFrame,
+} from './thin';
 export {
   TRANSPARENT,
   type CellGrid,

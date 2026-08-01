@@ -21,8 +21,7 @@ import type { DesignLibraryPaths } from '../../../shared/paths';
 import { relativeToHome } from '../../../shared/paths';
 import type { ModelSelection } from '../../../shared/settings';
 import type { MediaProvider } from '../../../runtime/media/contract';
-import { buildRamps, rampIndex, rampUsage } from '../../engine';
-import type { CellGrid, Palette, RampUsage, SourcePlate } from '../../engine/types';
+import type { CellGrid, SourcePlate } from '../../engine/types';
 import type {
   AnimationRecord,
   CharacterRecord,
@@ -35,7 +34,7 @@ import { buildPlate, framePlate } from '../plate';
 import { decodeIndexedPng } from '../png';
 import { paletteOf, writeFrame } from '../store';
 import { attemptFile, attemptProblem, requestClip } from '../video';
-import { assemble, calibrateScale, storedFindings } from './assemble';
+import { compileSequence, storedFindings } from './assemble';
 import { judgeFrame } from './judge';
 import { repairFrame } from './repair';
 import { buildMotionPrompt } from './prompt';
@@ -52,6 +51,8 @@ export interface AnimateContext {
   resolution?: string;
   /** The endpoint a refused frame is redrawn with (D10). */
   repairModel?: string;
+  /** The frames the user kept at the review. Absent, the selector chooses. */
+  chosen?: number[];
   signal: AbortSignal;
   onProgress?(message: string): void;
 }
@@ -152,37 +153,16 @@ export async function buildAnimation(
   context: AnimateContext,
 ): Promise<BuildResult | { failed: string }> {
   const palette = paletteOf(character);
-  const plates: SourcePlate[] = sampled.map((frame) => ({
-    image: toSourceImage(frame.bytes),
-    durationMs: frame.durationMs,
-  }));
-  if (plates.length === 0) return { failed: 'No frames came back from the clip.' };
-
-  const first = plates[0]!.image;
-  const platePlate = buildPlate(basePose, palette, {
-    airborne: animation.plan.airborne !== undefined,
-    footRow: character.root.footRow,
-    centreCol: character.root.centreCol,
-  });
-  const { scale, source, measured } = calibrateScale(plates, {
-    palette,
-    expected: (first.width / platePlate.width) * platePlate.scale,
-    artHeight: character.artHeight,
-  });
-
   context.onProgress?.('Cleaning the frames…');
-  const declared = declaredGrounded(animation, plates.length);
-  const baseUsage = rampUsageOfBasePose(basePose, palette);
-  const built = assemble(plates, {
-    palette,
-    scale,
-    artHeight: character.artHeight,
-    loop: animation.plan.loop,
-    keep: animation.plan.frameCount,
-    baseRampUsage: baseUsage,
-    ...(declared === null ? {} : { declaredGrounded: declared }),
-  });
-  if (built === null) return { failed: 'Nothing in the clip could be read as the character.' };
+  const sequence = compileSequence(
+    character,
+    animation,
+    basePose,
+    toPlates(sampled),
+    context.chosen,
+  );
+  if ('failed' in sequence) return sequence;
+  const { built, scale } = sequence;
 
   // Repairs, before the checkpoint. A frame that refuses on something a redraw
   // cannot fix — a drawing already cut off at the source edge — is left alone
@@ -322,32 +302,8 @@ export async function buildAnimation(
     // Both are facts the user should have at the checkpoint: the loop the clip
     // could or could not make, and whether the model framed the character
     // differently from the plate it was given.
-    advice: [built.loop.advice, scaleNote(source, measured)].filter((line) => line !== '').join(' '),
+    advice: [built.loop.advice, sequence.note].filter((line) => line !== '').join(' '),
   };
-}
-
-function scaleNote(source: 'plate' | 'measured', measured: number): string {
-  return source === 'measured'
-    ? `The model drew the character at a different size from the plate it was given, so the sprite was measured from the pictures instead — ${measured.toFixed(1)} source pixels per art pixel.`
-    : '';
-}
-
-/** The plan's airborne range, spread over the sampled frames. */
-function declaredGrounded(animation: AnimationRecord, sampled: number): boolean[] | null {
-  const airborne = animation.plan.airborne;
-  if (airborne === undefined) return null;
-  const planned = Math.max(animation.plan.frameCount, 1);
-  return Array.from({ length: sampled }, (_, index) => {
-    // The plan counts in the frames it asked for; the clip arrives in sixty.
-    const asPlanned = Math.floor((index / sampled) * planned) + 1;
-    return asPlanned < airborne.from || asPlanned > airborne.to;
-  });
-}
-
-/** The base pose's ramp usage: what every frame's colour is compared against. */
-function rampUsageOfBasePose(basePose: CellGrid, palette: Palette): RampUsage[] {
-  const ramps = buildRamps(palette);
-  return rampUsage(basePose.cells, ramps, rampIndex(ramps, palette.length));
 }
 
 /**
@@ -422,6 +378,20 @@ async function addIdentityWarnings(
       unavailable === '' ? '' : `: ${unavailable}`
     }. The drawings are as measured; whether they are still the same character has not been decided.`,
   };
+}
+
+/**
+ * Staged bytes to decoded pictures.
+ *
+ * The decode lives here rather than inside the assembly, so the deterministic
+ * half can be tested with plates built in memory rather than with PNGs written
+ * only to be read back.
+ */
+export function toPlates(sampled: { bytes: Buffer; durationMs: number }[]): SourcePlate[] {
+  return sampled.map((frame) => ({
+    image: toSourceImage(frame.bytes),
+    durationMs: frame.durationMs,
+  }));
 }
 
 /** Read the base pose back off disk, ready to plate or compare against. */

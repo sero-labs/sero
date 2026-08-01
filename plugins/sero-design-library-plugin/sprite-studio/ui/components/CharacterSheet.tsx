@@ -26,6 +26,8 @@ interface CharacterSheetProps {
   onAddAnimations(): void;
   onReMeasure(): void;
   onDiscard(): void;
+  /** Back to the shelf. Nothing else on this screen goes there. */
+  onOpenShelf(): void;
 }
 
 function Pane({
@@ -66,6 +68,7 @@ export function CharacterSheet({
   onAddAnimations,
   onReMeasure,
   onDiscard,
+  onOpenShelf,
 }: CharacterSheetProps) {
   const { ingestion, root } = character;
 
@@ -75,7 +78,7 @@ export function CharacterSheet({
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-5">
         <div className="flex items-center gap-3">
-          <Crumbs trail={['Sprite Studio']} last={character.name} />
+          <Crumbs trail={[{ label: 'Sprite Studio', onClick: onOpenShelf }]} last={character.name} />
           <div className="ml-auto flex items-center gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={onDiscard}>
               Discard

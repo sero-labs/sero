@@ -253,7 +253,7 @@ Nothing is generated until you approve the character. The palette, the size and 
 
 Describe the animations you want. Sprite Studio plans them and shows you the plan — a name, a frame count, a play rate, a canvas and whether each one loops — before a penny is spent. Change anything you like.
 
-**Frame count and play rate are separate.** A resting loop needs about six drawings however fast it plays; each one is held for several ticks.
+**Frame count and play rate are separate.** The frame count describes the shape of the action, not how fast it plays; each drawing is held for several ticks. How many frames you actually end up with is measured from the finished clip and shown to you to change.
 
 The **video model is chosen here, in the open**, because it changes the result more than any other control and the two models fail in opposite directions:
 
@@ -264,9 +264,19 @@ The **video model is chosen here, in the open**, because it changes the result m
 
 Your choice is remembered for next time.
 
-### What happens to the drawings
+### You choose the frames
 
-A video model draws the movement. Sprite Studio pulls the frames out, cleans them and keeps the ones that carry the action — the first, the last, and the poses where the movement turns around. Each kept frame holds for the time it really held in the clip, so the animation plays at the speed it was drawn at.
+A video model draws the movement, and then **every clip stops for you before anything is built**. One screen shows the clip playing and, underneath it, every moment of it drawn as the sprite it would become — with the ones Sprite Studio would keep already marked. Click any frame to keep it or drop it, then press **Use these frames**.
+
+Nothing on that screen costs money. The clip is already paid for, so changing the frames is free, and turning down a bad take here saves every redraw that would have followed. The two buttons that do spend money — drawing the clip again, with or without a changed instruction — say so beside themselves.
+
+Ask for one animation and its review opens as soon as it is ready. Ask for five and the reviews open together at the end, so a batch is not interrupted five times.
+
+Sprite Studio's suggestion comes from the clip rather than from a number decided beforehand: it keeps adding frames while each new one still shows you something the ones you have do not. How many that is depends on the clip — a resting loop lands around ten, a busy attack around fifteen. It is a suggestion, and this screen is where you overrule it.
+
+Each kept frame holds for the time it really held in the clip, so the animation plays at the speed it was drawn at. Dropping a frame lengthens the one before it rather than shortening the animation.
+
+### What happens to the drawings
 
 Every frame is checked before it is accepted: the palette, the character's size, whether anything unattached was drawn, whether the feet are where the plan said, whether the sprite boils where it should be still, and whether the drawing ran off the edge of the video frame.
 
@@ -276,7 +286,15 @@ The frames are also checked against the base pose by an AI, one at a time, to ca
 
 Clips are decoded by the app, so Sprite Studio needs Sero open to finish an animation. One generated while Sero was closed picks up where it left off next time you open it. A clip your machine cannot open is reported as a failure you can run again, not left spinning.
 
-A run in progress can be stopped, and a finished animation can be deleted, from the button beside **Add animation**.
+### Getting about, and deleting things
+
+The trail at the top of every screen — **Sprite Studio › Explorer › Resting loop** — is clickable, so the character sheet and the shelf are always one click away.
+
+Each animation in the list has a delete control. It asks first and tells you what goes: the frames, and the clip they were made from, which is the part that cost money. There is no undo, so it says so plainly.
+
+A character you delete is kept. It disappears from the shelf and moves to **Deleted**, where you can restore it or clear it out for good.
+
+A run in progress can be stopped from the button beside **Add animation**.
 
 ### Looping
 

@@ -12,21 +12,33 @@
  */
 
 import {
+  buildRamps,
   checkAnimation,
   checkContinuity,
   compileAnimation,
+  durationsFor,
   loopAdvice,
   loopClosure,
+  rampIndex,
   rampUsage,
   searchLoop,
   thin,
+  type CellGrid,
   type CompiledAnimation,
   type Finding,
   type LoopMode,
   type Palette,
+  type RampUsage,
   type SourcePlate,
 } from '../../engine';
-import type { AnimationReport, StoredFinding } from '../../shared/character';
+import type {
+  AnimationReport,
+  AnimationRecord,
+  CharacterRecord,
+  StoredFinding,
+} from '../../shared/character';
+import { buildPlate } from '../plate';
+import { paletteOf } from '../store';
 
 export interface AssembleOptions {
   palette: Palette;
@@ -35,8 +47,15 @@ export interface AssembleOptions {
   /** The character's height in art pixels, for the body-size check. */
   artHeight: number;
   loop: LoopMode;
-  /** How many frames to keep. The AI decides how many the action needs. */
-  keep: number;
+  /**
+   * The frames the user picked at the review, as indices into the sample.
+   *
+   * When it is present the selector does not run and the loop is not re-cut:
+   * the user has already watched the whole clip and said which moments of it
+   * are the animation. Absent, the selector proposes and this is what it
+   * proposed from.
+   */
+  chosen?: number[];
   /** Which frames the plan says the feet are off the ground for (D21). */
   declaredGrounded?: boolean[];
   /** The base pose's ramp usage, so fidelity is judged against the character. */
@@ -118,20 +137,35 @@ export function assemble(
   const mode: LoopMode =
     options.loop === 'forward' && cut === null ? 'once' : options.loop;
 
-  const from = cut?.start ?? 0;
-  const to = cut?.end ?? compiled.frames.length - 1;
+  // A hand-picked set is taken over the whole clip: cutting the loop under it
+  // would drop frames the user had just chosen, from a strip they chose them on.
+  const picked = options.chosen;
+  const from = picked === undefined ? (cut?.start ?? 0) : 0;
+  const to = picked === undefined ? (cut?.end ?? compiled.frames.length - 1) : compiled.frames.length - 1;
   const window = compiled.frames.slice(from, to + 1);
 
-  const kept = thin(
-    window.map((frame) => frame.cells),
-    window.map((frame) => frame.durationMs),
-    {
-      keep: options.keep,
-      anchorCol: compiled.anchorCol,
-      anchorRow: compiled.anchorRow,
-      looping: mode !== 'once',
-    },
-  ).map((frame) => ({ index: from + frame.index, durationMs: frame.durationMs }));
+  const selected =
+    picked === undefined
+      ? thin(
+          window.map((frame) => frame.cells),
+          window.map((frame) => frame.durationMs),
+          {
+            anchorCol: compiled.anchorCol,
+            anchorRow: compiled.anchorRow,
+            looping: mode !== 'once',
+          },
+        )
+      : durationsFor(
+          picked.filter((index) => index >= 0 && index < window.length),
+          window.map((frame) => frame.durationMs),
+          // The whole reviewed sample, not the cut. The strip shows the entire
+          // clip and the cut is only a band drawn on it, so the cycle a
+          // hand-picked set belongs to is the clip — anything narrower drops
+          // the ticks between the cut and the last frame they kept.
+          mode === 'once' ? {} : { cycleEnd: window.length },
+        );
+  const kept = selected.map((frame) => ({ index: from + frame.index, durationMs: frame.durationMs }));
+  if (kept.length === 0) return null;
 
   // Checked on what survived, not on the dense sample: the frames the user is
   // shown are the frames the report is about.
@@ -147,9 +181,12 @@ export function assemble(
   const closure =
     mode !== 'forward'
       ? null
-      : cut !== null
-        ? cut.cost
-        : loopClosure(window.map((frame) => frame.cells));
+      : picked !== undefined
+        ? // Across what the user kept, because that is the join they will see.
+          loopClosure(kept.map((frame) => compiled.frames[frame.index]!.cells))
+        : cut !== null
+          ? cut.cost
+          : loopClosure(window.map((frame) => frame.cells));
 
   // Continuity is measured over the sample, before thinning took the frames in
   // between away. Every other check is about the frames the user will see.
@@ -205,6 +242,84 @@ export function assemble(
       ...(cut === null ? {} : { cut: { start: cut.start, end: cut.end } }),
     },
   };
+}
+
+export interface CompiledSequence {
+  built: AssembledAnimation;
+  /** Source pixels per art pixel, as it was settled for this clip. */
+  scale: number;
+  /** Said out loud when the model framed the character differently from the plate. */
+  note: string;
+}
+
+/**
+ * Sampled bytes to an assembled sequence, in one place.
+ *
+ * Both the proposal and the build come through here, which is the whole point:
+ * the frames offered at the review are the frames the build would have picked,
+ * produced by the same code rather than by a second copy of it that can drift.
+ * The only difference between the two calls is `chosen`.
+ */
+export function compileSequence(
+  character: CharacterRecord,
+  animation: AnimationRecord,
+  basePose: CellGrid,
+  plates: SourcePlate[],
+  chosen?: number[],
+): CompiledSequence | { failed: string } {
+  const palette = paletteOf(character);
+  const first = plates[0]?.image;
+  if (first === undefined) return { failed: 'No frames came back from the clip.' };
+
+  const plate = buildPlate(basePose, palette, {
+    airborne: animation.plan.airborne !== undefined,
+    footRow: character.root.footRow,
+    centreCol: character.root.centreCol,
+  });
+  const { scale, source, measured } = calibrateScale(plates, {
+    palette,
+    expected: (first.width / plate.width) * plate.scale,
+    artHeight: character.artHeight,
+  });
+
+  const declared = declaredGrounded(animation, plates.length);
+  const built = assemble(plates, {
+    palette,
+    scale,
+    artHeight: character.artHeight,
+    loop: animation.plan.loop,
+    baseRampUsage: rampUsageOfBasePose(basePose, palette),
+    ...(chosen === undefined ? {} : { chosen }),
+    ...(declared === null ? {} : { declaredGrounded: declared }),
+  });
+  if (built === null) return { failed: 'Nothing in the clip could be read as the character.' };
+
+  return {
+    built,
+    scale,
+    note:
+      source === 'measured'
+        ? `The model drew the character at a different size from the plate it was given, so the sprite was measured from the pictures instead — ${measured.toFixed(1)} source pixels per art pixel.`
+        : '',
+  };
+}
+
+/** The plan's airborne range, spread over the sampled frames. */
+function declaredGrounded(animation: AnimationRecord, sampled: number): boolean[] | null {
+  const airborne = animation.plan.airborne;
+  if (airborne === undefined) return null;
+  const planned = Math.max(animation.plan.frameCount, 1);
+  return Array.from({ length: sampled }, (_, index) => {
+    // The plan counts in the frames it asked for; the clip arrives in sixty.
+    const asPlanned = Math.floor((index / sampled) * planned) + 1;
+    return asPlanned < airborne.from || asPlanned > airborne.to;
+  });
+}
+
+/** The base pose's ramp usage: what every frame's colour is compared against. */
+function rampUsageOfBasePose(basePose: CellGrid, palette: Palette): RampUsage[] {
+  const ramps = buildRamps(palette);
+  return rampUsage(basePose.cells, ramps, rampIndex(ramps, palette.length));
 }
 
 export function storedFindings(findings: Finding[], frame?: number): StoredFinding[] {

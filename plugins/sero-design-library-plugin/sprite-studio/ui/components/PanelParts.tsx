@@ -112,17 +112,40 @@ export function Chip({
   );
 }
 
-export function Crumbs({ trail, last }: { trail: string[]; last: string }) {
+export interface Crumb {
+  label: string;
+  /** Absent for a step there is nothing to go back to. */
+  onClick?: () => void;
+}
+
+/**
+ * Where you are, and the way back out.
+ *
+ * Every step was a plain span, which looked like navigation and was not: once a
+ * character was open there was no way back to the shelf at all. A step with
+ * somewhere to go is a button.
+ */
+export function Crumbs({ trail, last }: { trail: Crumb[]; last: string }) {
   return (
-    <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
+    <nav aria-label="Breadcrumb" className="text-muted-foreground flex items-center gap-1.5 text-sm">
       {trail.map((step) => (
-        <span key={step} className="flex items-center gap-1.5">
-          {step}
+        <span key={step.label} className="flex items-center gap-1.5">
+          {step.onClick === undefined ? (
+            step.label
+          ) : (
+            <button
+              type="button"
+              className="hover:text-foreground rounded-sm underline-offset-4 hover:underline"
+              onClick={step.onClick}
+            >
+              {step.label}
+            </button>
+          )}
           <span aria-hidden>›</span>
         </span>
       ))}
       <b className="text-foreground font-medium">{last}</b>
-    </div>
+    </nav>
   );
 }
 

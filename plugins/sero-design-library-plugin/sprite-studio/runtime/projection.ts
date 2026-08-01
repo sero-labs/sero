@@ -28,6 +28,35 @@ export async function clearSpriteProblem(paths: DesignLibraryPaths): Promise<voi
   });
 }
 
+/**
+ * What the page is looking at, said outright.
+ *
+ * Both keys are assigned from the request rather than skipped when absent, so
+ * "the character sheet" is a different instruction from "leave it alone".
+ * Omitting them made closing an animation impossible: the sheet opened, and
+ * reopening the page landed back on the animation.
+ */
+export async function setOpen(
+  paths: DesignLibraryPaths,
+  open: { characterId?: string; animationId?: string },
+): Promise<void> {
+  await updateState(paths, (current: DesignLibraryState) => {
+    const {
+      openCharacterId: _character,
+      openAnimationId: _animation,
+      ...rest
+    } = current.sprite;
+    return {
+      ...current,
+      sprite: {
+        ...rest,
+        ...(open.characterId === undefined ? {} : { openCharacterId: open.characterId }),
+        ...(open.animationId === undefined ? {} : { openAnimationId: open.animationId }),
+      },
+    };
+  });
+}
+
 /** Rebuild the whole slice from the records. Cheap, and always correct. */
 export async function projectSpriteState(paths: DesignLibraryPaths): Promise<void> {
   const characters = await listCharacters(paths);
@@ -41,7 +70,7 @@ export async function projectSpriteState(paths: DesignLibraryPaths): Promise<voi
     summaries.push(characterSummary(character, owned));
     for (const animation of owned) {
       if (animation.deletedAt !== undefined) continue;
-      animations.push(animationSummary(animation, sampleFps));
+      animations.push(animationSummary(paths, animation, sampleFps));
     }
   }
   await updateState(paths, (current: DesignLibraryState) => {
@@ -67,7 +96,7 @@ export async function projectSpriteState(paths: DesignLibraryPaths): Promise<voi
 }
 
 /** The statuses a progress line still means something under. */
-const WORKING = new Set(['generating', 'awaiting-frames', 'compiling', 'judging']);
+const WORKING = new Set(['generating', 'awaiting-frames', 'proposing', 'compiling', 'judging']);
 
 /**
  * Say what went wrong, where the user can see it.

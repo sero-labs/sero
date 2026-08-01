@@ -116,7 +116,7 @@ export function ExportPage({ character, animations, onExport, onBack }: ExportPa
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-          <Crumbs trail={[character.name]} last="export" />
+          <Crumbs trail={[{ label: character.name, onClick: onBack }]} last="export" />
           <Select
             value={String(options.scale)}
             onValueChange={(value) => patch({ scale: Number(value) })}

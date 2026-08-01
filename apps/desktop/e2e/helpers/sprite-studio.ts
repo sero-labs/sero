@@ -86,6 +86,8 @@ export interface SpriteAnimationRecord {
   frames: { id: string; file: string; durationMs: number }[];
   report: { loop?: unknown } | null;
   findings: { check: string; level: string; message: string }[];
+  /** Set only while the frames are waiting to be picked. */
+  review?: { stagingKey: string; sampleCount: number; proposed: number[] };
 }
 
 export interface SpriteState {
@@ -97,6 +99,7 @@ export interface SpriteState {
       progress?: string;
       frameCount: number;
       awaitingFrames?: { clipPath: string; sampleFps: number; expectedFrames: number };
+      review?: { sampleCount: number; proposed: number[]; previewDir: string; clipPath?: string };
     }[];
     notice?: { message: string };
     settings: Record<string, unknown>;

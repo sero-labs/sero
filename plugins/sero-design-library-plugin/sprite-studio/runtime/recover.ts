@@ -10,19 +10,25 @@
  * So every unfinished animation is settled here, before anything else runs, and
  * the two cases are settled differently because one of them costs money:
  *
- *   compiling / judging — the clip is on disk and re-reading it is free, so it
- *     goes back to `awaiting-frames` and the open page picks it up again.
+ *   proposing / compiling / judging — the clip is on disk and re-reading it is
+ *     free, so it goes back to `awaiting-frames` and the open page picks it up
+ *     again.
  *   generating — the clip was still being drawn and may or may not exist. It is
  *     marked failed with a sentence saying so. Re-running it is a paid call, and
  *     that is the user's decision to make rather than one to make on their
  *     behalf while they are not looking.
+ *
+ * `awaiting-review` is deliberately absent. It is a resting state: nothing was
+ * running when the app closed, the samples are still staged and the proposal is
+ * still on the record, so the review is resumed by being left alone.
  */
 
 import type { DesignLibraryPaths } from '../../shared/paths';
+import { settleReview } from './review';
 import { listAnimations, listCharacters, mutateAnimation } from './store';
 
 /** Statuses that only a running job can move on from. */
-const UNFINISHED = new Set(['generating', 'compiling', 'judging']);
+const UNFINISHED = new Set(['generating', 'proposing', 'compiling', 'judging']);
 
 export interface RecoveredAnimations {
   /** Sent back to the page to have their frames pulled out again. */
@@ -55,6 +61,10 @@ export async function recoverUnfinishedAnimations(
                 'Sero closed while this was being made, so it never finished. Running it again draws a new clip.',
             }),
       }));
+      // A half-made proposal names samples the page is about to stage again
+      // under a new key, so the old ones are released rather than left to be
+      // swept an hour later.
+      await settleReview(paths, animation);
     }
   }
 

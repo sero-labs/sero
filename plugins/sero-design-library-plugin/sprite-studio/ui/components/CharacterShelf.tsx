@@ -8,12 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sero-ai/ui';
-import { CircleDashed, Heart, Plus, Shapes } from 'lucide-react';
+import { CircleDashed, Heart, Plus, Shapes, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { AnimationSummary, CharacterSummary } from '../../shared/state';
 import { NavigationRailHeading, NavigationRailRow } from '../../../ui/components/NavigationRail';
 import { CharacterCard } from './CharacterCard';
+import { DeletedCharacters } from './DeletedCharacters';
 
 /**
  * The shelf.
@@ -24,17 +25,21 @@ import { CharacterCard } from './CharacterCard';
  * animations are found inside one.
  */
 
-type Scope = 'all' | 'favourites' | 'awaiting';
+type Scope = 'all' | 'favourites' | 'awaiting' | 'deleted';
 
 const ANY = 'any';
 
 interface CharacterShelfProps {
   characters: CharacterSummary[];
+  /** Deleted, still on disk, and reachable only from here. */
+  deleted: CharacterSummary[];
   animations: AnimationSummary[];
   openCharacterId: string | undefined;
   onOpen(characterId: string): void;
   onFavourite(characterId: string, favourite: boolean): void;
   onNew(): void;
+  onRestore(characterId: string): void;
+  onPurge(characterId: string): void;
 }
 
 function awaitingYou(character: CharacterSummary): boolean {
@@ -43,11 +48,14 @@ function awaitingYou(character: CharacterSummary): boolean {
 
 export function CharacterShelf({
   characters,
+  deleted,
   animations,
   openCharacterId,
   onOpen,
   onFavourite,
   onNew,
+  onRestore,
+  onPurge,
 }: CharacterShelfProps) {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<Scope>('all');
@@ -102,6 +110,17 @@ export function CharacterShelf({
             icon={<CircleDashed className="size-3.5" />}
             onClick={() => setScope('awaiting')}
           />
+          {/* Only when there is something in it. An empty row would be a
+              permanent reminder of a bin nobody has used. */}
+          {deleted.length > 0 && (
+            <NavigationRailRow
+              active={scope === 'deleted'}
+              label="Deleted"
+              count={deleted.length}
+              icon={<Trash2 className="size-3.5" />}
+              onClick={() => setScope('deleted')}
+            />
+          )}
         </nav>
       </ScrollArea>
 
@@ -148,7 +167,13 @@ export function CharacterShelf({
         </div>
 
         <ScrollArea className="min-h-0 flex-1">
-          {visible.length === 0 ? (
+          {scope === 'deleted' ? (
+            <DeletedCharacters
+              characters={deleted}
+              onRestore={onRestore}
+              onPurge={onPurge}
+            />
+          ) : visible.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center gap-3 px-6 py-24 text-center text-sm">
               <Shapes className="size-8" />
               <p>

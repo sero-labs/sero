@@ -105,7 +105,6 @@ describe('assembling a sequence', () => {
       scale: SCALE,
       artHeight: character.rows,
       loop: 'once',
-      keep: 8,
     });
 
     expect(built).not.toBeNull();
@@ -124,7 +123,6 @@ describe('assembling a sequence', () => {
         scale: SCALE,
         artHeight: character.rows,
         loop: 'forward',
-        keep: 8,
       },
     );
 
@@ -144,7 +142,6 @@ describe('assembling a sequence', () => {
         scale: SCALE,
         artHeight: character.rows,
         loop: 'forward',
-        keep: 8,
       },
     );
 
@@ -166,7 +163,6 @@ describe('assembling a sequence', () => {
       scale: SCALE,
       artHeight: character.rows,
       loop: 'once',
-      keep: 10,
     });
 
     expect(built!.report.footTravel).toBeGreaterThan(30);
@@ -184,11 +180,51 @@ describe('assembling a sequence', () => {
       scale: SCALE,
       artHeight: character.rows * 2,
       loop: 'once',
-      keep: 6,
     });
 
     const refused = built!.findings.filter((finding) => finding.level === 'refuse');
     expect(refused.some((finding) => finding.check === 'body-size')).toBe(true);
+  });
+
+  it('uses the frames the user chose, and nothing else from the clip', () => {
+    const jump = plates(
+      Array.from({ length: 30 }, (_, i) => {
+        const t = (i - 5) / 19;
+        return { dy: i < 5 || i > 24 ? 0 : -Math.round(Math.sin(Math.PI * t) * 40 * SCALE) };
+      }),
+    );
+    const built = assemble(jump, {
+      palette: character.palette,
+      scale: SCALE,
+      artHeight: character.rows,
+      loop: 'once',
+      // Deliberately not what the selector would have picked, and handed over
+      // in the order they were clicked in.
+      chosen: [20, 0, 9, 4],
+    });
+
+    expect(built!.kept.map((frame) => frame.index)).toEqual([0, 4, 9, 20]);
+    // Every millisecond of the source up to the last chosen frame is still
+    // accounted for: dropping a frame lengthens the one before it (D23).
+    expect(built!.kept[0]!.durationMs).toBe(
+      jump.slice(0, 4).reduce((sum, plate) => sum + plate.durationMs, 0),
+    );
+    expect(built!.report.keptFrames).toBe(4);
+  });
+
+  it('does not re-cut a loop underneath a hand-picked set', () => {
+    // The user chose from a strip of the whole clip. Cutting the cycle over the
+    // top of that would drop frames they had just picked.
+    const walk = plates(Array.from({ length: 40 }, (_, i) => ({ sprite: walkPose((i % 10) / 10) })));
+    const built = assemble(walk, {
+      palette: character.palette,
+      scale: SCALE,
+      artHeight: character.rows,
+      loop: 'forward',
+      chosen: [0, 12, 33],
+    });
+
+    expect(built!.kept.map((frame) => frame.index)).toEqual([0, 12, 33]);
   });
 
   it('refuses a jump whose airborne frames never leave the ground', () => {
@@ -197,7 +233,6 @@ describe('assembling a sequence', () => {
       scale: SCALE,
       artHeight: character.rows,
       loop: 'once',
-      keep: 6,
       declaredGrounded: standing.map((_, i) => i < 4),
     });
 

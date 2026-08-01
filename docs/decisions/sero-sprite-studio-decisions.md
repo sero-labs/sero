@@ -767,3 +767,83 @@ chore does not get to undo one.
 
 `CHARACTER_MODEL` is untouched. Drawing a character from words is generation
 rather than editing, and this measurement says nothing about it.
+
+---
+
+## D40 — The frames are a proposal, and a person picks them
+
+**Decided:** 1 August 2026, after a resting loop came back with six frames out
+of sixty-one.
+
+Two faults, one cause. The planner named a frame count before anything was
+drawn, and the selector kept exactly that many. It cannot know: it has not seen
+the clip. The tool description it read even said *"a resting loop needs about
+six drawings"*, which is precisely what came back.
+
+**A single fixed threshold was measured and rejected.** The quantity the
+selector works on — how different the worst-represented frame is from its
+nearest kept frame — is not comparable between clips. Measured on five real
+clips from one character, the first addition is worth 32% of the canvas on a
+resting loop, 52% on a whip attack and 100% on a jump. Any threshold loose
+enough for the resting loop pins every energetic clip to the cap, so "the clip
+decides" quietly becomes "the cap decides".
+
+**The rule adopted is relative**: keep adding while the next frame is still
+worth more than 60% of what the first addition was worth, bounded between 4 and
+24. On the same five clips, run through the shipped code:
+
+| Animation | before | now |
+|---|---|---|
+| resting loop | 6 | 10 |
+| whip attack | 14 | 15 |
+| jump | 12 | 14 |
+| jump (second) | 10 | 16 |
+| walk | 16 | 24 (the cap) |
+
+The whip attack lands on what a person had settled on by hand. The walk sits at
+the cap because it genuinely holds about five walk cycles, which no frame count
+can fix — that is a loop-detection problem, and it is out of scope.
+
+Two faults the measurement exposed and fixed on the way: reach extremes were
+seeded before the count was consulted at all, so a walk seeded fifteen of them;
+they now need to be worth something, and only the largest few are taken.
+
+**This is fitted to five clips from one character, so it is a proposal and not a
+law.** That is the right strength for it, because of the second half of the
+decision:
+
+**Every clip now stops at a review before anything is built.** One screen shows
+the take playing and a filmstrip of every sampled moment compiled to the sprite
+it would become, with the proposed frames marked; the user changes them and says
+go. Always on — there is no setting to turn it off — because the alternative is
+a rule the user cannot see, cannot predict and cannot overrule.
+
+Four things make it work rather than merely exist:
+
+1. **The proposal comes out of the same call the build uses.** Not a second copy
+   of the rule, which could drift and make an accepted proposal produce a
+   different animation from the one shown.
+2. **The filmstrip is the compiled sprite, not the video still.** Judging a take
+   from 480p video frames is judging something we are not going to ship.
+3. **It costs nothing.** The clip is paid for and the samples are staged, so
+   rejecting here saves every repair call and the judge run. The two buttons
+   that do spend money say so where they are.
+4. **A review holds its own files open.** `awaiting-review` is a resting state
+   with no pending request, so the staged samples must be named as held or
+   housekeeping deletes them an hour later and the review can never be finished.
+   Samples, previews and proposal are cleared together by every route out.
+
+A batch opens its review **once, at the end**, when nothing in it is still
+working — with a failure counting as finished, or one bad clip holds the whole
+review shut for ever.
+
+Order and timing are not editable here. Order is source order, timing is
+measured from the clip (D23), and the workbench already edits a finished
+sequence; adding both would make this a second workbench.
+
+**A soft delete with nowhere to go is a leak, not a safety net.** Found while
+auditing the deletions before adding a delete control: a deleted character was
+filtered off the shelf for ever, and the two requests that would restore or
+purge it existed with nothing calling either. Deleted characters are now
+reachable, and the new animation delete is a real delete behind a confirmation
+that names the frames and the paid clip.

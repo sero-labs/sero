@@ -4,10 +4,11 @@
  * A picture of a character goes in; a sprite sheet and an Aseprite atlas come
  * out. Every stage in between runs for real — ingestion measures the artwork, a
  * model plans the animations, a video model draws the movement, the renderer
- * pulls the frames out of the clip because the runtime has no codecs, the
- * engine quantises and plants the root, and the export writes two files.
+ * pulls the frames out of the clip because the runtime has no codecs, the run
+ * stops at the review for the frames to be picked, the engine quantises and
+ * plants the root, and the export writes two files.
  *
- * It is one story told as seven tests so that a failure names its stage.
+ * It is one story told as nine tests so that a failure names its stage.
  *
  * **Why this exists.** Every unit test, every typecheck and every plugin build
  * passed while the feature was dead on arrival in Sero: a field the page waited
@@ -359,10 +360,11 @@ test('plain words become a plan', async () => {
   await shot('04-plan.png');
 });
 
-test('the plan produces a finished sequence', async () => {
-  // A clip, sixty-odd frames decoded in the renderer, then a judge call per
-  // kept frame. Long, and long is not the same as stuck.
+test('the clip stops at the review before anything is built', async () => {
+  // A clip, then sixty-odd frames decoded in the renderer and compiled. Long,
+  // and long is not the same as stuck.
   test.setTimeout(900_000);
+  const panel = spriteStudioPanel(page);
 
   await page.getByRole('button', { name: /^Start · / }).click();
 
@@ -376,16 +378,71 @@ test('the plan produces a finished sequence', async () => {
   );
   expect(clipped.status).not.toBe('failed');
 
-  animation = await until(
-    'the sequence to be built',
-    () => {
-      const found = listAnimationRecords(libraryHome, character.id).find(
-        (one) => one.status === 'ready' || one.status === 'failed',
-      );
-      return found;
-    },
+  // Nothing is built until a person has said so. This is the whole gate: the
+  // clip is paid for, the samples are on disk, and the run stops here.
+  const proposed = await until(
+    'the frames to be proposed',
+    () =>
+      listAnimationRecords(libraryHome, character.id).find(
+        (one) => one.status === 'awaiting-review' || one.status === 'failed',
+      ),
     600_000,
   );
+  expect(proposed.error ?? '').toBe('');
+  expect(proposed.status).toBe('awaiting-review');
+  expect(proposed.frames.length).toBe(0);
+
+  // A proposal that names samples nothing wrote is the fault this feature
+  // produces over and over, so both halves are checked against each other.
+  const review = proposed.review;
+  expect(review?.sampleCount ?? 0).toBeGreaterThan(2);
+  expect(review?.proposed.length ?? 0).toBeGreaterThanOrEqual(2);
+  expect(review!.proposed.length).toBeLessThan(review!.sampleCount);
+  const previews = fs.readdirSync(
+    path.join(libraryHome, 'characters', character.id, 'animations', proposed.id, 'samples'),
+  );
+  expect(previews.length).toBe(review!.sampleCount);
+
+  await expect(panel.getByText(/\d+ of \d+ chosen/)).toBeVisible({ timeout: 60_000 });
+  await shot('05-review.png');
+});
+
+test('changing the frames changes what gets built', async () => {
+  test.setTimeout(900_000);
+  const panel = spriteStudioPanel(page);
+
+  // Drop one of the proposed frames, so the sequence that comes out cannot be
+  // the one the selector would have produced on its own.
+  const before = listAnimationRecords(libraryHome, character.id).find(
+    (one) => one.status === 'awaiting-review',
+  )!;
+  const wanted = before.review!.proposed.length - 1;
+  // Anchored: "Frame 1" also matches "Frame 10" through "Frame 19".
+  await panel.getByRole('button', { name: new RegExp(`^Frame ${before.review!.proposed[0]! + 1}$`) }).click();
+  await panel.getByRole('button', { name: `Use these ${wanted} frames` }).click();
+
+  animation = await until(
+    'the sequence to be built',
+    () =>
+      listAnimationRecords(libraryHome, character.id).find(
+        (one) => one.status === 'ready' || one.status === 'failed',
+      ),
+    600_000,
+  );
+
+  // Exactly what was asked for, not what was proposed.
+  expect(animation.frames.length).toBe(wanted);
+  // The review is over, so its samples are gone rather than left on disk.
+  expect(animation.review).toBeUndefined();
+  expect(
+    fs.existsSync(
+      path.join(libraryHome, 'characters', character.id, 'animations', animation.id, 'samples'),
+    ),
+  ).toBe(false);
+});
+
+test('the built sequence is a real indexed sprite', async () => {
+  test.setTimeout(120_000);
 
   expect(animation.error ?? '').toBe('');
   expect(animation.status).toBe('ready');
@@ -413,7 +470,7 @@ test('the plan produces a finished sequence', async () => {
   expect(unjudged?.message ?? 'the judge ran').toBe('the judge ran');
 
   await expect(page.getByText('Checkpoint 2 of 2')).toBeVisible({ timeout: 60_000 });
-  await shot('05-checkpoint.png');
+  await shot('06-checkpoint.png');
 });
 
 test('the checkpoint approves and the workbench opens', async () => {
@@ -431,7 +488,7 @@ test('the checkpoint approves and the workbench opens', async () => {
   await expect(panel.getByRole('button', { name: 'Export sheet' })).toBeVisible({
     timeout: 30_000,
   });
-  await shot('06-workbench.png');
+  await shot('07-workbench.png');
 });
 
 test('exporting writes a sheet and an atlas', async () => {
@@ -440,7 +497,7 @@ test('exporting writes a sheet and an atlas', async () => {
 
   await panel.getByRole('button', { name: 'Export sheet' }).click();
   await expect(panel.getByRole('button', { name: /^Export · / })).toBeVisible({ timeout: 30_000 });
-  await shot('07-export.png');
+  await shot('08-export.png');
   await panel.getByRole('button', { name: /^Export · / }).click();
 
   const sheet = await until(

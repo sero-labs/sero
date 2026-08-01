@@ -10,6 +10,7 @@ import { pruneGalleryTemps, reindexGallery } from './gallery-store';
 import { pruneStaging } from '../sprite-studio/runtime/staging';
 import { projectSpriteState } from '../sprite-studio/runtime/projection';
 import { recoverUnfinishedAnimations } from '../sprite-studio/runtime/recover';
+import { heldStagingKeys, sweepOrphanSamples } from '../sprite-studio/runtime/review';
 import { migrateSpriteSettings } from '../sprite-studio/runtime/settings-migrate';
 
 /**
@@ -107,15 +108,29 @@ class DesignLibraryRuntime implements AppRuntime {
 
     // Frames a page pushed across and then never sent a request for — the app
     // was closed mid-upload — are worth nothing to anyone.
+    //
+    // An animation waiting at its review is the exception, and it has to be
+    // stated: it has no pending request, because it is waiting on a person.
+    // Without this line its samples are deleted an hour after the clip arrived
+    // and the review can never be finished.
     await this.attempt('remove abandoned sprite staging', async () => {
       const state = await readState(paths);
-      const awaited = new Set(
-        pendingRequests(state).flatMap((request) =>
+      const awaited = new Set([
+        ...pendingRequests(state).flatMap((request) =>
           'stagingKey' in request.body ? [request.body.stagingKey] : [],
         ),
-      );
+        ...(await heldStagingKeys(paths)),
+      ]);
       return pruneStaging(paths, STALE_UPLOAD_MS, Date.now(), awaited);
     });
+
+    // The other half of the same leak. Settling a review clears the record
+    // pointer before the files, so an interruption between the two leaves
+    // previews nothing names — inside the animation's directory, where the
+    // staging sweep above does not look.
+    await this.attempt('remove orphaned sprite sample previews', () =>
+      sweepOrphanSamples(paths),
+    );
 
     this.coordinator = new Coordinator({
       host: this.ctx.host,

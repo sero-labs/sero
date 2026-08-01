@@ -25,6 +25,7 @@ import {
   characterRecordFile,
   charactersDir,
   frameFile,
+  samplesDir,
 } from '../shared/paths';
 import { decodeIndexedPng, encodeIndexedPng, palettesMatch } from './png';
 import { CLIP_SECONDS } from './video';
@@ -240,7 +241,11 @@ export function samplesPerClip(sampleFps: number): number {
   return Math.round(CLIP_SECONDS * Math.max(1, sampleFps)) + 1;
 }
 
-export function animationSummary(animation: AnimationRecord, sampleFps: number): AnimationSummary {
+export function animationSummary(
+  paths: DesignLibraryPaths,
+  animation: AnimationRecord,
+  sampleFps: number,
+): AnimationSummary {
   return {
     id: animation.id,
     characterId: animation.characterId,
@@ -265,6 +270,25 @@ export function animationSummary(animation: AnimationRecord, sampleFps: number):
             clipPath: animation.clipFile,
             sampleFps,
             expectedFrames: samplesPerClip(sampleFps),
+          },
+        }
+      : {}),
+    // Only while a review is actually open. The record keeps the proposal for
+    // the build to read; the page is shown it only when it is the page's turn.
+    ...(animation.status === 'awaiting-review' && animation.review !== undefined
+      ? {
+          review: {
+            sampleCount: animation.review.sampleCount,
+            proposed: animation.review.proposed,
+            ...(animation.review.loopWindow === undefined
+              ? {}
+              : { loopWindow: animation.review.loopWindow }),
+            previewDir: relativeToHome(
+              paths,
+              samplesDir(paths, animation.characterId, animation.id),
+            ),
+            ...(animation.clipFile === undefined ? {} : { clipPath: animation.clipFile }),
+            proposedAt: animation.review.proposedAt,
           },
         }
       : {}),

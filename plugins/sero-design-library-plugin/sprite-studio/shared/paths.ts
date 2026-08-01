@@ -75,6 +75,36 @@ export function frameFile(
   );
 }
 
+/**
+ * The compiled sprite for every sampled frame, drawn for the review screen.
+ *
+ * A raw video still is not what the sprite will look like, and judging a take
+ * from 480p video frames would be judging something we are not going to ship.
+ * These are the quantised article, at the character's palette and scale. They
+ * live only while the review is open and are cleared when it is settled.
+ */
+export function samplesDir(
+  paths: DesignLibraryPaths,
+  characterId: string,
+  animationId: string,
+): string {
+  return path.join(animationDir(paths, characterId, animationId), 'samples');
+}
+
+/** One sample preview. Numbers are padded so name order is time order. */
+export function sampleFile(
+  paths: DesignLibraryPaths,
+  characterId: string,
+  animationId: string,
+  index: number,
+): string {
+  return path.join(samplesDir(paths, characterId, animationId), `${sampleName(index)}.png`);
+}
+
+export function sampleName(index: number): string {
+  return String(index).padStart(3, '0');
+}
+
 /** The clip an animation was drawn from, kept for a re-cut without re-paying. */
 export function clipFile(
   paths: DesignLibraryPaths,

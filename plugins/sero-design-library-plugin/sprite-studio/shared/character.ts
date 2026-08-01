@@ -129,11 +129,38 @@ export type AnimationStatus =
   | 'planned'
   | 'generating'
   | 'awaiting-frames'
+  /** Short and unattended: working out which frames to offer, and drawing them. */
+  | 'proposing'
+  /** Resting. Nothing is running, and it survives a restart (spec §2.4). */
+  | 'awaiting-review'
   | 'compiling'
   | 'judging'
   | 'ready'
   | 'approved'
   | 'failed';
+
+/**
+ * What the selector would keep, offered to the user before anything is built.
+ *
+ * The frames here are a proposal and not a decision: the review screen is where
+ * it is overruled, and the rule that produced it only has to start somewhere
+ * sensible. Held on the record rather than in reactive state because the samples
+ * it names are on disk, and a review has to survive closing the app.
+ */
+export interface ReviewProposal {
+  /** The staged samples the build will read. Held until the review is settled. */
+  stagingKey: string;
+  sampleCount: number;
+  /** The real time each sampled frame held, so the build keeps the timing (D23). */
+  sampleDurationsMs: number[];
+  /** The sample indices the selector chose. */
+  proposed: number[];
+  /** The cycle the loop search found, drawn as a band on the strip. */
+  loopWindow?: { from: number; to: number };
+  /** Source pixels per art pixel, calibrated once for the whole clip (D12). */
+  scale: number;
+  proposedAt: number;
+}
 
 /** What the AI planned, before anything was drawn (spec §4). */
 export interface AnimationPlan {
@@ -169,6 +196,15 @@ export interface AnimationRecord {
   /** The clip this was made from, relative to the app state directory. */
   clipFile?: string;
   videoModel?: string;
+  /** Set while the frames are waiting to be picked. Cleared when it is settled. */
+  review?: ReviewProposal;
+  /**
+   * Which `sprite.generate` created this one.
+   *
+   * So a batch can be recognised without parsing an id: the review opens once,
+   * at the end, when no animation of the same batch is still working.
+   */
+  batchId?: string;
   /** Set when the run failed, in words the user can act on. */
   error?: string;
   /** Every earlier version, newest last. A repair appends rather than replaces. */

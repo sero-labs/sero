@@ -40,6 +40,8 @@ interface AnimationCheckpointProps {
   onFix(instruction: string): void;
   onEditFrames(): void;
   onRedo(instruction: string): void;
+  onOpenShelf(): void;
+  onOpenCharacter(): void;
 }
 
 export function AnimationCheckpoint({
@@ -52,6 +54,8 @@ export function AnimationCheckpoint({
   onFix,
   onEditFrames,
   onRedo,
+  onOpenShelf,
+  onOpenCharacter,
 }: AnimationCheckpointProps) {
   const [instruction, setInstruction] = useState('');
   const { canvas, frames, plan } = animation;
@@ -63,7 +67,13 @@ export function AnimationCheckpoint({
     // pushing it off the side of the window.
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-5">
-        <Crumbs trail={[characterName, plan.name]} last="ready for approval" />
+        <Crumbs
+          trail={[
+            { label: 'Sprite Studio', onClick: onOpenShelf },
+            { label: characterName, onClick: onOpenCharacter },
+          ]}
+          last={plan.name}
+        />
 
         <div className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
           <div className="border-border text-muted-foreground flex h-9 items-center gap-2 border-b px-3 text-sm">

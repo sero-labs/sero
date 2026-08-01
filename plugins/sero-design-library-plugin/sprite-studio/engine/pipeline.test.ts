@@ -221,7 +221,7 @@ describe('thinning', () => {
   });
 
   it('keeps the ends and the extremes, and carries the real timing', () => {
-    const kept = thin(frames, durations, { keep: 5, anchorCol: 0, anchorRow: 0 });
+    const kept = thin(frames, durations, { anchorCol: 0, anchorRow: 0 });
 
     expect(kept[0]!.index).toBe(0);
     expect(kept.at(-1)!.index).toBe(11);
@@ -231,7 +231,7 @@ describe('thinning', () => {
   });
 
   it('keeps only one end of a loop, because both are the same moment', () => {
-    const kept = thin(frames, durations, { keep: 5, anchorCol: 0, anchorRow: 0, looping: true });
+    const kept = thin(frames, durations, { anchorCol: 0, anchorRow: 0, looping: true });
     expect(kept.map((frame) => frame.index)).not.toContain(11);
     expect(kept.reduce((sum, frame) => sum + frame.durationMs, 0)).toBe(83 * 12);
   });

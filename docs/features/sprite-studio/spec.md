@@ -276,12 +276,28 @@ Deterministic, no AI, and the part that is extractable.
    is found by measuring, not declared: it is where a limb or a held object
    reverses direction. Small fast things — a whip, a blade — are weighted up, or
    a thin object that crosses the whole canvas counts for less than a shoulder
-   that shifts two pixels. **The source timing is kept**: each surviving frame's
-   duration is the real time until the next one, so the animation plays at the
-   speed it was drawn at rather than at a rate chosen afterwards. In a looping
-   animation the first and last frame are the same moment, so only one of them
-   is kept and its duration covers the join. The spike took 61 sampled frames
-   down to 10.
+   that shifts two pixels. A reversal must be worth something to count, and only
+   the largest few are taken: without both, a walk seeded fifteen extremes and
+   kept sixteen frames against a plan of eight. **The source timing is kept**:
+   each surviving frame's duration is the real time until the next one, so the
+   animation plays at the speed it was drawn at rather than at a rate chosen
+   afterwards. In a looping animation the first and last frame are the same
+   moment, so only one of them is kept and its duration covers the join. The
+   spike took 61 sampled frames down to 10.
+
+   **How many frames is measured from the clip** (D40). The planner used to name
+   a count before anything was drawn and the selector kept exactly that many,
+   which is how a resting loop came back with six frames out of sixty-one. The
+   rule now keeps adding while the next frame is still worth more than 60% of
+   what the first addition was worth, bounded between 4 and 24. A fixed
+   threshold was measured and rejected: the first addition is worth 32% of the
+   canvas on a resting loop, 52% on a whip attack and 100% on a jump, so any
+   threshold loose enough for the first pins the others to the cap.
+
+   The result is a **proposal, not a decision** — §2.5 is where it is overruled.
+   `plan.frameCount` stays in the plan because the airborne range is expressed
+   in it, and the planner's tool now describes it as the shape of the action
+   rather than a quota for the selector.
 6. **Compile.** Lay the frames into a sheet and write the atlas.
 
 **The source already holds the arc. Correct the drift, not the position.**
@@ -351,6 +367,50 @@ across both.
 Export can flatten this: one cell size for every animation, taken from the
 largest, for engines that want a uniform grid. It costs empty space in the idle
 rows, so it is a choice rather than the default.
+
+### 2.5 The review
+
+**One screen between the clip and the sequence, and it is always on.**
+
+Watching the take and choosing its frames are the same judgement — "is this any
+good, and which parts of it do I want" — so they are one screen. Two would ask
+the user to look at the same clip twice.
+
+The runtime compiles every sampled moment, writes a small indexed preview of
+each, works out which it would keep, and stops at `awaiting-review`. The screen
+shows the clip playing, a filmstrip of every sample with the proposed ones
+marked, and four ways out: use these frames, draw it again, draw it again with a
+changed instruction, or discard.
+
+Three things about it are load-bearing:
+
+- **The filmstrip shows the compiled sprite, not the video still.** A still is
+  not what the sprite will look like, and judging a 480p video frame would be
+  judging something we are not going to ship.
+- **The proposal comes out of the same call the build uses.** A second copy of
+  the selection rule could drift, and accepting a proposal unchanged would then
+  produce a different animation from the one shown.
+- **Nothing here costs money.** The clip is paid for and the samples are on
+  disk, so this is the cheapest refusal in the feature: it saves every repair
+  call and the judge run that would have followed. The two buttons that do spend
+  money say so where they are.
+
+One animation opens its review as soon as it is ready. A **batch opens once, at
+the end**, when nothing in it is still working — and a failed animation counts
+as finished, or one bad clip would hold the whole review shut for ever. Choosing
+moves straight on to the next animation of the batch, so the whole review is one
+pass.
+
+`awaiting-review` is a resting state: nothing is running, and it survives a
+restart. That is what makes the housekeeping load-bearing rather than tidy — an
+animation waiting here has no pending request, so its staged samples must be
+named as held or they are swept an hour after the clip arrived and the review
+can never be finished. The samples, the previews and the proposal are cleared
+together whenever the review is settled, by any route.
+
+Order and timing are **not** editable here, by decision. Order is source order,
+timing is measured from the clip (D23), and the workbench already edits a
+finished sequence — adding both would make this a second workbench.
 
 ---
 
@@ -437,13 +497,18 @@ loop that validates before accepting. See
 
 ## 5. Checkpoints
 
-Two gates, both cheap to judge:
+Two approval gates, both cheap to judge, with the frame review (§2.5) between
+them:
 
 1. **The character sheet.** After ingestion, before any animation. The user sees
    the recovered sprite, the palette, the canvas and the anchor, and can change
    the palette or the size. Nothing is generated until this is approved.
 2. **Each finished animation.** In a batch of five, the user approves each one
    as it lands rather than at the end.
+
+The review is not a third approval — it does not accept or reject a sequence,
+it decides which moments of the clip become one — but it is a stop, and it is
+always on.
 
 When a frame fails validation, the runtime repairs it with the repair endpoint
 (§2.2.1), up to two attempts, then presents the sequence and says which frames

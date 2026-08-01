@@ -29,6 +29,16 @@ import { newSpriteId, sendRequest, stageFile, toPngBytes } from '../lib/requests
 
 export interface SpriteStudio {
   characters: CharacterSummary[];
+  /**
+   * Characters that were deleted and are still on disk.
+   *
+   * Deleting a character sets a flag, and the shelf then hid them for ever:
+   * `restoreCharacter` and `purgeCharacter` existed and nothing called either,
+   * so a deleted character kept its base pose, animations, frames and clips out
+   * of sight with no way to bring them back or clear them out. This is how they
+   * are reachable again.
+   */
+  deletedCharacters: CharacterSummary[];
   /** The last thing that went wrong, so a refused request is visible. */
   notice: SpriteStudioState['notice'];
   /** Plans the runtime has written back, by the id the page allocated. */
@@ -66,6 +76,8 @@ export interface SpriteActions {
     videoModel: string,
     animations: { animationId: string; plan: AnimationPlan }[],
   ): Promise<void>;
+  /** The frames kept at the review. Building starts from these and only these. */
+  chooseFrames(animationId: string, indices: number[]): Promise<void>;
   approveAnimation(animationId: string): Promise<void>;
   cancelAnimation(animationId: string): Promise<void>;
   deleteAnimation(animationId: string): Promise<void>;
@@ -178,6 +190,8 @@ export function useSpriteStudio(): SpriteStudio {
       generate: (characterId, videoModel, animations) =>
         send({ kind: 'sprite.generate', characterId, videoModel, animations }),
 
+      chooseFrames: (animationId, indices) =>
+        send({ kind: 'sprite.frames.choose', animationId, indices }),
       approveAnimation: (animationId) => send({ kind: 'sprite.animation.approve', animationId }),
       cancelAnimation: (animationId) => send({ kind: 'sprite.animation.cancel', animationId }),
       deleteAnimation: (animationId) => send({ kind: 'sprite.animation.delete', animationId }),
@@ -229,6 +243,10 @@ export function useSpriteStudio(): SpriteStudio {
     () => sprite.characters.filter((character) => character.deletedAt === undefined),
     [sprite.characters],
   );
+  const deletedCharacters = useMemo(
+    () => sprite.characters.filter((character) => character.deletedAt !== undefined),
+    [sprite.characters],
+  );
   const openCharacter = characters.find((character) => character.id === open.characterId);
   const openAnimations = useMemo(
     () => sprite.animations.filter((animation) => animation.characterId === open.characterId),
@@ -249,6 +267,7 @@ export function useSpriteStudio(): SpriteStudio {
     notice: sprite.notice,
     plans: sprite.plans,
     characters,
+    deletedCharacters,
     animations: sprite.animations,
     settings: sprite.settings,
     openCharacter,
