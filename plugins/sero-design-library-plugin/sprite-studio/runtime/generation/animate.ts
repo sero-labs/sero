@@ -56,6 +56,17 @@ export interface AnimateContext {
   onProgress?(message: string): void;
 }
 
+/**
+ * How many frames of one animation may be redrawn automatically.
+ *
+ * Each is a paid image call taking about twenty seconds, and up to two attempts
+ * apiece. Four is enough to rescue a mostly-good sequence; a clip with more
+ * wrong than that is a clip to run again, not one to pay to patch frame by
+ * frame. Whatever the budget could not reach is named at the checkpoint, where
+ * the user can redraw it themselves or ask for it.
+ */
+export const REPAIR_BUDGET = 4;
+
 export type ClipOutcome =
   | { status: 'awaiting-frames'; clipPath: string; plateScale: number }
   | { status: 'failed'; reason: string };
@@ -176,15 +187,27 @@ export async function buildAnimation(
   // Repairs, before the checkpoint. A frame that refuses on something a redraw
   // cannot fix — a drawing already cut off at the source edge — is left alone
   // and reported, because a second call would buy nothing.
+  //
+  // Each one is a paid image call of about twenty seconds, so how many there
+  // are is a spending decision, not an implementation detail. A clip where
+  // every frame refuses would otherwise redraw the whole animation twice over
+  // in silence. `REPAIR_BUDGET` is the ceiling; what it could not reach is
+  // reported rather than dropped.
   const cells: CellGrid[] = built.kept.map((frame) => built.compiled.frames[frame.index]!.cells);
   const repaired = new Map<number, number>();
-  for (const [position, frame] of built.kept.entries()) {
-    const refusals = built.findings.filter(
-      (finding) => finding.frame === position && finding.level === 'refuse',
+  const needing = built.kept.flatMap((_frame, position) => {
+    const fixable = built.findings.filter(
+      (finding) =>
+        finding.frame === position && finding.level === 'refuse' && finding.check !== 'framing',
     );
-    const fixable = refusals.filter((finding) => finding.check !== 'framing');
-    if (fixable.length === 0) continue;
+    return fixable.length === 0 ? [] : [{ position, fixable }];
+  });
+  const budget = needing.slice(0, REPAIR_BUDGET);
+
+  for (const [order, { position, fixable }] of budget.entries()) {
     if (context.signal.aborted) break;
+    const say = `Redrawing frame ${position + 1} of ${built.kept.length} (${order + 1} of ${budget.length})`;
+    context.onProgress?.(`${say}…`);
 
     const outcome = await repairFrame({
       provider: context.provider,
@@ -197,14 +220,19 @@ export async function buildAnimation(
       ...(context.repairModel === undefined ? {} : { model: context.repairModel }),
       directory: path.join(animationDir(context.paths, character.id, animation.id), 'repairs'),
       signal: context.signal,
-      ...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
+      // Prefixed, because the provider's own line is "Generating" and on its own
+      // that is indistinguishable from a run that has stopped.
+      ...(context.onProgress === undefined
+        ? {}
+        : { onProgress: (message: string) => context.onProgress?.(`${say} — ${message}`) }),
     });
     if (outcome.status === 'repaired') {
       cells[position] = outcome.cells;
       repaired.set(position, outcome.attempts);
     }
-    void frame;
   }
+
+  const unrepaired = needing.length - budget.length;
 
   context.onProgress?.('Writing the frames…');
   const frames: FrameRecord[] = [];
@@ -248,6 +276,17 @@ export async function buildAnimation(
     findings: [
       ...storedFindings(built.findings, undefined),
       ...(unjudged === null ? [] : [unjudged]),
+      // Said out loud. Stopping at the budget without a word would present a
+      // sequence with known-bad frames in it as one that had been repaired.
+      ...(unrepaired > 0
+        ? [
+            {
+              check: 'repair',
+              level: 'warn' as const,
+              message: `${unrepaired} more frame${unrepaired === 1 ? '' : 's'} failed a check and ${unrepaired === 1 ? 'was' : 'were'} left alone: this animation had more to redraw than one run pays for. Redraw them yourself, ask for them, or run the whole sequence again.`,
+            },
+          ]
+        : []),
     ],
     report: { ...built.report, repairedFrames: [...repaired.keys()] },
     loop: built.loop.mode,

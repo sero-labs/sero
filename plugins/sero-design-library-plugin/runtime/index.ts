@@ -9,6 +9,7 @@ import { reindex } from './store';
 import { pruneGalleryTemps, reindexGallery } from './gallery-store';
 import { pruneStaging } from '../sprite-studio/runtime/staging';
 import { projectSpriteState } from '../sprite-studio/runtime/projection';
+import { recoverUnfinishedAnimations } from '../sprite-studio/runtime/recover';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -76,6 +77,13 @@ class DesignLibraryRuntime implements AppRuntime {
       const { designs } = await scanDesigns(paths);
       for (const design of designs) await pruneOrphanRevisions(paths, design);
     });
+
+    // Before the projection, because it changes what the projection will say:
+    // the queue is in memory, so an animation whose job was running when the
+    // app closed has a status nothing is working on any more.
+    await this.attempt('settle unfinished animations', () =>
+      recoverUnfinishedAnimations(paths),
+    );
 
     // Sprite Studio's projection is rebuilt at start-up for the same reason the
     // Library's index is: a projection write interrupted by a crash is a cache
