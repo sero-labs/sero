@@ -13,7 +13,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { relativeToHome } from '../../shared/paths';
+import { isSafeId, relativeToHome } from '../../shared/paths';
 import { readJsonFile, withRecordLock, writeJsonFile } from '../../shared/state-io';
 import type { AnimationRecord, CharacterRecord, FrameRecord } from '../shared/character';
 import type { AnimationSummary, CharacterSummary } from '../shared/state';
@@ -66,7 +66,11 @@ export async function listCharacters(paths: DesignLibraryPaths): Promise<Charact
   const entries = await readdir(charactersDir(paths), { withFileTypes: true }).catch(() => []);
   const characters: CharacterRecord[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    // A directory that is not a character id is not a character. The path
+    // helpers refuse an unsafe id by design, and letting that refusal escape
+    // here would take the whole projection down over one stray directory —
+    // which is exactly what a `.staging` folder in this tree did.
+    if (!entry.isDirectory() || !isSafeId(entry.name)) continue;
     const record = await readCharacter(paths, entry.name);
     if (record !== null) characters.push(record);
   }
@@ -113,7 +117,9 @@ export async function listAnimations(
   );
   const animations: AnimationRecord[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    // Same rule as the character scan: a directory that is not an animation id
+    // is not an animation, and refusing it must not take the scan down.
+    if (!entry.isDirectory() || !isSafeId(entry.name)) continue;
     const record = await readAnimation(paths, characterId, entry.name);
     if (record !== null) animations.push(record);
   }

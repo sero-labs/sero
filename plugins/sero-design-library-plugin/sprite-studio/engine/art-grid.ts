@@ -12,7 +12,7 @@
  * on no grid at all says so instead of producing a plausible wrong answer.
  */
 
-import { floodForeground, keepLargestBody, keyForeground } from './key';
+import { alphaForeground, floodForeground, hasAlpha, keepLargestBody, keyForeground } from './key';
 import type { Foreground, Rgb, SourceImage } from './types';
 import { TRANSPARENT } from './types';
 
@@ -147,7 +147,16 @@ export interface RecoverOptions {
 }
 
 function foregroundOf(image: SourceImage, options: RecoverOptions): Foreground {
-  const keyed = options.background === 'magenta' ? keyForeground(image) : floodForeground(image);
+  // A picture that carries alpha has already answered the question, and its
+  // answer is exact. Only a picture with no transparency in it needs the fill,
+  // which is a guess by comparison — and a wrong one for a sprite cropped
+  // tightly enough that the character sits on the border.
+  const keyed =
+    options.background === 'magenta'
+      ? keyForeground(image)
+      : hasAlpha(image)
+        ? alphaForeground(image)
+        : floodForeground(image);
   return keepLargestBody(keyed, image.width, image.height).foreground;
 }
 

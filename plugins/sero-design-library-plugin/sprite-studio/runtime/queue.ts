@@ -23,7 +23,7 @@ import type { DesignLibraryState } from '../../shared/types';
 import type { MediaProvider } from '../../runtime/media/contract';
 import { createMediaProviderForRun } from '../../runtime/media/provider';
 import type { AnimationRecord, FrameRecord } from '../shared/character';
-import { animationDir, charactersDir } from '../shared/paths';
+import { animationDir } from '../shared/paths';
 import type { SpriteExportOptions } from '../shared/state';
 import { buildAnimation, readBasePose, requestAnimationClip } from './generation/animate';
 import { runPlan } from './generation/plan';
@@ -31,7 +31,7 @@ import { buildCharacterPrompt } from './generation/prompt';
 import { repairFrame } from './generation/repair';
 import { exportCharacter } from './export';
 import { ingestCharacter } from './ingest';
-import { clearStaged, readStaged } from './staging';
+import { clearStaged, readStaged, stagingRoot } from './staging';
 import {
   findAnimation,
   mutateAnimation,
@@ -313,7 +313,9 @@ export class SpriteQueue {
     job: Extract<Job, { kind: 'draw-character' }>,
     signal: AbortSignal,
   ): Promise<void> {
-    const directory = path.join(charactersDir(this.context.paths), '.drafts', job.characterId);
+    // Beside the characters, not among them: the character scan walks that
+    // directory, and anything in it that is not a character breaks the scan.
+    const directory = path.join(stagingRoot(this.context.paths), 'drafts', job.characterId);
     const attempt = await requestCharacterImage(await this.provider(), {
       prompt: buildCharacterPrompt(job.description),
       directory,

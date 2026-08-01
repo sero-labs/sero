@@ -66,7 +66,7 @@ export function registerSpriteTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
       characterId: Type.Optional(Type.String()),
       animationId: Type.Optional(Type.String()),
       /** For `asset` and `frame`: a path relative to the app state directory. */
-      filePath: Type.Optional(Type.String()),
+      path: Type.Optional(Type.String()),
       key: Type.Optional(Type.String({ description: 'For `stage`: the staging key.' })),
       name: Type.Optional(Type.String({ description: 'For `stage`: the file name, e.g. `000`.' })),
       index: Type.Optional(Type.Integer({ description: 'For `stage`: the chunk index.' })),
@@ -78,7 +78,7 @@ export function registerSpriteTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         body?: unknown;
         characterId?: string;
         animationId?: string;
-        filePath?: string;
+        path?: string;
         key?: string;
         name?: string;
         index?: number;
@@ -125,7 +125,7 @@ export function registerSpriteTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         }
 
         case 'asset': {
-          const file = input.filePath === undefined ? null : resolveInsideHome(paths, input.filePath);
+          const file = input.path === undefined ? null : resolveInsideHome(paths, input.path);
           if (file === null) return failure('That file is not inside Sprite Studio storage.');
           const bytes = await readFile(file).catch(() => null);
           if (bytes === null) return failure('That file no longer exists.');
@@ -133,7 +133,7 @@ export function registerSpriteTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         }
 
         case 'frame': {
-          const file = input.filePath === undefined ? null : resolveInsideHome(paths, input.filePath);
+          const file = input.path === undefined ? null : resolveInsideHome(paths, input.path);
           if (file === null) return failure('That frame is not inside Sprite Studio storage.');
           const bytes = await readFile(file).catch(() => null);
           if (bytes === null) return failure('That frame no longer exists.');

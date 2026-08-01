@@ -60,6 +60,21 @@ export function isSpriteBody(body: { kind: string }): body is SpriteRequestBody 
   return body.kind.startsWith('sprite.');
 }
 
+/**
+ * Forget the last problem.
+ *
+ * Called when a request succeeds, because a notice that outlives the fault it
+ * describes is worse than none: it says something is broken while the thing it
+ * complained about is working.
+ */
+export async function clearSpriteProblem(paths: DesignLibraryPaths): Promise<void> {
+  await updateState(paths, (current: DesignLibraryState) => {
+    if (current.sprite.notice === undefined) return null;
+    const { notice: _dropped, ...sprite } = current.sprite;
+    return { ...current, sprite };
+  });
+}
+
 /** Rebuild the whole slice from the records. Cheap, and always correct. */
 export async function projectSpriteState(paths: DesignLibraryPaths): Promise<void> {
   const characters = await listCharacters(paths);
@@ -76,6 +91,23 @@ export async function projectSpriteState(paths: DesignLibraryPaths): Promise<voi
   await updateState(paths, (current: DesignLibraryState) => ({
     ...current,
     sprite: { ...current.sprite, characters: summaries, animations },
+  }));
+}
+
+/**
+ * Say what went wrong, where the user can see it.
+ *
+ * A request is applied in the background, so a refusal has nowhere to appear on
+ * its own: the page asks, the runtime throws, the watermark advances and the
+ * button looks broken. This is the only reason the notice exists.
+ */
+export async function reportSpriteProblem(
+  paths: DesignLibraryPaths,
+  message: string,
+): Promise<void> {
+  await updateState(paths, (current: DesignLibraryState) => ({
+    ...current,
+    sprite: { ...current.sprite, notice: { message, at: Date.now() } },
   }));
 }
 

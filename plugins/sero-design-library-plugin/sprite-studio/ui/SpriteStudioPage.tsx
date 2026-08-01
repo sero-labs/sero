@@ -177,9 +177,24 @@ export function SpriteStudioPage() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1">
-        {rail}
-        {surface}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/*
+          Requests are applied in the background, so a refusal has nowhere else
+          to appear. Without this the page shows a button that does nothing and
+          the reason lives only in a log file.
+        */}
+        {studio.notice !== undefined && (
+          <div
+            role="alert"
+            className="border-destructive/40 bg-destructive/10 text-destructive flex items-start gap-2 border-b px-4 py-2 text-sm"
+          >
+            <span className="min-w-0 flex-1">{studio.notice.message}</span>
+          </div>
+        )}
+        <div className="flex min-h-0 flex-1">
+          {rail}
+          {surface}
+        </div>
       </div>
       {asking && (
         <AskDialog

@@ -121,6 +121,16 @@ export interface SpriteStudioState {
   animations: AnimationSummary[];
   /** Keyed by the plan id the page allocated when it asked. */
   plans: Record<string, PlanResult>;
+  /**
+   * The last thing that went wrong, in words the user can act on.
+   *
+   * Requests are applied in the background, so a failure has nowhere else to
+   * appear: the page asked, the runtime refused, and without this the button
+   * simply does nothing — which is what happened, and what took a log file to
+   * explain. An animation carries its own error; this is for everything that
+   * has no record to carry one yet, and ingestion is most of it.
+   */
+  notice?: { message: string; at: number };
   settings: SpriteStudioSettings;
   /** The character the page is looking at. */
   openCharacterId?: string;
@@ -290,6 +300,7 @@ export function normalizeSpriteState(value: unknown): SpriteStudioState {
     animations: Array.isArray(raw.animations) ? raw.animations : [],
     plans: typeof raw.plans === 'object' && raw.plans !== null ? raw.plans : {},
     settings: { ...DEFAULT_SPRITE_STUDIO_SETTINGS, ...(raw.settings ?? {}) },
+    ...(raw.notice === undefined ? {} : { notice: raw.notice }),
     ...(raw.openCharacterId === undefined ? {} : { openCharacterId: raw.openCharacterId }),
     ...(raw.openAnimationId === undefined ? {} : { openAnimationId: raw.openAnimationId }),
   };

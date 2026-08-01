@@ -11,7 +11,7 @@ import type {
   SpriteRequestBody,
   SpriteStudioSettings,
 } from '../../shared/state';
-import { newSpriteId, sendRequest, stageFile } from '../lib/requests';
+import { newSpriteId, sendRequest, stageFile, toPngBytes } from '../lib/requests';
 
 /**
  * One place Sprite Studio reads state and asks for changes.
@@ -27,6 +27,8 @@ import { newSpriteId, sendRequest, stageFile } from '../lib/requests';
 
 export interface SpriteStudio {
   characters: CharacterSummary[];
+  /** The last thing that went wrong, so a refused request is visible. */
+  notice: { message: string; at: number } | undefined;
   animations: AnimationSummary[];
   settings: SpriteStudioSettings;
   openCharacter: CharacterSummary | undefined;
@@ -128,7 +130,9 @@ export function useSpriteStudio(): SpriteStudio {
       createFromFile: async (name, file) => {
         const characterId = newSpriteId('char');
         const stagingKey = newSpriteId('ref');
-        await stageFile(tools, stagingKey, '000', new Uint8Array(await file.arrayBuffer()));
+        // Converted here rather than sent as it came: the runtime reads PNG and
+        // nothing else, and the codecs live in this process.
+        await stageFile(tools, stagingKey, '000', await toPngBytes(file));
         await send({ kind: 'sprite.character.create', characterId, name, stagingKey });
       },
       createFromText: (name, description) =>
@@ -236,6 +240,7 @@ export function useSpriteStudio(): SpriteStudio {
   );
 
   return {
+    notice: sprite.notice,
     characters,
     animations: sprite.animations,
     settings: sprite.settings,

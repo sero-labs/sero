@@ -229,7 +229,9 @@ describe('ingesting a picture', () => {
         bytes: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70]),
         fileName: 'knight.jpg',
       }),
-    ).rejects.toThrow(/knight\.jpg must be a PNG/);
+      // The page converts whatever the user chose through a canvas, so a JPEG
+      // reaching the runtime means it never went through the page.
+    ).rejects.toThrow(/knight\.jpg is not a PNG/);
   });
 });
 

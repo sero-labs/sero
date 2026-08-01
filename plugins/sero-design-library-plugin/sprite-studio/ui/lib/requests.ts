@@ -86,6 +86,39 @@ export async function stageFile(
   }
 }
 
+/**
+ * Whatever the user chose, as a PNG.
+ *
+ * The runtime has no codecs — that is why it is handed frames rather than a
+ * clip — and the same is true of a picture. The page does have them: a canvas
+ * decodes PNG, JPEG and WebP and re-encodes losslessly, so a JPEG reference
+ * works because it stops being a JPEG here rather than because something
+ * downstream learned to read one.
+ *
+ * Nothing is resized. The whole point of ingestion is to measure the artwork's
+ * real size, and a picture that arrived a few pixels smaller would take the
+ * grid with it.
+ */
+export async function toPngBytes(file: File): Promise<Uint8Array> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d');
+    if (context === null) throw new Error('This renderer has no 2D canvas, so the picture cannot be read.');
+    // Off, or the browser smooths the pixels while drawing them and every hard
+    // edge the art grid is measured from goes soft.
+    context.imageSmoothingEnabled = false;
+    context.drawImage(bitmap, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (blob === null) throw new Error('The picture could not be converted.');
+    return new Uint8Array(await blob.arrayBuffer());
+  } finally {
+    bitmap.close();
+  }
+}
+
 /** Read a plugin file back, since the page has no filesystem of its own. */
 export async function readAsset(tools: AppTools, path: string): Promise<Blob | null> {
   const result = await tools.run(SPRITE_TOOL, { action: 'asset', path });

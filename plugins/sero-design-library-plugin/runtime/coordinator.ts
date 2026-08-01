@@ -25,7 +25,13 @@ import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { ExportRequests, isExportRequest } from './export-requests';
 import { SpriteQueue } from '../sprite-studio/runtime/queue';
-import { applySpriteRequest, isSpriteBody, projectSpriteState } from '../sprite-studio/runtime/requests';
+import {
+  applySpriteRequest,
+  clearSpriteProblem,
+  isSpriteBody,
+  projectSpriteState,
+  reportSpriteProblem,
+} from '../sprite-studio/runtime/requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
 
 /**
@@ -256,11 +262,21 @@ export class Coordinator {
     }
 
     if (isSpriteBody(body)) {
+      // Reported into state as well as to the log. A Sprite Studio request that
+      // throws has no record to carry its error — the character it would have
+      // created does not exist — so without this the page shows a button that
+      // does nothing and the reason lives only in a log file.
       await applySpriteRequest(body, {
         paths,
         queue: this.sprites,
         onError: this.context.onError,
-      });
+      }).then(
+        () => clearSpriteProblem(paths),
+        async (error: unknown) => {
+          await reportSpriteProblem(paths, error instanceof Error ? error.message : String(error));
+          throw error;
+        },
+      );
       return;
     }
 

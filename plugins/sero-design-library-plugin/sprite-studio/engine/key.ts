@@ -31,6 +31,30 @@ export function keyForeground(image: SourceImage): Foreground {
   return mask;
 }
 
+/** True when the picture already says which pixels are background. */
+export function hasAlpha(image: SourceImage): boolean {
+  for (let i = 0; i < image.width * image.height; i++) {
+    if ((image.data[i * 4 + 3] ?? 255) < 128) return true;
+  }
+  return false;
+}
+
+/**
+ * Foreground from the picture's own alpha channel.
+ *
+ * Preferred over the flood fill whenever there is one, because it is exact
+ * rather than inferred — and because the flood fill has a failure the alpha
+ * channel does not: a sprite cropped tightly to its own edges has the character
+ * *on* the border, so filling inwards from the border starts inside him and
+ * eats his edge. A 62 × 136 reference came back as 60 × 115 that way, and the
+ * missing rows were his hat and his boots.
+ */
+export function alphaForeground(image: SourceImage): Foreground {
+  const mask = new Uint8Array(image.width * image.height);
+  for (let i = 0; i < mask.length; i++) mask[i] = (image.data[i * 4 + 3] ?? 255) >= 128 ? 1 : 0;
+  return mask;
+}
+
 /**
  * Foreground for a picture we did not draw: flood fill inwards from the border.
  *

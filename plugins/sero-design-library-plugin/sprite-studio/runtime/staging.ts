@@ -23,8 +23,17 @@ export const STAGING_CHUNK_BYTES = 512 * 1024;
 /** A clip's worth of frames, with room to spare. */
 export const MAX_STAGED_BYTES = 96 * 1024 * 1024;
 
+/**
+ * Beside the characters, never inside them.
+ *
+ * It was `characters/.staging`, and that put a directory which is not a
+ * character into the directory the character scan walks — so the scan refused
+ * it as an unsafe id and threw, and with the projection throwing, every request
+ * in Sprite Studio failed. Storage that lives inside a scanned tree has to be a
+ * member of it.
+ */
 export function stagingRoot(paths: DesignLibraryPaths): string {
-  return path.join(paths.home, 'characters', '.staging');
+  return path.join(paths.home, 'sprite-staging');
 }
 
 export function stagingDir(paths: DesignLibraryPaths, key: string): string {
