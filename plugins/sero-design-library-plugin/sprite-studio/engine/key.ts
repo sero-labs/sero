@@ -55,20 +55,58 @@ export function alphaForeground(image: SourceImage): Foreground {
   return mask;
 }
 
+/** The commonest colour along the border: what the fill is spreading out of. */
+export function borderColour(image: SourceImage): Rgb {
+  const { width, height, data } = image;
+  const at = (i: number): Rgb => [data[i * 4] ?? 0, data[i * 4 + 1] ?? 0, data[i * 4 + 2] ?? 0];
+  const tally = new Map<string, number>();
+  for (let x = 0; x < width; x++)
+    for (const i of [x, (height - 1) * width + x]) {
+      const key = at(i).join();
+      tally.set(key, (tally.get(key) ?? 0) + 1);
+    }
+  let found: Rgb = [255, 255, 255];
+  let most = 0;
+  for (const [key, count] of tally) {
+    if (count <= most) continue;
+    most = count;
+    const parts = key.split(',').map(Number);
+    found = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+  }
+  return found;
+}
+
 /**
  * Foreground for a picture we did not draw: flood fill inwards from the border.
  *
  * A colour test alone would eat the whites of the character's eyes, so
  * background is defined as "reachable from the edge without crossing a colour
  * boundary" rather than as a colour.
+ *
+ * **And it has to still look like the background.** A step-by-step test alone
+ * walks down a gradient: on a picture whose edges are soft — anything saved by
+ * an ordinary tool — each step across the two pixel ramp from the page into the
+ * character is small, so the fill chains through the boundary and eats what is
+ * behind it. It took the insides out of a character's boots that way, leaving
+ * the outline standing and a clean cut across both legs.
+ *
+ * Measured on that file: 96% of what the fill took sat within 50 of the page's
+ * own colour, nothing at all between 250 and 450, and 4% out past 450 — the
+ * boots. `reach` sits in that gap. Its failure is the safe way round: too tight
+ * leaves background in the sprite, where it is plain to see, rather than
+ * quietly removing the character.
  */
-export function floodForeground(image: SourceImage, { tolerance = 40 } = {}): Foreground {
+export function floodForeground(
+  image: SourceImage,
+  { tolerance = 40, reach = 150 } = {},
+): Foreground {
   const { width, height } = image;
   const total = width * height;
   const background = new Uint8Array(total);
   const queue = new Int32Array(total);
   let head = 0;
   let tail = 0;
+  const page = borderColour(image);
 
   const push = (at: number, from: number): void => {
     if (background[at]) return;
@@ -79,6 +117,11 @@ export function floodForeground(image: SourceImage, { tolerance = 40 } = {}): Fo
       Math.abs((image.data[a + 1] ?? 0) - (image.data[b + 1] ?? 0)) +
       Math.abs((image.data[a + 2] ?? 0) - (image.data[b + 2] ?? 0));
     if (distance > tolerance) return;
+    const strayed =
+      Math.abs((image.data[a] ?? 0) - page[0]) +
+      Math.abs((image.data[a + 1] ?? 0) - page[1]) +
+      Math.abs((image.data[a + 2] ?? 0) - page[2]);
+    if (strayed > reach) return;
     background[at] = 1;
     queue[tail++] = at;
   };
@@ -152,27 +195,12 @@ export function enclosedBackground(
   const { width, height, data } = image;
   const total = width * height;
   const mask = new Uint8Array(total);
-
-  // The background's own colour, taken from the border it was flooded from.
-  const tally = new Map<string, number>();
+  const border = borderColour(image);
   const colourAt = (i: number): Rgb => [
     data[i * 4] ?? 0,
     data[i * 4 + 1] ?? 0,
     data[i * 4 + 2] ?? 0,
   ];
-  for (let x = 0; x < width; x++)
-    for (const i of [x, (height - 1) * width + x]) {
-      const key = colourAt(i).join();
-      tally.set(key, (tally.get(key) ?? 0) + 1);
-    }
-  let border: Rgb = [255, 255, 255];
-  let most = 0;
-  for (const [key, count] of tally) {
-    if (count <= most) continue;
-    most = count;
-    const parts = key.split(',').map(Number);
-    border = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
-  }
 
   const looksLikeBackground = (i: number): boolean => {
     if (!foreground[i]) return false;

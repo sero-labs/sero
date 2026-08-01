@@ -50,6 +50,53 @@ function ring({ dot = false } = {}): SourceImage {
   return { width, height, data };
 }
 
+/**
+ * A dark shape on a light page, with the boundary smeared into a long ramp.
+ *
+ * The ramp matters and its steepness matters: each step along it is under the
+ * fill's step tolerance, so a step-by-step test alone chains all the way
+ * through. A single-pixel edge would not reproduce this — the fill stops at a
+ * cliff. It is the gentle slope that lets it walk in.
+ */
+const PAGE = 238;
+const SHAPE = 60;
+
+function softShape(): SourceImage {
+  const width = 60;
+  const height = 60;
+  const data = new Uint8Array(width * height * 4);
+  const ramp = 15;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      // How far outside the solid block this pixel is.
+      const out = Math.max(0, 20 - x, x - 39, 20 - y, y - 39);
+      const value =
+        out === 0 ? SHAPE : out >= ramp ? PAGE : SHAPE + Math.round((out / ramp) * (PAGE - SHAPE));
+      const i = (y * width + x) * 4;
+      data[i] = value;
+      data[i + 1] = value;
+      data[i + 2] = value;
+      data[i + 3] = 255;
+    }
+  return { width, height, data };
+}
+
+describe('a fill on a picture whose edges are soft', () => {
+  it('stops at the boundary instead of walking through it', () => {
+    // Each step down the ramp is small, so a step-by-step test alone chains
+    // through the edge and eats what is behind it. It took the insides out of
+    // a character's boots that way and left a clean cut across both legs.
+    const image = softShape();
+    const foreground = floodForeground(image);
+
+    // The middle of the shape is the shape, not the page.
+    expect(foreground[30 * 60 + 30]).toBe(1);
+    // And the page is still the page.
+    expect(foreground[0]).toBe(0);
+    expect(foreground[59 * 60 + 59]).toBe(0);
+  });
+});
+
 describe('finding background the fill cannot reach', () => {
   it('finds the middle of a ring, and leaves the outside alone', () => {
     const image = ring();
