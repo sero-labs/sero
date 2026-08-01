@@ -4,8 +4,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  ToggleGroup,
+  ToggleGroupItem,
 } from '@sero-ai/ui';
-import { Pause, Play } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, Pause, Play, Repeat } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
 import { useElementSize } from '../../../ui/hooks/useElementSize';
@@ -36,11 +39,18 @@ const AS_TIMED = 'timed';
 /** Flat rates, for reading the movement at a speed the clip was not shot at. */
 const FLAT_RATES = [6, 8, 12, 15, 24, 30];
 
-const LOOP_LABEL: Record<LoopMode, string> = {
-  forward: 'Loops',
-  pingpong: 'Ping-pong',
-  once: 'Plays once',
-};
+/**
+ * The three ways a sequence can play, drawn rather than listed.
+ *
+ * Three fixed choices with a picture each: straight through and stop, round
+ * again, or there and back. A dropdown would hide two of them behind a click
+ * and take more room than showing all three does.
+ */
+const LOOP_MODES: { mode: LoopMode; label: string; icon: ReactNode }[] = [
+  { mode: 'once', label: 'Plays once', icon: <ArrowRight className="size-3.5" /> },
+  { mode: 'forward', label: 'Loops', icon: <Repeat className="size-3.5" /> },
+  { mode: 'pingpong', label: 'Ping-pong', icon: <ArrowLeftRight className="size-3.5" /> },
+];
 
 interface LoopPreviewProps {
   previewDir: string;
@@ -124,18 +134,36 @@ export function LoopPreview({
         <span className="text-muted-foreground font-mono text-xs whitespace-nowrap tabular-nums">
           {frames.length === 0 ? '0 / 0' : `${playback.index + 1} / ${frames.length}`}
         </span>
-        <Select value={loop} onValueChange={(value) => setLoop(value as LoopMode)}>
-          <SelectTrigger className="h-7 w-28" aria-label="How it plays">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(LOOP_LABEL) as LoopMode[]).map((mode) => (
-              <SelectItem key={mode} value={mode}>
-                {LOOP_LABEL[mode]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          aria-label="How it plays"
+          value={loop}
+          // Radix clears the value when the active item is pressed again, and
+          // there is no such thing as a sequence that plays no way at all.
+          onValueChange={(value) => {
+            if (value !== '') setLoop(value as LoopMode);
+          }}
+        >
+          {LOOP_MODES.map((one) => (
+            // The name is on the control rather than beside it: three icons in
+            // a row need no heading to say they are one choice, but each one
+            // has to say what it is on its own.
+            <ToggleGroupItem
+              key={one.mode}
+              value={one.mode}
+              aria-label={one.label}
+              title={one.label}
+              // The chosen one takes the accent, the way every other "on" in
+              // Sprite Studio does. The default is a grey fill, which at this
+              // size is a difference you have to look for.
+              className="data-[state=on]:bg-primary/15 data-[state=on]:text-primary h-7 px-2"
+            >
+              {one.icon}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
         <Select value={rate} onValueChange={setRate}>
           <SelectTrigger className="h-7 w-28" aria-label="Speed">
             <SelectValue />

@@ -105,6 +105,14 @@ describe('choosing the frames', () => {
   });
 });
 
+/** Which way of playing is on, by its name rather than by its picture. */
+function playing(): string | undefined {
+  return screen
+    .getAllByRole('radio')
+    .find((one) => one.getAttribute('aria-checked') === 'true')
+    ?.getAttribute('aria-label') ?? undefined;
+}
+
 describe('the frames playing beside the clip', () => {
   it('plays what is chosen, and follows a change to it', async () => {
     renderPanel();
@@ -126,7 +134,7 @@ describe('the frames playing beside the clip', () => {
 
   it('opens on the cycle the search found', () => {
     renderPanel({ ...REVIEW, loopWindow: { from: 0, to: 4 } }, { loop: 'forward' });
-    expect(screen.getByRole('combobox', { name: 'How it plays' }).textContent).toContain('Loops');
+    expect(playing()).toBe('Loops');
   });
 
   it('does not offer a loop the build is not going to make', () => {
@@ -134,9 +142,18 @@ describe('the frames playing beside the clip', () => {
     // build falls back to playing once (D34). Opening on the plan would show a
     // seamless loop that nobody is going to get.
     renderPanel(REVIEW, { loop: 'forward' });
-    expect(screen.getByRole('combobox', { name: 'How it plays' }).textContent).toContain(
-      'Plays once',
-    );
+    expect(playing()).toBe('Plays once');
+  });
+
+  it('names every way of playing, which an icon on its own does not', async () => {
+    // Three pictures in a row. Without a name on each, the only way to find
+    // out what one does is to press it.
+    renderPanel();
+    for (const label of ['Plays once', 'Loops', 'Ping-pong']) {
+      expect(screen.getByRole('radio', { name: label })).toBeDefined();
+    }
+    await userEvent.click(screen.getByRole('radio', { name: 'Ping-pong' }));
+    expect(playing()).toBe('Ping-pong');
   });
 });
 
