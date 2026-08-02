@@ -318,6 +318,33 @@ the model to paint; bind the reference's own pixels to the bones.
       remap the palette by ramp step rather than darkening, and keep every
       visible far-side pixel as a hard constraint) or restrict the motion
       so they are never exposed. Same problem in both places.
+- [ ] **Phase 1d — rig a HIGH-RESOLUTION reference (Dan, 2026-08-02).** The
+      engine's whole design is "work big, grade down to pixels", and we
+      have been feeding it art that was already pixels at the finished
+      size — so there was no headroom and rotating it destroyed it. Rig a
+      painted, non-pixelated side view instead and let the grade make the
+      pixel art, once, at the end. What it needs:
+      1. `SS` is a module constant (4) baked into the golden tests. It has
+         to become a per-character number and thread through `bake`,
+         `renderPose`, `Paint` and the grade. At 112x144 an SS of 8-10 puts
+         the working canvas at 1152-1440 rows, which is where a real
+         reference lives (the knight's side view is 843x1264). Cost is
+         SS squared: 8 is four times the compositing work of 4, about a
+         million samples a frame — fine.
+      2. `canonicalise` must stop reducing to the sprite grid. The cut, the
+         joints and the stamps all move to reference resolution; the
+         capsule radii and the joint radius scale with them.
+      3. `buildSideViewPrompt` currently ASKS for "the same pixel-art
+         resolution". It should ask for a clean painted profile instead.
+      4. `crisp` then becomes unnecessary for this path — averaging real
+         detail is correct, and it is only inventing blends when the source
+         was already pixels. Keep the flag for pixel-art sources; the
+         default path becomes right again.
+      5. Free consequence: the output sprite size becomes a parameter. The
+         same rig bakes at 112x144 or 224x288 without recutting.
+      What it does NOT fix: the far side still does not exist, the joints
+      still have to be placed, and a shuffle is an animation fault at any
+      resolution.
 - [ ] Next gate, from Sol: cut-edge strain. Build 4-neighbour adjacency
       over the target's cells; for every adjacent pair owned by different
       bones, push both through a pose sweep and measure how far their
