@@ -145,26 +145,51 @@ vision judge that compares against a base pose.
 - [ ] Re-run the knight from Dan's reference image; gate P3
       re-review on the result.
 
-Fidelity options (candidates, not commitments — how close can the
-render get to the target artwork):
+- [x] Authoring effort: the live runs resolved to the profile's
+      background default — gpt-5.6-sol at LOW thinking. The loop now
+      pins thinking to high and records modelId/provider/usage in
+      run.json. (The good-looking prototype was hand-iterated at full
+      effort; the comparison was never level.)
 
-1. **Richer materials** — 4-6 step ramps plus accent trim colours
-   (gold edges, leather straps) taken from the reference palette;
-   the engine already supports arbitrary ramps per part. Cheapest.
-2. **New Paint helpers** — stipple (chainmail), band (trim lines),
-   emblem/decal shapes (a cross on a shield); authored detail the
-   current capsule-and-tint vocabulary cannot express.
-3. **Bitmap parts** — segment the reference into per-bone pieces
-   (the keying/ingestion code exists) and let a part carry artwork
-   instead of procedural paint; the skeleton animates the actual
-   drawing, cut-out style. Highest fidelity; risks pixel shimmer
-   under rotation (rotate at 4x supersample before grading) and
-   needs seams handled where parts meet.
-4. **Grade options** — larger palette budgets and optional ordered
-   dither for material gradients.
-5. **Paid polish** — the existing frame-repair endpoint nudging a
-   handful of key frames toward the reference (nano-banana-2, the
-   one repair model that works); real money per frame, last resort.
+Fidelity options — **revised after Sol's second opinion (2026-08-02)**,
+ranked by gain per cost. Sol's headline: *shape, not colour, is the
+ceiling — "more shades cannot fix a capsule-shaped knight."*
+
+1. **Canonical target + shape tools** (Sol's first move): normalise
+   the reference (matte, crop, foot-align onto the exact canvas; the
+   author approves the derived target, both images kept), give the
+   author silhouette OVERLAYS of render-vs-target with measured
+   overlap, and add filled polygon/path/mask primitives to Paint —
+   capsules alone cannot draw a helmet.
+2. **Richer materials** — semantic material ramps (armour, leather,
+   cloth), 4-6 steps + trim accents. Arbitrary ramp lengths already
+   work; near-zero engine cost. A flat colour list is not enough.
+3. **Grade controls** — outline policy first (selective, coloured, or
+   off: the mandatory 1px black ring defines the current chunky
+   style), before any dithering (which fights despeckle; outline,
+   coverage and despeckle are golden-tested engine law today).
+4. **Rig-sheet conversion** (new, from Sol) — ONE paid image
+   generation of the character as separated parts (head, torso,
+   limbs, gear on a sheet), then hybrid bitmap+procedural parts.
+   Cleaner than cutting a finished illustration apart. `Paint.img`
+   accepts arbitrary pixels and parts already rotate at 4x before
+   grading, so rendering is cheap — asset storage vs the
+   source-only bake cache is the real cost.
+5. **Bitmap parts cut from the reference** — highest still fidelity,
+   high cost (segmentation, hidden joints, pivots, seams).
+6. **Mesh deformation / per-angle part variants** — high ceiling,
+   very high cost; only after rigid bitmap parts prove out.
+7. **Paid key-frame repair** — last resort: it can rewrite much of a
+   frame, pops temporally, and breaks source→frames reproducibility.
+
+Judge cautions (Sol): score silhouette, proportions, head, equipment
+and colour placement separately — a boolean "same character?" is
+gameable by one big emblem; normalise both images to the same crop,
+scale and background; calibrate on known good/bad pairs; abstention
+or unavailability must never count as a pass. Palette cautions: the
+existing `recoverArtwork`/`buildRamps` suit generated hard pixel art,
+not painted references — the reference path needs its own foreground
+extraction and material grouping.
 
 **Gate:** the knight re-run beside Dan's reference — Dan judges the
 resemblance and signs off before Phase 2.
