@@ -215,6 +215,40 @@ Dan's reference (`~/Downloads/3qzXr.jpg`) measures ~93x132 art pixels
       a broken one. The pieces are reference, not bitmaps to blit —
       cutting a finished illustration into rotating sprite parts is
       option 5 and still unbuilt.
+**Phase 1b verdict (2026-08-02): the procedural authoring loop does not
+get there, and the direction changed.** Everything above was built and the
+knight was re-run against Dan's reference with all of it in play. The
+result was still bad, and the measurements say why: the author DOES use
+the new polygon primitive (13-14 calls a bake), and bakes 2 through 5 were
+structurally identical — 3 capsules, 4 discs, 14 polygons, 38 tints, every
+time. It tweaks numbers; it never restructures. Writing shape coordinates
+into a text file and seeing the raster thirty seconds later is not a way
+to draw. Dan: "this is still looking terrible... we may have to rethink."
+
+**Phase 1c — bitmap parts on bones (Dan's call, 2026-08-02).** Stop asking
+the model to paint; bind the reference's own pixels to the bones.
+
+- [x] `Paint.image(src, at, scale)` in the engine: stamp ready-made pixels
+      into a part's canvas. NOTHING downstream changes — same skeleton,
+      same 4x rotation, same z-order, same grade and ink outline, same
+      cloth, same audit gates, same ramp law. A character may mix freely:
+      a bitmap torso under a procedural cloak is one parts list.
+- [x] Hand-rigged spike proving it: the 14 pieces stamp, rotate, grade and
+      animate, and the idle clip passes every gate at 116 of 144 rows. It
+      does not look good yet, because the joints and the draw order were
+      guessed — an offset per part gave a heap, top-centre for everything
+      gave a figure with its shoulders wrong.
+- [x] Rig plan (Dan's suggestion): a separate vision call, shown the
+      assembled figure and the numbered pieces, returns per piece what it
+      is, which slot, which side, its z-order, and its anchor AS A
+      FRACTION of the piece's own size. Validated and refused rather than
+      defaulted; a planner that never looked is 'unavailable'.
+- [ ] Build the rig from the plan and re-render the knight.
+- [ ] Open questions: rotating pixel art degrades it (only 4x supersample
+      and the re-grade defend it); pieces cut from a three-quarter drawing
+      in a strict side rig; far-side limbs faked by darkening a copy;
+      z-order that must change mid-clip.
+
 - [ ] Model A/B (Dan, 2026-08-02): run the same reference-aimed brief
       with anthropic/claude-opus-5 AND with gpt-5.6-sol at high
       thinking (Dan's preferred Sero model, the current baseline) and
