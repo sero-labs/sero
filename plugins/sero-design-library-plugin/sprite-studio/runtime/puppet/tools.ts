@@ -69,21 +69,35 @@ function reviewContent(round: BakeRound): ToolContent[] {
   return content;
 }
 
+/** What the independent judge said about one clean bake, in the form the write
+ * tool passes on. `passed` is null when the judge could not be reached — never
+ * folded into false, because "not judged" and "judged badly" call for opposite
+ * next moves. */
+export interface JudgeReport {
+  text: string;
+  passed: boolean | null;
+}
+
 export function createCharacterSourceTool(deps: {
   bake(source: string): Promise<BakeRound>;
   onRound(round: PuppetRound, source: string): Promise<void>;
   maxBakes: number;
+  /** Run against the rest pose of a bake whose gates are all green. Absent
+   * when there is no reference to judge against. */
+  judge?(rest: Buffer): Promise<JudgeReport>;
 }): {
   definition: ToolDefinition;
   rounds(): PuppetRound[];
   source(): string | null;
   converged(): boolean;
   lastCleanHash(): string | null;
+  lastVerdict(): JudgeReport | null;
 } {
   const rounds: PuppetRound[] = [];
   let lastSource: string | null = null;
   let converged = false;
   let lastCleanHash: string | null = null;
+  let lastVerdict: JudgeReport | null = null;
 
   const definition: ToolDefinition = {
     name: 'puppet_studio_write_character',
@@ -180,15 +194,31 @@ export function createCharacterSourceTool(deps: {
         cached: baked.outcome.cached,
       };
       rounds.push(round);
-      converged = report.allClean;
       if (report.allClean) lastCleanHash = baked.outcome.hash;
       await deps.onRound(round, source);
 
-      const verdict = report.allClean
-        ? 'Every audit gate is green — that is the floor, not the finish. Now judge the pictures like a STRANGER: ' +
-          'does the silhouette alone name the character, does the head read as a head, can you find every part in every frame? ' +
-          'You have bakes left; spend them on readability. Finish only when a stranger would name this character at a glance.'
-        : 'Audit failures below. Fix the failing checks first — the guide says how to read each one.';
+      // The gates are structural; whether the picture is the CHARACTER is a
+      // separate question, and one the author has already been shown it
+      // answers too kindly about itself. So a clean bake goes to the judge,
+      // and its verdict — not the author's opinion — decides convergence.
+      let judged: JudgeReport | null = null;
+      if (report.allClean && deps.judge !== undefined && baked.images !== null) {
+        judged = await deps.judge(baked.images.rest);
+        lastVerdict = judged;
+      }
+      converged = report.allClean && (deps.judge === undefined || judged?.passed === true);
+
+      const verdict = !report.allClean
+        ? 'Audit failures below. Fix the failing checks first — the guide says how to read each one.'
+        : judged === null
+          ? 'Every audit gate is green — that is the floor, not the finish. Now judge the pictures like a STRANGER: ' +
+            'does the silhouette alone name the character, does the head read as a head, can you find every part in every frame? ' +
+            'You have bakes left; spend them on readability. Finish only when a stranger would name this character at a glance.'
+          : judged.passed === true
+            ? `Every gate is green and the judge passed it.\n\n${judged.text}\n\nYou may finish, or spend what is left on the weakest score.`
+            : judged.passed === null
+              ? `Every gate is green, but the judge could not be reached, so this is NOT judged.\n\n${judged.text}\n\nKeep working against the target picture yourself.`
+              : `Every gate is green — that is the floor. The judge did not pass it.\n\n${judged.text}\n\nFix that one thing and bake again.`;
       const feet =
         report.restFeetRow === report.groundRow
           ? `Rest feet row measured: ${report.restFeetRow} — matches the declared groundRow.`
@@ -198,7 +228,7 @@ export function createCharacterSourceTool(deps: {
           { type: 'text' as const, text: `${header}\n${report.pretty}\n${feet}\n\n${verdict}` },
           ...reviewContent(baked),
         ],
-        details: { allClean: report.allClean, failed },
+        details: { allClean: report.allClean, failed, ...(judged === null ? {} : { judgePassed: judged.passed }) },
       };
     },
   };
@@ -209,6 +239,7 @@ export function createCharacterSourceTool(deps: {
     source: () => lastSource,
     converged: () => converged,
     lastCleanHash: () => lastCleanHash,
+    lastVerdict: () => lastVerdict,
   };
 }
 

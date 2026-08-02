@@ -299,6 +299,33 @@ export function keepLargestBody(
   width: number,
   height: number,
 ): { foreground: Foreground; detached: number } {
+  const { label, sizes } = labelBodies(mask, width, height);
+  if (sizes.length <= 1) return { foreground: mask, detached: 0 };
+  let best = 0;
+  for (let i = 1; i < sizes.length; i++) if (sizes[i]! > sizes[best]!) best = i;
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+
+  const foreground = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) foreground[i] = label[i] === best ? 1 : 0;
+  return { foreground, detached: total > 0 ? (total - sizes[best]!) / total : 0 };
+}
+
+export interface LabelledBodies {
+  /** One id per pixel, -1 where there is no foreground. */
+  label: Int32Array;
+  /** Pixel count per id. */
+  sizes: number[];
+}
+
+/**
+ * Every connected mass, not only the winner.
+ *
+ * `keepLargestBody` answers "which of these is the character"; this answers
+ * "how many separate things are there and where". A parts sheet — one drawing
+ * of a character's head, torso, limbs and gear laid out apart from each other
+ * — is exactly a picture whose separate masses are the point.
+ */
+export function labelBodies(mask: Foreground, width: number, height: number): LabelledBodies {
   const label = new Int32Array(mask.length).fill(-1);
   const sizes: number[] = [];
   const queue = new Int32Array(mask.length);
@@ -329,13 +356,5 @@ export function keepLargestBody(
     }
     sizes.push(size);
   }
-
-  if (sizes.length <= 1) return { foreground: mask, detached: 0 };
-  let best = 0;
-  for (let i = 1; i < sizes.length; i++) if (sizes[i]! > sizes[best]!) best = i;
-  const total = sizes.reduce((sum, size) => sum + size, 0);
-
-  const foreground = new Uint8Array(mask.length);
-  for (let i = 0; i < mask.length; i++) foreground[i] = label[i] === best ? 1 : 0;
-  return { foreground, detached: total > 0 ? (total - sizes[best]!) / total : 0 };
+  return { label, sizes };
 }

@@ -288,7 +288,19 @@ export async function applySpriteRequest(
     }
 
     case 'sprite.puppet.author': {
-      queue.puppetAuthor(body.runId, body.brief, body.maxBakes);
+      // A reference is a file OR words; sending neither is a blind run, which
+      // is still allowed and is recorded as one.
+      const reference =
+        body.referenceFile !== undefined && body.referenceFile !== ''
+          ? { file: body.referenceFile }
+          : body.referencePrompt !== undefined && body.referencePrompt !== ''
+            ? { prompt: body.referencePrompt }
+            : undefined;
+      queue.puppetAuthor(body.runId, body.brief, {
+        ...(body.maxBakes === undefined ? {} : { maxBakes: body.maxBakes }),
+        ...(reference === undefined ? {} : { reference }),
+        ...(body.splitParts === true ? { splitParts: true } : {}),
+      });
       return;
     }
 

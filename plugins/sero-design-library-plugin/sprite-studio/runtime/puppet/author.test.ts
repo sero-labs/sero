@@ -37,14 +37,17 @@ afterEach(async () => {
   await rm(home, { recursive: true, force: true });
 });
 
-function makeContext(script: Script): PuppetAuthorContext {
+function makeContext(script: Script, judgeScript?: Script): PuppetAuthorContext {
   const host = {
     subagents: {
       async runStructured(params: AppRuntimeSubagentRunParams) {
         const tools = new Map(
           (params.customTools as FakeTool[]).map((tool) => [tool.name, tool]),
         );
-        await script(tools, params);
+        // The judge is a second, separate session; it is told apart by the
+        // tools it is given, which is exactly how the real one is separate.
+        const runner = tools.has('puppet_judge_score') ? judgeScript : script;
+        await runner?.(tools, params);
         return { response: 'done' };
       },
     },
@@ -57,6 +60,42 @@ function makeContext(script: Script): PuppetAuthorContext {
     model: EMPTY_MODEL_SELECTION,
     signal: new AbortController().signal,
   };
+}
+
+/** A reference already on disk, so no picture is ever bought in a test. */
+async function plantReference(runId: string, provider: { calls: number }): Promise<void> {
+  const dir = path.join(puppetRunDir(paths, runId), 'reference');
+  await mkdir(dir, { recursive: true });
+  const { encodeIndexedPng } = await import('../png');
+  const cells = new Int16Array(60 * 100);
+  for (let y = 0; y < 100; y++) {
+    for (let x = 0; x < 60; x++) {
+      cells[y * 60 + x] = x >= 20 && x < 40 && y >= 8 && y < 92 ? 1 : 0;
+    }
+  }
+  await (await import('node:fs/promises')).writeFile(
+    path.join(dir, 'side.png'),
+    encodeIndexedPng(cells, 60, 100, [
+      [240, 240, 240],
+      [90, 110, 140],
+    ]),
+  );
+  provider.calls = 0;
+}
+
+function stubProvider(): { calls: number } & Record<string, unknown> {
+  const state = { calls: 0 };
+  return {
+    ...state,
+    id: 'stub',
+    displayName: 'Stub',
+    capabilities: () => ['image-to-image'],
+    defaultModel: () => 'stub',
+    async generate() {
+      state.calls++;
+      throw new Error('a test must never buy a picture');
+    },
+  } as never;
 }
 
 describe('runPuppetAuthor', () => {
@@ -143,5 +182,104 @@ describe('runPuppetAuthor', () => {
     const outcome = await runPuppetAuthor({ runId: 'run-3', brief: 'Anything.' }, context);
     expect(outcome.status).toBe('failed');
     expect(validateMessage).toContain('not written the character');
+  });
+  it('a green bake the judge fails is NOT converged, and the verdict comes back', async () => {
+    // The whole point of Phase 1b. Before it, allClean WAS the finish line and
+    // a character nobody could identify counted as a converged run.
+    const provider = stubProvider();
+    await plantReference('run-aim', provider);
+    let feedback = '';
+    const context = makeContext(
+      async (tools, params) => {
+        expect(params.repair?.validate('')).toContain('not looked at the target');
+        await tools.get('puppet_studio_show_target')!.execute('t0', {});
+        const clean = await tools.get('puppet_studio_write_character')!.execute('t1', { source: CLEAN_SOURCE });
+        feedback = clean.content.map((item) => item.text ?? '').join('\n');
+        await tools.get('puppet_studio_finish')!.execute('t2', { seen: 'a blob', note: 'stopped' });
+      },
+      async (tools) => {
+        await tools.get('puppet_judge_show')!.execute('j0', {});
+        await tools.get('puppet_judge_score')!.execute('j1', {
+          seen: 'a featureless blue lozenge',
+          silhouette: 1,
+          proportions: 1,
+          head: 0,
+          equipment: 0,
+          colour: 2,
+          missing: 'there is no head',
+        });
+      },
+    );
+    context.provider = provider as never;
+
+    const outcome = await runPuppetAuthor(
+      { runId: 'run-aim', brief: 'A knight.', reference: { file: 'ignored.png' } },
+      context,
+    );
+    if (outcome.status !== 'capped') throw new Error(`expected capped, got ${outcome.status}`);
+    expect(feedback).toContain('The judge did not pass it');
+    expect(feedback).toContain('there is no head');
+    expect(provider.calls).toBe(0);
+
+    const run = JSON.parse(await readFile(path.join(puppetRunDir(paths, 'run-aim'), 'run.json'), 'utf8'));
+    expect(run.aimed).toBe(true);
+    expect(run.verdicts).toHaveLength(1);
+    expect(run.verdicts[0].passed).toBe(false);
+  });
+
+  it('a green bake the judge passes converges', async () => {
+    const provider = stubProvider();
+    await plantReference('run-pass', provider);
+    const context = makeContext(
+      async (tools) => {
+        await tools.get('puppet_studio_show_target')!.execute('t0', {});
+        await tools.get('puppet_studio_write_character')!.execute('t1', { source: CLEAN_SOURCE });
+        await tools.get('puppet_studio_finish')!.execute('t2', { seen: 'a knight', note: 'done' });
+      },
+      async (tools) => {
+        await tools.get('puppet_judge_show')!.execute('j0', {});
+        await tools.get('puppet_judge_score')!.execute('j1', {
+          seen: 'an armoured figure with a sword',
+          silhouette: 2,
+          proportions: 2,
+          head: 2,
+          equipment: 2,
+          colour: 2,
+          missing: 'the visor could be brighter',
+        });
+      },
+    );
+    context.provider = provider as never;
+    const outcome = await runPuppetAuthor(
+      { runId: 'run-pass', brief: 'A knight.', reference: { file: 'ignored.png' } },
+      context,
+    );
+    expect(outcome.status).toBe('converged');
+  });
+
+  it('an unreachable judge is not a pass', async () => {
+    // "The check found nothing" and "the check never ran" must not arrive
+    // looking alike; a whole animation was once presented as checked that way.
+    const provider = stubProvider();
+    await plantReference('run-nojudge', provider);
+    let feedback = '';
+    const context = makeContext(
+      async (tools) => {
+        await tools.get('puppet_studio_show_target')!.execute('t0', {});
+        const clean = await tools.get('puppet_studio_write_character')!.execute('t1', { source: CLEAN_SOURCE });
+        feedback = clean.content.map((item) => item.text ?? '').join('\n');
+        await tools.get('puppet_studio_finish')!.execute('t2', { seen: 'a blob', note: 'stopped' });
+      },
+      async () => undefined, // the judge session never looks and never scores
+    );
+    context.provider = provider as never;
+    const outcome = await runPuppetAuthor(
+      { runId: 'run-nojudge', brief: 'A knight.', reference: { file: 'ignored.png' } },
+      context,
+    );
+    expect(outcome.status).toBe('capped');
+    expect(feedback).toContain('NOT judged');
+    const run = JSON.parse(await readFile(path.join(puppetRunDir(paths, 'run-nojudge'), 'run.json'), 'utf8'));
+    expect(run.judgeUnavailable).toContain('never looked');
   });
 });

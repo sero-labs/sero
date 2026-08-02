@@ -32,6 +32,7 @@ import { encodeIndexedPng } from '../png';
 import type { CellGrid, Palette, SourceImage } from '../../engine/types';
 import type { ReferenceMaterial } from './reference-image';
 import { canonicalise, findFigure, referenceMaterials, renderGrid } from './reference-image';
+import { buildPartsSheetPrompt, describeParts, partsSheet, splitParts } from './parts';
 
 /** How much of the canvas height the reference figure is placed at — the same
  * bar the fill gate holds the author to, so target and render are comparable
@@ -71,12 +72,24 @@ export interface PreparedReference {
   figureH: number;
   /** The reference's colours as material ramps, commonest first. */
   materials: ReferenceMaterial[];
+  /** The character's pieces, when a parts sheet was bought and came apart. */
+  parts: PreparedParts | null;
   /** True when this run paid for something. */
   purchased: boolean;
 }
 
+export interface PreparedParts {
+  /** The pieces laid out at the target's scale, magnified. */
+  sheetPath: string;
+  /** '1: 22 x 19 px, 2: …' — the sizes, so the author paints to numbers. */
+  sizes: string;
+  count: number;
+}
+
 export interface ReferenceContext {
   provider: MediaProvider;
+  /** Buy a second picture of the character's pieces laid out separately. */
+  splitParts?: boolean;
   /** `puppet-lab/<runId>/reference`. */
   directory: string;
   canvasW: number;
@@ -89,7 +102,9 @@ export interface ReferenceContext {
 const SOURCE_FILE = 'source';
 const SIDE_FILE = 'side.png';
 const TARGET_FILE = 'target.png';
-const VIEW_FILE = 'target-8x.png';
+const VIEW_FILE = 'target-4x.png';
+const SHEET_FILE = 'parts-sheet.png';
+const PARTS_FILE = 'parts-4x.png';
 
 /** The instruction that turns a front-facing illustration into a profile of the
  * same character. Deliberately about the VIEW and nothing else: every request
@@ -153,7 +168,15 @@ async function drawFromWords(prompt: string, context: ReferenceContext): Promise
   return file;
 }
 
-async function drawSideView(source: string, context: ReferenceContext): Promise<Buffer> {
+/** One image-to-image call against the user's own picture, saved nowhere but
+ * the caller's chosen file. Shared by both edits so they cannot drift apart in
+ * how the source is uploaded or how a failure is reported. */
+async function editReference(
+  source: string,
+  prompt: string,
+  context: ReferenceContext,
+  whatFailed: string,
+): Promise<Buffer> {
   const bytes = await readFile(source);
   const asset: MediaSourceAsset = {
     path: path.basename(source),
@@ -163,13 +186,12 @@ async function drawSideView(source: string, context: ReferenceContext): Promise<
     // request asks for it.
     mediaType: source.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg',
   };
-  context.onProgress?.('Turning the reference side-on…');
   const attempt = await executeMedia(
     context.provider,
     {
       capability: 'image-to-image',
       model: REPAIR_MODEL,
-      prompt: buildSideViewPrompt(),
+      prompt,
       sourceAssetIds: ['reference'],
       extra: { output_format: 'png' },
     },
@@ -184,10 +206,37 @@ async function drawSideView(source: string, context: ReferenceContext): Promise<
     },
   );
   const problem = attemptProblem(attempt);
-  if (problem !== null) throw new Error(`The side view could not be drawn: ${problem}`);
+  if (problem !== null) throw new Error(`${whatFailed}: ${problem}`);
   const file = attemptFile(attempt, context.directory);
-  if (file === null) throw new Error('The side-view model returned no picture.');
+  if (file === null) throw new Error(`${whatFailed}: the model returned no picture.`);
   return readFile(file);
+}
+
+async function drawSideView(source: string, context: ReferenceContext): Promise<Buffer> {
+  context.onProgress?.('Turning the reference side-on…');
+  return editReference(source, buildSideViewPrompt(), context, 'The side view could not be drawn');
+}
+
+async function drawPartsSheet(source: string, context: ReferenceContext): Promise<Buffer> {
+  context.onProgress?.('Drawing the character in pieces…');
+  return editReference(source, buildPartsSheetPrompt(), context, 'The parts sheet could not be drawn');
+}
+
+/** Split a sheet and write the picture the author is shown, or report nothing
+ * rather than a sheet with one blob on it. */
+async function splitAndWrite(
+  sheet: Buffer,
+  reduction: number,
+  file: string,
+  context: ReferenceContext,
+): Promise<PreparedParts | null> {
+  const parts = splitParts(toSourceImage(sheet), { reduction, colours: TARGET_COLOURS });
+  // One piece means the model drew the assembled character again; two is not a
+  // character taken apart either. Below three there is nothing here the whole
+  // figure did not already say.
+  if (parts.length < 3) return null;
+  await writeImage(file, partsSheet(parts, VIEW_SCALE, BACKDROP));
+  return { sheetPath: file, sizes: describeParts(parts), count: parts.length };
 }
 
 /**
@@ -203,6 +252,8 @@ export async function prepareReference(
 ): Promise<PreparedReference> {
   await mkdir(context.directory, { recursive: true });
   const sidePath = path.join(context.directory, SIDE_FILE);
+  const sheetPath = path.join(context.directory, SHEET_FILE);
+  const partsPath = path.join(context.directory, PARTS_FILE);
   const targetPath = path.join(context.directory, TARGET_FILE);
   const viewPath = path.join(context.directory, VIEW_FILE);
   let purchased = false;
@@ -247,6 +298,25 @@ export async function prepareReference(
   await writeGrid(targetPath, target.grid, target.palette);
   await writeImage(viewPath, renderGrid(target.grid, target.palette, VIEW_SCALE, BACKDROP));
 
+  // The parts sheet is optional on purpose: it is a second paid picture, and a
+  // run that cannot get one is worse off but not broken — it still has the
+  // whole figure to aim at. So a failure here is recorded and stepped over,
+  // where a failure to prepare the TARGET stops the run.
+  let parts: PreparedParts | null = null;
+  if (context.splitParts === true) {
+    const sheet = await existing(sheetPath).then(
+      async (kept) => {
+        if (kept !== null) return kept;
+        const drawn = await drawPartsSheet(sourcePath, context);
+        await writeFile(sheetPath, drawn);
+        purchased = true;
+        return drawn;
+      },
+      () => null,
+    );
+    parts = sheet === null ? null : await splitAndWrite(sheet, target.reduction, partsPath, context);
+  }
+
   return {
     sourcePath,
     sidePath,
@@ -255,6 +325,7 @@ export async function prepareReference(
     figureW: target.figureW,
     figureH: target.figureH,
     materials: referenceMaterials(target),
+    parts,
     purchased,
   };
 }

@@ -29,6 +29,14 @@ import { reportSpriteNotice, reportSpriteProblem } from './projection';
 import { openReviewWhenBatchLands, settleReview } from './review';
 import { runAnimate, runBuild, runFix, runPropose, type JobRunner } from './queue-jobs';
 import { runPuppetAuthorJob } from './puppet/author';
+import type { ReferenceRequest } from './puppet/reference';
+
+/** What a puppet run may be given beyond its brief. */
+export interface PuppetAuthorOptions {
+  maxBakes?: number;
+  reference?: ReferenceRequest;
+  splitParts?: boolean;
+}
 import { buildAnimation, readBasePose, requestAnimationClip } from './generation/animate';
 import { runPlan } from './generation/plan';
 import { buildCharacterPrompt } from './generation/prompt';
@@ -88,7 +96,14 @@ type Job =
   | { kind: 'fix'; characterId: string; animationId: string; instruction: string; frameId?: string }
   // No characterId: an authoring run precedes any character record (Phase 1 of
   // the Ink & Bones plan). Its transcript lives under `puppet-lab/<runId>/`.
-  | { kind: 'puppet-author'; runId: string; brief: string; maxBakes?: number }
+  | {
+      kind: 'puppet-author';
+      runId: string;
+      brief: string;
+      maxBakes?: number;
+      reference?: ReferenceRequest;
+      splitParts?: boolean;
+    }
   | { kind: 'draw-character'; characterId: string; name: string; description: string }
   | {
       kind: 'export';
@@ -179,14 +194,21 @@ export class SpriteQueue implements JobRunner {
     });
   }
 
-  puppetAuthor(runId: string, brief: string, maxBakes?: number): void {
+  puppetAuthor(runId: string, brief: string, options: PuppetAuthorOptions = {}): void {
     // At-least-once replay dedup, in-process half: one job per run id in the
     // queue at a time. The run directory claim covers the cross-restart half.
     const active =
       this.waiting.some((job) => job.kind === 'puppet-author' && job.runId === runId) ||
       [...this.running.values()].some((run) => run.runId === runId);
     if (active) return;
-    this.push({ kind: 'puppet-author', runId, brief, ...(maxBakes === undefined ? {} : { maxBakes }) });
+    this.push({
+      kind: 'puppet-author',
+      runId,
+      brief,
+      ...(options.maxBakes === undefined ? {} : { maxBakes: options.maxBakes }),
+      ...(options.reference === undefined ? {} : { reference: options.reference }),
+      ...(options.splitParts === true ? { splitParts: true } : {}),
+    });
   }
 
   drawCharacter(characterId: string, name: string, description: string): void {

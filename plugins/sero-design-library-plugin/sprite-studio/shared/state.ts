@@ -234,7 +234,18 @@ export type SpriteRequestBody =
    * run's transcript and result land under `puppet-lab/<runId>/`; the notice
    * bar says how it ended.
    */
-  | { kind: 'sprite.puppet.author'; runId: string; brief: string; maxBakes?: number }
+  | {
+      kind: 'sprite.puppet.author';
+      runId: string;
+      brief: string;
+      maxBakes?: number;
+      /** A picture on disk to aim at, or words to draw one from (Phase 1b).
+       * Without either, the run authors blind and is recorded as such. */
+      referenceFile?: string;
+      referencePrompt?: string;
+      /** Buy a second picture of the character in pieces. */
+      splitParts?: boolean;
+    }
   | { kind: 'sprite.puppet.cancel'; runId: string }
   /** Start the animations the user accepted, with the plan they edited. */
   | {
