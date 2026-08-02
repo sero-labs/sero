@@ -54,7 +54,7 @@ export { assertClipTiming, settleChains, simulateChains } from './chains';
 
 // the character contract
 export type { BakedClip, CharacterSpec } from './spec';
-export { bakeAllClips, bakeClip, bakeRest, colorKey, vocabulary } from './spec';
+export { assertGradeAndShadow, bakeAllClips, bakeClip, bakeRest, colorKey, vocabulary } from './spec';
 
 // playback
 export { ClipPlayer } from './player';

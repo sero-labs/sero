@@ -8,6 +8,7 @@
  * generous — tapered capsules, broad shading — the grade makes the pixels.
  */
 
+import { assertColor, assertNumber, assertPoints, assertVec, assertWidths } from './guard';
 import type { Color } from './img';
 import { Img, darkened } from './img';
 import type { Vec } from './vec';
@@ -19,6 +20,22 @@ export interface Rect {
   w: number;
   h: number;
 }
+
+const SIG = {
+  capsule: 'capsule(p0, p1, r0, r1, colour) — two points, two half-widths, one colour.',
+  disc: 'disc(centre, r, colour).',
+  polygon: 'polygon(points, colour) — three or more points, one colour.',
+  // Both name the chain-painter call order: passing the Paint where the points
+  // belong is the mistake that once drew a whole part as nothing.
+  stroke:
+    'stroke(points, widths, colour) — points and a per-point width ARRAY. A chain painter is ' +
+    'called as painter(paint, points): the canvas first, the simulated points second.',
+  ribbon:
+    'ribbon(points, w0, w1, colour) — points, then the two end half-widths. A chain painter is ' +
+    'called as painter(paint, points): the canvas first, the simulated points second.',
+  tintToward: 'tintToward(dir, colour, depth) — a direction, a colour, a depth in px.',
+  occludeAbove: 'occludeAbove(atY, depth, amount) — three numbers; amount is 0..1, not a colour.',
+} as const;
 
 export class Paint {
   readonly img: Img;
@@ -32,6 +49,18 @@ export class Paint {
 
   /** Tapered capsule from p0 (radius r0) to p1 (radius r1) — the workhorse. */
   capsule(p0: Vec, p1: Vec, r0: number, r1: number, c: Color): void {
+    assertVec(p0, 'p0', 'capsule', SIG.capsule);
+    assertVec(p1, 'p1', 'capsule', SIG.capsule);
+    assertNumber(r0, 'r0', 'capsule', SIG.capsule);
+    assertNumber(r1, 'r1', 'capsule', SIG.capsule);
+    assertColor(c, 'colour', 'capsule', SIG.capsule);
+    this.fillCapsule(p0, p1, r0, r1, c);
+  }
+
+  /** The unchecked capsule the other helpers fill through, once their own
+   * arguments are validated — guards belong at the author's call, not in an
+   * inner loop. */
+  private fillCapsule(p0: Vec, p1: Vec, r0: number, r1: number, c: Color): void {
     const img = this.img;
     const a: Vec = [p0[0] + this.origin[0], p0[1] + this.origin[1]];
     const b: Vec = [p1[0] + this.origin[0], p1[1] + this.origin[1]];
@@ -57,40 +86,72 @@ export class Paint {
   }
 
   disc(center: Vec, r: number, c: Color): void {
-    this.capsule(center, center, r, r, c);
+    assertVec(center, 'centre', 'disc', SIG.disc);
+    assertNumber(r, 'r', 'disc', SIG.disc);
+    assertColor(c, 'colour', 'disc', SIG.disc);
+    this.fillCapsule(center, center, r, r, c);
   }
 
-  /** A wrong `points` argument must throw, not no-op: a chain painter given
-   * the wrong parameter order would otherwise draw NOTHING and pass every
-   * audit — an invisible part is not a gate failure any check can see. */
-  private static assertPoints(points: readonly Vec[], helper: string): void {
-    if (!Array.isArray(points) || (points.length > 0 && !Array.isArray(points[0]))) {
-      throw new Error(
-        `${helper}: expected an array of [x, y] points. A chain painter is called as ` +
-          'painter(paint, points) — the canvas first, the simulated points second.',
-      );
+  /**
+   * A filled polygon — the shape tool capsules cannot be: a helmet's flat
+   * crown and angled brow, a shield's kite, a blade's taper. Even-odd fill of
+   * the closed path through `points`; concave outlines and notches are fine.
+   */
+  polygon(points: readonly Vec[], c: Color): void {
+    assertPoints(points, 'points', 'polygon', SIG.polygon);
+    if (points.length < 3) {
+      throw new Error(`polygon: needs at least three points, got ${points.length}. ${SIG.polygon}`);
+    }
+    assertColor(c, 'colour', 'polygon', SIG.polygon);
+    const img = this.img;
+    const xs = points.map((p) => p[0] + this.origin[0]);
+    const ys = points.map((p) => p[1] + this.origin[1]);
+    const y0 = Math.max(0, Math.floor(Math.min(...ys)));
+    const y1 = Math.min(img.h - 1, Math.ceil(Math.max(...ys)));
+    const n = points.length;
+    const crossings: number[] = [];
+    for (let y = y0; y <= y1; y++) {
+      const py = y + 0.5;
+      crossings.length = 0;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        // A crossing is counted on exactly one of the two edges meeting at a
+        // vertex, so a scanline through a vertex fills once, not twice.
+        if (ys[i] > py !== ys[j] > py) {
+          crossings.push(xs[i] + ((py - ys[i]) / (ys[j] - ys[i])) * (xs[j] - xs[i]));
+        }
+      }
+      crossings.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < crossings.length; k += 2) {
+        const xa = Math.max(0, Math.round(crossings[k]));
+        const xb = Math.min(img.w - 1, Math.round(crossings[k + 1]) - 1);
+        for (let x = xa; x <= xb; x++) img.set(x, y, c);
+      }
     }
   }
 
   /** Polyline stroke with a per-point half-width profile. */
   stroke(points: readonly Vec[], widths: readonly number[], c: Color): void {
-    Paint.assertPoints(points, 'stroke');
+    assertPoints(points, 'points', 'stroke', SIG.stroke);
+    assertWidths(widths, 'widths', 'stroke', SIG.stroke);
+    assertColor(c, 'colour', 'stroke', SIG.stroke);
     for (let i = 0; i < points.length - 1; i++) {
       const w0 = widths[Math.min(i, widths.length - 1)];
       const w1 = widths[Math.min(i + 1, widths.length - 1)];
-      this.capsule(points[i], points[i + 1], w0, w1, c);
+      this.fillCapsule(points[i], points[i + 1], w0, w1, c);
     }
   }
 
   /** A stroke tapering linearly from w0 to w1 — the shape of a chain. */
   ribbon(points: readonly Vec[], w0: number, w1: number, c: Color): void {
-    Paint.assertPoints(points, 'ribbon');
+    assertPoints(points, 'points', 'ribbon', SIG.ribbon);
+    assertNumber(w0, 'w0', 'ribbon', SIG.ribbon);
+    assertNumber(w1, 'w1', 'ribbon', SIG.ribbon);
+    assertColor(c, 'colour', 'ribbon', SIG.ribbon);
     const n = points.length;
-    if (n < 2) return;
     for (let i = 0; i < n - 1; i++) {
       const t0 = i / (n - 1);
       const t1 = (i + 1) / (n - 1);
-      this.capsule(points[i], points[i + 1], lerp(w0, w1, t0), lerp(w0, w1, t1), c);
+      this.fillCapsule(points[i], points[i + 1], lerp(w0, w1, t0), lerp(w0, w1, t1), c);
     }
   }
 
@@ -99,6 +160,9 @@ export class Paint {
    * shape faces `dir` — lit and shaded sides, or a rim at a shallow depth.
    */
   tintToward(dir: Vec, c: Color, depth: number): void {
+    assertVec(dir, 'dir', 'tintToward', SIG.tintToward);
+    assertColor(c, 'colour', 'tintToward', SIG.tintToward);
+    assertNumber(depth, 'depth', 'tintToward', SIG.tintToward);
     const img = this.img;
     const l = Math.hypot(dir[0], dir[1]) || 1;
     const dx = dir[0] / l;
@@ -123,6 +187,9 @@ export class Paint {
 
   /** Darken toward local y = atY on the joint side — sells the joint. */
   occludeAbove(atY: number, depth: number, amount: number): void {
+    assertNumber(atY, 'atY', 'occludeAbove', SIG.occludeAbove);
+    assertNumber(depth, 'depth', 'occludeAbove', SIG.occludeAbove);
+    assertNumber(amount, 'amount', 'occludeAbove', SIG.occludeAbove);
     const img = this.img;
     for (let y = 0; y < img.h; y++) {
       const ly = y + 0.5 - this.origin[1];

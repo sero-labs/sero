@@ -10,6 +10,7 @@
 import { assertClipTiming } from './chains';
 import { bake, renderRest } from './compositor';
 import type { GradeConfig, Part, Shadow } from './compositor';
+import { assertColor, assertNumber } from './guard';
 import type { Color } from './img';
 import { Img } from './img';
 import type { Motion } from './motion';
@@ -47,6 +48,29 @@ export function colorKey(c: Color): string {
   return b(c[0]) + b(c[1]) + b(c[2]);
 }
 
+const GRADE_SIG =
+  "grade: { ink, shadow, emissiveLone } — two colours from hex() and an array of colours.";
+const SHADOW_SIG = 'shadow: { x, y, rx, ry } — the ground ellipse, in 1x canvas pixels.';
+
+/**
+ * The parts of the contract no audit gate can see. A grade or a shadow
+ * declared with the wrong field names costs the character its ink or its
+ * ground shadow SILENTLY — the frames still bake, the gates still pass. Both
+ * are checked once per bake so the mistake reaches the author as an error.
+ */
+export function assertGradeAndShadow(grade: GradeConfig, shadow?: Shadow): void {
+  assertColor(grade?.ink, 'grade.ink', 'character', GRADE_SIG);
+  assertColor(grade.shadow, 'grade.shadow', 'character', GRADE_SIG);
+  if (!Array.isArray(grade.emissiveLone)) {
+    throw new Error(`character: grade.emissiveLone must be an array (empty is fine). ${GRADE_SIG}`);
+  }
+  grade.emissiveLone.forEach((c, i) => assertColor(c, `grade.emissiveLone[${i}]`, 'character', GRADE_SIG));
+  if (shadow === undefined) return;
+  for (const field of ['x', 'y', 'rx', 'ry'] as const) {
+    assertNumber(shadow[field], `shadow.${field}`, 'character', SHADOW_SIG);
+  }
+}
+
 /** Every colour the character is allowed to emit: the union of the part
  * ramps, the ink, and the emissive accents. Derived, never declared — the
  * paints cannot drift from the law they are audited against. */
@@ -69,6 +93,7 @@ export function bakeClip(spec: CharacterSpec, name: string): BakedClip {
   // bake() re-checks this, but a mirror clip's own metadata never reaches
   // bake — validate it here so a broken mirror fails as loudly as its source.
   assertClipTiming(clip);
+  assertGradeAndShadow(spec.grade, spec.shadow);
   if (clip.mirrorOf !== '') {
     const src = bakeClip(spec, clip.mirrorOf);
     return {
@@ -99,6 +124,7 @@ export function bakeAllClips(spec: CharacterSpec): Map<string, BakedClip> {
 
 /** The rest frame: skeleton held at restPose, chains settled in still air. */
 export function bakeRest(spec: CharacterSpec): Img {
+  assertGradeAndShadow(spec.grade, spec.shadow);
   return renderRest(
     spec.skeleton,
     spec.parts,

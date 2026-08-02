@@ -5,11 +5,18 @@
  * authoring loop. Each test here proves one rejection actually fires.
  */
 import { describe, expect, it } from 'vitest';
-import type { BakedClip } from '../src/index';
-import { ClipPlayer, Img, Motion, Paint, Skeleton, auditClip, bake, bakeClip, hex, limitImgAllocations, simulateChains } from '../src/index';
+import type { BakedClip, Color } from '../src/index';
+import { ClipPlayer, Img, Motion, Paint, Skeleton, auditClip, bake, bakeClip, bakeRest, hex, limitImgAllocations, simulateChains } from '../src/index';
 import { buildCharacter } from '../example/scout';
 
 const spec = buildCharacter();
+
+/** Opaque pixels on a Paint canvas — "did this call draw anything at all". */
+function opaque(p: Paint): number {
+  let n = 0;
+  for (let y = 0; y < p.img.h; y++) for (let x = 0; x < p.img.w; x++) if (p.img.alpha(x, y) >= 0.5) n++;
+  return n;
+}
 
 describe('malformed timing', () => {
   it.each([
@@ -89,6 +96,76 @@ describe('malformed painters', () => {
     expect(() => p.stroke(notPoints, [2], hex('4e5f78'))).toThrow(/painter\(paint, points\)/);
     // Real points still draw.
     p.ribbon([[2, 2], [8, 8]], 2, 2, hex('4e5f78'));
+  });
+
+  it('stroke rejects a bare number where the width profile belongs', () => {
+    // The knight's visor slit, shield emblem and crossguard were all written
+    // this way. Every one drew nothing and every gate stayed green.
+    const p = new Paint({ x: 0, y: 0, w: 16, h: 16 });
+    const widths = 3 as unknown as number[];
+    expect(() => p.stroke([[2, 8], [14, 8]], widths, hex('4e5f78'))).toThrow(/ARRAY of half-widths/);
+    expect(() => p.stroke([[2, 8], [14, 8]], [], hex('4e5f78'))).toThrow(/non-empty/);
+    p.stroke([[2, 8], [14, 8]], [3, 3], hex('4e5f78'));
+    expect(opaque(p)).toBeGreaterThan(0);
+  });
+
+  it('occludeAbove rejects a colour where a strength belongs', () => {
+    // Passing (vec, depth, colour, n) let NaN through and washed a whole torso
+    // to flat white — the reason a knight read as a featureless slab.
+    const p = new Paint({ x: -8, y: -2, w: 16, h: 20 });
+    p.capsule([0, 0], [0, 16], 6, 6, hex('4e5f78'));
+    const amount = hex('313d52') as unknown as number;
+    expect(() => p.occludeAbove(6, 8, amount)).toThrow(/amount must be a finite number/);
+    expect(() => p.occludeAbove([0, 6] as unknown as number, 8, 0.25)).toThrow(/atY/);
+    p.occludeAbove(6, 8, 0.25);
+  });
+
+  it('capsule, disc and tintToward reject undefined numbers and colours', () => {
+    const p = new Paint({ x: 0, y: 0, w: 16, h: 16 });
+    const missing = undefined as unknown as number;
+    expect(() => p.capsule([0, 0], [8, 8], missing, 3, hex('4e5f78'))).toThrow(/r0/);
+    expect(() => p.capsule([0, 0], [8, 8], 3, 3, undefined as unknown as Color)).toThrow(/colour/);
+    expect(() => p.disc([4, 4], missing, hex('4e5f78'))).toThrow(/disc/);
+    expect(() => p.tintToward([1, 0], hex('4e5f78'), missing)).toThrow(/depth/);
+  });
+});
+
+describe('grade and shadow declarations', () => {
+  it('a shadow declared with the wrong field names throws instead of vanishing', () => {
+    // The knight declared { color, opacity, radiusX, radiusY }. It compiled,
+    // baked, passed every gate, and had no ground shadow.
+    const wrong = { color: hex('151922'), opacity: 0.38, radiusX: 22, radiusY: 5 };
+    const broken = { ...spec, shadow: wrong as unknown as typeof spec.shadow };
+    expect(() => bakeRest(broken)).toThrow(/shadow\.x/);
+    expect(() => bakeClip(broken, 'idle')).toThrow(/shadow\.x/);
+    expect(() => bakeRest(spec)).not.toThrow();
+  });
+
+  it('a grade missing ink or emissiveLone throws', () => {
+    const noInk = { ...spec, grade: { ...spec.grade, ink: undefined as unknown as Color } };
+    expect(() => bakeRest(noInk)).toThrow(/grade\.ink/);
+    const noList = { ...spec, grade: { ...spec.grade, emissiveLone: hex('ffffff') as unknown as Color[] } };
+    expect(() => bakeRest(noList)).toThrow(/emissiveLone/);
+  });
+});
+
+describe('polygon', () => {
+  it('fills a concave outline and rejects a degenerate one', () => {
+    // An arrow: the notch must stay empty, which is what capsules cannot do.
+    const p = new Paint({ x: 0, y: 0, w: 20, h: 20 });
+    p.polygon([[10, 1], [19, 18], [10, 13], [1, 18]], hex('4e5f78'));
+    expect(p.img.alpha(10, 4)).toBeGreaterThan(0.5); // inside the head
+    expect(p.img.alpha(10, 17)).toBeLessThan(0.5); // inside the notch
+    expect(() => p.polygon([[0, 0], [4, 4]], hex('4e5f78'))).toThrow(/at least two points|three/);
+    expect(() => p.polygon([[0, 0], [4, 0], [4, 4]], 3 as unknown as Color)).toThrow(/colour/);
+  });
+
+  it('a horizontal edge on a scanline fills once, not twice', () => {
+    // Even-odd counting a vertex on both its edges leaves holes; a flat-topped
+    // helmet crown is exactly that case.
+    const p = new Paint({ x: 0, y: 0, w: 12, h: 12 });
+    p.polygon([[2, 2], [10, 2], [10, 9], [2, 9]], hex('4e5f78'));
+    for (let y = 3; y <= 8; y++) expect(p.img.alpha(6, y)).toBeGreaterThan(0.5);
   });
 });
 
