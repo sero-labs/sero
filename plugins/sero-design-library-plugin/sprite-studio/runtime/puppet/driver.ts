@@ -87,15 +87,24 @@ function packImg(img: { w: number; h: number; data: Float32Array }) {
   return { w: img.w, h: img.h, data: img.data };
 }
 
-function contractProblems(spec: any, names: string[], clips: Map<string, unknown>): string[] {
+interface Dims { canvasW: number; canvasH: number; groundRow: number }
+interface Timing { cycle: number; bakeFps: number }
+
+function contractProblems(
+  spec: any,
+  names: string[],
+  clips: Map<string, unknown>,
+  dims: Dims,
+  timing: Map<string, Timing>,
+): string[] {
   const problems: string[] = [];
   const wholeIn = (value: unknown, lo: number, hi: number): boolean =>
     typeof value === 'number' && Number.isInteger(value) && value >= lo && value <= hi;
 
-  if (!wholeIn(spec.canvasW, MIN_CANVAS, MAX_CANVAS) || !wholeIn(spec.canvasH, MIN_CANVAS, MAX_CANVAS)) {
+  if (!wholeIn(dims.canvasW, MIN_CANVAS, MAX_CANVAS) || !wholeIn(dims.canvasH, MIN_CANVAS, MAX_CANVAS)) {
     problems.push('canvasW and canvasH must be whole numbers between ' + MIN_CANVAS + ' and ' + MAX_CANVAS + '.');
   }
-  if (!wholeIn(spec.groundRow, 0, (typeof spec.canvasH === 'number' ? spec.canvasH : MAX_CANVAS) - 1)) {
+  if (!wholeIn(dims.groundRow, 0, (Number.isInteger(dims.canvasH) ? dims.canvasH : MAX_CANVAS) - 1)) {
     problems.push('groundRow must be a whole pixel row inside the canvas.');
   }
   if (!(spec.skeleton instanceof engine.Skeleton)) {
@@ -129,16 +138,17 @@ function contractProblems(spec: any, names: string[], clips: Map<string, unknown
     if (clip.name !== name) {
       problems.push("clip '" + name + "' is stored under a different name than its own ('" + clip.name + "').");
     }
-    if (!(clip.cycle > 0) || clip.cycle > MAX_CYCLE_SECONDS) {
+    const t = timing.get(name);
+    if (t === undefined || !(t.cycle > 0) || t.cycle > MAX_CYCLE_SECONDS) {
       problems.push("clip '" + name + "' needs a cycle between 0 and " + MAX_CYCLE_SECONDS + ' seconds.');
       continue;
     }
-    if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > 60) {
+    if (!Number.isFinite(t.bakeFps) || t.bakeFps <= 0 || t.bakeFps > 60) {
       problems.push("clip '" + name + "' needs a bakeFps in (0, 60].");
       continue;
     }
-    const frames = Math.max(1, Math.round(clip.cycle * clip.bakeFps));
-    const px = frames * (typeof spec.canvasW === 'number' ? spec.canvasW : MAX_CANVAS) * (typeof spec.canvasH === 'number' ? spec.canvasH : MAX_CANVAS);
+    const frames = Math.max(1, Math.round(t.cycle * t.bakeFps));
+    const px = frames * (Number.isInteger(dims.canvasW) ? dims.canvasW : MAX_CANVAS) * (Number.isInteger(dims.canvasH) ? dims.canvasH : MAX_CANVAS);
     if (px > MAX_CLIP_PIXELS) {
       problems.push("clip '" + name + "' bakes " + frames + ' frames — beyond the per-clip budget. Shorten the cycle or lower bakeFps.');
     }
@@ -180,16 +190,30 @@ function main(): void {
     }
   }
 
-  const problems = contractProblems(spec, names, clips);
+  // Every scalar the budget and the bake depend on is read EXACTLY ONCE,
+  // here, before any authored callback runs — a getter that answers small
+  // to validation and large later changes nothing, because validation, the
+  // budget, and the frozen spec all use these same reads. The engine's own
+  // later reads are bounded by the armed budget.
+  const dims = { canvasW: Number(spec.canvasW), canvasH: Number(spec.canvasH), groundRow: Number(spec.groundRow) };
+  const timing = new Map<string, { cycle: number; bakeFps: number }>();
+  for (const name of names) {
+    const clip = clips.get(name) as { cycle?: unknown; bakeFps?: unknown } | null;
+    if (clip !== null && typeof clip === 'object') {
+      timing.set(name, { cycle: Number(clip.cycle), bakeFps: Number(clip.bakeFps) });
+    }
+  }
+
+  const problems = contractProblems(spec, names, clips, dims, timing);
   if (problems.length > 0) {
     post({ ok: false, stage: 'contract', issues: problems.map((text) => ({ text })) });
     return;
   }
 
   const frozen = {
-    canvasW: spec.canvasW,
-    canvasH: spec.canvasH,
-    groundRow: spec.groundRow,
+    canvasW: dims.canvasW,
+    canvasH: dims.canvasH,
+    groundRow: dims.groundRow,
     skeleton: spec.skeleton,
     parts: Array.from(spec.parts),
     clips,
@@ -198,23 +222,23 @@ function main(): void {
     restPose: () => spec.restPose(),
   } as any;
 
+  // Re-arm the allocation budget for the bake, measured from the validated
+  // snapshot: per frame one supersampled canvas (16x the 1x pixels) plus the
+  // 1x frame, doubled for margin, plus slack for the rest render. Armed
+  // BEFORE restPose so no authored callback runs outside a budget it cannot
+  // widen. Painter code that hoards during the bake dies near twice its
+  // legitimate need instead of at a one-size ceiling.
+  let bakePixels = 0;
+  for (const t of timing.values()) {
+    bakePixels += Math.max(1, Math.round(t.cycle * t.bakeFps)) * dims.canvasW * dims.canvasH * 17;
+  }
+  engine.limitImgAllocations(bakePixels * 2 + 8_000_000);
+
   const pose = frozen.restPose();
   if (pose === null || typeof pose !== 'object' || pose.deg === null || typeof pose.deg !== 'object') {
     post({ ok: false, stage: 'contract', issues: [{ text: "restPose() must return { deg: { bone: deltaDeg } } — deltas live under 'deg'." }] });
     return;
   }
-
-  // Re-arm the allocation budget for the bake, measured from the clip set
-  // the contract just validated: per frame one supersampled canvas (16x the
-  // 1x pixels) plus the 1x frame, doubled for margin, plus slack for the
-  // rest render. Painter code that hoards during the bake dies near twice
-  // its legitimate need instead of at a one-size ceiling.
-  let bakePixels = 0;
-  for (const name of names) {
-    const clip = clips.get(name) as { cycle: number; bakeFps: number };
-    bakePixels += Math.max(1, Math.round(clip.cycle * clip.bakeFps)) * spec.canvasW * spec.canvasH * 17;
-  }
-  engine.limitImgAllocations(bakePixels * 2 + 8_000_000);
 
   const rest = engine.bakeRest(frozen);
   const baked: { name: string; fps: number; loop: boolean; frames: ReturnType<typeof packImg>[] }[] = [];
