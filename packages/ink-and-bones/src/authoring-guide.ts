@@ -100,6 +100,15 @@ Parts list is back-to-front (far limbs, body, near limbs, head):
     { name: 'shin_near', bone: 'shin_near', ramp: suit, paint: shin(suit) },     // rigid
     { name: 'scarf', chain: 'scarf', ramp: scarfRamp, painter: scarfPainter },   // cloth
 
+A chain part's painter is CALLED BY THE ENGINE as painter(paint, points):
+a fresh Paint canvas first, then the simulated link positions, every frame.
+Draw onto the GIVEN paint — never create or return your own:
+
+    const scarfPainter = (p: Paint, pts: readonly Vec[]): void => {
+      p.ribbon(pts, 7, 2.8, scarf);
+      p.tintToward([-0.4, -1], scarfLight, 2.2);
+    };
+
 grade config: { ink, shadow, emissiveLone } — ink is the 1px outline colour,
 emissiveLone lists hot accent colours (visor core, blade edge) allowed to
 win a cell outright at ~1/3 coverage and to stand as a single pixel.

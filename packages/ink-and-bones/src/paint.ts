@@ -60,8 +60,21 @@ export class Paint {
     this.capsule(center, center, r, r, c);
   }
 
+  /** A wrong `points` argument must throw, not no-op: a chain painter given
+   * the wrong parameter order would otherwise draw NOTHING and pass every
+   * audit — an invisible part is not a gate failure any check can see. */
+  private static assertPoints(points: readonly Vec[], helper: string): void {
+    if (!Array.isArray(points) || (points.length > 0 && !Array.isArray(points[0]))) {
+      throw new Error(
+        `${helper}: expected an array of [x, y] points. A chain painter is called as ` +
+          'painter(paint, points) — the canvas first, the simulated points second.',
+      );
+    }
+  }
+
   /** Polyline stroke with a per-point half-width profile. */
   stroke(points: readonly Vec[], widths: readonly number[], c: Color): void {
+    Paint.assertPoints(points, 'stroke');
     for (let i = 0; i < points.length - 1; i++) {
       const w0 = widths[Math.min(i, widths.length - 1)];
       const w1 = widths[Math.min(i + 1, widths.length - 1)];
@@ -71,6 +84,7 @@ export class Paint {
 
   /** A stroke tapering linearly from w0 to w1 — the shape of a chain. */
   ribbon(points: readonly Vec[], w0: number, w1: number, c: Color): void {
+    Paint.assertPoints(points, 'ribbon');
     const n = points.length;
     if (n < 2) return;
     for (let i = 0; i < n - 1; i++) {

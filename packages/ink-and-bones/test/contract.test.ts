@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BakedClip } from '../src/index';
-import { ClipPlayer, Img, Motion, Skeleton, auditClip, bake, bakeClip, hex, limitImgAllocations, simulateChains } from '../src/index';
+import { ClipPlayer, Img, Motion, Paint, Skeleton, auditClip, bake, bakeClip, hex, limitImgAllocations, simulateChains } from '../src/index';
 import { buildCharacter } from '../example/scout';
 
 const spec = buildCharacter();
@@ -75,6 +75,20 @@ describe('malformed allocations', () => {
     } finally {
       limitImgAllocations(Number.POSITIVE_INFINITY);
     }
+  });
+});
+
+describe('malformed painters', () => {
+  it('ribbon and stroke throw on a non-points argument — never a silent no-op', () => {
+    // The exact mistake a generated painter makes: (points) => instead of
+    // (paint, points) =>, which hands ribbon the Paint object. Silently
+    // drawing nothing passes every audit; an invisible part must throw.
+    const p = new Paint({ x: 0, y: 0, w: 10, h: 10 });
+    const notPoints = p as unknown as [number, number][];
+    expect(() => p.ribbon(notPoints, 3, 2, hex('4e5f78'))).toThrow(/painter\(paint, points\)/);
+    expect(() => p.stroke(notPoints, [2], hex('4e5f78'))).toThrow(/painter\(paint, points\)/);
+    // Real points still draw.
+    p.ribbon([[2, 2], [8, 8]], 2, 2, hex('4e5f78'));
   });
 });
 
