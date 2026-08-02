@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ink &amp; Bones — TypeScript spike</title>
+<style>
+  body {
+    margin: 0;
+    background: #191434;
+    color: #e9e5f2;
+    font: 14px/1.5 ui-monospace, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+  }
+  h1 { font-size: 16px; margin: 0; }
+  .muted { color: #8f8aa8; font-size: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  canvas#stage {
+    background: #241d42;
+    border: 1px solid #3b3252;
+    image-rendering: pixelated;
+  }
+  canvas#strip {
+    image-rendering: pixelated;
+    max-width: 92vw;
+    background: #241d42;
+    border: 1px solid #3b3252;
+  }
+  button, label {
+    background: #312653;
+    color: #e9e5f2;
+    border: 1px solid #3b3252;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font: inherit;
+    cursor: pointer;
+  }
+  button.on { background: #4df5e3; color: #141021; }
+  input[type="range"] { width: 140px; }
+</style>
+</head>
+<body>
+  <h1>Ink &amp; Bones — every frame drawn by code</h1>
+  <div class="muted">A puppet: bones + IK + painted parts + verlet scarf, graded onto a 64×80 pixel grid.</div>
+  <div class="row">
+    <button data-clip="idle">idle</button>
+    <button data-clip="run">run</button>
+    <button data-clip="run_west">run west</button>
+    <button data-clip="jump">jump</button>
+    <button id="play">Pause</button>
+    <label><input type="checkbox" id="bones" /> bones</label>
+    <button id="theme">Theme: dusk</button>
+  </div>
+  <canvas id="stage"></canvas>
+  <div class="muted" id="counter"></div>
+  <div class="row">
+    <label>stride <input type="range" id="stride" min="40" max="130" value="88" /> <span id="stride-out">88</span></label>
+    <label>scarf wind <input type="range" id="wind" min="0" max="6000" value="2200" /> <span id="wind-out">2200</span></label>
+  </div>
+  <div class="muted">Move a slider or flip the theme: the character rebakes from source. Edits are diffs.</div>
+  <canvas id="strip"></canvas>
+  <div class="muted" id="status"></div>
+  <script src="dist/bundle.js"></script>
+</body>
+</html>
