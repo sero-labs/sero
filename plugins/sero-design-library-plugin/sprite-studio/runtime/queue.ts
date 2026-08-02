@@ -112,6 +112,7 @@ interface Run {
   done: Promise<void>;
   characterId?: string;
   animationId?: string;
+  runId?: string;
 }
 
 export class SpriteQueue implements JobRunner {
@@ -193,6 +194,11 @@ export class SpriteQueue implements JobRunner {
     options: SpriteExportOptions,
   ): void {
     this.push({ kind: 'export', exportId, characterId, animationIds, options });
+  }
+
+  cancelPuppet(runId: string): void {
+    this.stop((run) => run.runId === runId);
+    this.drop((job) => job.kind === 'puppet-author' && job.runId === runId);
   }
 
   cancelAnimation(animationId: string): void {
@@ -317,6 +323,7 @@ export class SpriteQueue implements JobRunner {
       done: Promise.resolve(),
       ...('characterId' in job ? { characterId: job.characterId } : {}),
       ...('animationId' in job ? { animationId: job.animationId } : {}),
+      ...('runId' in job ? { runId: job.runId } : {}),
     };
     this.running.set(ticket, entry);
     entry.done = this.carryOut(job, ticket, controller);

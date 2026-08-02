@@ -119,6 +119,14 @@ describe('runPuppetAuthor', () => {
     expect(outcome.cleanHash).toBeNull();
   });
 
+  it('a second run under the same id is refused — the directory is the claim', async () => {
+    const idle = makeContext(async () => undefined);
+    await runPuppetAuthor({ runId: 'run-dup', brief: 'Anything.' }, idle);
+    const second = await runPuppetAuthor({ runId: 'run-dup', brief: 'Anything.' }, idle);
+    if (second.status !== 'failed') throw new Error(`expected failed, got ${second.status}`);
+    expect(second.reason).toContain('already exists');
+  });
+
   it('a run that never writes fails, and the repair pass would have re-prompted', async () => {
     let validateMessage: string | null = null;
     const context = makeContext(async (_tools, params) => {

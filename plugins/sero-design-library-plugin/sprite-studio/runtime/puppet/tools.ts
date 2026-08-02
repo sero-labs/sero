@@ -121,7 +121,23 @@ export function createCharacterSourceTool(deps: {
         };
       }
 
-      const baked = await deps.bake(source);
+      let baked: BakeRound;
+      try {
+        baked = await deps.bake(source);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Aborted') throw error;
+        // Infrastructure failing is not the author's mistake and must not
+        // spend the author's budget — no round is recorded.
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `The bake machinery itself failed — this is not your file: ${error instanceof Error ? error.message : String(error)}. Send the same file again to retry.`,
+            },
+          ],
+          details: { infrastructure: true },
+        };
+      }
       const n = rounds.length + 1;
       const header = `Bake ${n} of ${deps.maxBakes}.`;
       lastSource = source;
@@ -170,9 +186,13 @@ export function createCharacterSourceTool(deps: {
         ? 'Every audit gate is green. Now judge the pictures: does the motion read, can you find every part in every frame? ' +
           'If it looks right, call puppet_studio_finish. If not, revise — the audit cannot see value collapse, but you can.'
         : 'Audit failures below. Fix the failing checks first — the guide says how to read each one.';
+      const feet =
+        report.restFeetRow === report.groundRow
+          ? `Rest feet row measured: ${report.restFeetRow} — matches the declared groundRow.`
+          : `Rest feet row measured: ${report.restFeetRow}, but groundRow declares ${report.groundRow} — the declaration should match the measurement.`;
       return {
         content: [
-          { type: 'text' as const, text: `${header}\n${report.pretty}\n\n${verdict}` },
+          { type: 'text' as const, text: `${header}\n${report.pretty}\n${feet}\n\n${verdict}` },
           ...reviewContent(baked),
         ],
         details: { allClean: report.allClean, failed },

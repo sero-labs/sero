@@ -53,7 +53,8 @@ export function buildCharacter(): CharacterSpec {
   return {
     canvasW: 32,
     canvasH: 40,
-    groundRow: 33,
+    // Measured from the baked rest frame (restFeetRow), not eyeballed.
+    groundRow: 32,
     skeleton: S,
     parts,
     clips,
@@ -130,6 +131,32 @@ export function buildCharacter(): CharacterSpec {
     grade: { ink: hex('151221'), shadow: [0, 0, 0, 0.4], emissiveLone: [] },
     restPose: (): Pose => ({ deg: {} }),
   };
+}
+`;
+
+/** A valid character that ALSO floods the microtask queue — the classic vm
+ * timeout escape. The bake must still land, and the flood must die with the
+ * worker instead of wedging the runtime. */
+export const ASYNC_FLOOD_SOURCE = `${CLEAN_SOURCE}
+(async () => {
+  for (;;) await Promise.resolve();
+})();
+`;
+
+/** Allocates until the worker's memory ceiling stops it. Plain arrays on
+ * purpose: typed-array backing stores live outside the old-gen limit that
+ * `resourceLimits` enforces, and would time out instead of dying at the cap. */
+export const MEMORY_HOG_SOURCE = `
+export function buildCharacter() {
+  const hoard: number[][] = [];
+  for (;;) hoard.push(new Array(1_000_000).fill(Math.PI));
+}
+`;
+
+/** P5: a clock or a random draw must fail loudly, not vary the bake. */
+export const RANDOM_SOURCE = `
+export function buildCharacter() {
+  return { canvasW: 32 + Math.random() };
 }
 `;
 

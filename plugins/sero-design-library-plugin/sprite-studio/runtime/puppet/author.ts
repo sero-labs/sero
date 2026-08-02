@@ -21,7 +21,7 @@ import type { DesignLibraryPaths } from '../../../shared/paths';
 import type { ModelSelection } from '../../../shared/settings';
 import { modelSelectionIsEmpty } from '../../../shared/settings';
 import { readState } from '../../../shared/state-io';
-import { puppetRunDir } from '../../shared/paths';
+import { puppetLabDir, puppetRunDir } from '../../shared/paths';
 import { bakePuppetSource, readReviewPngs } from './bake';
 import type { PuppetRound } from './tools';
 import { createCharacterSourceTool, createFinishTool, DEFAULT_MAX_BAKES } from './tools';
@@ -80,18 +80,32 @@ export async function runPuppetAuthor(
 ): Promise<PuppetAuthorOutcome> {
   const maxBakes = Math.max(1, Math.min(20, job.maxBakes ?? DEFAULT_MAX_BAKES));
   const runDir = puppetRunDir(context.paths, job.runId);
+  // The directory IS the claim. Request logs replay at-least-once, and two
+  // runs sharing an id would interleave one transcript; the second claimant
+  // fails fast instead.
+  await mkdir(puppetLabDir(context.paths), { recursive: true });
+  const claimed = await mkdir(runDir).then(
+    () => true,
+    () => false,
+  );
+  if (!claimed) {
+    return { status: 'failed', reason: `Run '${job.runId}' already exists — every run gets a fresh id.` };
+  }
   await mkdir(path.join(runDir, 'rounds'), { recursive: true });
   const startedAt = new Date().toISOString();
 
   const source = createCharacterSourceTool({
     maxBakes,
     bake: async (text) => {
+      if (context.signal.aborted) throw new Error('Aborted');
       context.onProgress?.(`Baking (${source.rounds().length + 1}/${maxBakes})…`);
-      const outcome = await bakePuppetSource(context.paths, text);
+      const outcome = await bakePuppetSource(context.paths, text, { signal: context.signal });
       const images = outcome.ok ? await readReviewPngs(outcome.dir, outcome.report) : null;
       return { outcome, images };
     },
     onRound: async (round: PuppetRound, text: string) => {
+      // A cancelled run stops leaving marks; what was already written stands.
+      if (context.signal.aborted) return;
       const dir = path.join(runDir, 'rounds', String(round.round));
       await mkdir(dir, { recursive: true });
       await writeFile(path.join(dir, 'source.ts'), text, 'utf8');
@@ -195,7 +209,9 @@ export async function runPuppetAuthorJob(
     parentSessionId: runner.sessionId,
     model: state.settings.designModel,
     signal,
-    onProgress: (message) => void runner.progress(job.runId, message),
+    onProgress: (message) => {
+      if (!signal.aborted) void runner.progress(job.runId, message);
+    },
   });
 
   const text =

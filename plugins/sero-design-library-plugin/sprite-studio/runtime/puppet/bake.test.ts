@@ -67,6 +67,45 @@ describe('bakePuppetSource', () => {
     expect(changed.hash).not.toBe(first.hash);
   });
 
+  it('rejects a cache from another format or engine and rebakes', async () => {
+    const first = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!first.ok) throw new Error('first bake failed');
+    const reportPath = path.join(puppetBakeDir(paths, first.hash), REPORT_FILE);
+    const stored = JSON.parse(await readFile(reportPath, 'utf8'));
+    stored.version = 999;
+    await writeFile(reportPath, JSON.stringify(stored), 'utf8');
+
+    const second = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!second.ok) throw new Error('rebake failed');
+    expect(second.cached).toBe(false);
+    expect(second.report.version).not.toBe(999);
+  });
+
+  it('rejects a cache whose strips are missing and rebakes', async () => {
+    const first = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!first.ok) throw new Error('first bake failed');
+    await rm(stripFile(puppetBakeDir(paths, first.hash), 'idle'));
+
+    const second = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!second.ok) throw new Error('rebake failed');
+    expect(second.cached).toBe(false);
+    await readFile(stripFile(puppetBakeDir(paths, first.hash), 'idle'));
+  });
+
+  it('recomputes the convergence signal from the checks, never the stored flag', async () => {
+    const first = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!first.ok) throw new Error('first bake failed');
+    const reportPath = path.join(puppetBakeDir(paths, first.hash), REPORT_FILE);
+    const stored = JSON.parse(await readFile(reportPath, 'utf8'));
+    stored.allClean = false; // a lie — every check still reads ok
+    await writeFile(reportPath, JSON.stringify(stored), 'utf8');
+
+    const second = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!second.ok) throw new Error('cache hit failed');
+    expect(second.cached).toBe(true);
+    expect(second.report.allClean).toBe(true);
+  });
+
   it('does not cache a failure', async () => {
     const first = await bakePuppetSource(paths, SYNTAX_ERROR_SOURCE);
     expect(first.ok).toBe(false);

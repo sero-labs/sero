@@ -292,6 +292,11 @@ export async function applySpriteRequest(
       return;
     }
 
+    case 'sprite.puppet.cancel': {
+      queue.cancelPuppet(body.runId);
+      return;
+    }
+
     case 'sprite.generate': {
       const character = await readCharacter(paths, body.characterId);
       // Nothing is generated until the character sheet is approved (D5). A

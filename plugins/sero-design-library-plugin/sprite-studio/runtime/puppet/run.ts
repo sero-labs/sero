@@ -1,39 +1,50 @@
 /**
- * Execute a compiled character and bake it, bounded.
+ * Execute a compiled character bundle in a worker thread and bring the bake
+ * home.
  *
  * This is the one place generated code runs (P2: only the runtime executes a
- * character; the UI never does). The whole run — module load, buildCharacter,
- * every painter callback, the bake, the audits — happens synchronously inside
- * one `vm` script under a hard timeout. Node's watchdog terminates the whole
- * isolate's execution, host frames included, so an accidental `while (true)`
- * anywhere in the authored code ends as a structured error instead of a hung
- * runtime.
+ * character; the UI never does). Each bake gets a fresh worker: its own
+ * isolate, its own engine copy, a memory ceiling from `resourceLimits`, and a
+ * parent-enforced deadline that ends in `terminate()` — which kills straight
+ * loops, microtask floods and stray timers alike, none of which a `vm`
+ * timeout could reach. What this bounds COMPLETELY is accidents: a hang, a
+ * memory blowup, a poisoned engine prototype die with the worker. It raises
+ * the bar for deliberately hostile code (no `require` in scope, imports
+ * refused at compile time) without claiming OS-level isolation — that
+ * question is Phase 2's, on the record in the plan.
  *
- * The engine is handed in through the require shim rather than bundled, so a
- * character's objects are built by the runtime's own engine classes and
- * `instanceof` holds. The vm context has its OWN `Map`/`Array` primordials
- * though, so the contract checks duck-type containers instead of instanceof.
+ * The worker's reply is DATA, not trusted structure: the parent re-validates
+ * names, sizes and report shape, recomputes every failure count, and rebuilds
+ * real `Img`s before anything downstream sees the result.
  */
 
-import vm from 'node:vm';
+import { rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { Worker } from 'node:worker_threads';
 
-import * as engine from '@sero-ai/ink-and-bones';
-import type { AuditReport, BakedClip, CharacterSpec, Img } from '@sero-ai/ink-and-bones';
+import type { AuditCheck, AuditCheckId, AuditReport, BakedClip } from '@sero-ai/ink-and-bones';
+import { Img } from '@sero-ai/ink-and-bones';
 
 import type { CompileIssue } from './compile';
-import { ENGINE_SPECIFIER } from './compile';
+import { CLIP_NAME_PATTERN, MAX_CLIPS, MAX_CLIP_PIXELS, MAX_TOTAL_PIXELS } from './driver';
 
-/** Bounds that keep one authored file from exhausting the runtime. They are
- * resource limits, not authoring rails: 160px is double the reference
- * character's canvas, and 5 s at the 60 Hz ceiling is a 300-frame clip. */
-export const MAX_CANVAS = 160;
-export const MIN_CANVAS = 16;
-export const MAX_CLIPS = 12;
-export const MAX_CYCLE_SECONDS = 5;
 export const DEFAULT_RUN_TIMEOUT_MS = 30_000;
+/** Generous for a real character (the reference bake peaks far below it);
+ * small enough that a runaway allocation dies in the worker, not the app. */
+export const WORKER_MEMORY_MB = 512;
+
+export interface PuppetSummary {
+  canvasW: number;
+  canvasH: number;
+  groundRow: number;
+  /** The rest frame's lowest opaque row, outline included — the measurement
+   * the declared groundRow is supposed to be. */
+  restFeetRow: number;
+}
 
 export interface PuppetBaked {
-  spec: CharacterSpec;
+  summary: PuppetSummary;
   rest: Img;
   baked: Map<string, BakedClip>;
   reports: AuditReport[];
@@ -43,138 +54,213 @@ export type PuppetRunResult =
   | { ok: true; result: PuppetBaked }
   | { ok: false; stage: 'load' | 'contract'; issues: CompileIssue[] };
 
-function contractProblems(spec: CharacterSpec): string[] {
-  const problems: string[] = [];
-  const wholeIn = (value: unknown, lo: number, hi: number): value is number =>
-    typeof value === 'number' && Number.isInteger(value) && value >= lo && value <= hi;
+export interface PuppetRunOptions {
+  timeoutMs?: number;
+  memoryMb?: number;
+  signal?: AbortSignal;
+}
 
-  if (!wholeIn(spec.canvasW, MIN_CANVAS, MAX_CANVAS) || !wholeIn(spec.canvasH, MIN_CANVAS, MAX_CANVAS)) {
-    problems.push(`canvasW and canvasH must be whole numbers between ${MIN_CANVAS} and ${MAX_CANVAS}.`);
-  }
-  if (!wholeIn(spec.groundRow, 0, (typeof spec.canvasH === 'number' ? spec.canvasH : MAX_CANVAS) - 1)) {
-    problems.push('groundRow must be a whole pixel row inside the canvas.');
-  }
-  if (!(spec.skeleton instanceof engine.Skeleton)) {
-    problems.push('skeleton must be a Skeleton built with the engine API.');
-  }
-  if (!Array.isArray(spec.parts) || spec.parts.length === 0) {
-    problems.push('parts must be a non-empty array, back-to-front.');
-  } else {
-    for (const part of spec.parts) {
-      const rigid = 'bone' in part && 'paint' in part;
-      const cloth = 'chain' in part && 'painter' in part;
-      if (typeof part.name !== 'string' || (!rigid && !cloth) || !Array.isArray(part.ramp) || part.ramp.length === 0) {
-        problems.push(`part '${String((part as { name?: unknown }).name)}' needs a name, a ramp, and either bone+paint or chain+painter.`);
-      }
-    }
-  }
-  const clips = spec.clips as unknown;
+interface PackedImg {
+  w: number;
+  h: number;
+  data: Float32Array;
+}
+
+const AUDIT_IDS: readonly AuditCheckId[] = [
+  'valid',
+  'distinct',
+  'wrap',
+  'islands',
+  'in-place',
+  'baseline',
+  'edge',
+  'speckle',
+  'ramp',
+];
+
+function loadFailure(text: string): PuppetRunResult {
+  return { ok: false, stage: 'load', issues: [{ text }] };
+}
+
+function unpackImg(raw: unknown, maxPixels: number): Img | null {
+  const packed = raw as PackedImg;
   if (
-    clips === null ||
-    typeof clips !== 'object' ||
-    typeof (clips as Map<string, unknown>).get !== 'function' ||
-    typeof (clips as Map<string, unknown>).size !== 'number'
+    typeof packed?.w !== 'number' ||
+    typeof packed.h !== 'number' ||
+    !(packed.data instanceof Float32Array) ||
+    packed.w < 1 ||
+    packed.h < 1 ||
+    packed.w * packed.h > maxPixels ||
+    packed.data.length !== packed.w * packed.h * 4
   ) {
-    problems.push('clips must be a Map from clip name to Motion.');
-    return problems;
+    return null;
   }
-  if (spec.clips.size === 0 || spec.clips.size > MAX_CLIPS) {
-    problems.push(`clips must hold between 1 and ${MAX_CLIPS} clips.`);
-  }
-  for (const [name, clip] of spec.clips) {
-    // Clip names become file names downstream (a strip per clip), so they are
-    // held to one safe path segment here, where the author can act on it.
-    if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(name)) {
-      problems.push(`clip name '${String(name)}' must be letters, digits, '_' or '-' (max 64).`);
-      continue;
-    }
-    if (!(clip instanceof engine.Motion)) {
-      problems.push(`clip '${name}' must be a Motion built with the engine API.`);
-    } else {
-      if (clip.name !== name) {
-        problems.push(`clip '${name}' is stored under a different name than its own ('${clip.name}').`);
-      }
-      if (!(clip.cycle > 0) || clip.cycle > MAX_CYCLE_SECONDS) {
-        problems.push(`clip '${name}' needs a cycle between 0 and ${MAX_CYCLE_SECONDS} seconds.`);
-      }
-    }
-  }
-  if (typeof spec.grade !== 'object' || spec.grade === null || !Array.isArray(spec.grade.emissiveLone)) {
-    problems.push('grade must declare ink, shadow, and an emissiveLone array (empty is fine).');
-  }
-  if (typeof spec.restPose !== 'function') {
-    problems.push('restPose must be a function returning the standing pose.');
-  }
-  return problems;
+  const img = new Img(packed.w, packed.h);
+  img.data.set(packed.data);
+  return img;
 }
 
-function loadIssue(error: unknown): CompileIssue {
-  // The watchdog's error is constructed such that `instanceof Error` cannot be
-  // relied on across the vm boundary — match its code or its message.
-  const code = (error as { code?: string }).code;
-  if (code === 'ERR_SCRIPT_EXECUTION_TIMEOUT' || String(error).includes('Script execution timed out')) {
-    return {
-      text:
-        'The character took too long to build and bake — almost always an unbounded loop ' +
-        'in the file. Every helper must finish; the engine provides all iteration.',
-    };
+function unpackReport(raw: unknown): AuditReport | null {
+  const report = raw as AuditReport;
+  if (typeof report?.clip !== 'string' || typeof report.frames !== 'number' || !Array.isArray(report.checks)) {
+    return null;
   }
-  const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  const line = error instanceof Error ? /character\.js:(\d+)/.exec(error.stack ?? '')?.[1] : undefined;
-  return { text, ...(line === undefined ? {} : { line: Number(line) }) };
+  const checks: AuditCheck[] = [];
+  for (const check of report.checks) {
+    if (!AUDIT_IDS.includes(check?.id) || typeof check.ok !== 'boolean' || typeof check.text !== 'string') {
+      return null;
+    }
+    checks.push({ id: check.id, ok: check.ok, text: check.text.slice(0, 500) });
+  }
+  const info = Array.isArray(report.info)
+    ? report.info.filter((line): line is string => typeof line === 'string').map((line) => line.slice(0, 500))
+    : [];
+  // `failed` is recomputed, never read: a count that disagreed with the
+  // checks would decide convergence, and it arrives from generated code.
+  return {
+    clip: report.clip,
+    frames: report.frames,
+    checks,
+    failed: checks.filter((check) => !check.ok).length,
+    info,
+  };
 }
+
+/** Validate and rebuild the worker's reply. Null means it was malformed. */
+function parseSuccess(raw: Record<string, unknown>): PuppetBaked | null {
+  const summary = raw.summary as PuppetSummary;
+  if (
+    typeof summary?.canvasW !== 'number' ||
+    typeof summary.canvasH !== 'number' ||
+    typeof summary.groundRow !== 'number' ||
+    typeof summary.restFeetRow !== 'number'
+  ) {
+    return null;
+  }
+  const rest = unpackImg(raw.rest, MAX_CLIP_PIXELS);
+  if (rest === null) return null;
+
+  const clipsRaw = raw.clips;
+  const reportsRaw = raw.reports;
+  if (!Array.isArray(clipsRaw) || !Array.isArray(reportsRaw)) return null;
+  if (clipsRaw.length === 0 || clipsRaw.length > MAX_CLIPS || clipsRaw.length !== reportsRaw.length) return null;
+
+  let totalPixels = 0;
+  const baked = new Map<string, BakedClip>();
+  for (const clipRaw of clipsRaw) {
+    const clip = clipRaw as { name: string; fps: number; loop: boolean; frames: unknown[] };
+    if (
+      typeof clip?.name !== 'string' ||
+      !CLIP_NAME_PATTERN.test(clip.name) ||
+      baked.has(clip.name) ||
+      typeof clip.fps !== 'number' ||
+      typeof clip.loop !== 'boolean' ||
+      !Array.isArray(clip.frames) ||
+      clip.frames.length === 0
+    ) {
+      return null;
+    }
+    const frames: Img[] = [];
+    for (const frameRaw of clip.frames) {
+      const frame = unpackImg(frameRaw, MAX_CLIP_PIXELS);
+      if (frame === null) return null;
+      totalPixels += frame.w * frame.h;
+      frames.push(frame);
+    }
+    baked.set(clip.name, { name: clip.name, frames, fps: clip.fps, loop: clip.loop });
+  }
+  if (totalPixels > MAX_TOTAL_PIXELS) return null;
+
+  const reports: AuditReport[] = [];
+  for (const reportRaw of reportsRaw) {
+    const report = unpackReport(reportRaw);
+    if (report === null || !baked.has(report.clip)) return null;
+    reports.push(report);
+  }
+  return { summary, rest, baked, reports };
+}
+
+let workerSerial = 0;
 
 /**
- * Run the compiled bundle: load, validate the contract, bake every clip, and
- * audit — all inside the timeout.
+ * Run the bundle to completion in its own worker. `workDir` must exist and
+ * belong to the caller; the bundle file is removed on the way out.
  */
-export function runPuppetBundle(
+export async function runPuppetWorker(
   code: string,
-  timeoutMs = DEFAULT_RUN_TIMEOUT_MS,
-): PuppetRunResult {
-  const moduleShim = { exports: {} as Record<string, unknown> };
-  const requireShim = (specifier: string): unknown => {
-    if (specifier === ENGINE_SPECIFIER) return engine;
-    throw new Error(`'${specifier}' is not available to a character file.`);
-  };
+  workDir: string,
+  options: PuppetRunOptions = {},
+): Promise<PuppetRunResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+  const memoryMb = options.memoryMb ?? WORKER_MEMORY_MB;
+  if (options.signal?.aborted) return loadFailure('Aborted');
 
-  // Everything below runs as host closures CALLED FROM a vm script, which
-  // puts it under the script's timeout: V8's termination is isolate-wide, so
-  // the watchdog reaches into engine and painter frames too.
-  const context = vm.createContext({ module: moduleShim, exports: moduleShim.exports, require: requireShim });
-  let contract: string[] = [];
-  let out: PuppetBaked | null = null;
-  const work = (): void => {
-    const build = moduleShim.exports.buildCharacter;
-    if (typeof build !== 'function') {
-      contract = ["the file must export a function named 'buildCharacter' returning a CharacterSpec."];
-      return;
-    }
-    const spec = build() as CharacterSpec;
-    contract = contractProblems(spec);
-    if (contract.length > 0) return;
-    // Checked here rather than left to a TypeError deep in the compositor:
-    // the flat-pose mistake is the most likely authored shape error.
-    const pose = spec.restPose();
-    if (typeof pose !== 'object' || pose === null || typeof pose.deg !== 'object' || pose.deg === null) {
-      contract = ["restPose() must return { deg: { bone: deltaDeg } } — deltas live under 'deg'."];
-      return;
-    }
-    const rest = engine.bakeRest(spec);
-    const baked = engine.bakeAllClips(spec);
-    const reports = [...baked.values()].map((clip) => engine.auditClip(spec, clip));
-    out = { spec, rest, baked, reports };
+  const file = path.join(workDir, `worker-${process.pid}-${workerSerial++}.mjs`);
+  await writeFile(file, code, 'utf8');
+  const worker = new Worker(pathToFileURL(file), {
+    resourceLimits: { maxOldGenerationSizeMb: memoryMb },
+  });
+
+  let settle: (result: PuppetRunResult) => void = () => undefined;
+  const settled = new Promise<PuppetRunResult>((resolve) => {
+    settle = (result) => resolve(result);
+  });
+
+  const timer = setTimeout(() => {
+    settle(
+      loadFailure(
+        'The character took too long to build and bake — almost always an unbounded ' +
+          'loop in the file. Every helper must finish; the engine provides all iteration.',
+      ),
+    );
+  }, timeoutMs);
+  const onAbort = (): void => {
+    settle(loadFailure('Aborted'));
   };
-  (context as Record<string, unknown>).__work = work;
+  options.signal?.addEventListener('abort', onAbort, { once: true });
+
+  worker.on('message', (raw: unknown) => {
+    const message = raw as Record<string, unknown> | null;
+    if (message === null || typeof message !== 'object') {
+      settle(loadFailure('The bake returned something unreadable.'));
+      return;
+    }
+    if (message.ok !== true) {
+      const stage = message.stage === 'contract' ? 'contract' : 'load';
+      const issues = Array.isArray(message.issues)
+        ? message.issues
+            .filter((issue): issue is { text: string } => typeof (issue as { text?: unknown })?.text === 'string')
+            .map((issue) => ({ text: issue.text.slice(0, 2000) }))
+        : [];
+      settle({ ok: false, stage, issues: issues.length > 0 ? issues : [{ text: 'The bake failed without a reason.' }] });
+      return;
+    }
+    const parsed = parseSuccess(message);
+    settle(
+      parsed === null
+        ? loadFailure('The bake returned a malformed result — the character file likely tampered with the engine.')
+        : { ok: true, result: parsed },
+    );
+  });
+  worker.on('error', (error: NodeJS.ErrnoException) => {
+    settle(
+      error.code === 'ERR_WORKER_OUT_OF_MEMORY'
+        ? loadFailure(
+            `The character ran out of memory (${memoryMb} MB budget) — an unbounded allocation somewhere in the file.`,
+          )
+        : loadFailure(error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
+    );
+  });
+  worker.on('exit', () => {
+    settle(loadFailure('The bake crashed before returning a result.'));
+  });
 
   try {
-    new vm.Script(code, { filename: 'character.js' }).runInContext(context, { timeout: timeoutMs });
-    new vm.Script('__work()', { filename: 'bake.js' }).runInContext(context, { timeout: timeoutMs });
-  } catch (error) {
-    return { ok: false, stage: 'load', issues: [loadIssue(error)] };
+    return await settled;
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', onAbort);
+    await worker.terminate().catch(() => undefined);
+    await rm(file, { force: true }).catch(() => undefined);
   }
-  if (out === null) {
-    return { ok: false, stage: 'contract', issues: contract.map((text) => ({ text })) };
-  }
-  return { ok: true, result: out };
 }

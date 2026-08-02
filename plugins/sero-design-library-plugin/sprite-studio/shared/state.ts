@@ -235,6 +235,7 @@ export type SpriteRequestBody =
    * bar says how it ended.
    */
   | { kind: 'sprite.puppet.author'; runId: string; brief: string; maxBakes?: number }
+  | { kind: 'sprite.puppet.cancel'; runId: string }
   /** Start the animations the user accepted, with the plan they edited. */
   | {
       kind: 'sprite.generate';
@@ -352,6 +353,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.character.purge',
   'sprite.plan',
   'sprite.puppet.author',
+  'sprite.puppet.cancel',
   'sprite.generate',
   'sprite.frames.attach',
   'sprite.frames.choose',

@@ -88,6 +88,7 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
   let footSunk = 0;
   let grounded = 0;
   let flying = 0;
+  const feetRows: number[] = [];
   const deltas: number[] = [];
   for (let f = 0; f < frames.length; f++) {
     const img = frames[f];
@@ -98,6 +99,7 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     if (e.top + e.left + e.right > 0) edgeBad++;
     speckles += specklePx(img, ink, lone);
     offRamp += offVocabPx(img, vocab);
+    feetRows.push(s.feet);
     const feetD = s.feet - spec.groundRow;
     if (feetD > 1) footSunk++;
     if (Math.abs(feetD) <= 1) grounded++;
@@ -146,17 +148,19 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
       footSunk === 0 && grounded > 0 && flying > 0,
       `airborne: no sink, ${grounded} frame(s) grounded, ${flying} frame(s) in flight`,
       footSunk > 0
-        ? `${footSunk} frame(s) sink below the ground row`
+        ? `${footSunk} frame(s) sink below the ground row (measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, ground row ${spec.groundRow})`
         : grounded === 0
-          ? 'no frame touches the ground — the clip floats'
+          ? `no frame touches the ground — the clip floats (measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, ground row ${spec.groundRow})`
           : 'declared airborne but no frame ever leaves the ground',
     );
   } else {
+    // The measured rows are in the failure text on purpose: "measure, never
+    // eyeball" only works if the audit hands the measurement over.
     add(
       'baseline',
       footSunk === 0 && grounded === frames.length,
       'feet stay within 1 px of the ground row in every frame',
-      `feet leave the ground row on ${Math.max(footSunk, frames.length - grounded)} frame(s)`,
+      `feet leave the ground row on ${Math.max(footSunk, frames.length - grounded)} frame(s): measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, declared ground row ${spec.groundRow}`,
     );
   }
   add(
