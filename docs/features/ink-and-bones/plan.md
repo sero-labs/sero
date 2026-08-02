@@ -123,6 +123,49 @@ owns every needed piece: text→character-image generation, palette
 extraction from ingestion, the image-handover tool seam, and a
 vision judge that compares against a base pose.
 
+**Diagnosis first (2026-08-02).** Dan asked why the hand-built Scout
+looks so much better than anything the loop produced. Measured on
+`exp-knight-2` (the converged high-effort run), three causes, and
+effort was not the largest:
+
+1. **The engine discarded a third of the drawing calls in silence.**
+   Six `stroke` calls passed a bare number where the per-point width
+   ARRAY belongs, and one `occludeAbove` passed `(vec, depth, colour,
+   n)`. Every one became NaN, drew nothing, and passed every gate. Lost:
+   the brief's visor slit, the shield emblem, the sword crossguard and
+   grip, and all the chest shading — the last washed the torso to flat
+   white, which is why the knight reads as a slab. Its `shadow` was
+   declared `{ color, opacity, radiusX, radiusY }` and never drew.
+2. **Nothing told it how big to draw.** Scout: 19x53 px, head 0.80 of
+   the widest body. The knight: 43x47 (nearly square), head 0.43. The
+   edge gate punishes drawing big and no gate punished drawing small.
+3. **The guide taught the wrong proportion** — "the head must be
+   visibly narrower than the shoulders" is life drawing, not pixel art.
+
+Dan's reference (`~/Downloads/3qzXr.jpg`) measures ~93x132 art pixels
+— 2.5x the linear size the loop was authoring at on 64x80.
+
+- [x] Engine: every authoring argument is guarded and throws
+      (`src/guard.ts`); `Paint.polygon` added as the first non-capsule
+      shape tool; `assertGradeAndShadow` on every bake. 7 regression
+      tests, one per fault the run actually exhibited.
+- [x] Engine: `fill` audit gate (declared `minFill`, default 0.75) plus
+      a measured silhouette info line, so drawing small is a gate
+      failure rather than a matter of taste. Engine 0.1.0 → 0.2.0.
+- [x] Guide rewritten: the engine draws a SIDE view (stated, not
+      implied); the head is as wide as the torso; fill the canvas;
+      `polygon`; the exact `shadow` shape; canvas guidance 112x144.
+- [x] `API_REFERENCE` — the authoring surface emitted as `.d.ts` by
+      `pnpm build:api`, committed, staleness-tested, and handed to the
+      author beside the prose guide (Dan's suggestion, the `pi-docs`
+      pattern). A prose example must be generalised from; a type
+      signature cannot be misread.
+- [x] View decision (Dan, 2026-08-02): the reference is dead-front and
+      the rig, `gait()` and the proven run are side-on. We spend one
+      paid generation turning his knight into a side view of the same
+      character and aim the author at that, judging against the
+      original.
+
 - [ ] Reference step: brief → reference image through the existing
       character-image path (or a user-supplied picture); stored with
       the run, shown beside the results at review.
@@ -137,11 +180,13 @@ vision judge that compares against a base pose.
       what is missing" — modelled on the video-mode judge, including
       its called-the-image-tool guard. Finishing requires the judge's
       pass; the author's self-grade is no longer the bar.
-- [ ] Canvas guidance: characters in this style author at ~112x144
+- [x] Canvas guidance: characters in this style author at ~112x144
       (engine cap is 160); export can downscale when a smaller sheet
-      is wanted.
+      is wanted. Set in the guide and the loop's task prompt.
 - [ ] Fidelity: prototype at least one of the options below and
-      measure it on the knight.
+      measure it on the knight. (Option 1's shape tools and option 3's
+      first half are in; the canonical target and the overlays are
+      not.)
 - [ ] Part splitting (Dan, 2026-08-02): the reference pipeline should
       also try SPLITTING the character into separate parts — either
       segmenting the reference or generating a parts sheet (option 4
