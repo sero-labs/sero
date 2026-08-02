@@ -18,6 +18,22 @@ function opaque(p: Paint): number {
   return n;
 }
 
+describe('hex', () => {
+  it('refuses .map(hex), which passes the array index as the alpha', () => {
+    // How this was found: a generated character wrote `['0a0812', …].map(hex)`.
+    // Every colour past the second came back with an alpha above 1, the
+    // composite blended out of range, and the knight rendered as fluorescent
+    // green and pink. Nothing downstream can tell that from a chosen value.
+    expect(() => ['112233', '445566', '778899'].map(hex)).toThrow(/alpha must be between 0 and 1/);
+    expect(() => ['112233', '445566', '778899'].map((c) => hex(c))).not.toThrow();
+  });
+
+  it('still takes a deliberate alpha', () => {
+    expect(hex('112233', 0.5)[3]).toBe(0.5);
+    expect(hex('112233')[3]).toBe(1);
+  });
+});
+
 describe('malformed timing', () => {
   it.each([
     [0],

@@ -15,6 +15,16 @@ export function hex(rgb: string, alpha = 1): Color {
   if (!/^[0-9a-fA-F]{6}$/.test(rgb)) {
     throw new Error(`hex: '${rgb}' is not a 6-digit hex colour`);
   }
+  // `['aabbcc', ...].map(hex)` hands the ARRAY INDEX over as the alpha, which
+  // silently gives every colour past the second an alpha above 1 and turns a
+  // whole character into fluorescent mush. Nothing downstream can tell that
+  // from a deliberate value, so it is refused here.
+  if (typeof alpha !== 'number' || !(alpha >= 0 && alpha <= 1)) {
+    throw new Error(
+      `hex: alpha must be between 0 and 1, not ${alpha}. Writing '.map(hex)' passes the array ` +
+        'index as the alpha — write .map((c) => hex(c)) instead.',
+    );
+  }
   const n = parseInt(rgb, 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, alpha];
 }

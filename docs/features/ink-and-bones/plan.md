@@ -252,35 +252,77 @@ the model to paint; bind the reference's own pixels to the bones.
       Dan's own caveat, and it is the honest limit of this reference: on a
       three-quarter drawing the far arm and wrist are OBSCURED, so those
       joints are estimates. Recorded as such in the fixture.
-- [ ] **NEXT — cut the pieces from the joints, and the bind-pose gate.**
-      The algorithm, written down so it is not re-derived:
-      1. Segment the CANVAS-SPACE target (112x144 cells, already in the
-         same space as the joints), not the source PNG. Assign every
-         opaque cell to the nearest bone SEGMENT by distance to the line
-         (crown-neck, neck-pelvis, shoulder-elbow, elbow-wrist,
-         hip-knee, knee-ankle, ankle-toe, per side). That is the cut, and
-         it keeps source coordinates by construction.
-      2. Build the skeleton from the joints. Angles: api 0 points
-         screen-DOWN and positive swings the tip EAST, so a bone from A
-         to B has restDeg = atan2(dx, dy) in degrees, and its restDeg is
-         that MINUS the parent's world angle. A child's pivot is in
-         PARENT-LOCAL space: localPivot = R(-parentWorldAngle) *
-         (childOrigin - parentOrigin), tracked incrementally while
-         building.
-      3. Each part's Paint stamps its own cells at
-         (cellBBoxTopLeft - boneOrigin) * SS, so at rest every piece
-         lands exactly where it was cut from.
-      4. **The bind-pose gate (Sol: non-negotiable).** Bake the rest
-         frame and compare it with the target: it must reproduce it
-         within a small measured error. If it does not, do not animate —
-         report the error instead. This is what makes every later claim
-         about the rig honest.
-      5. Only then: clips, the near/far z-order track, and the temporal
-         stability audit.
-- [ ] Open questions: rotating pixel art degrades it (only 4x supersample
-      and the re-grade defend it); pieces cut from a three-quarter drawing
-      in a strict side rig; far-side limbs faked by darkening a copy;
-      z-order that must change mid-clip.
+- [x] **The rig, built and gated (2026-08-02).** `puppet/rig.ts` cuts the
+      target along the joints, `puppet/rig-source.ts` writes it out as a
+      character file, `puppet/rig-gate.ts` measures it. The knight's rest
+      frame reproduces the reference EXACTLY — 4505 of 4505 cells, zero
+      wrong — and both `idle` and `walk` pass every audit gate.
+      - **Paint bones.** A part's canvas is in bone-local space, so a
+        stamp on a bone resting at 200 degrees arrives rotated by 200
+        degrees. Every artwork-carrying bone therefore gets a child
+        (`<bone>_art`) whose rest angle is minus its parent's WORLD
+        angle: square to the canvas at rest, and it still inherits every
+        later rotation. The anatomical bone keeps its true angle and
+        length so IK and motion curves stay meaningful. No engine change.
+        Sol confirmed this is an inverse-bind transform and safe here
+        because every IK and chain call names its bones explicitly.
+      - **The cut is nearest-bone, plus two rules it cannot do without.**
+        (a) A PROP declares a capsule — a sword is `wrist -> tip` with a
+        half-width, a shield `shieldTop -> shieldFoot`. Inside it the prop
+        beats every body bone, because a blade's bone crosses the
+        character's own hip and on distance alone the skirt goes with the
+        swing. (b) A prop then GROWS over any touching cell it is nearer
+        to than the body bone that would own it. Without this, cells just
+        outside the capsule — a blade's dark outline — went to the nearest
+        body bone, which for a sword held out to the side was the far
+        FOOT, thirty cells away; it flew across the canvas on every step
+        and was the only thing failing the islands gate.
+      - **Seams are joint-local and one-way** (Sol's correction). Near a
+        joint the parent gets a hidden copy of the CHILD's cells. The
+        parent draws first, so the copy is invisible at rest and is what
+        the wedge lands on when the child swings. The first attempt —
+        give a cell to every bone within a slack of the nearest — was
+        wrong: it duplicates whole boundaries far from any joint and each
+        copy becomes a ghost on its own bone.
+      - **The bind-pose gate compares against the target AS THE ENGINE
+        GRADES IT.** Measured against the raw reference the rig looks 73%
+        right; the missing 27% is entirely the despeckle rule destroying
+        lone pixels, which is house style, not error. Against the graded
+        target it is 100%. Both numbers are reported.
+      - It has teeth: it caught a sign error in the pivot maths
+        (`fromRot` rotates by MINUS its angle, so undoing a parent's
+        rotation rotates by PLUS) that displaced every piece below a joint
+        and that nothing else would have reported.
+      - Engine hardening from the same run: `hex` now refuses an alpha
+        outside 0..1, because `['aabbcc', …].map(hex)` hands the array
+        INDEX over as the alpha and renders the whole character as
+        fluorescent mush.
+- [ ] Three joints in `knight-joints.json` are NOT Dan's: `shieldTop`,
+      `shieldFoot` and `skirtFoot` were measured off the target, because
+      the cut needs a segment that spans a carried thing and a bone for
+      the skirt. They belong in the rig editor beside the rest.
+- [ ] `puppet/rig-plan.ts` (the vision call returning a slot, a side, a
+      z-order and a fractional anchor per piece) is now UNUSED. Sol's
+      verdict: a fractional anchor cannot describe a shield, and a vision
+      call should propose a mask a human corrects, never be the source of
+      truth. Delete or repoint — Dan's call, since the idea was his.
+- [ ] **Measured limits, from the sweeps.** A one-pixel-wide extremity —
+      a blade tip — survives about 4 degrees of rotation before the
+      coverage threshold breaks it off; at 8 degrees it is in pieces. So
+      a pointed prop is nearly static, or the grade needs a coverage
+      option. Everything else in the walk swings freely.
+- [ ] Still open: pixels that do not exist. The far arm and far leg are
+      obscured in a three-quarter reference, and so is whatever is behind
+      the shield — no cut can recover them. Sol: either complete them
+      (transfer the near-side limb segment by segment in bone-local space,
+      remap the palette by ramp step rather than darkening, and keep every
+      visible far-side pixel as a hard constraint) or restrict the motion
+      so they are never exposed. Same problem in both places.
+- [ ] Next gate, from Sol: cut-edge strain. Build 4-neighbour adjacency
+      over the target's cells; for every adjacent pair owned by different
+      bones, push both through a pose sweep and measure how far their
+      shared edge separates. A bad cut shows up as a long boundary whose
+      two sides fly apart, which is what a still frame can never show.
 
 - [ ] Model A/B (Dan, 2026-08-02): run the same reference-aimed brief
       with anthropic/claude-opus-5 AND with gpt-5.6-sol at high
