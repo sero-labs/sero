@@ -37,6 +37,16 @@ export interface CharacterSpec {
    * DECLARES a lower floor; it is not a number to lower to fit a mistake.
    */
   minFill?: number;
+  /**
+   * How many px the compositor works in per finished pixel, 1..16.
+   *
+   * Four (the default) is right for a character PAINTED against this API:
+   * generous shapes go in and the grade makes the pixels. A character cut from
+   * a real drawing declares more, because the headroom is the whole technique —
+   * with none, rotating a piece has nowhere to put the detail but away, and the
+   * artwork comes out as mush. Cost is this number squared.
+   */
+  superSample?: number;
   /** The standing pose the rest frame renders — usually a couple of IK
    * solves, so legs land exactly on the plant line. */
   restPose(): Pose;
@@ -120,6 +130,7 @@ export function bakeClip(spec: CharacterSpec, name: string): BakedClip {
     spec.canvasH,
     spec.grade,
     spec.shadow,
+    spec.superSample,
   );
   return { name, frames, fps: clip.bakeFps, loop: clip.loop };
 }
@@ -142,5 +153,6 @@ export function bakeRest(spec: CharacterSpec): Img {
     spec.canvasH,
     spec.grade,
     spec.shadow,
+    spec.superSample,
   );
 }

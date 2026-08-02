@@ -26,7 +26,7 @@
 import type { Palette, Rgb } from '../../engine/types';
 import { TRANSPARENT } from '../../engine/types';
 import type { Rig, RigPiece } from './rig';
-import { PAINT_SUFFIX, SS } from './rig';
+import { PAINT_SUFFIX } from './rig';
 
 /** Palette index meaning "nothing drawn here" in an encoded piece. */
 const NOTHING = 255;
@@ -39,8 +39,26 @@ export interface RigSourceOptions {
   groundRow: number;
   /** Least share of the canvas height the figure spans; the fill gate's floor. */
   minFill: number;
+  /**
+   * How many px the compositor works in per finished pixel.
+   *
+   * It is the target's cells per 1x pixel TIMES the supersampled px per cell:
+   * a sprite-resolution target cut at 4 makes 4, and a target already stood on
+   * an 8x working canvas makes 8. Passed rather than derived so the character
+   * and the cut cannot disagree about it.
+   */
+  superSample: number;
   /** Where the reference came from, for the file's own header. */
   note?: string;
+  /** The pieces are already finished pixels: sample them at the nearest one and
+   * keep the colour a cell mostly is. Right for a pixel-art reference, wrong
+   * for a painted one, where averaging real detail is the point. */
+  crisp?: boolean;
+  /** Cluster stray pixels, and ring the silhouette in ink. Both belong OFF for
+   * a target that is already finished pixel art and ON for one cut from a
+   * high-resolution drawing, where the grade is what makes the pixels. */
+  despeckle?: boolean;
+  outline?: boolean;
 }
 
 const hex2 = (v: number): string => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
@@ -89,19 +107,19 @@ function emitSkeleton(rig: Rig): string {
   return lines.join('\n');
 }
 
-function emitParts(rig: Rig): string {
+function emitParts(rig: Rig, crisp: boolean): string {
   const byName = new Map(rig.bones.map((bone) => [bone.name, bone]));
   const lines: string[] = ['  const parts: Part[] = ['];
   for (const piece of rig.pieces) {
     const bone = byName.get(piece.name);
     if (bone === undefined) continue;
-    const atX = piece.x0 * SS - bone.origin[0] * SS;
-    const atY = piece.y0 * SS - bone.origin[1] * SS;
+    const atX = (piece.x0 - bone.origin[0]) * rig.unit;
+    const atY = (piece.y0 - bone.origin[1]) * rig.unit;
     lines.push(`    {`);
     lines.push(`      name: '${piece.name}',`);
     lines.push(`      bone: '${piece.bone}',`);
     lines.push(`      ramp: ramp([${piece.ramp.join(', ')}]),`);
-    lines.push(`      crisp: true,`);
+    if (crisp) lines.push(`      crisp: true,`);
     lines.push(
       `      paint: stamp(${num(atX)}, ${num(atY)}, pixels(${piece.w}, ${piece.h},\n      ${wrap(encodePiece(piece))})),`,
     );
@@ -144,6 +162,7 @@ function emitIdle(rig: Rig): string {
  */
 const CYCLE = 0.8;
 
+
 /**
  * A walk, as two authored foot paths.
  *
@@ -162,6 +181,7 @@ function emitWalk(rig: Rig): string | null {
   const need = ['legNearUpper', 'legNearLower', 'footNear', 'legFarUpper', 'legFarLower', 'footFar'];
   if (!need.every((name) => rig.bones.some((bone) => bone.name === name))) return null;
   const by = new Map(rig.bones.map((bone) => [bone.name, bone]));
+  const unit = rig.unit;
   const lines: string[] = [
     `  const walk = new Motion('walk', ${CYCLE});`,
     `  walk.bakeFps = 15;`,
@@ -176,22 +196,22 @@ function emitWalk(rig: Rig): string | null {
   // it leans.
   const near = by.get('legNearLower')!.tip;
   const far = by.get('legFarLower')!.tip;
-  const middle = ((near[0] + far[0]) / 2) * SS;
+  const middle = ((near[0] + far[0]) / 2) * unit;
   const CLOSE = 0.6;
   for (const side of ['Near', 'Far'] as const) {
     const upper = by.get(`leg${side}Upper`)!;
     const lower = by.get(`leg${side}Lower`)!;
     const foot = by.get(`foot${side}`)!;
-    const ax = lower.tip[0] * SS + (middle - lower.tip[0] * SS) * CLOSE;
+    const ax = lower.tip[0] * unit + (middle - lower.tip[0] * unit) * CLOSE;
     // Each foot keeps its OWN ground height: the near boot was drawn lower than
     // the far one, and levelling them would lift one off the floor.
-    const ay = lower.tip[1] * SS;
+    const ay = lower.tip[1] * unit;
     const reach = upper.length + lower.length;
     const stride = reach * 0.44;
     // Mid-swing puts the ankle under its own hip and well up, which is what
     // folds the knee. A foot that only slides forward keeps a straight leg, and
     // a straight leg is the shuffle.
-    const hipX = upper.origin[0] * SS;
+    const hipX = upper.origin[0] * unit;
     const lift = reach * 0.2;
     const deg = foot.worldDeg;
     const at = (fraction: number): string => num(((fraction + (side === 'Far' ? 0.5 : 0)) % 1) * CYCLE);
@@ -243,7 +263,8 @@ import { Img, Motion, Paint, Skeleton, hex } from '@sero-ai/ink-and-bones';
 const CANVAS_W = ${options.canvasW};
 const CANVAS_H = ${options.canvasH};
 const GROUND_ROW = ${options.groundRow};
-const SS = ${SS};
+const SUPER = ${options.superSample};
+const SS = ${rig.unit};
 
 /** The reference's own colours. Every piece indexes into this. */
 const P: Color[] = [
@@ -267,7 +288,7 @@ function pixels(w: number, h: number, data: string): Img {
   return img;
 }
 
-/** A piece on its bone's canvas, one source pixel per ${SS}x${SS} block. */
+/** A piece on its bone's canvas, one source cell per ${rig.unit}x${rig.unit} block. */
 function stamp(atX: number, atY: number, img: Img): Paint {
   const paint = new Paint({ x: atX, y: atY, w: img.w * SS, h: img.h * SS });
   paint.image(img, [atX, atY], SS);
@@ -277,7 +298,7 @@ function stamp(atX: number, atY: number, img: Img): Paint {
 export function buildCharacter(): CharacterSpec {
 ${emitSkeleton(rig)}
 
-${emitParts(rig)}
+${emitParts(rig, options.crisp === true)}
 
 ${emitIdle(rig)}
 ${walk === null ? '' : `\n${walk}\n`}
@@ -299,7 +320,14 @@ ${walk === null ? '' : `\n${walk}\n`}
     // The pixels are already art. Averaging them, clustering their deliberate
     // single pixels away, or ringing artwork that has its own outline in a
     // second one all destroy the thing being copied.
-    grade: { ink: INK, shadow: INK, emissiveLone: [], despeckle: false, outline: false },
+    superSample: SUPER,
+    grade: {
+      ink: INK,
+      shadow: INK,
+      emissiveLone: [],
+      despeckle: ${options.despeckle ?? false},
+      outline: ${options.outline ?? false},
+    },
     restPose,
   };
 }

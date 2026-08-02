@@ -31,7 +31,14 @@
 import type { CellGrid } from '../../engine/types';
 import { TRANSPARENT } from '../../engine/types';
 
-/** Supersampled px per 1x pixel — the compositor's SS. */
+/**
+ * Supersampled px per TARGET CELL, when the target is the sprite's own grid.
+ *
+ * The high-resolution path hands over a target already at the compositor's
+ * working resolution, and then a cell IS a supersampled pixel — so it passes 1.
+ * Nothing else in the cut cares: distances, capsules and the seam allowance are
+ * all measured in the target's own cells whatever those cells are.
+ */
 export const SS = 4;
 
 /** Suffix of the square-to-canvas child every artwork-carrying bone gets. */
@@ -150,6 +157,9 @@ export interface Rig {
   /** One bone index per target cell, -1 where nothing is drawn. The cut's own
    * record of who owns what, which the strain gate measures against. */
   owner: Int32Array;
+  /** Supersampled px per target cell, carried so the emitter cannot disagree
+   * with the cut about what a coordinate means. */
+  unit: number;
 }
 
 const degOf = (dx: number, dy: number): number => (Math.atan2(dx, dy) * 180) / Math.PI;
@@ -173,7 +183,11 @@ function toSegment(px: number, py: number, bone: RigBone): { d: number; t: numbe
  * offset to its parent expressed in the PARENT's frame — both tracked while
  * walking down the list, which is why the list is parents-first.
  */
-export function buildBones(rig: RigJoints, specs: readonly BoneSpec[] = HUMANOID_BONES): {
+export function buildBones(
+  rig: RigJoints,
+  specs: readonly BoneSpec[] = HUMANOID_BONES,
+  unit: number = SS,
+): {
   bones: RigBone[];
   rootPos: [number, number];
   missing: string[];
@@ -182,7 +196,7 @@ export function buildBones(rig: RigJoints, specs: readonly BoneSpec[] = HUMANOID
   const byName = new Map<string, RigBone>();
   const missing: string[] = [];
   const root = rig.joints[specs[0]?.from ?? ''];
-  const rootPos: [number, number] = root === undefined ? [0, 0] : [root.x * SS, root.y * SS];
+  const rootPos: [number, number] = root === undefined ? [0, 0] : [root.x * unit, root.y * unit];
 
   for (const spec of specs) {
     const from = rig.joints[spec.from];
@@ -198,9 +212,9 @@ export function buildBones(rig: RigJoints, specs: readonly BoneSpec[] = HUMANOID
     }
     const worldDeg = degOf(to.x - from.x, to.y - from.y);
     const parentWorld = parent?.worldDeg ?? 0;
-    const parentOrigin = parent === undefined ? rootPos : [parent.origin[0] * SS, parent.origin[1] * SS];
-    const dx = from.x * SS - parentOrigin[0];
-    const dy = from.y * SS - parentOrigin[1];
+    const parentOrigin = parent === undefined ? rootPos : [parent.origin[0] * unit, parent.origin[1] * unit];
+    const dx = from.x * unit - parentOrigin[0];
+    const dy = from.y * unit - parentOrigin[1];
     // The offset seen from the parent: rotate it back by the parent's angle.
     // `fromRot(deg)` rotates by MINUS deg (the engine's convention), so undoing
     // it rotates by PLUS deg. Getting this sign wrong displaces every piece
@@ -213,7 +227,7 @@ export function buildBones(rig: RigJoints, specs: readonly BoneSpec[] = HUMANOID
       parent: spec.parent,
       pivot: [cos * dx - sin * dy, sin * dx + cos * dy],
       restDeg: worldDeg - parentWorld,
-      length: Math.hypot(to.x - from.x, to.y - from.y) * SS,
+      length: Math.hypot(to.x - from.x, to.y - from.y) * unit,
       worldDeg,
       origin: [from.x, from.y],
       tip: [to.x, to.y],
@@ -241,6 +255,9 @@ export interface CutOptions {
    * duplicate becomes a ghost that flies off on its own bone.
    */
   jointRadius: number;
+  /** Supersampled px per target cell — 1 when the target is already at the
+   * compositor's working resolution. */
+  unit?: number;
 }
 
 export const DEFAULT_JOINT_RADIUS = 6;
@@ -423,7 +440,8 @@ export function buildRig(
   specs: readonly BoneSpec[] = HUMANOID_BONES,
   options: CutOptions = { jointRadius: DEFAULT_JOINT_RADIUS },
 ): Rig {
-  const { bones, rootPos, missing } = buildBones(rig, specs);
+  const unit = options.unit ?? SS;
+  const { bones, rootPos, missing } = buildBones(rig, specs, unit);
   const { pieces, orphans, owner } = cutPieces(grid, bones, options);
-  return { bones, pieces, rootPos, missing, orphans, owner };
+  return { bones, pieces, rootPos, missing, orphans, owner, unit };
 }

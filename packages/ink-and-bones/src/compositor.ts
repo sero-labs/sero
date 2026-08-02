@@ -20,6 +20,15 @@ import { apply, inverse } from './vec';
 
 export { settleChains, simulateChains };
 
+/**
+ * The default supersample: how many px the compositor works in per finished
+ * pixel. A character may declare its own — see `CharacterSpec.superSample`.
+ *
+ * The whole technique is work big, then grade down, and this number is the
+ * headroom. Four is right for a character PAINTED against this API. A character
+ * cut from a real drawing wants more, so the drawing's own detail survives
+ * being rotated instead of being destroyed by it.
+ */
 export const SS = 4;
 /** Coverage below which a 1x cell stays transparent. */
 const COVER = 0.42;
@@ -90,6 +99,7 @@ export function bake(
   h1x: number,
   cfg: GradeConfig,
   shadow?: Shadow,
+  ss: number = SS,
 ): Img[] {
   assertClipTiming(clip);
   const n = Math.max(1, Math.round(clip.cycle * clip.bakeFps));
@@ -100,7 +110,7 @@ export function bake(
     const pose = clip.poseAt(t, skel);
     const chains = new Map<string, Vec[]>();
     for (const [name, frames] of chainFrames) chains.set(name, frames[f]);
-    out.push(renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains, clip.zOffsets(t)));
+    out.push(renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains, clip.zOffsets(t), ss));
   }
   return out;
 }
@@ -114,8 +124,9 @@ export function renderRest(
   h1x: number,
   cfg: GradeConfig,
   shadow?: Shadow,
+  ss: number = SS,
 ): Img {
-  return renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, settleChains(skel, pose));
+  return renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, settleChains(skel, pose), new Map(), ss);
 }
 
 /** One graded 1x frame. */
@@ -129,9 +140,13 @@ export function renderPose(
   shadow?: Shadow,
   chains: Map<string, Vec[]> = new Map(),
   z: Map<string, number> = new Map(),
+  ss: number = SS,
 ): Img {
-  const w = w1x * SS;
-  const h = h1x * SS;
+  if (!Number.isInteger(ss) || ss < 1 || ss > 16) {
+    throw new Error(`compositor: superSample must be a whole number from 1 to 16, not ${ss}`);
+  }
+  const w = w1x * ss;
+  const h = h1x * ss;
   const big = new Img(w, h);
   const owner = new Int32Array(w * h).fill(-1);
 
@@ -158,7 +173,7 @@ export function renderPose(
     }
   }
 
-  const body = grade(big, owner, parts, w1x, h1x, cfg);
+  const body = grade(big, owner, parts, w1x, h1x, cfg, ss);
   if (cfg.outline !== false) outline(body, cfg.ink);
 
   const img = new Img(w1x, h1x);
@@ -299,6 +314,7 @@ function grade(
   w1x: number,
   h1x: number,
   cfg: GradeConfig,
+  ss: number,
 ): Img {
   const out = new Img(w1x, h1x);
   for (let cy = 0; cy < h1x; cy++) {
@@ -309,10 +325,10 @@ function grade(
       let b = 0;
       const votes = new Map<number, number>();
       const hot = new Map<number, number>();
-      for (let oy = 0; oy < SS; oy++) {
-        for (let ox = 0; ox < SS; ox++) {
-          const x = cx * SS + ox;
-          const y = cy * SS + oy;
+      for (let oy = 0; oy < ss; oy++) {
+        for (let ox = 0; ox < ss; ox++) {
+          const x = cx * ss + ox;
+          const y = cy * ss + oy;
           const c = big.get(x, y);
           aSum += c[3];
           r += c[0] * c[3];
@@ -327,7 +343,7 @@ function grade(
           }
         }
       }
-      if (aSum / (SS * SS) < COVER || votes.size === 0) continue;
+      if (aSum / (ss * ss) < COVER || votes.size === 0) continue;
       // Emissives win the cell outright at ~1/3 coverage — the accent IS the
       // art; a 1px visor core must never be averaged into the suit around it.
       let hotBest = -1;
@@ -338,7 +354,7 @@ function grade(
           hotBest = e;
         }
       }
-      if (hotBest >= 0 && hotN >= 4) {
+      if (hotBest >= 0 && hotN >= Math.max(1, Math.round((ss * ss) / 4))) {
         out.set(cx, cy, cfg.emissiveLone[hotBest]);
         continue;
       }
@@ -355,7 +371,7 @@ function grade(
         // Artwork: the cell becomes the colour MOST of it already is. Averaging
         // and re-quantising would invent a blend the artist never drew, which
         // is what turns a rotated piece to mulch.
-        out.set(cx, cy, modal(big, owner, best, cx, cy));
+        out.set(cx, cy, modal(big, owner, best, cx, cy, ss));
         continue;
       }
       const mean: Color = [r / aSum, g / aSum, b / aSum, 1];
@@ -367,12 +383,19 @@ function grade(
 }
 
 /** The commonest colour among a cell's samples that belong to `part`. */
-function modal(big: Img, owner: Int32Array, part: number, cx: number, cy: number): Color {
+function modal(
+  big: Img,
+  owner: Int32Array,
+  part: number,
+  cx: number,
+  cy: number,
+  ss: number,
+): Color {
   const seen: { c: Color; n: number }[] = [];
-  for (let oy = 0; oy < SS; oy++) {
-    for (let ox = 0; ox < SS; ox++) {
-      const x = cx * SS + ox;
-      const y = cy * SS + oy;
+  for (let oy = 0; oy < ss; oy++) {
+    for (let ox = 0; ox < ss; ox++) {
+      const x = cx * ss + ox;
+      const y = cy * ss + oy;
       if (owner[y * big.w + x] !== part) continue;
       const c = big.get(x, y);
       const found = seen.find((entry) => sameColor(entry.c, c));

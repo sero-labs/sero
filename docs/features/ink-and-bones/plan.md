@@ -318,7 +318,7 @@ the model to paint; bind the reference's own pixels to the bones.
       remap the palette by ramp step rather than darkening, and keep every
       visible far-side pixel as a hard constraint) or restrict the motion
       so they are never exposed. Same problem in both places.
-- [ ] **Phase 1d — rig a HIGH-RESOLUTION reference (Dan, 2026-08-02).** The
+- [x] **Phase 1d — rig a HIGH-RESOLUTION reference (Dan, 2026-08-02). BUILT.** The
       engine's whole design is "work big, grade down to pixels", and we
       have been feeding it art that was already pixels at the finished
       size — so there was no headroom and rotating it destroyed it. Rig a
@@ -345,6 +345,28 @@ the model to paint; bind the reference's own pixels to the bones.
       What it does NOT fix: the far side still does not exist, the joints
       still have to be placed, and a shuffle is an animation fault at any
       resolution.
+      **Built and measured, same day.** `superSample` is a per-character
+      number (1..16, default 4, Scout untouched); `canonicalise` takes a
+      `scale` and stands the figure on the working canvas; the cut and the
+      emitter carry a `unit` so they cannot disagree about what a
+      coordinate means; `crisp`, `despeckle` and `outline` are chosen by
+      the caller. Proved end to end on the knight at 8x: an 896x1152
+      target, 32 colours, 73 ms a rest frame, every gate green.
+      **The measurement that matters, and it is not what we expected.** On
+      THIS reference 8x is not a win, because the reference is pixel art
+      upscaled — there is no extra information in it, so the extra room
+      only gives the averaging more to blur. Smooth 8x came out mushier
+      than crisp 4x. Crisp 8x is the best of the three: the rotation is
+      more accurate because the source is sampled at 8x, and the edges stay
+      hard. So the ceiling is the SOURCE, exactly as Dan said, and the
+      payoff needs a reference that was never pixel art.
+      `buildSideViewPrompt(painted)` now asks for a clean high-resolution
+      painted profile instead of "the same pixel-art resolution";
+      `ReferenceContext.painted` turns it on. NOT yet bought — one image,
+      Dan's call.
+      Cost to watch: a piece at 8x carries 64x the cells, and the knight's
+      character file went from 27 KB to 983 KB. It wants a compressed
+      encoding before this ships.
 - [ ] Next gate, from Sol: cut-edge strain. Build 4-neighbour adjacency
       over the target's cells; for every adjacent pair owned by different
       bones, push both through a pose sweep and measure how far their

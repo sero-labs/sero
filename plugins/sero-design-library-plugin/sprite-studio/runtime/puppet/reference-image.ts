@@ -124,6 +124,17 @@ export interface CanonicalOptions {
   fill: number;
   /** How many colours the target keeps. */
   colours: number;
+  /**
+   * Cells per 1x canvas pixel, 1 by default.
+   *
+   * Above 1 the figure is stood on the COMPOSITOR's working canvas instead of
+   * the sprite's, which is the whole point of the high-resolution path: the
+   * reference keeps its own detail, the pieces are rotated at that detail, and
+   * the pixels get made once, at the end, by the grade — instead of the
+   * reference being reduced to sprite pixels first and then destroyed by every
+   * rotation.
+   */
+  scale?: number;
 }
 
 /**
@@ -145,7 +156,10 @@ export function canonicalise(
   const srcH = figure.bounds.y1 - figure.bounds.y0 + 1;
   if (srcW < 1 || srcH < 1) return null;
 
-  const figureH = Math.max(1, Math.round(options.canvasH * options.fill));
+  const scale = options.scale ?? 1;
+  const cols = options.canvasW * scale;
+  const rows = options.canvasH * scale;
+  const figureH = Math.max(1, Math.round(options.canvasH * options.fill)) * scale;
   const reduction = srcH / figureH;
   const figureW = Math.max(1, Math.round(srcW / reduction));
   // The origin is in SOURCE pixels, and it is anchored to the two edges that
@@ -157,10 +171,10 @@ export function canonicalise(
     image,
     figure.foreground,
     reduction,
-    (figure.bounds.x0 + figure.bounds.x1 + 1) / 2 - (options.canvasW / 2) * reduction,
-    figure.bounds.y1 + 1 - (options.groundRow + 1) * reduction,
-    options.canvasW,
-    options.canvasH,
+    (figure.bounds.x0 + figure.bounds.x1 + 1) / 2 - (cols / 2) * reduction,
+    figure.bounds.y1 + 1 - (options.groundRow + 1) * scale * reduction,
+    cols,
+    rows,
   );
 
   // The palette is measured on the SOURCE, not on the reduction. This is the

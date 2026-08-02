@@ -92,6 +92,9 @@ export interface ReferenceContext {
   provider: MediaProvider;
   /** Buy a second picture of the character's pieces laid out separately. */
   splitParts?: boolean;
+  /** Ask for the side view as a painted illustration rather than pixel art —
+   * the input the rig path wants, because the grade is what makes the pixels. */
+  painted?: boolean;
   /** `puppet-lab/<runId>/reference`. */
   directory: string;
   canvasW: number;
@@ -120,7 +123,7 @@ const PARTS_FILE = 'parts-4x.png';
  * of what a profile looks like, and say outright that keeping the pose is
  * wrong.
  */
-export function buildSideViewPrompt(): string {
+export function buildSideViewPrompt(painted = false): string {
   return [
     'Rotate this character 90 degrees so it faces to the RIGHT. This is a turnaround: the same character, seen from the side.',
     'DO NOT keep the front-facing pose. The character must no longer face the viewer.',
@@ -129,7 +132,15 @@ export function buildSideViewPrompt(): string {
     'one leg in front of the other, and the chest and hips seen edge-on so the body is NARROW.',
     'The whole figure must be much narrower than it was, because a body is far thinner from the side than from the front.',
     'Everything else is unchanged: the same character, the same armour and clothing, the same colours,',
-    'the same height, the same art style, the same pixel-art resolution.',
+    'the same height.',
+    // Asking for pixel art back is asking for a picture with no headroom. The
+    // engine's whole technique is work big and grade down at the end, and a
+    // reference that is ALREADY finished pixels has nothing to grade — every
+    // rotation then destroys detail instead of averaging it. A painted profile
+    // at full resolution is the input the pipeline was built for.
+    painted
+      ? 'Render it as a clean, high-resolution painted illustration with smooth edges — NOT pixel art, no visible pixel blocks, no dithering. Same design, same colours, painted properly.'
+      : 'the same art style, the same pixel-art resolution.',
     'Anything carried is now held out to the side where it can still be seen.',
     'Full body from head to feet, standing upright, plain flat background, no shadow, no ground, no text.',
   ].join(' ');
@@ -231,7 +242,7 @@ async function editReference(
 
 async function drawSideView(source: string, context: ReferenceContext): Promise<Buffer> {
   context.onProgress?.('Turning the reference side-on…');
-  return editReference(source, buildSideViewPrompt(), context, 'The side view could not be drawn');
+  return editReference(source, buildSideViewPrompt(context.painted === true), context, 'The side view could not be drawn');
 }
 
 async function drawPartsSheet(source: string, context: ReferenceContext): Promise<Buffer> {

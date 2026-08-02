@@ -286,6 +286,15 @@ export declare class Motion {
  *   4. one 1px INK silhouette, LAST
  */
 export { settleChains, simulateChains };
+/**
+ * The default supersample: how many px the compositor works in per finished
+ * pixel. A character may declare its own — see \`CharacterSpec.superSample\`.
+ *
+ * The whole technique is work big, then grade down, and this number is the
+ * headroom. Four is right for a character PAINTED against this API. A character
+ * cut from a real drawing wants more, so the drawing's own detail survives
+ * being rotated instead of being destroyed by it.
+ */
 export declare const SS = 4;
 export interface RigidPart {
     name: string;
@@ -340,11 +349,11 @@ export interface GradeConfig {
     outline?: boolean;
 }
 /** Bake every frame of \`clip\` onto a 1x canvas of \`w1x\` x \`h1x\`. */
-export declare function bake(skel: Skeleton, parts: readonly Part[], clip: Motion, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow): Img[];
+export declare function bake(skel: Skeleton, parts: readonly Part[], clip: Motion, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow, ss?: number): Img[];
 /** The rest frame: chains settled under gravity, skeleton held at \`pose\`. */
-export declare function renderRest(skel: Skeleton, parts: readonly Part[], pose: Pose, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow): Img;
+export declare function renderRest(skel: Skeleton, parts: readonly Part[], pose: Pose, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow, ss?: number): Img;
 /** One graded 1x frame. */
-export declare function renderPose(skel: Skeleton, parts: readonly Part[], pose: Pose, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow, chains?: Map<string, Vec[]>, z?: Map<string, number>): Img;
+export declare function renderPose(skel: Skeleton, parts: readonly Part[], pose: Pose, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow, chains?: Map<string, Vec[]>, z?: Map<string, number>, ss?: number): Img;
 /** A pixel with no same-color neighbour snaps to its most common opaque
  * 4-neighbour (or clears) — "cluster detail pixels", mechanically. Runs to a
  * fixpoint with immediate application, so paired speckles cannot oscillate.
@@ -382,6 +391,16 @@ export interface CharacterSpec {
      * DECLARES a lower floor; it is not a number to lower to fit a mistake.
      */
     minFill?: number;
+    /**
+     * How many px the compositor works in per finished pixel, 1..16.
+     *
+     * Four (the default) is right for a character PAINTED against this API:
+     * generous shapes go in and the grade makes the pixels. A character cut from
+     * a real drawing declares more, because the headroom is the whole technique —
+     * with none, rotating a piece has nowhere to put the detail but away, and the
+     * artwork comes out as mush. Cost is this number squared.
+     */
+    superSample?: number;
     /** The standing pose the rest frame renders — usually a couple of IK
      * solves, so legs land exactly on the plant line. */
     restPose(): Pose;

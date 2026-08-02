@@ -81,6 +81,8 @@ const emit = (): string =>
     canvasH: ROWS,
     groundRow: 50,
     minFill: 0.6,
+    superSample: 4,
+    crisp: true,
   });
 
 describe('rigSource', () => {
@@ -146,6 +148,8 @@ describe('rigSource', () => {
       canvasH: ROWS,
       groundRow: 50,
       minFill: 0.6,
+      superSample: 4,
+      crisp: true,
     });
     const rest = await bakeEmitted(source);
     // Moving the joint changes the cut, not the picture — the rest frame must
