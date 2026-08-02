@@ -8,6 +8,13 @@
  * the same code runs in a browser, a worker, and a background runtime.
  */
 
+/** Mirrors package.json's version; part of consumers' bake cache keys, so a
+ * new engine misses stale caches. Bump together with the version field. */
+export const ENGINE_VERSION = '0.1.0';
+
+// the LLM's (or a person's) system material for writing a character
+export { AUTHORING_GUIDE } from './authoring-guide';
+
 // math + pixels
 export type { Vec, Affine } from './vec';
 export {

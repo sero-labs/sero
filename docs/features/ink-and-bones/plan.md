@@ -86,10 +86,10 @@ authoring path — nothing here is throwaway.
       the strips (vision) → edit → repeat, with an iteration cap and a
       transcript of every round. Reuse the existing isolated-completion
       + image-handover seams.
-- [ ] The authoring context: a compact authoring guide distilled from
+- [x] The authoring context: a compact authoring guide distilled from
       `docs/ANIMATION.md` conventions (sign traps, canvas budgeting,
       ramp law, cloth model) — the LLM's system material, versioned in
-      the repo.
+      the repo (`AUTHORING_GUIDE`, exported by the engine package).
 - [ ] Run the experiment: one character from a one-paragraph brief, all
       audit gates green, strips reviewed by Dan.
 
