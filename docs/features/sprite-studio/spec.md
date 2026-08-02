@@ -392,10 +392,13 @@ Four things about it are load-bearing:
   next one kept, so dropping a near-duplicate lengthens the frame before it
   (D23) — an evenly spaced preview would be a different animation from the one
   the button underneath makes. Both sides call `handPickedDurations`, so they
-  cannot drift apart, and the player opens on the loop mode the build will use
-  rather than the one that was planned: a forward loop is only offered where the
-  search found a real cycle (D34). Speed and loop mode are viewing controls and
-  change nothing that is built.
+  cannot drift apart. **How it plays is set here and travels with the frames**:
+  the three icons beside the transport are the animation's loop mode, written
+  onto the plan in the same transaction that claims the review, so what the user
+  set the sprite playing at is what gets built. A forward loop is offered only
+  where the search found a real cycle (D34) — the choice is disabled otherwise,
+  and refused by the handler as well, because the interface is not the only way
+  in. Speed alone is a viewing control.
 - **The proposal comes out of the same call the build uses.** A second copy of
   the selection rule could drift, and accepting a proposal unchanged would then
   produce a different animation from the one shown.

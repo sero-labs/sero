@@ -163,7 +163,7 @@ function SpriteStudio() {
           instruction={animation?.plan.instruction ?? ''}
           onOpenShelf={() => actions.open(undefined)}
           onOpenCharacter={() => actions.open(characterId)}
-          onChoose={(indices) => void actions.chooseFrames(openAnimation.id, indices)}
+          onChoose={(indices, loop) => void actions.chooseFrames(openAnimation.id, indices, loop)}
           onRedo={(instruction) => void actions.redoAnimation(openAnimation.id, instruction)}
           onDiscard={() => {
             void actions.deleteAnimation(openAnimation.id);

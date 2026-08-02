@@ -82,7 +82,7 @@ describe('choosing the frames', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Frame 2' }));
     await userEvent.click(screen.getByRole('button', { name: 'Use these 3 frames' }));
 
-    expect(onChoose).toHaveBeenCalledWith([0, 1, 5]);
+    expect(onChoose).toHaveBeenCalledWith([0, 1, 5], 'once');
   });
 
   it('will not build a set too small to be an animation', async () => {
@@ -137,12 +137,23 @@ describe('the frames playing beside the clip', () => {
     expect(playing()).toBe('Loops');
   });
 
-  it('does not offer a loop the build is not going to make', () => {
-    // Planned as a loop, but the search found no cycle in the clip — so the
-    // build falls back to playing once (D34). Opening on the plan would show a
-    // seamless loop that nobody is going to get.
+  it('will not offer a loop the clip cannot make', () => {
+    // Planned as a loop, but the search found no cycle in it. A forward loop is
+    // only honoured where there is one (D34), so it is not offered at all —
+    // rather than selectable and quietly built as something else.
     renderPanel(REVIEW, { loop: 'forward' });
     expect(playing()).toBe('Plays once');
+    expect(screen.getByRole('radio', { name: 'Loops' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('builds what the user set it playing at', async () => {
+    // The control used to move the preview and nothing else, so the screen
+    // showed one animation and the button underneath built another.
+    const { onChoose } = renderPanel();
+    await userEvent.click(screen.getByRole('radio', { name: 'Ping-pong' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Use these 3 frames' }));
+
+    expect(onChoose).toHaveBeenCalledWith([0, 3, 5], 'pingpong');
   });
 
   it('names every way of playing, which an icon on its own does not', async () => {

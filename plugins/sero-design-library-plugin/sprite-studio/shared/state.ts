@@ -251,7 +251,20 @@ export type SpriteRequestBody =
    * does not compute durations — a chosen frame holds until the next chosen
    * frame, which is a rule the engine owns.
    */
-  | { kind: 'sprite.frames.choose'; animationId: string; indices: number[] }
+  | {
+      kind: 'sprite.frames.choose';
+      animationId: string;
+      indices: number[];
+      /**
+       * How the user set it playing at the review, when they changed it.
+       *
+       * The review shows the frames playing, so the way they play is a thing
+       * the user is looking at while deciding — and a control on that screen
+       * that moved the preview and not the result was showing one animation
+       * and building another. Absent means "leave the plan alone".
+       */
+      loop?: LoopMode;
+    }
   /**
    * The page could not open the clip.
    *

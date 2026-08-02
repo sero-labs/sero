@@ -268,7 +268,7 @@ Your choice is remembered for next time.
 
 A video model draws the movement, and then **every clip stops for you before anything is built**. One screen shows two players side by side: the clip on the left, and on the right the frames you have kept, playing as the finished sprite. Underneath is every moment of the clip drawn as the sprite it would become, with the ones Sprite Studio would keep already marked. Click any frame to keep it or drop it — the sprite on the right changes as you do — then press **Use these frames**.
 
-The sprite plays at the speed it will be built at. You can slow it down, speed it up or change how it loops to look at it; those controls change what you see, not what gets made.
+The sprite plays at the speed it will be built at. Three icons beside the play button set how it plays — straight through, round again, or there and back — and that is the setting the animation is built with, not just a preview. If the clip never comes back to where it started, **round again** is unavailable, because a loop like that would visibly jump every time round. Changing the playback speed only changes what you see.
 
 Beside them is what to show the sprite against: nothing, white or black. A sprite is transparent, so it is normally drawn on a checker — which is honest and useless for judging an outline. A stray light pixel on the brim of a hat is invisible on the checker and obvious on black. The choice applies everywhere sprites are shown, on this screen and in the workbench, and it is only a way of looking: it is never part of an export.
 

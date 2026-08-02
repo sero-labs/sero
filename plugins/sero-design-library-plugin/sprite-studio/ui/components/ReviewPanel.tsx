@@ -2,6 +2,7 @@ import { Button, Textarea } from '@sero-ai/ui';
 import { RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import type { LoopMode } from '../../shared/character';
 import type { AnimationSummary } from '../../shared/state';
 import { useSpriteClip } from '../hooks/useSpriteAsset';
 import { LoopPreview } from './LoopPreview';
@@ -32,7 +33,7 @@ interface ReviewPanelProps {
   instruction: string;
   onOpenShelf(): void;
   onOpenCharacter(): void;
-  onChoose(indices: number[]): void;
+  onChoose(indices: number[], loop: LoopMode): void;
   onRedo(instruction: string): void;
   onDiscard(): void;
 }
@@ -57,10 +58,13 @@ export function ReviewPanel({
   // Source order, once. The preview plays this and the button sends this, so
   // what the user watched is what gets built.
   const order = useMemo(() => [...chosen].toSorted((a, b) => a - b), [chosen]);
-  // What the build will do, not what was planned. A forward loop needs a cycle
-  // the search actually found, and `loopWindow` is where it says so (D34).
-  const playsAs =
-    summary.loop === 'forward' && review.loopWindow === undefined ? 'once' : summary.loop;
+  // How it will be built. Starts on what the plan asked for, falling back where
+  // the clip has no cycle to loop on — `loopWindow` is where the search says so
+  // (D34) — and the user can change it. Pressing Use sends it.
+  const canLoop = review.loopWindow !== undefined;
+  const [loop, setLoop] = useState<LoopMode>(
+    summary.loop === 'forward' && !canLoop ? 'once' : summary.loop,
+  );
 
   const toggle = (index: number): void =>
     setChosen((current) => {
@@ -121,7 +125,9 @@ export function ReviewPanel({
                 sampleDurationsMs={review.sampleDurationsMs}
                 canvas={summary.canvas}
                 chosen={order}
-                loop={playsAs}
+                loop={loop}
+                onLoop={setLoop}
+                canLoop={canLoop}
               />
             </div>
           </div>
@@ -154,7 +160,7 @@ export function ReviewPanel({
             {/* Sorted here as well as in the runtime. Order is source order by
                 decision, and a request that carried click order would be
                 relying on the far side to know that. */}
-            <Button type="button" disabled={!enough} onClick={() => onChoose([...order])}>
+            <Button type="button" disabled={!enough} onClick={() => onChoose([...order], loop)}>
               {enough ? `Use these ${chosen.size} frames` : 'Keep at least two frames'}
             </Button>
             <Button

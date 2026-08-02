@@ -63,13 +63,23 @@ interface LoopPreviewProps {
   /** Source order, as the build takes them. */
   chosen: readonly number[];
   /**
-   * How the build will play it, which is not always how it was planned.
+   * How it will be built, and the control that sets it.
    *
-   * A forward loop is only offered where the search found a real cycle (D34);
-   * where it did not, the build falls back to playing once. Opening on the plan
-   * would show a seamless loop that is not going to be made.
+   * Held by the review rather than here, because pressing Use sends it: what
+   * the user set the sprite playing at is what gets made. It moved only the
+   * preview before, which meant the screen showed one animation and built
+   * another.
    */
   loop: LoopMode;
+  onLoop(loop: LoopMode): void;
+  /**
+   * Whether the clip has a cycle to loop on.
+   *
+   * A forward loop is only honoured where the search found one (D34), so where
+   * it did not that choice is not offered at all. Leaving it selectable and
+   * quietly building something else is the fault this whole change removes.
+   */
+  canLoop: boolean;
 }
 
 export function LoopPreview({
@@ -78,10 +88,11 @@ export function LoopPreview({
   sampleDurationsMs,
   canvas,
   chosen,
-  loop: planned,
+  loop,
+  onLoop,
+  canLoop,
 }: LoopPreviewProps) {
   const backdrop = useBackdrop();
-  const [loop, setLoop] = useState<LoopMode>(planned);
   const [rate, setRate] = useState<string>(AS_TIMED);
   const { ref, width, height } = useElementSize<HTMLDivElement>();
 
@@ -145,7 +156,7 @@ export function LoopPreview({
           // Radix clears the value when the active item is pressed again, and
           // there is no such thing as a sequence that plays no way at all.
           onValueChange={(value) => {
-            if (value !== '') setLoop(value as LoopMode);
+            if (value !== '') onLoop(value as LoopMode);
           }}
         >
           {LOOP_MODES.map((one) => (
@@ -156,7 +167,12 @@ export function LoopPreview({
               key={one.mode}
               value={one.mode}
               aria-label={one.label}
-              title={one.label}
+              disabled={one.mode === 'forward' && !canLoop}
+              title={
+                one.mode === 'forward' && !canLoop
+                  ? 'This clip does not come back to where it started, so it cannot loop'
+                  : one.label
+              }
               // The chosen one takes the accent, the way every other "on" in
               // Sprite Studio does. The default is a grey fill, which at this
               // size is a difference you have to look for.

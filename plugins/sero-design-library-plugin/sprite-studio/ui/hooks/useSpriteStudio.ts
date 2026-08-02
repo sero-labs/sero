@@ -79,7 +79,7 @@ export interface SpriteActions {
     animations: { animationId: string; plan: AnimationPlan }[],
   ): Promise<void>;
   /** The frames kept at the review. Building starts from these and only these. */
-  chooseFrames(animationId: string, indices: number[]): Promise<void>;
+  chooseFrames(animationId: string, indices: number[], loop: LoopMode): Promise<void>;
   approveAnimation(animationId: string): Promise<void>;
   cancelAnimation(animationId: string): Promise<void>;
   deleteAnimation(animationId: string): Promise<void>;
@@ -194,8 +194,8 @@ export function useSpriteStudio(): SpriteStudio {
       generate: (characterId, videoModel, animations) =>
         send({ kind: 'sprite.generate', characterId, videoModel, animations }),
 
-      chooseFrames: (animationId, indices) =>
-        send({ kind: 'sprite.frames.choose', animationId, indices }),
+      chooseFrames: (animationId, indices, loop) =>
+        send({ kind: 'sprite.frames.choose', animationId, indices, loop }),
       approveAnimation: (animationId) => send({ kind: 'sprite.animation.approve', animationId }),
       cancelAnimation: (animationId) => send({ kind: 'sprite.animation.cancel', animationId }),
       deleteAnimation: (animationId) => send({ kind: 'sprite.animation.delete', animationId }),

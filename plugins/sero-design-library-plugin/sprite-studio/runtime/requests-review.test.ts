@@ -185,3 +185,48 @@ describe('choosing the frames', () => {
     expect(queue.build).not.toHaveBeenCalled();
   });
 });
+
+describe('how the review says it should play', () => {
+  it('writes the chosen mode onto the plan, in the same step that claims it', async () => {
+    // The control moved the preview and nothing else before this, so the screen
+    // showed one animation and built another. Written inside the claim, so a
+    // build cannot start against the old plan.
+    await writeAnimation(paths, record('awaiting-review', REVIEW));
+
+    await applySpriteRequest(
+      { kind: 'sprite.frames.choose', animationId: 'anim1', indices: [0, 5], loop: 'pingpong' },
+      context(),
+    );
+
+    const built = await readAnimation(paths, 'char1', 'anim1');
+    expect(built?.plan.loop).toBe('pingpong');
+    expect(built?.status).toBe('compiling');
+  });
+
+  it('leaves the plan alone when the request names no mode', async () => {
+    await writeAnimation(paths, record('awaiting-review', REVIEW));
+    const before = (await readAnimation(paths, 'char1', 'anim1'))!.plan.loop;
+
+    await applySpriteRequest(
+      { kind: 'sprite.frames.choose', animationId: 'anim1', indices: [0, 5] },
+      context(),
+    );
+
+    expect((await readAnimation(paths, 'char1', 'anim1'))?.plan.loop).toBe(before);
+  });
+
+  it('refuses a forward loop on a clip with no cycle, as the review does', async () => {
+    // The same rule on both sides rather than a second opinion: a forward loop
+    // is only honoured where the search found a cycle (D34), and the review
+    // does not offer the choice at all where it did not. A request is not the
+    // only way in, so it is checked here too.
+    await writeAnimation(paths, record('awaiting-review', { ...REVIEW, loopWindow: undefined }));
+
+    await applySpriteRequest(
+      { kind: 'sprite.frames.choose', animationId: 'anim1', indices: [0, 5], loop: 'forward' },
+      context(),
+    );
+
+    expect((await readAnimation(paths, 'char1', 'anim1'))?.plan.loop).not.toBe('forward');
+  });
+});

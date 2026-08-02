@@ -359,11 +359,23 @@ export async function applySpriteRequest(
       // guard above is not enough on its own: the status does not move until
       // the build job actually starts, so a double press — or a replay — would
       // pass it twice and pay for two rounds of repairs on one clip.
+      // A forward loop is only honoured where the search actually found a
+      // cycle (D34). The review disables that choice when it did not, so this
+      // is the same rule stated on both sides rather than a second opinion.
+      const asked =
+        body.loop === 'forward' && review.loopWindow === undefined ? undefined : body.loop;
+
       let claimed = false;
       await mutateAnimation(paths, animation.characterId, animation.id, (current) => {
         if (current.status !== 'awaiting-review') return current;
         claimed = true;
-        return { ...current, status: 'compiling' };
+        // Written inside the claim, so the build cannot start against the old
+        // plan: one transaction takes the animation and settles how it plays.
+        return {
+          ...current,
+          status: 'compiling',
+          ...(asked === undefined ? {} : { plan: { ...current.plan, loop: asked } }),
+        };
       });
       if (!claimed) return;
 
