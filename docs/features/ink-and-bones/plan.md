@@ -243,7 +243,40 @@ the model to paint; bind the reference's own pixels to the bones.
       is, which slot, which side, its z-order, and its anchor AS A
       FRACTION of the piece's own size. Validated and refused rather than
       defaulted; a planner that never looked is 'unavailable'.
-- [ ] Build the rig from the plan and re-render the knight.
+- [x] Rig editor (Dan's call — Sol's highest-ROI suggestion): a joint
+      editor with the knight's side view embedded, click/drag/nudge 19
+      named joints, bones drawn between them so a wrong pivot reads as a
+      wrong limb. Dan's placements are kept at
+      `sprite-studio/runtime/puppet/fixtures/knight-joints.json`.
+      https://claude.ai/code/artifact/b1116ff4-74e5-43fe-9ed9-afdba7b1eea8
+      Dan's own caveat, and it is the honest limit of this reference: on a
+      three-quarter drawing the far arm and wrist are OBSCURED, so those
+      joints are estimates. Recorded as such in the fixture.
+- [ ] **NEXT — cut the pieces from the joints, and the bind-pose gate.**
+      The algorithm, written down so it is not re-derived:
+      1. Segment the CANVAS-SPACE target (112x144 cells, already in the
+         same space as the joints), not the source PNG. Assign every
+         opaque cell to the nearest bone SEGMENT by distance to the line
+         (crown-neck, neck-pelvis, shoulder-elbow, elbow-wrist,
+         hip-knee, knee-ankle, ankle-toe, per side). That is the cut, and
+         it keeps source coordinates by construction.
+      2. Build the skeleton from the joints. Angles: api 0 points
+         screen-DOWN and positive swings the tip EAST, so a bone from A
+         to B has restDeg = atan2(dx, dy) in degrees, and its restDeg is
+         that MINUS the parent's world angle. A child's pivot is in
+         PARENT-LOCAL space: localPivot = R(-parentWorldAngle) *
+         (childOrigin - parentOrigin), tracked incrementally while
+         building.
+      3. Each part's Paint stamps its own cells at
+         (cellBBoxTopLeft - boneOrigin) * SS, so at rest every piece
+         lands exactly where it was cut from.
+      4. **The bind-pose gate (Sol: non-negotiable).** Bake the rest
+         frame and compare it with the target: it must reproduce it
+         within a small measured error. If it does not, do not animate —
+         report the error instead. This is what makes every later claim
+         about the rig honest.
+      5. Only then: clips, the near/far z-order track, and the temporal
+         stability audit.
 - [ ] Open questions: rotating pixel art degrades it (only 4x supersample
       and the re-grade defend it); pieces cut from a three-quarter drawing
       in a strict side rig; far-side limbs faked by darkening a copy;

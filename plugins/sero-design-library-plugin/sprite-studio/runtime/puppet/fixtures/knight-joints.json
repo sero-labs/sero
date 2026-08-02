@@ -1,0 +1,27 @@
+{
+  "_": "Dan's hand-placed joints for the knight, from the rig editor, in the character's own 112x144 canvas. The far-side joints (shoulderFar, elbowFar, wristFar, hipFar, kneeFar, ankleFar, toeFar) are ESTIMATES: the reference is a three-quarter view, so those limbs are obscured and their joints cannot be seen. Treat them as seeds to be corrected, not ground truth.",
+  "canvasW": 112,
+  "canvasH": 144,
+  "spriteScale": 4,
+  "joints": {
+    "crown": { "x": 47, "y": 28.5 },
+    "neck": { "x": 46, "y": 41 },
+    "shoulderNear": { "x": 35.5, "y": 45.5 },
+    "elbowNear": { "x": 29.5, "y": 63 },
+    "wristNear": { "x": 35, "y": 80 },
+    "pelvis": { "x": 50.5, "y": 73.5 },
+    "hipNear": { "x": 41.5, "y": 77.5 },
+    "kneeNear": { "x": 37, "y": 106.5 },
+    "ankleNear": { "x": 29.5, "y": 127.5 },
+    "toeNear": { "x": 27.5, "y": 137.5 },
+    "shoulderFar": { "x": 55, "y": 45.5 },
+    "elbowFar": { "x": 57.5, "y": 67.5 },
+    "wristFar": { "x": 61, "y": 69.5 },
+    "hipFar": { "x": 56.5, "y": 80 },
+    "kneeFar": { "x": 60.5, "y": 106 },
+    "ankleFar": { "x": 55.5, "y": 129 },
+    "toeFar": { "x": 67.5, "y": 136.5 },
+    "gripMain": { "x": 87, "y": 112.5 },
+    "gripOff": { "x": 67, "y": 70 }
+  }
+}
