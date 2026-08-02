@@ -77,15 +77,22 @@ An LLM writes and converges a character inside Sero's background runtime.
 This phase's product is the harness, which later becomes the production
 authoring path — nothing here is throwaway.
 
-- [ ] Compile-and-load: esbuild-bundle a character `.ts` against the
+- [x] Compile-and-load: esbuild-bundle a character `.ts` against the
       engine (engine externalized), execute in the runtime, surface
-      compile/contract errors as structured feedback.
-- [ ] Bake service in the sprite-studio runtime: source → frames +
-      `AuditReport`s + review strips, cached by source hash.
-- [ ] The loop job: brief → author → compile → bake → audit → look at
+      compile/contract errors as structured feedback. Execution is
+      vm-bounded: a hard timeout covers buildCharacter, the painters,
+      and the whole bake, so authored code cannot wedge the runtime.
+- [x] Bake service in the sprite-studio runtime: source → frames +
+      `AuditReport`s + review strips, cached by source hash
+      (`sha256(engine version + source)`; successes only).
+- [x] The loop job: brief → author → compile → bake → audit → look at
       the strips (vision) → edit → repeat, with an iteration cap and a
-      transcript of every round. Reuse the existing isolated-completion
-      + image-handover seams.
+      transcript of every round (`puppet-lab/<runId>/`). One subagent
+      run is the loop: the write tool bakes on every call and returns
+      audits + review images as tool content (the judge's
+      image-handover seam), so the author keeps its context between
+      rounds; convergence is measured by the runtime (`allClean`),
+      never taken from the author's word.
 - [x] The authoring context: a compact authoring guide distilled from
       `docs/ANIMATION.md` conventions (sign traps, canvas budgeting,
       ramp law, cloth model) — the LLM's system material, versioned in

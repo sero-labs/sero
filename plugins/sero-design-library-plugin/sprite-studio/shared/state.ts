@@ -229,6 +229,12 @@ export type SpriteRequestBody =
    * writes the plan back for the dialog to show before a penny is spent.
    */
   | { kind: 'sprite.plan'; characterId: string; planId: string; request: string; videoModel: string }
+  /**
+   * Author a puppet character from a brief (Ink & Bones plan, Phase 1). The
+   * run's transcript and result land under `puppet-lab/<runId>/`; the notice
+   * bar says how it ended.
+   */
+  | { kind: 'sprite.puppet.author'; runId: string; brief: string; maxBakes?: number }
   /** Start the animations the user accepted, with the plan they edited. */
   | {
       kind: 'sprite.generate';
@@ -345,6 +351,7 @@ const SPRITE_REQUEST_KINDS: readonly SpriteRequestKind[] = [
   'sprite.character.restore',
   'sprite.character.purge',
   'sprite.plan',
+  'sprite.puppet.author',
   'sprite.generate',
   'sprite.frames.attach',
   'sprite.frames.choose',

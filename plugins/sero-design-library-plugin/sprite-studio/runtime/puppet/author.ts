@@ -1,0 +1,210 @@
+/**
+ * The authoring loop (Ink & Bones plan, Phase 1): a brief in, a converged
+ * character file out.
+ *
+ * One subagent run IS the loop. The write tool bakes on every call and hands
+ * back the audits and the pictures, so the author keeps its own reasoning
+ * context from round to round instead of being re-briefed each time, and the
+ * bake budget inside the tool is the iteration cap. The Library's generation
+ * pattern throughout: `platformTools: 'none'`, custom tools as the only
+ * channel, a repair pass that re-prompts rather than trusts, and a transcript
+ * of every round on disk — this run is the go/no-go evidence (P3).
+ */
+
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
+import { AUTHORING_GUIDE, ENGINE_VERSION } from '@sero-ai/ink-and-bones';
+
+import type { DesignLibraryPaths } from '../../../shared/paths';
+import type { ModelSelection } from '../../../shared/settings';
+import { modelSelectionIsEmpty } from '../../../shared/settings';
+import { readState } from '../../../shared/state-io';
+import { puppetRunDir } from '../../shared/paths';
+import { bakePuppetSource, readReviewPngs } from './bake';
+import type { PuppetRound } from './tools';
+import { createCharacterSourceTool, createFinishTool, DEFAULT_MAX_BAKES } from './tools';
+
+const RUN_TIMEOUT_MS = 900_000;
+const REPAIR_ATTEMPTS = 2;
+
+export interface PuppetAuthorJob {
+  runId: string;
+  brief: string;
+  maxBakes?: number;
+}
+
+export interface PuppetAuthorContext {
+  host: AppRuntimeHost;
+  paths: DesignLibraryPaths;
+  workspaceId: string;
+  parentSessionId: string;
+  model: ModelSelection;
+  signal: AbortSignal;
+  onProgress?(message: string): void;
+}
+
+export type PuppetAuthorOutcome =
+  | { status: 'converged'; bakes: number; hash: string; note: string | null }
+  | { status: 'capped'; bakes: number; cleanHash: string | null; note: string | null }
+  | { status: 'cancelled' }
+  | { status: 'failed'; reason: string };
+
+function buildSystemPrompt(maxBakes: number): string {
+  return `You are authoring ONE pixel-art character for the Ink & Bones engine, alone, until it is right.
+
+How this run works:
+- puppet_studio_write_character replaces the whole character file, then compiles, bakes and audits it. Its result — compile errors, audit lines, review pictures — is the only feedback that exists. Send the COMPLETE file every time.
+- You have ${maxBakes} bakes. Spend them deliberately: change few things per bake, keep what worked.
+- The audit gates are measurements, not advice. When every gate is green, judge the pictures with your own eyes: does the motion read, is every part findable in every frame?
+- When the gates are green and the pictures read right, call puppet_studio_finish. Do not call it while gates fail unless the budget is spent.
+
+The engine guide follows. It is the whole API — nothing else exists.
+
+${AUTHORING_GUIDE}`;
+}
+
+function buildTask(brief: string): string {
+  return `Author a character from this brief:
+
+${brief}
+
+Unless the brief demands otherwise: a 64 x 80 canvas at 1x is the proven size, and the character needs at least an 'idle' and a 'run' clip (a west-facing mirror costs one line). Start by writing a complete first version — skeleton, rest pose, parts, clips — and bake it.`;
+}
+
+/** Run the loop and leave the transcript under `puppet-lab/<runId>/`. */
+export async function runPuppetAuthor(
+  job: PuppetAuthorJob,
+  context: PuppetAuthorContext,
+): Promise<PuppetAuthorOutcome> {
+  const maxBakes = Math.max(1, Math.min(20, job.maxBakes ?? DEFAULT_MAX_BAKES));
+  const runDir = puppetRunDir(context.paths, job.runId);
+  await mkdir(path.join(runDir, 'rounds'), { recursive: true });
+  const startedAt = new Date().toISOString();
+
+  const source = createCharacterSourceTool({
+    maxBakes,
+    bake: async (text) => {
+      context.onProgress?.(`Baking (${source.rounds().length + 1}/${maxBakes})…`);
+      const outcome = await bakePuppetSource(context.paths, text);
+      const images = outcome.ok ? await readReviewPngs(outcome.dir, outcome.report) : null;
+      return { outcome, images };
+    },
+    onRound: async (round: PuppetRound, text: string) => {
+      const dir = path.join(runDir, 'rounds', String(round.round));
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'source.ts'), text, 'utf8');
+      await writeFile(path.join(dir, 'round.json'), JSON.stringify(round, null, 2), 'utf8');
+    },
+  });
+  const finish = createFinishTool();
+
+  const params: AppRuntimeSubagentRunParams = {
+    task: buildTask(job.brief),
+    systemPrompt: buildSystemPrompt(maxBakes),
+    parentSessionId: context.parentSessionId,
+    workspaceId: context.workspaceId,
+    platformTools: 'none',
+    customTools: [source.definition, finish.definition],
+    timeoutMs: RUN_TIMEOUT_MS,
+    signal: context.signal,
+    repair: {
+      maxAttempts: REPAIR_ATTEMPTS,
+      validate: () => {
+        if (source.rounds().length === 0) {
+          return 'You have not written the character. Call puppet_studio_write_character with the complete file.';
+        }
+        if (!source.converged() && source.rounds().length < maxBakes && finish.note() === null) {
+          return 'The last bake still fails gates and budget remains. Revise the file and bake again, or call puppet_studio_finish to stop here.';
+        }
+        return null;
+      },
+    },
+    ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
+  };
+
+  context.onProgress?.('Reading the brief…');
+  const result = await context.host.subagents.runStructured(params);
+
+  const rounds = source.rounds();
+  const outcome: PuppetAuthorOutcome =
+    context.signal.aborted || result.error?.startsWith('Aborted')
+      ? { status: 'cancelled' }
+      : rounds.length === 0
+        ? {
+            status: 'failed',
+            reason: result.error ?? 'The run ended without ever writing a character.',
+          }
+        : source.converged()
+          ? {
+              status: 'converged',
+              bakes: rounds.length,
+              hash: rounds[rounds.length - 1].hash,
+              note: finish.note(),
+            }
+          : {
+              status: 'capped',
+              bakes: rounds.length,
+              cleanHash: source.lastCleanHash(),
+              note: finish.note(),
+            };
+
+  await writeFile(
+    path.join(runDir, 'run.json'),
+    JSON.stringify(
+      {
+        runId: job.runId,
+        brief: job.brief,
+        engineVersion: ENGINE_VERSION,
+        maxBakes,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        outcome,
+        rounds,
+        ...(result.error === undefined ? {} : { runError: result.error }),
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  return outcome;
+}
+
+/** What the queue calls: reads the configured model, runs the loop, and puts
+ * the result where the user looks (the notice bar, this phase). */
+export interface PuppetJobPort {
+  paths: DesignLibraryPaths;
+  host: AppRuntimeHost;
+  workspaceId: string;
+  sessionId: string;
+  progress(characterId: string, message: string): Promise<void>;
+}
+
+export async function runPuppetAuthorJob(
+  runner: PuppetJobPort,
+  job: PuppetAuthorJob,
+  signal: AbortSignal,
+): Promise<void> {
+  const state = await readState(runner.paths);
+  const outcome = await runPuppetAuthor(job, {
+    host: runner.host,
+    paths: runner.paths,
+    workspaceId: runner.workspaceId,
+    parentSessionId: runner.sessionId,
+    model: state.settings.designModel,
+    signal,
+    onProgress: (message) => void runner.progress(job.runId, message),
+  });
+
+  const text =
+    outcome.status === 'converged'
+      ? `Puppet run ${job.runId}: converged in ${outcome.bakes} bakes.`
+      : outcome.status === 'capped'
+        ? `Puppet run ${job.runId}: budget spent after ${outcome.bakes} bakes without a clean character.`
+        : outcome.status === 'cancelled'
+          ? `Puppet run ${job.runId}: cancelled.`
+          : `Puppet run ${job.runId} failed: ${outcome.reason}`;
+  await runner.progress(job.runId, text);
+}

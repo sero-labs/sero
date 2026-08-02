@@ -28,6 +28,7 @@ import { DEFAULT_SPRITE_STUDIO_SETTINGS, type PlanResult, type SpriteExportOptio
 import { reportSpriteNotice, reportSpriteProblem } from './projection';
 import { openReviewWhenBatchLands, settleReview } from './review';
 import { runAnimate, runBuild, runFix, runPropose, type JobRunner } from './queue-jobs';
+import { runPuppetAuthorJob } from './puppet/author';
 import { buildAnimation, readBasePose, requestAnimationClip } from './generation/animate';
 import { runPlan } from './generation/plan';
 import { buildCharacterPrompt } from './generation/prompt';
@@ -85,6 +86,9 @@ type Job =
   // a paid redraw, and one still running against a directory that has just been
   // deleted is money spent on nothing.
   | { kind: 'fix'; characterId: string; animationId: string; instruction: string; frameId?: string }
+  // No characterId: an authoring run precedes any character record (Phase 1 of
+  // the Ink & Bones plan). Its transcript lives under `puppet-lab/<runId>/`.
+  | { kind: 'puppet-author'; runId: string; brief: string; maxBakes?: number }
   | { kind: 'draw-character'; characterId: string; name: string; description: string }
   | {
       kind: 'export';
@@ -172,6 +176,10 @@ export class SpriteQueue implements JobRunner {
       instruction,
       ...(frameId === undefined ? {} : { frameId }),
     });
+  }
+
+  puppetAuthor(runId: string, brief: string, maxBakes?: number): void {
+    this.push({ kind: 'puppet-author', runId, brief, ...(maxBakes === undefined ? {} : { maxBakes }) });
   }
 
   drawCharacter(characterId: string, name: string, description: string): void {
@@ -373,6 +381,8 @@ export class SpriteQueue implements JobRunner {
         return runBuild(this, job, signal);
       case 'fix':
         return runFix(this, job, signal);
+      case 'puppet-author':
+        return runPuppetAuthorJob(this, job, signal);
       case 'draw-character':
         return this.executeDrawCharacter(job, signal);
       case 'export':

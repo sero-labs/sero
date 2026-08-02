@@ -176,3 +176,28 @@ export function exportDir(
 ): string {
   return path.join(exportsDir(paths, characterId), assertSafeId(exportId, 'export id'));
 }
+
+/**
+ * Puppet-mode trees (Phase 1 of the Ink & Bones plan), both beside
+ * `characters/` rather than inside it: the character scan walks that
+ * directory, and neither a content-addressed bake nor an authoring run is a
+ * character.
+ */
+
+/** Baked puppets, one directory per source hash — the bake cache. */
+export function puppetBakesDir(paths: DesignLibraryPaths): string {
+  return path.join(paths.home, 'puppet-bakes');
+}
+
+export function puppetBakeDir(paths: DesignLibraryPaths, hash: string): string {
+  return path.join(puppetBakesDir(paths), assertSafeId(hash, 'bake hash'));
+}
+
+/** Authoring runs: one directory per run, holding the round transcript. */
+export function puppetLabDir(paths: DesignLibraryPaths): string {
+  return path.join(paths.home, 'puppet-lab');
+}
+
+export function puppetRunDir(paths: DesignLibraryPaths, runId: string): string {
+  return path.join(puppetLabDir(paths), assertSafeId(runId, 'puppet run id'));
+}

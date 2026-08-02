@@ -899,6 +899,9 @@ importers:
       '@fontsource/ibm-plex-mono':
         specifier: ^5.3.0
         version: 5.3.0
+      '@sero-ai/ink-and-bones':
+        specifier: workspace:*
+        version: link:../../packages/ink-and-bones
       '@tailwindcss/browser':
         specifier: 'catalog:'
         version: 4.1.18
