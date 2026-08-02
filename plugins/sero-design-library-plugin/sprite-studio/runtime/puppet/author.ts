@@ -162,6 +162,10 @@ export async function runPuppetAuthor(
     systemPrompt: buildSystemPrompt(maxBakes),
     parentSessionId: context.parentSessionId,
     workspaceId: context.workspaceId,
+    // Authoring is judgement work — spatial reasoning, colour, reading its
+    // own pictures. The tier default (low) produced quick sketches; bakes
+    // are near-free, so the model's thinking is the quality lever.
+    thinking: 'high',
     platformTools: 'none',
     customTools: [source.definition, finish.definition],
     timeoutMs: RUN_TIMEOUT_MS,
@@ -221,6 +225,11 @@ export async function runPuppetAuthor(
         finishedAt: new Date().toISOString(),
         outcome,
         rounds,
+        // Which model actually authored this run — the question always asked
+        // when a result surprises, answerable only if written down.
+        ...(result.modelId === undefined ? {} : { modelId: result.modelId }),
+        ...(result.providerId === undefined ? {} : { providerId: result.providerId }),
+        ...(result.usage === undefined ? {} : { usage: result.usage }),
         ...(result.error === undefined ? {} : { runError: result.error }),
       },
       null,
