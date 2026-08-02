@@ -1,0 +1,21 @@
+{
+  "rest": "ee233218eb1c6ae55bb25b23ed8171a36600a58bfaef51aa05f7447a681e93f4",
+  "clips": {
+    "idle": {
+      "frames": 19,
+      "sha256": "55778b050153fec47a6fa398f8372a2c61cd14a5f73d86bdd223a257dabdb420"
+    },
+    "run": {
+      "frames": 9,
+      "sha256": "8fe37d067a0b973da1b2554b0aef8aa560eb116dabf0023b0ea13ad51b0b522b"
+    },
+    "jump": {
+      "frames": 18,
+      "sha256": "cc6917219f73aebeea092ceed9de33c32199804d90d8b5e58349b06d27c0a60d"
+    },
+    "run_west": {
+      "frames": 9,
+      "sha256": "60fc20e88048ae86fdeb9f93259903ce7f7c41f3134d2ddd88a7faab1aa9dadb"
+    }
+  }
+}

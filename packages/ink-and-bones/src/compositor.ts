@@ -333,8 +333,9 @@ function quantize(c: Color, ramp: readonly Color[]): Color {
 
 /** A pixel with no same-color neighbour snaps to its most common opaque
  * 4-neighbour (or clears) — "cluster detail pixels", mechanically. Runs to a
- * fixpoint with immediate application, so paired speckles cannot oscillate. */
-function despeckle(img: Img, keep: readonly Color[]): void {
+ * fixpoint with immediate application, so paired speckles cannot oscillate.
+ * Exported so the test net can prove the rule on a fixture directly. */
+export function despeckle(img: Img, keep: readonly Color[]): void {
   for (let pass = 0; pass < 3; pass++) {
     let changed = false;
     for (let y = 0; y < img.h; y++) {

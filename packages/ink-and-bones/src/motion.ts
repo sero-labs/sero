@@ -50,6 +50,10 @@ export class Motion {
   /** Loops read best at 12-15 fps; actions on twos at 24 with holds. */
   bakeFps = 15;
   airborne = false;
+  /** In-place tolerance: how far (1x px) the silhouette's centroid-x may
+   * stray from the clip's own mean before the audit calls it a sideways
+   * walk. A deliberate lunge declares a bigger budget. */
+  wobbleBudget = 2.5;
   /** Extra wind this clip adds to every verlet chain (ss px/s^2). */
   wind: Vec = [0, 0];
   /** Set on a mirror clip: the east clip whose frames this one flips. */
@@ -146,6 +150,7 @@ export class Motion {
     const m = new Motion(mirrorName, template.cycle, template.loop);
     m.bakeFps = template.bakeFps;
     m.airborne = template.airborne;
+    m.wobbleBudget = template.wobbleBudget;
     m.mirrorOf = srcName;
     return m;
   }

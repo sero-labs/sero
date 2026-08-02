@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Ink &amp; Bones — TypeScript spike</title>
+<title>Ink &amp; Bones — engine example</title>
 <style>
   body {
     margin: 0;
@@ -40,11 +40,18 @@
   }
   button.on { background: #4df5e3; color: #141021; }
   input[type="range"] { width: 140px; }
+  pre#audit {
+    margin: 0;
+    font-size: 12px;
+    color: #8f8aa8;
+    text-align: left;
+    white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
   <h1>Ink &amp; Bones — every frame drawn by code</h1>
-  <div class="muted">A puppet: bones + IK + painted parts + verlet scarf, graded onto a 64×80 pixel grid.</div>
+  <div class="muted">The @sero-ai/ink-and-bones engine playing its reference puppet, Scout.</div>
   <div class="row">
     <button data-clip="idle">idle</button>
     <button data-clip="run">run</button>
@@ -63,6 +70,8 @@
   <div class="muted">Move a slider or flip the theme: the character rebakes from source. Edits are diffs.</div>
   <canvas id="strip"></canvas>
   <div class="muted" id="status"></div>
+  <button id="run-audit">Run audit gates</button>
+  <pre id="audit"></pre>
   <script src="dist/bundle.js"></script>
 </body>
 </html>

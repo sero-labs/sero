@@ -1,28 +1,26 @@
 /**
- * The demo puppet — "Scout", a hooded runner with a scarf.
+ * The reference puppet — "Scout", a hooded runner with a scarf.
  *
- * THIS FILE IS THE ARTIFACT THE AI WOULD AUTHOR in a Sprite Studio
- * "Ink & Bones" mode: a skeleton, painted parts, and clips as eased curves.
- * Everything else in this spike is fixed engine. Every number here is a
- * named dial an LLM (or a person) can change in a one-line diff, and the
- * bake is deterministic — same file, same frames, every time.
+ * THIS FILE IS THE ARTIFACT AN AI WOULD AUTHOR: a skeleton, painted parts,
+ * and clips as eased curves, exported as a CharacterSpec. Everything else is
+ * fixed engine. Every number here is a named dial an LLM (or a person) can
+ * change in a one-line diff, and the bake is deterministic — same file, same
+ * frames, every time.
  *
  * Canvas 64 x 80 at 1x; all skeleton/paint coordinates are supersampled px
- * (4x). Ground row 78; ankle plant line y = 296 ss.
+ * (4x). Ankle plant line y = 296 ss; the rest frame's lowest opaque row
+ * (outline included) is the declared groundRow.
  */
 
-import type { GradeConfig, Part, Shadow } from './compositor';
-import type { Color } from './img';
-import { hex } from './img';
-import { Motion } from './motion';
-import { Paint } from './paint';
-import type { Pose } from './skeleton';
-import { Skeleton } from './skeleton';
-import type { Vec } from './vec';
+import type { CharacterSpec, Color, Part, Pose, Vec } from '../src/index';
+import { Motion, Paint, Skeleton, hex } from '../src/index';
 
 export const CANVAS_W = 64;
 export const CANVAS_H = 80;
 const GROUND_Y = 296;
+// Measured from the rest bake (stats().feet), not eyeballed: the ankle
+// plants at 296 ss = row 74, and the ink outline under the boots adds one.
+const GROUND_ROW = 75;
 
 // --- palette ---------------------------------------------------------------
 
@@ -64,15 +62,6 @@ const EYE = hex('59f2e0');
 const EYE_CORE = hex('eafffb');
 const SHADOW: Color = [0.03, 0.02, 0.1, 0.45];
 
-export interface Character {
-  skeleton: Skeleton;
-  parts: Part[];
-  clips: Map<string, Motion>;
-  cfg: GradeConfig;
-  shadow: Shadow;
-  restPose(): Pose;
-}
-
 // --- dials the demo UI exposes ---------------------------------------------
 
 export interface Dials {
@@ -87,7 +76,7 @@ export const DEFAULT_DIALS: Dials = { stride: 88, runWind: -2200 };
 
 // --- the puppet ------------------------------------------------------------
 
-export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS): Character {
+export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS): CharacterSpec {
   const S = new Skeleton();
   // Pelvis height sets the knee bend everywhere: ankle plants at y 296, so
   // 222 leaves a 74 of 80 reach — near-straight standing legs that still
@@ -156,10 +145,13 @@ export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS
   };
 
   return {
+    canvasW: CANVAS_W,
+    canvasH: CANVAS_H,
+    groundRow: GROUND_ROW,
     skeleton: S,
     parts,
     clips,
-    cfg: { ink: INK, shadow: SHADOW, emissiveLone: [EYE, EYE_CORE] },
+    grade: { ink: INK, shadow: SHADOW, emissiveLone: [EYE, EYE_CORE] },
     shadow: { x: 32, y: 78, rx: 13, ry: 2 },
     restPose,
   };
@@ -302,20 +294,20 @@ function jump(dials: Dials): Motion {
   });
   c.plant('thigh_near', 'shin_near', 'foot_near', {
     0: [140, GROUND_Y, 90],
-    0.15: [140, 298, 70],
+    0.15: [140, 296, 70],
     0.3: [136, 250, 55],
     0.45: [138, 236, 50],
     0.6: [142, 262, 70],
-    0.72: [140, 298, 90],
+    0.72: [140, 296, 90],
     0.9: [140, GROUND_Y, 90],
   });
   c.plant('thigh_far', 'shin_far', 'foot_far', {
     0: [116, GROUND_Y, 88],
-    0.15: [116, 298, 70],
+    0.15: [116, 296, 70],
     0.3: [114, 252, 55],
     0.45: [110, 240, 50],
     0.6: [112, 264, 70],
-    0.72: [116, 298, 88],
+    0.72: [116, 296, 88],
     0.9: [116, GROUND_Y, 88],
   });
   c.key('spine', { 0: 0, 0.15: -10, 0.3: 6, 0.45: 4, 0.6: -4, 0.72: -8, 0.9: 0 });

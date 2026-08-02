@@ -1,7 +1,8 @@
 # Ink & Bones — a second Sprite Studio mode (spike findings)
 
-**Status: spike complete and approved. Working TypeScript proof of
-concept at `spikes/ink-and-bones/` (open `index.html` in a browser).
+**Status: spike complete and approved; the spike code has since been
+promoted to `packages/ink-and-bones` (Phase 0) and `spikes/ink-and-bones/`
+deleted — open `packages/ink-and-bones/example/index.html` to see it run.
 The implementation plan is `plan.md` beside this file.**
 
 Sprite Studio today makes sprites from **video**: a fal model draws a clip,

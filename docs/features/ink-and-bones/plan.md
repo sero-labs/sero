@@ -1,11 +1,11 @@
 # Ink & Bones — implementation plan
 
-**Status: approved 2026-08-02. Phase 0 not started.**
+**Status: approved 2026-08-02. Phase 0 complete; Phase 1 not started.**
 Progress rule: tick the boxes here as tasks land, per commit — this file is
 the single source of truth for where the work stands.
 
-The spike (`spikes/ink-and-bones/`, findings in `spike.md` beside this
-file) proved the renderer. This plan turns it into a
+The spike (findings in `spike.md` beside this file; its code now lives in
+`packages/ink-and-bones`) proved the renderer. This plan turns it into a
 product: a self-contained animation engine as a runtime library, and a
 second Sprite Studio mode that consumes it.
 
@@ -43,29 +43,29 @@ tests, playback) added. Reference for everything: the Godot originals in
 `repos/cyninja-prompt-demo` (`art/*.gd`, `tools/puppet_audit.gd`,
 `tools/puppet_selftest.gd`, `docs/ANIMATION.md`).
 
-- [ ] Scaffold `packages/ink-and-bones` (tsconfig, vitest, exports map,
+- [x] Scaffold `packages/ink-and-bones` (tsconfig, vitest, exports map,
       catalog versions; no runtime deps).
-- [ ] Move the spike engine in: `vec`, `img`, `paint`, `skeleton`,
+- [x] Move the spike engine in: `vec`, `img`, `paint`, `skeleton`,
       `motion`, `chains`, `compositor`. Split anything over 500 LOC.
-- [ ] Define the character contract: a `CharacterSpec` interface
+- [x] Define the character contract: a `CharacterSpec` interface
       (canvas, skeleton, parts, clips, restPose, shadow, groundRow,
       palette vocabulary) — the shape every authored file exports.
-- [ ] Add the playback core: frame-timing clip player, mirror handling,
+- [x] Add the playback core: frame-timing clip player, mirror handling,
       renderer-agnostic (no canvas dependency; a caller draws).
-- [ ] Port the audit gates from `puppet_audit.gd`: distinct-colours,
+- [x] Port the audit gates from `puppet_audit.gd`: distinct-colours,
       wrap, islands, in-place (declared wobble budget), baseline
       (airborne-aware, vs groundRow), edge margin, speckle, ramp/
       vocabulary bleed. One typed `AuditReport` per clip.
-- [ ] Port the review renderers from `tools/puppet/`: frame strips,
+- [x] Port the review renderers from `tools/puppet/`: frame strips,
       zoomed pose grids, rest-pose diff — engine returns images; callers
       encode.
-- [ ] Test net, modelled on `puppet_selftest.gd` (42 checks): FK/IK
+- [x] Test net, modelled on `puppet_selftest.gd` (42 checks): FK/IK
       math, curve wrapping, plants, mirrors, z-order, verlet determinism,
       grade rules, fixtures proving speckle/ramp fire. Plus golden-frame
       snapshots of the Scout demo character for byte determinism.
-- [ ] Move the spike's demo page to `packages/ink-and-bones/example/`;
+- [x] Move the spike's demo page to `packages/ink-and-bones/example/`;
       delete `spikes/ink-and-bones/`.
-- [ ] Wire into the monorepo: `pnpm typecheck` and `pnpm test` cover the
+- [x] Wire into the monorepo: `pnpm typecheck` and `pnpm test` cover the
       package from the root.
 
 **Gate:** all tests green from root; the example page renders the Scout

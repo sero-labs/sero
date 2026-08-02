@@ -99,6 +99,14 @@ export class Img {
     }
   }
 
+  /** The frame as 8-bit RGBA rows — what a canvas ImageData or PNG encoder
+   * wants. The engine never draws; callers take these bytes and do. */
+  toRGBA8(): Uint8ClampedArray<ArrayBuffer> {
+    const out = new Uint8ClampedArray(this.w * this.h * 4);
+    for (let i = 0; i < out.length; i++) out[i] = Math.round(this.data[i] * 255);
+    return out;
+  }
+
   flippedX(): Img {
     const out = new Img(this.w, this.h);
     for (let y = 0; y < this.h; y++) {
