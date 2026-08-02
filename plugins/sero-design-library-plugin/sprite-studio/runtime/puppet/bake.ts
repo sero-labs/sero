@@ -17,16 +17,17 @@ import { createHash } from 'node:crypto';
 import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { AuditCheck } from '@sero-ai/ink-and-bones';
+import type { AuditCheck, AuditReport } from '@sero-ai/ink-and-bones';
 import { ENGINE_VERSION, formatReport } from '@sero-ai/ink-and-bones';
 
 import type { DesignLibraryPaths } from '../../../shared/paths';
+import { withRecordLock } from '../../../shared/state-io';
 import { puppetBakeDir, puppetBakesDir } from '../../shared/paths';
 import type { CompileIssue } from './compile';
 import { compilePuppetWorker } from './compile';
 import { CLIP_NAME_PATTERN, DETERMINISM_SOURCE, DRIVER_SOURCE } from './driver';
 import { renderReviewImages } from './images';
-import { DEFAULT_RUN_TIMEOUT_MS, runPuppetWorker } from './run';
+import { AUDIT_IDS, DEFAULT_RUN_TIMEOUT_MS, runPuppetWorker } from './run';
 
 /** Bumped whenever the stored report shape changes; a mismatch is a miss. */
 export const BAKE_FORMAT_VERSION = 2;
@@ -39,6 +40,8 @@ export interface PuppetClipReport {
   failed: number;
   checks: AuditCheck[];
   info: string[];
+  /** The nearest-neighbour scale the review strip was rendered at. */
+  stripScale: number;
 }
 
 export interface PuppetBakeReport {
@@ -81,8 +84,25 @@ export function stripFile(dir: string, clip: string): string {
   return path.join(dir, STRIPS_DIR, `${clip}.png`);
 }
 
+function validCachedClip(clip: PuppetClipReport): boolean {
+  return (
+    typeof clip?.clip === 'string' &&
+    CLIP_NAME_PATTERN.test(clip.clip) &&
+    typeof clip.frames === 'number' &&
+    Array.isArray(clip.checks) &&
+    // An empty gate set is not a clean clip — it is a report that proves
+    // nothing, and `every()` over it would call it converged.
+    clip.checks.length > 0 &&
+    clip.checks.every(
+      (check) => AUDIT_IDS.includes(check?.id) && typeof check.ok === 'boolean' && typeof check.text === 'string',
+    ) &&
+    new Set(clip.checks.map((check) => check.id)).size === clip.checks.length
+  );
+}
+
 /** A stored report believed only after it proves it is ours, current, and
- * still complete on disk. */
+ * still complete on disk — and every derived field (failed, allClean, pretty)
+ * is recomputed from the checks rather than read. */
 async function readValidCache(dir: string, hash: string): Promise<PuppetBakeReport | null> {
   const raw = await readFile(path.join(dir, REPORT_FILE), 'utf8').catch(() => null);
   if (raw === null) return null;
@@ -97,7 +117,7 @@ async function readValidCache(dir: string, hash: string): Promise<PuppetBakeRepo
     report.engineVersion !== ENGINE_VERSION ||
     !Array.isArray(report.clips) ||
     report.clips.length === 0 ||
-    report.clips.some((clip) => typeof clip?.clip !== 'string' || !CLIP_NAME_PATTERN.test(clip.clip) || !Array.isArray(clip.checks))
+    !report.clips.every(validCachedClip)
   ) {
     return null;
   }
@@ -111,11 +131,25 @@ async function readValidCache(dir: string, hash: string): Promise<PuppetBakeRepo
     );
     if (!present) return null;
   }
-  // The convergence signal is recomputed from the checks, not read.
-  const allClean =
-    report.clips.length > 0 &&
-    report.clips.every((clip) => clip.checks.every((check) => check?.ok === true));
-  return { ...report, allClean };
+  const clips = report.clips.map((clip) => ({
+    ...clip,
+    stripScale: typeof clip.stripScale === 'number' ? clip.stripScale : 1,
+    failed: clip.checks.filter((check) => !check.ok).length,
+    info: Array.isArray(clip.info) ? clip.info : [],
+  }));
+  const asReports: AuditReport[] = clips.map((clip) => ({
+    clip: clip.clip,
+    frames: clip.frames,
+    checks: clip.checks,
+    failed: clip.failed,
+    info: clip.info,
+  }));
+  return {
+    ...report,
+    clips,
+    allClean: clips.every((clip) => clip.failed === 0),
+    pretty: asReports.map(formatReport).join('\n'),
+  };
 }
 
 export interface PuppetBakeOptions {
@@ -123,28 +157,34 @@ export interface PuppetBakeOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * One bake per hash at a time: the per-hash lock makes the cache check, the
+ * stale-directory clear, and the rename one critical section, so a concurrent
+ * identical bake waits and then reads the winner instead of racing it — and a
+ * clear can never delete a directory another bake just finished.
+ */
 export async function bakePuppetSource(
   paths: DesignLibraryPaths,
   source: string,
   options: PuppetBakeOptions = {},
 ): Promise<PuppetBakeOutcome> {
-  return bakeOnce(paths, source, options, false);
-}
-
-async function bakeOnce(
-  paths: DesignLibraryPaths,
-  source: string,
-  options: PuppetBakeOptions,
-  retried: boolean,
-): Promise<PuppetBakeOutcome> {
   const hash = puppetSourceHash(source);
   const dir = puppetBakeDir(paths, hash);
+  return withRecordLock(paths, dir, () => bakeLocked(paths, source, hash, dir, options));
+}
 
+async function bakeLocked(
+  paths: DesignLibraryPaths,
+  source: string,
+  hash: string,
+  dir: string,
+  options: PuppetBakeOptions,
+): Promise<PuppetBakeOutcome> {
   const cached = await readValidCache(dir, hash);
   if (cached !== null) return { ok: true, hash, dir, report: cached, cached: true };
   // Whatever sits at the target failed validation (or is half of something) —
-  // clear it so the finished bake can move into place. Rebuilding a bake this
-  // might race is harmless: same source, same frames.
+  // clear it so the finished bake can move into place. Under the lock, this
+  // can only ever remove an invalid directory.
   await rm(dir, { recursive: true, force: true });
 
   const compiled = await compilePuppetWorker({
@@ -165,6 +205,7 @@ async function bakeOnce(
     if (!run.ok) return { ok: false, hash, stage: run.stage, issues: run.issues };
     const { summary, baked, reports } = run.result;
 
+    const images = renderReviewImages(run.result);
     const report: PuppetBakeReport = {
       version: BAKE_FORMAT_VERSION,
       engineVersion: ENGINE_VERSION,
@@ -180,6 +221,7 @@ async function bakeOnce(
         failed: clip.failed,
         checks: clip.checks,
         info: clip.info,
+        stripScale: images.scales.get(clip.clip) ?? 1,
       })),
       allClean: reports.length > 0 && reports.every((clip) => clip.failed === 0),
       bakeMs: Date.now() - started,
@@ -188,7 +230,6 @@ async function bakeOnce(
 
     // Build the directory beside its final name and move it into place whole,
     // so a reader never sees a bake with the report but not the strips.
-    const images = renderReviewImages(run.result);
     await mkdir(path.join(staging, STRIPS_DIR));
     await writeFile(path.join(staging, SOURCE_FILE), source, 'utf8');
     await writeFile(path.join(staging, REST_FILE), images.rest);
@@ -196,17 +237,9 @@ async function bakeOnce(
       await writeFile(stripFile(staging, clip), png);
     }
     await writeFile(path.join(staging, REPORT_FILE), JSON.stringify(report, null, 2), 'utf8');
-    try {
-      await rename(staging, dir);
-    } catch (error) {
-      // Only a lost race to an identical bake is survivable: the winner's
-      // result must exist and validate, and then it IS the result. Anything
-      // else is a real error and is thrown, not swallowed as success.
-      const winner = await readValidCache(dir, hash);
-      if (winner !== null) return { ok: true, hash, dir, report: winner, cached: true };
-      if (!retried) return bakeOnce(paths, source, options, true);
-      throw error;
-    }
+    // Under the per-hash lock nothing can occupy the target; a rename error
+    // here is a real filesystem problem and throws.
+    await rename(staging, dir);
     return { ok: true, hash, dir, report, cached: false };
   } finally {
     await rm(staging, { recursive: true, force: true }).catch(() => undefined);

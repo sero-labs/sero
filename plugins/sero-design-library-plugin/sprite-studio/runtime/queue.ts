@@ -180,6 +180,12 @@ export class SpriteQueue implements JobRunner {
   }
 
   puppetAuthor(runId: string, brief: string, maxBakes?: number): void {
+    // At-least-once replay dedup, in-process half: one job per run id in the
+    // queue at a time. The run directory claim covers the cross-restart half.
+    const active =
+      this.waiting.some((job) => job.kind === 'puppet-author' && job.runId === runId) ||
+      [...this.running.values()].some((run) => run.runId === runId);
+    if (active) return;
     this.push({ kind: 'puppet-author', runId, brief, ...(maxBakes === undefined ? {} : { maxBakes }) });
   }
 

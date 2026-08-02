@@ -59,6 +59,13 @@ describe('malformed timing', () => {
   });
 });
 
+describe('malformed allocations', () => {
+  it('Img refuses a canvas beyond any legitimate use', () => {
+    expect(() => new Img(10_000, 10_000)).toThrow(/refusing/);
+    expect(new Img(1900, 4000).w).toBe(1900); // the widest review sheets fit
+  });
+});
+
 describe('malformed colours', () => {
   it('hex() rejects anything but 6 hex digits', () => {
     expect(() => hex('nothex')).toThrow(/hex/);

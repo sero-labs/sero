@@ -7,11 +7,14 @@
  * isolate, its own engine copy, a memory ceiling from `resourceLimits`, and a
  * parent-enforced deadline that ends in `terminate()` — which kills straight
  * loops, microtask floods and stray timers alike, none of which a `vm`
- * timeout could reach. What this bounds COMPLETELY is accidents: a hang, a
- * memory blowup, a poisoned engine prototype die with the worker. It raises
- * the bar for deliberately hostile code (no `require` in scope, imports
- * refused at compile time) without claiming OS-level isolation — that
- * question is Phase 2's, on the record in the plan.
+ * timeout could reach. What this bounds: hangs and timer/microtask floods
+ * (terminated), JS-heap blowups (`resourceLimits`), engine-surface
+ * allocations (`Img` refuses absurd canvases, and every engine pixel buffer
+ * is an `Img`), and poisoned engine prototypes (die with the worker). What it
+ * does NOT bound: raw typed-array floods in authored code, which only the
+ * deadline cuts short — and deliberately hostile code generally, for which
+ * the honest line is OS-level isolation, on the record as a Phase 2
+ * decision in the plan.
  *
  * The worker's reply is DATA, not trusted structure: the parent re-validates
  * names, sizes and report shape, recomputes every failure count, and rebuilds
@@ -66,7 +69,7 @@ interface PackedImg {
   data: Float32Array;
 }
 
-const AUDIT_IDS: readonly AuditCheckId[] = [
+export const AUDIT_IDS: readonly AuditCheckId[] = [
   'valid',
   'distinct',
   'wrap',

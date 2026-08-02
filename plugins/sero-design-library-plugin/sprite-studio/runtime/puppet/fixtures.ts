@@ -160,6 +160,22 @@ export function buildCharacter() {
 }
 `;
 
+/** Every clock spelling must be gone, not just Date.now. */
+export const NEW_DATE_SOURCE = `
+export function buildCharacter() {
+  return { canvasW: new Date().getSeconds() };
+}
+`;
+
+/** An engine-surface allocation blowup: the Paint canvas is an Img, and the
+ * Img constructor is the cap. */
+export const GIANT_PAINT_SOURCE = `
+import { Paint } from '@sero-ai/ink-and-bones';
+export function buildCharacter() {
+  return new Paint({ x: 0, y: 0, w: 1_000_000, h: 1_000_000 });
+}
+`;
+
 export const BAD_CONTRACT_SOURCE = `
 export function buildCharacter() {
   return {

@@ -15,7 +15,6 @@ import { Type } from 'typebox';
 
 import type { CompileIssue } from './compile';
 import type { PuppetBakeOutcome } from './bake';
-import type { ReviewImages } from './images';
 
 /** Enough for a whole character with headroom; a file beyond this is lost
  * structure, not detail. */
@@ -38,8 +37,9 @@ export interface PuppetRound {
 
 export interface BakeRound {
   outcome: PuppetBakeOutcome;
-  /** Present when the bake succeeded — read back from the bake directory. */
-  images: ReviewImages | null;
+  /** Present when the bake succeeded — read back from the bake directory.
+   * Scales live on the report's clips, which is what the captions read. */
+  images: { rest: Buffer; strips: Map<string, Buffer> } | null;
 }
 
 type ToolContent =
@@ -54,13 +54,15 @@ function issueLines(issues: CompileIssue[]): string {
 
 function reviewContent(round: BakeRound): ToolContent[] {
   if (!round.outcome.ok || round.images === null) return [];
+  const report = round.outcome.report;
   const content: ToolContent[] = [
     { type: 'text' as const, text: 'The rest pose, at 8x:' },
     { type: 'image' as const, data: round.images.rest.toString('base64'), mimeType: 'image/png' },
   ];
   for (const [clip, png] of round.images.strips) {
+    const scale = report.clips.find((entry) => entry.clip === clip)?.stripScale ?? 1;
     content.push(
-      { type: 'text' as const, text: `Clip '${clip}', every frame at 4x:` },
+      { type: 'text' as const, text: `Clip '${clip}', every frame at ${scale}x:` },
       { type: 'image' as const, data: png.toString('base64'), mimeType: 'image/png' },
     );
   }

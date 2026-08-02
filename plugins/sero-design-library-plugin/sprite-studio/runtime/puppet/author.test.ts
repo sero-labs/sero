@@ -5,7 +5,7 @@
  * budget, the transcript on disk, and an outcome measured by the runtime
  * rather than declared by the author.
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -119,12 +119,16 @@ describe('runPuppetAuthor', () => {
     expect(outcome.cleanHash).toBeNull();
   });
 
-  it('a second run under the same id is refused — the directory is the claim', async () => {
+  it('a completed run id is refused; a crashed claim is reclaimable', async () => {
     const idle = makeContext(async () => undefined);
-    await runPuppetAuthor({ runId: 'run-dup', brief: 'Anything.' }, idle);
+    // A claim without a run.json — a run that crashed mid-flight — is taken
+    // over by the replay instead of burning the id.
+    await mkdir(path.join(puppetRunDir(paths, 'run-dup'), 'rounds'), { recursive: true });
+    const reclaimed = await runPuppetAuthor({ runId: 'run-dup', brief: 'Anything.' }, idle);
+    expect(reclaimed.status).toBe('failed'); // the idle script never writes — but the claim was honoured
     const second = await runPuppetAuthor({ runId: 'run-dup', brief: 'Anything.' }, idle);
     if (second.status !== 'failed') throw new Error(`expected failed, got ${second.status}`);
-    expect(second.reason).toContain('already exists');
+    expect(second.reason).toContain('already completed');
   });
 
   it('a run that never writes fails, and the repair pass would have re-prompted', async () => {

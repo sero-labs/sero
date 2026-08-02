@@ -11,7 +11,7 @@
  * of every round on disk — this run is the go/no-go evidence (P3).
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
@@ -82,14 +82,23 @@ export async function runPuppetAuthor(
   const runDir = puppetRunDir(context.paths, job.runId);
   // The directory IS the claim. Request logs replay at-least-once, and two
   // runs sharing an id would interleave one transcript; the second claimant
-  // fails fast instead.
+  // fails fast instead. A claim with no run.json is a run that crashed
+  // before finishing — reclaimable, so a replayed request completes the work
+  // instead of the id being burned forever. (In-process double starts are
+  // already deduplicated at the queue.)
   await mkdir(puppetLabDir(context.paths), { recursive: true });
   const claimed = await mkdir(runDir).then(
     () => true,
     () => false,
   );
   if (!claimed) {
-    return { status: 'failed', reason: `Run '${job.runId}' already exists — every run gets a fresh id.` };
+    const finished = await access(path.join(runDir, 'run.json')).then(
+      () => true,
+      () => false,
+    );
+    if (finished) {
+      return { status: 'failed', reason: `Run '${job.runId}' already completed — every run gets a fresh id.` };
+    }
   }
   await mkdir(path.join(runDir, 'rounds'), { recursive: true });
   const startedAt = new Date().toISOString();
@@ -100,7 +109,11 @@ export async function runPuppetAuthor(
       if (context.signal.aborted) throw new Error('Aborted');
       context.onProgress?.(`Baking (${source.rounds().length + 1}/${maxBakes})…`);
       const outcome = await bakePuppetSource(context.paths, text, { signal: context.signal });
+      // Aborting mid-bake surfaces as a load failure from the worker; a
+      // cancelled run must not record it as a round the author took.
+      if (context.signal.aborted) throw new Error('Aborted');
       const images = outcome.ok ? await readReviewPngs(outcome.dir, outcome.report) : null;
+      if (context.signal.aborted) throw new Error('Aborted');
       return { outcome, images };
     },
     onRound: async (round: PuppetRound, text: string) => {

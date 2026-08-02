@@ -37,7 +37,7 @@ export {
   unit,
 } from './vec';
 export type { Color } from './img';
-export { Img, TRANSPARENT, darkened, hex, sameColor, shade } from './img';
+export { Img, MAX_IMG_PIXELS, TRANSPARENT, darkened, hex, sameColor, shade } from './img';
 
 // authoring surface
 export type { Rect } from './paint';

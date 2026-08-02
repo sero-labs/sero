@@ -28,16 +28,31 @@ export const CLIP_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
  * A clock read or a random draw fails loudly instead of making two bakes of
  * the same source disagree — which would poison the content-addressed cache. */
 export const DETERMINISM_SOURCE = `
-const deny = (what: string) => () => {
+const refuse = (what: string) => {
   throw new Error(
     'Ink & Bones characters are deterministic: ' + what + ' is not available. ' +
     'Derive all motion from the clip time; there is no clock and no randomness.',
   );
 };
-Math.random = deny('Math.random');
-Date.now = deny('Date.now');
+const denyAll = (what: string) =>
+  new Proxy(function () {}, {
+    apply: () => refuse(what + '()'),
+    construct: () => refuse('new ' + what + '()'),
+    get: (_target, prop) => {
+      // Symbol lookups happen during ordinary printing/coercion; only real
+      // API reads (Date.now, crypto.getRandomValues, process.env) refuse.
+      if (typeof prop === 'symbol' || prop === 'prototype') return undefined;
+      refuse(what + '.' + String(prop));
+    },
+  });
+Math.random = () => refuse('Math.random()') as never;
+(globalThis as { Date: unknown }).Date = denyAll('Date');
+(globalThis as { process: unknown }).process = denyAll('process');
+try {
+  Object.defineProperty(globalThis, 'crypto', { value: denyAll('crypto'), configurable: true });
+} catch { /* an engine without a configurable crypto simply keeps it */ }
 if (typeof performance !== 'undefined') {
-  (performance as { now: () => number }).now = deny('performance.now');
+  (performance as { now: () => number }).now = () => refuse('performance.now()') as never;
 }
 export {};
 `;

@@ -106,6 +106,20 @@ describe('bakePuppetSource', () => {
     expect(second.report.allClean).toBe(true);
   });
 
+  it('rejects a cached clip whose gate set is empty — nothing proven is not clean', async () => {
+    const first = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!first.ok) throw new Error('first bake failed');
+    const reportPath = path.join(puppetBakeDir(paths, first.hash), REPORT_FILE);
+    const stored = JSON.parse(await readFile(reportPath, 'utf8'));
+    stored.clips[0].checks = [];
+    await writeFile(reportPath, JSON.stringify(stored), 'utf8');
+
+    const second = await bakePuppetSource(paths, CLEAN_SOURCE);
+    if (!second.ok) throw new Error('rebake failed');
+    expect(second.cached).toBe(false);
+    expect(second.report.clips[0].checks.length).toBeGreaterThan(0);
+  });
+
   it('does not cache a failure', async () => {
     const first = await bakePuppetSource(paths, SYNTAX_ERROR_SOURCE);
     expect(first.ok).toBe(false);

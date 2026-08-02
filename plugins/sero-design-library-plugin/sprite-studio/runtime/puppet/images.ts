@@ -68,20 +68,26 @@ export function imgToPng(img: Img): Buffer {
 export interface ReviewImages {
   /** The rest pose at 8x. */
   rest: Buffer;
-  /** One wrapped frame strip per clip, frames at 4x, in clip order. */
+  /** One wrapped frame strip per clip, in clip order. */
   strips: Map<string, Buffer>;
+  /** The scale each strip was actually rendered at — the caption must say
+   * what the picture is, and a budget-sized clip drops below 4x. */
+  scales: Map<string, number>;
 }
 
 export function renderReviewImages(baked: PuppetBaked): ReviewImages {
   const strips = new Map<string, Buffer>();
+  const scales = new Map<string, number>();
   for (const [name, clip] of baked.baked) {
     const framePixels = clip.frames.reduce((sum, frame) => sum + frame.w * frame.h, 0);
     const k = stripScale(framePixels);
     const scaled = clip.frames.map((frame) => scaleNearest(flatten(frame, REVIEW_BG), k));
     strips.set(name, imgToPng(frameStrip(scaled, REVIEW_BG)));
+    scales.set(name, k);
   }
   return {
     rest: imgToPng(scaleNearest(flatten(baked.rest, REVIEW_BG), REST_SCALE)),
     strips,
+    scales,
   };
 }

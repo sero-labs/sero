@@ -45,6 +45,13 @@ export function shade(c: Color, amount: number): Color {
   return darkened(c, -amount);
 }
 
+/** The largest canvas the engine will allocate (pixels). Nothing legitimate
+ * comes near it — the biggest supersampled canvas is ~400k px and the widest
+ * review strip ~8M — while a mistaken dimension (a 1x value scaled twice, an
+ * ss value squared) blows past it immediately. Every pixel buffer in the
+ * engine is an Img, so this one throw bounds them all. */
+export const MAX_IMG_PIXELS = 1 << 24;
+
 export class Img {
   readonly w: number;
   readonly h: number;
@@ -53,6 +60,11 @@ export class Img {
   constructor(w: number, h: number) {
     this.w = Math.max(1, Math.ceil(w));
     this.h = Math.max(1, Math.ceil(h));
+    if (this.w * this.h > MAX_IMG_PIXELS) {
+      throw new Error(
+        `Img: refusing a ${this.w} x ${this.h} canvas — beyond any legitimate bake or review image.`,
+      );
+    }
     this.data = new Float32Array(this.w * this.h * 4);
   }
 

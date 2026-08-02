@@ -17,6 +17,8 @@ import {
   ASYNC_FLOOD_SOURCE,
   BAD_CONTRACT_SOURCE,
   CLEAN_SOURCE,
+  GIANT_PAINT_SOURCE,
+  NEW_DATE_SOURCE,
   HANGING_BUILD_SOURCE,
   HANGING_PAINTER_SOURCE,
   MEMORY_HOG_SOURCE,
@@ -118,5 +120,19 @@ describe('runPuppetWorker', () => {
     if (result.ok) throw new Error('a random character baked');
     expect(result.stage).toBe('load');
     expect(result.issues[0].text).toContain('deterministic');
+  });
+
+  it('every clock spelling is gone, not just Date.now', async () => {
+    const result = await run(NEW_DATE_SOURCE);
+    if (result.ok) throw new Error('a clock-reading character baked');
+    expect(result.stage).toBe('load');
+    expect(result.issues[0].text).toContain('deterministic');
+  });
+
+  it('an absurd Paint canvas dies at the engine allocation cap', async () => {
+    const result = await run(GIANT_PAINT_SOURCE);
+    if (result.ok) throw new Error('a giant paint baked');
+    expect(result.stage).toBe('load');
+    expect(result.issues[0].text).toContain('refusing');
   });
 });
