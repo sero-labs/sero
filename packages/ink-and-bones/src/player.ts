@@ -35,7 +35,9 @@ export class ClipPlayer {
   advance(dt: number): number {
     const n = this.clip.frames.length;
     const spf = 1 / this.clip.fps;
-    if (!this.playing || n === 0 || !(spf > 0) || !(dt > 0)) return this.frame;
+    if (!this.playing || n === 0 || !(spf > 0) || !Number.isFinite(dt) || dt <= 0) {
+      return this.frame;
+    }
     this.accum += dt;
     const steps = Math.floor(this.accum / spf);
     if (steps <= 0) return this.frame;

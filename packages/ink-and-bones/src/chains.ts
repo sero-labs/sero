@@ -25,6 +25,21 @@ interface ChainState {
   prev: Vec[];
 }
 
+/** The one timing law, enforced at the engine's own mouth so no exported
+ * entry point can bypass it: a finite positive cycle, and a bakeFps in
+ * (0, SIM_FPS] — above the integrator's rate, bake frames share simulation
+ * steps and chain samples silently vanish. */
+export function assertClipTiming(clip: Motion): void {
+  if (!Number.isFinite(clip.cycle) || clip.cycle <= 0) {
+    throw new Error(`bake: clip '${clip.name}' needs a finite positive cycle, got ${clip.cycle}`);
+  }
+  if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > SIM_FPS) {
+    throw new Error(
+      `bake: clip '${clip.name}' needs a bakeFps in (0, ${SIM_FPS}], got ${clip.bakeFps}`,
+    );
+  }
+}
+
 /** Simulate every chain through the clip: warm-up first, then one recorded
  * pass. Returns chain name -> per-bake-frame link positions. */
 export function simulateChains(
@@ -32,6 +47,7 @@ export function simulateChains(
   clip: Motion,
   nFrames: number,
 ): Map<string, Vec[][]> {
+  assertClipTiming(clip);
   const defs = skel.chains;
   const out = new Map<string, Vec[][]>();
   if (defs.size === 0) return out;

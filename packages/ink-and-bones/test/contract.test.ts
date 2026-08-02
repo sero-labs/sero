@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BakedClip } from '../src/index';
-import { ClipPlayer, Img, auditClip, bakeClip, hex } from '../src/index';
+import { ClipPlayer, Img, Motion, Skeleton, auditClip, bake, bakeClip, hex, simulateChains } from '../src/index';
 import { buildCharacter } from '../example/scout';
 
 const spec = buildCharacter();
@@ -29,11 +29,33 @@ describe('malformed timing', () => {
     }
   });
 
+  it('the low-level entry points enforce the same law — no bypass', () => {
+    const clip = spec.clips.get('run')!;
+    const saved = clip.bakeFps;
+    clip.bakeFps = 120;
+    try {
+      expect(() =>
+        bake(spec.skeleton, spec.parts, clip, spec.canvasW, spec.canvasH, spec.grade),
+      ).toThrow(/bakeFps/);
+      expect(() => simulateChains(spec.skeleton, clip, 9)).toThrow(/bakeFps/);
+    } finally {
+      clip.bakeFps = saved;
+    }
+    const badCycle = new Motion('t', Number.NaN);
+    expect(() => simulateChains(new Skeleton(), badCycle, 1)).toThrow(/cycle/);
+  });
+
   it('a bad fps cannot hang the player', () => {
     const broken: BakedClip = { name: 't', frames: [new Img(1, 1), new Img(1, 1)], fps: -1, loop: true };
     const p = new ClipPlayer(broken);
     expect(p.advance(1)).toBe(0); // returns, does not spin
     expect(p.advance(Number.NaN)).toBe(0);
+  });
+
+  it('an infinite dt cannot poison the frame counter', () => {
+    const p = new ClipPlayer({ name: 't', frames: [new Img(1, 1), new Img(1, 1)], fps: 10, loop: true });
+    expect(p.advance(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(p.advance(0.1)).toBe(1); // still advances normally afterwards
   });
 });
 

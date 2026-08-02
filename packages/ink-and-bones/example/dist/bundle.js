@@ -554,7 +554,18 @@
   // ../src/chains.ts
   var SIM_FPS = 60;
   var WARM_CYCLES = 16;
+  function assertClipTiming(clip) {
+    if (!Number.isFinite(clip.cycle) || clip.cycle <= 0) {
+      throw new Error(`bake: clip '${clip.name}' needs a finite positive cycle, got ${clip.cycle}`);
+    }
+    if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > SIM_FPS) {
+      throw new Error(
+        `bake: clip '${clip.name}' needs a bakeFps in (0, ${SIM_FPS}], got ${clip.bakeFps}`
+      );
+    }
+  }
   function simulateChains(skel, clip, nFrames) {
+    assertClipTiming(clip);
     const defs = skel.chains;
     const out = /* @__PURE__ */ new Map();
     if (defs.size === 0) return out;
@@ -654,6 +665,7 @@
   var SS = 4;
   var COVER = 0.42;
   function bake(skel, parts, clip, w1x, h1x, cfg, shadow) {
+    assertClipTiming(clip);
     const n = Math.max(1, Math.round(clip.cycle * clip.bakeFps));
     const chainFrames = simulateChains(skel, clip, n);
     const out = [];
@@ -946,14 +958,7 @@
     if (clip === void 0) {
       throw new Error(`bake: character has no clip '${name}'`);
     }
-    if (!Number.isFinite(clip.cycle) || clip.cycle <= 0) {
-      throw new Error(`bake: clip '${name}' needs a finite positive cycle, got ${clip.cycle}`);
-    }
-    if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > SIM_FPS) {
-      throw new Error(
-        `bake: clip '${name}' needs a bakeFps in (0, ${SIM_FPS}], got ${clip.bakeFps}`
-      );
-    }
+    assertClipTiming(clip);
     if (clip.mirrorOf !== "") {
       const src = bakeClip(spec, clip.mirrorOf);
       return {
@@ -1005,7 +1010,9 @@
     advance(dt) {
       const n = this.clip.frames.length;
       const spf = 1 / this.clip.fps;
-      if (!this.playing || n === 0 || !(spf > 0) || !(dt > 0)) return this.frame;
+      if (!this.playing || n === 0 || !(spf > 0) || !Number.isFinite(dt) || dt <= 0) {
+        return this.frame;
+      }
       this.accum += dt;
       const steps = Math.floor(this.accum / spf);
       if (steps <= 0) return this.frame;

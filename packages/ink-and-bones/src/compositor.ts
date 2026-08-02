@@ -9,7 +9,7 @@
  *   4. one 1px INK silhouette, LAST
  */
 
-import { settleChains, simulateChains } from './chains';
+import { assertClipTiming, settleChains, simulateChains } from './chains';
 import type { Color } from './img';
 import { Img, sameColor } from './img';
 import { Paint } from './paint';
@@ -64,6 +64,7 @@ export function bake(
   cfg: GradeConfig,
   shadow?: Shadow,
 ): Img[] {
+  assertClipTiming(clip);
   const n = Math.max(1, Math.round(clip.cycle * clip.bakeFps));
   const chainFrames = simulateChains(skel, clip, n);
   const out: Img[] = [];

@@ -43,7 +43,7 @@ export { Motion } from './motion';
 // bake
 export type { ChainPart, GradeConfig, Part, RigidPart, Shadow } from './compositor';
 export { SS, bake, despeckle, renderPose, renderRest } from './compositor';
-export { settleChains, simulateChains } from './chains';
+export { assertClipTiming, settleChains, simulateChains } from './chains';
 
 // the character contract
 export type { BakedClip, CharacterSpec } from './spec';
