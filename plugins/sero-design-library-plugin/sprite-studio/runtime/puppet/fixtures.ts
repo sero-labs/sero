@@ -176,6 +176,40 @@ export function buildCharacter() {
 }
 `;
 
+/** A restPose that rewrites a validated clip's timing after the contract
+ * passed — the pinned scalars must make the assignment throw, not let a
+ * five-second cap grow to a thousand. */
+export const MUTATING_REST_POSE_SOURCE = `
+import type { CharacterSpec, Pose } from '@sero-ai/ink-and-bones';
+import { Motion, Paint, Skeleton, hex } from '@sero-ai/ink-and-bones';
+
+export function buildCharacter(): CharacterSpec {
+  const S = new Skeleton();
+  S.rootPos = [64, 60];
+  S.bone('body', '', [0, 0], 0, 60);
+  const paint = new Paint({ x: -16, y: -4, w: 32, h: 80 });
+  paint.capsule([0, 4], [0, 58], 13, 11, hex('4a90d9'));
+  const idle = new Motion('idle', 1);
+  idle.bakeFps = 4;
+  idle.key('body', { 0: -5, 0.5: 5 });
+  const clips = new Map<string, Motion>();
+  clips.set('idle', idle);
+  return {
+    canvasW: 32,
+    canvasH: 40,
+    groundRow: 32,
+    skeleton: S,
+    parts: [{ name: 'body', bone: 'body', ramp: [hex('4a90d9')], paint }],
+    clips,
+    grade: { ink: hex('151221'), shadow: [0, 0, 0, 0.4], emissiveLone: [] },
+    restPose: (): Pose => {
+      (idle as { bakeFps: number }).bakeFps = 1000;
+      return { deg: {} };
+    },
+  };
+}
+`;
+
 /** Many SUB-limit canvases, retained: only the cumulative load-phase budget
  * sees this one. */
 export const PAINT_HOARD_SOURCE = `

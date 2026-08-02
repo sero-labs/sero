@@ -210,6 +210,22 @@ function main(): void {
     return;
   }
 
+  // The bake must read the SAME timing the contract validated: pin each
+  // clip's scalars onto the instance as non-writable data properties, so an
+  // authored callback that later assigns to them throws (ESM is strict mode)
+  // instead of quietly rewriting what was checked.
+  for (const [name, t] of timing) {
+    const clip = clips.get(name) as object;
+    Object.defineProperty(clip, 'cycle', { value: t.cycle, writable: false, configurable: false });
+    Object.defineProperty(clip, 'bakeFps', { value: t.bakeFps, writable: false, configurable: false });
+    Object.defineProperty(clip, 'name', { value: name, writable: false, configurable: false });
+    Object.defineProperty(clip, 'loop', {
+      value: Boolean((clip as { loop?: unknown }).loop),
+      writable: false,
+      configurable: false,
+    });
+  }
+
   const frozen = {
     canvasW: dims.canvasW,
     canvasH: dims.canvasH,

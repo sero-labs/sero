@@ -24,6 +24,7 @@ import {
   HANGING_PAINTER_SOURCE,
   MEMORY_HOG_SOURCE,
   MISSING_EXPORT_SOURCE,
+  MUTATING_REST_POSE_SOURCE,
   RANDOM_SOURCE,
   THROWING_SOURCE,
 } from './fixtures';
@@ -135,6 +136,13 @@ describe('runPuppetWorker', () => {
     if (result.ok) throw new Error('a giant paint baked');
     expect(result.stage).toBe('load');
     expect(result.issues[0].text).toContain('refusing');
+  });
+
+  it('rewriting validated timing from restPose throws — the pins hold', async () => {
+    const result = await run(MUTATING_REST_POSE_SOURCE);
+    if (result.ok) throw new Error('a timing-mutating character baked');
+    expect(result.stage).toBe('load');
+    expect(result.issues[0].text).toContain('read only');
   });
 
   it('a hoard of sub-limit canvases dies at the load-phase budget', async () => {
