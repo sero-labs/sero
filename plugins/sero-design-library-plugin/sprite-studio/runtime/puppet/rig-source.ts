@@ -167,37 +167,57 @@ function emitWalk(rig: Rig): string | null {
     `  walk.bakeFps = 15;`,
     `  walk.wobbleBudget = 4.5;`,
   ];
+  // A three-quarter reference gives a rig whose two feet stand a long way
+  // apart sideways — the knight's are 26 px apart on a 112 px canvas. Left in
+  // their own lanes the legs slide back and forth past each other without ever
+  // meeting, which reads as a shuffle however long the stride is. The lanes are
+  // therefore drawn part of the way toward each other, so the legs pass close
+  // and the step reads, without pulling the far leg so far off its own hip that
+  // it leans.
+  const near = by.get('legNearLower')!.tip;
+  const far = by.get('legFarLower')!.tip;
+  const middle = ((near[0] + far[0]) / 2) * SS;
+  const CLOSE = 0.6;
   for (const side of ['Near', 'Far'] as const) {
     const upper = by.get(`leg${side}Upper`)!;
     const lower = by.get(`leg${side}Lower`)!;
     const foot = by.get(`foot${side}`)!;
-    // The ankle is where the leg chain ends, so the path is drawn around where
-    // this leg's own ankle already stands — which keeps the stance the
-    // reference was drawn with instead of putting both feet under the pelvis.
-    const ax = lower.tip[0] * SS;
+    const ax = lower.tip[0] * SS + (middle - lower.tip[0] * SS) * CLOSE;
+    // Each foot keeps its OWN ground height: the near boot was drawn lower than
+    // the far one, and levelling them would lift one off the floor.
     const ay = lower.tip[1] * SS;
     const reach = upper.length + lower.length;
-    const stride = reach * 0.34;
-    const lift = reach * 0.14;
+    const stride = reach * 0.44;
+    // Mid-swing puts the ankle under its own hip and well up, which is what
+    // folds the knee. A foot that only slides forward keeps a straight leg, and
+    // a straight leg is the shuffle.
+    const hipX = upper.origin[0] * SS;
+    const lift = reach * 0.2;
     const deg = foot.worldDeg;
     const at = (fraction: number): string => num(((fraction + (side === 'Far' ? 0.5 : 0)) % 1) * CYCLE);
     const step = (x: number, y: number, roll: number): string =>
-      `[${num(ax + x)}, ${num(ay + y)}, ${num(deg + roll)}]`;
+      `[${num(x)}, ${num(ay + y)}, ${num(deg + roll)}]`;
     lines.push(
       `  walk.plant('leg${side}Upper', 'leg${side}Lower', 'foot${side}', {`,
-      `    ${at(0)}: ${step(stride / 2, 0, -6)},`,
-      `    ${at(0.6)}: ${step(-stride / 2, 0, 8)},`,
-      `    ${at(0.75)}: ${step(-stride / 6, -lift, 2)},`,
-      `    ${at(0.9)}: ${step(stride / 3, -lift * 0.55, -4)},`,
+      // Contact: the foot is still and the body travels over it, which in an
+      // in-place clip means a straight slide backwards at a constant rate.
+      `    ${at(0)}: ${step(ax + stride / 2, 0, -8)},`,
+      `    ${at(0.25)}: ${step(ax, 0, 0)},`,
+      `    ${at(0.5)}: ${step(ax - stride / 2, 0, 12)},`,
+      // Swing: fold up under the hip, then reach out to the next heel strike.
+      `    ${at(0.66)}: ${step(hipX, -lift, 6)},`,
+      `    ${at(0.83)}: ${step(ax + stride / 2.6, -lift * 0.35, -6)},`,
       `  }, 'linear');`,
     );
   }
   lines.push(
-    `  walk.key('root_y', { 0: 0, ${num(CYCLE / 4)}: 3, ${num(CYCLE / 2)}: 0, ${num((CYCLE * 3) / 4)}: 3 });`,
-    `  walk.key('spine', { 0: -2, ${num(CYCLE / 2)}: 2 });`,
-    `  walk.key('head', { 0: 1.5, ${num(CYCLE / 2)}: -1.5 });`,
+    // The body drops as a foot takes the weight and rises as it passes over —
+    // twice a cycle, and it is most of what makes a walk feel like weight.
+    `  walk.key('root_y', { 0: 5, ${num(CYCLE / 4)}: -2, ${num(CYCLE / 2)}: 5, ${num((CYCLE * 3) / 4)}: -2 });`,
+    `  walk.key('spine', { 0: -2.5, ${num(CYCLE / 2)}: 2.5 });`,
+    `  walk.key('head', { 0: 2, ${num(CYCLE / 2)}: -2 });`,
     `  walk.key('armNearUpper', { 0: 3, ${num(CYCLE / 2)}: -3 });`,
-    `  walk.key('armFarUpper', { 0: -2, ${num(CYCLE / 2)}: 2 });`,
+    `  walk.key('armFarUpper', { 0: -2.5, ${num(CYCLE / 2)}: 2.5 });`,
   );
   return lines.join('\n');
 }
