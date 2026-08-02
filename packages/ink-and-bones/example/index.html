@@ -51,22 +51,18 @@
 </head>
 <body>
   <h1>Ink &amp; Bones — every frame drawn by code</h1>
-  <div class="muted">The @sero-ai/ink-and-bones engine playing its reference puppet, Scout.</div>
+  <div class="muted">The @sero-ai/ink-and-bones engine playing its reference puppets.</div>
+  <div class="row" id="cast"></div>
+  <div class="muted" id="blurb"></div>
+  <div class="row" id="clips"></div>
   <div class="row">
-    <button data-clip="idle">idle</button>
-    <button data-clip="run">run</button>
-    <button data-clip="run_west">run west</button>
-    <button data-clip="jump">jump</button>
     <button id="play">Pause</button>
     <label><input type="checkbox" id="bones" /> bones</label>
-    <button id="theme">Theme: dusk</button>
+    <button id="theme">Theme</button>
   </div>
   <canvas id="stage"></canvas>
   <div class="muted" id="counter"></div>
-  <div class="row">
-    <label>stride <input type="range" id="stride" min="40" max="130" value="88" /> <span id="stride-out">88</span></label>
-    <label>scarf wind <input type="range" id="wind" min="0" max="12000" value="2200" /> <span id="wind-out">2200</span></label>
-  </div>
+  <div class="row" id="dials"></div>
   <div class="muted">Move a slider or flip the theme: the character rebakes from source. Edits are diffs.</div>
   <canvas id="strip"></canvas>
   <div class="muted" id="status"></div>

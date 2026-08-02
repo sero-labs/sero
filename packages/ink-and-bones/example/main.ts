@@ -1,25 +1,94 @@
 /**
- * The example page: bake Scout's clips in the browser, play them on a
- * pixel-scaled canvas, and expose the dials that prove the point — a stride,
- * a wind, a whole theme — each a one-line change followed by a deterministic
- * rebake. This file is also the package's consumer smoke test: it only uses
- * the public API (plus the skeleton overlay's read access).
+ * The example page: bake a character's clips in the browser, play them on a
+ * pixel-scaled canvas, and expose the dials that prove the point — a stride, a
+ * wind, a whole theme — each a one-line change followed by a deterministic
+ * rebake. This file is also the package's consumer smoke test: it only uses the
+ * public API (plus the skeleton overlay's read access).
+ *
+ * It carries a CAST rather than one character on purpose. Scout and Rivet are
+ * built from opposite materials — tapered capsules and cloth against flat
+ * polygon panels and a stiff rod — and a page that can only show one of them
+ * demonstrates a character instead of an engine. Nothing below knows anything
+ * about either: a cast member is a canvas size, some themes, some named dials
+ * and a build function, and the clip buttons are read off whatever it returns.
  */
 
 import type { BakedClip, CharacterSpec, Img } from '../src/index';
 import { ClipPlayer, SS, auditCharacter, bakeClip } from '../src/index';
-import type { Dials, Theme } from './scout';
-import { CANVAS_H, CANVAS_W, DEFAULT_DIALS, DUSK, EMBER, buildCharacter } from './scout';
+import * as scout from './scout';
+import * as rivet from './rivet';
 
 const SCALE = 5;
 
-let character: CharacterSpec = buildCharacter();
-let theme: Theme = DUSK;
-let dials: Dials = { ...DEFAULT_DIALS };
-const baked = new Map<string, BakedClip & { bakeMs: number }>();
-const player = new ClipPlayer(getBaked('run'));
+/** One number a slider drives. `sign` is -1 for the winds, which read as a
+ * positive strength and are applied westward. */
+interface DialSpec {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  sign: 1 | -1;
+}
 
-let current = 'run';
+interface CastMember {
+  id: string;
+  name: string;
+  blurb: string;
+  canvasW: number;
+  canvasH: number;
+  themes: { label: string; value: unknown }[];
+  dials: DialSpec[];
+  defaults: Record<string, number>;
+  build(theme: unknown, dials: Record<string, number>): CharacterSpec;
+}
+
+const CAST: CastMember[] = [
+  {
+    id: 'scout',
+    name: 'Scout',
+    blurb: 'Tapered capsules, a verlet scarf, a running gait.',
+    canvasW: scout.CANVAS_W,
+    canvasH: scout.CANVAS_H,
+    themes: [
+      { label: 'dusk', value: scout.DUSK },
+      { label: 'ember', value: scout.EMBER },
+    ],
+    dials: [
+      { key: 'stride', label: 'stride', min: 40, max: 130, sign: 1 },
+      { key: 'runWind', label: 'scarf wind', min: 0, max: 12000, sign: -1 },
+    ],
+    defaults: { ...scout.DEFAULT_DIALS },
+    build: (theme, dials) =>
+      scout.buildCharacter(theme as scout.Theme, dials as unknown as scout.Dials),
+  },
+  {
+    id: 'rivet',
+    name: 'Rivet',
+    blurb: 'Flat polygon panels, a stiff antenna, a plod — and one clip that does not loop.',
+    canvasW: rivet.CANVAS_W,
+    canvasH: rivet.CANVAS_H,
+    themes: [
+      { label: 'rust', value: rivet.RUST },
+      { label: 'moss', value: rivet.MOSS },
+    ],
+    dials: [
+      { key: 'stride', label: 'stride', min: 20, max: 90, sign: 1 },
+      { key: 'antennaWind', label: 'antenna wind', min: 0, max: 3000, sign: -1 },
+    ],
+    defaults: { ...rivet.DEFAULT_DIALS },
+    build: (theme, dials) =>
+      rivet.buildCharacter(theme as rivet.Finish, dials as unknown as rivet.Dials),
+  },
+];
+
+let cast = CAST[0];
+let themeIndex = 0;
+let dials: Record<string, number> = { ...cast.defaults };
+let character: CharacterSpec = cast.build(cast.themes[0].value, dials);
+const baked = new Map<string, BakedClip & { bakeMs: number }>();
+let current = [...character.clips.keys()][0];
+const player = new ClipPlayer(getBaked(current));
+
 let showBones = false;
 let lastTick = 0;
 
@@ -34,7 +103,7 @@ function getBaked(name: string): BakedClip & { bakeMs: number } {
 }
 
 function rebuild(): void {
-  character = buildCharacter(theme, dials);
+  character = cast.build(cast.themes[themeIndex].value, dials);
   baked.clear();
   player.set(getBaked(current));
   renderStrip();
@@ -56,9 +125,9 @@ function drawBones(ctx: CanvasRenderingContext2D): void {
   const src = clip.mirrorOf !== '' ? character.clips.get(clip.mirrorOf)! : clip;
   const pose = src.poseAt(player.frame / src.bakeFps, character.skeleton);
   const xfs = character.skeleton.transforms(pose);
-  const k = SCALE / SS;
+  const k = SCALE / (character.superSample ?? SS);
   const flip = clip.mirrorOf !== '';
-  const fx = (x: number): number => (flip ? CANVAS_W * SCALE - x * k : x * k);
+  const fx = (x: number): number => (flip ? cast.canvasW * SCALE - x * k : x * k);
   ctx.strokeStyle = 'rgba(120, 255, 200, 0.9)';
   ctx.fillStyle = 'rgba(120, 255, 200, 0.9)';
   ctx.lineWidth = 1;
@@ -84,21 +153,21 @@ function renderFrame(): void {
   const entry = getBaked(current);
   drawImg(ctx, entry.frames[player.frame], SCALE);
   if (showBones) drawBones(ctx);
-  const counter = document.getElementById('counter')!;
-  counter.textContent = `${player.frame + 1} / ${entry.frames.length} @ ${entry.fps} fps`;
+  document.getElementById('counter')!.textContent =
+    `${player.frame + 1} / ${entry.frames.length} @ ${entry.fps} fps`;
 }
 
 function renderStrip(): void {
   const entry = getBaked(current);
   const strip = document.getElementById('strip') as HTMLCanvasElement;
   const s = 2;
-  strip.width = entry.frames.length * (CANVAS_W * s + 2);
-  strip.height = CANVAS_H * s;
+  strip.width = entry.frames.length * (cast.canvasW * s + 2);
+  strip.height = cast.canvasH * s;
   const ctx = strip.getContext('2d')!;
   ctx.clearRect(0, 0, strip.width, strip.height);
   entry.frames.forEach((f, i) => {
     ctx.save();
-    ctx.translate(i * (CANVAS_W * s + 2), 0);
+    ctx.translate(i * (cast.canvasW * s + 2), 0);
     drawImg(ctx, f, s);
     ctx.restore();
   });
@@ -151,9 +220,74 @@ function selectClip(name: string): void {
   updateStatus();
 }
 
+/** The clip buttons come from the character, so a new clip in a source file
+ * appears here with no page edit. */
+function buildClipButtons(): void {
+  const row = document.getElementById('clips')!;
+  row.textContent = '';
+  for (const name of character.clips.keys()) {
+    const b = document.createElement('button');
+    b.dataset.clip = name;
+    b.textContent = name.replace(/_/g, ' ');
+    b.addEventListener('click', () => selectClip(name));
+    row.append(b);
+  }
+}
+
+/** The same for the dials: each cast member names its own. */
+function buildDialSliders(): void {
+  const row = document.getElementById('dials')!;
+  row.textContent = '';
+  for (const spec of cast.dials) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    const out = document.createElement('span');
+    input.type = 'range';
+    input.min = String(spec.min);
+    input.max = String(spec.max);
+    input.value = String(Math.abs(dials[spec.key]));
+    out.textContent = input.value;
+    input.addEventListener('change', () => {
+      dials[spec.key] = Number(input.value) * spec.sign;
+      out.textContent = input.value;
+      rebuild();
+      renderFrame();
+    });
+    label.append(`${spec.label} `, input, ' ', out);
+    row.append(label);
+  }
+}
+
+function selectCharacter(member: CastMember): void {
+  cast = member;
+  themeIndex = 0;
+  dials = { ...member.defaults };
+  baked.clear();
+  character = member.build(member.themes[0].value, dials);
+  current = [...character.clips.keys()][0];
+  const stage = document.getElementById('stage') as HTMLCanvasElement;
+  stage.width = member.canvasW * SCALE;
+  stage.height = member.canvasH * SCALE;
+  document.getElementById('blurb')!.textContent = member.blurb;
+  document.getElementById('theme')!.textContent = `Theme: ${member.themes[0].label}`;
+  document.getElementById('audit')!.textContent = '';
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-cast]')) {
+    b.classList.toggle('on', b.dataset.cast === member.id);
+  }
+  buildClipButtons();
+  buildDialSliders();
+  player.set(getBaked(current));
+  selectClip(current);
+}
+
 function wire(): void {
-  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-clip]')) {
-    b.addEventListener('click', () => selectClip(b.dataset.clip!));
+  const row = document.getElementById('cast')!;
+  for (const member of CAST) {
+    const b = document.createElement('button');
+    b.dataset.cast = member.id;
+    b.textContent = member.name;
+    b.addEventListener('click', () => selectCharacter(member));
+    row.append(b);
   }
   const playBtn = document.getElementById('play')!;
   playBtn.addEventListener('click', () => {
@@ -165,24 +299,10 @@ function wire(): void {
     showBones = bonesBox.checked;
     renderFrame();
   });
-  const stride = document.getElementById('stride') as HTMLInputElement;
-  stride.addEventListener('change', () => {
-    dials.stride = Number(stride.value);
-    document.getElementById('stride-out')!.textContent = stride.value;
-    rebuild();
-    renderFrame();
-  });
-  const wind = document.getElementById('wind') as HTMLInputElement;
-  wind.addEventListener('change', () => {
-    dials.runWind = -Number(wind.value);
-    document.getElementById('wind-out')!.textContent = wind.value;
-    rebuild();
-    renderFrame();
-  });
   const themeBtn = document.getElementById('theme')!;
   themeBtn.addEventListener('click', () => {
-    theme = theme === DUSK ? EMBER : DUSK;
-    themeBtn.textContent = theme === DUSK ? 'Theme: dusk' : 'Theme: ember';
+    themeIndex = (themeIndex + 1) % cast.themes.length;
+    themeBtn.textContent = `Theme: ${cast.themes[themeIndex].label}`;
     rebuild();
     renderFrame();
   });
@@ -190,11 +310,8 @@ function wire(): void {
 }
 
 function start(): void {
-  const stage = document.getElementById('stage') as HTMLCanvasElement;
-  stage.width = CANVAS_W * SCALE;
-  stage.height = CANVAS_H * SCALE;
   wire();
-  selectClip(current);
+  selectCharacter(CAST[0]);
   lastTick = performance.now();
   requestAnimationFrame(tick);
 }

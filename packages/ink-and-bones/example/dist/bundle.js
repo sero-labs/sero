@@ -1654,7 +1654,7 @@
   var EYE_CORE = hex("eafffb");
   var SHADOW = [0.03, 0.02, 0.1, 0.45];
   var DEFAULT_DIALS = { stride: 88, runWind: -2200 };
-  function buildCharacter(theme2 = DUSK, dials2 = DEFAULT_DIALS) {
+  function buildCharacter(theme = DUSK, dials2 = DEFAULT_DIALS) {
     const S = new Skeleton();
     S.rootPos = [128, 222];
     S.bone("pelvis", "", [0, 0], 0, 0);
@@ -1672,33 +1672,33 @@
     S.bone("upper_arm_far", "chest", [3, 30], 190, 30);
     S.bone("forearm_far", "upper_arm_far", S.tip(), -6, 26);
     S.chain("scarf", "chest", [7, 26], 7, 11, [-850, 0], 3e3, 0.975, 0.15, 0.22, [0.45, -1]);
-    const suit = [theme2.suitLight, theme2.suit, theme2.suitDark];
+    const suit = [theme.suitLight, theme.suit, theme.suitDark];
     const boots = [BOOT_LIGHT, BOOT, BOOT_DARK];
-    const scarfRamp = [theme2.scarfLight, theme2.scarf, theme2.scarfDark];
+    const scarfRamp = [theme.scarfLight, theme.scarf, theme.scarfDark];
     const parts = [
       {
         name: "scarf",
         chain: "scarf",
         ramp: scarfRamp,
         painter: (p, pts) => {
-          p.ribbon(pts, 7, 2.8, theme2.scarf);
-          p.tintToward([-0.4, -1], theme2.scarfLight, 2.2);
-          p.tintToward([0.4, 1], theme2.scarfDark, 2.2);
+          p.ribbon(pts, 7, 2.8, theme.scarf);
+          p.tintToward([-0.4, -1], theme.scarfLight, 2.2);
+          p.tintToward([0.4, 1], theme.scarfDark, 2.2);
         }
       },
-      { name: "upper_arm_far", bone: "upper_arm_far", ramp: suit, paint: upperArm(theme2, true) },
-      { name: "forearm_far", bone: "forearm_far", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme2, true) },
-      { name: "thigh_far", bone: "thigh_far", ramp: suit, paint: thigh(theme2, true) },
-      { name: "shin_far", bone: "shin_far", ramp: [...suit, ...boots], paint: shin(theme2, true) },
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: suit, paint: upperArm(theme, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: suit, paint: thigh(theme, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...suit, ...boots], paint: shin(theme, true) },
       { name: "foot_far", bone: "foot_far", ramp: boots, paint: foot(true) },
-      { name: "torso", bone: "spine", ramp: [...suit, BOOT_DARK], paint: torso(theme2) },
-      { name: "chest", bone: "chest", ramp: suit, paint: chest(theme2) },
-      { name: "head", bone: "head", ramp: [...suit, SKIN, SKIN_SHADE, EYE, EYE_CORE], paint: head(theme2) },
-      { name: "thigh_near", bone: "thigh_near", ramp: suit, paint: thigh(theme2, false) },
-      { name: "shin_near", bone: "shin_near", ramp: [...suit, ...boots], paint: shin(theme2, false) },
+      { name: "torso", bone: "spine", ramp: [...suit, BOOT_DARK], paint: torso(theme) },
+      { name: "chest", bone: "chest", ramp: suit, paint: chest(theme) },
+      { name: "head", bone: "head", ramp: [...suit, SKIN, SKIN_SHADE, EYE, EYE_CORE], paint: head(theme) },
+      { name: "thigh_near", bone: "thigh_near", ramp: suit, paint: thigh(theme, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...suit, ...boots], paint: shin(theme, false) },
       { name: "foot_near", bone: "foot_near", ramp: boots, paint: foot(false) },
-      { name: "upper_arm_near", bone: "upper_arm_near", ramp: suit, paint: upperArm(theme2, false) },
-      { name: "forearm_near", bone: "forearm_near", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme2, false) }
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: suit, paint: upperArm(theme, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme, false) }
     ];
     const clips = /* @__PURE__ */ new Map();
     clips.set("idle", idle(dials2));
@@ -1729,23 +1729,23 @@
       restPose
     };
   }
-  function thigh(theme2, far) {
+  function thigh(theme, far) {
     const p = new Paint({ x: -14, y: -6, w: 28, h: 52 });
-    p.capsule([0, 2], [0, 40], 10, 8, far ? theme2.suitDark : theme2.suit);
+    p.capsule([0, 2], [0, 40], 10, 8, far ? theme.suitDark : theme.suit);
     if (!far) {
-      p.tintToward([-1, -0.4], theme2.suitLight, 3.5);
-      p.tintToward([1, 0.4], theme2.suitDark, 3);
+      p.tintToward([-1, -0.4], theme.suitLight, 3.5);
+      p.tintToward([1, 0.4], theme.suitDark, 3);
     }
     p.occludeAbove(6, 8, 0.25);
     return p;
   }
-  function shin(theme2, far) {
+  function shin(theme, far) {
     const p = new Paint({ x: -12, y: -4, w: 24, h: 50 });
-    p.capsule([0, 0], [0, 26], 8, 6.5, far ? theme2.suitDark : theme2.suit);
+    p.capsule([0, 0], [0, 26], 8, 6.5, far ? theme.suitDark : theme.suit);
     p.capsule([0, 24], [0, 40], 7, 6, far ? BOOT_DARK : BOOT);
     if (!far) {
-      p.tintToward([-1, -0.4], theme2.suitLight, 2.5);
-      p.tintToward([1, 0.5], theme2.suitDark, 2.5);
+      p.tintToward([-1, -0.4], theme.suitLight, 2.5);
+      p.tintToward([1, 0.5], theme.suitDark, 2.5);
     }
     return p;
   }
@@ -1755,45 +1755,45 @@
     if (!far) p.tintToward([1, -0.3], BOOT_LIGHT, 2);
     return p;
   }
-  function torso(theme2) {
+  function torso(theme) {
     const p = new Paint({ x: -20, y: -8, w: 40, h: 58 });
-    p.capsule([0, 4], [0, 42], 11.5, 13, theme2.suit);
+    p.capsule([0, 4], [0, 42], 11.5, 13, theme.suit);
     p.capsule([-10, 9], [10, 9], 3.5, 3.5, BOOT_DARK);
-    p.tintToward([0.8, 0.5], theme2.suitLight, 3);
-    p.tintToward([-0.7, -0.5], theme2.suitDark, 3);
+    p.tintToward([0.8, 0.5], theme.suitLight, 3);
+    p.tintToward([-0.7, -0.5], theme.suitDark, 3);
     return p;
   }
-  function chest(theme2) {
+  function chest(theme) {
     const p = new Paint({ x: -20, y: -6, w: 40, h: 48 });
-    p.capsule([0, 0], [0, 34], 13, 10.5, theme2.suit);
-    p.tintToward([0.7, 0.7], theme2.suitLight, 4);
-    p.tintToward([-0.5, -0.8], theme2.suitDark, 3.5);
+    p.capsule([0, 0], [0, 34], 13, 10.5, theme.suit);
+    p.tintToward([0.7, 0.7], theme.suitLight, 4);
+    p.tintToward([-0.5, -0.8], theme.suitDark, 3.5);
     p.occludeAbove(4, 8, 0.2);
     return p;
   }
-  function head(theme2) {
+  function head(theme) {
     const p = new Paint({ x: -26, y: -4, w: 52, h: 52 });
-    p.disc([1, 25], 19, theme2.suit);
+    p.disc([1, 25], 19, theme.suit);
     p.disc([-9, 24], 11, SKIN);
     p.tintToward([-0.9, -0.4], SKIN_SHADE, 2.5);
     p.disc([-12, 27], 2.8, EYE);
     p.disc([-13, 28], 1.2, EYE_CORE);
-    p.tintToward([0.6, 0.8], theme2.suitLight, 3.5);
-    p.tintToward([0, -1], theme2.suitDark, 2.5);
+    p.tintToward([0.6, 0.8], theme.suitLight, 3.5);
+    p.tintToward([0, -1], theme.suitDark, 2.5);
     return p;
   }
-  function upperArm(theme2, far) {
+  function upperArm(theme, far) {
     const p = new Paint({ x: -11, y: -6, w: 22, h: 42 });
-    p.capsule([0, 0], [0, 30], 7, 6, far ? theme2.suitDark : theme2.suit);
-    if (!far) p.tintToward([-1, -0.3], theme2.suitLight, 2.5);
+    p.capsule([0, 0], [0, 30], 7, 6, far ? theme.suitDark : theme.suit);
+    if (!far) p.tintToward([-1, -0.3], theme.suitLight, 2.5);
     p.occludeAbove(4, 7, 0.25);
     return p;
   }
-  function forearm(theme2, far) {
+  function forearm(theme, far) {
     const p = new Paint({ x: -10, y: -4, w: 20, h: 40 });
-    p.capsule([0, 0], [0, 24], 6, 5, far ? theme2.suitDark : theme2.suit);
+    p.capsule([0, 0], [0, 24], 6, 5, far ? theme.suitDark : theme.suit);
     p.disc([0, 27], 5, far ? SKIN_SHADE : SKIN);
-    if (!far) p.tintToward([-1, -0.3], theme2.suitLight, 2);
+    if (!far) p.tintToward([-1, -0.3], theme.suitLight, 2);
     return p;
   }
   function idle(dials2) {
@@ -1870,14 +1870,327 @@
     return c;
   }
 
+  // rivet.ts
+  var CANVAS_W2 = 64;
+  var CANVAS_H2 = 80;
+  var GROUND_Y2 = 288;
+  var GROUND_ROW2 = 76;
+  var RUST = {
+    shellLight: hex("cfd6dd"),
+    shell: hex("8d99a6"),
+    shellDark: hex("4c5866"),
+    trimLight: hex("ffb45e"),
+    trim: hex("d97b2c"),
+    trimDark: hex("8a4715")
+  };
+  var MOSS = {
+    shellLight: hex("c8d6c4"),
+    shell: hex("7f9480"),
+    shellDark: hex("42544a"),
+    trimLight: hex("9be9ff"),
+    trim: hex("3fb8e0"),
+    trimDark: hex("1e6a8c")
+  };
+  var INK2 = hex("14161f");
+  var IRON_LIGHT = hex("8b95a4");
+  var IRON = hex("5c6673");
+  var IRON_DARK = hex("373f4d");
+  var OPTIC = hex("65f7c8");
+  var OPTIC_CORE = hex("e9fff8");
+  var SHADOW2 = [0.03, 0.03, 0.09, 0.45];
+  var DEFAULT_DIALS2 = { stride: 46, antennaWind: -520 };
+  function buildCharacter2(finish = RUST, dials2 = DEFAULT_DIALS2) {
+    const S = new Skeleton();
+    S.rootPos = [128, 196];
+    S.bone("pelvis", "", [0, 0], 0, 0);
+    S.bone("thigh_near", "pelvis", [17, 4], 0, 46);
+    S.bone("shin_near", "thigh_near", S.tip(), 0, 46);
+    S.bone("foot_near", "shin_near", S.tip(), 90, 16);
+    S.bone("thigh_far", "pelvis", [-17, 6], 0, 46);
+    S.bone("shin_far", "thigh_far", S.tip(), 0, 46);
+    S.bone("foot_far", "shin_far", S.tip(), 90, 16);
+    S.bone("spine", "pelvis", [0, -4], 178, 34);
+    S.bone("chest", "spine", S.tip(), 0, 44);
+    S.bone("head", "chest", S.tip(), 2, 54);
+    S.bone("upper_arm_near", "chest", [-30, 40], 186, 34);
+    S.bone("forearm_near", "upper_arm_near", S.tip(), -6, 30);
+    S.bone("upper_arm_far", "chest", [30, 38], 190, 34);
+    S.bone("forearm_far", "upper_arm_far", S.tip(), -4, 30);
+    S.chain("antenna", "head", [6, 52], 3, 9, [-260, 0], 300, 0.9, 0.5, 0.74, [0, 1]);
+    const shell = [finish.shellLight, finish.shell, finish.shellDark];
+    const iron = [IRON_LIGHT, IRON, IRON_DARK];
+    const trim = [finish.trimLight, finish.trim, finish.trimDark];
+    const parts = [
+      { name: "antenna", chain: "antenna", ramp: trim, painter: antenna(finish) },
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: iron, paint: upperArm2(finish, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...iron, ...shell], paint: forearm2(finish, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: iron, paint: thigh2(finish, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...iron, ...shell], paint: shin2(finish, true) },
+      { name: "foot_far", bone: "foot_far", ramp: [...iron, ...shell], paint: foot2(finish, true) },
+      { name: "hips", bone: "spine", ramp: [...iron, ...trim], paint: hips(finish) },
+      { name: "chest", bone: "chest", ramp: [...shell, ...iron, ...trim], paint: chest2(finish) },
+      { name: "head", bone: "head", ramp: [...shell, ...iron, OPTIC, OPTIC_CORE], paint: head2(finish) },
+      { name: "thigh_near", bone: "thigh_near", ramp: iron, paint: thigh2(finish, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...iron, ...shell], paint: shin2(finish, false) },
+      { name: "foot_near", bone: "foot_near", ramp: [...iron, ...shell], paint: foot2(finish, false) },
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: iron, paint: upperArm2(finish, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...iron, ...shell], paint: forearm2(finish, false) }
+    ];
+    const clips = /* @__PURE__ */ new Map();
+    clips.set("idle", idle2(dials2));
+    clips.set("walk", walk(dials2));
+    clips.set("startle", startle(dials2));
+    clips.set("walk_west", Motion.mirror("walk_west", "walk", clips.get("walk")));
+    const restPose = () => {
+      const pose = { deg: {} };
+      S.solveChain(pose, "thigh_near", "shin_near", [146, GROUND_Y2], 1, "foot_near", 90);
+      S.solveChain(pose, "thigh_far", "shin_far", [110, GROUND_Y2], 1, "foot_far", 88);
+      return pose;
+    };
+    return {
+      canvasW: CANVAS_W2,
+      canvasH: CANVAS_H2,
+      groundRow: GROUND_ROW2,
+      skeleton: S,
+      parts,
+      clips,
+      grade: { ink: INK2, shadow: SHADOW2, emissiveLone: [OPTIC, OPTIC_CORE] },
+      shadow: { x: 32, y: 78, rx: 14, ry: 2 },
+      restPose
+    };
+  }
+  function slab(p, y0, y1, w, bevel, c) {
+    p.polygon(
+      [
+        [-w + bevel, y0],
+        [w - bevel, y0],
+        [w, y0 + bevel],
+        [w, y1 - bevel],
+        [w - bevel, y1],
+        [-w + bevel, y1],
+        [-w, y1 - bevel],
+        [-w, y0 + bevel]
+      ],
+      c
+    );
+  }
+  function thigh2(finish, far) {
+    const p = new Paint({ x: -26, y: -8, w: 52, h: 64 });
+    slab(p, 2, 46, far ? 13 : 15, 4, far ? IRON_DARK : IRON);
+    if (!far) {
+      p.tintToward([-1, -0.3], IRON_LIGHT, 6);
+      p.tintToward([1, 0.3], IRON_DARK, 5);
+    }
+    p.disc([0, 3], 11, far ? IRON_DARK : IRON_LIGHT);
+    p.occludeAbove(5, 8, 0.25);
+    return p;
+  }
+  function shin2(finish, far) {
+    const p = new Paint({ x: -28, y: -8, w: 56, h: 64 });
+    slab(p, 0, 32, far ? 11 : 13, 3.5, far ? IRON_DARK : IRON);
+    slab(p, 32, 46, far ? 16 : 18, 4.5, far ? finish.shellDark : finish.shell);
+    if (!far) {
+      p.tintToward([-1, -0.3], IRON_LIGHT, 5);
+      p.tintToward([1, 0.4], IRON_DARK, 5);
+    }
+    p.disc([0, 1], 10, far ? finish.shellDark : finish.shell);
+    return p;
+  }
+  function foot2(finish, far) {
+    const p = new Paint({ x: -26, y: -16, w: 52, h: 44 });
+    slab(p, -6, 17, 14, 4, far ? finish.shellDark : finish.shell);
+    if (!far) p.tintToward([1, -0.3], finish.shell, 3);
+    return p;
+  }
+  function hips(finish) {
+    const p = new Paint({ x: -40, y: -10, w: 80, h: 60 });
+    slab(p, 0, 34, 17, 5, IRON);
+    slab(p, 8, 17, 19, 3, finish.trimDark);
+    slab(p, 11, 14, 20, 2, finish.trim);
+    p.tintToward([0.9, 0.4], IRON_LIGHT, 5);
+    p.tintToward([-0.9, -0.4], IRON_DARK, 4);
+    return p;
+  }
+  function chest2(finish) {
+    const p = new Paint({ x: -52, y: -12, w: 104, h: 76 });
+    p.polygon(
+      [
+        [-26, 40],
+        [26, 40],
+        [26, 26],
+        [21, 9],
+        [16, 0],
+        [-16, 0],
+        [-21, 9],
+        [-26, 26]
+      ],
+      finish.shell
+    );
+    p.polygon([[-36, 41], [-18, 45], [-13, 33], [-28, 28]], finish.shellDark);
+    p.polygon([[36, 41], [18, 45], [13, 33], [28, 28]], finish.shellDark);
+    slab(p, 13, 30, 15, 4, finish.shellDark);
+    slab(p, 16, 27, 10, 2.5, IRON_DARK);
+    for (const y of [18, 23]) p.polygon([[-9, y], [9, y], [9, y + 2.5], [-9, y + 2.5]], finish.trim);
+    p.tintToward([0.9, 0.5], finish.shellLight, 3);
+    p.tintToward([-0.8, -0.5], finish.shellDark, 3);
+    p.occludeAbove(4, 8, 0.2);
+    return p;
+  }
+  function head2(finish) {
+    const p = new Paint({ x: -44, y: -10, w: 88, h: 72 });
+    slab(p, -2, 18, 9, 2, IRON_DARK);
+    p.polygon(
+      [
+        [-26, 14],
+        [24, 14],
+        [30, 27],
+        [24, 50],
+        [10, 55],
+        [-18, 55],
+        [-32, 46],
+        [-33, 25]
+      ],
+      finish.shell
+    );
+    p.polygon([[-33, 29], [-4, 31], [-4, 42], [-33, 39]], IRON_DARK);
+    p.disc([-22, 35], 8, OPTIC);
+    p.disc([-25, 36], 3.5, OPTIC_CORE);
+    slab(p, 48, 58, 8, 2, IRON);
+    p.tintToward([0.8, 0.7], finish.shellLight, 3);
+    p.tintToward([0, -1], finish.shellDark, 2.5);
+    return p;
+  }
+  function upperArm2(finish, far) {
+    const p = new Paint({ x: -24, y: -8, w: 48, h: 52 });
+    slab(p, 0, 34, far ? 11 : 13, 3.5, far ? IRON_DARK : IRON);
+    p.disc([0, 1], 10, far ? IRON_DARK : finish.shellDark);
+    if (!far) p.tintToward([-1, -0.3], IRON_LIGHT, 4);
+    p.occludeAbove(4, 7, 0.25);
+    return p;
+  }
+  function forearm2(finish, far) {
+    const p = new Paint({ x: -24, y: -8, w: 48, h: 52 });
+    slab(p, 0, 22, far ? 10 : 12, 3.5, far ? IRON_DARK : IRON);
+    p.polygon([[-11, 22], [-3.5, 22], [-3.5, 34], [-11, 31]], far ? IRON_DARK : IRON_LIGHT);
+    p.polygon([[11, 22], [3.5, 22], [3.5, 34], [11, 31]], far ? IRON_DARK : IRON_LIGHT);
+    if (!far) p.tintToward([-1, -0.3], IRON_LIGHT, 4);
+    return p;
+  }
+  function antenna(finish) {
+    return (p, pts) => {
+      p.ribbon(pts, 9, 6, finish.trimDark);
+      p.tintToward([-1, -0.3], finish.trim, 1.5);
+      const tip = pts[pts.length - 1];
+      p.disc(tip, 8, finish.trim);
+      p.disc([tip[0] - 2, tip[1] - 2], 3.5, finish.trimLight);
+    };
+  }
+  function idle2(dials2) {
+    const c = new Motion("idle", 2);
+    c.bakeFps = 12;
+    c.wind = [dials2.antennaWind * 0.25, 0];
+    c.plant("thigh_near", "shin_near", "foot_near", { 0: [146, GROUND_Y2, 90] });
+    c.plant("thigh_far", "shin_far", "foot_far", { 0: [110, GROUND_Y2, 88] });
+    c.key("root_y", { 0: 0, 1: 2 });
+    c.key("spine", { 0: 0.8, 1: -0.8 });
+    c.key("chest", { 0: -1, 1: 1 });
+    c.key("head", { 0.2: -1.5, 1.2: 1.5 });
+    c.key("upper_arm_near", { 0: 1.5, 1: -1.5 });
+    c.key("forearm_near", { 0: -2, 1: 2 });
+    c.key("upper_arm_far", { 0: -1.5, 1: 1.5 });
+    c.key("forearm_far", { 0: 2, 1: -2 });
+    return c;
+  }
+  function walk(dials2) {
+    const c = new Motion("walk", 0.9);
+    c.bakeFps = 12;
+    c.wind = [dials2.antennaWind, 0];
+    c.wobbleBudget = 3;
+    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 16, 0, GROUND_Y2, 18, 0.68);
+    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 16, 0.5, GROUND_Y2, -18, 0.68);
+    c.key("root_y", { 0: 3, 0.225: -1, 0.45: 3, 0.675: -1 });
+    c.key("spine", { 0: -3, 0.45: 3 });
+    c.key("chest", { 0: 1.5, 0.45: -1.5 });
+    c.key("head", { 0: 2, 0.45: -2 });
+    c.key("upper_arm_near", { 0: -12, 0.45: 12 });
+    c.key("forearm_near", { 0: 8, 0.45: 14 });
+    c.key("upper_arm_far", { 0: 12, 0.45: -12 });
+    c.key("forearm_far", { 0: 14, 0.45: 8 });
+    return c;
+  }
+  function startle(dials2) {
+    const c = new Motion("startle", 1.1, false);
+    c.bakeFps = 15;
+    c.wobbleBudget = 3.5;
+    c.wind = [dials2.antennaWind * 1.1, 0];
+    c.plant("thigh_near", "shin_near", "foot_near", {
+      0: [146, GROUND_Y2, 90],
+      0.12: [149, GROUND_Y2, 90],
+      0.45: [143, GROUND_Y2, 90],
+      1.1: [146, GROUND_Y2, 90]
+    });
+    c.plant("thigh_far", "shin_far", "foot_far", {
+      0: [110, GROUND_Y2, 88],
+      0.12: [106, GROUND_Y2, 88],
+      0.45: [113, GROUND_Y2, 88],
+      1.1: [110, GROUND_Y2, 88]
+    });
+    c.key("root_y", { 0: 0, 0.12: -5, 0.4: 3, 0.7: -1, 1.1: 0 }, "outBack");
+    c.key("spine", { 0: 0, 0.12: 9, 0.4: -4, 0.7: 2, 1.1: 0 }, "outBack");
+    c.key("chest", { 0: 0, 0.12: 7, 0.4: -3, 1.1: 0 });
+    c.key("head", { 0: 0, 0.12: -9, 0.4: 5, 0.7: -2, 1.1: 0 });
+    c.key("upper_arm_near", { 0: 0, 0.12: -34, 0.4: 12, 0.7: -4, 1.1: 0 });
+    c.key("forearm_near", { 0: 0, 0.12: 42, 0.4: 10, 1.1: 0 });
+    c.key("upper_arm_far", { 0: 0, 0.12: -28, 0.4: 10, 0.7: -3, 1.1: 0 });
+    c.key("forearm_far", { 0: 0, 0.12: 38, 0.4: 8, 1.1: 0 });
+    return c;
+  }
+
   // main.ts
   var SCALE = 5;
-  var character = buildCharacter();
-  var theme = DUSK;
-  var dials = { ...DEFAULT_DIALS };
+  var CAST = [
+    {
+      id: "scout",
+      name: "Scout",
+      blurb: "Tapered capsules, a verlet scarf, a running gait.",
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      themes: [
+        { label: "dusk", value: DUSK },
+        { label: "ember", value: EMBER }
+      ],
+      dials: [
+        { key: "stride", label: "stride", min: 40, max: 130, sign: 1 },
+        { key: "runWind", label: "scarf wind", min: 0, max: 12e3, sign: -1 }
+      ],
+      defaults: { ...DEFAULT_DIALS },
+      build: (theme, dials2) => buildCharacter(theme, dials2)
+    },
+    {
+      id: "rivet",
+      name: "Rivet",
+      blurb: "Flat polygon panels, a stiff antenna, a plod \u2014 and one clip that does not loop.",
+      canvasW: CANVAS_W2,
+      canvasH: CANVAS_H2,
+      themes: [
+        { label: "rust", value: RUST },
+        { label: "moss", value: MOSS }
+      ],
+      dials: [
+        { key: "stride", label: "stride", min: 20, max: 90, sign: 1 },
+        { key: "antennaWind", label: "antenna wind", min: 0, max: 3e3, sign: -1 }
+      ],
+      defaults: { ...DEFAULT_DIALS2 },
+      build: (theme, dials2) => buildCharacter2(theme, dials2)
+    }
+  ];
+  var cast = CAST[0];
+  var themeIndex = 0;
+  var dials = { ...cast.defaults };
+  var character = cast.build(cast.themes[0].value, dials);
   var baked = /* @__PURE__ */ new Map();
-  var player = new ClipPlayer(getBaked("run"));
-  var current = "run";
+  var current = [...character.clips.keys()][0];
+  var player = new ClipPlayer(getBaked(current));
   var showBones = false;
   var lastTick = 0;
   function getBaked(name) {
@@ -1890,7 +2203,7 @@
     return entry;
   }
   function rebuild() {
-    character = buildCharacter(theme, dials);
+    character = cast.build(cast.themes[themeIndex].value, dials);
     baked.clear();
     player.set(getBaked(current));
     renderStrip();
@@ -1908,9 +2221,9 @@
     const src = clip.mirrorOf !== "" ? character.clips.get(clip.mirrorOf) : clip;
     const pose = src.poseAt(player.frame / src.bakeFps, character.skeleton);
     const xfs = character.skeleton.transforms(pose);
-    const k = SCALE / SS;
+    const k = SCALE / (character.superSample ?? SS);
     const flip = clip.mirrorOf !== "";
-    const fx = (x) => flip ? CANVAS_W * SCALE - x * k : x * k;
+    const fx = (x) => flip ? cast.canvasW * SCALE - x * k : x * k;
     ctx.strokeStyle = "rgba(120, 255, 200, 0.9)";
     ctx.fillStyle = "rgba(120, 255, 200, 0.9)";
     ctx.lineWidth = 1;
@@ -1935,20 +2248,19 @@
     const entry = getBaked(current);
     drawImg(ctx, entry.frames[player.frame], SCALE);
     if (showBones) drawBones(ctx);
-    const counter = document.getElementById("counter");
-    counter.textContent = `${player.frame + 1} / ${entry.frames.length} @ ${entry.fps} fps`;
+    document.getElementById("counter").textContent = `${player.frame + 1} / ${entry.frames.length} @ ${entry.fps} fps`;
   }
   function renderStrip() {
     const entry = getBaked(current);
     const strip = document.getElementById("strip");
     const s = 2;
-    strip.width = entry.frames.length * (CANVAS_W * s + 2);
-    strip.height = CANVAS_H * s;
+    strip.width = entry.frames.length * (cast.canvasW * s + 2);
+    strip.height = cast.canvasH * s;
     const ctx = strip.getContext("2d");
     ctx.clearRect(0, 0, strip.width, strip.height);
     entry.frames.forEach((f, i) => {
       ctx.save();
-      ctx.translate(i * (CANVAS_W * s + 2), 0);
+      ctx.translate(i * (cast.canvasW * s + 2), 0);
       drawImg(ctx, f, s);
       ctx.restore();
     });
@@ -1986,9 +2298,68 @@
     renderStrip();
     updateStatus();
   }
+  function buildClipButtons() {
+    const row = document.getElementById("clips");
+    row.textContent = "";
+    for (const name of character.clips.keys()) {
+      const b = document.createElement("button");
+      b.dataset.clip = name;
+      b.textContent = name.replace(/_/g, " ");
+      b.addEventListener("click", () => selectClip(name));
+      row.append(b);
+    }
+  }
+  function buildDialSliders() {
+    const row = document.getElementById("dials");
+    row.textContent = "";
+    for (const spec of cast.dials) {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      const out = document.createElement("span");
+      input.type = "range";
+      input.min = String(spec.min);
+      input.max = String(spec.max);
+      input.value = String(Math.abs(dials[spec.key]));
+      out.textContent = input.value;
+      input.addEventListener("change", () => {
+        dials[spec.key] = Number(input.value) * spec.sign;
+        out.textContent = input.value;
+        rebuild();
+        renderFrame();
+      });
+      label.append(`${spec.label} `, input, " ", out);
+      row.append(label);
+    }
+  }
+  function selectCharacter(member) {
+    cast = member;
+    themeIndex = 0;
+    dials = { ...member.defaults };
+    baked.clear();
+    character = member.build(member.themes[0].value, dials);
+    current = [...character.clips.keys()][0];
+    const stage = document.getElementById("stage");
+    stage.width = member.canvasW * SCALE;
+    stage.height = member.canvasH * SCALE;
+    document.getElementById("blurb").textContent = member.blurb;
+    document.getElementById("theme").textContent = `Theme: ${member.themes[0].label}`;
+    document.getElementById("audit").textContent = "";
+    for (const b of document.querySelectorAll("[data-cast]")) {
+      b.classList.toggle("on", b.dataset.cast === member.id);
+    }
+    buildClipButtons();
+    buildDialSliders();
+    player.set(getBaked(current));
+    selectClip(current);
+  }
   function wire() {
-    for (const b of document.querySelectorAll("[data-clip]")) {
-      b.addEventListener("click", () => selectClip(b.dataset.clip));
+    const row = document.getElementById("cast");
+    for (const member of CAST) {
+      const b = document.createElement("button");
+      b.dataset.cast = member.id;
+      b.textContent = member.name;
+      b.addEventListener("click", () => selectCharacter(member));
+      row.append(b);
     }
     const playBtn = document.getElementById("play");
     playBtn.addEventListener("click", () => {
@@ -2000,35 +2371,18 @@
       showBones = bonesBox.checked;
       renderFrame();
     });
-    const stride = document.getElementById("stride");
-    stride.addEventListener("change", () => {
-      dials.stride = Number(stride.value);
-      document.getElementById("stride-out").textContent = stride.value;
-      rebuild();
-      renderFrame();
-    });
-    const wind = document.getElementById("wind");
-    wind.addEventListener("change", () => {
-      dials.runWind = -Number(wind.value);
-      document.getElementById("wind-out").textContent = wind.value;
-      rebuild();
-      renderFrame();
-    });
     const themeBtn = document.getElementById("theme");
     themeBtn.addEventListener("click", () => {
-      theme = theme === DUSK ? EMBER : DUSK;
-      themeBtn.textContent = theme === DUSK ? "Theme: dusk" : "Theme: ember";
+      themeIndex = (themeIndex + 1) % cast.themes.length;
+      themeBtn.textContent = `Theme: ${cast.themes[themeIndex].label}`;
       rebuild();
       renderFrame();
     });
     document.getElementById("run-audit").addEventListener("click", runAudit);
   }
   function start() {
-    const stage = document.getElementById("stage");
-    stage.width = CANVAS_W * SCALE;
-    stage.height = CANVAS_H * SCALE;
     wire();
-    selectClip(current);
+    selectCharacter(CAST[0]);
     lastTick = performance.now();
     requestAnimationFrame(tick);
   }
