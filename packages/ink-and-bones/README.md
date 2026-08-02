@@ -8,6 +8,7 @@ Ported from the Godot "CyNinja" Ink & Bones pipeline.
 <p align="center">
   <img src="example/media/scout-run.gif" width="256" alt="Scout running" />
   <img src="example/media/rivet-walk.gif" width="256" alt="Rivet walking" />
+  <img src="example/media/vanguard-walk.gif" width="256" alt="Vanguard walking with a sword" />
 </p>
 <p align="center"><em>Every pixel above was computed from a few hundred lines of
 TypeScript. No sprite sheets, no image model, no hand-drawn frames.</em></p>
@@ -42,31 +43,34 @@ thing that can happen to a generated character, and it happened.
 open packages/ink-and-bones/example/index.html
 ```
 
-No build step — the bundle is committed. The page plays either character, on
-any of its clips, with the bones overlay, live dials and the audit gates. Move
+No build step — the bundle is committed. The page plays each character on any
+of its clips, with the bones overlay, live dials and the audit gates. Move
 a slider or flip the theme and the character **rebakes from source**: edits are
 diffs, not redraws. Rebuild after editing with `example/build.sh`.
 
-## The two examples
+## The examples
 
-They exist as a pair on purpose. One character shows the technique working;
-two built from opposite materials show the shape of the engine rather than one
-character's style.
+The cast uses the same engine for cloth, machinery, an articulated weapon and
+a body that is off-vertical by design. The differences stay in the character
+files.
 
-| | [`example/scout.ts`](example/scout.ts) | [`example/rivet.ts`](example/rivet.ts) |
-| --- | --- | --- |
-| | <img src="example/media/scout-rest.png" width="120" alt="Scout standing" /> | <img src="example/media/rivet-rest.png" width="120" alt="Rivet standing" /> |
-| shapes | tapered capsules and discs | flat bevelled polygon panels |
-| cloth | a scarf: heavy, streaming | an antenna: stiff, springy — the same verlet chain, four different numbers |
-| gait | a run, airborne, long stride | a plod, always grounded, long ground contact |
-| clips | idle, run, run west (mirrored), jump | idle, walk, walk west (mirrored), **startle — which does not loop** |
-| size | 0.65 of the canvas (it predates the fill gate and declares what it measures) | 0.87, on the default floor |
+| | [`example/scout.ts`](example/scout.ts) | [`example/rivet.ts`](example/rivet.ts) | [`example/knight.ts`](example/knight.ts) | [`example/husk.ts`](example/husk.ts) |
+| --- | --- | --- | --- | --- |
+| | <img src="example/media/scout-rest.png" width="120" alt="Scout standing" /> | <img src="example/media/rivet-rest.png" width="120" alt="Rivet standing" /> | <img src="example/media/vanguard-rest.png" width="120" alt="Vanguard standing with a sword" /> | <img src="example/media/husk-rest.png" width="120" alt="Husk standing" /> |
+| shapes | tapered capsules and discs | flat bevelled polygon panels | plate polygons, mail capsules and a tapered blade | capsules again, but on a hunched, asymmetric frame |
+| prop | a heavy, streaming scarf | a stiff, springy antenna | a sword rigged to the hand as a child bone | a coat tail that hangs: gravity beats the wind |
+| gait | an airborne run | a grounded plod | a guarded armoured walk | a limp — one stride, two lifts |
+| clips | idle, run, run west (mirrored), jump | idle, walk, walk west (mirrored), **startle — not looped** | idle, walk, walk west (mirrored), **slash — not looped** | idle, shamble, shamble west (mirrored), **lunge — not looped** |
 
 <p align="center">
   <img src="example/media/scout-jump.gif" width="220" alt="Scout jumping" />
   <img src="example/media/rivet-startle.gif" width="220" alt="Rivet startled" />
+  <img src="example/media/vanguard-slash.gif" width="220" alt="Vanguard slashing with a sword" />
   <img src="example/media/scout-idle.gif" width="220" alt="Scout idling" />
   <img src="example/media/rivet-idle.gif" width="220" alt="Rivet idling" />
+  <img src="example/media/vanguard-idle.gif" width="220" alt="Vanguard idling" />
+  <img src="example/media/husk-shamble.gif" width="220" alt="Husk shambling" />
+  <img src="example/media/husk-lunge.gif" width="220" alt="Husk lunging" />
 </p>
 
 Regenerate these pictures after a deliberate visual change with
@@ -102,7 +106,7 @@ exactly the same thing. Useful, and worth knowing the limit of.
 ## Tests
 
 `pnpm --filter @sero-ai/ink-and-bones test` — the regression net ported from
-the Godot `puppet_selftest.gd`, the audit gates run over every Scout clip,
+the Godot `puppet_selftest.gd`, the audit gates run over Scout, Vanguard and Husk,
 and golden-frame hashes for byte determinism. After a deliberate visual
 change: `UPDATE_GOLDEN=1 pnpm --filter @sero-ai/ink-and-bones test -- golden`.
 

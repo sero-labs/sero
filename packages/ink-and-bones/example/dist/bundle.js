@@ -1623,11 +1623,235 @@
     return [r, g, b, 1];
   }
 
-  // scout.ts
+  // knight.ts
   var CANVAS_W = 64;
   var CANVAS_H = 80;
-  var GROUND_Y = 296;
-  var GROUND_ROW = 75;
+  var GROUND_Y = 288;
+  var GROUND_ROW = 74;
+  var CRIMSON = {
+    steelLight: hex("d8dbe2"),
+    steel: hex("9298a6"),
+    steelDark: hex("505666"),
+    clothLight: hex("ed6a62"),
+    cloth: hex("b93644"),
+    clothDark: hex("6f2433")
+  };
+  var AZURE = {
+    steelLight: hex("e0e4df"),
+    steel: hex("99a6a1"),
+    steelDark: hex("53615f"),
+    clothLight: hex("71b9e8"),
+    cloth: hex("397fb7"),
+    clothDark: hex("234b78")
+  };
+  var INK = hex("171522");
+  var MAIL_LIGHT = hex("aab0bc");
+  var MAIL = hex("737b8a");
+  var MAIL_DARK = hex("414754");
+  var LEATHER = hex("684735");
+  var LEATHER_DARK = hex("412d27");
+  var BLADE_GLEAM = hex("f4f1d7");
+  var SHADOW = [0.03, 0.02, 0.08, 0.45];
+  var DEFAULT_DIALS = { stride: 52, swordArc: 105 };
+  function buildCharacter(livery = CRIMSON, dials2 = DEFAULT_DIALS) {
+    const S = new Skeleton();
+    S.rootPos = [96, 196];
+    S.bone("pelvis", "", [0, 0], 0, 0);
+    S.bone("thigh_near", "pelvis", [9, 2], 0, 48);
+    S.bone("shin_near", "thigh_near", S.tip(), 0, 48);
+    S.bone("foot_near", "shin_near", S.tip(), 90, 15);
+    S.bone("thigh_far", "pelvis", [-9, 4], 0, 48);
+    S.bone("shin_far", "thigh_far", S.tip(), 0, 48);
+    S.bone("foot_far", "shin_far", S.tip(), 90, 15);
+    S.bone("spine", "pelvis", [0, -3], 178, 36);
+    S.bone("chest", "spine", S.tip(), 0, 38);
+    S.bone("head", "chest", S.tip(), 2, 48);
+    S.bone("upper_arm_far", "chest", [18, 29], 180, 29);
+    S.bone("forearm_far", "upper_arm_far", S.tip(), -8, 27);
+    S.bone("upper_arm_near", "chest", [-20, 29], -160, 29);
+    S.bone("forearm_near", "upper_arm_near", S.tip(), 40, 27);
+    S.bone("sword", "forearm_near", S.tip(), 87, 72);
+    const steel = [livery.steelLight, livery.steel, livery.steelDark];
+    const mail = [MAIL_LIGHT, MAIL, MAIL_DARK];
+    const cloth = [livery.clothLight, livery.cloth, livery.clothDark];
+    const blade = [BLADE_GLEAM, livery.steelLight, livery.steel, livery.steelDark, LEATHER, LEATHER_DARK];
+    const parts = [
+      { name: "cape", bone: "spine", ramp: cloth, paint: cape(livery) },
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: steel, paint: upperArm(livery, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...steel, ...mail], paint: forearm(livery, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: mail, paint: thigh(livery, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...mail, ...steel], paint: shin(livery, true) },
+      { name: "foot_far", bone: "foot_far", ramp: steel, paint: foot(livery, true) },
+      { name: "torso", bone: "spine", ramp: [...mail, ...cloth, LEATHER, LEATHER_DARK], paint: torso(livery) },
+      { name: "chest", bone: "chest", ramp: [...steel, ...cloth], paint: chest(livery) },
+      { name: "head", bone: "head", ramp: [...steel, ...cloth, INK], paint: head(livery) },
+      { name: "thigh_near", bone: "thigh_near", ramp: mail, paint: thigh(livery, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...mail, ...steel], paint: shin(livery, false) },
+      { name: "foot_near", bone: "foot_near", ramp: steel, paint: foot(livery, false) },
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: steel, paint: upperArm(livery, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...steel, ...mail, LEATHER], paint: forearm(livery, false) },
+      { name: "sword", bone: "sword", ramp: blade, paint: sword(livery) }
+    ];
+    const clips = /* @__PURE__ */ new Map();
+    clips.set("idle", idle());
+    clips.set("walk", walk(dials2));
+    clips.set("slash", slash(dials2));
+    clips.set("walk_west", Motion.mirror("walk_west", "walk", clips.get("walk")));
+    const restPose = () => {
+      const pose = { deg: {} };
+      S.solveChain(pose, "thigh_near", "shin_near", [108, GROUND_Y], 1, "foot_near", 90);
+      S.solveChain(pose, "thigh_far", "shin_far", [84, GROUND_Y], 1, "foot_far", 88);
+      return pose;
+    };
+    return {
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      groundRow: GROUND_ROW,
+      skeleton: S,
+      parts,
+      clips,
+      grade: { ink: INK, shadow: SHADOW, emissiveLone: [] },
+      shadow: { x: 25, y: 78, rx: 14, ry: 2 },
+      restPose
+    };
+  }
+  function thigh(livery, far) {
+    const p = new Paint({ x: -14, y: -7, w: 28, h: 62 });
+    p.capsule([0, 2], [0, 46], 10, 8, far ? MAIL_DARK : MAIL);
+    if (!far) p.tintToward([-1, -0.4], MAIL_LIGHT, 3);
+    p.occludeAbove(6, 8, 0.25);
+    return p;
+  }
+  function shin(livery, far) {
+    const p = new Paint({ x: -15, y: -6, w: 30, h: 62 });
+    p.capsule([0, 0], [0, 29], 8, 7, far ? MAIL_DARK : MAIL);
+    p.polygon([[-9, 25], [9, 25], [11, 46], [6, 50], [-7, 50], [-10, 44]], far ? livery.steelDark : livery.steel);
+    if (!far) p.tintToward([-1, -0.4], livery.steelLight, 3);
+    return p;
+  }
+  function foot(livery, far) {
+    const p = new Paint({ x: -14, y: -9, w: 28, h: 34 });
+    p.polygon([[-7, -4], [7, -4], [8, 12], [3, 16], [-7, 15], [-9, 6]], far ? livery.steelDark : livery.steel);
+    if (!far) p.tintToward([1, -0.3], livery.steelLight, 2.5);
+    return p;
+  }
+  function cape(livery) {
+    const p = new Paint({ x: -26, y: -8, w: 52, h: 62 });
+    p.polygon([[9, 4], [18, 11], [16, 49], [5, 43], [-8, 51], [-13, 12]], livery.clothDark);
+    p.tintToward([0.8, 0.4], livery.cloth, 4);
+    return p;
+  }
+  function torso(livery) {
+    const p = new Paint({ x: -24, y: -8, w: 48, h: 58 });
+    p.capsule([0, 3], [0, 39], 13, 12, MAIL);
+    p.polygon([[-11, 8], [11, 8], [9, 40], [0, 45], [-10, 40]], livery.cloth);
+    p.polygon([[-12, 8], [12, 8], [12, 14], [-12, 14]], LEATHER_DARK);
+    p.disc([0, 11], 4, LEATHER);
+    p.tintToward([0.8, 0.4], livery.clothLight, 3);
+    p.tintToward([-0.8, -0.4], livery.clothDark, 3);
+    return p;
+  }
+  function chest(livery) {
+    const p = new Paint({ x: -35, y: -8, w: 70, h: 56 });
+    p.polygon([[-18, 2], [18, 2], [23, 12], [19, 34], [11, 40], [-12, 40], [-20, 32], [-23, 12]], livery.steel);
+    p.polygon([[-6, 5], [7, 5], [7, 35], [0, 39], [-7, 34]], livery.cloth);
+    p.disc([-23, 27], 10, livery.steelDark);
+    p.disc([23, 27], 10, livery.steelDark);
+    p.tintToward([0.9, 0.5], livery.steelLight, 4);
+    p.tintToward([-0.8, -0.5], livery.steelDark, 3);
+    p.occludeAbove(5, 8, 0.2);
+    return p;
+  }
+  function head(livery) {
+    const p = new Paint({ x: -34, y: -5, w: 68, h: 68 });
+    p.capsule([0, -2], [0, 18], 8, 9, livery.steelDark);
+    p.polygon([[-24, 12], [18, 12], [25, 23], [23, 43], [14, 51], [-12, 54], [-24, 45], [-28, 26]], livery.steel);
+    p.polygon([[-28, 27], [6, 29], [7, 39], [-27, 37]], livery.steelDark);
+    p.polygon([[-23, 31], [-5, 32], [-6, 35], [-24, 34]], INK);
+    p.polygon([[-17, 38], [-10, 38], [-12, 18], [-17, 20]], livery.steelLight);
+    p.polygon([[1, 50], [8, 60], [16, 56], [13, 47]], livery.cloth);
+    p.tintToward([0.8, 0.7], livery.steelLight, 3);
+    p.tintToward([0, -1], livery.steelDark, 2.5);
+    return p;
+  }
+  function upperArm(livery, far) {
+    const p = new Paint({ x: -14, y: -7, w: 28, h: 44 });
+    p.disc([0, 2], 11, far ? livery.steelDark : livery.steel);
+    p.capsule([0, 5], [0, 29], 8, 6, far ? livery.steelDark : livery.steel);
+    if (!far) p.tintToward([-1, -0.3], livery.steelLight, 3);
+    p.occludeAbove(5, 7, 0.2);
+    return p;
+  }
+  function forearm(livery, far) {
+    const p = new Paint({ x: -13, y: -6, w: 26, h: 44 });
+    p.capsule([0, 0], [0, 23], 7, 5.5, far ? MAIL_DARK : MAIL);
+    p.polygon([[-8, 9], [8, 9], [7, 25], [-6, 27], [-9, 20]], far ? livery.steelDark : livery.steel);
+    p.disc([0, 27], 6, far ? MAIL_DARK : LEATHER);
+    if (!far) p.tintToward([-1, -0.3], livery.steelLight, 2.5);
+    return p;
+  }
+  function sword(livery) {
+    const p = new Paint({ x: -18, y: -14, w: 36, h: 94 });
+    p.disc([0, -8], 6, livery.steelDark);
+    p.capsule([0, -7], [0, 10], 4.5, 4.5, LEATHER);
+    p.capsule([-15, 11], [15, 11], 4, 4, livery.steelDark);
+    p.polygon([[-5, 11], [5, 11], [4, 62], [0, 74], [-4, 62]], livery.steelLight);
+    p.polygon([[-5, 11], [0, 12], [0, 68], [-4, 62]], livery.steel);
+    p.tintToward([1, -0.2], BLADE_GLEAM, 2.5);
+    return p;
+  }
+  function plantFeet(c) {
+    c.plant("thigh_near", "shin_near", "foot_near", { 0: [108, GROUND_Y, 90] });
+    c.plant("thigh_far", "shin_far", "foot_far", { 0: [84, GROUND_Y, 88] });
+  }
+  function idle() {
+    const c = new Motion("idle", 1.8);
+    c.bakeFps = 12;
+    plantFeet(c);
+    c.key("root_y", { 0: 0, 0.9: -2 });
+    c.key("spine", { 0: -1, 0.9: 1 });
+    c.key("head", { 0.2: 1.5, 1.1: -1.5 });
+    c.key("upper_arm_near", { 0: -2, 0.9: 2 });
+    c.key("forearm_near", { 0: 2, 0.9: -2 });
+    c.key("sword", { 0: -1.5, 0.9: 1.5 });
+    return c;
+  }
+  function walk(dials2) {
+    const c = new Motion("walk", 0.8);
+    c.bakeFps = 15;
+    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 18, 0, GROUND_Y, 6, 0.65);
+    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 18, 0.5, GROUND_Y, -6, 0.65);
+    c.key("root_y", { 0: 2, 0.2: -2, 0.4: 2, 0.6: -2 });
+    c.key("spine", { 0: -3, 0.4: 3 });
+    c.key("head", { 0: 2, 0.4: -2 });
+    c.key("upper_arm_far", { 0: 14, 0.4: -14 });
+    c.key("forearm_far", { 0: 10, 0.4: 18 });
+    c.key("upper_arm_near", { 0: -5, 0.4: 5 });
+    c.key("forearm_near", { 0: 3, 0.4: -3 });
+    c.key("sword", { 0: -3, 0.4: 3 });
+    return c;
+  }
+  function slash(dials2) {
+    const c = new Motion("slash", 1.15, false);
+    c.bakeFps = 15;
+    c.wobbleBudget = 4.5;
+    plantFeet(c);
+    c.key("root_x", { 0: 0, 0.2: -3, 0.48: 6, 0.78: 1, 1.15: 0 }, "outBack");
+    c.key("root_y", { 0: 0, 0.2: 3, 0.48: -2, 0.78: 1, 1.15: 0 });
+    c.key("spine", { 0: 0, 0.2: 10, 0.48: -12, 0.78: 4, 1.15: 0 }, "outBack");
+    c.key("head", { 0: 0, 0.2: -5, 0.48: 7, 1.15: 0 });
+    c.key("upper_arm_near", { 0: 0, 0.2: -24, 0.48: 35, 0.78: 12, 1.15: 0 }, "outBack");
+    c.key("forearm_near", { 0: 0, 0.2: -18, 0.48: 20, 0.78: 8, 1.15: 0 });
+    c.key("sword", { 0: 0, 0.2: dials2.swordArc * 0.25, 0.48: -dials2.swordArc, 0.78: -20, 1.15: 0 }, "outBack");
+    c.key("upper_arm_far", { 0: 0, 0.2: 8, 0.48: -12, 1.15: 0 });
+    return c;
+  }
+
+  // scout.ts
+  var CANVAS_W2 = 64;
+  var CANVAS_H2 = 80;
+  var GROUND_Y2 = 296;
+  var GROUND_ROW2 = 75;
   var DUSK = {
     suitLight: hex("7b90a8"),
     suit: hex("4e5f78"),
@@ -1644,7 +1868,7 @@
     scarf: hex("4fc3e8"),
     scarfDark: hex("2a7fa8")
   };
-  var INK = hex("151221");
+  var INK2 = hex("151221");
   var SKIN = hex("e8b48c");
   var SKIN_SHADE = hex("c08b62");
   var BOOT_LIGHT = hex("8a6f52");
@@ -1652,9 +1876,9 @@
   var BOOT_DARK = hex("443528");
   var EYE = hex("59f2e0");
   var EYE_CORE = hex("eafffb");
-  var SHADOW = [0.03, 0.02, 0.1, 0.45];
-  var DEFAULT_DIALS = { stride: 88, runWind: -2200 };
-  function buildCharacter(theme = DUSK, dials2 = DEFAULT_DIALS) {
+  var SHADOW2 = [0.03, 0.02, 0.1, 0.45];
+  var DEFAULT_DIALS2 = { stride: 88, runWind: -2200 };
+  function buildCharacter2(theme = DUSK, dials2 = DEFAULT_DIALS2) {
     const S = new Skeleton();
     S.rootPos = [128, 222];
     S.bone("pelvis", "", [0, 0], 0, 0);
@@ -1686,35 +1910,35 @@
           p.tintToward([0.4, 1], theme.scarfDark, 2.2);
         }
       },
-      { name: "upper_arm_far", bone: "upper_arm_far", ramp: suit, paint: upperArm(theme, true) },
-      { name: "forearm_far", bone: "forearm_far", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme, true) },
-      { name: "thigh_far", bone: "thigh_far", ramp: suit, paint: thigh(theme, true) },
-      { name: "shin_far", bone: "shin_far", ramp: [...suit, ...boots], paint: shin(theme, true) },
-      { name: "foot_far", bone: "foot_far", ramp: boots, paint: foot(true) },
-      { name: "torso", bone: "spine", ramp: [...suit, BOOT_DARK], paint: torso(theme) },
-      { name: "chest", bone: "chest", ramp: suit, paint: chest(theme) },
-      { name: "head", bone: "head", ramp: [...suit, SKIN, SKIN_SHADE, EYE, EYE_CORE], paint: head(theme) },
-      { name: "thigh_near", bone: "thigh_near", ramp: suit, paint: thigh(theme, false) },
-      { name: "shin_near", bone: "shin_near", ramp: [...suit, ...boots], paint: shin(theme, false) },
-      { name: "foot_near", bone: "foot_near", ramp: boots, paint: foot(false) },
-      { name: "upper_arm_near", bone: "upper_arm_near", ramp: suit, paint: upperArm(theme, false) },
-      { name: "forearm_near", bone: "forearm_near", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme, false) }
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: suit, paint: upperArm2(theme, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm2(theme, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: suit, paint: thigh2(theme, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...suit, ...boots], paint: shin2(theme, true) },
+      { name: "foot_far", bone: "foot_far", ramp: boots, paint: foot2(true) },
+      { name: "torso", bone: "spine", ramp: [...suit, BOOT_DARK], paint: torso2(theme) },
+      { name: "chest", bone: "chest", ramp: suit, paint: chest2(theme) },
+      { name: "head", bone: "head", ramp: [...suit, SKIN, SKIN_SHADE, EYE, EYE_CORE], paint: head2(theme) },
+      { name: "thigh_near", bone: "thigh_near", ramp: suit, paint: thigh2(theme, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...suit, ...boots], paint: shin2(theme, false) },
+      { name: "foot_near", bone: "foot_near", ramp: boots, paint: foot2(false) },
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: suit, paint: upperArm2(theme, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm2(theme, false) }
     ];
     const clips = /* @__PURE__ */ new Map();
-    clips.set("idle", idle(dials2));
+    clips.set("idle", idle2(dials2));
     clips.set("run", run(dials2));
     clips.set("jump", jump(dials2));
     clips.set("run_west", Motion.mirror("run_west", "run", clips.get("run")));
     const restPose = () => {
       const pose = { deg: {} };
-      S.solveChain(pose, "thigh_near", "shin_near", [140, GROUND_Y], 1, "foot_near", 90);
-      S.solveChain(pose, "thigh_far", "shin_far", [116, GROUND_Y], 1, "foot_far", 88);
+      S.solveChain(pose, "thigh_near", "shin_near", [140, GROUND_Y2], 1, "foot_near", 90);
+      S.solveChain(pose, "thigh_far", "shin_far", [116, GROUND_Y2], 1, "foot_far", 88);
       return pose;
     };
     return {
-      canvasW: CANVAS_W,
-      canvasH: CANVAS_H,
-      groundRow: GROUND_ROW,
+      canvasW: CANVAS_W2,
+      canvasH: CANVAS_H2,
+      groundRow: GROUND_ROW2,
       // Below the 0.75 the fill gate now asks of a new character, and honestly
       // so: Scout was drawn in the spike before any size guidance existed and
       // leaves 23 rows of air above its hood. Its geometry is frozen by the
@@ -1724,12 +1948,12 @@
       skeleton: S,
       parts,
       clips,
-      grade: { ink: INK, shadow: SHADOW, emissiveLone: [EYE, EYE_CORE] },
+      grade: { ink: INK2, shadow: SHADOW2, emissiveLone: [EYE, EYE_CORE] },
       shadow: { x: 32, y: 78, rx: 13, ry: 2 },
       restPose
     };
   }
-  function thigh(theme, far) {
+  function thigh2(theme, far) {
     const p = new Paint({ x: -14, y: -6, w: 28, h: 52 });
     p.capsule([0, 2], [0, 40], 10, 8, far ? theme.suitDark : theme.suit);
     if (!far) {
@@ -1739,7 +1963,7 @@
     p.occludeAbove(6, 8, 0.25);
     return p;
   }
-  function shin(theme, far) {
+  function shin2(theme, far) {
     const p = new Paint({ x: -12, y: -4, w: 24, h: 50 });
     p.capsule([0, 0], [0, 26], 8, 6.5, far ? theme.suitDark : theme.suit);
     p.capsule([0, 24], [0, 40], 7, 6, far ? BOOT_DARK : BOOT);
@@ -1749,13 +1973,13 @@
     }
     return p;
   }
-  function foot(far) {
+  function foot2(far) {
     const p = new Paint({ x: -12, y: -8, w: 24, h: 28 });
     p.capsule([2, -2], [0, 11], 6, 4.5, far ? BOOT_DARK : BOOT);
     if (!far) p.tintToward([1, -0.3], BOOT_LIGHT, 2);
     return p;
   }
-  function torso(theme) {
+  function torso2(theme) {
     const p = new Paint({ x: -20, y: -8, w: 40, h: 58 });
     p.capsule([0, 4], [0, 42], 11.5, 13, theme.suit);
     p.capsule([-10, 9], [10, 9], 3.5, 3.5, BOOT_DARK);
@@ -1763,7 +1987,7 @@
     p.tintToward([-0.7, -0.5], theme.suitDark, 3);
     return p;
   }
-  function chest(theme) {
+  function chest2(theme) {
     const p = new Paint({ x: -20, y: -6, w: 40, h: 48 });
     p.capsule([0, 0], [0, 34], 13, 10.5, theme.suit);
     p.tintToward([0.7, 0.7], theme.suitLight, 4);
@@ -1771,7 +1995,7 @@
     p.occludeAbove(4, 8, 0.2);
     return p;
   }
-  function head(theme) {
+  function head2(theme) {
     const p = new Paint({ x: -26, y: -4, w: 52, h: 52 });
     p.disc([1, 25], 19, theme.suit);
     p.disc([-9, 24], 11, SKIN);
@@ -1782,26 +2006,26 @@
     p.tintToward([0, -1], theme.suitDark, 2.5);
     return p;
   }
-  function upperArm(theme, far) {
+  function upperArm2(theme, far) {
     const p = new Paint({ x: -11, y: -6, w: 22, h: 42 });
     p.capsule([0, 0], [0, 30], 7, 6, far ? theme.suitDark : theme.suit);
     if (!far) p.tintToward([-1, -0.3], theme.suitLight, 2.5);
     p.occludeAbove(4, 7, 0.25);
     return p;
   }
-  function forearm(theme, far) {
+  function forearm2(theme, far) {
     const p = new Paint({ x: -10, y: -4, w: 20, h: 40 });
     p.capsule([0, 0], [0, 24], 6, 5, far ? theme.suitDark : theme.suit);
     p.disc([0, 27], 5, far ? SKIN_SHADE : SKIN);
     if (!far) p.tintToward([-1, -0.3], theme.suitLight, 2);
     return p;
   }
-  function idle(dials2) {
+  function idle2(dials2) {
     const c = new Motion("idle", 1.6);
     c.bakeFps = 12;
     c.wind = [-150 + dials2.runWind * 0.4, 0];
-    c.plant("thigh_near", "shin_near", "foot_near", { 0: [140, GROUND_Y, 90] });
-    c.plant("thigh_far", "shin_far", "foot_far", { 0: [116, GROUND_Y, 88] });
+    c.plant("thigh_near", "shin_near", "foot_near", { 0: [140, GROUND_Y2, 90] });
+    c.plant("thigh_far", "shin_far", "foot_far", { 0: [116, GROUND_Y2, 88] });
     c.key("root_y", { 0: 1, 0.8: -2 });
     c.key("spine", { 0: -2, 0.8: 1 });
     c.key("chest", { 0: 2, 0.8: -1 });
@@ -1817,8 +2041,8 @@
     c.bakeFps = 15;
     c.wind = [dials2.runWind, 0];
     c.airborne = true;
-    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 40, 0, GROUND_Y, 6, 0.4);
-    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 40, 0.5, GROUND_Y, -6, 0.4);
+    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 40, 0, GROUND_Y2, 6, 0.4);
+    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 40, 0.5, GROUND_Y2, -6, 0.4);
     c.key("root_y", { 0.05: 4, 0.2: -7, 0.35: 4, 0.5: -7 });
     c.key("spine", { 0: -14, 0.15: -17, 0.3: -14, 0.45: -17 });
     c.key("head", { 0: 3, 0.15: 5, 0.3: 3, 0.45: 5 });
@@ -1844,22 +2068,22 @@
       1.05: 0
     });
     c.plant("thigh_near", "shin_near", "foot_near", {
-      0: [140, GROUND_Y, 90],
+      0: [140, GROUND_Y2, 90],
       0.15: [140, 296, 70],
       0.3: [136, 250, 55],
       0.45: [138, 236, 50],
       0.6: [142, 262, 70],
       0.72: [140, 296, 90],
-      0.9: [140, GROUND_Y, 90]
+      0.9: [140, GROUND_Y2, 90]
     });
     c.plant("thigh_far", "shin_far", "foot_far", {
-      0: [116, GROUND_Y, 88],
+      0: [116, GROUND_Y2, 88],
       0.15: [116, 296, 70],
       0.3: [114, 252, 55],
       0.45: [110, 240, 50],
       0.6: [112, 264, 70],
       0.72: [116, 296, 88],
-      0.9: [116, GROUND_Y, 88]
+      0.9: [116, GROUND_Y2, 88]
     });
     c.key("spine", { 0: 0, 0.15: -10, 0.3: 6, 0.45: 4, 0.6: -4, 0.72: -8, 0.9: 0 });
     c.key("head", { 0: 0, 0.15: 6, 0.3: -4, 0.6: 2, 0.72: 5, 0.9: 0 });
@@ -1871,10 +2095,10 @@
   }
 
   // rivet.ts
-  var CANVAS_W2 = 64;
-  var CANVAS_H2 = 80;
-  var GROUND_Y2 = 288;
-  var GROUND_ROW2 = 76;
+  var CANVAS_W3 = 64;
+  var CANVAS_H3 = 80;
+  var GROUND_Y3 = 288;
+  var GROUND_ROW3 = 76;
   var RUST = {
     shellLight: hex("cfd6dd"),
     shell: hex("8d99a6"),
@@ -1891,15 +2115,15 @@
     trim: hex("3fb8e0"),
     trimDark: hex("1e6a8c")
   };
-  var INK2 = hex("14161f");
+  var INK3 = hex("14161f");
   var IRON_LIGHT = hex("8b95a4");
   var IRON = hex("5c6673");
   var IRON_DARK = hex("373f4d");
   var OPTIC = hex("65f7c8");
   var OPTIC_CORE = hex("e9fff8");
-  var SHADOW2 = [0.03, 0.03, 0.09, 0.45];
-  var DEFAULT_DIALS2 = { stride: 46, antennaWind: -520 };
-  function buildCharacter2(finish = RUST, dials2 = DEFAULT_DIALS2) {
+  var SHADOW3 = [0.03, 0.03, 0.09, 0.45];
+  var DEFAULT_DIALS3 = { stride: 46, antennaWind: -520 };
+  function buildCharacter3(finish = RUST, dials2 = DEFAULT_DIALS3) {
     const S = new Skeleton();
     S.rootPos = [128, 196];
     S.bone("pelvis", "", [0, 0], 0, 0);
@@ -1922,39 +2146,39 @@
     const trim = [finish.trimLight, finish.trim, finish.trimDark];
     const parts = [
       { name: "antenna", chain: "antenna", ramp: trim, painter: antenna(finish) },
-      { name: "upper_arm_far", bone: "upper_arm_far", ramp: iron, paint: upperArm2(finish, true) },
-      { name: "forearm_far", bone: "forearm_far", ramp: [...iron, ...shell], paint: forearm2(finish, true) },
-      { name: "thigh_far", bone: "thigh_far", ramp: iron, paint: thigh2(finish, true) },
-      { name: "shin_far", bone: "shin_far", ramp: [...iron, ...shell], paint: shin2(finish, true) },
-      { name: "foot_far", bone: "foot_far", ramp: [...iron, ...shell], paint: foot2(finish, true) },
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: iron, paint: upperArm3(finish, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...iron, ...shell], paint: forearm3(finish, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: iron, paint: thigh3(finish, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...iron, ...shell], paint: shin3(finish, true) },
+      { name: "foot_far", bone: "foot_far", ramp: [...iron, ...shell], paint: foot3(finish, true) },
       { name: "hips", bone: "spine", ramp: [...iron, ...trim], paint: hips(finish) },
-      { name: "chest", bone: "chest", ramp: [...shell, ...iron, ...trim], paint: chest2(finish) },
-      { name: "head", bone: "head", ramp: [...shell, ...iron, OPTIC, OPTIC_CORE], paint: head2(finish) },
-      { name: "thigh_near", bone: "thigh_near", ramp: iron, paint: thigh2(finish, false) },
-      { name: "shin_near", bone: "shin_near", ramp: [...iron, ...shell], paint: shin2(finish, false) },
-      { name: "foot_near", bone: "foot_near", ramp: [...iron, ...shell], paint: foot2(finish, false) },
-      { name: "upper_arm_near", bone: "upper_arm_near", ramp: iron, paint: upperArm2(finish, false) },
-      { name: "forearm_near", bone: "forearm_near", ramp: [...iron, ...shell], paint: forearm2(finish, false) }
+      { name: "chest", bone: "chest", ramp: [...shell, ...iron, ...trim], paint: chest3(finish) },
+      { name: "head", bone: "head", ramp: [...shell, ...iron, OPTIC, OPTIC_CORE], paint: head3(finish) },
+      { name: "thigh_near", bone: "thigh_near", ramp: iron, paint: thigh3(finish, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...iron, ...shell], paint: shin3(finish, false) },
+      { name: "foot_near", bone: "foot_near", ramp: [...iron, ...shell], paint: foot3(finish, false) },
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: iron, paint: upperArm3(finish, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...iron, ...shell], paint: forearm3(finish, false) }
     ];
     const clips = /* @__PURE__ */ new Map();
-    clips.set("idle", idle2(dials2));
-    clips.set("walk", walk(dials2));
+    clips.set("idle", idle3(dials2));
+    clips.set("walk", walk2(dials2));
     clips.set("startle", startle(dials2));
     clips.set("walk_west", Motion.mirror("walk_west", "walk", clips.get("walk")));
     const restPose = () => {
       const pose = { deg: {} };
-      S.solveChain(pose, "thigh_near", "shin_near", [146, GROUND_Y2], 1, "foot_near", 90);
-      S.solveChain(pose, "thigh_far", "shin_far", [110, GROUND_Y2], 1, "foot_far", 88);
+      S.solveChain(pose, "thigh_near", "shin_near", [146, GROUND_Y3], 1, "foot_near", 90);
+      S.solveChain(pose, "thigh_far", "shin_far", [110, GROUND_Y3], 1, "foot_far", 88);
       return pose;
     };
     return {
-      canvasW: CANVAS_W2,
-      canvasH: CANVAS_H2,
-      groundRow: GROUND_ROW2,
+      canvasW: CANVAS_W3,
+      canvasH: CANVAS_H3,
+      groundRow: GROUND_ROW3,
       skeleton: S,
       parts,
       clips,
-      grade: { ink: INK2, shadow: SHADOW2, emissiveLone: [OPTIC, OPTIC_CORE] },
+      grade: { ink: INK3, shadow: SHADOW3, emissiveLone: [OPTIC, OPTIC_CORE] },
       shadow: { x: 32, y: 78, rx: 14, ry: 2 },
       restPose
     };
@@ -1974,7 +2198,7 @@
       c
     );
   }
-  function thigh2(finish, far) {
+  function thigh3(finish, far) {
     const p = new Paint({ x: -26, y: -8, w: 52, h: 64 });
     slab(p, 2, 46, far ? 13 : 15, 4, far ? IRON_DARK : IRON);
     if (!far) {
@@ -1985,7 +2209,7 @@
     p.occludeAbove(5, 8, 0.25);
     return p;
   }
-  function shin2(finish, far) {
+  function shin3(finish, far) {
     const p = new Paint({ x: -28, y: -8, w: 56, h: 64 });
     slab(p, 0, 32, far ? 11 : 13, 3.5, far ? IRON_DARK : IRON);
     slab(p, 32, 46, far ? 16 : 18, 4.5, far ? finish.shellDark : finish.shell);
@@ -1996,7 +2220,7 @@
     p.disc([0, 1], 10, far ? finish.shellDark : finish.shell);
     return p;
   }
-  function foot2(finish, far) {
+  function foot3(finish, far) {
     const p = new Paint({ x: -26, y: -16, w: 52, h: 44 });
     slab(p, -6, 17, 14, 4, far ? finish.shellDark : finish.shell);
     if (!far) p.tintToward([1, -0.3], finish.shell, 3);
@@ -2011,7 +2235,7 @@
     p.tintToward([-0.9, -0.4], IRON_DARK, 4);
     return p;
   }
-  function chest2(finish) {
+  function chest3(finish) {
     const p = new Paint({ x: -52, y: -12, w: 104, h: 76 });
     p.polygon(
       [
@@ -2036,7 +2260,7 @@
     p.occludeAbove(4, 8, 0.2);
     return p;
   }
-  function head2(finish) {
+  function head3(finish) {
     const p = new Paint({ x: -44, y: -10, w: 88, h: 72 });
     slab(p, -2, 18, 9, 2, IRON_DARK);
     p.polygon(
@@ -2060,7 +2284,7 @@
     p.tintToward([0, -1], finish.shellDark, 2.5);
     return p;
   }
-  function upperArm2(finish, far) {
+  function upperArm3(finish, far) {
     const p = new Paint({ x: -24, y: -8, w: 48, h: 52 });
     slab(p, 0, 34, far ? 11 : 13, 3.5, far ? IRON_DARK : IRON);
     p.disc([0, 1], 10, far ? IRON_DARK : finish.shellDark);
@@ -2068,7 +2292,7 @@
     p.occludeAbove(4, 7, 0.25);
     return p;
   }
-  function forearm2(finish, far) {
+  function forearm3(finish, far) {
     const p = new Paint({ x: -24, y: -8, w: 48, h: 52 });
     slab(p, 0, 22, far ? 10 : 12, 3.5, far ? IRON_DARK : IRON);
     p.polygon([[-11, 22], [-3.5, 22], [-3.5, 34], [-11, 31]], far ? IRON_DARK : IRON_LIGHT);
@@ -2085,12 +2309,12 @@
       p.disc([tip[0] - 2, tip[1] - 2], 3.5, finish.trimLight);
     };
   }
-  function idle2(dials2) {
+  function idle3(dials2) {
     const c = new Motion("idle", 2);
     c.bakeFps = 12;
     c.wind = [dials2.antennaWind * 0.25, 0];
-    c.plant("thigh_near", "shin_near", "foot_near", { 0: [146, GROUND_Y2, 90] });
-    c.plant("thigh_far", "shin_far", "foot_far", { 0: [110, GROUND_Y2, 88] });
+    c.plant("thigh_near", "shin_near", "foot_near", { 0: [146, GROUND_Y3, 90] });
+    c.plant("thigh_far", "shin_far", "foot_far", { 0: [110, GROUND_Y3, 88] });
     c.key("root_y", { 0: 0, 1: 2 });
     c.key("spine", { 0: 0.8, 1: -0.8 });
     c.key("chest", { 0: -1, 1: 1 });
@@ -2101,13 +2325,13 @@
     c.key("forearm_far", { 0: 2, 1: -2 });
     return c;
   }
-  function walk(dials2) {
+  function walk2(dials2) {
     const c = new Motion("walk", 0.9);
     c.bakeFps = 12;
     c.wind = [dials2.antennaWind, 0];
     c.wobbleBudget = 3;
-    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 16, 0, GROUND_Y2, 18, 0.68);
-    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 16, 0.5, GROUND_Y2, -18, 0.68);
+    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 16, 0, GROUND_Y3, 18, 0.68);
+    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 16, 0.5, GROUND_Y3, -18, 0.68);
     c.key("root_y", { 0: 3, 0.225: -1, 0.45: 3, 0.675: -1 });
     c.key("spine", { 0: -3, 0.45: 3 });
     c.key("chest", { 0: 1.5, 0.45: -1.5 });
@@ -2124,16 +2348,16 @@
     c.wobbleBudget = 3.5;
     c.wind = [dials2.antennaWind * 1.1, 0];
     c.plant("thigh_near", "shin_near", "foot_near", {
-      0: [146, GROUND_Y2, 90],
-      0.12: [149, GROUND_Y2, 90],
-      0.45: [143, GROUND_Y2, 90],
-      1.1: [146, GROUND_Y2, 90]
+      0: [146, GROUND_Y3, 90],
+      0.12: [149, GROUND_Y3, 90],
+      0.45: [143, GROUND_Y3, 90],
+      1.1: [146, GROUND_Y3, 90]
     });
     c.plant("thigh_far", "shin_far", "foot_far", {
-      0: [110, GROUND_Y2, 88],
-      0.12: [106, GROUND_Y2, 88],
-      0.45: [113, GROUND_Y2, 88],
-      1.1: [110, GROUND_Y2, 88]
+      0: [110, GROUND_Y3, 88],
+      0.12: [106, GROUND_Y3, 88],
+      0.45: [113, GROUND_Y3, 88],
+      1.1: [110, GROUND_Y3, 88]
     });
     c.key("root_y", { 0: 0, 0.12: -5, 0.4: 3, 0.7: -1, 1.1: 0 }, "outBack");
     c.key("spine", { 0: 0, 0.12: 9, 0.4: -4, 0.7: 2, 1.1: 0 }, "outBack");
@@ -2146,6 +2370,252 @@
     return c;
   }
 
+  // husk.ts
+  var CANVAS_W4 = 64;
+  var CANVAS_H4 = 80;
+  var GROUND_Y4 = 288;
+  var GROUND_ROW4 = 73;
+  var GRAVE = {
+    fleshLight: hex("a9c184"),
+    flesh: hex("7c9455"),
+    fleshDark: hex("4a5c33"),
+    ragLight: hex("9b93a4"),
+    rag: hex("6b6474"),
+    ragDark: hex("403c4c")
+  };
+  var DROWNED = {
+    fleshLight: hex("9fbcc4"),
+    flesh: hex("63868f"),
+    fleshDark: hex("3a505a"),
+    ragLight: hex("8d9a86"),
+    rag: hex("5c6857"),
+    ragDark: hex("353d34")
+  };
+  var INK4 = hex("15111c");
+  var BONE_LIGHT = hex("efe6c8");
+  var BONE = hex("c9bd98");
+  var GORE = hex("7b2331");
+  var EYE2 = hex("f7ef7a");
+  var EYE_CORE2 = hex("fffce4");
+  var SHADOW4 = [0.03, 0.05, 0.03, 0.45];
+  var DEFAULT_DIALS4 = { stride: 40, drag: -260 };
+  function buildCharacter4(rot = GRAVE, dials2 = DEFAULT_DIALS4) {
+    const S = new Skeleton();
+    S.rootPos = [98, 192];
+    S.bone("pelvis", "", [0, 0], 0, 0);
+    S.bone("thigh_near", "pelvis", [10, 4], 0, 52);
+    S.bone("shin_near", "thigh_near", S.tip(), 0, 52);
+    S.bone("foot_near", "shin_near", S.tip(), 90, 14);
+    S.bone("thigh_far", "pelvis", [-10, 6], 0, 52);
+    S.bone("shin_far", "thigh_far", S.tip(), 0, 52);
+    S.bone("foot_far", "shin_far", S.tip(), 90, 14);
+    S.bone("spine", "pelvis", [0, -4], 164, 44);
+    S.bone("chest", "spine", S.tip(), 8, 42);
+    S.bone("head", "chest", S.tip(), -14, 54);
+    S.bone("upper_arm_near", "chest", [-5, 30], -78, 32);
+    S.bone("forearm_near", "upper_arm_near", S.tip(), -8, 28);
+    S.bone("upper_arm_far", "chest", [5, 27], -56, 32);
+    S.bone("forearm_far", "upper_arm_far", S.tip(), -14, 28);
+    S.chain("tail", "spine", [10, 2], 7, 11, [dials2.drag, 0], 2600, 0.972, 0.45, 0.06, [0, -1]);
+    const flesh = [rot.fleshLight, rot.flesh, rot.fleshDark];
+    const rags = [rot.ragLight, rot.rag, rot.ragDark];
+    const parts = [
+      { name: "upper_arm_far", bone: "upper_arm_far", ramp: rags, paint: upperArm4(rot, true) },
+      { name: "forearm_far", bone: "forearm_far", ramp: [...rags, ...flesh], paint: forearm4(rot, true) },
+      { name: "thigh_far", bone: "thigh_far", ramp: rags, paint: thigh4(rot, true) },
+      { name: "shin_far", bone: "shin_far", ramp: [...rags, ...flesh], paint: shin4(rot, true) },
+      { name: "foot_far", bone: "foot_far", ramp: rags, paint: foot4(rot, true) },
+      { name: "tail", chain: "tail", ramp: rags, painter: tail(rot) },
+      { name: "hips", bone: "spine", ramp: [...rags, ...flesh], paint: hips2(rot) },
+      { name: "chest", bone: "chest", ramp: [...rags, ...flesh, BONE, BONE_LIGHT, GORE], paint: chest4(rot) },
+      { name: "head", bone: "head", ramp: [...flesh, ...rags, BONE, BONE_LIGHT, GORE, EYE2, EYE_CORE2], paint: head4(rot) },
+      { name: "thigh_near", bone: "thigh_near", ramp: rags, paint: thigh4(rot, false) },
+      { name: "shin_near", bone: "shin_near", ramp: [...rags, ...flesh], paint: shin4(rot, false) },
+      { name: "foot_near", bone: "foot_near", ramp: rags, paint: foot4(rot, false) },
+      { name: "upper_arm_near", bone: "upper_arm_near", ramp: rags, paint: upperArm4(rot, false) },
+      { name: "forearm_near", bone: "forearm_near", ramp: [...rags, ...flesh, BONE], paint: forearm4(rot, false) }
+    ];
+    const clips = /* @__PURE__ */ new Map();
+    clips.set("idle", idle4(dials2));
+    clips.set("shamble", shamble(dials2));
+    clips.set("lunge", lunge(dials2));
+    clips.set("shamble_west", Motion.mirror("shamble_west", "shamble", clips.get("shamble")));
+    const restPose = () => {
+      const pose = { deg: {} };
+      S.solveChain(pose, "thigh_near", "shin_near", [116, GROUND_Y4], 1, "foot_near", 90);
+      S.solveChain(pose, "thigh_far", "shin_far", [80, GROUND_Y4], 1, "foot_far", 86);
+      return pose;
+    };
+    return {
+      canvasW: CANVAS_W4,
+      canvasH: CANVAS_H4,
+      groundRow: GROUND_ROW4,
+      skeleton: S,
+      parts,
+      clips,
+      grade: { ink: INK4, shadow: SHADOW4, emissiveLone: [EYE2, EYE_CORE2] },
+      shadow: { x: 32, y: 77, rx: 14, ry: 2 },
+      restPose
+    };
+  }
+  function thigh4(rot, far) {
+    const p = new Paint({ x: -14, y: -6, w: 28, h: 64 });
+    p.capsule([0, 2], [0, 50], 9, 7, far ? rot.ragDark : rot.rag);
+    if (!far) {
+      p.tintToward([-1, -0.4], rot.ragLight, 3);
+      p.tintToward([1, 0.4], rot.ragDark, 3);
+    }
+    p.occludeAbove(6, 8, 0.25);
+    return p;
+  }
+  function shin4(rot, far) {
+    const p = new Paint({ x: -14, y: -6, w: 28, h: 64 });
+    p.capsule([0, 0], [0, 20], 7.5, 6.5, far ? rot.ragDark : rot.rag);
+    p.capsule([0, 18], [0, 46], 6.5, 5.5, far ? rot.fleshDark : rot.flesh);
+    if (!far) {
+      p.tintToward([-1, -0.4], rot.fleshLight, 2.5);
+      p.tintToward([1, 0.5], rot.fleshDark, 2.5);
+    }
+    return p;
+  }
+  function foot4(rot, far) {
+    const p = new Paint({ x: -14, y: -10, w: 28, h: 32 });
+    p.capsule([2, -3], [0, 12], 6, 4.5, far ? rot.ragDark : rot.rag);
+    if (!far) p.tintToward([1, -0.3], rot.ragLight, 2);
+    return p;
+  }
+  function hips2(rot) {
+    const p = new Paint({ x: -22, y: -10, w: 44, h: 58 });
+    p.capsule([0, 2], [1, 38], 11, 12, rot.rag);
+    p.capsule([-9, 7], [9, 10], 3.5, 3.5, rot.ragDark);
+    p.tintToward([0.8, 0.5], rot.ragLight, 3);
+    p.tintToward([-0.7, -0.5], rot.ragDark, 3);
+    return p;
+  }
+  function chest4(rot) {
+    const p = new Paint({ x: -24, y: -8, w: 48, h: 56 });
+    p.capsule([0, 0], [-2, 36], 12, 11, rot.rag);
+    p.disc([-5, 20], 9, GORE);
+    p.capsule([-12, 16], [-1, 15], 3, 3, BONE);
+    p.capsule([-13, 23], [-2, 22], 3, 3, BONE_LIGHT);
+    p.tintToward([0.7, 0.7], rot.ragLight, 3.5);
+    p.tintToward([-0.5, -0.8], rot.ragDark, 3);
+    p.occludeAbove(4, 8, 0.2);
+    return p;
+  }
+  function head4(rot) {
+    const p = new Paint({ x: -30, y: -6, w: 60, h: 62 });
+    p.disc([2, 36], 18, rot.flesh);
+    p.polygon(
+      [
+        [-14, 34],
+        [-24, 30],
+        [-27, 21],
+        [-19, 17],
+        [-9, 22]
+      ],
+      rot.fleshDark
+    );
+    p.capsule([10, 48], [21, 24], 8, 5, rot.ragDark);
+    p.capsule([-16, 39], [-5, 41], 2.8, 2.8, rot.fleshDark);
+    p.disc([-11, 33], 4.5, BONE_LIGHT);
+    p.disc([-12, 33], 2.6, EYE2);
+    p.disc([-13, 33], 1.2, EYE_CORE2);
+    p.capsule([-20, 25], [-11, 26], 1.8, 1.8, GORE);
+    p.tintToward([0.6, 0.8], rot.fleshLight, 3.5);
+    p.tintToward([-0.9, -0.5], rot.fleshDark, 3);
+    return p;
+  }
+  function upperArm4(rot, far) {
+    const p = new Paint({ x: -12, y: -6, w: 24, h: 44 });
+    p.capsule([0, 0], [0, 32], 7, 5.5, far ? rot.ragDark : rot.rag);
+    if (!far) p.tintToward([-1, -0.3], rot.ragLight, 2.5);
+    p.occludeAbove(4, 7, 0.25);
+    return p;
+  }
+  function forearm4(rot, far) {
+    const p = new Paint({ x: -12, y: -6, w: 24, h: 46 });
+    p.capsule([0, 0], [0, 12], 6, 5.5, far ? rot.ragDark : rot.rag);
+    p.capsule([0, 11], [0, 24], 5.5, 4.5, far ? rot.fleshDark : rot.flesh);
+    p.disc([0, 27], 5.5, far ? rot.fleshDark : rot.flesh);
+    p.capsule([-3, 28], [-4, 33], 3.4, 3, far ? rot.fleshDark : rot.fleshLight);
+    p.capsule([2, 28], [3, 32], 3.4, 3, far ? rot.fleshDark : rot.flesh);
+    if (!far) {
+      p.tintToward([-1, -0.3], rot.fleshLight, 2);
+      p.disc([0, 6], 3, BONE);
+    }
+    return p;
+  }
+  function tail(rot) {
+    return (p, pts) => {
+      p.ribbon(pts, 11, 4, rot.rag);
+      p.tintToward([-0.6, -1], rot.ragLight, 2.5);
+      p.tintToward([0.6, 1], rot.ragDark, 3);
+    };
+  }
+  function idle4(dials2) {
+    const c = new Motion("idle", 2.4);
+    c.bakeFps = 12;
+    c.wind = [dials2.drag * 0.3, 0];
+    c.plant("thigh_near", "shin_near", "foot_near", { 0: [116, GROUND_Y4, 90] });
+    c.plant("thigh_far", "shin_far", "foot_far", { 0: [80, GROUND_Y4, 86] });
+    c.key("root_y", { 0: 0, 1.2: 2 });
+    c.key("spine", { 0: -1.5, 1.2: 1.5 });
+    c.key("chest", { 0.2: 2, 1.4: -2 });
+    c.key("head", { 0.5: -4, 1.7: 4 });
+    c.key("upper_arm_near", { 0: 3, 1.2: -3 });
+    c.key("forearm_near", { 0.3: -5, 1.5: 5 });
+    c.key("upper_arm_far", { 0: -3, 1.2: 3 });
+    c.key("forearm_far", { 0.3: 4, 1.5: -4 });
+    return c;
+  }
+  function shamble(dials2) {
+    const c = new Motion("shamble", 1.4);
+    c.bakeFps = 12;
+    c.wind = [dials2.drag, 0];
+    c.gait("thigh_near", "shin_near", "foot_near", dials2.stride, 16, 0, GROUND_Y4, 18, 0.72);
+    c.gait("thigh_far", "shin_far", "foot_far", dials2.stride, 4, 0.5, GROUND_Y4, -18, 0.72);
+    c.key("root_y", { 0: 4, 0.35: -2, 0.7: 4, 1.05: 1 });
+    c.key("spine", { 0: -4, 0.7: 2 });
+    c.key("chest", { 0: 3, 0.7: -3 });
+    c.key("head", { 0.15: -5, 0.85: 5 });
+    c.key("upper_arm_near", { 0: -6, 0.7: 6 });
+    c.key("forearm_near", { 0: 5, 0.7: -5 });
+    c.key("upper_arm_far", { 0: 5, 0.7: -5 });
+    c.key("forearm_far", { 0: -6, 0.7: 6 });
+    return c;
+  }
+  function lunge(dials2) {
+    const c = new Motion("lunge", 1.3, false);
+    c.bakeFps = 15;
+    c.wobbleBudget = 4;
+    c.wind = [dials2.drag, 0];
+    c.key("wind_x", { 0: dials2.drag, 0.3: -dials2.drag * 4, 0.6: dials2.drag, 1.3: dials2.drag });
+    c.plant("thigh_near", "shin_near", "foot_near", {
+      0: [116, GROUND_Y4, 90],
+      0.18: [110, GROUND_Y4, 90],
+      0.42: [142, GROUND_Y4, 96],
+      0.9: [138, GROUND_Y4, 94],
+      1.3: [116, GROUND_Y4, 90]
+    });
+    c.plant("thigh_far", "shin_far", "foot_far", {
+      0: [80, GROUND_Y4, 86],
+      0.18: [76, GROUND_Y4, 86],
+      0.42: [82, GROUND_Y4, 80],
+      0.9: [82, GROUND_Y4, 82],
+      1.3: [80, GROUND_Y4, 86]
+    });
+    c.key("root_y", { 0: 0, 0.18: 4, 0.42: 8, 0.9: 6, 1.3: 0 }, "outBack");
+    c.key("spine", { 0: 0, 0.18: 5, 0.42: -12, 0.9: -9, 1.3: 0 }, "outBack");
+    c.key("chest", { 0: 0, 0.18: 4, 0.42: -8, 0.9: -6, 1.3: 0 });
+    c.key("head", { 0: 0, 0.18: 6, 0.42: -10, 0.9: -7, 1.3: 0 });
+    c.key("upper_arm_near", { 0: 0, 0.18: 10, 0.42: -22, 0.9: -18, 1.3: 0 });
+    c.key("forearm_near", { 0: 0, 0.18: 6, 0.42: 12, 0.9: 9, 1.3: 0 });
+    c.key("upper_arm_far", { 0: 0, 0.18: 8, 0.42: -16, 0.9: -13, 1.3: 0 });
+    c.key("forearm_far", { 0: 0, 0.18: 5, 0.42: 14, 0.9: 11, 1.3: 0 });
+    return c;
+  }
+
   // main.ts
   var SCALE = 5;
   var CAST = [
@@ -2153,8 +2623,8 @@
       id: "scout",
       name: "Scout",
       blurb: "Tapered capsules, a verlet scarf, a running gait.",
-      canvasW: CANVAS_W,
-      canvasH: CANVAS_H,
+      canvasW: CANVAS_W2,
+      canvasH: CANVAS_H2,
       themes: [
         { label: "dusk", value: DUSK },
         { label: "ember", value: EMBER }
@@ -2163,15 +2633,15 @@
         { key: "stride", label: "stride", min: 40, max: 130, sign: 1 },
         { key: "runWind", label: "scarf wind", min: 0, max: 12e3, sign: -1 }
       ],
-      defaults: { ...DEFAULT_DIALS },
-      build: (theme, dials2) => buildCharacter(theme, dials2)
+      defaults: { ...DEFAULT_DIALS2 },
+      build: (theme, dials2) => buildCharacter2(theme, dials2)
     },
     {
       id: "rivet",
       name: "Rivet",
       blurb: "Flat polygon panels, a stiff antenna, a plod \u2014 and one clip that does not loop.",
-      canvasW: CANVAS_W2,
-      canvasH: CANVAS_H2,
+      canvasW: CANVAS_W3,
+      canvasH: CANVAS_H3,
       themes: [
         { label: "rust", value: RUST },
         { label: "moss", value: MOSS }
@@ -2180,8 +2650,42 @@
         { key: "stride", label: "stride", min: 20, max: 90, sign: 1 },
         { key: "antennaWind", label: "antenna wind", min: 0, max: 3e3, sign: -1 }
       ],
-      defaults: { ...DEFAULT_DIALS2 },
-      build: (theme, dials2) => buildCharacter2(theme, dials2)
+      defaults: { ...DEFAULT_DIALS3 },
+      build: (theme, dials2) => buildCharacter3(theme, dials2)
+    },
+    {
+      id: "vanguard",
+      name: "Vanguard",
+      blurb: "Plate armour, a guarded walk, and a fully articulated sword slash.",
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      themes: [
+        { label: "crimson", value: CRIMSON },
+        { label: "azure", value: AZURE }
+      ],
+      dials: [
+        { key: "stride", label: "stride", min: 28, max: 76, sign: 1 },
+        { key: "swordArc", label: "sword arc", min: 70, max: 120, sign: 1 }
+      ],
+      defaults: { ...DEFAULT_DIALS },
+      build: (theme, dials2) => buildCharacter(theme, dials2)
+    },
+    {
+      id: "husk",
+      name: "Husk",
+      blurb: "A hunched stack, both arms reaching, a limp, and a rag that hangs rather than streams.",
+      canvasW: CANVAS_W4,
+      canvasH: CANVAS_H4,
+      themes: [
+        { label: "grave", value: GRAVE },
+        { label: "drowned", value: DROWNED }
+      ],
+      dials: [
+        { key: "stride", label: "stride", min: 16, max: 80, sign: 1 },
+        { key: "drag", label: "coat drag", min: 0, max: 2e3, sign: -1 }
+      ],
+      defaults: { ...DEFAULT_DIALS4 },
+      build: (theme, dials2) => buildCharacter4(theme, dials2)
     }
   ];
   var cast = CAST[0];

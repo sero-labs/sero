@@ -5,18 +5,20 @@
  * rebake. This file is also the package's consumer smoke test: it only uses the
  * public API (plus the skeleton overlay's read access).
  *
- * It carries a CAST rather than one character on purpose. Scout and Rivet are
- * built from opposite materials — tapered capsules and cloth against flat
- * polygon panels and a stiff rod — and a page that can only show one of them
- * demonstrates a character instead of an engine. Nothing below knows anything
- * about either: a cast member is a canvas size, some themes, some named dials
- * and a build function, and the clip buttons are read off whatever it returns.
+ * It carries a CAST rather than one character on purpose. Scout, Rivet,
+ * Vanguard and Husk use the same engine for cloth, machinery, an articulated
+ * weapon and a body that is off-vertical by design.
+ * Nothing below knows their internals: a cast member is a canvas size, some
+ * themes, some named dials and a build function, and the clip buttons are read
+ * off whatever it returns.
  */
 
 import type { BakedClip, CharacterSpec, Img } from '../src/index';
 import { ClipPlayer, SS, auditCharacter, bakeClip } from '../src/index';
+import * as knight from './knight';
 import * as scout from './scout';
 import * as rivet from './rivet';
+import * as husk from './husk';
 
 const SCALE = 5;
 
@@ -78,6 +80,41 @@ const CAST: CastMember[] = [
     defaults: { ...rivet.DEFAULT_DIALS },
     build: (theme, dials) =>
       rivet.buildCharacter(theme as rivet.Finish, dials as unknown as rivet.Dials),
+  },
+  {
+    id: 'vanguard',
+    name: 'Vanguard',
+    blurb: 'Plate armour, a guarded walk, and a fully articulated sword slash.',
+    canvasW: knight.CANVAS_W,
+    canvasH: knight.CANVAS_H,
+    themes: [
+      { label: 'crimson', value: knight.CRIMSON },
+      { label: 'azure', value: knight.AZURE },
+    ],
+    dials: [
+      { key: 'stride', label: 'stride', min: 28, max: 76, sign: 1 },
+      { key: 'swordArc', label: 'sword arc', min: 70, max: 120, sign: 1 },
+    ],
+    defaults: { ...knight.DEFAULT_DIALS },
+    build: (theme, dials) =>
+      knight.buildCharacter(theme as knight.Livery, dials as unknown as knight.Dials),
+  },
+  {
+    id: 'husk',
+    name: 'Husk',
+    blurb: 'A hunched stack, both arms reaching, a limp, and a rag that hangs rather than streams.',
+    canvasW: husk.CANVAS_W,
+    canvasH: husk.CANVAS_H,
+    themes: [
+      { label: 'grave', value: husk.GRAVE },
+      { label: 'drowned', value: husk.DROWNED },
+    ],
+    dials: [
+      { key: 'stride', label: 'stride', min: 16, max: 80, sign: 1 },
+      { key: 'drag', label: 'coat drag', min: 0, max: 2000, sign: -1 },
+    ],
+    defaults: { ...husk.DEFAULT_DIALS },
+    build: (theme, dials) => husk.buildCharacter(theme as husk.Rot, dials as unknown as husk.Dials),
   },
 ];
 

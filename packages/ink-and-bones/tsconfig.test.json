@@ -10,6 +10,8 @@
     "test/**/*",
     "example/scout.ts",
     "example/rivet.ts",
+    "example/knight.ts",
+    "example/husk.ts",
     "example/media.ts"
   ]
 }

@@ -18,8 +18,10 @@ import { deflateSync } from 'node:zlib';
 
 import type { Img } from '../src/index';
 import { bakeAllClips, bakeRest } from '../src/index';
+import * as knight from './knight';
 import * as scout from './scout';
 import * as rivet from './rivet';
+import * as husk from './husk';
 
 /** Where to write, handed over by `media.sh` — the bundle has no path of its
  * own to work from. */
@@ -269,6 +271,8 @@ mkdirSync(MEDIA, { recursive: true });
 for (const [id, build, show] of [
   ['scout', () => scout.buildCharacter(), ['run', 'idle', 'jump']],
   ['rivet', () => rivet.buildCharacter(), ['walk', 'idle', 'startle']],
+  ['husk', () => husk.buildCharacter(), ['shamble', 'idle', 'lunge']],
+  ['vanguard', () => knight.buildCharacter(), ['walk', 'idle', 'slash']],
 ] as const) {
   const spec = build();
   console.log(id);
