@@ -582,7 +582,7 @@
     S.bone("forearm_near", "upper_arm_near", S.tip(), -8, 26);
     S.bone("upper_arm_far", "chest", [3, 30], 190, 30);
     S.bone("forearm_far", "upper_arm_far", S.tip(), -6, 26);
-    S.chain("scarf", "chest", [7, 26], 6, 10, [-850, 0], 3800, 0.975, 0.15, 0.3, [0.45, -1]);
+    S.chain("scarf", "chest", [7, 26], 7, 11, [-850, 0], 3e3, 0.975, 0.15, 0.22, [0.45, -1]);
     const suit = [theme2.suitLight, theme2.suit, theme2.suitDark];
     const boots = [BOOT_LIGHT, BOOT, BOOT_DARK];
     const scarfRamp = [theme2.scarfLight, theme2.scarf, theme2.scarfDark];
@@ -612,9 +612,9 @@
       { name: "forearm_near", bone: "forearm_near", ramp: [...suit, SKIN, SKIN_SHADE], paint: forearm(theme2, false) }
     ];
     const clips = /* @__PURE__ */ new Map();
-    clips.set("idle", idle());
+    clips.set("idle", idle(dials2));
     clips.set("run", run(dials2));
-    clips.set("jump", jump());
+    clips.set("jump", jump(dials2));
     clips.set("run_west", Motion.mirror("run_west", "run", clips.get("run")));
     const restPose = () => {
       const pose = { deg: {} };
@@ -698,10 +698,10 @@
     if (!far) p.tintToward([-1, -0.3], theme2.suitLight, 2);
     return p;
   }
-  function idle() {
+  function idle(dials2) {
     const c = new Motion("idle", 1.6);
     c.bakeFps = 12;
-    c.wind = [-150, 0];
+    c.wind = [-150 + dials2.runWind * 0.4, 0];
     c.plant("thigh_near", "shin_near", "foot_near", { 0: [140, GROUND_Y, 90] });
     c.plant("thigh_far", "shin_far", "foot_far", { 0: [116, GROUND_Y, 88] });
     c.key("root_y", { 0: 1, 0.8: -2 });
@@ -724,16 +724,16 @@
     c.key("root_y", { 0.05: 4, 0.2: -7, 0.35: 4, 0.5: -7 });
     c.key("spine", { 0: -14, 0.15: -17, 0.3: -14, 0.45: -17 });
     c.key("head", { 0: 3, 0.15: 5, 0.3: 3, 0.45: 5 });
-    c.key("upper_arm_near", { 0: -32, 0.3: 32 });
-    c.key("forearm_near", { 0: -45, 0.3: -25 });
-    c.key("upper_arm_far", { 0: 32, 0.3: -32 });
-    c.key("forearm_far", { 0: -25, 0.3: -45 });
+    c.key("upper_arm_near", { 0: -32, 0.24: 32 });
+    c.key("forearm_near", { 0: 55, 0.24: 78 });
+    c.key("upper_arm_far", { 0: 32, 0.24: -32 });
+    c.key("forearm_far", { 0: 78, 0.24: 55 });
     return c;
   }
-  function jump() {
+  function jump(dials2) {
     const c = new Motion("jump", 1.2);
     c.bakeFps = 15;
-    c.wind = [-400, 0];
+    c.wind = [-400 + dials2.runWind * 0.5, 0];
     c.airborne = true;
     c.key("root_y", {
       0: 0,

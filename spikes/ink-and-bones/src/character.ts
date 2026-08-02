@@ -78,7 +78,8 @@ export interface Character {
 export interface Dials {
   /** Run stride, ss px. */
   stride: number;
-  /** Run headwind on the scarf, ss px/s^2 (negative = streams west). */
+  /** Headwind on the scarf, ss px/s^2 (negative = streams west). Full
+   * strength in the run, scaled down in the idle and the jump. */
   runWind: number;
 }
 
@@ -109,7 +110,7 @@ export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS
   // The scarf: anchored high on the back of the chest. Stiffness pins the
   // collar to restDir (down and west of the chest's own frame), the tapered
   // wind bends the tip — that difference is what makes it read as cloth.
-  S.chain('scarf', 'chest', [7, 26], 6, 10, [-850, 0], 3800, 0.975, 0.15, 0.3, [0.45, -1]);
+  S.chain('scarf', 'chest', [7, 26], 7, 11, [-850, 0], 3000, 0.975, 0.15, 0.22, [0.45, -1]);
 
   const suit: Color[] = [theme.suitLight, theme.suit, theme.suitDark];
   const boots: Color[] = [BOOT_LIGHT, BOOT, BOOT_DARK];
@@ -142,9 +143,9 @@ export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS
   ];
 
   const clips = new Map<string, Motion>();
-  clips.set('idle', idle());
+  clips.set('idle', idle(dials));
   clips.set('run', run(dials));
-  clips.set('jump', jump());
+  clips.set('jump', jump(dials));
   clips.set('run_west', Motion.mirror('run_west', 'run', clips.get('run')!));
 
   const restPose = (): Pose => {
@@ -246,10 +247,10 @@ function forearm(theme: Theme, far: boolean): Paint {
 
 // --- clips -----------------------------------------------------------------
 
-function idle(): Motion {
+function idle(dials: Dials): Motion {
   const c = new Motion('idle', 1.6);
   c.bakeFps = 12;
-  c.wind = [-150, 0];
+  c.wind = [-150 + dials.runWind * 0.4, 0];
   c.plant('thigh_near', 'shin_near', 'foot_near', { 0: [140, GROUND_Y, 90] });
   c.plant('thigh_far', 'shin_far', 'foot_far', { 0: [116, GROUND_Y, 88] });
   c.key('root_y', { 0: 1, 0.8: -2 });
@@ -273,17 +274,21 @@ function run(dials: Dials): Motion {
   c.key('root_y', { 0.05: 4, 0.2: -7, 0.35: 4, 0.5: -7 });
   c.key('spine', { 0: -14, 0.15: -17, 0.3: -14, 0.45: -17 });
   c.key('head', { 0: 3, 0.15: 5, 0.3: 3, 0.45: 5 });
-  c.key('upper_arm_near', { 0: -32, 0.3: 32 });
-  c.key('forearm_near', { 0: -45, 0.3: -25 });
-  c.key('upper_arm_far', { 0: 32, 0.3: -32 });
-  c.key('forearm_far', { 0: -25, 0.3: -45 });
+  // Arms in antiphase with their own leg: the near foot is at its front
+  // extreme at t=0, its back extreme at t=0.24 (contact 0.4 x 0.6s). The
+  // FOREARM deltas are POSITIVE: the hand pumps in front of the elbow — a
+  // negative bend trails the hand behind it and reads as a backwards arm.
+  c.key('upper_arm_near', { 0: -32, 0.24: 32 });
+  c.key('forearm_near', { 0: 55, 0.24: 78 });
+  c.key('upper_arm_far', { 0: 32, 0.24: -32 });
+  c.key('forearm_far', { 0: 78, 0.24: 55 });
   return c;
 }
 
-function jump(): Motion {
+function jump(dials: Dials): Motion {
   const c = new Motion('jump', 1.2);
   c.bakeFps = 15;
-  c.wind = [-400, 0];
+  c.wind = [-400 + dials.runWind * 0.5, 0];
   c.airborne = true;
   c.key('root_y', {
     0: 0,
