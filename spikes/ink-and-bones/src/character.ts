@@ -320,9 +320,12 @@ function jump(dials: Dials): Motion {
   });
   c.key('spine', { 0: 0, 0.15: -10, 0.3: 6, 0.45: 4, 0.6: -4, 0.72: -8, 0.9: 0 });
   c.key('head', { 0: 0, 0.15: 6, 0.3: -4, 0.6: 2, 0.72: 5, 0.9: 0 });
-  c.key('upper_arm_near', { 0: 5, 0.15: 25, 0.3: -60, 0.45: -70, 0.6: -30, 0.72: 15, 0.9: 5 });
-  c.key('forearm_near', { 0: -20, 0.3: -35, 0.6: -20, 0.9: -20 });
-  c.key('upper_arm_far', { 0: -5, 0.15: 20, 0.3: -45, 0.45: -55, 0.6: -20, 0.72: 10, 0.9: -5 });
-  c.key('forearm_far', { 0: -15, 0.3: -30, 0.6: -15, 0.9: -15 });
+  // The jump's arms: wind up BACK through the crouch (negative), swing
+  // forward-up through the launch, reach in flight, settle for the landing.
+  // Forearm bends stay POSITIVE — hand ahead of the elbow, as in the run.
+  c.key('upper_arm_near', { 0: 5, 0.15: -35, 0.3: 55, 0.45: 80, 0.6: 40, 0.72: -10, 0.9: 5 });
+  c.key('forearm_near', { 0: 10, 0.15: 25, 0.3: 45, 0.45: 40, 0.6: 28, 0.72: 15, 0.9: 10 });
+  c.key('upper_arm_far', { 0: -5, 0.15: -42, 0.3: 40, 0.45: 62, 0.6: 28, 0.72: -15, 0.9: -5 });
+  c.key('forearm_far', { 0: 10, 0.15: 20, 0.3: 40, 0.45: 35, 0.6: 22, 0.72: 10, 0.9: 10 });
   return c;
 }
