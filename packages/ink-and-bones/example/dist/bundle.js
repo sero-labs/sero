@@ -62,6 +62,11 @@
     if (!/^[0-9a-fA-F]{6}$/.test(rgb2)) {
       throw new Error(`hex: '${rgb2}' is not a 6-digit hex colour`);
     }
+    if (typeof alpha !== "number" || !(alpha >= 0 && alpha <= 1)) {
+      throw new Error(
+        `hex: alpha must be between 0 and 1, not ${alpha}. Writing '.map(hex)' passes the array index as the alpha \u2014 write .map((c) => hex(c)) instead.`
+      );
+    }
     const n = parseInt(rgb2, 16);
     return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255, alpha];
   }
@@ -71,6 +76,9 @@
   function darkened(c, amount) {
     return [c[0] * (1 - amount), c[1] * (1 - amount), c[2] * (1 - amount), c[3]];
   }
+  var MAX_IMG_PIXELS = 1 << 24;
+  var allocationBudget = Infinity;
+  var allocatedPixels = 0;
   var Img = class _Img {
     w;
     h;
@@ -78,6 +86,17 @@
     constructor(w, h) {
       this.w = Math.max(1, Math.ceil(w));
       this.h = Math.max(1, Math.ceil(h));
+      if (this.w * this.h > MAX_IMG_PIXELS) {
+        throw new Error(
+          `Img: refusing a ${this.w} x ${this.h} canvas \u2014 beyond any legitimate bake or review image.`
+        );
+      }
+      allocatedPixels += this.w * this.h;
+      if (allocatedPixels > allocationBudget) {
+        throw new Error(
+          "Img: the allocation budget for this bake is spent \u2014 far more canvas than any character needs. Paint each part once and let the engine own the frames."
+        );
+      }
       this.data = new Float32Array(this.w * this.h * 4);
     }
     get(x, y) {
@@ -137,7 +156,77 @@
     }
   };
 
+  // ../src/guard.ts
+  function fail(helper, problem, signature) {
+    throw new Error(`${helper}: ${problem}. ${signature}`);
+  }
+  function describe(value) {
+    if (Array.isArray(value)) return `an array of ${value.length}`;
+    if (value === null) return "null";
+    if (typeof value === "number" && !Number.isFinite(value)) return String(value);
+    return typeof value;
+  }
+  function assertNumber(value, what, helper, signature) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      fail(helper, `${what} must be a finite number, not ${describe(value)}`, signature);
+    }
+    return value;
+  }
+  function assertVec(value, what, helper, signature) {
+    if (!Array.isArray(value) || value.length !== 2 || typeof value[0] !== "number" || typeof value[1] !== "number" || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) {
+      fail(helper, `${what} must be a point [x, y], not ${describe(value)}`, signature);
+    }
+    return value;
+  }
+  function assertColor(value, what, helper, signature) {
+    if (!Array.isArray(value) || value.length !== 4 || value.some((c) => typeof c !== "number" || !Number.isFinite(c))) {
+      fail(
+        helper,
+        `${what} must be a colour [r, g, b, a] from hex('4e5f78'), not ${describe(value)}`,
+        signature
+      );
+    }
+    return value;
+  }
+  function assertPoints(value, what, helper, signature) {
+    if (!Array.isArray(value)) {
+      fail(helper, `${what} must be an array of [x, y] points, not ${describe(value)}`, signature);
+    }
+    if (value.length < 2) {
+      fail(helper, `${what} needs at least two points, got ${value.length}`, signature);
+    }
+    value.forEach((point, i) => assertVec(point, `${what}[${i}]`, helper, signature));
+    return value;
+  }
+  function assertWidths(value, what, helper, signature) {
+    if (typeof value === "number") {
+      fail(
+        helper,
+        `${what} must be an ARRAY of half-widths, one per point \u2014 [${value}, ${value}] for a uniform line, not the bare number ${value}`,
+        signature
+      );
+    }
+    if (!Array.isArray(value) || value.length === 0) {
+      fail(helper, `${what} must be a non-empty array of half-widths, not ${describe(value)}`, signature);
+    }
+    value.forEach((w, i) => assertNumber(w, `${what}[${i}]`, helper, signature));
+    return value;
+  }
+
   // ../src/paint.ts
+  var SS_PER_PIXEL = 4;
+  var SIG = {
+    capsule: "capsule(p0, p1, r0, r1, colour) \u2014 two points, two half-widths, one colour.",
+    disc: "disc(centre, r, colour).",
+    polygon: "polygon(points, colour) \u2014 three or more points, one colour.",
+    // Both name the chain-painter call order: passing the Paint where the points
+    // belong is the mistake that once drew a whole part as nothing.
+    stroke: "stroke(points, widths, colour) \u2014 points and a per-point width ARRAY. A chain painter is called as painter(paint, points): the canvas first, the simulated points second.",
+    ribbon: "ribbon(points, w0, w1, colour) \u2014 points, then the two end half-widths. A chain painter is called as painter(paint, points): the canvas first, the simulated points second.",
+    tintToward: "tintToward(dir, colour, depth) \u2014 a direction, a colour, a depth in px.",
+    occludeAbove: "occludeAbove(atY, depth, amount) \u2014 three numbers; amount is 0..1, not a colour.",
+    image: "image(src, at, scale?) \u2014 an Img of pixels, where its top-left goes in bone-local space, and whole supersampled px per source pixel (4 by default)."
+  };
   var Paint = class {
     img;
     /** Where local (0,0) — the bone joint — sits in img pixels. */
@@ -148,6 +237,17 @@
     }
     /** Tapered capsule from p0 (radius r0) to p1 (radius r1) — the workhorse. */
     capsule(p0, p1, r0, r1, c) {
+      assertVec(p0, "p0", "capsule", SIG.capsule);
+      assertVec(p1, "p1", "capsule", SIG.capsule);
+      assertNumber(r0, "r0", "capsule", SIG.capsule);
+      assertNumber(r1, "r1", "capsule", SIG.capsule);
+      assertColor(c, "colour", "capsule", SIG.capsule);
+      this.fillCapsule(p0, p1, r0, r1, c);
+    }
+    /** The unchecked capsule the other helpers fill through, once their own
+     * arguments are validated — guards belong at the author's call, not in an
+     * inner loop. */
+    fillCapsule(p0, p1, r0, r1, c) {
       const img = this.img;
       const a = [p0[0] + this.origin[0], p0[1] + this.origin[1]];
       const b = [p1[0] + this.origin[0], p1[1] + this.origin[1]];
@@ -172,24 +272,67 @@
       }
     }
     disc(center, r, c) {
-      this.capsule(center, center, r, r, c);
+      assertVec(center, "centre", "disc", SIG.disc);
+      assertNumber(r, "r", "disc", SIG.disc);
+      assertColor(c, "colour", "disc", SIG.disc);
+      this.fillCapsule(center, center, r, r, c);
+    }
+    /**
+     * A filled polygon — the shape tool capsules cannot be: a helmet's flat
+     * crown and angled brow, a shield's kite, a blade's taper. Even-odd fill of
+     * the closed path through `points`; concave outlines and notches are fine.
+     */
+    polygon(points, c) {
+      assertPoints(points, "points", "polygon", SIG.polygon);
+      if (points.length < 3) {
+        throw new Error(`polygon: needs at least three points, got ${points.length}. ${SIG.polygon}`);
+      }
+      assertColor(c, "colour", "polygon", SIG.polygon);
+      const img = this.img;
+      const xs = points.map((p) => p[0] + this.origin[0]);
+      const ys = points.map((p) => p[1] + this.origin[1]);
+      const y0 = Math.max(0, Math.floor(Math.min(...ys)));
+      const y1 = Math.min(img.h - 1, Math.ceil(Math.max(...ys)));
+      const n = points.length;
+      const crossings = [];
+      for (let y = y0; y <= y1; y++) {
+        const py = y + 0.5;
+        crossings.length = 0;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          if (ys[i] > py !== ys[j] > py) {
+            crossings.push(xs[i] + (py - ys[i]) / (ys[j] - ys[i]) * (xs[j] - xs[i]));
+          }
+        }
+        crossings.sort((a, b) => a - b);
+        for (let k = 0; k + 1 < crossings.length; k += 2) {
+          const xa = Math.max(0, Math.round(crossings[k]));
+          const xb = Math.min(img.w - 1, Math.round(crossings[k + 1]) - 1);
+          for (let x = xa; x <= xb; x++) img.set(x, y, c);
+        }
+      }
     }
     /** Polyline stroke with a per-point half-width profile. */
     stroke(points, widths, c) {
+      assertPoints(points, "points", "stroke", SIG.stroke);
+      assertWidths(widths, "widths", "stroke", SIG.stroke);
+      assertColor(c, "colour", "stroke", SIG.stroke);
       for (let i = 0; i < points.length - 1; i++) {
         const w0 = widths[Math.min(i, widths.length - 1)];
         const w1 = widths[Math.min(i + 1, widths.length - 1)];
-        this.capsule(points[i], points[i + 1], w0, w1, c);
+        this.fillCapsule(points[i], points[i + 1], w0, w1, c);
       }
     }
     /** A stroke tapering linearly from w0 to w1 — the shape of a chain. */
     ribbon(points, w0, w1, c) {
+      assertPoints(points, "points", "ribbon", SIG.ribbon);
+      assertNumber(w0, "w0", "ribbon", SIG.ribbon);
+      assertNumber(w1, "w1", "ribbon", SIG.ribbon);
+      assertColor(c, "colour", "ribbon", SIG.ribbon);
       const n = points.length;
-      if (n < 2) return;
       for (let i = 0; i < n - 1; i++) {
         const t0 = i / (n - 1);
         const t1 = (i + 1) / (n - 1);
-        this.capsule(points[i], points[i + 1], lerp(w0, w1, t0), lerp(w0, w1, t1), c);
+        this.fillCapsule(points[i], points[i + 1], lerp(w0, w1, t0), lerp(w0, w1, t1), c);
       }
     }
     /**
@@ -197,6 +340,9 @@
      * shape faces `dir` — lit and shaded sides, or a rim at a shallow depth.
      */
     tintToward(dir, c, depth) {
+      assertVec(dir, "dir", "tintToward", SIG.tintToward);
+      assertColor(c, "colour", "tintToward", SIG.tintToward);
+      assertNumber(depth, "depth", "tintToward", SIG.tintToward);
       const img = this.img;
       const l = Math.hypot(dir[0], dir[1]) || 1;
       const dx = dir[0] / l;
@@ -218,8 +364,57 @@
       }
       for (const i of hits) img.set(i % img.w, Math.floor(i / img.w), c);
     }
+    /**
+     * Stamp ready-made pixels into this part, `scale` supersampled px per source
+     * pixel, with `at` naming where the source's TOP-LEFT sits in bone-local
+     * space.
+     *
+     * The other helpers describe a shape and let the grade make the pixels. This
+     * one carries pixels somebody else already decided — artwork cut from a
+     * reference, a tile, a stamp — and it exists because describing a shape in
+     * coordinates is a poor way to draw. A character can mix the two freely: a
+     * bitmap torso under a procedural cloak is one parts list.
+     *
+     * Every colour stamped must be in the part's declared ramp, exactly as if it
+     * had been painted; the ramp law does not bend for borrowed pixels, and the
+     * 'ramp' audit will say so if it is broken. Fully transparent source pixels
+     * are skipped, so a cut-out keeps its silhouette.
+     */
+    image(src, at, scale = SS_PER_PIXEL) {
+      assertVec(at, "at", "image", SIG.image);
+      assertNumber(scale, "scale", "image", SIG.image);
+      if (!(src instanceof Img)) {
+        throw new Error(`image: src must be an Img of pixels to stamp. ${SIG.image}`);
+      }
+      if (!Number.isInteger(scale) || scale < 1) {
+        throw new Error(`image: scale must be a whole number of supersampled px per source pixel, not ${scale}. ${SIG.image}`);
+      }
+      const img = this.img;
+      const ox = at[0] + this.origin[0];
+      const oy = at[1] + this.origin[1];
+      for (let sy = 0; sy < src.h; sy++) {
+        for (let sx = 0; sx < src.w; sx++) {
+          const c = src.get(sx, sy);
+          if (c[3] < 0.5) continue;
+          const x0 = Math.round(ox + sx * scale);
+          const y0 = Math.round(oy + sy * scale);
+          for (let dy = 0; dy < scale; dy++) {
+            const y = y0 + dy;
+            if (y < 0 || y >= img.h) continue;
+            for (let dx = 0; dx < scale; dx++) {
+              const x = x0 + dx;
+              if (x < 0 || x >= img.w) continue;
+              img.set(x, y, c);
+            }
+          }
+        }
+      }
+    }
     /** Darken toward local y = atY on the joint side — sells the joint. */
     occludeAbove(atY, depth, amount) {
+      assertNumber(atY, "atY", "occludeAbove", SIG.occludeAbove);
+      assertNumber(depth, "depth", "occludeAbove", SIG.occludeAbove);
+      assertNumber(amount, "amount", "occludeAbove", SIG.occludeAbove);
       const img = this.img;
       for (let y = 0; y < img.h; y++) {
         const ly = y + 0.5 - this.origin[1];
@@ -664,7 +859,7 @@
   // ../src/compositor.ts
   var SS = 4;
   var COVER = 0.42;
-  function bake(skel, parts, clip, w1x, h1x, cfg, shadow) {
+  function bake(skel, parts, clip, w1x, h1x, cfg, shadow, ss = SS) {
     assertClipTiming(clip);
     const n = Math.max(1, Math.round(clip.cycle * clip.bakeFps));
     const chainFrames = simulateChains(skel, clip, n);
@@ -674,13 +869,16 @@
       const pose = clip.poseAt(t, skel);
       const chains = /* @__PURE__ */ new Map();
       for (const [name, frames] of chainFrames) chains.set(name, frames[f]);
-      out.push(renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains, clip.zOffsets(t)));
+      out.push(renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains, clip.zOffsets(t), ss));
     }
     return out;
   }
-  function renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains = /* @__PURE__ */ new Map(), z = /* @__PURE__ */ new Map()) {
-    const w = w1x * SS;
-    const h = h1x * SS;
+  function renderPose(skel, parts, pose, w1x, h1x, cfg, shadow, chains = /* @__PURE__ */ new Map(), z = /* @__PURE__ */ new Map(), ss = SS) {
+    if (!Number.isInteger(ss) || ss < 1 || ss > 16) {
+      throw new Error(`compositor: superSample must be a whole number from 1 to 16, not ${ss}`);
+    }
+    const w = w1x * ss;
+    const h = h1x * ss;
     const big = new Img(w, h);
     const owner = new Int32Array(w * h).fill(-1);
     const xfs = skel.transforms(pose);
@@ -693,17 +891,17 @@
       if ("chain" in part) {
         const pts = chains.get(part.chain);
         if (pts === void 0 || pts.length === 0) continue;
-        splat(big, owner, i, chainPaint(part, pts), { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 });
+        splat(big, owner, i, chainPaint(part, pts), { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 }, false);
       } else {
         const xf = xfs.get(part.bone);
         if (xf === void 0) {
           throw new Error(`compositor: part '${part.name}' binds unknown bone '${part.bone}'`);
         }
-        splat(big, owner, i, part.paint, xf);
+        splat(big, owner, i, part.paint, xf, part.crisp === true);
       }
     }
-    const body = grade(big, owner, parts, w1x, h1x, cfg);
-    outline(body, cfg.ink);
+    const body = grade(big, owner, parts, w1x, h1x, cfg, ss);
+    if (cfg.outline !== false) outline(body, cfg.ink);
     const img = new Img(w1x, h1x);
     if (shadow !== void 0) {
       discEllipse(img, shadow.x, shadow.y, shadow.rx, shadow.ry, cfg.shadow);
@@ -741,7 +939,7 @@
     part.painter(paint, pts);
     return paint;
   }
-  function splat(big, owner, index, paint, xf) {
+  function splat(big, owner, index, paint, xf, crisp) {
     const src = paint.img;
     const sw = src.w;
     const sh = src.h;
@@ -773,12 +971,18 @@
         const sx = local[0] + org[0] - 0.5;
         const sy = local[1] + org[1] - 0.5;
         if (sx < -1 || sy < -1 || sx > sw || sy > sh) continue;
-        const c = bilinear(src, sx, sy);
+        const c = crisp ? nearest(src, sx, sy) : bilinear(src, sx, sy);
         if (c[3] < 0.02) continue;
         big.blend(x, y, c);
         if (c[3] > 0.5) owner[y * big.w + x] = index;
       }
     }
+  }
+  function nearest(src, sx, sy) {
+    const x = Math.round(sx);
+    const y = Math.round(sy);
+    if (!src.inside(x, y)) return [0, 0, 0, 0];
+    return src.get(x, y);
   }
   function bilinear(src, sx, sy) {
     const fx = Math.floor(sx);
@@ -805,7 +1009,7 @@
     if (a > 1e-3) return [r / a, g / a, b / a, a];
     return [0, 0, 0, 0];
   }
-  function grade(big, owner, parts, w1x, h1x, cfg) {
+  function grade(big, owner, parts, w1x, h1x, cfg, ss) {
     const out = new Img(w1x, h1x);
     for (let cy = 0; cy < h1x; cy++) {
       for (let cx = 0; cx < w1x; cx++) {
@@ -815,10 +1019,10 @@
         let b = 0;
         const votes = /* @__PURE__ */ new Map();
         const hot = /* @__PURE__ */ new Map();
-        for (let oy = 0; oy < SS; oy++) {
-          for (let ox = 0; ox < SS; ox++) {
-            const x = cx * SS + ox;
-            const y = cy * SS + oy;
+        for (let oy = 0; oy < ss; oy++) {
+          for (let ox = 0; ox < ss; ox++) {
+            const x = cx * ss + ox;
+            const y = cy * ss + oy;
             const c = big.get(x, y);
             aSum += c[3];
             r += c[0] * c[3];
@@ -833,7 +1037,7 @@
             }
           }
         }
-        if (aSum / (SS * SS) < COVER || votes.size === 0) continue;
+        if (aSum / (ss * ss) < COVER || votes.size === 0) continue;
         let hotBest = -1;
         let hotN = 0;
         for (const [e, n] of hot) {
@@ -842,7 +1046,7 @@
             hotBest = e;
           }
         }
-        if (hotBest >= 0 && hotN >= 4) {
+        if (hotBest >= 0 && hotN >= Math.max(1, Math.round(ss * ss / 4))) {
           out.set(cx, cy, cfg.emissiveLone[hotBest]);
           continue;
         }
@@ -854,12 +1058,40 @@
             best = id;
           }
         }
+        const winner = parts[best];
+        if ("crisp" in winner && winner.crisp === true) {
+          out.set(cx, cy, modal(big, owner, best, cx, cy, ss));
+          continue;
+        }
         const mean = [r / aSum, g / aSum, b / aSum, 1];
-        out.set(cx, cy, quantize(mean, parts[best].ramp));
+        out.set(cx, cy, quantize(mean, winner.ramp));
       }
     }
-    despeckle(out, cfg.emissiveLone);
+    if (cfg.despeckle !== false) despeckle(out, cfg.emissiveLone);
     return out;
+  }
+  function modal(big, owner, part, cx, cy, ss) {
+    const seen = [];
+    for (let oy = 0; oy < ss; oy++) {
+      for (let ox = 0; ox < ss; ox++) {
+        const x = cx * ss + ox;
+        const y = cy * ss + oy;
+        if (owner[y * big.w + x] !== part) continue;
+        const c = big.get(x, y);
+        const found = seen.find((entry) => sameColor(entry.c, c));
+        if (found === void 0) seen.push({ c, n: 1 });
+        else found.n++;
+      }
+    }
+    let best = seen[0]?.c ?? [0, 0, 0, 1];
+    let bestN = 0;
+    for (const entry of seen) {
+      if (entry.n > bestN) {
+        bestN = entry.n;
+        best = entry.c;
+      }
+    }
+    return [best[0], best[1], best[2], 1];
   }
   function quantize(c, ramp) {
     let best = ramp[0];
@@ -944,6 +1176,20 @@
     const b = (v) => Math.round(v * 255).toString(16).padStart(2, "0");
     return b(c[0]) + b(c[1]) + b(c[2]);
   }
+  var GRADE_SIG = "grade: { ink, shadow, emissiveLone } \u2014 two colours from hex() and an array of colours.";
+  var SHADOW_SIG = "shadow: { x, y, rx, ry } \u2014 the ground ellipse, in 1x canvas pixels.";
+  function assertGradeAndShadow(grade2, shadow) {
+    assertColor(grade2?.ink, "grade.ink", "character", GRADE_SIG);
+    assertColor(grade2.shadow, "grade.shadow", "character", GRADE_SIG);
+    if (!Array.isArray(grade2.emissiveLone)) {
+      throw new Error(`character: grade.emissiveLone must be an array (empty is fine). ${GRADE_SIG}`);
+    }
+    grade2.emissiveLone.forEach((c, i) => assertColor(c, `grade.emissiveLone[${i}]`, "character", GRADE_SIG));
+    if (shadow === void 0) return;
+    for (const field of ["x", "y", "rx", "ry"]) {
+      assertNumber(shadow[field], `shadow.${field}`, "character", SHADOW_SIG);
+    }
+  }
   function vocabulary(spec) {
     const vocab = /* @__PURE__ */ new Set();
     vocab.add(colorKey(spec.grade.ink));
@@ -959,6 +1205,7 @@
       throw new Error(`bake: character has no clip '${name}'`);
     }
     assertClipTiming(clip);
+    assertGradeAndShadow(spec.grade, spec.shadow);
     if (clip.mirrorOf !== "") {
       const src = bakeClip(spec, clip.mirrorOf);
       return {
@@ -975,7 +1222,8 @@
       spec.canvasW,
       spec.canvasH,
       spec.grade,
-      spec.shadow
+      spec.shadow,
+      spec.superSample
     );
     return { name, frames, fps: clip.bakeFps, loop: clip.loop };
   }
@@ -1199,6 +1447,7 @@
   }
 
   // ../src/audit.ts
+  var DEFAULT_MIN_FILL = 0.75;
   function auditClip(spec, baked2) {
     const clip = spec.clips.get(baked2.name);
     if (clip === void 0) {
@@ -1206,8 +1455,8 @@
     }
     const src = clip.mirrorOf !== "" ? spec.clips.get(clip.mirrorOf) : clip;
     const checks = [];
-    const add2 = (id, ok, pass, fail) => {
-      checks.push({ id, ok, text: ok ? pass : fail });
+    const add2 = (id, ok, pass, fail2) => {
+      checks.push({ id, ok, text: ok ? pass : fail2 });
     };
     const frames = baked2.frames;
     if (frames.length === 0) {
@@ -1234,6 +1483,9 @@
     let footSunk = 0;
     let grounded = 0;
     let flying = 0;
+    let tallest = 0;
+    let widestAtTallest = 0;
+    const feetRows = [];
     const deltas = [];
     for (let f = 0; f < frames.length; f++) {
       const img = frames[f];
@@ -1244,6 +1496,14 @@
       if (e.top + e.left + e.right > 0) edgeBad++;
       speckles += specklePx(img, ink, lone);
       offRamp += offVocabPx(img, vocab);
+      feetRows.push(s.feet);
+      if (s.bbox !== null) {
+        const height = s.bbox.y1 - s.bbox.y0 + 1;
+        if (height > tallest) {
+          tallest = height;
+          widestAtTallest = s.bbox.x1 - s.bbox.x0 + 1;
+        }
+      }
       const feetD = s.feet - spec.groundRow;
       if (feetD > 1) footSunk++;
       if (Math.abs(feetD) <= 1) grounded++;
@@ -1287,14 +1547,14 @@
         "baseline",
         footSunk === 0 && grounded > 0 && flying > 0,
         `airborne: no sink, ${grounded} frame(s) grounded, ${flying} frame(s) in flight`,
-        footSunk > 0 ? `${footSunk} frame(s) sink below the ground row` : grounded === 0 ? "no frame touches the ground \u2014 the clip floats" : "declared airborne but no frame ever leaves the ground"
+        footSunk > 0 ? `${footSunk} frame(s) sink below the ground row (measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, ground row ${spec.groundRow})` : grounded === 0 ? `no frame touches the ground \u2014 the clip floats (measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, ground row ${spec.groundRow})` : "declared airborne but no frame ever leaves the ground"
       );
     } else {
       add2(
         "baseline",
         footSunk === 0 && grounded === frames.length,
         "feet stay within 1 px of the ground row in every frame",
-        `feet leave the ground row on ${Math.max(footSunk, frames.length - grounded)} frame(s)`
+        `feet leave the ground row on ${Math.max(footSunk, frames.length - grounded)} frame(s): measured feet rows ${Math.min(...feetRows)}..${Math.max(...feetRows)}, declared ground row ${spec.groundRow}`
       );
     }
     add2(
@@ -1303,10 +1563,18 @@
       "no fill pixel on the top/left/right canvas boundary",
       `fill on the canvas boundary in ${edgeBad} frame(s) \u2014 the shape reads as cropped`
     );
+    const minFill = spec.minFill ?? DEFAULT_MIN_FILL;
+    const fill = tallest / spec.canvasH;
+    add2(
+      "fill",
+      fill >= minFill,
+      `the figure spans ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%)`,
+      `the figure spans only ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%) \u2014 it is drawn too small to read. Move the root down, lengthen the bones and paint bigger; do not shrink the canvas`
+    );
     add2(
       "speckle",
-      speckles === 0,
-      "no lone pixel survived the grade",
+      spec.grade.despeckle === false || speckles === 0,
+      spec.grade.despeckle === false ? `not checked: this character declares grade.despeckle false, so its ${speckles} lone pixel(s) are its own artwork` : "no lone pixel survived the grade",
       `${speckles} lone pixel(s) survived the grade`
     );
     add2(
@@ -1327,6 +1595,9 @@
     }
     info.push(
       `enclosed bare-canvas pockets: ${pocketFrames} frame(s), largest ${pocketMax} px`
+    );
+    info.push(
+      `silhouette at its tallest: ${widestAtTallest} x ${tallest} px (width ${(widestAtTallest / Math.max(1, tallest)).toFixed(2)} of height)`
     );
     return {
       clip: baked2.name,
@@ -1444,6 +1715,12 @@
       canvasW: CANVAS_W,
       canvasH: CANVAS_H,
       groundRow: GROUND_ROW,
+      // Below the 0.75 the fill gate now asks of a new character, and honestly
+      // so: Scout was drawn in the spike before any size guidance existed and
+      // leaves 23 rows of air above its hood. Its geometry is frozen by the
+      // golden frames, so it declares what it measures rather than pretending.
+      // A character authored today should not copy this number.
+      minFill: 0.65,
       skeleton: S,
       parts,
       clips,
