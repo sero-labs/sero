@@ -97,11 +97,19 @@ authoring path — nothing here is throwaway.
       `docs/ANIMATION.md` conventions (sign traps, canvas budgeting,
       ramp law, cloth model) — the LLM's system material, versioned in
       the repo (`AUTHORING_GUIDE`, exported by the engine package).
-- [ ] Run the experiment: one character from a one-paragraph brief, all
-      audit gates green, strips reviewed by Dan.
+- [x] Run the experiment: one character from a one-paragraph brief, all
+      audit gates green, strips awaiting Dan's review. Two live runs of
+      "the lantern-keeper" in the dev app, each converging in 3 bakes /
+      ~3 minutes. Run 1 exposed a silent engine hole (a chain painter
+      written with the wrong parameter order drew nothing and passed
+      every gate) — fixed at the root (ribbon/stroke now throw, guide
+      states the painter signature) and re-run. Transcripts:
+      `puppet-lab/exp-lantern-{1,2}/` in the orchestratordemo profile's
+      design-library home.
 
 **Gate (P3):** Dan judges the converged character acceptable and the
-iteration count/cost sane. Explicit sign-off before Phase 2.
+iteration count/cost sane. Explicit sign-off before Phase 2. **OPEN —
+awaiting Dan.**
 
 ## Phase 2 — Sprite Studio as a consumer
 
