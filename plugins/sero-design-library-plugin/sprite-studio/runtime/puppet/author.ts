@@ -11,7 +11,7 @@
  * of every round on disk — this run is the go/no-go evidence (P3).
  */
 
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
@@ -43,6 +43,17 @@ export interface PuppetAuthorContext {
   model: ModelSelection;
   signal: AbortSignal;
   onProgress?(message: string): void;
+}
+
+/** Same-machine liveness probe: signal 0 checks existence without delivering;
+ * EPERM means alive under another user. */
+function processExists(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }
 
 export type PuppetAuthorOutcome =
@@ -80,12 +91,13 @@ export async function runPuppetAuthor(
 ): Promise<PuppetAuthorOutcome> {
   const maxBakes = Math.max(1, Math.min(20, job.maxBakes ?? DEFAULT_MAX_BAKES));
   const runDir = puppetRunDir(context.paths, job.runId);
-  // The directory IS the claim. Request logs replay at-least-once, and two
-  // runs sharing an id would interleave one transcript; the second claimant
-  // fails fast instead. A claim with no run.json is a run that crashed
-  // before finishing — reclaimable, so a replayed request completes the work
-  // instead of the id being burned forever. (In-process double starts are
-  // already deduplicated at the queue.)
+  // The directory IS the claim, and claim.json names its owner. Request logs
+  // replay at-least-once, and two runs sharing an id would interleave one
+  // transcript; the rules are: a finished run (run.json present) stays
+  // refused, a claim whose owning process still exists stays refused, and
+  // only a provably dead owner's claim is reclaimed — with its half-written
+  // rounds cleared first so the new transcript is whole. (In-process double
+  // starts are already deduplicated at the queue.)
   await mkdir(puppetLabDir(context.paths), { recursive: true });
   const claimed = await mkdir(runDir).then(
     () => true,
@@ -99,7 +111,19 @@ export async function runPuppetAuthor(
     if (finished) {
       return { status: 'failed', reason: `Run '${job.runId}' already completed — every run gets a fresh id.` };
     }
+    const owner = await readFile(path.join(runDir, 'claim.json'), 'utf8')
+      .then((raw) => JSON.parse(raw) as { pid?: number })
+      .catch(() => null);
+    if (typeof owner?.pid === 'number' && owner.pid !== process.pid && processExists(owner.pid)) {
+      return { status: 'failed', reason: `Run '${job.runId}' is still running elsewhere.` };
+    }
+    await rm(path.join(runDir, 'rounds'), { recursive: true, force: true });
   }
+  await writeFile(
+    path.join(runDir, 'claim.json'),
+    JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+    'utf8',
+  );
   await mkdir(path.join(runDir, 'rounds'), { recursive: true });
   const startedAt = new Date().toISOString();
 

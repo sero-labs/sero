@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BakedClip } from '../src/index';
-import { ClipPlayer, Img, Motion, Skeleton, auditClip, bake, bakeClip, hex, simulateChains } from '../src/index';
+import { ClipPlayer, Img, Motion, Skeleton, auditClip, bake, bakeClip, hex, limitImgAllocations, simulateChains } from '../src/index';
 import { buildCharacter } from '../example/scout';
 
 const spec = buildCharacter();
@@ -63,6 +63,18 @@ describe('malformed allocations', () => {
   it('Img refuses a canvas beyond any legitimate use', () => {
     expect(() => new Img(10_000, 10_000)).toThrow(/refusing/);
     expect(new Img(1900, 4000).w).toBe(1900); // the widest review sheets fit
+  });
+
+  it('a hoard of sub-limit canvases dies at the cumulative budget', () => {
+    limitImgAllocations(10_000_000);
+    try {
+      expect(() => {
+        const hoard: Img[] = [];
+        for (let i = 0; i < 1_000; i++) hoard.push(new Img(1000, 1000));
+      }).toThrow(/budget/);
+    } finally {
+      limitImgAllocations(Number.POSITIVE_INFINITY);
+    }
   });
 });
 

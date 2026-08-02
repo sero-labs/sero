@@ -30,7 +30,13 @@ import { renderReviewImages } from './images';
 import { AUDIT_IDS, DEFAULT_RUN_TIMEOUT_MS, runPuppetWorker } from './run';
 
 /** Bumped whenever the stored report shape changes; a mismatch is a miss. */
-export const BAKE_FORMAT_VERSION = 2;
+export const BAKE_FORMAT_VERSION = 3;
+
+/** The lock outlives the longest legitimate bake (compile + a full worker
+ * deadline + image writes) with room to spare, and a live owner is never
+ * reclaimed inside it — the defaults reclaim after 30 s, which a real bake
+ * can exceed. */
+const BAKE_LOCK = { timeoutMs: 180_000, staleMs: 900_000 };
 
 export interface PuppetClipReport {
   clip: string;
@@ -85,19 +91,29 @@ export function stripFile(dir: string, clip: string): string {
 }
 
 function validCachedClip(clip: PuppetClipReport): boolean {
-  return (
-    typeof clip?.clip === 'string' &&
-    CLIP_NAME_PATTERN.test(clip.clip) &&
-    typeof clip.frames === 'number' &&
-    Array.isArray(clip.checks) &&
-    // An empty gate set is not a clean clip — it is a report that proves
-    // nothing, and `every()` over it would call it converged.
-    clip.checks.length > 0 &&
-    clip.checks.every(
+  if (
+    typeof clip?.clip !== 'string' ||
+    !CLIP_NAME_PATTERN.test(clip.clip) ||
+    typeof clip.frames !== 'number' ||
+    typeof clip.loop !== 'boolean' ||
+    typeof clip.stripScale !== 'number' ||
+    !Array.isArray(clip.checks) ||
+    !clip.checks.every(
       (check) => AUDIT_IDS.includes(check?.id) && typeof check.ok === 'boolean' && typeof check.text === 'string',
-    ) &&
-    new Set(clip.checks.map((check) => check.id)).size === clip.checks.length
-  );
+    )
+  ) {
+    return false;
+  }
+  // The gate set must be EXACTLY what the audit emits for this clip's shape —
+  // a subset is a report with a check deleted, and deleting the one failing
+  // check must not make a cached bake clean.
+  const ids = new Set(clip.checks.map((check) => check.id));
+  if (ids.size !== clip.checks.length) return false;
+  if (ids.size === 1 && ids.has('valid') && clip.checks[0].ok === false) return true;
+  const expected = new Set<string>(['islands', 'in-place', 'baseline', 'edge', 'speckle', 'ramp']);
+  if (clip.frames > 1) expected.add('distinct');
+  if (clip.frames > 1 && clip.loop) expected.add('wrap');
+  return ids.size === expected.size && [...expected].every((id) => ids.has(id as never));
 }
 
 /** A stored report believed only after it proves it is ours, current, and
@@ -133,7 +149,6 @@ async function readValidCache(dir: string, hash: string): Promise<PuppetBakeRepo
   }
   const clips = report.clips.map((clip) => ({
     ...clip,
-    stripScale: typeof clip.stripScale === 'number' ? clip.stripScale : 1,
     failed: clip.checks.filter((check) => !check.ok).length,
     info: Array.isArray(clip.info) ? clip.info : [],
   }));
@@ -170,7 +185,7 @@ export async function bakePuppetSource(
 ): Promise<PuppetBakeOutcome> {
   const hash = puppetSourceHash(source);
   const dir = puppetBakeDir(paths, hash);
-  return withRecordLock(paths, dir, () => bakeLocked(paths, source, hash, dir, options));
+  return withRecordLock(paths, dir, () => bakeLocked(paths, source, hash, dir, options), BAKE_LOCK);
 }
 
 async function bakeLocked(

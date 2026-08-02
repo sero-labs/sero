@@ -52,6 +52,18 @@ export function shade(c: Color, amount: number): Color {
  * engine is an Img, so this one throw bounds them all. */
 export const MAX_IMG_PIXELS = 1 << 24;
 
+/** Cumulative allocation budget, for hosts that bake untrusted characters:
+ * one absurd canvas is caught per-Img, but a loop hoarding many sub-limit
+ * canvases is only visible in the running total. Off (Infinity) by default;
+ * a bake worker arms it before authored code loads. */
+let allocationBudget = Infinity;
+let allocatedPixels = 0;
+
+export function limitImgAllocations(maxTotalPixels: number): void {
+  allocationBudget = maxTotalPixels;
+  allocatedPixels = 0;
+}
+
 export class Img {
   readonly w: number;
   readonly h: number;
@@ -63,6 +75,13 @@ export class Img {
     if (this.w * this.h > MAX_IMG_PIXELS) {
       throw new Error(
         `Img: refusing a ${this.w} x ${this.h} canvas — beyond any legitimate bake or review image.`,
+      );
+    }
+    allocatedPixels += this.w * this.h;
+    if (allocatedPixels > allocationBudget) {
+      throw new Error(
+        'Img: the allocation budget for this bake is spent — far more canvas than any character needs. ' +
+          'Paint each part once and let the engine own the frames.',
       );
     }
     this.data = new Float32Array(this.w * this.h * 4);

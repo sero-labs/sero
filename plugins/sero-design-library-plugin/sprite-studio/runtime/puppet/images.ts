@@ -10,7 +10,7 @@
  */
 
 import type { Color } from '@sero-ai/ink-and-bones';
-import { Img, frameStrip, scaleNearest } from '@sero-ai/ink-and-bones';
+import { Img, frameStripScaled, scaleNearest } from '@sero-ai/ink-and-bones';
 
 import type { Rgb } from '../../engine/types';
 import { encodeIndexedPng } from '../png';
@@ -20,19 +20,10 @@ import type { PuppetBaked } from './run';
  * reads against it whether the palette is dusk or ember. */
 const REVIEW_BG: Color = [0.10, 0.09, 0.14, 1];
 
-/** Whole frames at 4x wrap into readable rows; the rest pose alone gets 8x.
- * A clip near the pixel budget drops to 2x or 1x — the strip stays bounded
- * (~8M px, float RGBA) instead of scaling quadratically past a gigabyte. */
-const STRIP_SCALE = 4;
+/** The engine's strip renderer picks the scale that fills its 1900px target
+ * (and no more), which also bounds the strip's memory; the rest pose alone
+ * gets a fixed 8x. */
 const REST_SCALE = 8;
-const MAX_STRIP_PIXELS = 8_000_000;
-
-function stripScale(framePixels: number): number {
-  for (const k of [STRIP_SCALE, 2]) {
-    if (framePixels * k * k <= MAX_STRIP_PIXELS) return k;
-  }
-  return 1;
-}
 
 function flatten(src: Img, bg: Color): Img {
   const out = new Img(src.w, src.h);
@@ -79,11 +70,10 @@ export function renderReviewImages(baked: PuppetBaked): ReviewImages {
   const strips = new Map<string, Buffer>();
   const scales = new Map<string, number>();
   for (const [name, clip] of baked.baked) {
-    const framePixels = clip.frames.reduce((sum, frame) => sum + frame.w * frame.h, 0);
-    const k = stripScale(framePixels);
-    const scaled = clip.frames.map((frame) => scaleNearest(flatten(frame, REVIEW_BG), k));
-    strips.set(name, imgToPng(frameStrip(scaled, REVIEW_BG)));
-    scales.set(name, k);
+    const flattened = clip.frames.map((frame) => flatten(frame, REVIEW_BG));
+    const strip = frameStripScaled(flattened, REVIEW_BG);
+    strips.set(name, imgToPng(strip.img));
+    scales.set(name, strip.scale);
   }
   return {
     rest: imgToPng(scaleNearest(flatten(baked.rest, REVIEW_BG), REST_SCALE)),

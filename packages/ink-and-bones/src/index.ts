@@ -37,7 +37,7 @@ export {
   unit,
 } from './vec';
 export type { Color } from './img';
-export { Img, MAX_IMG_PIXELS, TRANSPARENT, darkened, hex, sameColor, shade } from './img';
+export { Img, MAX_IMG_PIXELS, TRANSPARENT, darkened, hex, limitImgAllocations, sameColor, shade } from './img';
 
 // authoring surface
 export type { Rect } from './paint';
@@ -75,4 +75,4 @@ export type { AuditCheck, AuditCheckId, AuditReport } from './audit';
 export { auditCharacter, auditClip, formatReport } from './audit';
 
 // review images
-export { frameStrip, poseGrid, scaleNearest, sideBySide, zoom } from './review';
+export { frameStrip, frameStripScaled, poseGrid, scaleNearest, sideBySide, zoom } from './review';

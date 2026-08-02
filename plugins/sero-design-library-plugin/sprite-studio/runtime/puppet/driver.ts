@@ -28,6 +28,13 @@ export const CLIP_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
  * A clock read or a random draw fails loudly instead of making two bakes of
  * the same source disagree — which would poison the content-addressed cache. */
 export const DETERMINISM_SOURCE = `
+import { limitImgAllocations } from '@sero-ai/ink-and-bones';
+
+// One absurd canvas dies per-Img; a loop hoarding sub-limit canvases dies
+// here. A legitimate full bake allocates ~130M px through its lifetime;
+// double that is the ceiling.
+limitImgAllocations(256_000_000);
+
 const refuse = (what: string) => {
   throw new Error(
     'Ink & Bones characters are deterministic: ' + what + ' is not available. ' +
@@ -51,9 +58,8 @@ Math.random = () => refuse('Math.random()') as never;
 try {
   Object.defineProperty(globalThis, 'crypto', { value: denyAll('crypto'), configurable: true });
 } catch { /* an engine without a configurable crypto simply keeps it */ }
-if (typeof performance !== 'undefined') {
-  (performance as { now: () => number }).now = () => refuse('performance.now()') as never;
-}
+// The whole object, not just .now — timeOrigin alone varies per process.
+(globalThis as { performance: unknown }).performance = denyAll('performance');
 export {};
 `;
 
