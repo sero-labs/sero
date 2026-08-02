@@ -112,7 +112,7 @@ export function borderColour(image: SourceImage): Rgb {
  */
 export function floodForeground(
   image: SourceImage,
-  { tolerance = 40, reach = 150 } = {},
+  { tolerance = 40, reach = 150, pageMatch = 90 } = {},
 ): Foreground {
   const { width, height } = image;
   const total = width * height;
@@ -130,11 +130,26 @@ export function floodForeground(
       Math.abs((image.data[a] ?? 0) - (image.data[b] ?? 0)) +
       Math.abs((image.data[a + 1] ?? 0) - (image.data[b + 1] ?? 0)) +
       Math.abs((image.data[a + 2] ?? 0) - (image.data[b + 2] ?? 0));
-    if (distance > tolerance) return;
     const strayed =
       Math.abs((image.data[a] ?? 0) - page[0]) +
       Math.abs((image.data[a + 1] ?? 0) - page[1]) +
       Math.abs((image.data[a + 2] ?? 0) - page[2]);
+    // A step is allowed when the pixel looks like its neighbour OR when it
+    // looks like the page closely in its own right.
+    //
+    // The neighbour test alone is what stops the fill walking down a soft
+    // gradient into the character, and it must stay. But it also refuses a
+    // backdrop made of two alternating tones: a transparency checkerboard
+    // flattened into a JPEG steps 75 between its greys against a tolerance of
+    // 40, so only the squares touching the border came off and the rest of it
+    // went into the sprite as foreground.
+    //
+    // `pageMatch` cannot walk anywhere, because it is measured from a fixed
+    // colour rather than from wherever the last step landed, and it sits in
+    // the gap the boots measurement already found: 96% of legitimate
+    // background within 50 of the page, nothing at all between 250 and 450,
+    // the character's own dark colours out past 450.
+    if (distance > tolerance && strayed > pageMatch) return;
     if (strayed > reach) return;
     background[at] = 1;
     queue[tail++] = at;
