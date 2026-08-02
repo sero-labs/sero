@@ -150,3 +150,21 @@ describe('renderGrid', () => {
     expect(big.data[3]).toBe(255);
   });
 });
+
+describe('splitParts accounting', () => {
+  it('says what it dropped instead of returning a short list silently', async () => {
+    // Dan noticed pieces "missing" from a parts sheet. They were missing from
+    // the SHEET, not thrown away here — but nothing in the result said so
+    // either way, and a silent cap reads downstream as "the sheet only had
+    // this many". The count must now be answerable.
+    const { splitParts } = await import('./parts');
+    const img = blank(200, 60, [250, 250, 250]);
+    // Six masses: three big, three one-pixel specks well under the 2% floor.
+    for (const x of [10, 60, 110]) box(img, { x0: x, y0: 10, x1: x + 30, y1: 49 }, STEEL);
+    for (const x of [160, 170, 180]) box(img, { x0: x, y0: 20, x1: x, y1: 20 }, GOLD);
+    const split = splitParts(img, { reduction: 1, palette: [STEEL, GOLD] as never });
+    expect(split.parts).toHaveLength(3);
+    expect(split.dropped.tooSmall).toBe(3);
+    expect(split.dropped.overCap).toBe(0);
+  });
+});

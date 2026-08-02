@@ -84,6 +84,8 @@ export interface PreparedParts {
   /** '1: 22 x 19 px, 2: …' — the sizes, so the author paints to numbers. */
   sizes: string;
   count: number;
+  /** Present only when the split did not return everything it found. */
+  dropped?: { tooSmall: number; overCap: number };
 }
 
 export interface ReferenceContext {
@@ -244,6 +246,7 @@ async function splitAndWrite(
   reduction: number,
   palette: Palette,
   file: string,
+  context: ReferenceContext,
 ): Promise<PreparedParts | null> {
   const split = splitParts(toSourceImage(sheet), { reduction, palette });
   // One piece means the model drew the assembled character again; two is not a
@@ -251,7 +254,20 @@ async function splitAndWrite(
   // figure did not already say.
   if (split.parts.length < 3) return null;
   await writeImage(file, partsSheet(split, VIEW_SCALE, BACKDROP));
-  return { sheetPath: file, sizes: describeParts(split.parts), count: split.parts.length };
+  // Said out loud, because "the sheet only had this many" and "this function
+  // threw the rest away" look identical downstream.
+  const lost = split.dropped.tooSmall + split.dropped.overCap;
+  if (lost > 0) {
+    context.onProgress?.(
+      `Parts sheet: kept ${split.parts.length}, dropped ${split.dropped.tooSmall} too small and ${split.dropped.overCap} over the cap.`,
+    );
+  }
+  return {
+    sheetPath: file,
+    sizes: describeParts(split.parts),
+    count: split.parts.length,
+    ...(lost === 0 ? {} : { dropped: split.dropped }),
+  };
 }
 
 /**
@@ -329,7 +345,7 @@ export async function prepareReference(
       },
       () => null,
     );
-    parts = sheet === null ? null : await splitAndWrite(sheet, target.reduction, target.palette, partsPath);
+    parts = sheet === null ? null : await splitAndWrite(sheet, target.reduction, target.palette, partsPath, context);
   }
 
   return {

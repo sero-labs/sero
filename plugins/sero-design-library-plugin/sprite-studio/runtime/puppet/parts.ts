@@ -46,6 +46,16 @@ export interface SplitParts {
   parts: CharacterPart[];
   /** ONE palette for every piece — the target's. */
   palette: Palette;
+  /**
+   * Masses found on the sheet that were NOT returned, and why.
+   *
+   * A cap that quietly drops pieces reads downstream as "the sheet only had
+   * this many", which is the difference between a character missing an arm
+   * because the model never drew one and missing it because this function
+   * threw it away. Verified empty on the knight's sheet — 14 masses, 14
+   * returned — but it must be reported rather than assumed.
+   */
+  dropped: { tooSmall: number; overCap: number };
 }
 
 /** The instruction for the parts sheet. Laid out APART is the whole
@@ -77,7 +87,7 @@ export function splitParts(
 ): SplitParts {
   const foreground = floodForeground(image);
   const { label, sizes } = labelBodies(foreground, image.width, image.height);
-  if (sizes.length === 0) return { parts: [], palette: options.palette };
+  if (sizes.length === 0) return { parts: [], palette: options.palette, dropped: { tooSmall: 0, overCap: 0 } };
   const biggest = Math.max(...sizes);
 
   const bounds = sizes.map(() => ({ x0: image.width, y0: image.height, x1: -1, y1: -1 }));
@@ -94,13 +104,12 @@ export function splitParts(
     if (y > box.y1) box.y1 = y;
   }
 
-  const kept = sizes
-    .map((size, id) => ({ id, size }))
-    .filter((piece) => piece.size >= biggest * MIN_SHARE)
-    // Biggest first: the torso and the helmet are what the author needs most,
-    // and a truncated list should lose the buckle rather than the body.
-    .sort((a, b) => b.size - a.size)
-    .slice(0, MAX_PIECES);
+  const big = sizes.map((size, id) => ({ id, size })).filter((piece) => piece.size >= biggest * MIN_SHARE);
+  // Biggest first: the torso and the helmet are what the author needs most,
+  // and a truncated list should lose the buckle rather than the body.
+  const ranked = big.sort((a, b) => b.size - a.size);
+  const kept = ranked.slice(0, MAX_PIECES);
+  const dropped = { tooSmall: sizes.length - big.length, overCap: ranked.length - kept.length };
 
   const parts: CharacterPart[] = [];
   for (const piece of kept) {
@@ -122,7 +131,7 @@ export function splitParts(
     if (grid === undefined) continue;
     parts.push({ grid, width: cols, height: rows });
   }
-  return { parts, palette: options.palette };
+  return { parts, palette: options.palette, dropped };
 }
 
 /**
