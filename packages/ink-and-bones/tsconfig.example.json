@@ -1,7 +1,17 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
-  "include": ["src/**/*", "example/**/*.ts"]
+  "include": [
+    "src/**/*",
+    "example/**/*.ts"
+  ],
+  "exclude": [
+    "example/media.ts"
+  ]
 }

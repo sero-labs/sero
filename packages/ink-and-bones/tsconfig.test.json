@@ -1,7 +1,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*", "test/**/*", "example/scout.ts"]
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "example/scout.ts",
+    "example/rivet.ts",
+    "example/media.ts"
+  ]
 }

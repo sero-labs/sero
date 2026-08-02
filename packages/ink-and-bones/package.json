@@ -15,7 +15,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit && tsc -p tsconfig.example.json --noEmit",
     "test": "vitest run",
-    "build:api": "node scripts/build-api-reference.mjs"
+    "build:api": "node scripts/build-api-reference.mjs",
+    "build:docs": "node --experimental-strip-types scripts/build-authoring-md.mjs"
   },
   "publishConfig": {
     "access": "public"
