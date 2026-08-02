@@ -292,6 +292,24 @@ export interface RigidPart {
     bone: string;
     paint: Paint;
     ramp: readonly Color[];
+    /**
+     * This part's pixels were already decided — it is artwork, not a description
+     * of a shape.
+     *
+     * The default treatment is right for a painted part: sample it smoothly,
+     * average what lands in a 1x cell, and snap the average to the part's ramp.
+     * That is what turns generous painted shapes into pixel art. Done to a part
+     * that IS pixel art it is destructive: a rotated piece no longer lines up
+     * with the 1x grid, so every cell averages two to four neighbouring pixels
+     * and snaps to whatever ramp colour is nearest the blend. The crisp clusters
+     * the artist drew dissolve — "pixel mulch", measured on the first rigged
+     * character.
+     *
+     * Set here, the part is sampled at its nearest pixel and each 1x cell takes
+     * the colour MOST of it is, so a rotated piece stays made of the colours it
+     * was made of.
+     */
+    crisp?: boolean;
 }
 export interface ChainPart {
     name: string;
@@ -311,6 +329,15 @@ export interface GradeConfig {
     shadow: Color;
     /** Colours legal as a single pixel — hot emissive cores. */
     emissiveLone: readonly Color[];
+    /**
+     * Cluster stray pixels after the grade. On by default, and right for painted
+     * parts. A character made of real artwork turns it OFF: hand-drawn pixel art
+     * is full of deliberate single pixels, and the rule deletes 27% of them.
+     */
+    despeckle?: boolean;
+    /** Ring the silhouette in ink. On by default. Artwork that already carries
+     * its own outline turns it off rather than wearing two. */
+    outline?: boolean;
 }
 /** Bake every frame of \`clip\` onto a 1x canvas of \`w1x\` x \`h1x\`. */
 export declare function bake(skel: Skeleton, parts: readonly Part[], clip: Motion, w1x: number, h1x: number, cfg: GradeConfig, shadow?: Shadow): Img[];

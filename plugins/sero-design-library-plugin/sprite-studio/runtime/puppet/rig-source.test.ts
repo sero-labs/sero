@@ -37,6 +37,9 @@ function figure(): CellGrid {
   box(14, 8, 25, 30, 0);
   box(16, 30, 23, 46, 1);
   box(16, 46, 27, 49, 2);
+  // One deliberate single pixel — a highlight, the thing hand-drawn pixel art
+  // is full of and the grade's clustering rule deletes.
+  cells[18 * COLS + 20] = 1;
   return { cols: COLS, rows: ROWS, cells };
 }
 
@@ -115,11 +118,20 @@ describe('rigSource', () => {
 
   it('bakes a rest frame that is the picture it was cut from', async () => {
     const rest = await bakeEmitted(emit());
-    const report = bindPose(rest as never, figure(), PALETTE);
+    const report = bindPose(rest as never, figure(), PALETTE, undefined, false);
     expect(report.differ).toBe(0);
     expect(report.missing).toBe(0);
     expect(report.ok).toBe(true);
     expect(report.cells).toBe(figure().cells.filter((cell) => cell !== TRANSPARENT).length);
+  });
+
+  it('keeps a deliberate single pixel, which the default grade would delete', async () => {
+    // The artwork path turns the clustering rule off. Measured on the knight,
+    // leaving it on cost 27% of the reference's own detail.
+    const rest = await bakeEmitted(emit());
+    const [r, g, b] = PALETTE[1];
+    const got = rest.get(20, 18);
+    expect([Math.round(got[0] * 255), Math.round(got[1] * 255), Math.round(got[2] * 255)]).toEqual([r, g, b]);
   });
 
   it('fails the bind gate when a joint moves, rather than passing a wrong rig', async () => {
@@ -139,6 +151,6 @@ describe('rigSource', () => {
     // Moving the joint changes the cut, not the picture — the rest frame must
     // still be the picture. This proves the gate is measuring the RIG and not
     // simply agreeing with whatever it was handed.
-    expect(bindPose(rest as never, figure(), PALETTE).ok).toBe(true);
+    expect(bindPose(rest as never, figure(), PALETTE, undefined, false).ok).toBe(true);
   });
 });

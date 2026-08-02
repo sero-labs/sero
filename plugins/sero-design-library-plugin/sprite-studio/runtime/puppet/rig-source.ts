@@ -101,6 +101,7 @@ function emitParts(rig: Rig): string {
     lines.push(`      name: '${piece.name}',`);
     lines.push(`      bone: '${piece.bone}',`);
     lines.push(`      ramp: ramp([${piece.ramp.join(', ')}]),`);
+    lines.push(`      crisp: true,`);
     lines.push(
       `      paint: stamp(${num(atX)}, ${num(atY)}, pixels(${piece.w}, ${piece.h},\n      ${wrap(encodePiece(piece))})),`,
     );
@@ -141,19 +142,64 @@ function emitIdle(rig: Rig): string {
  * every joint in the rig swings through its whole range, so a piece cut onto
  * the wrong bone flies off where a still frame would never show it.
  */
+const CYCLE = 0.8;
+
+/**
+ * A walk, as two authored foot paths.
+ *
+ * Not `Motion.gait`, for one reason that matters: a gait aims the end bone at
+ * `90 + toe`, which assumes the foot bone points EAST. A rig's foot bone points
+ * wherever the human put the toe joint, and on the first knight the two feet
+ * disagreed by seventy degrees — so the gait wrenched the near foot round
+ * almost a right angle and it read as a broken ankle. Each foot here is held at
+ * the angle it was DRAWN at, with a few degrees of roll.
+ *
+ * The stride is measured off the leg rather than picked. The first attempt used
+ * the spike's number against a figure four times the size, and the legs
+ * shuffled.
+ */
 function emitWalk(rig: Rig): string | null {
   const need = ['legNearUpper', 'legNearLower', 'footNear', 'legFarUpper', 'legFarLower', 'footFar'];
   if (!need.every((name) => rig.bones.some((bone) => bone.name === name))) return null;
-  return [
-    `  const walk = new Motion('walk', 0.8);`,
+  const by = new Map(rig.bones.map((bone) => [bone.name, bone]));
+  const lines: string[] = [
+    `  const walk = new Motion('walk', ${CYCLE});`,
     `  walk.bakeFps = 15;`,
-    `  walk.wobbleBudget = 3.5;`,
-    `  walk.gait('legNearUpper', 'legNearLower', 'footNear', 26, 13, 0, GROUND_ROW * SS, -6);`,
-    `  walk.gait('legFarUpper', 'legFarLower', 'footFar', 26, 13, 0.5, GROUND_ROW * SS, 6);`,
-    `  walk.key('spine', { 0: -1.5, 0.4: 1.5, 0.8: -1.5 });`,
-    `  walk.key('armNearUpper', { 0: 3, 0.4: -3, 0.8: 3 });`,
-    `  walk.key('armFarUpper', { 0: -2, 0.4: 2, 0.8: -2 });`,
-  ].join('\n');
+    `  walk.wobbleBudget = 4.5;`,
+  ];
+  for (const side of ['Near', 'Far'] as const) {
+    const upper = by.get(`leg${side}Upper`)!;
+    const lower = by.get(`leg${side}Lower`)!;
+    const foot = by.get(`foot${side}`)!;
+    // The ankle is where the leg chain ends, so the path is drawn around where
+    // this leg's own ankle already stands — which keeps the stance the
+    // reference was drawn with instead of putting both feet under the pelvis.
+    const ax = lower.tip[0] * SS;
+    const ay = lower.tip[1] * SS;
+    const reach = upper.length + lower.length;
+    const stride = reach * 0.34;
+    const lift = reach * 0.14;
+    const deg = foot.worldDeg;
+    const at = (fraction: number): string => num(((fraction + (side === 'Far' ? 0.5 : 0)) % 1) * CYCLE);
+    const step = (x: number, y: number, roll: number): string =>
+      `[${num(ax + x)}, ${num(ay + y)}, ${num(deg + roll)}]`;
+    lines.push(
+      `  walk.plant('leg${side}Upper', 'leg${side}Lower', 'foot${side}', {`,
+      `    ${at(0)}: ${step(stride / 2, 0, -6)},`,
+      `    ${at(0.6)}: ${step(-stride / 2, 0, 8)},`,
+      `    ${at(0.75)}: ${step(-stride / 6, -lift, 2)},`,
+      `    ${at(0.9)}: ${step(stride / 3, -lift * 0.55, -4)},`,
+      `  }, 'linear');`,
+    );
+  }
+  lines.push(
+    `  walk.key('root_y', { 0: 0, ${num(CYCLE / 4)}: 3, ${num(CYCLE / 2)}: 0, ${num((CYCLE * 3) / 4)}: 3 });`,
+    `  walk.key('spine', { 0: -2, ${num(CYCLE / 2)}: 2 });`,
+    `  walk.key('head', { 0: 1.5, ${num(CYCLE / 2)}: -1.5 });`,
+    `  walk.key('armNearUpper', { 0: 3, ${num(CYCLE / 2)}: -3 });`,
+    `  walk.key('armFarUpper', { 0: -2, ${num(CYCLE / 2)}: 2 });`,
+  );
+  return lines.join('\n');
 }
 
 /** The whole character file. */
@@ -230,7 +276,10 @@ ${walk === null ? '' : `\n${walk}\n`}
     skeleton: S,
     parts,
     clips,
-    grade: { ink: INK, shadow: INK, emissiveLone: [] },
+    // The pixels are already art. Averaging them, clustering their deliberate
+    // single pixels away, or ringing artwork that has its own outline in a
+    // second one all destroy the thing being copied.
+    grade: { ink: INK, shadow: INK, emissiveLone: [], despeckle: false, outline: false },
     restPose,
   };
 }

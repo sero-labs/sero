@@ -29,6 +29,24 @@ export interface RigidPart {
   bone: string;
   paint: Paint;
   ramp: readonly Color[];
+  /**
+   * This part's pixels were already decided — it is artwork, not a description
+   * of a shape.
+   *
+   * The default treatment is right for a painted part: sample it smoothly,
+   * average what lands in a 1x cell, and snap the average to the part's ramp.
+   * That is what turns generous painted shapes into pixel art. Done to a part
+   * that IS pixel art it is destructive: a rotated piece no longer lines up
+   * with the 1x grid, so every cell averages two to four neighbouring pixels
+   * and snaps to whatever ramp colour is nearest the blend. The crisp clusters
+   * the artist drew dissolve — "pixel mulch", measured on the first rigged
+   * character.
+   *
+   * Set here, the part is sampled at its nearest pixel and each 1x cell takes
+   * the colour MOST of it is, so a rotated piece stays made of the colours it
+   * was made of.
+   */
+  crisp?: boolean;
 }
 
 export interface ChainPart {
@@ -52,6 +70,15 @@ export interface GradeConfig {
   shadow: Color;
   /** Colours legal as a single pixel — hot emissive cores. */
   emissiveLone: readonly Color[];
+  /**
+   * Cluster stray pixels after the grade. On by default, and right for painted
+   * parts. A character made of real artwork turns it OFF: hand-drawn pixel art
+   * is full of deliberate single pixels, and the rule deletes 27% of them.
+   */
+  despeckle?: boolean;
+  /** Ring the silhouette in ink. On by default. Artwork that already carries
+   * its own outline turns it off rather than wearing two. */
+  outline?: boolean;
 }
 
 /** Bake every frame of `clip` onto a 1x canvas of `w1x` x `h1x`. */
@@ -121,18 +148,18 @@ export function renderPose(
     if ('chain' in part) {
       const pts = chains.get(part.chain);
       if (pts === undefined || pts.length === 0) continue;
-      splat(big, owner, i, chainPaint(part, pts), { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 });
+      splat(big, owner, i, chainPaint(part, pts), { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 }, false);
     } else {
       const xf = xfs.get(part.bone);
       if (xf === undefined) {
         throw new Error(`compositor: part '${part.name}' binds unknown bone '${part.bone}'`);
       }
-      splat(big, owner, i, part.paint, xf);
+      splat(big, owner, i, part.paint, xf, part.crisp === true);
     }
   }
 
   const body = grade(big, owner, parts, w1x, h1x, cfg);
-  outline(body, cfg.ink);
+  if (cfg.outline !== false) outline(body, cfg.ink);
 
   const img = new Img(w1x, h1x);
   if (shadow !== undefined) {
@@ -180,7 +207,14 @@ function chainPaint(part: ChainPart, pts: readonly Vec[]): Paint {
 /** Draw one part's painted canvas into the ss composite through its bone
  * transform, sampling bilinearly. Pixels more than half opaque record the
  * part index for the grade pass. */
-function splat(big: Img, owner: Int32Array, index: number, paint: Paint, xf: Affine): void {
+function splat(
+  big: Img,
+  owner: Int32Array,
+  index: number,
+  paint: Paint,
+  xf: Affine,
+  crisp: boolean,
+): void {
   const src = paint.img;
   const sw = src.w;
   const sh = src.h;
@@ -214,12 +248,20 @@ function splat(big: Img, owner: Int32Array, index: number, paint: Paint, xf: Aff
       const sx = local[0] + org[0] - 0.5;
       const sy = local[1] + org[1] - 0.5;
       if (sx < -1 || sy < -1 || sx > sw || sy > sh) continue;
-      const c = bilinear(src, sx, sy);
+      const c = crisp ? nearest(src, sx, sy) : bilinear(src, sx, sy);
       if (c[3] < 0.02) continue;
       big.blend(x, y, c);
       if (c[3] > 0.5) owner[y * big.w + x] = index;
     }
   }
+}
+
+/** The one pixel under the sample — no blending, for artwork. */
+function nearest(src: Img, sx: number, sy: number): Color {
+  const x = Math.round(sx);
+  const y = Math.round(sy);
+  if (!src.inside(x, y)) return [0, 0, 0, 0];
+  return src.get(x, y);
 }
 
 function bilinear(src: Img, sx: number, sy: number): Color {
@@ -308,12 +350,45 @@ function grade(
           best = id;
         }
       }
+      const winner = parts[best];
+      if ('crisp' in winner && winner.crisp === true) {
+        // Artwork: the cell becomes the colour MOST of it already is. Averaging
+        // and re-quantising would invent a blend the artist never drew, which
+        // is what turns a rotated piece to mulch.
+        out.set(cx, cy, modal(big, owner, best, cx, cy));
+        continue;
+      }
       const mean: Color = [r / aSum, g / aSum, b / aSum, 1];
-      out.set(cx, cy, quantize(mean, parts[best].ramp));
+      out.set(cx, cy, quantize(mean, winner.ramp));
     }
   }
-  despeckle(out, cfg.emissiveLone);
+  if (cfg.despeckle !== false) despeckle(out, cfg.emissiveLone);
   return out;
+}
+
+/** The commonest colour among a cell's samples that belong to `part`. */
+function modal(big: Img, owner: Int32Array, part: number, cx: number, cy: number): Color {
+  const seen: { c: Color; n: number }[] = [];
+  for (let oy = 0; oy < SS; oy++) {
+    for (let ox = 0; ox < SS; ox++) {
+      const x = cx * SS + ox;
+      const y = cy * SS + oy;
+      if (owner[y * big.w + x] !== part) continue;
+      const c = big.get(x, y);
+      const found = seen.find((entry) => sameColor(entry.c, c));
+      if (found === undefined) seen.push({ c, n: 1 });
+      else found.n++;
+    }
+  }
+  let best = seen[0]?.c ?? [0, 0, 0, 1];
+  let bestN = 0;
+  for (const entry of seen) {
+    if (entry.n > bestN) {
+      bestN = entry.n;
+      best = entry.c;
+    }
+  }
+  return [best[0], best[1], best[2], 1];
 }
 
 function quantize(c: Color, ramp: readonly Color[]): Color {

@@ -49,7 +49,11 @@ export interface BindReport {
 
 /** The target as the engine's grade would leave it, ready to compare against a
  * baked frame. Exported because a review picture wants the same thing. */
-export function gradedTarget(grid: CellGrid, palette: Palette): { img: Img; changed: number } {
+export function gradedTarget(
+  grid: CellGrid,
+  palette: Palette,
+  clustered = true,
+): { img: Img; changed: number } {
   const img = new Img(grid.cols, grid.rows);
   const before: (string | null)[] = [];
   for (let y = 0; y < grid.rows; y++) {
@@ -65,7 +69,7 @@ export function gradedTarget(grid: CellGrid, palette: Palette): { img: Img; chan
       before.push(colorKey(colour));
     }
   }
-  despeckle(img, []);
+  if (clustered) despeckle(img, []);
   let changed = 0;
   for (let y = 0; y < grid.rows; y++) {
     for (let x = 0; x < grid.cols; x++) {
@@ -89,8 +93,9 @@ export function bindPose(
   grid: CellGrid,
   palette: Palette,
   tolerance = BIND_TOLERANCE,
+  clustered = true,
 ): BindReport {
-  const graded = gradedTarget(grid, palette);
+  const graded = gradedTarget(grid, palette, clustered);
   let same = 0;
   let differ = 0;
   let missing = 0;

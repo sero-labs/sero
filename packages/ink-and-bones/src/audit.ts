@@ -195,10 +195,15 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     `the figure spans ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%)`,
     `the figure spans only ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%) — it is drawn too small to read. Move the root down, lengthen the bones and paint bigger; do not shrink the canvas`,
   );
+  // A character made of real artwork turns the despeckle rule off, because
+  // hand-drawn pixel art is full of deliberate single pixels. The gate then has
+  // nothing to check — but it says so out loud rather than reporting a pass.
   add(
     'speckle',
-    speckles === 0,
-    'no lone pixel survived the grade',
+    spec.grade.despeckle === false || speckles === 0,
+    spec.grade.despeckle === false
+      ? `not checked: this character declares grade.despeckle false, so its ${speckles} lone pixel(s) are its own artwork`
+      : 'no lone pixel survived the grade',
     `${speckles} lone pixel(s) survived the grade`,
   );
   add(
