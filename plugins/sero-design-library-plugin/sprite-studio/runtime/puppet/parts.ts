@@ -21,10 +21,9 @@
  */
 
 import { floodForeground, labelBodies } from '../../engine/key';
-import { capPalette, dedupePalette, remapCells } from '../../engine/palette';
 import { quantiseSequence } from '../../engine/quantise';
 import { rawGrid } from '../../engine/resample';
-import type { CellGrid, Foreground, Rgb, SourceImage } from '../../engine/types';
+import type { CellGrid, Foreground, Palette, SourceImage } from '../../engine/types';
 import { TRANSPARENT } from '../../engine/types';
 
 /** A piece smaller than this share of the biggest one is a speck the sheet
@@ -38,10 +37,15 @@ const MAX_PIECES = 14;
 export interface CharacterPart {
   /** The piece on its own small canvas, at the target's scale. */
   grid: CellGrid;
-  palette: Rgb[];
   /** What it measures in canvas pixels — the number the author paints to. */
   width: number;
   height: number;
+}
+
+export interface SplitParts {
+  parts: CharacterPart[];
+  /** ONE palette for every piece — the target's. */
+  palette: Palette;
 }
 
 /** The instruction for the parts sheet. Laid out APART is the whole
@@ -69,11 +73,11 @@ export function buildPartsSheetPrompt(): string {
  */
 export function splitParts(
   image: SourceImage,
-  options: { reduction: number; colours: number },
-): CharacterPart[] {
+  options: { reduction: number; palette: Palette },
+): SplitParts {
   const foreground = floodForeground(image);
   const { label, sizes } = labelBodies(foreground, image.width, image.height);
-  if (sizes.length === 0) return [];
+  if (sizes.length === 0) return { parts: [], palette: options.palette };
   const biggest = Math.max(...sizes);
 
   const bounds = sizes.map(() => ({ x0: image.width, y0: image.height, x1: -1, y1: -1 }));
@@ -110,51 +114,15 @@ export function splitParts(
     const cols = Math.max(1, Math.round((box.x1 - box.x0 + 1) / options.reduction));
     const rows = Math.max(1, Math.round((box.y1 - box.y0 + 1) / options.reduction));
     const raw = rawGrid(image, only, options.reduction, box.x0, box.y0, cols, rows);
-    const source = pieceColours(image, only, options.colours);
-    if (source.length === 0) continue;
-    const grid = quantiseSequence([raw], source, { memory: false }).frames[0];
+    // Every piece is quantised onto the TARGET's palette, not one of its own.
+    // Two reasons, and the second is the one that bit: the pieces should be in
+    // the character's colours to be comparable at all, and a per-piece palette
+    // put 363 colours on one sheet against an indexed PNG's limit of 255.
+    const grid = quantiseSequence([raw], options.palette, { memory: false }).frames[0];
     if (grid === undefined) continue;
-    const capped = dedupePalette(capPalette(grid.cells, source, options.colours));
-    parts.push({
-      grid: { cols: grid.cols, rows: grid.rows, cells: remapCells(grid.cells, source, capped) },
-      palette: capped,
-      width: cols,
-      height: rows,
-    });
+    parts.push({ grid, width: cols, height: rows });
   }
-  return parts;
-}
-
-/** The same source-measured palette the canonical target uses, per piece. */
-function pieceColours(image: SourceImage, foreground: Foreground, cap: number): Rgb[] {
-  const buckets = new Map<number, { n: number; r: number; g: number; b: number }>();
-  for (let p = 0; p < foreground.length; p++) {
-    if (foreground[p] === 0) continue;
-    const i = p * 4;
-    const r = image.data[i] ?? 0;
-    const g = image.data[i + 1] ?? 0;
-    const b = image.data[i + 2] ?? 0;
-    const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
-    const bucket = buckets.get(key) ?? { n: 0, r: 0, g: 0, b: 0 };
-    bucket.n++;
-    bucket.r += r;
-    bucket.g += g;
-    bucket.b += b;
-    buckets.set(key, bucket);
-  }
-  if (buckets.size === 0) return [];
-  const found = [...buckets.values()];
-  const palette: Rgb[] = found.map((bucket) => [
-    Math.round(bucket.r / bucket.n),
-    Math.round(bucket.g / bucket.n),
-    Math.round(bucket.b / bucket.n),
-  ]);
-  const weights = new Int16Array(found.reduce((sum, bucket) => sum + Math.min(bucket.n, 1 << 12), 0));
-  let at = 0;
-  found.forEach((bucket, index) => {
-    for (let k = 0; k < Math.min(bucket.n, 1 << 12); k++) weights[at++] = index;
-  });
-  return dedupePalette(capPalette(weights, palette, cap));
+  return { parts, palette: options.palette };
 }
 
 /**
@@ -166,11 +134,12 @@ function pieceColours(image: SourceImage, foreground: Foreground, cap: number): 
  * to the torso beside it.
  */
 export function partsSheet(
-  parts: readonly CharacterPart[],
+  split: SplitParts,
   scale: number,
   backdrop: readonly number[],
   gutter = 3,
 ): SourceImage {
+  const { parts, palette } = split;
   if (parts.length === 0) return { width: 1, height: 1, data: new Uint8Array(4) };
   const columns = Math.min(4, parts.length);
   const rows = Math.ceil(parts.length / columns);
@@ -197,7 +166,7 @@ export function partsSheet(
         const cell =
           part.grid.cells[Math.floor(y / scale) * part.grid.cols + Math.floor(x / scale)] ?? TRANSPARENT;
         if (cell === TRANSPARENT || cell < 0) continue;
-        const rgb = part.palette[cell];
+        const rgb = palette[cell];
         if (rgb === undefined) continue;
         const o = ((top * scale + y) * width + left * scale + x) * 4;
         data[o] = rgb[0];

@@ -106,14 +106,29 @@ const VIEW_FILE = 'target-4x.png';
 const SHEET_FILE = 'parts-sheet.png';
 const PARTS_FILE = 'parts-4x.png';
 
-/** The instruction that turns a front-facing illustration into a profile of the
+/**
+ * The instruction that turns a front-facing illustration into a profile of the
  * same character. Deliberately about the VIEW and nothing else: every request
- * to also change something is a request to lose the identity being copied. */
+ * to also change something is a request to lose the identity being copied.
+ *
+ * Measured, the polite version of this — "redraw this character in a strict
+ * side view" — came back as the SAME front-facing pose with a slightly
+ * different helmet. An edit model's default is to preserve the layout it was
+ * given, so the instruction has to say what must CHANGE, in the concrete terms
+ * of what a profile looks like, and say outright that keeping the pose is
+ * wrong.
+ */
 export function buildSideViewPrompt(): string {
   return [
-    'Redraw this exact character in a strict side view, facing right, standing at rest.',
-    'Same character, same armour, same colours, same proportions, same style, same pixel-art resolution.',
-    'Keep every piece of equipment visible and readable from the side: what was held in front of the body is now held out to the side.',
+    'Rotate this character 90 degrees so it faces to the RIGHT. This is a turnaround: the same character, seen from the side.',
+    'DO NOT keep the front-facing pose. The character must no longer face the viewer.',
+    'From the side we see: the side of the head with one eye or one visor slit, the nose or helmet front pointing right,',
+    'one shoulder in front of the other, one arm nearer the viewer and one hidden behind the body,',
+    'one leg in front of the other, and the chest and hips seen edge-on so the body is NARROW.',
+    'The whole figure must be much narrower than it was, because a body is far thinner from the side than from the front.',
+    'Everything else is unchanged: the same character, the same armour and clothing, the same colours,',
+    'the same height, the same art style, the same pixel-art resolution.',
+    'Anything carried is now held out to the side where it can still be seen.',
     'Full body from head to feet, standing upright, plain flat background, no shadow, no ground, no text.',
   ].join(' ');
 }
@@ -227,16 +242,16 @@ async function drawPartsSheet(source: string, context: ReferenceContext): Promis
 async function splitAndWrite(
   sheet: Buffer,
   reduction: number,
+  palette: Palette,
   file: string,
-  context: ReferenceContext,
 ): Promise<PreparedParts | null> {
-  const parts = splitParts(toSourceImage(sheet), { reduction, colours: TARGET_COLOURS });
+  const split = splitParts(toSourceImage(sheet), { reduction, palette });
   // One piece means the model drew the assembled character again; two is not a
   // character taken apart either. Below three there is nothing here the whole
   // figure did not already say.
-  if (parts.length < 3) return null;
-  await writeImage(file, partsSheet(parts, VIEW_SCALE, BACKDROP));
-  return { sheetPath: file, sizes: describeParts(parts), count: parts.length };
+  if (split.parts.length < 3) return null;
+  await writeImage(file, partsSheet(split, VIEW_SCALE, BACKDROP));
+  return { sheetPath: file, sizes: describeParts(split.parts), count: split.parts.length };
 }
 
 /**
@@ -314,7 +329,7 @@ export async function prepareReference(
       },
       () => null,
     );
-    parts = sheet === null ? null : await splitAndWrite(sheet, target.reduction, partsPath, context);
+    parts = sheet === null ? null : await splitAndWrite(sheet, target.reduction, target.palette, partsPath);
   }
 
   return {

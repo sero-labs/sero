@@ -166,20 +166,39 @@ Dan's reference (`~/Downloads/3qzXr.jpg`) measures ~93x132 art pixels
       character and aim the author at that, judging against the
       original.
 
-- [ ] Reference step: brief → reference image through the existing
-      character-image path (or a user-supplied picture); stored with
-      the run, shown beside the results at review.
-- [ ] Palette handoff: extract the reference's palette and ramps with
-      the existing ingestion code; the author receives them as its
-      required materials instead of inventing timid ones.
-- [ ] The author sees the target: the reference image is handed into
-      the authoring session as tool content (the judge image seam),
-      alongside each bake's own strips.
-- [ ] Independent judge: a separate session, blind to the brief, is
-      shown the reference beside the render — "same character? name
-      what is missing" — modelled on the video-mode judge, including
-      its called-the-image-tool guard. Finishing requires the judge's
-      pass; the author's self-grade is no longer the bar.
+- [x] Reference step: a user-supplied picture (or words) → ONE paid
+      image-to-image call turning it side-on, since the rig, `gait()`
+      and the proven run are all profile. Written into the run's own
+      directory and never re-bought; a run whose reference cannot be
+      prepared FAILS rather than authoring blind under a Phase 1b name.
+- [x] Canonical target: the side view separated, cropped, and stood on
+      the character's own canvas at the fill the gate demands, feet on
+      its ground row — so target and render differ only in what was
+      drawn. Built on the studio's OWN engine (`floodForeground`,
+      `keepLargestBody`, `measureSilhouette`, `rawGrid`, `capPalette`,
+      `buildRamps`) after Dan pushed back on a hand-rolled first draft.
+      Two findings: reducing by mean alone came back visibly blurred
+      (a two-colour figure became twelve palette entries) — fixed by
+      snapping to a palette measured on the SOURCE; and
+      `floodForeground` could not take off a checkerboard baked into a
+      JPEG, now fixed in the engine for every consumer (`pageMatch`).
+      `recoverArtwork` is deliberately not used: on the real reference
+      its grid detector reports block 1 with zero lift.
+- [x] Palette handoff: the reference's colours as material ramps,
+      commonest first, handed over as the ramps to declare. Which ramp
+      is armour and which is leather is left to the model looking at
+      the picture.
+- [x] The author sees the target: `puppet_studio_show_target` hands it
+      over as tool content with the measurements stated; whether it
+      was ever called is tracked and the repair pass demands it.
+- [x] Independent judge: a separate session, blind to the brief, shown
+      target and render framed identically, scoring silhouette,
+      proportions, head, equipment and colour SEPARATELY (never a
+      boolean — one big emblem wins that). Bar: 10 of 15 with nothing
+      at zero. Its verdict returns inside the bake result naming the
+      one thing to fix, and it — not `allClean` — converges a
+      reference-aimed run. Unreachable returns 'unavailable', never a
+      pass.
 - [x] Canvas guidance: characters in this style author at ~112x144
       (engine cap is 160); export can downscale when a smaller sheet
       is wanted. Set in the guide and the loop's task prompt.
@@ -187,12 +206,15 @@ Dan's reference (`~/Downloads/3qzXr.jpg`) measures ~93x132 art pixels
       measure it on the knight. (Option 1's shape tools and option 3's
       first half are in; the canonical target and the overlays are
       not.)
-- [ ] Part splitting (Dan, 2026-08-02): the reference pipeline should
-      also try SPLITTING the character into separate parts — either
-      segmenting the reference or generating a parts sheet (option 4
-      below) — and handing the pieces to the author per bone, to help
-      creation rather than leaving the whole figure to be re-derived
-      from one image.
+- [x] Part splitting (Dan, 2026-08-02): option 4 — one more paid
+      picture of the character drawn as separate pieces, split by
+      connected components (sound, because a parts sheet's masses do
+      not touch) and each piece put at the TARGET's scale, so the
+      author is told "the helmet is 22 x 19 of your 112 x 144 canvas".
+      Optional and failure-tolerant: no sheet is a worse-off run, not
+      a broken one. The pieces are reference, not bitmaps to blit —
+      cutting a finished illustration into rotating sprite parts is
+      option 5 and still unbuilt.
 - [ ] Model A/B (Dan, 2026-08-02): run the same reference-aimed brief
       with anthropic/claude-opus-5 AND with gpt-5.6-sol at high
       thinking (Dan's preferred Sero model, the current baseline) and
