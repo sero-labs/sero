@@ -176,6 +176,16 @@ export function buildCharacter() {
 }
 `;
 
+/** Many SUB-limit canvases, retained: only the cumulative load-phase budget
+ * sees this one. */
+export const PAINT_HOARD_SOURCE = `
+import { Paint } from '@sero-ai/ink-and-bones';
+export function buildCharacter() {
+  const hoard: Paint[] = [];
+  for (;;) hoard.push(new Paint({ x: 0, y: 0, w: 1000, h: 1000 }));
+}
+`;
+
 export const BAD_CONTRACT_SOURCE = `
 export function buildCharacter() {
   return {

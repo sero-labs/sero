@@ -30,10 +30,12 @@ export const CLIP_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 export const DETERMINISM_SOURCE = `
 import { limitImgAllocations } from '@sero-ai/ink-and-bones';
 
-// One absurd canvas dies per-Img; a loop hoarding sub-limit canvases dies
-// here. A legitimate full bake allocates ~130M px through its lifetime;
-// double that is the ceiling.
-limitImgAllocations(256_000_000);
+// The LOAD-phase budget: while authored code builds the character it only
+// paints part canvases (a whole reference character uses ~200k px), so a
+// hoard dies at ~128 MB retained. The driver re-arms a budget measured from
+// the validated clip set before the bake, where the engine's own transient
+// canvases dominate.
+limitImgAllocations(8_000_000);
 
 const refuse = (what: string) => {
   throw new Error(
@@ -201,6 +203,18 @@ function main(): void {
     post({ ok: false, stage: 'contract', issues: [{ text: "restPose() must return { deg: { bone: deltaDeg } } — deltas live under 'deg'." }] });
     return;
   }
+
+  // Re-arm the allocation budget for the bake, measured from the clip set
+  // the contract just validated: per frame one supersampled canvas (16x the
+  // 1x pixels) plus the 1x frame, doubled for margin, plus slack for the
+  // rest render. Painter code that hoards during the bake dies near twice
+  // its legitimate need instead of at a one-size ceiling.
+  let bakePixels = 0;
+  for (const name of names) {
+    const clip = clips.get(name) as { cycle: number; bakeFps: number };
+    bakePixels += Math.max(1, Math.round(clip.cycle * clip.bakeFps)) * spec.canvasW * spec.canvasH * 17;
+  }
+  engine.limitImgAllocations(bakePixels * 2 + 8_000_000);
 
   const rest = engine.bakeRest(frozen);
   const baked: { name: string; fps: number; loop: boolean; frames: ReturnType<typeof packImg>[] }[] = [];

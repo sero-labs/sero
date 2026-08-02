@@ -20,7 +20,7 @@ import { AUTHORING_GUIDE, ENGINE_VERSION } from '@sero-ai/ink-and-bones';
 import type { DesignLibraryPaths } from '../../../shared/paths';
 import type { ModelSelection } from '../../../shared/settings';
 import { modelSelectionIsEmpty } from '../../../shared/settings';
-import { readState } from '../../../shared/state-io';
+import { readState, withRecordLock } from '../../../shared/state-io';
 import { puppetLabDir, puppetRunDir } from '../../shared/paths';
 import { bakePuppetSource, readReviewPngs } from './bake';
 import type { PuppetRound } from './tools';
@@ -96,35 +96,41 @@ export async function runPuppetAuthor(
   // transcript; the rules are: a finished run (run.json present) stays
   // refused, a claim whose owning process still exists stays refused, and
   // only a provably dead owner's claim is reclaimed — with its half-written
-  // rounds cleared first so the new transcript is whole. (In-process double
-  // starts are already deduplicated at the queue.)
+  // rounds cleared first so the new transcript is whole. Inspection and
+  // takeover happen inside one cross-process lock, so a claimant can never
+  // observe another's claim half-made, and two replays cannot reclaim one
+  // dead run together. (In-process double starts are already deduplicated
+  // at the queue.)
   await mkdir(puppetLabDir(context.paths), { recursive: true });
-  const claimed = await mkdir(runDir).then(
-    () => true,
-    () => false,
-  );
-  if (!claimed) {
+  const claim = await withRecordLock(context.paths, runDir, async () => {
     const finished = await access(path.join(runDir, 'run.json')).then(
       () => true,
       () => false,
     );
-    if (finished) {
-      return { status: 'failed', reason: `Run '${job.runId}' already completed — every run gets a fresh id.` };
-    }
+    if (finished) return 'completed';
     const owner = await readFile(path.join(runDir, 'claim.json'), 'utf8')
       .then((raw) => JSON.parse(raw) as { pid?: number })
       .catch(() => null);
     if (typeof owner?.pid === 'number' && owner.pid !== process.pid && processExists(owner.pid)) {
-      return { status: 'failed', reason: `Run '${job.runId}' is still running elsewhere.` };
+      return 'running';
     }
+    // Taking over any pre-existing directory clears its half-written rounds,
+    // claim.json or not — the new transcript must be whole.
     await rm(path.join(runDir, 'rounds'), { recursive: true, force: true });
+    await mkdir(path.join(runDir, 'rounds'), { recursive: true });
+    await writeFile(
+      path.join(runDir, 'claim.json'),
+      JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+      'utf8',
+    );
+    return 'claimed';
+  });
+  if (claim === 'completed') {
+    return { status: 'failed', reason: `Run '${job.runId}' already completed — every run gets a fresh id.` };
   }
-  await writeFile(
-    path.join(runDir, 'claim.json'),
-    JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
-    'utf8',
-  );
-  await mkdir(path.join(runDir, 'rounds'), { recursive: true });
+  if (claim === 'running') {
+    return { status: 'failed', reason: `Run '${job.runId}' is still running elsewhere.` };
+  }
   const startedAt = new Date().toISOString();
 
   const source = createCharacterSourceTool({

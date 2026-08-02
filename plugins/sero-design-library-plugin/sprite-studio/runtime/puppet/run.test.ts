@@ -19,6 +19,7 @@ import {
   CLEAN_SOURCE,
   GIANT_PAINT_SOURCE,
   NEW_DATE_SOURCE,
+  PAINT_HOARD_SOURCE,
   HANGING_BUILD_SOURCE,
   HANGING_PAINTER_SOURCE,
   MEMORY_HOG_SOURCE,
@@ -134,5 +135,12 @@ describe('runPuppetWorker', () => {
     if (result.ok) throw new Error('a giant paint baked');
     expect(result.stage).toBe('load');
     expect(result.issues[0].text).toContain('refusing');
+  });
+
+  it('a hoard of sub-limit canvases dies at the load-phase budget', async () => {
+    const result = await run(PAINT_HOARD_SOURCE);
+    if (result.ok) throw new Error('a paint hoard baked');
+    expect(result.stage).toBe('load');
+    expect(result.issues[0].text).toContain('budget');
   });
 });
