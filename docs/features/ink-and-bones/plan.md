@@ -142,6 +142,17 @@ vision judge that compares against a base pose.
       is wanted.
 - [ ] Fidelity: prototype at least one of the options below and
       measure it on the knight.
+- [ ] Part splitting (Dan, 2026-08-02): the reference pipeline should
+      also try SPLITTING the character into separate parts — either
+      segmenting the reference or generating a parts sheet (option 4
+      below) — and handing the pieces to the author per bone, to help
+      creation rather than leaving the whole figure to be re-derived
+      from one image.
+- [ ] Model A/B (Dan, 2026-08-02): run the same reference-aimed brief
+      with anthropic/claude-opus-5 AND with gpt-5.6-sol at high
+      thinking (Dan's preferred Sero model, the current baseline) and
+      compare. Check the profile has the Anthropic provider configured
+      before the opus run; every run records its model in run.json.
 - [ ] Re-run the knight from Dan's reference image; gate P3
       re-review on the result.
 
