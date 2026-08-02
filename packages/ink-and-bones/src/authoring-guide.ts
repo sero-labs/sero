@@ -29,11 +29,25 @@ The file shape:
       return { canvasW, canvasH, groundRow, skeleton: S, parts, clips, grade, shadow, restPose };
     }
 
+## The view — a side-on figure
+
+This engine draws a character IN PROFILE, facing east. Every proven part of
+it assumes that: limbs come in near/far pairs offset a few px at the hip and
+shoulder, foot bones point toe-east, and gait() swings the feet along X. A
+front-facing torso bolted onto this rig reads as a wide slab with a small
+head, and its run has nowhere to swing. Draw the narrow side of the body:
+a chest seen edge-on, one visible eye or visor, gear held out to the east or
+strapped across the west side.
+
+If a reference picture faces the camera, you are converting it to profile.
+Keep its palette, its proportions and its identifying gear; do not keep its
+front-on symmetry.
+
 ## Coordinates and signs — read this twice, it is where authors fail
 
-- The 1x canvas is FIXED (canvasW x canvasH, e.g. 64 x 80). All skeleton,
+- The 1x canvas is FIXED (canvasW x canvasH, e.g. 112 x 144). All skeleton,
   paint, and plant coordinates are SUPERSAMPLED px: 4x the 1x canvas, so a
-  64 x 80 canvas is a 256 x 320 working space. Screen-down is +Y.
+  112 x 144 canvas is a 448 x 576 working space. Screen-down is +Y.
 - A bone's local frame: origin at its joint, +Y along the bone. With all
   angles 0, +Y points screen-down.
 - Angles are degrees. Positive swings the tip EAST for a downward bone
@@ -59,6 +73,11 @@ The file shape:
     S.bone('foot_near', 'shin_near', S.tip(), 90, 13);   // feet rest at 90: toe east
     S.bone('spine', 'pelvis', [0, -2], 172, 44);         // upward: rest past vertical
 
+Every worked number below comes from one real 64 x 80 character. On a
+112 x 144 canvas they all scale by 1.75 — a rootPos of [128, 222] becomes
+about [224, 400], a plant line of 296 becomes 518. Scale them; do not
+paste them.
+
 - Root height sets the knee bend everywhere: if the ankle plants at y = 296
   and the legs reach 80, a root at 222 leaves near-straight standing legs
   that still have flex to spend in a run. Leave 8-12 ss px of slack.
@@ -82,9 +101,29 @@ Each part paints ONCE, in bone-local ss space, on a Paint canvas:
       return p;
     }
 
-Helpers: capsule (tapered limb segments — the workhorse), disc, stroke,
-ribbon (for chain painters), tintToward (directional light: pushes edge
-bands toward a colour), occludeAbove (contact shadow under an overhang).
+Helpers, with their exact signatures — every one throws on a wrong
+argument rather than quietly drawing nothing, so read them once:
+
+    p.capsule(p0, p1, r0, r1, colour)   // tapered segment — the workhorse
+    p.disc(centre, r, colour)
+    p.polygon(points, colour)           // filled outline, 3+ points
+    p.stroke(points, widths, colour)    // widths is an ARRAY, one per point
+    p.ribbon(points, w0, w1, colour)    // chain painters
+    p.tintToward(dir, colour, depth)    // directional light on edge bands
+    p.occludeAbove(atY, depth, amount)  // contact shade; amount is 0..1
+
+Two traps worth naming, because both used to draw nothing in silence:
+
+    p.stroke(pts, 3, c);        // WRONG — a bare width. Use [3, 3].
+    p.occludeAbove([0,7], 18, colour, 3);  // WRONG — three NUMBERS only.
+
+polygon is the shape tool. Capsules and discs can only make sausages and
+balls: a helmet's flat crown and angled brow, a kite shield, a blade's
+taper, a pauldron's fan are polygons. Concave outlines and notches fill
+correctly.
+
+    // a visored helm, in head-local space
+    p.polygon([[-14, 30], [-10, 40], [8, 40], [12, 28], [10, 10], [-12, 12]], steel);
 
 stroke and ribbon take a LIST of points, never two endpoints:
 
@@ -117,9 +156,15 @@ Draw onto the GIVEN paint — never create or return your own:
     };
 
 grade config: { ink, shadow, emissiveLone } — ink is the 1px outline colour,
+shadow the ground-shadow colour (give it alpha: hex('151221', 0.45)), and
 emissiveLone lists hot accent colours (visor core, blade edge) allowed to
 win a cell outright at ~1/3 coverage and to stand as a single pixel.
 Colours come from hex('4e5f78') — exactly six digits, never a '#'.
+
+The character's own ground shadow is a separate field, and its fields are
+named exactly this — anything else throws:
+
+    shadow: { x: 56, y: 140, rx: 22, ry: 4 },   // 1x canvas px, not ss
 
 ## Clips are curves
 
@@ -222,6 +267,12 @@ Every bake is audited per clip. Respond to the CHECK, not the symptom:
   Fix the plant y, the gait groundY, or the declaration — see above.
 - edge — the silhouette touches the canvas margin. Shrink the excursion or
   move the root; do not resize the canvas to chase one clip.
+- fill — the figure spans less than minFill (default 0.75) of the canvas
+  height at its tallest: it is drawn too small to read. Move the root
+  down, lengthen the bones, paint bigger. Do NOT shrink the canvas, and
+  do not lower minFill unless the character is genuinely squat by design
+  (a barrel, a slime) — this gate exists because every other size rule
+  pushes toward drawing smaller.
 - speckle — lone pixels outside emissiveLone: paint tips too thin (under
   2.5 ss px half-width) or shading bands too narrow.
 - ramp — a graded colour missing from the owning part's ramp: you painted
@@ -240,19 +291,32 @@ A character is finished only when a STRANGER names it at a glance. The
 audits measure structure; they cannot see identity. Judge your own
 pictures like a stranger:
 
+- FILL THE CANVAS. The figure should stand about 85% of the canvas
+  height — feet on groundRow, head near the top, a couple of px of air.
+  Nothing rewards drawing small and the edge gate punishes drawing big,
+  so the safe-feeling move is always to shrink; resist it. A figure using
+  half its canvas has thrown away half its resolution and cannot be read.
+  Check the measured rest silhouette height against the canvas every bake.
 - Silhouette first: the outline alone must say what the character is.
   Big shape cues — a helmet, a hat, ears, a weapon — beat any amount of
   surface detail. If the filled-black outline would stump a stranger,
   no colouring will save it.
-- The head must read as a head: roughly the top quarter of the figure,
-  visibly narrower than the shoulders, with at least one face mark (an
-  eye line, a visor slit) in a colour that contrasts with the head.
+- THE HEAD IS BIG. At this size a head drawn to life proportions is a
+  few pixels of nothing. Draw it roughly AS WIDE AS THE TORSO — heroic,
+  not realistic — and about a fifth of the figure's height, with at
+  least one face mark (an eye, a visor slit) in a contrasting colour.
+  A head narrower than the body is the single most common way one of
+  these characters ends up unreadable.
+- Tall and narrow beats short and wide. Seen from the side a body is
+  about a third as wide as it is tall. If the silhouette's width
+  approaches its height, the figure has become a blob: the torso is
+  drawn front-on, or the gear is spread sideways.
 - Contrast separates parts: parts that touch need ramps at least a step
   apart in value, or they grade into one mass. A torso and a near arm
   in the same mid tone become a slab.
 - Props read by silhouette too: a sword is a long straight edge held
-  away from the body, a shield a broad plate on the outline — a prop
-  overlapping the torso disappears.
+  away from the body, a shield a broad plate breaking the outline — a
+  prop drawn on top of the torso disappears into it.
 - Before you finish, describe the pictures as a stranger would, without
   the brief. If that description does not name the character, keep
   working. Green gates are the floor, not the finish — spend the bake

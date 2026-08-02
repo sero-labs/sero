@@ -14,6 +14,7 @@
  *   in-place   centroid wobble around the clip's own mean stays in budget
  *   baseline   feet on the ground (airborne-aware, vs the declared groundRow)
  *   edge       no fill on the top/left/right canvas boundary
+ *   fill       the figure is big enough in frame to be read at all
  *   speckle    the despeckle grade rule held — no lone off-palette pixels
  *   ramp       every colour is in the character's derived vocabulary
  */
@@ -31,8 +32,13 @@ export type AuditCheckId =
   | 'in-place'
   | 'baseline'
   | 'edge'
+  | 'fill'
   | 'speckle'
   | 'ramp';
+
+/** The floor when a character declares no `minFill`: the figure spans at
+ * least three quarters of the canvas height at its tallest. */
+export const DEFAULT_MIN_FILL = 0.75;
 
 export interface AuditCheck {
   id: AuditCheckId;
@@ -88,6 +94,8 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
   let footSunk = 0;
   let grounded = 0;
   let flying = 0;
+  let tallest = 0;
+  let widestAtTallest = 0;
   const feetRows: number[] = [];
   const deltas: number[] = [];
   for (let f = 0; f < frames.length; f++) {
@@ -100,6 +108,13 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     speckles += specklePx(img, ink, lone);
     offRamp += offVocabPx(img, vocab);
     feetRows.push(s.feet);
+    if (s.bbox !== null) {
+      const height = s.bbox.y1 - s.bbox.y0 + 1;
+      if (height > tallest) {
+        tallest = height;
+        widestAtTallest = s.bbox.x1 - s.bbox.x0 + 1;
+      }
+    }
     const feetD = s.feet - spec.groundRow;
     if (feetD > 1) footSunk++;
     if (Math.abs(feetD) <= 1) grounded++;
@@ -169,6 +184,17 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     'no fill pixel on the top/left/right canvas boundary',
     `fill on the canvas boundary in ${edgeBad} frame(s) — the shape reads as cropped`,
   );
+  // Size is the one quality the other gates push only one way: 'edge' fires
+  // when the figure is too big and nothing fires when it is too small, so
+  // every safe move shrinks the character until it cannot be read.
+  const minFill = spec.minFill ?? DEFAULT_MIN_FILL;
+  const fill = tallest / spec.canvasH;
+  add(
+    'fill',
+    fill >= minFill,
+    `the figure spans ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%)`,
+    `the figure spans only ${tallest} of ${spec.canvasH} rows (${(fill * 100).toFixed(0)}%, floor ${(minFill * 100).toFixed(0)}%) — it is drawn too small to read. Move the root down, lengthen the bones and paint bigger; do not shrink the canvas`,
+  );
   add(
     'speckle',
     speckles === 0,
@@ -194,6 +220,12 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
   }
   info.push(
     `enclosed bare-canvas pockets: ${pocketFrames} frame(s), largest ${pocketMax} px`,
+  );
+  // Not a gate — a shield or a drawn blade widens a figure legitimately — but
+  // the number the author needs to notice it has become a blob. Seen from the
+  // side a body is roughly a third as wide as it is tall.
+  info.push(
+    `silhouette at its tallest: ${widestAtTallest} x ${tallest} px (width ${(widestAtTallest / Math.max(1, tallest)).toFixed(2)} of height)`,
   );
 
   return {

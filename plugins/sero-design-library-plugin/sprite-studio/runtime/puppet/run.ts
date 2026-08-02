@@ -77,6 +77,7 @@ export const AUDIT_IDS: readonly AuditCheckId[] = [
   'in-place',
   'baseline',
   'edge',
+  'fill',
   'speckle',
   'ramp',
 ];

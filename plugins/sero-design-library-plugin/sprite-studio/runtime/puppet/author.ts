@@ -15,7 +15,7 @@ import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
-import { AUTHORING_GUIDE, ENGINE_VERSION } from '@sero-ai/ink-and-bones';
+import { API_REFERENCE, AUTHORING_GUIDE, ENGINE_VERSION } from '@sero-ai/ink-and-bones';
 
 import type { DesignLibraryPaths } from '../../../shared/paths';
 import type { ModelSelection } from '../../../shared/settings';
@@ -71,9 +71,13 @@ How this run works:
 - The audit gates are measurements, not advice. When every gate is green, the real test begins: judge the pictures like a STRANGER who never read the brief. The silhouette alone must name the character; the head must read as a head; every part must be findable in every frame.
 - Call puppet_studio_finish only when a stranger would name this character at a glance — its 'seen' field is that test, written down. Do not call it while gates fail unless the budget is spent.
 
-The engine guide follows. It is the whole API — nothing else exists.
+Two documents follow and together they are the whole API — nothing else exists. The guide teaches the craft; the declarations settle the signatures. When the two disagree about an argument, the declarations are the truth, and a call with the wrong argument shape now throws rather than quietly drawing nothing.
 
-${AUTHORING_GUIDE}`;
+${AUTHORING_GUIDE}
+
+# The engine API, as TypeScript declarations
+
+${API_REFERENCE}`;
 }
 
 function buildTask(brief: string): string {
@@ -81,7 +85,7 @@ function buildTask(brief: string): string {
 
 ${brief}
 
-Unless the brief demands otherwise: a 64 x 80 canvas at 1x is the proven size, and the character needs at least an 'idle' and a 'run' clip (a west-facing mirror costs one line). Start by writing a complete first version — skeleton, rest pose, parts, clips — and bake it.`;
+Unless the brief demands otherwise: author on a 112 x 144 canvas at 1x — big enough for a helmet, a face mark and carried gear to survive the grade — and give the character at least an 'idle' and a 'run' clip (a west-facing mirror costs one line). The figure should stand about 85% of that canvas height. Start by writing a complete first version — skeleton, rest pose, parts, clips — and bake it.`;
 }
 
 /** Run the loop and leave the transcript under `puppet-lab/<runId>/`. */

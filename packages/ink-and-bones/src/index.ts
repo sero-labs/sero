@@ -10,10 +10,13 @@
 
 /** Mirrors package.json's version; part of consumers' bake cache keys, so a
  * new engine misses stale caches. Bump together with the version field. */
-export const ENGINE_VERSION = '0.1.0';
+export const ENGINE_VERSION = '0.2.0';
 
-// the LLM's (or a person's) system material for writing a character
+// the LLM's (or a person's) system material for writing a character: the
+// prose guide teaches the craft, the generated declarations settle the
+// signatures — an example must be generalised from, a type cannot be misread.
 export { AUTHORING_GUIDE } from './authoring-guide';
+export { API_REFERENCE } from './api-reference';
 
 // math + pixels
 export type { Vec, Affine } from './vec';
@@ -72,7 +75,7 @@ export {
   stats,
 } from './metrics';
 export type { AuditCheck, AuditCheckId, AuditReport } from './audit';
-export { auditCharacter, auditClip, formatReport } from './audit';
+export { DEFAULT_MIN_FILL, auditCharacter, auditClip, formatReport } from './audit';
 
 // review images
 export { frameStrip, frameStripScaled, poseGrid, scaleNearest, sideBySide, zoom } from './review';

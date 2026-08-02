@@ -63,6 +63,26 @@ describe('runPuppetWorker', () => {
     expect(reports[0].failed, reports[0].checks.filter((c) => !c.ok).map((c) => c.text).join('; ')).toBe(0);
   });
 
+  it('a declared minFill reaches the audit — the snapshot drops nothing', async () => {
+    // The driver rebuilds a validated snapshot of the spec before baking, so
+    // any CharacterSpec field left off it is not an error: it is the engine
+    // DEFAULT silently applied to a character that declared otherwise. The
+    // fixture only passes the fill gate because it declares a lower floor,
+    // which makes this the honest canary for the whole class.
+    const result = await run(CLEAN_SOURCE);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    const fill = result.result.reports[0].checks.find((c) => c.id === 'fill');
+    expect(fill?.ok).toBe(true);
+    expect(fill?.text).toContain('floor 45%');
+  });
+
+  it('a minFill outside the honest range is a contract failure', async () => {
+    const result = await run(CLEAN_SOURCE.replace('minFill: 0.45', 'minFill: 0.01'));
+    if (result.ok) throw new Error('ran with a floor low enough to mean nothing');
+    expect(result.stage).toBe('contract');
+    expect(result.issues[0].text).toContain('minFill');
+  });
+
   it('a missing buildCharacter export is a contract failure', async () => {
     const result = await run(MISSING_EXPORT_SOURCE);
     if (result.ok) throw new Error('ran without the export');

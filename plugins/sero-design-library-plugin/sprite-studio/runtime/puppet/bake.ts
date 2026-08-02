@@ -110,7 +110,7 @@ function validCachedClip(clip: PuppetClipReport): boolean {
   const ids = new Set(clip.checks.map((check) => check.id));
   if (ids.size !== clip.checks.length) return false;
   if (ids.size === 1 && ids.has('valid') && clip.checks[0].ok === false) return true;
-  const expected = new Set<string>(['islands', 'in-place', 'baseline', 'edge', 'speckle', 'ramp']);
+  const expected = new Set<string>(['islands', 'in-place', 'baseline', 'edge', 'fill', 'speckle', 'ramp']);
   if (clip.frames > 1) expected.add('distinct');
   if (clip.frames > 1 && clip.loop) expected.add('wrap');
   return ids.size === expected.size && [...expected].every((id) => ids.has(id as never));

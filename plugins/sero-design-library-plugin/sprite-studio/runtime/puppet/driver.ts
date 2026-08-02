@@ -163,6 +163,12 @@ function contractProblems(
   if (typeof spec.restPose !== 'function') {
     problems.push('restPose must be a function returning the standing pose.');
   }
+  // A declared floor is an exception a squat character earns, not a dial to
+  // turn down until the fill gate stops complaining; 0.25 is the lowest a
+  // figure can be and still be a figure.
+  if (spec.minFill !== undefined && !(typeof spec.minFill === 'number' && spec.minFill >= 0.25 && spec.minFill <= 1)) {
+    problems.push('minFill, if declared, must be a number between 0.25 and 1 — the least of the canvas height the figure spans.');
+  }
   return problems;
 }
 
@@ -235,6 +241,10 @@ function main(): void {
     clips,
     grade: spec.grade,
     shadow: spec.shadow,
+    // Every CharacterSpec field the engine reads must be carried onto the
+    // frozen snapshot: one left behind is not an error, it is the DEFAULT
+    // silently applied to a character that declared otherwise.
+    ...(typeof spec.minFill === 'number' ? { minFill: spec.minFill } : {}),
     restPose: () => spec.restPose(),
   } as any;
 

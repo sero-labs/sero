@@ -55,6 +55,10 @@ export function buildCharacter(): CharacterSpec {
     canvasH: 40,
     // Measured from the baked rest frame (restFeetRow), not eyeballed.
     groundRow: 32,
+    // A deliberately minimal test shape, not a character: it exists to move
+    // the pipeline, so it declares the fill floor it actually meets rather
+    // than pretending to be well drawn.
+    minFill: 0.45,
     skeleton: S,
     parts,
     clips,
@@ -116,6 +120,10 @@ export function buildCharacter(): CharacterSpec {
     canvasW: 32,
     canvasH: 40,
     groundRow: 33,
+    // A deliberately minimal test shape, not a character: it exists to move
+    // the pipeline, so it declares the fill floor it actually meets rather
+    // than pretending to be well drawn.
+    minFill: 0.45,
     skeleton: S,
     parts: [
       {
@@ -198,6 +206,10 @@ export function buildCharacter(): CharacterSpec {
     canvasW: 32,
     canvasH: 40,
     groundRow: 32,
+    // A deliberately minimal test shape, not a character: it exists to move
+    // the pipeline, so it declares the fill floor it actually meets rather
+    // than pretending to be well drawn.
+    minFill: 0.45,
     skeleton: S,
     parts: [{ name: 'body', bone: 'body', ramp: [hex('4a90d9')], paint }],
     clips,

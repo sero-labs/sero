@@ -28,6 +28,15 @@ export interface CharacterSpec {
   clips: ReadonlyMap<string, Motion>;
   grade: GradeConfig;
   shadow?: Shadow;
+  /**
+   * The least of the canvas HEIGHT the figure may span, 0..1, measured on the
+   * tallest frame of each clip. Every other size rule in the engine pushes one
+   * way — the edge gate punishes drawing big and nothing punishes drawing
+   * small — so an author with no floor shrinks until the character is a few
+   * dozen pixels of mush. A deliberately squat character (a barrel, a slime)
+   * DECLARES a lower floor; it is not a number to lower to fit a mistake.
+   */
+  minFill?: number;
   /** The standing pose the rest frame renders — usually a couple of IK
    * solves, so legs land exactly on the plant line. */
   restPose(): Pose;

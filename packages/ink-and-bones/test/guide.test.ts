@@ -35,6 +35,28 @@ describe('authoring guide', () => {
     }
   });
 
+  it('teaches the proportions that actually read, not life drawing', () => {
+    // The old text told the author the head must be "visibly narrower than
+    // the shoulders". Measured, that produced a head 0.43 of the body width
+    // and an unreadable figure; the working reference character's head is
+    // 0.80. Pin the corrected advice so it cannot drift back.
+    expect(AUTHORING_GUIDE).toContain('AS WIDE AS THE TORSO');
+    expect(AUTHORING_GUIDE).not.toContain('narrower than the shoulders');
+    expect(AUTHORING_GUIDE).toContain('FILL THE CANVAS');
+    expect(AUTHORING_GUIDE).toContain('IN PROFILE');
+  });
+
+  it('shows the exact signatures of the helpers that used to fail silently', () => {
+    for (const signature of [
+      'p.stroke(points, widths, colour)',
+      'p.occludeAbove(atY, depth, amount)',
+      'p.polygon(points, colour)',
+      'shadow: { x: 56, y: 140, rx: 22, ry: 4 }',
+    ]) {
+      expect(AUTHORING_GUIDE).toContain(signature);
+    }
+  });
+
   it('names every audit gate the engine can fire', () => {
     const ids: engine.AuditCheckId[] = [
       'valid',
@@ -44,6 +66,7 @@ describe('authoring guide', () => {
       'in-place',
       'baseline',
       'edge',
+      'fill',
       'speckle',
       'ramp',
     ];

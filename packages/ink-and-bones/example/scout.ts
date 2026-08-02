@@ -148,6 +148,12 @@ export function buildCharacter(theme: Theme = DUSK, dials: Dials = DEFAULT_DIALS
     canvasW: CANVAS_W,
     canvasH: CANVAS_H,
     groundRow: GROUND_ROW,
+    // Below the 0.75 the fill gate now asks of a new character, and honestly
+    // so: Scout was drawn in the spike before any size guidance existed and
+    // leaves 23 rows of air above its hood. Its geometry is frozen by the
+    // golden frames, so it declares what it measures rather than pretending.
+    // A character authored today should not copy this number.
+    minFill: 0.65,
     skeleton: S,
     parts,
     clips,
