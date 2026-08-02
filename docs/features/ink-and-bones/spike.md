@@ -1,7 +1,8 @@
 # Ink & Bones — a second Sprite Studio mode (spike findings)
 
-**Status: spike complete. Working TypeScript proof of concept at
-`spikes/ink-and-bones/` (open `index.html` in a browser).**
+**Status: spike complete and approved. Working TypeScript proof of
+concept at `spikes/ink-and-bones/` (open `index.html` in a browser).
+The implementation plan is `plan.md` beside this file.**
 
 Sprite Studio today makes sprites from **video**: a fal model draws a clip,
 we measure it, extract frames, and repair the bad ones. The Godot "CyNinja"

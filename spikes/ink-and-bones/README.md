@@ -43,5 +43,5 @@ On the page:
 Engine files are a line-for-line port of `art/*.gd` from the Godot repo.
 `character.ts` is original, written against the same authoring API.
 
-Findings and the integration assessment live at
-`docs/features/sprite-studio/ink-and-bones-spike.md`.
+Findings and the implementation plan live in
+`docs/features/ink-and-bones/`.
