@@ -86,6 +86,13 @@ Helpers: capsule (tapered limb segments — the workhorse), disc, stroke,
 ribbon (for chain painters), tintToward (directional light: pushes edge
 bands toward a colour), occludeAbove (contact shadow under an overhang).
 
+stroke and ribbon take a LIST of points, never two endpoints:
+
+    p.stroke([[0, 2], [4, 12], [6, 24]], [3, 2.5, 2], c);  // points, widths
+    p.ribbon(pts, 7, 2.8, c);                              // points, w0, w1
+
+For a single straight segment, use capsule(p0, p1, r0, r1, c).
+
 THE RAMP IS THE LAW. A part declares its ramp — every colour it may grade
 to, usually [light, mid, dark]. The quantizer snaps each 1x cell to the
 OWNING part's ramp, so chrome can never bleed into suit — and a colour you
