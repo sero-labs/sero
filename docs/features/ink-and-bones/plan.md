@@ -108,8 +108,66 @@ authoring path — nothing here is throwaway.
       design-library home.
 
 **Gate (P3):** Dan judges the converged character acceptable and the
-iteration count/cost sane. Explicit sign-off before Phase 2. **OPEN —
-awaiting Dan.**
+iteration count/cost sane. Explicit sign-off before Phase 2.
+**Verdict (2026-08-02): the loop converges but the blind-authored
+characters are not identifiable** ("it doesn't look like anything I can
+easily identify" — the lantern-keeper twice, then a knight with
+readability rules added; better, still short). Root cause: nothing in
+the loop knows what right looks like, and the author grades its own
+pictures. The gate stays open pending Phase 1b below.
+
+## Phase 1b — the reference target (approved direction)
+
+Aim the loop at a picture instead of a guess. Sprite Studio already
+owns every needed piece: text→character-image generation, palette
+extraction from ingestion, the image-handover tool seam, and a
+vision judge that compares against a base pose.
+
+- [ ] Reference step: brief → reference image through the existing
+      character-image path (or a user-supplied picture); stored with
+      the run, shown beside the results at review.
+- [ ] Palette handoff: extract the reference's palette and ramps with
+      the existing ingestion code; the author receives them as its
+      required materials instead of inventing timid ones.
+- [ ] The author sees the target: the reference image is handed into
+      the authoring session as tool content (the judge image seam),
+      alongside each bake's own strips.
+- [ ] Independent judge: a separate session, blind to the brief, is
+      shown the reference beside the render — "same character? name
+      what is missing" — modelled on the video-mode judge, including
+      its called-the-image-tool guard. Finishing requires the judge's
+      pass; the author's self-grade is no longer the bar.
+- [ ] Canvas guidance: characters in this style author at ~112x144
+      (engine cap is 160); export can downscale when a smaller sheet
+      is wanted.
+- [ ] Fidelity: prototype at least one of the options below and
+      measure it on the knight.
+- [ ] Re-run the knight from Dan's reference image; gate P3
+      re-review on the result.
+
+Fidelity options (candidates, not commitments — how close can the
+render get to the target artwork):
+
+1. **Richer materials** — 4-6 step ramps plus accent trim colours
+   (gold edges, leather straps) taken from the reference palette;
+   the engine already supports arbitrary ramps per part. Cheapest.
+2. **New Paint helpers** — stipple (chainmail), band (trim lines),
+   emblem/decal shapes (a cross on a shield); authored detail the
+   current capsule-and-tint vocabulary cannot express.
+3. **Bitmap parts** — segment the reference into per-bone pieces
+   (the keying/ingestion code exists) and let a part carry artwork
+   instead of procedural paint; the skeleton animates the actual
+   drawing, cut-out style. Highest fidelity; risks pixel shimmer
+   under rotation (rotate at 4x supersample before grading) and
+   needs seams handled where parts meet.
+4. **Grade options** — larger palette budgets and optional ordered
+   dither for material gradients.
+5. **Paid polish** — the existing frame-repair endpoint nudging a
+   handful of key frames toward the reference (nano-banana-2, the
+   one repair model that works); real money per frame, last resort.
+
+**Gate:** the knight re-run beside Dan's reference — Dan judges the
+resemblance and signs off before Phase 2.
 
 ## Phase 2 — Sprite Studio as a consumer
 
