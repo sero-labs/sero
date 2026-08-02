@@ -118,6 +118,10 @@ export interface Rect {
     w: number;
     h: number;
 }
+/** Supersampled px per 1x pixel — mirrors the compositor's SS, which cannot be
+ * imported here without a cycle (the compositor imports this file). A test
+ * pins the two together. */
+export declare const SS_PER_PIXEL = 4;
 export declare class Paint {
     readonly img: Img;
     /** Where local (0,0) — the bone joint — sits in img pixels. */
@@ -144,6 +148,23 @@ export declare class Paint {
      * shape faces \`dir\` — lit and shaded sides, or a rim at a shallow depth.
      */
     tintToward(dir: Vec, c: Color, depth: number): void;
+    /**
+     * Stamp ready-made pixels into this part, \`scale\` supersampled px per source
+     * pixel, with \`at\` naming where the source's TOP-LEFT sits in bone-local
+     * space.
+     *
+     * The other helpers describe a shape and let the grade make the pixels. This
+     * one carries pixels somebody else already decided — artwork cut from a
+     * reference, a tile, a stamp — and it exists because describing a shape in
+     * coordinates is a poor way to draw. A character can mix the two freely: a
+     * bitmap torso under a procedural cloak is one parts list.
+     *
+     * Every colour stamped must be in the part's declared ramp, exactly as if it
+     * had been painted; the ramp law does not bend for borrowed pixels, and the
+     * 'ramp' audit will say so if it is broken. Fully transparent source pixels
+     * are skipped, so a cut-out keeps its silhouette.
+     */
+    image(src: Img, at: Vec, scale?: number): void;
     /** Darken toward local y = atY on the joint side — sells the joint. */
     occludeAbove(atY: number, depth: number, amount: number): void;
 }

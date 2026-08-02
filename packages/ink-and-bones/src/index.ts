@@ -44,7 +44,7 @@ export { Img, MAX_IMG_PIXELS, TRANSPARENT, darkened, hex, limitImgAllocations, s
 
 // authoring surface
 export type { Rect } from './paint';
-export { Paint } from './paint';
+export { Paint, SS_PER_PIXEL } from './paint';
 export type { ChainDef, Pose } from './skeleton';
 export { Skeleton, worldDirToLocal } from './skeleton';
 export type { Ease } from './motion';

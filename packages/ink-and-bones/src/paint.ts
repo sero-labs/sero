@@ -21,6 +21,11 @@ export interface Rect {
   h: number;
 }
 
+/** Supersampled px per 1x pixel — mirrors the compositor's SS, which cannot be
+ * imported here without a cycle (the compositor imports this file). A test
+ * pins the two together. */
+export const SS_PER_PIXEL = 4;
+
 const SIG = {
   capsule: 'capsule(p0, p1, r0, r1, colour) — two points, two half-widths, one colour.',
   disc: 'disc(centre, r, colour).',
@@ -35,6 +40,7 @@ const SIG = {
     'called as painter(paint, points): the canvas first, the simulated points second.',
   tintToward: 'tintToward(dir, colour, depth) — a direction, a colour, a depth in px.',
   occludeAbove: 'occludeAbove(atY, depth, amount) — three numbers; amount is 0..1, not a colour.',
+  image: 'image(src, at, scale?) — an Img of pixels, where its top-left goes in bone-local space, and whole supersampled px per source pixel (4 by default).',
 } as const;
 
 export class Paint {
@@ -183,6 +189,53 @@ export class Paint {
       }
     }
     for (const i of hits) img.set(i % img.w, Math.floor(i / img.w), c);
+  }
+
+  /**
+   * Stamp ready-made pixels into this part, `scale` supersampled px per source
+   * pixel, with `at` naming where the source's TOP-LEFT sits in bone-local
+   * space.
+   *
+   * The other helpers describe a shape and let the grade make the pixels. This
+   * one carries pixels somebody else already decided — artwork cut from a
+   * reference, a tile, a stamp — and it exists because describing a shape in
+   * coordinates is a poor way to draw. A character can mix the two freely: a
+   * bitmap torso under a procedural cloak is one parts list.
+   *
+   * Every colour stamped must be in the part's declared ramp, exactly as if it
+   * had been painted; the ramp law does not bend for borrowed pixels, and the
+   * 'ramp' audit will say so if it is broken. Fully transparent source pixels
+   * are skipped, so a cut-out keeps its silhouette.
+   */
+  image(src: Img, at: Vec, scale = SS_PER_PIXEL): void {
+    assertVec(at, 'at', 'image', SIG.image);
+    assertNumber(scale, 'scale', 'image', SIG.image);
+    if (!(src instanceof Img)) {
+      throw new Error(`image: src must be an Img of pixels to stamp. ${SIG.image}`);
+    }
+    if (!Number.isInteger(scale) || scale < 1) {
+      throw new Error(`image: scale must be a whole number of supersampled px per source pixel, not ${scale}. ${SIG.image}`);
+    }
+    const img = this.img;
+    const ox = at[0] + this.origin[0];
+    const oy = at[1] + this.origin[1];
+    for (let sy = 0; sy < src.h; sy++) {
+      for (let sx = 0; sx < src.w; sx++) {
+        const c = src.get(sx, sy);
+        if (c[3] < 0.5) continue;
+        const x0 = Math.round(ox + sx * scale);
+        const y0 = Math.round(oy + sy * scale);
+        for (let dy = 0; dy < scale; dy++) {
+          const y = y0 + dy;
+          if (y < 0 || y >= img.h) continue;
+          for (let dx = 0; dx < scale; dx++) {
+            const x = x0 + dx;
+            if (x < 0 || x >= img.w) continue;
+            img.set(x, y, c);
+          }
+        }
+      }
+    }
   }
 
   /** Darken toward local y = atY on the joint side — sells the joint. */

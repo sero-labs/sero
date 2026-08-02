@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BakedClip, Color } from '../src/index';
-import { ClipPlayer, Img, Motion, Paint, Skeleton, auditClip, bake, bakeClip, bakeRest, hex, limitImgAllocations, simulateChains } from '../src/index';
+import { ClipPlayer, Img, Motion, Paint, SS, SS_PER_PIXEL, Skeleton, auditClip, bake, bakeClip, bakeRest, hex, limitImgAllocations, sameColor, simulateChains } from '../src/index';
 import { buildCharacter } from '../example/scout';
 
 const spec = buildCharacter();
@@ -205,5 +205,48 @@ describe('vacuous audits', () => {
     } finally {
       idle.airborne = false;
     }
+  });
+});
+
+describe('bitmap parts', () => {
+  it('stamps pixels into the part and keeps the cut-out silhouette', () => {
+    // A 2x2 source: three opaque, one transparent. Stamped at 4x it must fill
+    // three 4x4 blocks and leave the fourth alone, so a cut-out piece of
+    // artwork keeps its shape rather than arriving as a rectangle.
+    const src = new Img(2, 2);
+    src.set(0, 0, hex('4e5f78'));
+    src.set(1, 0, hex('f29a3a'));
+    src.set(0, 1, hex('4e5f78'));
+    const p = new Paint({ x: 0, y: 0, w: 16, h: 16 });
+    p.image(src, [2, 2]);
+    // sameColor, not toEqual: an Img stores Float32, so a colour read back is
+    // not bit-identical to the one written.
+    expect(sameColor(p.img.get(3, 3), hex('4e5f78'))).toBe(true);
+    expect(sameColor(p.img.get(7, 3), hex('f29a3a'))).toBe(true);
+    expect(p.img.alpha(9, 9)).toBe(0); // the transparent source cell
+    expect(opaque(p)).toBe(3 * 4 * 4);
+  });
+
+  it('defaults to the compositor supersample, so 1x artwork lands at 1x', () => {
+    expect(SS_PER_PIXEL).toBe(SS);
+  });
+
+  it('refuses arguments that would stamp nothing', () => {
+    const p = new Paint({ x: 0, y: 0, w: 8, h: 8 });
+    const src = new Img(1, 1);
+    src.set(0, 0, hex('4e5f78'));
+    expect(() => p.image(src, [0, 0], 1.5)).toThrow(/whole number/);
+    expect(() => p.image(src, [0, 0], 0)).toThrow(/whole number/);
+    expect(() => p.image(undefined as unknown as Img, [0, 0])).toThrow(/must be an Img/);
+    expect(() => p.image(src, 4 as unknown as [number, number])).toThrow(/at must be a point/);
+  });
+
+  it('clips at the part rect instead of writing outside it', () => {
+    const src = new Img(4, 4);
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) src.set(x, y, hex('4e5f78'));
+    const p = new Paint({ x: 0, y: 0, w: 8, h: 8 });
+    p.image(src, [-4, -4], 2);
+    expect(opaque(p)).toBeGreaterThan(0);
+    expect(opaque(p)).toBeLessThan(4 * 2 * (4 * 2));
   });
 });
