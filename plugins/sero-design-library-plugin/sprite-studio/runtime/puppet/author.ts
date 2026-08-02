@@ -67,9 +67,9 @@ function buildSystemPrompt(maxBakes: number): string {
 
 How this run works:
 - puppet_studio_write_character replaces the whole character file, then compiles, bakes and audits it. Its result — compile errors, audit lines, review pictures — is the only feedback that exists. Send the COMPLETE file every time.
-- You have ${maxBakes} bakes. Spend them deliberately: change few things per bake, keep what worked.
-- The audit gates are measurements, not advice. When every gate is green, judge the pictures with your own eyes: does the motion read, is every part findable in every frame?
-- When the gates are green and the pictures read right, call puppet_studio_finish. Do not call it while gates fail unless the budget is spent.
+- You have ${maxBakes} bakes. Spend them deliberately: change few things per bake, keep what worked. Do not stop early — leftover budget spent on readability is never wasted.
+- The audit gates are measurements, not advice. When every gate is green, the real test begins: judge the pictures like a STRANGER who never read the brief. The silhouette alone must name the character; the head must read as a head; every part must be findable in every frame.
+- Call puppet_studio_finish only when a stranger would name this character at a glance — its 'seen' field is that test, written down. Do not call it while gates fail unless the budget is spent.
 
 The engine guide follows. It is the whole API — nothing else exists.
 
@@ -198,13 +198,15 @@ export async function runPuppetAuthor(
               status: 'converged',
               bakes: rounds.length,
               hash: rounds[rounds.length - 1].hash,
-              note: finish.note(),
+              // The stranger's description first: it is the readability test
+              // on the record, beside the author's own summary.
+              note: [finish.seen(), finish.note()].filter((part) => part !== null).join(' — ') || null,
             }
           : {
               status: 'capped',
               bakes: rounds.length,
               cleanHash: source.lastCleanHash(),
-              note: finish.note(),
+              note: [finish.seen(), finish.note()].filter((part) => part !== null).join(' — ') || null,
             };
 
   await writeFile(

@@ -78,13 +78,16 @@ describe('runPuppetAuthor', () => {
       // Repair pass would not re-prompt now: the run has converged.
       expect(params.repair?.validate('')).toBeNull();
 
-      await tools.get('puppet_studio_finish')!.execute('t3', { note: 'Pip stands and waves.' });
+      await tools.get('puppet_studio_finish')!.execute('t3', {
+        seen: 'A small blue round creature waving one arm.',
+        note: 'Pip stands and waves.',
+      });
     });
 
     const outcome = await runPuppetAuthor({ runId: 'run-1', brief: 'A small blue blob who waves.' }, context);
     if (outcome.status !== 'converged') throw new Error(`expected converged, got ${outcome.status}`);
     expect(outcome.bakes).toBe(2);
-    expect(outcome.note).toBe('Pip stands and waves.');
+    expect(outcome.note).toBe('A small blue round creature waving one arm. — Pip stands and waves.');
 
     const runDir = puppetRunDir(paths, 'run-1');
     const run = JSON.parse(await readFile(path.join(runDir, 'run.json'), 'utf8'));
@@ -107,7 +110,7 @@ describe('runPuppetAuthor', () => {
       expect(refused.content[0].text).toContain('budget');
       // The repair pass would tell the author to finish rather than continue.
       expect(params.repair?.validate('')).toBeNull();
-      await tools.get('puppet_studio_finish')!.execute('t3', { note: 'Out of budget.' });
+      await tools.get('puppet_studio_finish')!.execute('t3', { seen: 'Unclear.', note: 'Out of budget.' });
     });
 
     const outcome = await runPuppetAuthor(

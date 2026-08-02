@@ -185,8 +185,9 @@ export function createCharacterSourceTool(deps: {
       await deps.onRound(round, source);
 
       const verdict = report.allClean
-        ? 'Every audit gate is green. Now judge the pictures: does the motion read, can you find every part in every frame? ' +
-          'If it looks right, call puppet_studio_finish. If not, revise — the audit cannot see value collapse, but you can.'
+        ? 'Every audit gate is green — that is the floor, not the finish. Now judge the pictures like a STRANGER: ' +
+          'does the silhouette alone name the character, does the head read as a head, can you find every part in every frame? ' +
+          'You have bakes left; spend them on readability. Finish only when a stranger would name this character at a glance.'
         : 'Audit failures below. Fix the failing checks first — the guide says how to read each one.';
       const feet =
         report.restFeetRow === report.groundRow
@@ -211,23 +212,35 @@ export function createCharacterSourceTool(deps: {
   };
 }
 
-export function createFinishTool(): { definition: ToolDefinition; note(): string | null } {
+export function createFinishTool(): {
+  definition: ToolDefinition;
+  note(): string | null;
+  seen(): string | null;
+} {
   let note: string | null = null;
+  let seen: string | null = null;
   const definition: ToolDefinition = {
     name: 'puppet_studio_finish',
     label: 'Finish',
     description:
-      'Ends the run. Call it after a bake whose gates are green and whose pictures read right — or when the budget is spent.',
+      'Ends the run. Call it after a bake whose gates are green AND whose pictures a stranger could name — or when the budget is spent. ' +
+      "The 'seen' field is the test: describe the pictures without the brief; if that description does not name the character, do not finish.",
     promptSnippet: 'puppet_studio_finish — end the run with a note',
     parameters: Type.Object({
+      seen: Type.String({
+        description:
+          'What the final pictures show, described as a stranger would — from the images alone, never from the brief.',
+      }),
       note: Type.String({
         description: 'One or two sentences on the state of the character, for the person reviewing the run.',
       }),
     }),
     async execute(_toolCallId, params) {
-      note = (params as { note: string }).note.trim().slice(0, 500);
+      const input = params as { note: string; seen: string };
+      note = input.note.trim().slice(0, 500);
+      seen = input.seen.trim().slice(0, 500);
       return { content: [{ type: 'text' as const, text: 'Recorded. The run is over.' }], details: { ok: true } };
     },
   };
-  return { definition, note: () => note };
+  return { definition, note: () => note, seen: () => seen };
 }

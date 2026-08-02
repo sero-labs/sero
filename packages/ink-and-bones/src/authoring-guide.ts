@@ -112,6 +112,7 @@ Draw onto the GIVEN paint — never create or return your own:
 grade config: { ink, shadow, emissiveLone } — ink is the 1px outline colour,
 emissiveLone lists hot accent colours (visor core, blade edge) allowed to
 win a cell outright at ~1/3 coverage and to stand as a single pixel.
+Colours come from hex('4e5f78') — exactly six digits, never a '#'.
 
 ## Clips are curves
 
@@ -225,6 +226,30 @@ exist so you LOOK at the frames — can you find the far arm against the
 chest, the far leg against the near, in every frame? If a part vanishes
 into its neighbour, push its ramp a step lighter or darker, or shade the
 boundary with tintToward.
+
+## Reading at a glance — the bar the audits cannot measure
+
+A character is finished only when a STRANGER names it at a glance. The
+audits measure structure; they cannot see identity. Judge your own
+pictures like a stranger:
+
+- Silhouette first: the outline alone must say what the character is.
+  Big shape cues — a helmet, a hat, ears, a weapon — beat any amount of
+  surface detail. If the filled-black outline would stump a stranger,
+  no colouring will save it.
+- The head must read as a head: roughly the top quarter of the figure,
+  visibly narrower than the shoulders, with at least one face mark (an
+  eye line, a visor slit) in a colour that contrasts with the head.
+- Contrast separates parts: parts that touch need ramps at least a step
+  apart in value, or they grade into one mass. A torso and a near arm
+  in the same mid tone become a slab.
+- Props read by silhouette too: a sword is a long straight edge held
+  away from the body, a shield a broad plate on the outline — a prop
+  overlapping the torso disappears.
+- Before you finish, describe the pictures as a stranger would, without
+  the brief. If that description does not name the character, keep
+  working. Green gates are the floor, not the finish — spend the bake
+  budget you have on readability.
 
 ## Working method
 
