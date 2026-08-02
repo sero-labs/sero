@@ -30,20 +30,21 @@ export class ClipPlayer {
   }
 
   /** Advance by `dt` seconds; returns the (possibly new) frame index. A
-   * non-looping clip holds on its last frame. */
+   * non-looping clip holds on its last frame. Arithmetic, not a drain loop:
+   * a bad fps or dt skips the advance instead of spinning forever. */
   advance(dt: number): number {
-    if (!this.playing || this.clip.frames.length === 0) return this.frame;
-    this.accum += dt;
+    const n = this.clip.frames.length;
     const spf = 1 / this.clip.fps;
-    while (this.accum >= spf) {
-      this.accum -= spf;
-      if (this.frame + 1 < this.clip.frames.length) {
-        this.frame += 1;
-      } else if (this.clip.loop) {
-        this.frame = 0;
-      } else {
-        this.accum = 0;
-      }
+    if (!this.playing || n === 0 || !(spf > 0) || !(dt > 0)) return this.frame;
+    this.accum += dt;
+    const steps = Math.floor(this.accum / spf);
+    if (steps <= 0) return this.frame;
+    this.accum -= steps * spf;
+    if (this.clip.loop) {
+      this.frame = (this.frame + steps) % n;
+    } else {
+      this.frame = Math.min(this.frame + steps, n - 1);
+      if (this.frame === n - 1) this.accum = 0;
     }
     return this.frame;
   }

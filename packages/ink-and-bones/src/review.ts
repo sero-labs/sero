@@ -33,16 +33,27 @@ export function scaleNearest(src: Img, k: number): Img {
   return out;
 }
 
-/** Frames left to right on one row — how the motion flows in time. */
+/** Frames left to right — how the motion flows in time. A clip too long for
+ * one row inside the 1900px target wraps onto further rows rather than
+ * rendering wider than a reader can resolve. */
 export function frameStrip(frames: readonly Img[], background: Color = BG): Img {
   const w = frames[0].w;
   const h = frames[0].h;
-  const gw = frames.length * (w + GAP) + GAP;
-  const gh = h + GAP * 2;
+  const cols = Math.min(frames.length, rowCapacity(w));
+  const rows = Math.ceil(frames.length / cols);
+  const gw = cols * (w + GAP) + GAP;
+  const gh = rows * (h + GAP) + GAP;
   const scale = clampScale(gw);
   const out = filled(gw, gh, background);
-  frames.forEach((f, i) => blit(out, f, GAP + i * (w + GAP), GAP));
+  frames.forEach((f, i) =>
+    blit(out, f, GAP + (i % cols) * (w + GAP), GAP + Math.floor(i / cols) * (h + GAP)),
+  );
   return scaleNearest(out, scale);
+}
+
+/** How many frames of width `w` fit in one row without passing TARGET_W. */
+function rowCapacity(w: number): number {
+  return Math.max(1, Math.floor((TARGET_W - GAP) / (w + GAP)));
 }
 
 /** Frames in a grid, zoomed hard — POSE detail. With `silhouette`, every
@@ -53,7 +64,7 @@ export function poseGrid(frames: readonly Img[], silhouette = false): Img {
   const n = frames.length;
   const w = frames[0].w;
   const h = frames[0].h;
-  const cols = n <= 5 ? n : Math.ceil(n / 2);
+  const cols = Math.min(n <= 5 ? n : Math.ceil(n / 2), rowCapacity(w));
   const rows = Math.ceil(n / cols);
   const gw = cols * (w + GAP) + GAP;
   const gh = rows * (h + GAP) + GAP;

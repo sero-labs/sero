@@ -9,8 +9,12 @@ export type Color = readonly [number, number, number, number];
 
 export const TRANSPARENT: Color = [0, 0, 0, 0];
 
-/** Palette entries are authored as hex, exactly like art/palette.gd. */
+/** Palette entries are authored as hex, exactly like art/palette.gd. A
+ * malformed string would paint NaN and still grade "clean", so it throws. */
 export function hex(rgb: string, alpha = 1): Color {
+  if (!/^[0-9a-fA-F]{6}$/.test(rgb)) {
+    throw new Error(`hex: '${rgb}' is not a 6-digit hex colour`);
+  }
   const n = parseInt(rgb, 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, alpha];
 }

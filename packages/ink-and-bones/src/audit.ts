@@ -5,6 +5,9 @@
  * texts name the failure the way a fixer needs to hear it.
  *
  * Per clip:
+ *   valid      the bake is worth measuring at all — frames exist, and every
+ *              frame is exactly the declared canvas (a vacuous pass on an
+ *              empty clip would be the worst kind of green)
  *   distinct   every frame differs from its predecessor
  *   wrap       the last frame flows into frame 0 (loops only)
  *   islands    the silhouette stays one connected mass
@@ -21,6 +24,7 @@ import { bakeAllClips, vocabulary } from './spec';
 import type { BakedClip } from './spec';
 
 export type AuditCheckId =
+  | 'valid'
   | 'distinct'
   | 'wrap'
   | 'islands'
@@ -59,6 +63,19 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
   };
 
   const frames = baked.frames;
+  if (frames.length === 0) {
+    const check: AuditCheck = { id: 'valid', ok: false, text: 'no frames baked' };
+    return { clip: baked.name, frames: 0, checks: [check], failed: 1, info: [] };
+  }
+  const offSize = frames.filter((f) => f.w !== spec.canvasW || f.h !== spec.canvasH).length;
+  if (offSize > 0) {
+    const check: AuditCheck = {
+      id: 'valid',
+      ok: false,
+      text: `${offSize} frame(s) are not the declared ${spec.canvasW}x${spec.canvasH} canvas`,
+    };
+    return { clip: baked.name, frames: frames.length, checks: [check], failed: 1, info: [] };
+  }
   const vocab = vocabulary(spec);
   const ink = spec.grade.ink;
   const lone = spec.grade.emissiveLone;
@@ -70,6 +87,7 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
   let offRamp = 0;
   let footSunk = 0;
   let grounded = 0;
+  let flying = 0;
   const deltas: number[] = [];
   for (let f = 0; f < frames.length; f++) {
     const img = frames[f];
@@ -83,6 +101,7 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     const feetD = s.feet - spec.groundRow;
     if (feetD > 1) footSunk++;
     if (Math.abs(feetD) <= 1) grounded++;
+    if (feetD < -1) flying++;
     if (f > 0) deltas.push(changed(img, frames[f - 1]));
   }
 
@@ -119,13 +138,18 @@ export function auditClip(spec: CharacterSpec, baked: BakedClip): AuditReport {
     `centroid wobbles ${wobble.toFixed(2)} px around the cycle mean (budget ${src.wobbleBudget.toFixed(1)}) — the cycle walks itself sideways`,
   );
   if (src.airborne) {
+    // An airborne clip must not sink, must touch down at least once, and
+    // must actually FLY at least once — otherwise the flag is a lie that
+    // merely loosens the grounded rule.
     add(
       'baseline',
-      footSunk === 0 && grounded > 0,
-      `airborne: no frame sinks below the baseline, ${grounded} frame(s) grounded`,
+      footSunk === 0 && grounded > 0 && flying > 0,
+      `airborne: no sink, ${grounded} frame(s) grounded, ${flying} frame(s) in flight`,
       footSunk > 0
         ? `${footSunk} frame(s) sink below the ground row`
-        : 'no frame touches the ground — the clip floats',
+        : grounded === 0
+          ? 'no frame touches the ground — the clip floats'
+          : 'declared airborne but no frame ever leaves the ground',
     );
   } else {
     add(

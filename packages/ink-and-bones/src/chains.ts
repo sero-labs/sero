@@ -13,7 +13,10 @@ import type { ChainDef, Pose, Skeleton } from './skeleton';
 import type { Affine, Vec } from './vec';
 import { apply, basisXform, fposmod, normalize } from './vec';
 
-const SIM_FPS = 60;
+/** The chain integrator's fixed rate. Also the ceiling on a clip's bakeFps:
+ * above it, bake frames would share simulation steps and chain samples would
+ * silently vanish — bakeClip enforces the bound. */
+export const SIM_FPS = 60;
 /** Warm-up cycles before recording, so a loop's chain state is periodic. */
 const WARM_CYCLES = 16;
 

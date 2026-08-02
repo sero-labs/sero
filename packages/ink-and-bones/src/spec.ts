@@ -7,6 +7,7 @@
  * engine knows nothing about who authored it or where it is stored.
  */
 
+import { SIM_FPS } from './chains';
 import { bake, renderRest } from './compositor';
 import type { GradeConfig, Part, Shadow } from './compositor';
 import type { Color } from './img';
@@ -64,6 +65,17 @@ export function bakeClip(spec: CharacterSpec, name: string): BakedClip {
   const clip = spec.clips.get(name);
   if (clip === undefined) {
     throw new Error(`bake: character has no clip '${name}'`);
+  }
+  // Authored numbers arrive from generated code — reject the ones that would
+  // otherwise produce a plausible-looking bake (or hang playback) instead of
+  // failing loudly.
+  if (!Number.isFinite(clip.cycle) || clip.cycle <= 0) {
+    throw new Error(`bake: clip '${name}' needs a finite positive cycle, got ${clip.cycle}`);
+  }
+  if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > SIM_FPS) {
+    throw new Error(
+      `bake: clip '${name}' needs a bakeFps in (0, ${SIM_FPS}], got ${clip.bakeFps}`,
+    );
   }
   if (clip.mirrorOf !== '') {
     const src = bakeClip(spec, clip.mirrorOf);

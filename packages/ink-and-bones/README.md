@@ -41,4 +41,11 @@ the Godot `puppet_selftest.gd`, the audit gates run over every Scout clip,
 and golden-frame hashes for byte determinism. After a deliberate visual
 change: `UPDATE_GOLDEN=1 pnpm --filter @sero-ai/ink-and-bones test -- golden`.
 
+**Determinism scope:** same source, same bytes — on the same JS engine. The
+bake leans on `Math.sin/cos/atan2/acos`, whose last-bit rounding is
+implementation-defined, so the contract is per-engine: V8 (Node and
+Chromium) is the reference, the goldens are recorded there, and the
+background bake service is the canonical baker. A browser preview on another
+engine may differ by a pixel; anything durable is baked on V8.
+
 Feature docs and the implementation plan: `docs/features/ink-and-bones/`.

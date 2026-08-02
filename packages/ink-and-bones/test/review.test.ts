@@ -16,6 +16,14 @@ describe('review sheets', () => {
     expect(strip.w / strip.h).toBeGreaterThan(2); // wide, not square
   });
 
+  it('a long clip wraps instead of exceeding the readable width', () => {
+    const frames = Array.from({ length: 200 }, () => frame());
+    const strip = frameStrip(frames);
+    expect(strip.w).toBeLessThanOrEqual(1900);
+    const grid = poseGrid(frames);
+    expect(grid.w).toBeLessThanOrEqual(1900);
+  });
+
   it('the silhouette grid flattens every opaque pixel to one value', () => {
     const grid = poseGrid([frame(), frame()], true);
     const seen = new Set<string>();

@@ -59,6 +59,9 @@
 
   // ../src/img.ts
   function hex(rgb2, alpha = 1) {
+    if (!/^[0-9a-fA-F]{6}$/.test(rgb2)) {
+      throw new Error(`hex: '${rgb2}' is not a 6-digit hex colour`);
+    }
     const n = parseInt(rgb2, 16);
     return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255, alpha];
   }
@@ -943,6 +946,14 @@
     if (clip === void 0) {
       throw new Error(`bake: character has no clip '${name}'`);
     }
+    if (!Number.isFinite(clip.cycle) || clip.cycle <= 0) {
+      throw new Error(`bake: clip '${name}' needs a finite positive cycle, got ${clip.cycle}`);
+    }
+    if (!Number.isFinite(clip.bakeFps) || clip.bakeFps <= 0 || clip.bakeFps > SIM_FPS) {
+      throw new Error(
+        `bake: clip '${name}' needs a bakeFps in (0, ${SIM_FPS}], got ${clip.bakeFps}`
+      );
+    }
     if (clip.mirrorOf !== "") {
       const src = bakeClip(spec, clip.mirrorOf);
       return {
@@ -989,20 +1000,21 @@
       return this.clip;
     }
     /** Advance by `dt` seconds; returns the (possibly new) frame index. A
-     * non-looping clip holds on its last frame. */
+     * non-looping clip holds on its last frame. Arithmetic, not a drain loop:
+     * a bad fps or dt skips the advance instead of spinning forever. */
     advance(dt) {
-      if (!this.playing || this.clip.frames.length === 0) return this.frame;
-      this.accum += dt;
+      const n = this.clip.frames.length;
       const spf = 1 / this.clip.fps;
-      while (this.accum >= spf) {
-        this.accum -= spf;
-        if (this.frame + 1 < this.clip.frames.length) {
-          this.frame += 1;
-        } else if (this.clip.loop) {
-          this.frame = 0;
-        } else {
-          this.accum = 0;
-        }
+      if (!this.playing || n === 0 || !(spf > 0) || !(dt > 0)) return this.frame;
+      this.accum += dt;
+      const steps = Math.floor(this.accum / spf);
+      if (steps <= 0) return this.frame;
+      this.accum -= steps * spf;
+      if (this.clip.loop) {
+        this.frame = (this.frame + steps) % n;
+      } else {
+        this.frame = Math.min(this.frame + steps, n - 1);
+        if (this.frame === n - 1) this.accum = 0;
       }
       return this.frame;
     }
@@ -1191,6 +1203,19 @@
       checks.push({ id, ok, text: ok ? pass : fail });
     };
     const frames = baked2.frames;
+    if (frames.length === 0) {
+      const check = { id: "valid", ok: false, text: "no frames baked" };
+      return { clip: baked2.name, frames: 0, checks: [check], failed: 1, info: [] };
+    }
+    const offSize = frames.filter((f) => f.w !== spec.canvasW || f.h !== spec.canvasH).length;
+    if (offSize > 0) {
+      const check = {
+        id: "valid",
+        ok: false,
+        text: `${offSize} frame(s) are not the declared ${spec.canvasW}x${spec.canvasH} canvas`
+      };
+      return { clip: baked2.name, frames: frames.length, checks: [check], failed: 1, info: [] };
+    }
     const vocab = vocabulary(spec);
     const ink = spec.grade.ink;
     const lone = spec.grade.emissiveLone;
@@ -1201,6 +1226,7 @@
     let offRamp = 0;
     let footSunk = 0;
     let grounded = 0;
+    let flying = 0;
     const deltas = [];
     for (let f = 0; f < frames.length; f++) {
       const img = frames[f];
@@ -1214,6 +1240,7 @@
       const feetD = s.feet - spec.groundRow;
       if (feetD > 1) footSunk++;
       if (Math.abs(feetD) <= 1) grounded++;
+      if (feetD < -1) flying++;
       if (f > 0) deltas.push(changed(img, frames[f - 1]));
     }
     if (frames.length > 1) {
@@ -1251,9 +1278,9 @@
     if (src.airborne) {
       add2(
         "baseline",
-        footSunk === 0 && grounded > 0,
-        `airborne: no frame sinks below the baseline, ${grounded} frame(s) grounded`,
-        footSunk > 0 ? `${footSunk} frame(s) sink below the ground row` : "no frame touches the ground \u2014 the clip floats"
+        footSunk === 0 && grounded > 0 && flying > 0,
+        `airborne: no sink, ${grounded} frame(s) grounded, ${flying} frame(s) in flight`,
+        footSunk > 0 ? `${footSunk} frame(s) sink below the ground row` : grounded === 0 ? "no frame touches the ground \u2014 the clip floats" : "declared airborne but no frame ever leaves the ground"
       );
     } else {
       add2(
