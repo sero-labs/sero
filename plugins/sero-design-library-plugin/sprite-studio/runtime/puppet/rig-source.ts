@@ -146,7 +146,7 @@ function emitWalk(rig: Rig): string | null {
   if (!need.every((name) => rig.bones.some((bone) => bone.name === name))) return null;
   return [
     `  const walk = new Motion('walk', 0.8);`,
-    `  walk.bakeFps = 10;`,
+    `  walk.bakeFps = 15;`,
     `  walk.wobbleBudget = 3.5;`,
     `  walk.gait('legNearUpper', 'legNearLower', 'footNear', 26, 13, 0, GROUND_ROW * SS, -6);`,
     `  walk.gait('legFarUpper', 'legFarLower', 'footFar', 26, 13, 0.5, GROUND_ROW * SS, 6);`,
