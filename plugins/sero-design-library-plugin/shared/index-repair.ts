@@ -12,6 +12,42 @@ export interface PendingIndexRepair {
   id: string;
 }
 
+export interface FullIndexRepairRequest {
+  requestedAt: number;
+  attempts: number;
+}
+
+export interface FailedIndexRepair extends FullIndexRepairRequest {
+  failedAt: number;
+  error: string;
+}
+
+function object(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+export function normalizeFullIndexRepairRequest(value: unknown): FullIndexRepairRequest | null {
+  const entry = object(value);
+  if (!entry || typeof entry.requestedAt !== 'number') return null;
+  return {
+    requestedAt: entry.requestedAt,
+    attempts: typeof entry.attempts === 'number' && Number.isInteger(entry.attempts)
+      ? Math.max(0, entry.attempts)
+      : 0,
+  };
+}
+
+export function normalizeFailedIndexRepair(value: unknown): FailedIndexRepair | null {
+  const request = normalizeFullIndexRepairRequest(value);
+  const entry = object(value);
+  if (!request || !entry || typeof entry.failedAt !== 'number' || typeof entry.error !== 'string') {
+    return null;
+  }
+  return { ...request, failedAt: entry.failedAt, error: entry.error };
+}
+
 function repairFile(paths: DesignLibraryPaths, index: RepairIndexName, id: string): string {
   return path.join(paths.indexRepairsDir, index, `${assertSafeId(id, `${index} record id`)}.json`);
 }

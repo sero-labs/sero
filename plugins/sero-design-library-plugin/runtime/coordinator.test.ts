@@ -274,6 +274,37 @@ describe('request consumption', () => {
     expect(harness.runStructured).toHaveBeenCalledTimes(1);
     expect((await readStateWithIndexes(harness.paths)).items).toHaveLength(1);
   });
+
+  it('retains an export request until its terminal state is durable', async () => {
+    const failures: string[] = [];
+    const apply = vi.fn()
+      .mockRejectedValueOnce(new Error('export record lock timed out'))
+      .mockResolvedValueOnce(undefined);
+    const retrying = harness.withExportRequests({ apply }, failures);
+    await appendRequest(harness.paths, {
+      kind: 'export.run',
+      exportId: 'exp-retry',
+      familyId: 'fam-1',
+      versionId: 'ver-1',
+      destination: 'downloads',
+    });
+
+    try {
+      await retrying.drain();
+      const retained = await readStateWithIndexes(harness.paths);
+      expect(retained.requests.map((request) => request.body.kind)).toEqual(['export.run']);
+      expect(retained.consumedRequestId).toBe(0);
+
+      await retrying.drain();
+      const recovered = await readStateWithIndexes(harness.paths);
+      expect(recovered.requests).toEqual([]);
+      expect(recovered.consumedRequestId).toBe(1);
+      expect(apply).toHaveBeenCalledTimes(2);
+      expect(failures).toEqual(['Request 1 (export.run) failed']);
+    } finally {
+      await retrying.dispose();
+    }
+  });
 });
 
 describe('field validation', () => {

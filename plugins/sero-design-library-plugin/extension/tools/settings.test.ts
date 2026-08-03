@@ -175,5 +175,35 @@ describe('index repair', () => {
     expect(await readFile(paths.repairRequestFile, 'utf8')).toContain('requestedAt');
     await expect(readFile(paths.repairFailedFile, 'utf8')).rejects.toThrow();
     expect((await readStateWithIndexes(paths)).requests).toEqual([]);
+
+    const status = await call({ action: 'read' });
+    expect(textOf(status)).toContain('Index repair: scheduled');
+    expect(status.details).toMatchObject({
+      indexRepair: { status: 'scheduled', attempts: 0 },
+    });
+  });
+
+  it('reports a repair that stopped after its retry limit', async () => {
+    await writeJsonFile(paths.repairFailedFile, {
+      requestedAt: 1,
+      attempts: 3,
+      failedAt: 2,
+      error: 'The index file is not writable.',
+    });
+
+    const result = await call({ action: 'read' });
+
+    expect(textOf(result)).toContain(
+      'Index repair: stopped after 3 attempts — The index file is not writable.',
+    );
+    expect(result.details).toMatchObject({
+      indexRepair: {
+        status: 'failed',
+        requestedAt: 1,
+        attempts: 3,
+        failedAt: 2,
+        error: 'The index file is not writable.',
+      },
+    });
   });
 });

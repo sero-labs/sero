@@ -83,16 +83,22 @@ export async function pruneExportHistory(
 export async function reconcileExports(
   paths: DesignLibraryPaths,
   completedAt = Date.now(),
-): Promise<number> {
+  pendingExportIds: ReadonlySet<string> = new Set(),
+): Promise<{ reconciled: number; unreadable: string[] }> {
   const running = (await readIndex(paths.exportsIndexFile, normalizeExportIndex))
-    .filter((summary) => summary.status === 'running');
+    .filter((summary) => summary.status === 'running' && !pendingExportIds.has(summary.id));
   let reconciled = 0;
+  const unreadable: string[] = [];
 
   for (const summary of running) {
     const file = exportFile(paths, summary.id);
     const changed = await withRecordLock(paths, file, async () => {
       const current = normalizeExportSummary(await readJsonFile<unknown>(file));
-      if (current?.status !== 'running') {
+      if (!current) {
+        unreadable.push(summary.id);
+        return false;
+      }
+      if (current.status !== 'running') {
         const updated = await updateIndex(
           paths,
           paths.exportsIndexFile,
@@ -113,7 +119,7 @@ export async function reconcileExports(
     });
     if (changed) reconciled += 1;
   }
-  return reconciled;
+  return { reconciled, unreadable };
 }
 
 export function isExportRequest(body: LibraryRequestBody): body is ExportRequestBody {
@@ -130,6 +136,13 @@ export class ExportRequests {
 
   async apply(body: ExportRequestBody): Promise<void> {
     const existing = await this.find(body.exportId);
+    if (existing?.status === 'succeeded' || existing?.status === 'failed') {
+      // The request may have completed before its watermark write failed.
+      // Re-publish the durable terminal record without running the export again.
+      await this.publish(existing);
+      await this.pruneAfterTerminalPublish();
+      return;
+    }
     const createdAt = existing?.createdAt ?? Date.now();
     await this.publish({
       id: body.exportId,

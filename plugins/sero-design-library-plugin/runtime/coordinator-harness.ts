@@ -15,6 +15,7 @@ import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/p
 import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { Coordinator } from './coordinator';
+import type { CoordinatorContext } from './coordinator-context';
 import { invokeTool } from './librarian/test-support';
 import { createFakeProvider, type FakeProviderOptions } from './media/providers/fake';
 import { readItem } from './store';
@@ -37,6 +38,11 @@ export interface CoordinatorHarness {
   importAndAnalyse(uploadId: string, fileName: string, content: string): Promise<string>;
   /** A second coordinator over the same storage, with error reporting captured. */
   withErrors(failures: string[]): Coordinator;
+  /** A second coordinator with injected export persistence behavior. */
+  withExportRequests(
+    exportRequests: NonNullable<CoordinatorContext['exportRequests']>,
+    failures: string[],
+  ): Coordinator;
 }
 
 export const ANALYSIS_REPLY = JSON.stringify({
@@ -295,6 +301,16 @@ export function useCoordinator(label: string, options: HarnessOptions = {}): Coo
         workspaceId: 'ws',
         sessionId: 'session',
         onError: (message) => failures.push(message),
+      });
+    },
+    withExportRequests(exportRequests, failures) {
+      return new Coordinator({
+        host: { subagents: { runStructured } } as unknown as AppRuntimeHost,
+        paths,
+        workspaceId: 'ws',
+        sessionId: 'session',
+        onError: (message) => failures.push(message),
+        exportRequests,
       });
     },
   };

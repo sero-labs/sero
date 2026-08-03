@@ -1,8 +1,6 @@
-import type { AppRuntimeHost } from '@sero-ai/common';
 import { clearOverride, effectiveField, setOverride, validateFieldValue } from '../shared/librarian';
 import { readIndex } from '../shared/index-storage';
 import { normalizeItemIndex } from '../shared/indexes';
-import type { DesignLibraryPaths } from '../shared/paths';
 import { tombstoneFile } from '../shared/paths';
 import type { JobKind, TombstonedProvenance } from '../shared/records';
 import { itemTarget } from '../shared/records';
@@ -12,12 +10,13 @@ import type { MediaSettings } from '../shared/settings';
 import type { DesignLibraryState } from '../shared/types';
 import { applyViewPatch } from '../shared/types';
 import { AnalysisQueue } from './analysis-queue';
+import type { CoordinatorContext } from './coordinator-context';
 import { DesignRequests, isDesignRequest } from './design-requests';
 import { resumePendingVariants, startPendingVariants } from './designs';
 import { VariantQueue } from './generation/queue';
 import { ingestUpload } from './ingest';
 import { createJob, reconcileJobs, requestCancel } from './jobs';
-import { MediaQueue, type MediaQueueContext } from './media/queue';
+import { MediaQueue } from './media/queue';
 import { attachFrames } from './frames';
 import type { MediaProvider } from './media/contract';
 import { mediaModelsChanged, refreshMediaOptions } from './media/options';
@@ -36,16 +35,6 @@ import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } fro
  * time it is applied.
  */
 
-export interface CoordinatorContext {
-  host: AppRuntimeHost;
-  paths: DesignLibraryPaths;
-  workspaceId: string;
-  sessionId: string;
-  onError(message: string, error: unknown): void;
-  /** Test and fault-injection seam; defaults to the shipped fal adapter. */
-  createMediaProvider?: MediaQueueContext['createProvider'];
-}
-
 export class Coordinator {
   private readonly queue: AnalysisQueue;
   private readonly variants: VariantQueue;
@@ -53,12 +42,11 @@ export class Coordinator {
   private readonly mediaQueue: MediaQueue;
   private readonly media: MediaRequests;
   private readonly gallery: GalleryRequests;
-  private readonly exports: ExportRequests;
+  private readonly exports: Pick<ExportRequests, 'apply'>;
   private draining = false;
   private drainAgain = false;
   private readonly optionsRefreshes = new Set<Promise<void>>(); // Disposal waits for these writes.
   private readonly shutdown = new AbortController();
-
   constructor(private readonly context: CoordinatorContext) {
     const shared = {
       host: context.host,
@@ -84,7 +72,8 @@ export class Coordinator {
     });
     this.media = new MediaRequests(context.paths, this.mediaQueue);
     this.gallery = new GalleryRequests(context.paths);
-    this.exports = new ExportRequests(context.paths, context.host.workspace, context.onError);
+    this.exports = context.exportRequests ??
+      new ExportRequests(context.paths, context.host.workspace, context.onError);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */
@@ -176,11 +165,18 @@ export class Coordinator {
     }
     this.draining = true;
     try {
-      do {
+      drainPass: do {
         this.drainAgain = false;
         const state = await readState(this.context.paths);
         for (const request of pendingRequests(state)) {
-          await this.applyOne(request);
+          const applied = await this.applyOne(request);
+          if (!applied) {
+            // A state change that arrived during the failed write earns one
+            // more pass. Without one, that already-delivered change could not
+            // trigger the retained request again.
+            if (this.drainAgain) continue drainPass;
+            return;
+          }
           await this.consume(request);
         }
       } while (this.drainAgain);
@@ -198,13 +194,17 @@ export class Coordinator {
     }));
   }
 
-  private async applyOne(request: LibraryRequest): Promise<void> {
+  private async applyOne(request: LibraryRequest): Promise<boolean> {
     try {
       await this.apply(request.body, request.id);
+      return true;
     } catch (error) {
-      // One bad request must not stall the whole queue, so it is reported and
-      // the watermark still advances past it.
       this.context.onError(`Request ${request.id} (${request.body.kind}) failed`, error);
+      // Export execution makes destination and build failures durable, so a
+      // throw here means persistence failed. Keep that request so the export
+      // can recover its output on the next state change or restart. Other bad
+      // requests still advance, so one invalid action cannot stall the queue.
+      return !isExportRequest(request.body);
     }
   }
 

@@ -56,6 +56,28 @@ describe('export request state', () => {
     });
   });
 
+  it('re-publishes a terminal record without running the export again', async () => {
+    const succeeded = {
+      id: REQUEST.exportId,
+      familyId: REQUEST.familyId,
+      versionId: REQUEST.versionId,
+      destination: REQUEST.destination,
+      status: 'succeeded',
+      createdAt: 1,
+      completedAt: 2,
+      path: '/workspace/existing',
+    } as const;
+    await Promise.all([
+      writeJsonFile(exportFile(paths, succeeded.id), succeeded),
+      writeJsonFile(paths.exportsIndexFile, [{ ...succeeded, status: 'running' }]),
+    ]);
+
+    await new ExportRequests(paths, workspaces).apply(REQUEST);
+
+    expect(runGalleryExport).not.toHaveBeenCalled();
+    expect((await readStateWithIndexes(paths)).exports).toEqual([succeeded]);
+  });
+
   it('refuses a workspace path that the host did not register', async () => {
     await new ExportRequests(paths, workspaces).apply({
       ...REQUEST,
@@ -144,7 +166,10 @@ describe('export request state', () => {
       writeJsonFile(paths.exportsIndexFile, [running]),
     ]);
 
-    await expect(reconcileExports(paths, 10)).resolves.toBe(1);
+    await expect(reconcileExports(paths, 10)).resolves.toEqual({
+      reconciled: 1,
+      unreadable: [],
+    });
 
     const failed = (await readStateWithIndexes(paths)).exports[0];
     expect(failed).toMatchObject({
@@ -170,7 +195,41 @@ describe('export request state', () => {
       writeJsonFile(paths.exportsIndexFile, [running]),
     ]);
 
-    await expect(reconcileExports(paths, 10)).resolves.toBe(0);
+    await expect(reconcileExports(paths, 10)).resolves.toEqual({
+      reconciled: 0,
+      unreadable: [],
+    });
     expect((await readStateWithIndexes(paths)).exports).toEqual([succeeded]);
+  });
+
+  it('leaves a pending export running so its idempotent request can resume', async () => {
+    const running = {
+      id: 'exp-pending', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'running', createdAt: 1,
+    } as const;
+    await Promise.all([
+      writeJsonFile(exportFile(paths, running.id), running),
+      writeJsonFile(paths.exportsIndexFile, [running]),
+    ]);
+
+    await expect(reconcileExports(paths, 10, new Set([running.id]))).resolves.toEqual({
+      reconciled: 0,
+      unreadable: [],
+    });
+    expect((await readStateWithIndexes(paths)).exports).toEqual([running]);
+  });
+
+  it('reports an unreadable export and leaves its index entry untouched', async () => {
+    const running = {
+      id: 'exp-unreadable', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'running', createdAt: 1,
+    } as const;
+    await writeJsonFile(paths.exportsIndexFile, [running]);
+
+    await expect(reconcileExports(paths, 10)).resolves.toEqual({
+      reconciled: 0,
+      unreadable: [running.id],
+    });
+    expect((await readStateWithIndexes(paths)).exports).toEqual([running]);
   });
 });

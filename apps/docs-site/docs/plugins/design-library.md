@@ -270,7 +270,7 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
 | `design_library_gallery` | List saved families, read versions, open or duplicate an exact revision, feature versions, and manage Gallery Trash |
 | `design_library_export` | Export an exact Gallery version to Downloads or the active workspace, and read export status |
-| `design_library_settings` | Change defaults and schedule a full index repair for the next restart. A failed repair retries up to three starts; scheduling it again starts a fresh set of attempts. |
+| `design_library_settings` | Change defaults, read index-repair status and schedule a full repair for the next restart. A failed repair retries up to three starts; scheduling it again starts a fresh set of attempts. |
 
 Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 

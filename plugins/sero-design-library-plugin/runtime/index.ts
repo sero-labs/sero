@@ -75,7 +75,22 @@ class DesignLibraryRuntime implements AppRuntime {
       );
     }
     await this.attempt('repair interrupted index writes', () => repairPendingIndexes(paths));
-    await this.attempt('settle interrupted exports', () => reconcileExports(paths));
+    const requestState = await this.attempt('read pending export requests', () => readState(paths));
+    const pendingExportIds = new Set(
+      requestState === undefined
+        ? []
+        : pendingRequests(requestState).flatMap((request) =>
+            request.body.kind === 'export.run' ? [request.body.exportId] : []),
+    );
+    const exportRecovery = await this.attempt('settle interrupted exports', () =>
+      reconcileExports(paths, Date.now(), pendingExportIds));
+    if (exportRecovery !== undefined && exportRecovery.unreadable.length > 0) {
+      this.report(
+        `Could not reconcile ${exportRecovery.unreadable.length} export record(s) ` +
+          `(${exportRecovery.unreadable.join(', ')}). Their index entries are untouched.`,
+        null,
+      );
+    }
     await this.attempt('prune export history', () => pruneExportHistory(paths));
     await this.attempt('remove incomplete Gallery snapshots', () => pruneGalleryTemps(paths));
     await this.attempt('remove orphan Design revisions', () => pruneIndexedOrphanRevisions(paths));

@@ -180,12 +180,15 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Prune orphan revision directories for Designs listed in `designs/index.json` at startup.
 - [x] Persist one record per export and update `exports/index.json`.
 - [x] Mark exports left running by a restart as interrupted before export pruning runs.
+- [x] Keep an unconsumed export request for idempotent replay when terminal-state persistence fails.
+- [x] Report unreadable export records and leave their index entries untouched during recovery.
 - [x] Select the latest export by its creation time, independent of index file order.
 - [x] Keep only the 20 newest export records and index entries.
 - [x] Remove startup work that rebuilds entity arrays inside `state.json`.
 - [x] Retain a deliberate full index-rebuild operation for migration and repair.
 - [x] Let the agent schedule a full authoritative index repair for the next startup.
 - [x] Stop an automatic full repair after three failed starts and let a new repair request reset the attempts.
+- [x] Report scheduled and retired full-repair status through the settings tool.
 
 ### Phase 4 — Extension read and request paths
 

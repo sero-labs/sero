@@ -1,5 +1,9 @@
 import { rename, rm } from 'node:fs/promises';
 
+import {
+  normalizeFullIndexRepairRequest,
+  type FullIndexRepairRequest,
+} from '../shared/index-repair';
 import { bumpControlRevision } from '../shared/index-storage';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { readJsonFile, writeJsonFile } from '../shared/state-io';
@@ -9,30 +13,13 @@ import { reindex } from './store';
 
 const MAX_REPAIR_ATTEMPTS = 3;
 
-interface FullRepairRequest {
-  requestedAt: number;
-  attempts: number;
-}
-
-function repairRequest(value: unknown): FullRepairRequest | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const entry = value as Record<string, unknown>;
-  if (typeof entry.requestedAt !== 'number') return null;
-  return {
-    requestedAt: entry.requestedAt,
-    attempts: typeof entry.attempts === 'number' && Number.isInteger(entry.attempts)
-      ? Math.max(0, entry.attempts)
-      : 0,
-  };
-}
-
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 async function failRepairRequest(
   paths: DesignLibraryPaths,
-  request: FullRepairRequest,
+  request: FullIndexRepairRequest,
   error: unknown,
 ): Promise<void> {
   await writeJsonFile(paths.repairRequestFile, {
@@ -48,7 +35,9 @@ async function failRepairRequest(
 export async function runRequestedFullRepair(
   paths: DesignLibraryPaths,
 ): Promise<string[] | null> {
-  const request = repairRequest(await readJsonFile<unknown>(paths.repairRequestFile));
+  const request = normalizeFullIndexRepairRequest(
+    await readJsonFile<unknown>(paths.repairRequestFile),
+  );
   if (request === null) return null;
 
   if (request.attempts >= MAX_REPAIR_ATTEMPTS) {
