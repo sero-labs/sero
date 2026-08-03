@@ -84,7 +84,11 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
     [loop.plan.steps, resolvedOrientation],
   );
   const fit = containerWidth > 0 ? Math.min(1, Math.max(0.25, (containerWidth - 2) / layout.width)) : 1;
-  const scale = Math.min(MAX_SCALE, Math.max(fit * MIN_ZOOM_MULTIPLIER, fit * zoom));
+  const minimumScale = fit * MIN_ZOOM_MULTIPLIER;
+  const scale = Math.min(MAX_SCALE, Math.max(minimumScale, fit * zoom));
+  const setScale = (nextScale: number) => {
+    setZoom(Math.min(MAX_SCALE, Math.max(minimumScale, nextScale)) / fit);
+  };
   const selected = loop.plan.steps.find((step) => step.id === selectedId);
 
   if (loop.plan.steps.length === 0) {
@@ -108,8 +112,8 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
             size="icon-xs"
             aria-label="Zoom out"
             title="Zoom out"
-            disabled={zoom <= MIN_ZOOM_MULTIPLIER}
-            onClick={() => setZoom((value) => Math.max(MIN_ZOOM_MULTIPLIER, value - ZOOM_STEP / fit))}
+            disabled={scale <= minimumScale}
+            onClick={() => setScale(scale - ZOOM_STEP)}
           >
             <ZoomOut />
           </Button>
@@ -122,7 +126,7 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
             aria-label="Zoom in"
             title="Zoom in"
             disabled={scale >= MAX_SCALE}
-            onClick={() => setZoom((value) => Math.min(MAX_SCALE / fit, value + ZOOM_STEP / fit))}
+            onClick={() => setScale(scale + ZOOM_STEP)}
           >
             <ZoomIn />
           </Button>
