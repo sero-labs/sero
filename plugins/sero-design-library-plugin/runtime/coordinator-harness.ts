@@ -12,7 +12,7 @@ import {
   hasBaselineTweakPrefix,
 } from '../shared/baseline-tweaks';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { invokeTool } from './librarian/test-support';
@@ -277,7 +277,7 @@ export function useCoordinator(label: string, options: HarnessOptions = {}): Coo
       await upload(uploadId, fileName, content);
       await appendRequest(paths, { kind: 'ingest', uploadId });
       await coordinator.drain();
-      const state = await readState(paths);
+      const state = await readStateWithIndexes(paths);
       const itemId = state.items[state.items.length - 1]!.id;
       await vi.waitFor(async () => {
         expect((await readItem(paths, itemId))?.analysis.status).toBe('ready');

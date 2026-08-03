@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { deriveFacets, deriveStyleGroups, selectItems } from './search';
-import { EMPTY_FILTERS, type ItemSummary, type ViewPreferences } from './types';
+import { EMPTY_FILTERS, type ItemSummary, type LibraryViewPreferences } from './types';
 
 const NOW = 1_700_000_000_000;
 const DAY = 24 * 60 * 60 * 1000;
@@ -22,20 +22,19 @@ function item(overrides: Partial<ItemSummary> & { id: string }): ItemSummary {
     createdAt: NOW,
     updatedAt: NOW,
     edited: false,
-    searchText: '',
     ...overrides,
   };
 }
 
-function view(overrides: Partial<ViewPreferences> = {}): ViewPreferences {
+function view(overrides: Partial<LibraryViewPreferences> = {}): LibraryViewPreferences {
   return { scope: { kind: 'all' }, query: '', filters: EMPTY_FILTERS, sort: 'newest', ...overrides };
 }
 
 const ITEMS: ItemSummary[] = [
-  item({ id: 'a', title: 'Northstar', primaryStyle: 'Technical monochrome', tags: ['dense'], favourite: true, searchText: 'northstar technical monochrome dense grid' }),
-  item({ id: 'b', title: 'Material journal', primaryStyle: 'Editorial', tags: ['warm'], createdAt: NOW - 30 * DAY, searchText: 'material journal editorial warm overscale' }),
-  item({ id: 'c', title: 'Signal archive', primaryStyle: 'Technical monochrome', analysisStatus: 'pending', kind: 'video', searchText: 'signal archive technical monochrome' }),
-  item({ id: 'd', title: 'Deleted thing', deletedAt: NOW, searchText: 'deleted thing' }),
+  item({ id: 'a', title: 'Northstar', primaryStyle: 'Technical monochrome', tags: ['dense', 'grid'], favourite: true }),
+  item({ id: 'b', title: 'Material journal', fileName: 'overscale-board.png', primaryStyle: 'Editorial', tags: ['warm'], createdAt: NOW - 30 * DAY }),
+  item({ id: 'c', title: 'Signal archive', primaryStyle: 'Technical monochrome', analysisStatus: 'pending', kind: 'video' }),
+  item({ id: 'd', title: 'Deleted thing', deletedAt: NOW }),
 ];
 
 describe('scopes', () => {
@@ -66,6 +65,16 @@ describe('query', () => {
 
   it('ignores case and surrounding whitespace', () => {
     expect(selectItems(ITEMS, view({ query: '  EDITORIAL ' }), NOW).map((e) => e.id)).toEqual(['b']);
+  });
+
+  it('searches file names and Design types', () => {
+    const typed = item({ id: 'typed', fileName: 'launch-board.png', designTypes: ['Campaign landing'] });
+    expect(selectItems([typed], view({ query: 'board campaign' }), NOW)).toEqual([typed]);
+  });
+
+  it('does not search notes, prompts or detailed analysis', () => {
+    const detailed = { ...item({ id: 'detail' }), notes: 'secret-note', generationPrompt: 'secret-prompt' };
+    expect(selectItems([detailed], view({ query: 'secret' }), NOW)).toEqual([]);
   });
 });
 
@@ -118,6 +127,6 @@ describe('derived groups and facets', () => {
   it('excludes deleted items from facets', () => {
     const facets = deriveFacets(ITEMS);
     expect(facets.styles).toEqual(['Editorial', 'Technical monochrome']);
-    expect(facets.tags).toEqual(['dense', 'warm']);
+    expect(facets.tags).toEqual(['dense', 'grid', 'warm']);
   });
 });

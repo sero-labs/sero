@@ -4,9 +4,9 @@ import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/p
 import { pendingRequests, readState } from '../shared/state-io';
 import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
-import { pruneOrphanRevisions, scanDesigns } from './design-store';
-import { reindex } from './store';
-import { pruneGalleryTemps, reindexGallery } from './gallery-store';
+import { pruneGalleryTemps } from './gallery-store';
+import { migrateLegacyState } from './migration';
+import { pruneFinishedJobs } from './store';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -54,26 +54,16 @@ class DesignLibraryRuntime implements AppRuntime {
       return pruneStaleUploads(paths, STALE_UPLOAD_MS, Date.now(), awaited);
     });
 
-    // Rebuild the index from the records: an index write interrupted by a
-    // crash is a cache miss, not data loss, and this is where it heals.
-    const unreadable = await this.attempt('rebuild the index', () => reindex(paths));
-    if (unreadable !== undefined && unreadable.length > 0) {
+    const migration = await this.attempt('migrate legacy state', () => migrateLegacyState(paths));
+    if (migration !== undefined && migration.unreadable.length > 0) {
       this.report(
-        `Skipped ${unreadable.length} record(s) this version cannot read (${unreadable.join(', ')}). ` +
+        `Skipped ${migration.unreadable.length} record(s) this version cannot read (${migration.unreadable.join(', ')}). ` +
           'Their files are untouched under items/ and designs/.',
         null,
       );
     }
-    await this.attempt('rebuild the Gallery index', () => reindexGallery(paths));
     await this.attempt('remove incomplete Gallery snapshots', () => pruneGalleryTemps(paths));
-
-    // A revision's files are written before the record entry naming them, so a
-    // crash in between leaves a directory nothing points at. The variant is
-    // regenerated from scratch, which makes those files dead weight.
-    await this.attempt('remove orphaned revision files', async () => {
-      const { designs } = await scanDesigns(paths);
-      for (const design of designs) await pruneOrphanRevisions(paths, design);
-    });
+    await this.attempt('prune retained jobs', () => pruneFinishedJobs(paths));
 
     this.coordinator = new Coordinator({
       host: this.ctx.host,

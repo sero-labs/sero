@@ -28,11 +28,17 @@ export interface DesignLibraryPaths {
    */
   recordLocksDir: string;
   itemsDir: string;
+  itemsIndexFile: string;
   designsDir: string;
+  designsIndexFile: string;
   jobsDir: string;
+  jobsIndexFile: string;
+  exportsDir: string;
+  exportsIndexFile: string;
   uploadsDir: string;
   tombstonesDir: string;
   galleryDir: string;
+  galleryIndexFile: string;
   /**
    * The user-supplied provider key, written `0600` (spec §8.3). Deliberately a
    * file rather than reactive state: state is read by the UI, and the key must
@@ -48,11 +54,17 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     lockDir: path.join(home, '.state.lock'),
     recordLocksDir: path.join(home, '.record-locks'),
     itemsDir: path.join(home, 'items'),
+    itemsIndexFile: path.join(home, 'items', 'index.json'),
     designsDir: path.join(home, 'designs'),
+    designsIndexFile: path.join(home, 'designs', 'index.json'),
     jobsDir: path.join(home, 'jobs'),
+    jobsIndexFile: path.join(home, 'jobs', 'index.json'),
+    exportsDir: path.join(home, 'exports'),
+    exportsIndexFile: path.join(home, 'exports', 'index.json'),
     uploadsDir: path.join(home, 'uploads'),
     tombstonesDir: path.join(home, 'tombstones'),
     galleryDir: path.join(home, 'gallery'),
+    galleryIndexFile: path.join(home, 'gallery', 'index.json'),
     secretsFile: path.join(home, 'secrets.json'),
   };
 }
@@ -178,6 +190,10 @@ export function galleryVersionRecordFile(
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {
   return path.join(paths.jobsDir, `${assertSafeId(jobId, 'job id')}.json`);
+}
+
+export function exportFile(paths: DesignLibraryPaths, exportId: string): string {
+  return path.join(paths.exportsDir, `${assertSafeId(exportId, 'export id')}.json`);
 }
 
 export function uploadDir(paths: DesignLibraryPaths, uploadId: string): string {

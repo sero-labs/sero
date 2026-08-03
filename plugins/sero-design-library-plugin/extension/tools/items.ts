@@ -4,6 +4,8 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { readIndex } from '../../shared/index-storage';
+import { normalizeItemIndex } from '../../shared/indexes';
 import {
   effectiveAnalysis,
   isLibrarianField,
@@ -115,7 +117,7 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which item operation to perform' }),
       itemId: Type.Optional(Type.String()),
-      query: Type.Optional(Type.String({ description: 'Keyword search over titles, tags, notes and analysis' })),
+      query: Type.Optional(Type.String({ description: 'Search titles, file names, styles, tags and Design types' })),
       limit: Type.Optional(Type.Number({ description: 'Maximum results for `search` (default 20)' })),
       field: Type.Optional(Type.String({ description: 'Analysis field name for set-field/reset-field' })),
       value: Type.Optional(Type.Unknown({ description: 'New value for set-field; must match the field type' })),
@@ -140,8 +142,8 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
 
       switch (params.action) {
         case 'search': {
-          const state = await readState(paths);
-          const matched = selectItems(state.items, {
+          const items = await readIndex(paths.itemsIndexFile, normalizeItemIndex);
+          const matched = selectItems(items, {
             scope: { kind: 'all' },
             query: params.query ?? '',
             filters: EMPTY_FILTERS,
@@ -151,7 +153,7 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
           if (limited.length === 0) return text('No references matched.', { items: [] });
           return text(
             `${matched.length} reference${matched.length === 1 ? '' : 's'} matched:\n${limited.map(describe).join('\n')}`,
-            { items: limited, facets: deriveFacets(state.items) },
+            { items: limited, facets: deriveFacets(items) },
           );
         }
 
@@ -221,9 +223,10 @@ export function registerItemTool(pi: ExtensionAPI, paths: DesignLibraryPaths): v
 
         case 'collections': {
           const state = await readState(paths);
+          const items = await readIndex(paths.itemsIndexFile, normalizeItemIndex);
           if (state.collections.length === 0) return text('No collections yet.', { collections: [] });
           const counts = new Map<string, number>();
-          for (const item of state.items) {
+          for (const item of items) {
             if (item.deletedAt !== undefined) continue;
             for (const id of item.collectionIds) counts.set(id, (counts.get(id) ?? 0) + 1);
           }

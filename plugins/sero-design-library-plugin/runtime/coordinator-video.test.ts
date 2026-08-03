@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 import { beginUpload, completeUpload, writeUploadChunk } from '../shared/uploads';
 import { useCoordinator } from './coordinator-harness';
 import { readItem } from './store';
@@ -34,7 +34,7 @@ describe('a generated video', () => {
     await harness.coordinator.drain();
 
     const itemId = await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       const generated = state.items.find((item) => item.kind === 'video');
       expect(generated).toBeDefined();
       return generated!.id;
@@ -59,7 +59,7 @@ describe('a generated video', () => {
     await harness.coordinator.drain();
 
     const generated = await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       const item = state.items.find((entry) => entry.sourceKind === 'derived');
       expect(item).toBeDefined();
       return readItem(harness.paths, item!.id);
@@ -81,7 +81,7 @@ describe('a generated video', () => {
     await harness.coordinator.drain();
 
     const itemId = await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       const generated = state.items.find((item) => item.kind === 'video');
       expect(generated).toBeDefined();
       return generated!.id;
@@ -141,13 +141,13 @@ describe('a video model that only makes long clips', () => {
     await longOnly.coordinator.drain();
 
     await vi.waitFor(async () => {
-      const state = await readState(longOnly.paths);
+      const state = await readStateWithIndexes(longOnly.paths);
       const job = state.jobs.find((entry) => entry.status === 'failed');
       expect(job?.error).toContain('shorter');
     });
 
     // Nothing was made and nothing was charged for.
-    const state = await readState(longOnly.paths);
+    const state = await readStateWithIndexes(longOnly.paths);
     expect(state.items).toHaveLength(0);
   });
 });

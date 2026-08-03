@@ -3,9 +3,13 @@ import path from 'node:path';
 import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 
 import type { ExportSummary } from '../shared/export';
+import { normalizeExportSummary } from '../shared/export';
+import { bumpControlRevision, readIndex, updateIndex } from '../shared/index-storage';
+import { normalizeExportIndex } from '../shared/indexes';
 import type { DesignLibraryPaths } from '../shared/paths';
+import { exportFile } from '../shared/paths';
 import type { LibraryRequestBody } from '../shared/requests';
-import { readState, updateState } from '../shared/state-io';
+import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { runGalleryExport } from './export';
 
 type ExportRequestBody = Extract<LibraryRequestBody, { kind: `export.${string}` }>;
@@ -76,16 +80,18 @@ export class ExportRequests {
   }
 
   private async find(exportId: string): Promise<ExportSummary | undefined> {
-    return (await readState(this.paths)).exports.find((entry) => entry.id === exportId);
+    const record = normalizeExportSummary(await readJsonFile<unknown>(exportFile(this.paths, exportId)));
+    if (record) return record;
+    return (await readIndex(this.paths.exportsIndexFile, normalizeExportIndex))
+      .find((entry) => entry.id === exportId);
   }
 
   private async publish(summary: ExportSummary): Promise<void> {
-    await updateState(this.paths, (state) => ({
-      ...state,
-      exports: [
-        ...state.exports.filter((entry) => entry.id !== summary.id),
-        summary,
-      ].toSorted((a, b) => a.createdAt - b.createdAt).slice(-20),
-    }));
+    const file = exportFile(this.paths, summary.id);
+    await withRecordLock(this.paths, file, async () => {
+      await writeJsonFile(file, summary);
+      await updateIndex(this.paths, this.paths.exportsIndexFile, normalizeExportIndex, summary.id, summary);
+      await bumpControlRevision(this.paths);
+    });
   }
 }

@@ -9,11 +9,18 @@ import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Every term must match somewhere in the item's searchable text. */
+/** Every term must match at least one supported high-level index field. */
 export function matchesQuery(item: ItemSummary, query: string): boolean {
   const terms = query.toLowerCase().split(/\s+/).filter((term) => term !== '');
   if (terms.length === 0) return true;
-  return terms.every((term) => item.searchText.includes(term));
+  const fields = [
+    item.title,
+    item.fileName ?? '',
+    item.primaryStyle,
+    ...item.tags,
+    ...item.designTypes,
+  ].map((field) => field.toLowerCase());
+  return terms.every((term) => fields.some((field) => field.includes(term)));
 }
 
 export function matchesScope(item: ItemSummary, scope: LibraryScope, now: number): boolean {
@@ -72,14 +79,14 @@ export function sortItems(items: ItemSummary[], sort: LibrarySort): ItemSummary[
 
 export function selectItems(
   items: ItemSummary[],
-  view: ViewPreferences,
+  view: ViewPreferences & { query?: string },
   now = Date.now(),
 ): ItemSummary[] {
   const matched = items.filter(
     (item) =>
       matchesScope(item, view.scope, now) &&
       matchesFilters(item, view.filters) &&
-      matchesQuery(item, view.query),
+      matchesQuery(item, view.query ?? ''),
   );
   return sortItems(matched, view.sort);
 }

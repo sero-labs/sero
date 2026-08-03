@@ -30,7 +30,6 @@ const ITEM: ItemSummary = {
   createdAt: 1,
   updatedAt: 2,
   edited: false,
-  searchText: '',
 };
 
 const ACTIONS: LibraryActions = {

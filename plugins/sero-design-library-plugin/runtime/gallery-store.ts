@@ -11,7 +11,9 @@ import {
   galleryVersionRecordFile,
   isSafeId,
 } from '../shared/paths';
-import { readJsonFile, updateState, withRecordLock, writeJsonFile } from '../shared/state-io';
+import { bumpControlRevision, replaceIndex, updateIndex } from '../shared/index-storage';
+import { normalizeGalleryIndex } from '../shared/indexes';
+import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { mutateDesign } from './design-store';
 
 export async function readGalleryFamily(
@@ -33,13 +35,8 @@ export async function readGalleryVersion(
 
 async function publishFamily(paths: DesignLibraryPaths, family: GalleryFamilyRecord): Promise<void> {
   await writeJsonFile(galleryFamilyRecordFile(paths, family.id), family);
-  await updateState(paths, (state) => ({
-    ...state,
-    galleryFamilies: [
-      ...state.galleryFamilies.filter((entry) => entry.id !== family.id),
-      family,
-    ],
-  }));
+  await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, family.id, family);
+  await bumpControlRevision(paths);
 }
 
 export async function mutateGalleryFamily(
@@ -57,19 +54,29 @@ export async function mutateGalleryFamily(
   });
 }
 
-export async function scanGalleryFamilies(paths: DesignLibraryPaths): Promise<GalleryFamilyRecord[]> {
-  const entries = await readdir(paths.galleryDir, { withFileTypes: true }).catch(() => []);
-  const families = await Promise.all(
-    entries.flatMap((entry) =>
-      entry.isDirectory() && isSafeId(entry.name) ? [readGalleryFamily(paths, entry.name)] : [],
-    ),
-  );
-  return families.filter((family): family is GalleryFamilyRecord => family !== null);
+export interface GalleryScan {
+  families: GalleryFamilyRecord[];
+  unreadable: string[];
 }
 
-export async function reindexGallery(paths: DesignLibraryPaths): Promise<void> {
-  const galleryFamilies = await scanGalleryFamilies(paths);
-  await updateState(paths, (state) => ({ ...state, galleryFamilies }));
+export async function scanGalleryFamilies(paths: DesignLibraryPaths): Promise<GalleryScan> {
+  const entries = await readdir(paths.galleryDir, { withFileTypes: true }).catch(() => []);
+  const families: GalleryFamilyRecord[] = [];
+  const unreadable: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !isSafeId(entry.name)) continue;
+    const family = await readGalleryFamily(paths, entry.name);
+    if (family) families.push(family);
+    else unreadable.push(entry.name);
+  }
+  return { families, unreadable };
+}
+
+export async function reindexGallery(paths: DesignLibraryPaths, notify = true): Promise<string[]> {
+  const { families: galleryFamilies, unreadable } = await scanGalleryFamilies(paths);
+  await replaceIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, galleryFamilies);
+  if (notify) await bumpControlRevision(paths);
+  return unreadable;
 }
 
 /** Remove transaction directories that were never atomically renamed into versions. */
@@ -120,10 +127,8 @@ export async function purgeGalleryFamily(
   const file = galleryFamilyRecordFile(paths, familyId);
   await withRecordLock(paths, file, async () => {
     await rm(galleryFamilyDir(paths, familyId), { recursive: true, force: true });
-    await updateState(paths, (state) => ({
-      ...state,
-      galleryFamilies: state.galleryFamilies.filter((family) => family.id !== familyId),
-    }));
+    await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, familyId, null);
+    await bumpControlRevision(paths);
   });
   if (family) {
     await mutateDesign(paths, family.sourceDesignId, (design) =>

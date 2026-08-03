@@ -11,55 +11,17 @@ import type { DesignRecord, DesignVariant } from '../shared/design';
 import { orderedReferences, visibleRevision } from '../shared/design';
 import { effectiveAnalysis, isOverridden, LIBRARIAN_FIELDS } from '../shared/librarian';
 import type { ItemRecord, JobRecord } from '../shared/records';
-import type {
-  DesignSummary,
-  DesignVariantSummary,
-  ItemSummary,
-  JobSummary,
-} from '../shared/types';
+import type { ItemIndexEntry, JobIndexEntry } from '../shared/indexes';
+import type { DesignSummary, DesignVariantSummary } from '../shared/types';
 
-const CARD_TAG_LIMIT = 6;
-
-/** Everything keyword search covers: title, tags, notes and visible analysis. */
-function buildSearchText(item: ItemRecord): string {
-  const analysis = effectiveAnalysis(item.profile);
-  const profile = analysis.visualProfile;
-  const parts: string[] = [
-    analysis.title,
-    analysis.notes,
-    analysis.primaryStyle,
-    analysis.summary,
-    analysis.designIntent,
-    analysis.generationPrompt,
-    ...analysis.tags,
-    ...analysis.designTypes,
-    ...analysis.always,
-    ...analysis.never,
-    ...analysis.aestheticVocabulary.flatMap((entry) => [entry.term, entry.meaning ?? '']),
-    ...(analysis.palette ?? []).flatMap((entry) => [entry.hex, entry.role]),
-    ...profile.colour,
-    ...profile.typography,
-    ...profile.layout,
-    ...profile.spacingAndDensity,
-    ...profile.shapeLanguage,
-    ...profile.surfaces,
-    ...profile.imagery,
-    ...profile.motion,
-    item.source.fileName ?? '',
-  ];
-  return parts
-    .filter((part) => part !== '')
-    .join(' ')
-    .toLowerCase();
-}
-
-export function projectItem(item: ItemRecord, previewPath: string): ItemSummary {
+export function projectItem(item: ItemRecord, previewPath: string): ItemIndexEntry {
   const analysis = effectiveAnalysis(item.profile);
   return {
     id: item.id,
     title: analysis.title,
+    ...(item.source.fileName === undefined ? {} : { fileName: item.source.fileName }),
     primaryStyle: analysis.primaryStyle,
-    tags: analysis.tags.slice(0, CARD_TAG_LIMIT),
+    tags: analysis.tags,
     designTypes: analysis.designTypes,
     kind: item.kind,
     previewPath,
@@ -74,17 +36,17 @@ export function projectItem(item: ItemRecord, previewPath: string): ItemSummary 
     updatedAt: item.updatedAt,
     ...(item.deletedAt === undefined ? {} : { deletedAt: item.deletedAt }),
     edited: LIBRARIAN_FIELDS.some((field) => isOverridden(item.profile, field)),
-    searchText: buildSearchText(item),
   };
 }
 
-export function projectJob(job: JobRecord): JobSummary {
+export function projectJob(job: JobRecord): JobIndexEntry {
   return {
     id: job.id,
     kind: job.kind,
     status: job.status,
     target: job.target,
     createdAt: job.createdAt,
+    ...(job.completedAt === undefined ? {} : { completedAt: job.completedAt }),
     ...(job.error === undefined ? {} : { error: job.error }),
   };
 }

@@ -9,7 +9,7 @@ import { deleteAsset, recordAttempt, reserveAsset } from '../../runtime/media/as
 import { seedDesign, seedItem } from '../../runtime/test-fixtures';
 import { assetReferenceFor } from '../../shared/media';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
-import { readState } from '../../shared/state-io';
+import { readStateWithIndexes } from '../../shared/state-io';
 import { registerMediaTool } from './media';
 
 /**
@@ -45,7 +45,7 @@ function textOf(result: { content: Array<{ type: string }> }): string {
 }
 
 async function requests() {
-  return (await readState(paths)).requests.map((request) => request.body);
+  return (await readStateWithIndexes(paths)).requests.map((request) => request.body);
 }
 
 beforeEach(async () => {

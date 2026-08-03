@@ -8,7 +8,7 @@ import type { AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import type { DesignBrief } from '../../shared/design';
 import { revisionDir } from '../../shared/paths';
-import { appendRequest, readState } from '../../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../../shared/state-io';
 import { PREVIEW_CSP } from '../preview/harness';
 import {
   BASELINE_STYLE,
@@ -145,7 +145,7 @@ describe('generating a variant', () => {
     });
     try {
       await vi.waitFor(async () => {
-        const state = await readState(harness.paths);
+        const state = await readStateWithIndexes(harness.paths);
         expect(state.designs[0]?.variants[0]?.progress).toBe('Writing the design files…');
       });
     } finally {
@@ -178,7 +178,7 @@ describe('generating a variant', () => {
       expect(await readFile(path.join(directory, 'index.html'), 'utf8')).toBe(STUB_PAGE);
     }
 
-    const summary = (await readState(harness.paths)).designs.find((entry) => entry.id === designId);
+    const summary = (await readStateWithIndexes(harness.paths)).designs.find((entry) => entry.id === designId);
     expect(summary?.variants.every((variant) => variant.previewPath !== undefined)).toBe(true);
   });
 

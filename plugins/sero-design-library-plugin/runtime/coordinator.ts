@@ -1,6 +1,7 @@
 import type { AppRuntimeHost } from '@sero-ai/common';
-
 import { clearOverride, effectiveField, setOverride, validateFieldValue } from '../shared/librarian';
+import { readIndex } from '../shared/index-storage';
+import { normalizeItemIndex } from '../shared/indexes';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { tombstoneFile } from '../shared/paths';
 import type { JobKind, TombstonedProvenance } from '../shared/records';
@@ -25,7 +26,6 @@ import { MediaRequests, isMediaRequest } from './media/requests';
 import { GalleryRequests, isGalleryRequest } from './gallery-requests';
 import { ExportRequests, isExportRequest } from './export-requests';
 import { destroyItem, dismissJob, mutateItem, readItem, readJob, scanItems } from './store';
-
 /**
  * Applies intent submitted by extension tools.
  *
@@ -472,8 +472,8 @@ export class Coordinator {
 
   /** Deleting a collection drops the grouping, never the items inside it. */
   private async deleteCollection(collectionId: string): Promise<void> {
-    const state = await readState(this.context.paths);
-    const members = state.items.filter((item) => item.collectionIds.includes(collectionId));
+    const items = await readIndex(this.context.paths.itemsIndexFile, normalizeItemIndex);
+    const members = items.filter((item) => item.collectionIds.includes(collectionId));
     for (const member of members) {
       await mutateItem(this.context.paths, member.id, (item) => ({
         ...item,

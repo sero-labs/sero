@@ -23,7 +23,6 @@ const SELECTED: ItemSummary = {
   createdAt: 0,
   updatedAt: 0,
   edited: false,
-  searchText: '',
 };
 
 describe('selected reference collections', () => {

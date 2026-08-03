@@ -10,7 +10,7 @@ import {
   appendRequest,
   commitState,
   pendingRequests,
-  readState,
+  readStateWithIndexes,
   updateState,
 } from './state-io';
 
@@ -26,10 +26,10 @@ afterEach(async () => {
   await rm(home, { recursive: true, force: true });
 });
 
-describe('readState', () => {
+describe('readStateWithIndexes', () => {
   it('returns defaults when no state file exists yet', async () => {
-    const state = await readState(paths);
-    expect(state.items).toEqual([]);
+    const state = await readStateWithIndexes(paths);
+    expect(state.schemaVersion).toBe(2);
     expect(state.revision).toBe(0);
     expect(state.settings.generation.variantCount).toBe(3);
   });
@@ -37,19 +37,19 @@ describe('readState', () => {
 
 describe('updateState', () => {
   it('bumps the revision on every write', async () => {
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'a' } }));
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'b' } }));
-    const state = await readState(paths);
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'oldest' } }));
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'title' } }));
+    const state = await readStateWithIndexes(paths);
     expect(state.revision).toBe(2);
-    expect(state.view.query).toBe('b');
+    expect(state.view.sort).toBe('title');
   });
 
   it('abandons the write when the updater returns null', async () => {
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'kept' } }));
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'oldest' } }));
     await updateState(paths, () => null);
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(state.revision).toBe(1);
-    expect(state.view.query).toBe('kept');
+    expect(state.view.sort).toBe('oldest');
   });
 
   it('serialises concurrent read-modify-write cycles without losing updates', async () => {
@@ -66,7 +66,7 @@ describe('updateState', () => {
         })),
       ),
     );
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(state.collections).toHaveLength(25);
     expect(state.revision).toBe(25);
   });
@@ -76,35 +76,35 @@ describe('updateState', () => {
       throw new Error('updater exploded');
     });
     await expect(failure).rejects.toThrow('updater exploded');
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'after' } }));
-    expect((await readState(paths)).view.query).toBe('after');
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'oldest' } }));
+    expect((await readStateWithIndexes(paths)).view.sort).toBe('oldest');
   });
 });
 
 describe('commitState', () => {
   it('rejects a writer holding a stale revision', async () => {
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'first' } }));
-    const stale = await readState(paths);
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'oldest' } }));
+    const stale = await readStateWithIndexes(paths);
 
     // Someone else writes in between.
-    await updateState(paths, (current) => ({ ...current, view: { ...current.view, query: 'newer' } }));
+    await updateState(paths, (current) => ({ ...current, view: { ...current.view, sort: 'title' } }));
 
     await expect(
-      commitState(paths, { ...stale, view: { ...stale.view, query: 'clobber' } }, stale.revision),
+      commitState(paths, { ...stale, view: { ...stale.view, sort: 'newest' } }, stale.revision),
     ).rejects.toBeInstanceOf(StaleStateError);
 
-    expect((await readState(paths)).view.query).toBe('newer');
+    expect((await readStateWithIndexes(paths)).view.sort).toBe('title');
   });
 
   it('accepts a writer holding the current revision', async () => {
-    const current = await readState(paths);
+    const current = await readStateWithIndexes(paths);
     const committed = await commitState(
       paths,
-      { ...current, view: { ...current.view, query: 'ok' } },
+      { ...current, view: { ...current.view, sort: 'oldest' } },
       current.revision,
     );
     expect(committed.revision).toBe(1);
-    expect((await readState(paths)).view.query).toBe('ok');
+    expect((await readStateWithIndexes(paths)).view.sort).toBe('oldest');
   });
 });
 
@@ -114,11 +114,11 @@ describe('requests', () => {
     const second = await appendRequest(paths, { kind: 'analysis.run', itemId: 'i2', force: false });
     expect(second).toBe(first + 1);
 
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(pendingRequests(state).map((request) => request.id)).toEqual([first, second]);
 
     await updateState(paths, (current) => ({ ...current, consumedRequestId: first }));
-    expect(pendingRequests(await readState(paths)).map((request) => request.id)).toEqual([second]);
+    expect(pendingRequests(await readStateWithIndexes(paths)).map((request) => request.id)).toEqual([second]);
   });
 
   it('does not reuse an id after concurrent appends', async () => {
@@ -127,7 +127,7 @@ describe('requests', () => {
         appendRequest(paths, { kind: 'item.favourite', itemId: `i${index}`, favourite: true }),
       ),
     );
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     const ids = state.requests.map((request) => request.id);
     expect(new Set(ids).size).toBe(20);
   });

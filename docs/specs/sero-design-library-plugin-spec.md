@@ -203,7 +203,7 @@ The generated profile supplies a baseline for every editable field; the Libraria
 
 ### 5.5 Finding things
 
-Keyword search covers title, tags, notes and all user-visible analysis. Filters: media type, style, colour, tags, source, analysis status and date.
+Keyword search covers titles, original file names, primary styles, tags and Design types. It is case-insensitive, accepts partial matches and requires every query term to match one of those fields. It does not search notes, prompts, guardrails or detailed Librarian analysis. Filters: media type, style, colour, tags, source, analysis status and date.
 
 ### 5.6 Deletion
 
@@ -519,17 +519,21 @@ The plugin exposes its tools to the main Sero agent via `sero.plugin.bridgeTools
 
 ## 12. Storage and ownership
 
-Reactive state holds lightweight summaries only — item, Design, family, version and job summaries; search, filter and page preferences; generation defaults; schema version and state revision. Full records and binaries are plugin-owned files under the resolved global app state directory.
+`state.json` holds bounded control state only: schema and detail revisions, settings, media options, view preferences, collections and the transient request queue. Search text is local to the open Library view and is not persisted.
+
+Each top-level entity has one complete JSON record. Items and Designs use one `record.json` in each entity directory. Gallery families use one `record.json` with their version metadata. Jobs and exports use one JSON file per record. Each entity type also has one compact `index.json` for list rendering, filters and high-level search. Binary assets, generated source, previews and Gallery snapshots stay outside these JSON files and keep their existing paths.
+
+Version 2 migrates legacy entity arrays automatically. It builds indexes from authoritative records, creates records for legacy exports, preserves settings, collections and pending requests, and saves the old control document as `state.json.pre-index-backup` before the final switch. Unreadable records stay on disk and are omitted from rebuilt indexes. Normal startup reads the indexes and does not scan every record.
 
 Ownership rules:
 
-- One authoritative serialisation path per mutable record and per index.
+- One authoritative serialisation path per mutable record and per index. Writers lock and write in record, index, control-state order.
 - The background runtime is the single authoritative writer. Extension tools submit intent; they never write records.
 - Gallery versions own immutable copies of everything they need.
 - Designs own their media until promotion; Library promotion creates a new independent asset.
 - Permanent deletion of a source leaves tombstoned provenance behind.
 
-Atomic file replacement is required but is **not** sufficient concurrency control: Pi tool calls run in a separate process from the host runtime, so writes need a cross-process lock plus a revision compare-and-swap. The index is a pure projection of the records, which is what makes an interrupted index write recoverable.
+Atomic file replacement is required but is **not** sufficient concurrency control: Pi tool calls run in a separate process from the host runtime, so writes need an in-process queue, a cross-process lock and control-state revision checks. Indexes are pure projections of records and can be rebuilt deliberately for migration or repair.
 
 ---
 

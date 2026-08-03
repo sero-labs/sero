@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DesignBrief } from '../shared/design';
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 import { useCoordinator } from './coordinator-harness';
 
 const harness = useCoordinator('coordinator-designs');
@@ -29,7 +29,7 @@ describe('starting a Design', () => {
     });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.designs.map((design) => design.id)).toEqual(['dsn-1']);
     expect(state.designs[0]?.variants).toHaveLength(2);
     expect(state.view.selectedDesignId).toBe('dsn-1');
@@ -60,7 +60,7 @@ describe('starting a Design', () => {
     await strict.dispose();
 
     expect(failures.some((message) => message.includes('design.create'))).toBe(true);
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.designs).toEqual([]);
     expect(state.collections.map((entry) => entry.name)).toEqual(['Still applied']);
   });
@@ -81,7 +81,7 @@ describe('starting a Design', () => {
     await appendRequest(harness.paths, { kind: 'design.delete', designId: 'dsn-1' });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.designs[0]?.deletedAt).toBeDefined();
     expect(state.view.selectedDesignId).toBeUndefined();
   });

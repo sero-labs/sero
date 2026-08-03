@@ -4,11 +4,13 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { readIndex } from '../../shared/index-storage';
+import { normalizeExportIndex } from '../../shared/indexes';
 import { isExportDestination } from '../../shared/export';
 import { normalizeGalleryVersion } from '../../shared/gallery';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { galleryVersionRecordFile } from '../../shared/paths';
-import { appendRequest, readJsonFile, readState } from '../../shared/state-io';
+import { appendRequest, readJsonFile } from '../../shared/state-io';
 import { checkId, failure, text, type ToolResult } from './result';
 
 const ACTIONS = ['run', 'status'] as const;
@@ -33,11 +35,11 @@ export function registerExportTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, context): Promise<ToolResult> {
       if (params.action === 'status') {
-        const state = await readState(paths);
+        const exports = await readIndex(paths.exportsIndexFile, normalizeExportIndex);
         const selected = params.exportId
-          ? state.exports.find((entry) => entry.id === params.exportId)
-          : state.exports.at(-1);
-        if (!selected) return text('No exports have run yet.', { exports: state.exports });
+          ? exports.find((entry) => entry.id === params.exportId)
+          : exports.at(-1);
+        if (!selected) return text('No exports have run yet.', { exports });
         return text(
           selected.status === 'succeeded'
             ? `Exported to ${selected.path}.`

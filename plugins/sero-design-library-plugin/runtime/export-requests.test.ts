@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
-import { readState } from '../shared/state-io';
+import { readStateWithIndexes } from '../shared/state-io';
 import { runGalleryExport } from './export';
 import { ExportRequests } from './export-requests';
 
@@ -42,7 +42,7 @@ describe('export request state', () => {
     vi.mocked(runGalleryExport).mockResolvedValue('/workspace/signal');
     await new ExportRequests(paths, workspaces).apply(REQUEST);
 
-    expect((await readState(paths)).exports[0]).toMatchObject({
+    expect((await readStateWithIndexes(paths)).exports[0]).toMatchObject({
       id: 'exp-1', status: 'succeeded', path: '/workspace/signal',
     });
   });
@@ -51,7 +51,7 @@ describe('export request state', () => {
     vi.mocked(runGalleryExport).mockRejectedValue(new Error('Snapshot is incomplete.'));
     await new ExportRequests(paths, workspaces).apply(REQUEST);
 
-    expect((await readState(paths)).exports[0]).toMatchObject({
+    expect((await readStateWithIndexes(paths)).exports[0]).toMatchObject({
       id: 'exp-1', status: 'failed', error: 'Snapshot is incomplete.',
     });
   });
@@ -63,7 +63,7 @@ describe('export request state', () => {
     });
 
     expect(runGalleryExport).not.toHaveBeenCalled();
-    expect((await readState(paths)).exports[0]).toMatchObject({
+    expect((await readStateWithIndexes(paths)).exports[0]).toMatchObject({
       status: 'failed', error: 'The requested export path is not inside an open workspace.',
     });
   });

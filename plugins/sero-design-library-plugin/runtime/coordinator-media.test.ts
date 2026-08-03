@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { currentAttempt } from '../shared/media';
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 
 import { useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
@@ -188,7 +188,7 @@ describe('copy to library', () => {
     await appendRequest(harness.paths, copy);
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     // One item, not two: the recorded item id is what refuses the second copy.
     expect(state.items.filter((item) => item.sourceKind === 'generated')).toHaveLength(1);
   });
@@ -205,7 +205,7 @@ describe('generating into the Library', () => {
     await harness.coordinator.drain();
 
     const itemId = await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       const generated = state.items.find((item) => item.sourceKind === 'generated');
       expect(generated).toBeDefined();
       return generated!.id;
@@ -255,7 +255,7 @@ describe('generating into the Library', () => {
     await harness.coordinator.drain();
 
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.items.filter((item) => item.sourceKind === 'generated')).toHaveLength(1);
     });
   });
@@ -274,9 +274,9 @@ describe('video confirmation', () => {
     await harness.coordinator.drain();
 
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'library')?.status).toBe('failed');
     });
-    expect((await readState(harness.paths)).items).toEqual([]);
+    expect((await readStateWithIndexes(harness.paths)).items).toEqual([]);
   });
 });

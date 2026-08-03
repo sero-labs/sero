@@ -3,11 +3,13 @@ import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { useCallback, useMemo } from 'react';
 
 import type { DesignBrief, DesignRecord } from '../../shared/design';
+import { normalizeDesignIndex } from '../../shared/indexes';
 import type { LayoutSettings, RevisionBehaviour } from '../../shared/settings';
 import type { ConflictResolution, GuardrailSynthesis } from '../../shared/synthesis';
 import type { DesignLibraryState, DesignSummary } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { showItemInFolder } from '../lib/host-files';
+import { useJsonIndex } from './useJsonIndex';
 
 /**
  * The Design surface's read and write path.
@@ -77,6 +79,7 @@ function textOf(result: AppToolResult): string {
 
 export function useDesigns(): Designs {
   const [state] = useAppState<DesignLibraryState>(DEFAULT_STATE);
+  const designIndex = useJsonIndex('designs/index.json', normalizeDesignIndex);
   const tools = useAppTools();
 
   const run = useCallback(
@@ -165,10 +168,10 @@ export function useDesigns(): Designs {
 
   const list = useMemo(
     () =>
-      state.designs
+      designIndex
         .filter((design) => design.deletedAt === undefined)
         .toSorted((a, b) => b.createdAt - a.createdAt),
-    [state.designs],
+    [designIndex],
   );
 
   const open = useMemo(

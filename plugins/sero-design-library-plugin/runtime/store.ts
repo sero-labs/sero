@@ -5,8 +5,9 @@ import type { DesignLibraryPaths } from '../shared/paths';
 import { itemDir, itemRecordFile, jobFile } from '../shared/paths';
 import type { ItemRecord, JobRecord } from '../shared/records';
 import { normalizeItemRecord, normalizeJobRecord } from '../shared/records';
-import { readJsonFile, updateState, withRecordLock, writeJsonFile } from '../shared/state-io';
-import type { DesignLibraryState } from '../shared/types';
+import { bumpControlRevision, readIndex, replaceIndex, updateIndex } from '../shared/index-storage';
+import { normalizeDesignIndex, normalizeItemIndex, normalizeJobIndex } from '../shared/indexes';
+import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { scanDesigns } from './design-store';
 import { projectDesign, projectItem, projectJob } from './projection';
 
@@ -80,10 +81,8 @@ async function writeItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<I
   const next: ItemRecord = { ...item, updatedAt: Date.now() };
   await writeJsonFile(itemRecordFile(paths, next.id), next);
   const summary = projectItem(next, previewPathFor(next));
-  await updateState(paths, (current) => ({
-    ...current,
-    items: [...current.items.filter((entry) => entry.id !== next.id), summary],
-  }));
+  await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, next.id, summary);
+  await bumpControlRevision(paths);
   return next;
 }
 
@@ -125,10 +124,8 @@ export async function mutateItem(
 export async function destroyItem(paths: DesignLibraryPaths, itemId: string): Promise<void> {
   await withRecordLock(paths, itemRecordFile(paths, itemId), async () => {
     await rm(itemDir(paths, itemId), { recursive: true, force: true });
-    await updateState(paths, (current) => ({
-      ...current,
-      items: current.items.filter((entry) => entry.id !== itemId),
-    }));
+    await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, itemId, null);
+    await bumpControlRevision(paths);
   });
 }
 
@@ -137,25 +134,29 @@ export async function readJob(paths: DesignLibraryPaths, jobId: string): Promise
 }
 
 export async function listJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> {
-  const entries = await readdir(paths.jobsDir).catch(() => []);
-  const jobs = await Promise.all(
-    entries.flatMap((entry) =>
-      entry.endsWith('.json')
-        ? [readJsonFile<unknown>(path.join(paths.jobsDir, entry)).then(normalizeJobRecord)]
-        : [],
-    ),
-  );
+  const index = await readIndex(paths.jobsIndexFile, normalizeJobIndex);
+  const jobs = await Promise.all(index.map((entry) => readJob(paths, entry.id)));
   return jobs.filter((job): job is JobRecord => job !== null);
+}
+
+async function scanJobRecords(paths: DesignLibraryPaths): Promise<{ jobs: JobRecord[]; unreadable: string[] }> {
+  const entries = await readdir(paths.jobsDir).catch(() => []);
+  const names = entries.filter((entry) => entry.endsWith('.json') && entry !== 'index.json');
+  const records = await Promise.all(
+    names.map((entry) => readJsonFile<unknown>(path.join(paths.jobsDir, entry)).then(normalizeJobRecord)),
+  );
+  return {
+    jobs: records.filter((job): job is JobRecord => job !== null),
+    unreadable: names.filter((_, index) => records[index] === null),
+  };
 }
 
 /** Assumes the caller holds the job's record lock. */
 async function writeJob(paths: DesignLibraryPaths, job: JobRecord): Promise<JobRecord> {
   await writeJsonFile(jobFile(paths, job.id), job);
   const summary = projectJob(job);
-  await updateState(paths, (current) => ({
-    ...current,
-    jobs: [...current.jobs.filter((entry) => entry.id !== job.id), summary],
-  }));
+  await updateIndex(paths, paths.jobsIndexFile, normalizeJobIndex, job.id, summary);
+  await bumpControlRevision(paths);
   return job;
 }
 
@@ -186,12 +187,21 @@ export async function dismissJob(paths: DesignLibraryPaths, jobId: string): Prom
     // renders, and a summary outliving its record is exactly the tile that
     // cannot be got rid of.
     await rm(jobFile(paths, jobId), { force: true });
-    await updateState(paths, (current) => ({
-      ...current,
-      jobs: current.jobs.filter((entry) => entry.id !== jobId),
-    }));
+    await updateIndex(paths, paths.jobsIndexFile, normalizeJobIndex, jobId, null);
+    await bumpControlRevision(paths);
     return true;
   });
+}
+
+/** Prune retained job records from the compact index without scanning all records. */
+export async function pruneFinishedJobs(paths: DesignLibraryPaths, now = Date.now()): Promise<number> {
+  const jobs = await readIndex(paths.jobsIndexFile, normalizeJobIndex);
+  const cutoff = now - FINISHED_JOB_RETENTION_MS;
+  const expired = jobs.filter((job) =>
+    job.status !== 'queued' && job.status !== 'running' && (job.completedAt ?? job.createdAt) <= cutoff,
+  );
+  for (const job of expired) await dismissJob(paths, job.id);
+  return expired.length;
 }
 
 /** Read and write under one lock, for the same reason as `mutateItem`. */
@@ -214,12 +224,13 @@ export async function mutateJob(
  * Returns the record directories this version could not read, item ids and
  * design ids together — they are reported to the user, never deleted.
  */
-export async function reindex(paths: DesignLibraryPaths): Promise<string[]> {
-  const [{ items, unreadable }, designScan, jobs] = await Promise.all([
+export async function reindex(paths: DesignLibraryPaths, notify = true): Promise<string[]> {
+  const [{ items, unreadable }, designScan, jobScan] = await Promise.all([
     scanItems(paths),
     scanDesigns(paths),
-    listJobs(paths),
+    scanJobRecords(paths),
   ]);
+  const jobs = jobScan.jobs;
   const cutoff = Date.now() - FINISHED_JOB_RETENTION_MS;
   const isLive = (job: JobRecord) =>
     job.status === 'queued' || job.status === 'running' || (job.completedAt ?? job.createdAt) > cutoff;
@@ -231,14 +242,22 @@ export async function reindex(paths: DesignLibraryPaths): Promise<string[]> {
     jobs.flatMap((job) => (isLive(job) ? [] : [rm(jobFile(paths, job.id), { force: true })])),
   );
 
-  await updateState(paths, (current: DesignLibraryState) => ({
-    ...current,
-    items: items.map((item) => projectItem(item, previewPathFor(item))),
-    designs: designScan.designs.map(projectDesign),
-    jobs: liveJobs.map(projectJob),
-  }));
+  await replaceIndex(
+    paths,
+    paths.itemsIndexFile,
+    normalizeItemIndex,
+    items.map((item) => projectItem(item, previewPathFor(item))),
+  );
+  await replaceIndex(
+    paths,
+    paths.designsIndexFile,
+    normalizeDesignIndex,
+    designScan.designs.map(projectDesign),
+  );
+  await replaceIndex(paths, paths.jobsIndexFile, normalizeJobIndex, liveJobs.map(projectJob));
+  if (notify) await bumpControlRevision(paths);
 
-  return [...unreadable, ...designScan.unreadable];
+  return [...unreadable, ...designScan.unreadable, ...jobScan.unreadable];
 }
 
 /** An item is a duplicate when another live record shares its checksum. */

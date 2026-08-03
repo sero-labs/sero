@@ -4,17 +4,25 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { LibrarianField, LibrarianUserFacingAnalysis } from '../../shared/librarian';
 import { deriveFacets, selectItems } from '../../shared/search';
+import {
+  normalizeItemIndex,
+  normalizeJobIndex,
+  type ItemIndexEntry,
+  type JobIndexEntry,
+} from '../../shared/indexes';
 import type { DesignLibrarySettings } from '../../shared/settings';
 import type {
   DesignLibraryState,
   LibraryFilters,
   LibraryScope,
   LibrarySort,
+  LibraryViewPreferences,
   ViewPatch,
   ViewPreferences,
 } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { mergeView, outstandingView, viewSignature } from '../lib/view-sync';
+import { useJsonIndex } from './useJsonIndex';
 
 /**
  * One place the whole app reads state and asks for changes.
@@ -50,21 +58,26 @@ export interface LibraryActions {
 
 export interface Library {
   state: DesignLibraryState;
-  view: ViewPreferences;
+  items: ItemIndexEntry[];
+  jobs: JobIndexEntry[];
+  view: LibraryViewPreferences;
   /** The items the current scope, filters and query select, already sorted. */
   visible: ReturnType<typeof selectItems>;
   facets: ReturnType<typeof deriveFacets>;
-  selected: DesignLibraryState['items'][number] | undefined;
+  selected: ItemIndexEntry | undefined;
   actions: LibraryActions;
 }
 
 export function useLibrary(): Library {
   const [state] = useAppState<DesignLibraryState>(DEFAULT_STATE);
+  const items = useJsonIndex('items/index.json', normalizeItemIndex);
+  const jobs = useJsonIndex('jobs/index.json', normalizeJobIndex);
   const tools = useAppTools();
 
   // Local view state leads; the persisted copy follows. `null` means "nothing
   // changed locally yet", so a view restored from state on load still wins.
   const [localView, setLocalView] = useState<ViewPatch | null>(null);
+  const [query, setQuery] = useState('');
 
   // Retire optimistic keys the moment state reports them. Merging alone is not
   // enough: a key that stays forever also outranks any *later* value the
@@ -81,7 +94,10 @@ export function useLibrary(): Library {
     });
   }
 
-  const view = useMemo<ViewPreferences>(() => mergeView(localView, state.view), [state.view, localView]);
+  const view = useMemo<LibraryViewPreferences>(
+    () => ({ ...mergeView(localView, state.view), query }),
+    [state.view, localView, query],
+  );
 
   // Built once, lazily. `useRef(createDebouncedFn(...))` keeps the first value
   // but still *calls* the factory on every render, allocating a timer-holding
@@ -110,7 +126,7 @@ export function useLibrary(): Library {
   const actions = useMemo<LibraryActions>(
     () => ({
       setScope: (scope) => patchView({ scope }),
-      setQuery: (query) => patchView({ query }),
+      setQuery,
       setFilters: (filters) => patchView({ filters }),
       setSort: (sort) => patchView({ sort }),
       // `null`, not `undefined`: the patch travels as JSON, and an undefined
@@ -163,12 +179,12 @@ export function useLibrary(): Library {
     [patchView, run],
   );
 
-  const visible = useMemo(() => selectItems(state.items, view), [state.items, view]);
-  const facets = useMemo(() => deriveFacets(state.items), [state.items]);
+  const visible = useMemo(() => selectItems(items, view), [items, view]);
+  const facets = useMemo(() => deriveFacets(items), [items]);
   const selected = useMemo(
-    () => state.items.find((item) => item.id === view.selectedItemId),
-    [state.items, view.selectedItemId],
+    () => items.find((item) => item.id === view.selectedItemId),
+    [items, view.selectedItemId],
   );
 
-  return { state, view, visible, facets, selected, actions };
+  return { state, items, jobs, view, visible, facets, selected, actions };
 }

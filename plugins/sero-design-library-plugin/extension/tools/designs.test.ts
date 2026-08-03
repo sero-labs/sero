@@ -10,7 +10,7 @@ import {
   revisionDir,
   type DesignLibraryPaths,
 } from '../../shared/paths';
-import { readState } from '../../shared/state-io';
+import { readStateWithIndexes } from '../../shared/state-io';
 import { createDesign } from '../../runtime/designs';
 import { mutateVariant } from '../../runtime/design-store';
 import { seedItem } from '../../runtime/test-fixtures';
@@ -62,7 +62,7 @@ describe('refusing to start a Design', () => {
     const result = await call({ ...CREATE, referenceItemIds: ['../../..'] });
 
     expect(textOf(result)).toContain('not a valid item id');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 
   it('rejects a traversal in a design id', async () => {
@@ -88,7 +88,7 @@ describe('refusing to start a Design', () => {
     const result = await call({ ...CREATE, referenceItemIds: ['itm-ready', 'itm-waiting'] });
 
     expect(textOf(result)).toContain('itm-waiting');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 
   it('names a reference that does not exist', async () => {
@@ -117,7 +117,7 @@ describe('refusing to start a Design', () => {
 
     const blocked = await call({ ...CREATE, referenceItemIds: ['itm-a', 'itm-b'] });
     expect(textOf(blocked)).toContain('Resolve these guardrail conflicts first');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
 
     const allowed = await call({
       ...CREATE,
@@ -223,7 +223,7 @@ describe('queuing work on a Design', () => {
     });
 
     expect((result.details as { variantCount?: number }).variantCount).toBe(2);
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toMatchObject({ kind: 'design.create' });
   });
 
@@ -233,7 +233,7 @@ describe('queuing work on a Design', () => {
 
     await call({ ...CREATE, referenceItemIds: ['itm-b', 'itm-a'] });
 
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toMatchObject({ referenceItemIds: ['itm-b', 'itm-a'] });
   });
 
@@ -247,7 +247,7 @@ describe('queuing work on a Design', () => {
       galleryParentVersionId: 'ver-1',
     });
 
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toMatchObject({
       kind: 'design.create',
       galleryLineage: {
@@ -267,7 +267,7 @@ describe('queuing work on a Design', () => {
     });
 
     expect(textOf(result)).toContain('joins this variant');
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toEqual({
       kind: 'design.revise-variant',
       designId: 'dsn-1',
@@ -285,7 +285,7 @@ describe('queuing work on a Design', () => {
       instruction: '   ',
     });
     expect(textOf(empty)).toContain('needs an instruction');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
 
     await call({
       action: 'revise-variant',
@@ -295,7 +295,7 @@ describe('queuing work on a Design', () => {
     });
     // The default is the generation setting, so an agent that does not care gets
     // the behaviour the user last chose rather than one this tool invented.
-    expect((await readState(paths)).requests[0]?.body).toMatchObject({ behaviour: 'replace' });
+    expect((await readStateWithIndexes(paths)).requests[0]?.body).toMatchObject({ behaviour: 'replace' });
   });
 
   it('rejects an unsafe revision id before queuing a tweak', async () => {
@@ -310,7 +310,7 @@ describe('queuing work on a Design', () => {
       });
       expect(textOf(result), action).toContain('not a valid revision id');
     }
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 
   it('queues a tweak against the revision it belongs to', async () => {
@@ -323,7 +323,7 @@ describe('queuing work on a Design', () => {
       value: '20',
     });
 
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toEqual({
       kind: 'design.set-tweak',
       designId: 'dsn-1',
@@ -337,7 +337,7 @@ describe('queuing work on a Design', () => {
   it('queues a retry that names one variant only', async () => {
     await call({ action: 'retry-variant', designId: 'dsn-1', variantId: 'var-1' });
 
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toEqual({
       kind: 'design.retry-variant',
       designId: 'dsn-1',

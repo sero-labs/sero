@@ -39,6 +39,8 @@ interface LibraryPageProps {
   transitionName: string;
 }
 
+const GRID_PAGE_SIZE = 200;
+
 export function LibraryPage({
   library,
   importState,
@@ -52,10 +54,11 @@ export function LibraryPage({
   transitioningItemId,
   transitionName,
 }: LibraryPageProps) {
-  const { state, view, visible, facets, actions } = library;
+  const { state, items, jobs, view, visible, facets, actions } = library;
 
   const [picked, setPicked] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [renderedCount, setRenderedCount] = useState(GRID_PAGE_SIZE);
 
   const inTrash = view.scope.kind === 'trash';
   // A generation has no item until the provider answers and the bytes take the
@@ -63,17 +66,18 @@ export function LibraryPage({
   // the obvious thing to do about that is press Generate again and pay twice.
   // Trash is the one scope they do not belong in: nothing there is arriving.
   const pending = useMemo(
-    () => (inTrash ? [] : pendingGenerations(state.jobs)),
-    [state.jobs, inTrash],
+    () => (inTrash ? [] : pendingGenerations(jobs)),
+    [jobs, inTrash],
   );
   // A Set because both of these are consulted once per card in the grid.
   const pickedIds = useMemo(() => new Set(picked), [picked]);
-  // Mapped over `picked` rather than filtered out of `state.items`: reference
+  // Mapped over `picked` rather than filtered out of `items`: reference
   // order is what makes the first one primary, and the grid's order is not it.
   const pickedItems = useMemo(
-    () => picked.flatMap((id) => state.items.filter((item) => item.id === id)),
-    [state.items, picked],
+    () => picked.flatMap((id) => items.filter((item) => item.id === id)),
+    [items, picked],
   );
+  const renderedItems = visible.slice(0, renderedCount);
 
   const togglePicked = useCallback((itemId: string) => {
     setPicked((current) =>
@@ -101,7 +105,7 @@ export function LibraryPage({
       onPaste={(event) => void importFiles(filesFromClipboard(event.clipboardData), 'paste')}
     >
       <LibraryRail
-        items={state.items}
+        items={items}
         collections={state.collections}
         scope={view.scope}
         onScopeChange={(scope) => {
@@ -188,11 +192,11 @@ export function LibraryPage({
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
                 <ImagePlus className="text-muted-foreground size-8" />
                 <p className="text-muted-foreground text-sm">
-                  {state.items.length === 0
+                  {items.length === 0
                     ? 'Drop images here, paste from the clipboard, or add a file to start the Library.'
                     : 'Nothing matches the current scope and filters.'}
                 </p>
-                {state.items.length === 0 && (
+                {items.length === 0 && (
                   <div className="flex items-center gap-2">
                     <Button type="button" size="sm" onClick={onPickFiles}>
                       Add inspiration
@@ -216,7 +220,7 @@ export function LibraryPage({
                     onDismiss={onDismissJob}
                   />
                 ))}
-                {visible.map((item) => (
+                {renderedItems.map((item) => (
                   <ItemCard
                     key={item.id}
                     item={item}
@@ -227,6 +231,17 @@ export function LibraryPage({
                     onFavourite={(favourite) => void actions.favourite(item.id, favourite)}
                   />
                 ))}
+                {renderedItems.length < visible.length && (
+                  <div className="col-span-full flex justify-center py-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setRenderedCount((count) => count + GRID_PAGE_SIZE)}
+                    >
+                      Show more
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>

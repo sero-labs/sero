@@ -7,7 +7,7 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 
 import type { MediaModelCatalog } from '../../shared/media-model-catalog';
 import { designLibraryPathsFromHome, secretsFile, type DesignLibraryPaths } from '../../shared/paths';
-import { readState } from '../../shared/state-io';
+import { readStateWithIndexes } from '../../shared/state-io';
 import { registerSettingsTool } from './settings';
 
 /**
@@ -84,7 +84,7 @@ describe('the provider key', () => {
     expect(JSON.stringify(stored)).not.toContain(SECRET);
     // The whole state file, not just the requests: a key that reached any part
     // of it would be readable by the UI.
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(JSON.stringify(state)).not.toContain(SECRET);
     expect(state.requests).toEqual([]);
     // It did get saved, though — in the file that is not reactive state.
@@ -132,7 +132,7 @@ describe('media settings', () => {
   it('sets one capability’s model without disturbing the others', async () => {
     await call({ action: 'set-media-model', capability: 'text-to-video', mediaModel: 'fast-video' });
 
-    const [queued] = (await readState(paths)).requests;
+    const [queued] = (await readStateWithIndexes(paths)).requests;
     expect(queued?.body).toMatchObject({
       kind: 'settings.update',
       patch: { media: { models: { 'text-to-video': 'fast-video' } } },
@@ -146,10 +146,10 @@ describe('media settings', () => {
   it('keeps the per-run cap inside its range', async () => {
     expect(textOf(await call({ action: 'set-media-cap', callsPerRun: -1 }))).toContain('must be 0');
     expect(textOf(await call({ action: 'set-media-cap', callsPerRun: 999 }))).toContain('must be 0');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
 
     await call({ action: 'set-media-cap', callsPerRun: 3 });
-    expect((await readState(paths)).requests[0]?.body).toMatchObject({
+    expect((await readStateWithIndexes(paths)).requests[0]?.body).toMatchObject({
       patch: { media: { callsPerRun: 3 } },
     });
   });

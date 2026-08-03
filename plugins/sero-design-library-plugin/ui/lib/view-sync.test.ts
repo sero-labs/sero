@@ -13,11 +13,11 @@ const base: ViewPreferences = DEFAULT_STATE.view;
 
 describe('retiring optimistic view keys', () => {
   it('keeps a key state has not caught up with', () => {
-    expect(outstandingView({ query: 'grid' }, base)).toEqual({ query: 'grid' });
+    expect(outstandingView({ sort: 'oldest' }, base)).toEqual({ sort: 'oldest' });
   });
 
   it('drops a key once state reports the same value', () => {
-    expect(Object.keys(outstandingView({ query: 'grid' }, { ...base, query: 'grid' }))).toEqual([]);
+    expect(Object.keys(outstandingView({ sort: 'oldest' }, { ...base, sort: 'oldest' }))).toEqual([]);
   });
 
   it('drops an object key that state rebuilt with its keys in another order', () => {
@@ -82,7 +82,7 @@ describe('the persisted-view signature', () => {
   });
 
   it('changes when any value changes', () => {
-    expect(viewSignature({ ...base, query: 'grid' })).not.toBe(viewSignature(base));
+    expect(viewSignature({ ...base, sort: 'oldest' })).not.toBe(viewSignature(base));
   });
 });
 

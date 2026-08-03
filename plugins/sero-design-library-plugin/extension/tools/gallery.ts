@@ -6,11 +6,13 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { readIndex } from '../../shared/index-storage';
+import { normalizeGalleryIndex } from '../../shared/indexes';
 import { normalizeGalleryVersion } from '../../shared/gallery';
 import { normalizeDesignRecord } from '../../shared/design-normalize';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { designRecordFile, galleryVersionDir, galleryVersionRecordFile } from '../../shared/paths';
-import { appendRequest, readJsonFile, readState } from '../../shared/state-io';
+import { appendRequest, readJsonFile } from '../../shared/state-io';
 import { readUploadManifest } from '../../shared/uploads';
 import { checkId, failure, image, text, type ToolResult } from './result';
 
@@ -53,8 +55,7 @@ export function registerGalleryTool(pi: ExtensionAPI, paths: DesignLibraryPaths)
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       if (params.action === 'list') {
-        const state = await readState(paths);
-        const families = state.galleryFamilies.filter(
+        const families = (await readIndex(paths.galleryIndexFile, normalizeGalleryIndex)).filter(
           (family) => params.includeDeleted === true || family.deletedAt === undefined,
         );
         return text(
@@ -76,7 +77,7 @@ export function registerGalleryTool(pi: ExtensionAPI, paths: DesignLibraryPaths)
         if ('error' in revision) return revision.error;
         const upload = required(params.previewUploadId, 'preview upload id');
         if ('error' in upload) return upload.error;
-        const state = await readState(paths);
+        const families = await readIndex(paths.galleryIndexFile, normalizeGalleryIndex);
         const record = normalizeDesignRecord(
           await readJsonFile<unknown>(designRecordFile(paths, design.id)),
         );
@@ -88,7 +89,7 @@ export function registerGalleryTool(pi: ExtensionAPI, paths: DesignLibraryPaths)
         if (!preview?.complete || preview.purpose !== 'gallery-preview') {
           return failure('The Gallery preview upload is incomplete.');
         }
-        const familyId = record.galleryFamilyId ?? state.galleryFamilies.find(
+        const familyId = record.galleryFamilyId ?? families.find(
           (family) => family.sourceDesignId === design.id,
         )?.id ?? randomUUID();
         const versionId = randomUUID();

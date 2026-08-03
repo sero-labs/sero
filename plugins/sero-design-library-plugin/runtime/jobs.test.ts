@@ -7,7 +7,7 @@ import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION, itemTarget, libraryTarget, variantTarget } from '../shared/records';
-import { readState } from '../shared/state-io';
+import { readStateWithIndexes } from '../shared/state-io';
 import { mutateVariant, readDesign } from './design-store';
 import {
   createJob,
@@ -68,7 +68,7 @@ describe('restart recovery', () => {
     const resumable = await reconcileJobs(paths);
 
     expect(resumable.map((entry) => entry.id)).toContain(job.id);
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(state.jobs.find((entry) => entry.id === job.id)?.status).toBe('queued');
   });
 
@@ -109,13 +109,13 @@ describe('reindex', () => {
     await seedItem('item-2');
 
     // Simulate an index write that never landed: the records are on disk but
-    // reactive state has lost them.
-    const { updateState } = await import('../shared/state-io');
-    await updateState(paths, (current) => ({ ...current, items: [] }));
-    expect((await readState(paths)).items).toHaveLength(0);
+    // the compact index has lost them.
+    const { writeJsonFile } = await import('../shared/state-io');
+    await writeJsonFile(paths.itemsIndexFile, []);
+    expect((await readStateWithIndexes(paths)).items).toHaveLength(0);
 
     await reindex(paths);
-    expect((await readState(paths)).items.map((item) => item.id).sort()).toEqual(['item-1', 'item-2']);
+    expect((await readStateWithIndexes(paths)).items.map((item) => item.id).sort()).toEqual(['item-1', 'item-2']);
   });
 
   it('projects the effective title, so an override shows in the grid', async () => {
@@ -129,7 +129,7 @@ describe('reindex', () => {
     });
 
     await reindex(paths);
-    const summary = (await readState(paths)).items.find((entry) => entry.id === 'item-1');
+    const summary = (await readStateWithIndexes(paths)).items.find((entry) => entry.id === 'item-1');
     expect(summary?.title).toBe('My own title');
     expect(summary?.edited).toBe(true);
   });
@@ -426,7 +426,7 @@ describe('forgetting a job', () => {
     expect(await listJobs(paths)).toEqual([]);
     // The index is what the UI renders: a summary outliving its record is
     // exactly the tile that cannot be got rid of.
-    expect((await readState(paths)).jobs).toEqual([]);
+    expect((await readStateWithIndexes(paths)).jobs).toEqual([]);
   });
 
   it('refuses to forget a job that is still working', async () => {
@@ -437,7 +437,7 @@ describe('forgetting a job', () => {
 
     // Hiding a running job would hide work that is still going — and, for
     // media, still spending. Cancelling is the way to stop one.
-    expect((await readState(paths)).jobs).toHaveLength(1);
+    expect((await readStateWithIndexes(paths)).jobs).toHaveLength(1);
   });
 
   it('is safe to apply twice, because the request log is at-least-once', async () => {
@@ -446,6 +446,6 @@ describe('forgetting a job', () => {
 
     await dismissJob(paths, job.id);
     await expect(dismissJob(paths, job.id)).resolves.toBe(true);
-    expect((await readState(paths)).jobs).toEqual([]);
+    expect((await readStateWithIndexes(paths)).jobs).toEqual([]);
   });
 });
