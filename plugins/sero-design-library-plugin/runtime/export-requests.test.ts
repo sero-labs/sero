@@ -1,10 +1,10 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 
-import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
+import { designLibraryPathsFromHome, exportFile, type DesignLibraryPaths } from '../shared/paths';
 import { readStateWithIndexes } from '../shared/state-io';
 import { runGalleryExport } from './export';
 import { ExportRequests } from './export-requests';
@@ -66,5 +66,19 @@ describe('export request state', () => {
     expect((await readStateWithIndexes(paths)).exports[0]).toMatchObject({
       status: 'failed', error: 'The requested export path is not inside an open workspace.',
     });
+  });
+
+  it('keeps only the 20 newest export records and index entries', async () => {
+    vi.mocked(runGalleryExport).mockImplementation(async (_paths, request) =>
+      `/workspace/${request.exportId}`);
+    const exporter = new ExportRequests(paths, workspaces);
+    for (let index = 0; index < 21; index += 1) {
+      await exporter.apply({ ...REQUEST, exportId: `exp-${index}` });
+    }
+
+    const exports = (await readStateWithIndexes(paths)).exports;
+    expect(exports).toHaveLength(20);
+    expect(exports.map((entry) => entry.id)).not.toContain('exp-0');
+    await expect(access(exportFile(paths, 'exp-0'))).rejects.toThrow();
   });
 });

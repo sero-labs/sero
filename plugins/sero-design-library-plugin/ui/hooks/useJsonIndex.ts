@@ -19,12 +19,16 @@ export function useJsonIndex<T>(
   useEffect(() => {
     const api = getSeroApi().appState;
     let active = true;
+    let changedWhileWatching = false;
     setEntries([]);
     const unsubscribe = api.onChange<unknown>((changedPath, value) => {
-      if (active && changedPath === filePath) setEntries(normalize(value));
+      if (active && changedPath === filePath) {
+        changedWhileWatching = true;
+        setEntries(normalize(value));
+      }
     });
     void api.watch<unknown>(filePath).then((value) => {
-      if (active) setEntries(normalize(value));
+      if (active && !changedWhileWatching) setEntries(normalize(value));
     });
     return () => {
       active = false;

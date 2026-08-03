@@ -12,6 +12,7 @@ import {
   isSafeId,
 } from '../shared/paths';
 import { bumpControlRevision, replaceIndex, updateIndex } from '../shared/index-storage';
+import { withIndexRepair } from '../shared/index-repair';
 import { normalizeGalleryIndex } from '../shared/indexes';
 import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { mutateDesign } from './design-store';
@@ -34,9 +35,11 @@ export async function readGalleryVersion(
 }
 
 async function publishFamily(paths: DesignLibraryPaths, family: GalleryFamilyRecord): Promise<void> {
-  await writeJsonFile(galleryFamilyRecordFile(paths, family.id), family);
-  await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, family.id, family);
-  await bumpControlRevision(paths);
+  await withIndexRepair(paths, 'gallery', family.id, async () => {
+    await writeJsonFile(galleryFamilyRecordFile(paths, family.id), family);
+    await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, family.id, family);
+    await bumpControlRevision(paths);
+  });
 }
 
 export async function mutateGalleryFamily(
@@ -126,9 +129,11 @@ export async function purgeGalleryFamily(
   const family = await readGalleryFamily(paths, familyId);
   const file = galleryFamilyRecordFile(paths, familyId);
   await withRecordLock(paths, file, async () => {
-    await rm(galleryFamilyDir(paths, familyId), { recursive: true, force: true });
-    await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, familyId, null);
-    await bumpControlRevision(paths);
+    await withIndexRepair(paths, 'gallery', familyId, async () => {
+      await rm(galleryFamilyDir(paths, familyId), { recursive: true, force: true });
+      await updateIndex(paths, paths.galleryIndexFile, normalizeGalleryIndex, familyId, null);
+      await bumpControlRevision(paths);
+    });
   });
   if (family) {
     await mutateDesign(paths, family.sourceDesignId, (design) =>

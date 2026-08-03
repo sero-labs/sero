@@ -68,6 +68,22 @@ describe('useJsonIndex', () => {
     expect(screen.getByTestId('ids').textContent).toBe('changed');
   });
 
+  it('keeps a newer change event when the initial watch finishes later', async () => {
+    let resolveWatch: (value: unknown) => void = () => undefined;
+    bridge.watch.mockReturnValue(new Promise((resolve) => { resolveWatch = resolve; }));
+    render(<AppContext.Provider value={context}><Probe /></AppContext.Provider>);
+
+    act(() => {
+      for (const listener of bridge.listeners) {
+        listener('/profile/apps/design-library/items/index.json', [{ id: 'newer' }]);
+      }
+    });
+    expect(screen.getByTestId('ids').textContent).toBe('newer');
+
+    await act(async () => resolveWatch([{ id: 'stale-initial' }]));
+    expect(screen.getByTestId('ids').textContent).toBe('newer');
+  });
+
   it('unwatches the old file when its path changes and on unmount', async () => {
     const rendered = render(<AppContext.Provider value={context}><Probe /></AppContext.Provider>);
     await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('initial'));

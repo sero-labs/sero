@@ -12,6 +12,7 @@ import type { OutputTarget, VariantStatus, VariationMode } from './design';
 import type { MediaCapability, MediaModelOptions } from './media';
 import { MEDIA_CAPABILITIES, normalizeModelOptions } from './media';
 import type { AnalysisStatus, Collection, MediaKind } from './records';
+import type { ItemIndexEntry, JobIndexEntry } from './indexes';
 import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
 import type { DesignLibrarySettings, MediaSettings } from './settings';
@@ -20,9 +21,9 @@ import { DEFAULT_SETTINGS, MAX_CALLS_PER_RUN } from './settings';
 export const STATE_SCHEMA_VERSION = 2;
 
 /** @deprecated Use ItemIndexEntry for index and card data. */
-export type ItemSummary = import('./indexes').ItemIndexEntry;
+export type ItemSummary = ItemIndexEntry;
 /** @deprecated Use JobIndexEntry for job list data. */
-export type JobSummary = import('./indexes').JobIndexEntry;
+export type JobSummary = JobIndexEntry;
 
 /**
  * One variant, as the sessions rail and the variant tabs need it.

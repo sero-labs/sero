@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
@@ -5,6 +6,7 @@ import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 import type { ExportSummary } from '../shared/export';
 import { normalizeExportSummary } from '../shared/export';
 import { bumpControlRevision, readIndex, updateIndex } from '../shared/index-storage';
+import { withIndexRepair } from '../shared/index-repair';
 import { normalizeExportIndex } from '../shared/indexes';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { exportFile } from '../shared/paths';
@@ -13,6 +15,28 @@ import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io'
 import { runGalleryExport } from './export';
 
 type ExportRequestBody = Extract<LibraryRequestBody, { kind: `export.${string}` }>;
+
+const MAX_EXPORT_HISTORY = 20;
+
+export async function pruneExportHistory(
+  paths: DesignLibraryPaths,
+  maximum = MAX_EXPORT_HISTORY,
+): Promise<number> {
+  const history = (await readIndex(paths.exportsIndexFile, normalizeExportIndex))
+    .toSorted((left, right) => left.createdAt - right.createdAt);
+  const expired = history.slice(0, -maximum);
+  for (const summary of expired) {
+    const file = exportFile(paths, summary.id);
+    await withRecordLock(paths, file, async () => {
+      await withIndexRepair(paths, 'exports', summary.id, async () => {
+        await rm(file, { force: true });
+        await updateIndex(paths, paths.exportsIndexFile, normalizeExportIndex, summary.id, null);
+        await bumpControlRevision(paths);
+      });
+    });
+  }
+  return expired.length;
+}
 
 export function isExportRequest(body: LibraryRequestBody): body is ExportRequestBody {
   return body.kind.startsWith('export.');
@@ -89,9 +113,12 @@ export class ExportRequests {
   private async publish(summary: ExportSummary): Promise<void> {
     const file = exportFile(this.paths, summary.id);
     await withRecordLock(this.paths, file, async () => {
-      await writeJsonFile(file, summary);
-      await updateIndex(this.paths, this.paths.exportsIndexFile, normalizeExportIndex, summary.id, summary);
-      await bumpControlRevision(this.paths);
+      await withIndexRepair(this.paths, 'exports', summary.id, async () => {
+        await writeJsonFile(file, summary);
+        await updateIndex(this.paths, this.paths.exportsIndexFile, normalizeExportIndex, summary.id, summary);
+        await bumpControlRevision(this.paths);
+      });
     });
+    await pruneExportHistory(this.paths);
   }
 }

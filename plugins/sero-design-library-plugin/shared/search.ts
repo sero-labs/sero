@@ -8,19 +8,26 @@ import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, LibraryVie
 import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const searchTextCache = new WeakMap<ItemSummary, string>();
 
-/** Every term must match at least one supported high-level index field. */
-export function matchesQuery(item: ItemSummary, query: string): boolean {
-  const terms = query.toLowerCase().split(/\s+/).filter((term) => term !== '');
-  if (terms.length === 0) return true;
-  const fields = [
+function searchText(item: ItemSummary): string {
+  const cached = searchTextCache.get(item);
+  if (cached !== undefined) return cached;
+  const value = [
     item.title,
     item.fileName ?? '',
     item.primaryStyle,
     ...item.tags,
     ...item.designTypes,
-  ].map((field) => field.toLowerCase());
-  return terms.every((term) => fields.some((field) => field.includes(term)));
+  ].join('\n').toLowerCase();
+  searchTextCache.set(item, value);
+  return value;
+}
+
+/** Every normalized term must match the item's cached high-level fields. */
+function matchesQuery(item: ItemSummary, terms: string[]): boolean {
+  const text = searchText(item);
+  return terms.every((term) => text.includes(term));
 }
 
 export function matchesScope(item: ItemSummary, scope: LibraryScope, now: number): boolean {
@@ -82,11 +89,12 @@ export function selectItems(
   view: LibraryViewPreferences,
   now = Date.now(),
 ): ItemSummary[] {
+  const terms = view.query.toLowerCase().split(/\s+/).filter((term) => term !== '');
   const matched = items.filter(
     (item) =>
       matchesScope(item, view.scope, now) &&
       matchesFilters(item, view.filters) &&
-      matchesQuery(item, view.query),
+      matchesQuery(item, terms),
   );
   return sortItems(matched, view.sort);
 }

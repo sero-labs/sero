@@ -164,6 +164,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Add pure projection functions from each record to its index entry.
 - [x] Update an index only when its projected value changes.
 - [x] Write the record before the index so an observed index never points to a missing record.
+- [x] Journal each item, Design, Gallery, and export projection before its record changes, then replay only interrupted projections at startup.
 - [x] Update the small control-state revision after record and index writes complete.
 - [x] Keep unreadable records on disk and exclude them from rebuilt indexes.
 
@@ -177,6 +178,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Change job writes, retention, dismissal, and recovery to update `jobs/index.json`.
 - [x] Prune orphan revision directories for Designs listed in `designs/index.json` at startup.
 - [x] Persist one record per export and update `exports/index.json`.
+- [x] Keep only the 20 newest export records and index entries.
 - [x] Remove startup work that rebuilds entity arrays inside `state.json`.
 - [x] Retain a deliberate full index-rebuild operation for migration and repair.
 
@@ -203,6 +205,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 ### Phase 6 — High-level search and filters
 
 - [x] Remove `searchText` from the item index type and projection.
+- [x] Cache normalized search text per in-memory item and parse query terms once per selection.
 - [x] Search title, file name, primary style, tags, and Design types directly.
 - [x] Preserve case-insensitive, partial, all-terms matching.
 - [x] Keep scope, structured filters, and sorting behavior unchanged.

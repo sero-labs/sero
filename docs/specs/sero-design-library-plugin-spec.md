@@ -521,7 +521,7 @@ The plugin exposes its tools to the main Sero agent via `sero.plugin.bridgeTools
 
 `state.json` holds bounded control state only: schema and detail revisions, settings, media options, view preferences, collections and the transient request queue. The saved Library query is part of the bounded view preferences, so it returns after restart and the agent can set it.
 
-Each top-level entity has one complete JSON record. Items and Designs use one `record.json` in each entity directory. Gallery families use one `record.json` with their version metadata. Jobs and exports use one JSON file per record. Each entity type also has one compact `index.json` for list rendering, filters and high-level search. Binary assets, generated source, previews and Gallery snapshots stay outside these JSON files and keep their existing paths.
+Each top-level entity has one complete JSON record. Items and Designs use one `record.json` in each entity directory. Gallery families use one `record.json` with their version metadata. Jobs and exports use one JSON file per record. Export history keeps the 20 newest records. Each entity type also has one compact `index.json` for list rendering, filters and high-level search. Binary assets, generated source, previews and Gallery snapshots stay outside these JSON files and keep their existing paths.
 
 Version 2 migrates legacy entity arrays automatically. It builds indexes from authoritative records, creates records for legacy exports, preserves settings, collections and pending requests, and saves the old control document as `state.json.pre-index-backup` before the final switch. Unreadable records stay on disk and are omitted from rebuilt indexes. Normal startup reads the indexes and does not scan every record.
 
@@ -533,7 +533,7 @@ Ownership rules:
 - Designs own their media until promotion; Library promotion creates a new independent asset.
 - Permanent deletion of a source leaves tombstoned provenance behind.
 
-Atomic file replacement is required but is **not** sufficient concurrency control: Pi tool calls run in a separate process from the host runtime, so writes need an in-process queue, a cross-process lock and control-state revision checks. Indexes are pure projections of records and can be rebuilt deliberately for migration or repair.
+Atomic file replacement is required but is **not** sufficient concurrency control: Pi tool calls run in a separate process from the host runtime, so writes need an in-process queue, a cross-process lock and control-state revision checks. Item, Design, Gallery and export writes create a small repair marker before the record changes and clear it only after the index and control-state revision are durable. Startup replays these exact interrupted projections without scanning every record. Indexes are pure projections of records and can also be rebuilt deliberately for migration or repair.
 
 ---
 

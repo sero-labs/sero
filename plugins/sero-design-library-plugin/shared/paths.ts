@@ -27,6 +27,8 @@ export interface DesignLibraryPaths {
    * lock on the way out.
    */
   recordLocksDir: string;
+  /** Small crash journal for record writes that still need index projection. */
+  indexRepairsDir: string;
   itemsDir: string;
   itemsIndexFile: string;
   designsDir: string;
@@ -53,6 +55,7 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     stateFile: path.join(home, 'state.json'),
     lockDir: path.join(home, '.state.lock'),
     recordLocksDir: path.join(home, '.record-locks'),
+    indexRepairsDir: path.join(home, '.index-repairs'),
     itemsDir: path.join(home, 'items'),
     itemsIndexFile: path.join(home, 'items', 'index.json'),
     designsDir: path.join(home, 'designs'),

@@ -47,8 +47,10 @@ vi.mock('../shared/index-storage', async (importOriginal) => {
 });
 
 import { emptyAnalysis } from '../shared/librarian';
+import { listPendingIndexRepairs } from '../shared/index-repair';
 import { readStateWithIndexes } from '../shared/state-io';
-import { readItem, reindex, saveItem } from './store';
+import { repairPendingIndexes } from './index-repair';
+import { readItem, saveItem } from './store';
 
 let home: string;
 let paths: DesignLibraryPaths;
@@ -80,6 +82,10 @@ describe('interrupted record projection writes', () => {
     const state = await readStateWithIndexes(paths);
     expect(state.items).toEqual([]);
     expect(state.revision).toBe(0);
+
+    await repairPendingIndexes(paths);
+    expect((await readStateWithIndexes(paths)).items).toEqual([]);
+    expect(await listPendingIndexRepairs(paths)).toEqual([]);
   });
 
   it('repairs a durable record after the index write is interrupted', async () => {
@@ -89,7 +95,7 @@ describe('interrupted record projection writes', () => {
     expect(await readItem(paths, 'item-1')).not.toBeNull();
     expect((await readStateWithIndexes(paths)).items).toEqual([]);
 
-    await reindex(paths);
+    await repairPendingIndexes(paths);
     const state = await readStateWithIndexes(paths);
     expect(state.items.map((entry) => entry.id)).toEqual(['item-1']);
     expect(state.revision).toBe(1);
@@ -103,7 +109,8 @@ describe('interrupted record projection writes', () => {
     expect(interrupted.items.map((entry) => entry.id)).toEqual(['item-1']);
     expect(interrupted.revision).toBe(0);
 
-    await reindex(paths);
+    await repairPendingIndexes(paths);
     expect((await readStateWithIndexes(paths)).revision).toBe(1);
+    expect(await listPendingIndexRepairs(paths)).toEqual([]);
   });
 });

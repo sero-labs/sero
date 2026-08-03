@@ -5,7 +5,9 @@ import { pendingRequests, readState } from '../shared/state-io';
 import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { pruneIndexedOrphanRevisions } from './design-store';
+import { pruneExportHistory } from './export-requests';
 import { pruneGalleryTemps } from './gallery-store';
+import { repairPendingIndexes } from './index-repair';
 import { migrateLegacyState } from './migration';
 
 /**
@@ -62,6 +64,8 @@ class DesignLibraryRuntime implements AppRuntime {
         null,
       );
     }
+    await this.attempt('repair interrupted index writes', () => repairPendingIndexes(paths));
+    await this.attempt('prune export history', () => pruneExportHistory(paths));
     await this.attempt('remove incomplete Gallery snapshots', () => pruneGalleryTemps(paths));
     await this.attempt('remove orphan Design revisions', () => pruneIndexedOrphanRevisions(paths));
 

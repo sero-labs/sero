@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import type { DesignLibraryPaths } from '../shared/paths';
 import { itemDir, itemRecordFile, jobFile } from '../shared/paths';
+import { withIndexRepair } from '../shared/index-repair';
 import type { ItemRecord, JobRecord } from '../shared/records';
 import { normalizeItemRecord, normalizeJobRecord } from '../shared/records';
 import { bumpControlRevision, readIndex, replaceIndex, updateIndex } from '../shared/index-storage';
@@ -79,10 +80,12 @@ export function originalPathFor(item: ItemRecord): string {
  */
 async function writeItem(paths: DesignLibraryPaths, item: ItemRecord): Promise<ItemRecord> {
   const next: ItemRecord = { ...item, updatedAt: Date.now() };
-  await writeJsonFile(itemRecordFile(paths, next.id), next);
-  const summary = projectItem(next, previewPathFor(next));
-  await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, next.id, summary);
-  await bumpControlRevision(paths);
+  await withIndexRepair(paths, 'items', next.id, async () => {
+    await writeJsonFile(itemRecordFile(paths, next.id), next);
+    const summary = projectItem(next, previewPathFor(next));
+    await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, next.id, summary);
+    await bumpControlRevision(paths);
+  });
   return next;
 }
 
@@ -123,9 +126,11 @@ export async function mutateItem(
  */
 export async function destroyItem(paths: DesignLibraryPaths, itemId: string): Promise<void> {
   await withRecordLock(paths, itemRecordFile(paths, itemId), async () => {
-    await rm(itemDir(paths, itemId), { recursive: true, force: true });
-    await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, itemId, null);
-    await bumpControlRevision(paths);
+    await withIndexRepair(paths, 'items', itemId, async () => {
+      await rm(itemDir(paths, itemId), { recursive: true, force: true });
+      await updateIndex(paths, paths.itemsIndexFile, normalizeItemIndex, itemId, null);
+      await bumpControlRevision(paths);
+    });
   });
 }
 
@@ -218,17 +223,6 @@ export async function dismissJob(paths: DesignLibraryPaths, jobId: string): Prom
     await bumpControlRevision(paths);
     return true;
   });
-}
-
-/** Prune retained job records from the compact index without scanning all records. */
-export async function pruneFinishedJobs(paths: DesignLibraryPaths, now = Date.now()): Promise<number> {
-  const jobs = await readIndex(paths.jobsIndexFile, normalizeJobIndex);
-  const cutoff = now - FINISHED_JOB_RETENTION_MS;
-  const expired = jobs.filter((job) =>
-    job.status !== 'queued' && job.status !== 'running' && (job.completedAt ?? job.createdAt) <= cutoff,
-  );
-  for (const job of expired) await dismissJob(paths, job.id);
-  return expired.length;
 }
 
 /** Read and write under one lock, for the same reason as `mutateItem`. */
