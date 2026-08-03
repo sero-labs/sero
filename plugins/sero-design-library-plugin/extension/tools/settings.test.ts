@@ -165,3 +165,13 @@ describe('saved view preferences', () => {
     });
   });
 });
+
+describe('index repair', () => {
+  it('lets the agent schedule a full repair for the next restart', async () => {
+    const result = await call({ action: 'repair-indexes' });
+
+    expect(textOf(result)).toContain('next Sero restart');
+    expect(await readFile(paths.repairRequestFile, 'utf8')).toContain('requestedAt');
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
+  });
+});

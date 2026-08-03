@@ -181,6 +181,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Keep only the 20 newest export records and index entries.
 - [x] Remove startup work that rebuilds entity arrays inside `state.json`.
 - [x] Retain a deliberate full index-rebuild operation for migration and repair.
+- [x] Let the agent schedule a full authoritative index repair for the next startup.
 
 ### Phase 4 — Extension read and request paths
 

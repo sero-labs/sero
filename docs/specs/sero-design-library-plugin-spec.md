@@ -523,7 +523,7 @@ The plugin exposes its tools to the main Sero agent via `sero.plugin.bridgeTools
 
 Each top-level entity has one complete JSON record. Items and Designs use one `record.json` in each entity directory. Gallery families use one `record.json` with their version metadata. Jobs and exports use one JSON file per record. Export history keeps the 20 newest records. Each entity type also has one compact `index.json` for list rendering, filters and high-level search. Binary assets, generated source, previews and Gallery snapshots stay outside these JSON files and keep their existing paths.
 
-Version 2 migrates legacy entity arrays automatically. It builds indexes from authoritative records, creates records for legacy exports, preserves settings, collections and pending requests, and saves the old control document as `state.json.pre-index-backup` before the final switch. Unreadable records stay on disk and are omitted from rebuilt indexes. Normal startup reads the indexes and does not scan every record.
+Version 2 migrates legacy entity arrays automatically. It builds indexes from authoritative records, creates records for legacy exports, preserves settings, collections and pending requests, and saves the old control document as `state.json.pre-index-backup` before the final switch. Unreadable records stay on disk and are omitted from rebuilt indexes. Normal startup reads the indexes and does not scan every record. The settings tool can schedule a full authoritative repair for the next startup when damage did not produce a repair marker.
 
 Ownership rules:
 

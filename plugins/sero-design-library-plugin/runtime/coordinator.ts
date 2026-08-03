@@ -84,7 +84,7 @@ export class Coordinator {
     });
     this.media = new MediaRequests(context.paths, this.mediaQueue);
     this.gallery = new GalleryRequests(context.paths);
-    this.exports = new ExportRequests(context.paths, context.host.workspace);
+    this.exports = new ExportRequests(context.paths, context.host.workspace, context.onError);
   }
 
   /** Resume interrupted work, then apply anything queued while we were away. */

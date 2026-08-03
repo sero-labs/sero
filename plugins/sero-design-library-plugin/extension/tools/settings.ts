@@ -10,7 +10,7 @@ import { MEDIA_CAPABILITIES, type MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { DesignLibrarySettings, PromptRecipe } from '../../shared/settings';
 import { MAX_CALLS_PER_RUN } from '../../shared/settings';
-import { appendRequest, readState } from '../../shared/state-io';
+import { appendRequest, readState, writeJsonFile } from '../../shared/state-io';
 import type { ViewPatch } from '../../shared/types';
 import { createFalMediaModelCatalog } from '../fal-media-model-catalog';
 import { failure, text, type ToolResult } from './result';
@@ -21,11 +21,11 @@ import { failure, text, type ToolResult } from './result';
  * Model selections are provider + model pairs, and an empty pair means "use
  * Sero's configured model" — the same default the model picker shows.
  *
- * The three key actions are the exception to everything else in this file: they
- * call `shared/credentials` directly instead of appending a request. A request
- * is a line in `state.json`, which the UI reads, so routing a key through it
- * would put the key in reactive state — the one thing §8.3 forbids. What comes
- * back out is `env | stored | missing` and never the key itself.
+ * The key actions call `shared/credentials` directly instead of appending a
+ * request. A request is a line in `state.json`, which the UI reads, so routing a
+ * key through it would put the key in reactive state — the one thing §8.3
+ * forbids. The repair action also writes a separate marker because the runtime
+ * must see it before normal work starts on the next launch.
  */
 
 const ACTIONS = [
@@ -42,6 +42,7 @@ const ACTIONS = [
   'key-status',
   'store-key',
   'clear-key',
+  'repair-indexes',
 ] as const;
 
 const MODEL_ROLES = ['librarian', 'design'] as const;
@@ -78,7 +79,7 @@ export function registerSettingsTool(
   pi.registerTool({
     name: 'design_library_settings',
     label: 'Design Library Settings',
-    description: 'Read and update Design Library settings: model choices, generation defaults and prompt recipes.',
+    description: 'Read and update Design Library settings, or schedule an index repair.',
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which settings operation to perform' }),
       role: Type.Optional(StringEnum(MODEL_ROLES, { description: 'Which model to set' })),
@@ -117,6 +118,11 @@ export function registerSettingsTool(
       switch (params.action) {
         case 'read':
           return renderSettings(settings);
+
+        case 'repair-indexes': {
+          await writeJsonFile(paths.repairRequestFile, { requestedAt: Date.now() });
+          return text('A full index repair is scheduled for the next Sero restart.');
+        }
 
         case 'set-model': {
           if (!params.role) return failure('`set-model` needs role: librarian or design.');

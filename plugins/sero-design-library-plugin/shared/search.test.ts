@@ -76,6 +76,17 @@ describe('query', () => {
     const detailed = { ...item({ id: 'detail' }), notes: 'secret-note', generationPrompt: 'secret-prompt' };
     expect(selectItems([detailed], view({ query: 'secret' }), NOW)).toEqual([]);
   });
+
+  it('refreshes cached search fields when a summary changes in place', () => {
+    const mutable = item({ id: 'mutable', title: 'Before', tags: ['old-tag'] });
+    expect(selectItems([mutable], view({ query: 'before old-tag' }), NOW)).toEqual([mutable]);
+
+    mutable.title = 'After';
+    mutable.tags[0] = 'new-tag';
+
+    expect(selectItems([mutable], view({ query: 'after new-tag' }), NOW)).toEqual([mutable]);
+    expect(selectItems([mutable], view({ query: 'before' }), NOW)).toEqual([]);
+  });
 });
 
 describe('filters', () => {

@@ -11,7 +11,8 @@ import {
   galleryFamilyRecordFile,
   type DesignLibraryPaths,
 } from '../shared/paths';
-import { readStateWithIndexes, writeJsonFile } from '../shared/state-io';
+import { readJsonFile, readStateWithIndexes, writeJsonFile } from '../shared/state-io';
+import { runRequestedFullRepair } from './full-repair';
 import { repairPendingIndexes } from './index-repair';
 import { seedDesign, seedItem } from './test-fixtures';
 
@@ -78,5 +79,24 @@ describe('targeted index repair', () => {
     expect(state.gallery.map((entry) => entry.id)).toEqual(['fam-1']);
     expect(state.exports.map((entry) => entry.id)).toEqual(['exp-1']);
     await expect(repairPendingIndexes(paths)).resolves.toBe(0);
+  });
+
+  it('runs a requested full repair and clears the request after success', async () => {
+    await seedItem(paths, 'itm-full', { status: 'ready' });
+    await writeJsonFile(exportFile(paths, 'exp-full'), {
+      id: 'exp-full', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'succeeded', createdAt: 1, completedAt: 2, path: '/tmp/export',
+    });
+    await Promise.all([
+      writeJsonFile(paths.itemsIndexFile, []),
+      writeJsonFile(paths.exportsIndexFile, []),
+    ]);
+    await writeJsonFile(paths.repairRequestFile, { requestedAt: 1 });
+
+    await expect(runRequestedFullRepair(paths)).resolves.toEqual([]);
+    const state = await readStateWithIndexes(paths);
+    expect(state.items.map((entry) => entry.id)).toEqual(['itm-full']);
+    expect(state.exports.map((entry) => entry.id)).toEqual(['exp-full']);
+    expect(await readJsonFile(paths.repairRequestFile)).toBeNull();
   });
 });

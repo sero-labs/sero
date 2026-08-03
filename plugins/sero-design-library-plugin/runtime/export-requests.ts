@@ -1,11 +1,11 @@
-import { rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 
 import type { ExportSummary } from '../shared/export';
 import { normalizeExportSummary } from '../shared/export';
-import { bumpControlRevision, readIndex, updateIndex } from '../shared/index-storage';
+import { bumpControlRevision, readIndex, replaceIndex, updateIndex } from '../shared/index-storage';
 import { withIndexRepair } from '../shared/index-repair';
 import { normalizeExportIndex } from '../shared/indexes';
 import type { DesignLibraryPaths } from '../shared/paths';
@@ -18,24 +18,45 @@ type ExportRequestBody = Extract<LibraryRequestBody, { kind: `export.${string}` 
 
 const MAX_EXPORT_HISTORY = 20;
 
+export async function reindexExports(
+  paths: DesignLibraryPaths,
+  notify = true,
+): Promise<string[]> {
+  const names = (await readdir(paths.exportsDir).catch(() => []))
+    .filter((name) => name.endsWith('.json') && name !== 'index.json');
+  const records = await Promise.all(names.map((name) =>
+    readJsonFile<unknown>(path.join(paths.exportsDir, name)).then(normalizeExportSummary)));
+  const exports = records.filter((record): record is ExportSummary => record !== null);
+  await replaceIndex(paths, paths.exportsIndexFile, normalizeExportIndex, exports);
+  if (notify) await bumpControlRevision(paths);
+  return names.filter((_, index) => records[index] === null);
+}
+
 export async function pruneExportHistory(
   paths: DesignLibraryPaths,
   maximum = MAX_EXPORT_HISTORY,
 ): Promise<number> {
   const history = (await readIndex(paths.exportsIndexFile, normalizeExportIndex))
+    .filter((summary) => summary.status !== 'running')
     .toSorted((left, right) => left.createdAt - right.createdAt);
-  const expired = history.slice(0, -maximum);
+  const keep = Math.max(0, Math.floor(maximum));
+  const expired = history.slice(0, Math.max(0, history.length - keep));
+  let removed = 0;
   for (const summary of expired) {
     const file = exportFile(paths, summary.id);
-    await withRecordLock(paths, file, async () => {
+    const deleted = await withRecordLock(paths, file, async () => {
+      const current = normalizeExportSummary(await readJsonFile<unknown>(file));
+      if (current?.status === 'running') return false;
       await withIndexRepair(paths, 'exports', summary.id, async () => {
         await rm(file, { force: true });
         await updateIndex(paths, paths.exportsIndexFile, normalizeExportIndex, summary.id, null);
         await bumpControlRevision(paths);
       });
+      return true;
     });
+    if (deleted) removed += 1;
   }
-  return expired.length;
+  return removed;
 }
 
 export function isExportRequest(body: LibraryRequestBody): body is ExportRequestBody {
@@ -46,6 +67,8 @@ export class ExportRequests {
   constructor(
     private readonly paths: DesignLibraryPaths,
     private readonly workspaces: AppRuntimeWorkspaceApi,
+    private readonly onError: (message: string, error: unknown) => void = () => undefined,
+    private readonly pruneHistory: typeof pruneExportHistory = pruneExportHistory,
   ) {}
 
   async apply(body: ExportRequestBody): Promise<void> {
@@ -59,11 +82,12 @@ export class ExportRequests {
       status: 'running',
       createdAt,
     });
+    let terminal: ExportSummary;
     try {
       const outputPath = await runGalleryExport(this.paths, body, {
         workspacePath: await this.workspacePath(body),
       });
-      await this.publish({
+      terminal = {
         id: body.exportId,
         familyId: body.familyId,
         versionId: body.versionId,
@@ -72,9 +96,9 @@ export class ExportRequests {
         createdAt,
         completedAt: Date.now(),
         path: outputPath,
-      });
+      };
     } catch (error) {
-      await this.publish({
+      terminal = {
         id: body.exportId,
         familyId: body.familyId,
         versionId: body.versionId,
@@ -83,8 +107,10 @@ export class ExportRequests {
         createdAt,
         completedAt: Date.now(),
         error: error instanceof Error ? error.message : String(error),
-      });
+      };
     }
+    await this.publish(terminal);
+    await this.pruneAfterTerminalPublish();
   }
 
   private async workspacePath(body: ExportRequestBody): Promise<string> {
@@ -119,6 +145,13 @@ export class ExportRequests {
         await bumpControlRevision(this.paths);
       });
     });
-    await pruneExportHistory(this.paths);
+  }
+
+  private async pruneAfterTerminalPublish(): Promise<void> {
+    try {
+      await this.pruneHistory(this.paths);
+    } catch (error) {
+      this.onError('Could not prune Design Library export history', error);
+    }
   }
 }

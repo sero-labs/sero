@@ -6,6 +6,7 @@ import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
 import { pruneIndexedOrphanRevisions } from './design-store';
 import { pruneExportHistory } from './export-requests';
+import { runRequestedFullRepair } from './full-repair';
 import { pruneGalleryTemps } from './gallery-store';
 import { repairPendingIndexes } from './index-repair';
 import { migrateLegacyState } from './migration';
@@ -61,6 +62,15 @@ class DesignLibraryRuntime implements AppRuntime {
       this.report(
         `Skipped ${migration.unreadable.length} record(s) this version cannot read (${migration.unreadable.join(', ')}). ` +
           'Their files are untouched under items/ and designs/.',
+        null,
+      );
+    }
+    const repair = await this.attempt('run requested full index repair', () =>
+      runRequestedFullRepair(paths));
+    if (repair !== undefined && repair !== null && repair.length > 0) {
+      this.report(
+        `Skipped ${repair.length} record(s) this version cannot read (${repair.join(', ')}). ` +
+          'Their files are untouched.',
         null,
       );
     }

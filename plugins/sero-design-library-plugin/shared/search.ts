@@ -8,11 +8,35 @@ import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, LibraryVie
 import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-const searchTextCache = new WeakMap<ItemSummary, string>();
+interface SearchTextCacheEntry {
+  title: string;
+  fileName?: string;
+  primaryStyle: string;
+  tags: string[];
+  designTypes: string[];
+  text: string;
+}
+
+const searchTextCache = new WeakMap<ItemSummary, SearchTextCacheEntry>();
+
+function sameStrings(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
 
 function searchText(item: ItemSummary): string {
   const cached = searchTextCache.get(item);
-  if (cached !== undefined) return cached;
+  if (
+    cached !== undefined &&
+    cached.title === item.title &&
+    cached.fileName === item.fileName &&
+    cached.primaryStyle === item.primaryStyle &&
+    sameStrings(cached.tags, item.tags) &&
+    sameStrings(cached.designTypes, item.designTypes)
+  ) return cached.text;
   const value = [
     item.title,
     item.fileName ?? '',
@@ -20,7 +44,14 @@ function searchText(item: ItemSummary): string {
     ...item.tags,
     ...item.designTypes,
   ].join('\n').toLowerCase();
-  searchTextCache.set(item, value);
+  searchTextCache.set(item, {
+    title: item.title,
+    ...(item.fileName === undefined ? {} : { fileName: item.fileName }),
+    primaryStyle: item.primaryStyle,
+    tags: [...item.tags],
+    designTypes: [...item.designTypes],
+    text: value,
+  });
   return value;
 }
 
