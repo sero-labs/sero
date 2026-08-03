@@ -13,7 +13,7 @@ interface PlanPresentationProps {
 }
 
 export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
-  const [mode, setMode] = useState<PlanPresentationMode>('map');
+  const [mode, setMode] = useState<PlanPresentationMode>(loop.status === 'draft' ? 'map' : 'details');
   const [orientation, setOrientation] = useState<PlanMapOrientationSetting>('auto');
 
   return (

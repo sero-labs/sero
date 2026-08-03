@@ -83,24 +83,25 @@ export function computePlanMapLayout(
   const edges: PlanMapEdge[] = [];
 
   for (const target of nodes) {
-    for (const dependencyId of target.step.dependsOn ?? []) {
+    const targetStep = target.step;
+    for (const dependencyId of targetStep.dependsOn ?? []) {
       const source = byId.get(dependencyId);
       if (!source) continue;
       edges.push({
-        id: `${dependencyId}->${target.step.id}`,
+        id: `${dependencyId}->${targetStep.id}`,
         fromStepId: dependencyId,
-        toStepId: target.step.id,
+        toStepId: targetStep.id,
         path: forwardPath(source, target, orientation),
         feedback: false,
       });
     }
 
-    const feedback = target.step.feedback;
+    const feedback = targetStep.feedback;
     const feedbackTarget = feedback ? byId.get(feedback.toStepId) : undefined;
     if (feedback && feedbackTarget) {
       edges.push({
         id: feedback.id,
-        fromStepId: target.step.id,
+        fromStepId: targetStep.id,
         toStepId: feedbackTarget.step.id,
         path: feedbackPath(target, feedbackTarget, orientation, width, height),
         feedback: true,

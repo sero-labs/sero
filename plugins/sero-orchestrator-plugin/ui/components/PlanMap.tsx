@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { Badge, Button, Card } from '@sero-ai/ui';
 import {
   Bot,
@@ -52,25 +52,27 @@ const EDGE_STATUS_CLASS: Record<StepStatus, string> = {
   'needs-revision': 'text-amber-500/70',
 };
 
-const MIN_ZOOM = 0.7;
-const MAX_ZOOM = 1.9;
+const MIN_ZOOM_MULTIPLIER = 0.7;
+const MAX_SCALE = 1.9;
 const ZOOM_STEP = 0.15;
+
+function observeContainerWidth(container: HTMLDivElement, onWidthChange: (width: number) => void) {
+  const updateWidth = () => onWidthChange(container.clientWidth);
+  updateWidth();
+  const observer = new ResizeObserver(updateWidth);
+  observer.observe(container);
+  return () => observer.disconnect();
+}
 
 export function PlanMap({ loop, orientation }: PlanMapProps) {
   const markerPrefix = useId().replaceAll(':', '');
-  const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [selectedId, setSelectedId] = useState<string>();
 
-  useEffect(() => {
-    const container = containerRef.current;
+  const setContainerRef = useCallback((container: HTMLDivElement | null) => {
     if (!container) return;
-    const updateWidth = () => setContainerWidth(container.clientWidth);
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(container);
-    return () => observer.disconnect();
+    return observeContainerWidth(container, setContainerWidth);
   }, []);
 
   const resolvedOrientation: PlanMapOrientation =
@@ -82,7 +84,7 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
     [loop.plan.steps, resolvedOrientation],
   );
   const fit = containerWidth > 0 ? Math.min(1, Math.max(0.25, (containerWidth - 2) / layout.width)) : 1;
-  const scale = fit * zoom;
+  const scale = Math.min(MAX_SCALE, Math.max(fit * MIN_ZOOM_MULTIPLIER, fit * zoom));
   const selected = loop.plan.steps.find((step) => step.id === selectedId);
 
   if (loop.plan.steps.length === 0) {
@@ -106,8 +108,8 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
             size="icon-xs"
             aria-label="Zoom out"
             title="Zoom out"
-            disabled={zoom <= MIN_ZOOM}
-            onClick={() => setZoom((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP))}
+            disabled={zoom <= MIN_ZOOM_MULTIPLIER}
+            onClick={() => setZoom((value) => Math.max(MIN_ZOOM_MULTIPLIER, value - ZOOM_STEP / fit))}
           >
             <ZoomOut />
           </Button>
@@ -119,8 +121,8 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
             size="icon-xs"
             aria-label="Zoom in"
             title="Zoom in"
-            disabled={zoom >= MAX_ZOOM}
-            onClick={() => setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP))}
+            disabled={scale >= MAX_SCALE}
+            onClick={() => setZoom((value) => Math.min(MAX_SCALE / fit, value + ZOOM_STEP / fit))}
           >
             <ZoomIn />
           </Button>
@@ -137,7 +139,7 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
         </div>
       </div>
 
-      <div ref={containerRef} className="max-h-[560px] min-h-52 overflow-auto">
+      <div ref={setContainerRef} className="max-h-[560px] min-h-52 overflow-auto [scrollbar-gutter:stable]">
         <div style={{ width: layout.width * scale, height: layout.height * scale }}>
           <div
             className="relative origin-top-left"

@@ -120,7 +120,11 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       )}
 
       <CollapsibleSection title="Plan" hint={`${loop.plan.steps.length} step(s)`} defaultOpen>
-        <MemoizedPlanPresentation loop={loop} onAction={onAction} />
+        <MemoizedPlanPresentation
+          key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
+          loop={loop}
+          onAction={onAction}
+        />
         {REFINABLE.has(loop.status) && (
           <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}
