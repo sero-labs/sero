@@ -27,12 +27,24 @@ export interface DesignLibraryPaths {
    * lock on the way out.
    */
   recordLocksDir: string;
+  /** Small crash journal for record writes that still need index projection. */
+  indexRepairsDir: string;
+  /** Durable request for a deliberate full index repair on next startup. */
+  repairRequestFile: string;
+  /** A full repair request that reached its automatic retry limit. */
+  repairFailedFile: string;
   itemsDir: string;
+  itemsIndexFile: string;
   designsDir: string;
+  designsIndexFile: string;
   jobsDir: string;
+  jobsIndexFile: string;
+  exportsDir: string;
+  exportsIndexFile: string;
   uploadsDir: string;
   tombstonesDir: string;
   galleryDir: string;
+  galleryIndexFile: string;
   /**
    * The user-supplied provider key, written `0600` (spec §8.3). Deliberately a
    * file rather than reactive state: state is read by the UI, and the key must
@@ -47,12 +59,21 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     stateFile: path.join(home, 'state.json'),
     lockDir: path.join(home, '.state.lock'),
     recordLocksDir: path.join(home, '.record-locks'),
+    indexRepairsDir: path.join(home, '.index-repairs'),
+    repairRequestFile: path.join(home, '.repair-indexes.json'),
+    repairFailedFile: path.join(home, '.repair-indexes.failed.json'),
     itemsDir: path.join(home, 'items'),
+    itemsIndexFile: path.join(home, 'items', 'index.json'),
     designsDir: path.join(home, 'designs'),
+    designsIndexFile: path.join(home, 'designs', 'index.json'),
     jobsDir: path.join(home, 'jobs'),
+    jobsIndexFile: path.join(home, 'jobs', 'index.json'),
+    exportsDir: path.join(home, 'exports'),
+    exportsIndexFile: path.join(home, 'exports', 'index.json'),
     uploadsDir: path.join(home, 'uploads'),
     tombstonesDir: path.join(home, 'tombstones'),
     galleryDir: path.join(home, 'gallery'),
+    galleryIndexFile: path.join(home, 'gallery', 'index.json'),
     secretsFile: path.join(home, 'secrets.json'),
   };
 }
@@ -178,6 +199,10 @@ export function galleryVersionRecordFile(
 
 export function jobFile(paths: DesignLibraryPaths, jobId: string): string {
   return path.join(paths.jobsDir, `${assertSafeId(jobId, 'job id')}.json`);
+}
+
+export function exportFile(paths: DesignLibraryPaths, exportId: string): string {
+  return path.join(paths.exportsDir, `${assertSafeId(exportId, 'export id')}.json`);
 }
 
 export function uploadDir(paths: DesignLibraryPaths, uploadId: string): string {

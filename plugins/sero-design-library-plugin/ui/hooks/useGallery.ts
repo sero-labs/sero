@@ -1,11 +1,11 @@
-import { useAppInfo, useAppState, useAppTools } from '@sero-ai/app-runtime';
+import { useAppInfo, useAppTools } from '@sero-ai/app-runtime';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { GalleryFamilyRecord, GalleryVersionRecord } from '../../shared/gallery';
+import { normalizeExportIndex, normalizeGalleryIndex } from '../../shared/indexes';
 import type { ExportDestination, ExportSummary } from '../../shared/export';
-import type { DesignLibraryState } from '../../shared/types';
-import { DEFAULT_STATE } from '../../shared/types';
 import { captureGalleryPreview } from '../lib/gallery-capture';
+import { useJsonIndex } from './useJsonIndex';
 
 export interface GalleryActions {
   save(target: HTMLElement, designId: string, variantId: string, revisionId: string): Promise<boolean>;
@@ -32,7 +32,8 @@ export function useGallery(): {
   latestExportWorkspaceId?: string;
   actions: GalleryActions;
 } {
-  const [state] = useAppState<DesignLibraryState>(DEFAULT_STATE);
+  const galleryIndex = useJsonIndex('gallery/index.json', normalizeGalleryIndex);
+  const exportIndex = useJsonIndex('exports/index.json', normalizeExportIndex);
   const tools = useAppTools();
   const { workspaceId, workspacePath } = useAppInfo();
   const [saving, setSaving] = useState(false);
@@ -128,22 +129,22 @@ export function useGallery(): {
   }), [run, runExport, saving, tools, workspaceId, workspacePath]);
 
   const families = useMemo(
-    () => state.galleryFamilies
+    () => galleryIndex
       .filter((family) =>
         family.deletedAt === undefined &&
         family.versions.some((version) => version.deletedAt === undefined),
       )
       .toSorted((a, b) => b.updatedAt - a.updatedAt),
-    [state.galleryFamilies],
+    [galleryIndex],
   );
   const trash = useMemo(
-    () => state.galleryFamilies.filter((family) =>
+    () => galleryIndex.filter((family) =>
       family.deletedAt !== undefined ||
       family.versions.some((version) => version.deletedAt !== undefined),
     ),
-    [state.galleryFamilies],
+    [galleryIndex],
   );
-  const latestExport = state.exports.find((entry) => entry.id === visibleExport?.id);
+  const latestExport = exportIndex.find((entry) => entry.id === visibleExport?.id);
   return {
     families,
     trash,

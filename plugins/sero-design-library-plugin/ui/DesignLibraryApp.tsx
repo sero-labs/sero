@@ -64,7 +64,7 @@ export function DesignLibraryApp() {
 
   const backToLibrary = () => navigateWithTransition(() => library.actions.select(undefined));
 
-  const liveCount = library.state.items.filter((item) => item.deletedAt === undefined).length;
+  const liveCount = library.items.filter((item) => item.deletedAt === undefined).length;
   const galleryFamilyCount = gallery.families.length;
 
   // Videos generated while Sero was closed have no stills yet, and the runtime
@@ -72,12 +72,12 @@ export function DesignLibraryApp() {
   // going while the user is inside a Design (D4).
   const awaitingFrames = useMemo(
     () =>
-      library.state.items.flatMap((item) =>
+      library.items.flatMap((item) =>
         item.awaitingFrames === true && item.deletedAt === undefined
           ? [{ kind: 'item' as const, itemId: item.id }]
           : [],
       ),
-    [library.state.items],
+    [library.items],
   );
   useVideoFrames(awaitingFrames);
 
@@ -85,10 +85,10 @@ export function DesignLibraryApp() {
   // does not need the Librarian to have read it first.
   const librarySources = useMemo<GenerateSource[]>(
     () =>
-      library.state.items.flatMap((item) =>
+      library.items.flatMap((item) =>
         item.deletedAt === undefined ? [{ id: item.id, label: item.title, kind: item.kind }] : [],
       ),
-    [library.state.items],
+    [library.items],
   );
 
   return (
@@ -179,7 +179,7 @@ export function DesignLibraryApp() {
             void gallery.actions.read(familyId, versionId).then((version) => {
               if (!version) return;
               const references = version.references.flatMap((reference) => {
-                const item = library.state.items.find(
+                const item = library.items.find(
                   (candidate) => candidate.id === reference.itemId && candidate.deletedAt === undefined,
                 );
                 return item ? [item] : [];
@@ -196,7 +196,7 @@ export function DesignLibraryApp() {
         <DesignPage
           design={designs.open}
           designs={designs.list}
-          items={library.state.items}
+          items={library.items}
           settings={library.state.settings}
           mediaOptions={library.state.mediaOptions}
           activeVariantId={designs.state.view.activeVariantId}

@@ -38,3 +38,9 @@ Active workspace: `orchestrator-demo-1`
 | External plugin uninstalls and the built-in source registration restores cleanly | Pass |
 
 The external-install pass first caught a stale package built before the active-workspace fix. The package was rebuilt and the full install and export pass then succeeded. This proves the release package, not only the source checkout.
+
+## Current storage model
+
+The first-release entity summaries moved out of `state.json` in schema version 2. Items, Designs, Gallery families, jobs and exports now have compact `index.json` files beside their complete per-entity records. `state.json` contains only bounded settings, preferences, collections, revision data and the transient request queue.
+
+An existing profile migrates automatically. Sero builds indexes from authoritative records, creates records for legacy exports, and keeps `state.json.pre-index-backup` before it writes version 2 control state. Media, generated files and Gallery snapshot paths do not move.

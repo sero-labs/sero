@@ -4,9 +4,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { designLibraryPathsFromHome, revisionDir, type DesignLibraryPaths } from '../shared/paths';
-import { readState } from '../shared/state-io';
+import { readStateWithIndexes } from '../shared/state-io';
 import {
   mutateVariant,
+  pruneIndexedOrphanRevisions,
   pruneOrphanRevisions,
   readDesign,
 } from './design-store';
@@ -154,7 +155,7 @@ describe('creating a Design', () => {
       resolutions: [],
     });
 
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(state.designs).toHaveLength(1);
     expect(state.designs[0]?.title).toBe('A dense operational dashboard');
     expect(state.designs[0]?.referenceItemIds).toEqual(['itm-a']);
@@ -364,5 +365,17 @@ describe('variant lifecycle', () => {
 
     await expect(access(revisionDir(paths, designId, variantId, 'rev-kept'))).resolves.toBeUndefined();
     await expect(access(revisionDir(paths, designId, variantId, 'rev-orphan'))).rejects.toThrow();
+  });
+
+  it('removes orphan revisions for Designs named by the index', async () => {
+    const designId = await seedDesign();
+    const design = await readDesign(paths, designId);
+    const variantId = design!.variants[0]!.id;
+    const orphan = revisionDir(paths, designId, variantId, 'rev-index-orphan');
+    await mkdir(orphan, { recursive: true });
+    await writeFile(path.join(orphan, 'index.html'), '<p>orphan</p>', 'utf8');
+
+    expect(await pruneIndexedOrphanRevisions(paths)).toBe(1);
+    await expect(access(orphan)).rejects.toThrow();
   });
 });

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 
 import { tombstoneFile } from '../shared/paths';
-import { appendRequest, readState, updateState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes, updateState } from '../shared/state-io';
 import type { AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import { ANALYSIS_REPLY, useCoordinator, viewReference } from './coordinator-harness';
@@ -29,7 +29,7 @@ describe('applying requests', () => {
     await harness.importAndAnalyse('u1', 'a.png', 'first');
     await harness.importAndAnalyse('u2', 'b.png', 'second');
 
-    expect((await readState(harness.paths)).view.selectedItemId).toBeUndefined();
+    expect((await readStateWithIndexes(harness.paths)).view.selectedItemId).toBeUndefined();
   });
 
   it('opens the existing item when a duplicate is imported', async () => {
@@ -39,7 +39,7 @@ describe('applying requests', () => {
     await appendRequest(harness.paths, { kind: 'ingest', uploadId: 'u2' });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.items).toHaveLength(1);
     expect(state.view.selectedItemId).toBe(first);
   });
@@ -61,14 +61,14 @@ describe('applying requests', () => {
       expect((await readItem(harness.paths, itemId))?.analysis.attempts).toBe(2);
     });
 
-    const summary = (await readState(harness.paths)).items.find((entry) => entry.id === itemId);
+    const summary = (await readStateWithIndexes(harness.paths)).items.find((entry) => entry.id === itemId);
     expect(summary?.primaryStyle).toBe('My own style');
     expect(summary?.edited).toBe(true);
 
     await appendRequest(harness.paths, { kind: 'item.reset-field', itemId, field: 'primaryStyle' });
     await harness.coordinator.drain();
 
-    const afterReset = (await readState(harness.paths)).items.find((entry) => entry.id === itemId);
+    const afterReset = (await readStateWithIndexes(harness.paths)).items.find((entry) => entry.id === itemId);
     expect(afterReset?.primaryStyle).toBe('Technical monochrome');
     expect(afterReset?.edited).toBe(false);
   });
@@ -78,7 +78,7 @@ describe('applying requests', () => {
     await appendRequest(harness.paths, { kind: 'item.favourite', itemId, favourite: true });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.requests).toEqual([]);
     expect(state.consumedRequestId).toBeGreaterThan(0);
     expect(state.items[0].favourite).toBe(true);
@@ -115,7 +115,7 @@ describe('deletion', () => {
     await harness.coordinator.drain();
 
     expect(await readItem(harness.paths, itemId)).toBeNull();
-    expect((await readState(harness.paths)).items).toEqual([]);
+    expect((await readStateWithIndexes(harness.paths)).items).toEqual([]);
 
     const tombstone = JSON.parse(await readFile(tombstoneFile(harness.paths, itemId), 'utf8')) as {
       itemId: string;
@@ -133,12 +133,12 @@ describe('collections', () => {
     await appendRequest(harness.paths, { kind: 'collection.create', collectionId: 'c1', name: 'Dashboards', colour: 'primary' });
     await appendRequest(harness.paths, { kind: 'item.collect', itemId, collectionId: 'c1', member: true });
     await harness.coordinator.drain();
-    expect((await readState(harness.paths)).items[0].collectionIds).toEqual(['c1']);
+    expect((await readStateWithIndexes(harness.paths)).items[0].collectionIds).toEqual(['c1']);
 
     await appendRequest(harness.paths, { kind: 'collection.delete', collectionId: 'c1' });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.collections).toEqual([]);
     expect(state.items).toHaveLength(1);
     expect(state.items[0].collectionIds).toEqual([]);
@@ -235,7 +235,7 @@ describe('request consumption', () => {
     await appendRequest(harness.paths, { kind: 'collection.create', collectionId: 'c2', name: 'Two', colour: 'primary' });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.requests).toEqual([]);
     expect(state.consumedRequestId).toBe(state.nextRequestId - 1);
   });
@@ -246,7 +246,7 @@ describe('request consumption', () => {
     // Simulate the crash window: apply, then put the request back unconsumed.
     await appendRequest(harness.paths, { kind: 'item.favourite', itemId, favourite: true });
     await harness.coordinator.drain();
-    const applied = await readState(harness.paths);
+    const applied = await readStateWithIndexes(harness.paths);
     expect(applied.items[0].favourite).toBe(true);
 
     await updateState(harness.paths, (current) => ({
@@ -258,7 +258,7 @@ describe('request consumption', () => {
     }));
     await harness.coordinator.drain();
 
-    const replayed = await readState(harness.paths);
+    const replayed = await readStateWithIndexes(harness.paths);
     expect(replayed.items[0].favourite).toBe(true);
     expect(replayed.requests).toEqual([]);
   });
@@ -272,7 +272,38 @@ describe('request consumption', () => {
     await harness.coordinator.drain();
 
     expect(harness.runStructured).toHaveBeenCalledTimes(1);
-    expect((await readState(harness.paths)).items).toHaveLength(1);
+    expect((await readStateWithIndexes(harness.paths)).items).toHaveLength(1);
+  });
+
+  it('retains an export request until its terminal state is durable', async () => {
+    const failures: string[] = [];
+    const apply = vi.fn()
+      .mockRejectedValueOnce(new Error('export record lock timed out'))
+      .mockResolvedValueOnce(undefined);
+    const retrying = harness.withExportRequests({ apply }, failures);
+    await appendRequest(harness.paths, {
+      kind: 'export.run',
+      exportId: 'exp-retry',
+      familyId: 'fam-1',
+      versionId: 'ver-1',
+      destination: 'downloads',
+    });
+
+    try {
+      await retrying.drain();
+      const retained = await readStateWithIndexes(harness.paths);
+      expect(retained.requests.map((request) => request.body.kind)).toEqual(['export.run']);
+      expect(retained.consumedRequestId).toBe(0);
+
+      await retrying.drain();
+      const recovered = await readStateWithIndexes(harness.paths);
+      expect(recovered.requests).toEqual([]);
+      expect(recovered.consumedRequestId).toBe(1);
+      expect(apply).toHaveBeenCalledTimes(2);
+      expect(failures).toEqual(['Request 1 (export.run) failed']);
+    } finally {
+      await retrying.dispose();
+    }
   });
 });
 
@@ -292,7 +323,7 @@ describe('field validation', () => {
     const item = await readItem(harness.paths, itemId);
     expect(item?.profile.overrides.tags).toBeUndefined();
     // The bad request is consumed rather than stalling the queue.
-    expect((await readState(harness.paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(harness.paths)).requests).toEqual([]);
   });
 });
 
@@ -304,7 +335,7 @@ describe('failure handling', () => {
     await appendRequest(harness.paths, { kind: 'ingest', uploadId: 'u1' });
     await harness.coordinator.drain();
 
-    const itemId = (await readState(harness.paths)).items[0].id;
+    const itemId = (await readStateWithIndexes(harness.paths)).items[0].id;
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('failed');
     });
@@ -314,7 +345,7 @@ describe('failure handling', () => {
     // Waited for rather than read once: the record is written before the index,
     // so a read taken the moment the record lands can precede the projection.
     await vi.waitFor(async () => {
-      const summary = (await readState(harness.paths)).items.find((entry) => entry.id === itemId);
+      const summary = (await readStateWithIndexes(harness.paths)).items.find((entry) => entry.id === itemId);
       expect(summary?.analysisError).toBe('provider exploded');
     });
   });
@@ -347,7 +378,7 @@ describe('failure handling', () => {
     });
     await harness.coordinator.drain();
 
-    const state = await readState(harness.paths);
+    const state = await readStateWithIndexes(harness.paths);
     expect(state.collections.map((entry) => entry.name)).toEqual(['Still applied']);
     expect(state.requests).toEqual([]);
   });

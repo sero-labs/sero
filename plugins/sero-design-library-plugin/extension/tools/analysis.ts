@@ -2,8 +2,10 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { readIndex } from '../../shared/index-storage';
+import { normalizeItemIndex, normalizeJobIndex } from '../../shared/indexes';
 import type { DesignLibraryPaths } from '../../shared/paths';
-import { appendRequest, readState } from '../../shared/state-io';
+import { appendRequest } from '../../shared/state-io';
 import { checkId, failure, text, type ToolResult } from './result';
 
 /**
@@ -28,8 +30,11 @@ export function registerAnalysisTool(pi: ExtensionAPI, paths: DesignLibraryPaths
     }),
     async execute(_toolCallId, params): Promise<ToolResult> {
       if (params.action === 'status') {
-        const state = await readState(paths);
-        const live = state.items.filter((item) => item.deletedAt === undefined);
+        const [items, jobs] = await Promise.all([
+          readIndex(paths.itemsIndexFile, normalizeItemIndex),
+          readIndex(paths.jobsIndexFile, normalizeJobIndex),
+        ]);
+        const live = items.filter((item) => item.deletedAt === undefined);
         const counts = live.reduce<Record<string, number>>((totals, item) => {
           totals[item.analysisStatus] = (totals[item.analysisStatus] ?? 0) + 1;
           return totals;
@@ -39,7 +44,7 @@ export function registerAnalysisTool(pi: ExtensionAPI, paths: DesignLibraryPaths
           .join(', ');
         return text(
           live.length === 0 ? 'The Library is empty.' : `${live.length} references: ${summary}.`,
-          { counts, jobs: state.jobs },
+          { counts, jobs },
         );
       }
 

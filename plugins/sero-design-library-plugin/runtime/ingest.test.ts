@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
-import { readState } from '../shared/state-io';
+import { readStateWithIndexes } from '../shared/state-io';
 import { beginUpload, completeUpload, pruneStaleUploads, writeUploadChunk } from '../shared/uploads';
 import type { UploadManifest } from '../shared/uploads';
 import { ingestUpload } from './ingest';
@@ -57,7 +57,7 @@ describe('ingestUpload', () => {
     // The file name becomes a readable starting title before analysis lands.
     expect(outcome.item.profile.generated.title).toBe('Northstar Operations');
 
-    const state = await readState(paths);
+    const state = await readStateWithIndexes(paths);
     expect(state.items).toHaveLength(1);
     expect(state.items[0].previewPath).toBe(`items/${outcome.item.id}/preview.webp`);
   });

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
-import { readState } from '../shared/state-io';
+import { readStateWithIndexes } from '../shared/state-io';
 import { createDesignRecord, mutateVariant, readDesign } from './design-store';
 import { createDesign } from './designs';
 import { TEST_BRIEF as BRIEF, seedItem } from './test-fixtures';
@@ -62,7 +62,7 @@ describe('the Design projection', () => {
       ],
     }));
 
-    const summary = (await readState(paths)).designs.find((entry) => entry.id === 'dsn-1');
+    const summary = (await readStateWithIndexes(paths)).designs.find((entry) => entry.id === 'dsn-1');
     const variant = summary?.variants[0];
     expect(variant?.previewPath).toBe(
       `designs/dsn-1/variants/${variantId}/rev-old/preview.html`,

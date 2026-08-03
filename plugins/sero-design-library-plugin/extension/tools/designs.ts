@@ -4,6 +4,9 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
+import { readIndex } from '../../shared/index-storage';
+import { normalizeDesignIndex } from '../../shared/indexes';
+
 import type { DesignBrief, DesignRecord } from '../../shared/design';
 import { MAX_REFERENCES, MAX_VARIANTS, MIN_VARIANTS, plannedVariantCount } from '../../shared/design';
 import { normalizeDesignBrief, normalizeDesignRecord } from '../../shared/design-normalize';
@@ -221,8 +224,7 @@ export function registerDesignTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
 
       switch (params.action) {
         case 'list': {
-          const state = await readState(paths);
-          const designs = state.designs.filter(
+          const designs = (await readIndex(paths.designsIndexFile, normalizeDesignIndex)).filter(
             (design) => params.includeDeleted === true || design.deletedAt === undefined,
           );
           if (designs.length === 0) return text('No designs yet.', { designs: [] });

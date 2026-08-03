@@ -11,7 +11,7 @@ import {
   revisionDir,
 } from '../shared/paths';
 import type { DesignLibraryPaths } from '../shared/paths';
-import { readState, updateState } from '../shared/state-io';
+import { readStateWithIndexes, updateState } from '../shared/state-io';
 import { stageGeneratedUpload } from '../shared/uploads';
 import { mutateDesign, mutateVariant, readDesign } from './design-store';
 import { createDesign } from './designs';
@@ -135,7 +135,7 @@ describe('Gallery snapshot transaction', () => {
     await expect(readFile(path.join(versionDir, 'effective-tweaks.css'), 'utf8')).resolves.toContain(
       '--signal: #ff0000',
     );
-    expect((await readState(paths)).galleryFamilies[0]?.featuredVersionId).toBe('ver-1');
+    expect((await readStateWithIndexes(paths)).galleryFamilies[0]?.featuredVersionId).toBe('ver-1');
   });
 
   it('stays byte-identical after the source Design is removed', async () => {
@@ -162,7 +162,7 @@ describe('Gallery snapshot transaction', () => {
     await saveGalleryVersion(paths, input);
     await saveGalleryVersion(paths, input);
 
-    expect((await readState(paths)).galleryFamilies[0]?.versions).toHaveLength(1);
+    expect((await readStateWithIndexes(paths)).galleryFamilies[0]?.versions).toHaveLength(1);
   });
 
   it('repairs a snapshot committed before its family pointer', async () => {
@@ -177,7 +177,7 @@ describe('Gallery snapshot transaction', () => {
 
     await saveGalleryVersion(paths, input);
 
-    expect((await readState(paths)).galleryFamilies[0]?.versions[0]?.id).toBe('ver-1');
+    expect((await readStateWithIndexes(paths)).galleryFamilies[0]?.versions[0]?.id).toBe('ver-1');
   });
 
   it('duplicates an editable Design from the Gallery-owned snapshot', async () => {
@@ -231,7 +231,7 @@ describe('Gallery snapshot transaction', () => {
     await new GalleryRequests(paths).apply({ kind: 'gallery.open', familyId: 'fam-1', versionId: 'ver-1' });
 
     expect((await readDesign(paths, 'dsn-1'))?.variants[0]?.visibleRevisionId).toBe('rev-1');
-    expect((await readState(paths)).view.selectedDesignId).toBe('dsn-1');
+    expect((await readStateWithIndexes(paths)).view.selectedDesignId).toBe('dsn-1');
   });
 
   it('restores and permanently deletes a Gallery version', async () => {
@@ -242,13 +242,13 @@ describe('Gallery snapshot transaction', () => {
     });
     const requests = new GalleryRequests(paths);
     await requests.apply({ kind: 'gallery.delete-version', familyId: 'fam-1', versionId: 'ver-1', deleted: true });
-    expect((await readState(paths)).galleryFamilies[0]?.versions[0]?.deletedAt).toEqual(expect.any(Number));
+    expect((await readStateWithIndexes(paths)).galleryFamilies[0]?.versions[0]?.deletedAt).toEqual(expect.any(Number));
 
     await requests.apply({ kind: 'gallery.delete-version', familyId: 'fam-1', versionId: 'ver-1', deleted: false });
-    expect((await readState(paths)).galleryFamilies[0]?.versions[0]?.deletedAt).toBeUndefined();
+    expect((await readStateWithIndexes(paths)).galleryFamilies[0]?.versions[0]?.deletedAt).toBeUndefined();
 
     await requests.apply({ kind: 'gallery.purge-version', familyId: 'fam-1', versionId: 'ver-1' });
-    expect((await readState(paths)).galleryFamilies).toHaveLength(0);
+    expect((await readStateWithIndexes(paths)).galleryFamilies).toHaveLength(0);
     await expect(stat(galleryVersionDir(paths, 'fam-1', 'ver-1')).catch(() => null)).resolves.toBeNull();
   });
 });

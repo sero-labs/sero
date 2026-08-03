@@ -45,7 +45,7 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 
 ## Finding things
 
-- **Search** covers titles, tags, notes and every part of the analysis you can see.
+- **Search** covers titles, original file names, primary styles, tags and Design types. It does not search notes or detailed analysis.
 - **Filters** narrow by media, style, tag, colour and source. The colour filter uses families such as Reds, Greens, Blues and Neutrals. Values inside one filter widen the results; different filters narrow them.
 - **Favourites** and **Collections** are yours to arrange. A collection is a plain group you name.
 - Select references and open **Collections** to add or remove them. Use the action menu beside a custom collection to delete the collection; its references stay in the Library.
@@ -270,6 +270,7 @@ Design Library exposes its read surface to the main Sero agent, so you can work 
 | `design_library_media` | Generate artwork into a design or straight into the Library, list it, retry, delete and copy to the Library |
 | `design_library_gallery` | List saved families, read versions, open or duplicate an exact revision, feature versions, and manage Gallery Trash |
 | `design_library_export` | Export an exact Gallery version to Downloads or the active workspace, and read export status |
+| `design_library_settings` | Change defaults, read index-repair status and schedule a full repair for the next restart. A failed repair retries up to three starts; scheduling it again starts a fresh set of attempts. |
 
 Ask things like *"what dark, data-dense references do I have?"*, *"reanalyse the Northstar screenshot"*, *"make a dashboard from the Northstar and Material journal references"*, *"revise variant 2 to use a lighter surface"*, or *"generate a dark metallic texture into the Library"*.
 

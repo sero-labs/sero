@@ -6,7 +6,7 @@ import type { AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import type { DesignBrief } from '../../shared/design';
 import { revisionDir } from '../../shared/paths';
-import { appendRequest, readState } from '../../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../../shared/state-io';
 import { PREVIEW_CSP } from '../preview/harness';
 import {
   STUB_PAGE,

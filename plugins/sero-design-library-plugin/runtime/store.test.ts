@@ -7,7 +7,7 @@ import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, itemRecordFile, jobFile, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION } from '../shared/records';
-import { readState, writeJsonFile } from '../shared/state-io';
+import { readStateWithIndexes, writeJsonFile } from '../shared/state-io';
 import { listJobs, readItem, reindex, saveItem, scanItems } from './store';
 
 /**
@@ -90,7 +90,7 @@ describe('reading records this version does not understand', () => {
     const unreadable = await reindex(paths);
 
     expect(unreadable).toEqual(['itm-legacy']);
-    expect((await readState(paths)).items.map((item) => item.id)).toEqual(['good-1']);
+    expect((await readStateWithIndexes(paths)).items.map((item) => item.id)).toEqual(['good-1']);
     // Nothing is destroyed just because this version cannot read it.
     expect(await readItem(paths, 'itm-legacy')).toBeNull();
     await expect(
@@ -101,12 +101,8 @@ describe('reading records this version does not understand', () => {
   it('drops a stale summary for a record that no longer validates', async () => {
     await saveItem(paths, validItem('good-1'));
     await writeJsonFile(itemRecordFile(paths, 'itm-legacy'), LEGACY_RECORD);
-    // Reactive state still carries a summary written by the older version.
-    const { updateState } = await import('../shared/state-io');
-    await updateState(paths, (current) => ({
-      ...current,
-      items: [
-        ...current.items,
+    // The compact index still carries a summary written by the older version.
+    await writeJsonFile(paths.itemsIndexFile, [
         {
           id: 'itm-legacy',
           title: 'Image unavailable',
@@ -123,13 +119,11 @@ describe('reading records this version does not understand', () => {
           createdAt: 0,
           updatedAt: 0,
           edited: false,
-          searchText: '',
         },
-      ],
-    }));
+    ]);
 
     await reindex(paths);
-    expect((await readState(paths)).items.map((item) => item.id)).toEqual(['good-1']);
+    expect((await readStateWithIndexes(paths)).items.map((item) => item.id)).toEqual(['good-1']);
   });
 
   it('skips a truncated record rather than crashing on it', async () => {
@@ -149,7 +143,7 @@ describe('reading records this version does not understand', () => {
     });
 
     await expect(reindex(paths)).resolves.toEqual([]);
-    const summary = (await readState(paths)).items.find((item) => item.id === 'itm-thin');
+    const summary = (await readStateWithIndexes(paths)).items.find((item) => item.id === 'itm-thin');
     expect(summary?.title).toBe('Only a title');
     expect(summary?.tags).toEqual([]);
     expect(summary?.colours).toEqual([]);
@@ -166,6 +160,7 @@ describe('reading records this version does not understand', () => {
       attempts: 0,
     });
 
+    await expect(reindex(paths)).resolves.toEqual(['job-legacy.json']);
     expect((await listJobs(paths)).map((job) => job.id)).toEqual(['job-ok']);
   });
 });

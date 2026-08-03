@@ -2,71 +2,28 @@
  * Reactive state — the single JSON document shared by the extension, the UI
  * and the background runtime.
  *
- * It holds lightweight summaries only. Full records and binaries are
- * plugin-owned files (spec §12), and every summary here is a pure projection
- * of those records, which is what makes an interrupted index write
- * recoverable: the projection can always be rebuilt from the records.
+ * It holds bounded control state only. Entity records and compact indexes are
+ * plugin-owned files beside this document.
  */
 
-import type { OutputTarget, VariantStatus, VariationMode } from './design';
 import type { ColourFamily } from './colour-families';
 import { isColourFamily } from './colour-families';
-import { normalizeDesignSummary } from './design-summary';
-import type { ExportSummary } from './export';
-import { normalizeExportSummary } from './export';
-import type { GalleryFamilyRecord } from './gallery';
-import { normalizeGalleryFamily } from './gallery';
+import type { OutputTarget, VariantStatus, VariationMode } from './design';
 import type { MediaCapability, MediaModelOptions } from './media';
 import { MEDIA_CAPABILITIES, normalizeModelOptions } from './media';
-import type { AnalysisStatus, Collection, JobKind, JobStatus, JobTarget, MediaKind } from './records';
-import { normalizeJobRecord } from './records';
+import type { AnalysisStatus, Collection, MediaKind } from './records';
+import type { ItemIndexEntry, JobIndexEntry } from './indexes';
 import type { LibraryRequest } from './requests';
 import { isLibraryRequest } from './requests';
 import type { DesignLibrarySettings, MediaSettings } from './settings';
 import { DEFAULT_SETTINGS, MAX_CALLS_PER_RUN } from './settings';
 
-export const STATE_SCHEMA_VERSION = 1;
+export const STATE_SCHEMA_VERSION = 2;
 
-export interface ItemSummary {
-  id: string;
-  title: string;
-  primaryStyle: string;
-  /** Trimmed for the card; the full set lives in the record. */
-  tags: string[];
-  designTypes: string[];
-  kind: MediaKind;
-  /** Path relative to the app state directory, for the UI to request bytes. */
-  previewPath: string;
-  analysisStatus: AnalysisStatus;
-  /**
-   * A generated video whose stills have not been captured yet (D4). The open
-   * app looks for this, captures them, and the flag clears.
-   */
-  awaitingFrames?: boolean;
-  /** Why analysis failed. Carried in the summary so a failure explains itself. */
-  analysisError?: string;
-  favourite: boolean;
-  collectionIds: string[];
-  /** Palette hexes, for the colour filter and card accents. */
-  colours: string[];
-  sourceKind: string;
-  createdAt: number;
-  updatedAt: number;
-  deletedAt?: number;
-  /** True when any field carries a user override. Drives the "edited" marker. */
-  edited: boolean;
-  /** Lowercased searchable blob projected from the effective analysis. */
-  searchText: string;
-}
-
-export interface JobSummary {
-  id: string;
-  kind: JobKind;
-  status: JobStatus;
-  target: JobTarget;
-  createdAt: number;
-  error?: string;
-}
+/** @deprecated Use ItemIndexEntry for index and card data. */
+export type ItemSummary = ItemIndexEntry;
+/** @deprecated Use JobIndexEntry for job list data. */
+export type JobSummary = JobIndexEntry;
 
 /**
  * One variant, as the sessions rail and the variant tabs need it.
@@ -150,6 +107,7 @@ export interface ViewPreferences {
  * survive, invisibly, until the next restart brought it back.
  */
 export type ViewPatch = { [K in keyof ViewPreferences]?: ViewPreferences[K] | null };
+export type LibraryViewPreferences = ViewPreferences;
 
 /** Apply a patch, turning an explicit `null` into an absent key. */
 export function applyViewPatch(view: ViewPreferences, patch: ViewPatch): ViewPreferences {
@@ -165,12 +123,7 @@ export interface DesignLibraryState {
   schemaVersion: number;
   /** Bumped on every write. Writers compare-and-swap against it. */
   revision: number;
-  items: ItemSummary[];
-  designs: DesignSummary[];
-  galleryFamilies: GalleryFamilyRecord[];
-  exports: ExportSummary[];
   collections: Collection[];
-  jobs: JobSummary[];
   settings: DesignLibrarySettings;
   /**
    * What each capability's model accepts — clip lengths, aspect ratios — as the
@@ -201,12 +154,7 @@ export const EMPTY_FILTERS: LibraryFilters = {
 export const DEFAULT_STATE: DesignLibraryState = {
   schemaVersion: STATE_SCHEMA_VERSION,
   revision: 0,
-  items: [],
-  designs: [],
-  galleryFamilies: [],
-  exports: [],
   collections: [],
-  jobs: [],
   settings: DEFAULT_SETTINGS,
   mediaOptions: {},
   view: {
@@ -232,32 +180,6 @@ function num(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function normalizeItem(value: unknown): ItemSummary | null {
-  if (!isRecord(value)) return null;
-  if (typeof value.id !== 'string') return null;
-  return {
-    id: value.id,
-    title: typeof value.title === 'string' ? value.title : 'Untitled',
-    primaryStyle: typeof value.primaryStyle === 'string' ? value.primaryStyle : '',
-    tags: stringArray(value.tags),
-    designTypes: stringArray(value.designTypes),
-    kind: value.kind === 'video' ? 'video' : 'image',
-    previewPath: typeof value.previewPath === 'string' ? value.previewPath : '',
-    analysisStatus: normalizeAnalysisStatus(value.analysisStatus),
-    ...(value.awaitingFrames === true ? { awaitingFrames: true } : {}),
-    ...(typeof value.analysisError === 'string' ? { analysisError: value.analysisError } : {}),
-    favourite: value.favourite === true,
-    collectionIds: stringArray(value.collectionIds),
-    colours: stringArray(value.colours),
-    sourceKind: typeof value.sourceKind === 'string' ? value.sourceKind : 'file',
-    createdAt: num(value.createdAt, 0),
-    updatedAt: num(value.updatedAt, 0),
-    ...(typeof value.deletedAt === 'number' ? { deletedAt: value.deletedAt } : {}),
-    edited: value.edited === true,
-    searchText: typeof value.searchText === 'string' ? value.searchText : '',
-  };
-}
-
 function normalizeAnalysisStatus(value: unknown): AnalysisStatus {
   return value === 'running' || value === 'ready' || value === 'failed' || value === 'cancelled'
     ? value
@@ -274,26 +196,6 @@ function normalizeCollection(value: unknown): Collection | null {
   };
 }
 
-function normalizeJob(value: unknown): JobSummary | null {
-  if (!isRecord(value) || typeof value.id !== 'string') return null;
-  const target = normalizeJobRecord({ ...value, id: value.id })?.target;
-  if (!target) return null;
-  const status = value.status;
-  return {
-    id: value.id,
-    kind:
-      value.kind === 'ingest' || value.kind === 'generate' || value.kind === 'media'
-        ? value.kind
-        : 'analysis',
-    status:
-      status === 'running' || status === 'succeeded' || status === 'failed' || status === 'cancelled'
-        ? status
-        : 'queued',
-    target,
-    createdAt: num(value.createdAt, 0),
-    ...(typeof value.error === 'string' ? { error: value.error } : {}),
-  };
-}
 
 function normalizeScope(value: unknown): LibraryScope {
   if (!isRecord(value)) return { kind: 'all' };
@@ -431,40 +333,10 @@ export function normalizeState(value: unknown): DesignLibraryState {
   return {
     schemaVersion: num(value.schemaVersion, STATE_SCHEMA_VERSION),
     revision: num(value.revision, 0),
-    items: Array.isArray(value.items)
-      ? value.items.flatMap((entry) => {
-          const item = normalizeItem(entry);
-          return item === null ? [] : [item];
-        })
-      : [],
-    designs: Array.isArray(value.designs)
-      ? value.designs.flatMap((entry) => {
-          const design = normalizeDesignSummary(entry);
-          return design === null ? [] : [design];
-        })
-      : [],
-    galleryFamilies: Array.isArray(value.galleryFamilies)
-      ? value.galleryFamilies.flatMap((entry) => {
-          const family = normalizeGalleryFamily(entry);
-          return family === null ? [] : [family];
-        })
-      : [],
-    exports: Array.isArray(value.exports)
-      ? value.exports.flatMap((entry) => {
-          const summary = normalizeExportSummary(entry);
-          return summary === null ? [] : [summary];
-        })
-      : [],
     collections: Array.isArray(value.collections)
       ? value.collections.flatMap((entry) => {
           const collection = normalizeCollection(entry);
           return collection === null ? [] : [collection];
-        })
-      : [],
-    jobs: Array.isArray(value.jobs)
-      ? value.jobs.flatMap((entry) => {
-          const job = normalizeJob(entry);
-          return job === null ? [] : [job];
         })
       : [],
     settings: normalizeSettings(value.settings),

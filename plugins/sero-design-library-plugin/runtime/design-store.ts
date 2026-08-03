@@ -4,7 +4,10 @@ import type { DesignRecord, DesignVariant } from '../shared/design';
 import { normalizeDesignRecord } from '../shared/design-normalize';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { designDir, designRecordFile, revisionDir, variantDir } from '../shared/paths';
-import { readJsonFile, updateState, withRecordLock, writeJsonFile } from '../shared/state-io';
+import { withIndexRepair } from '../shared/index-repair';
+import { bumpControlRevision, readIndex, updateIndex } from '../shared/index-storage';
+import { normalizeDesignIndex } from '../shared/indexes';
+import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { projectDesign } from './projection';
 
 /**
@@ -54,12 +57,12 @@ async function writeDesign(
   design: DesignRecord,
 ): Promise<DesignRecord> {
   const next: DesignRecord = { ...design, updatedAt: Date.now() };
-  await writeJsonFile(designRecordFile(paths, next.id), next);
-  const summary = projectDesign(next);
-  await updateState(paths, (current) => ({
-    ...current,
-    designs: [...current.designs.filter((entry) => entry.id !== next.id), summary],
-  }));
+  await withIndexRepair(paths, 'designs', next.id, async () => {
+    await writeJsonFile(designRecordFile(paths, next.id), next);
+    const summary = projectDesign(next);
+    await updateIndex(paths, paths.designsIndexFile, normalizeDesignIndex, next.id, summary);
+    await bumpControlRevision(paths);
+  });
   return next;
 }
 
@@ -137,11 +140,11 @@ export async function mutateVariant(
 /** Permanent deletion of a Design and everything generated under it. */
 export async function destroyDesign(paths: DesignLibraryPaths, designId: string): Promise<void> {
   await withRecordLock(paths, designRecordFile(paths, designId), async () => {
-    await rm(designDir(paths, designId), { recursive: true, force: true });
-    await updateState(paths, (current) => ({
-      ...current,
-      designs: current.designs.filter((entry) => entry.id !== designId),
-    }));
+    await withIndexRepair(paths, 'designs', designId, async () => {
+      await rm(designDir(paths, designId), { recursive: true, force: true });
+      await updateIndex(paths, paths.designsIndexFile, normalizeDesignIndex, designId, null);
+      await bumpControlRevision(paths);
+    });
   });
 }
 
@@ -172,6 +175,17 @@ export async function pruneOrphanRevisions(
       });
       removed += 1;
     }
+  }
+  return removed;
+}
+
+/** Clean only Designs named by the compact index, without a directory scan. */
+export async function pruneIndexedOrphanRevisions(paths: DesignLibraryPaths): Promise<number> {
+  const designs = await readIndex(paths.designsIndexFile, normalizeDesignIndex);
+  let removed = 0;
+  for (const summary of designs) {
+    const design = await readDesign(paths, summary.id);
+    if (design) removed += await pruneOrphanRevisions(paths, design);
   }
   return removed;
 }

@@ -2,6 +2,14 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { withLock, type FileLockOptions } from './file-lock';
+import {
+  normalizeDesignIndex,
+  normalizeExportIndex,
+  normalizeGalleryIndex,
+  normalizeItemIndex,
+  normalizeJobIndex,
+  type EntityIndexes,
+} from './indexes';
 import type { DesignLibraryPaths } from './paths';
 import type { LibraryRequestBody } from './requests';
 import type { DesignLibraryState } from './types';
@@ -62,6 +70,11 @@ async function readRaw(stateFile: string): Promise<DesignLibraryState | null> {
   return normalizeState(JSON.parse(raw) as unknown);
 }
 
+export async function readUnnormalizedState(paths: DesignLibraryPaths): Promise<unknown> {
+  const raw = await readFile(paths.stateFile, 'utf8').catch(() => null);
+  return raw === null ? null : JSON.parse(raw) as unknown;
+}
+
 /**
  * A temp path no concurrent write can collide with. The pid alone is not
  * enough — two writes to one file from the same process would share it — and
@@ -80,8 +93,43 @@ async function writeAtomic(stateFile: string, state: DesignLibraryState): Promis
   await rename(temp, stateFile);
 }
 
+export type StateReadResult = DesignLibraryState & EntityIndexes & {
+  galleryFamilies: EntityIndexes['gallery'];
+};
+
+async function readIndexForTests<T>(filePath: string, normalize: (value: unknown) => T[]): Promise<T[]> {
+  const raw = await readFile(filePath, 'utf8').catch(() => null);
+  if (raw === null) return [];
+  try {
+    return normalize(JSON.parse(raw) as unknown);
+  } catch {
+    return [];
+  }
+}
+
 export async function readState(paths: DesignLibraryPaths): Promise<DesignLibraryState> {
   return (await readRaw(paths.stateFile)) ?? structuredClone(DEFAULT_STATE);
+}
+
+/** Test inspection helper. Product code reads each entity index directly. */
+export async function readStateWithIndexes(paths: DesignLibraryPaths): Promise<StateReadResult> {
+  const [state, items, designs, gallery, jobs, exports] = await Promise.all([
+    readState(paths),
+    readIndexForTests(paths.itemsIndexFile, normalizeItemIndex),
+    readIndexForTests(paths.designsIndexFile, normalizeDesignIndex),
+    readIndexForTests(paths.galleryIndexFile, normalizeGalleryIndex),
+    readIndexForTests(paths.jobsIndexFile, normalizeJobIndex),
+    readIndexForTests(paths.exportsIndexFile, normalizeExportIndex),
+  ]);
+  Object.defineProperties(state, {
+    items: { value: items, enumerable: false },
+    designs: { value: designs, enumerable: false },
+    gallery: { value: gallery, enumerable: false },
+    galleryFamilies: { value: gallery, enumerable: false },
+    jobs: { value: jobs, enumerable: false },
+    exports: { value: exports, enumerable: false },
+  });
+  return state as StateReadResult;
 }
 
 /**
@@ -135,6 +183,21 @@ export async function commitState(
       },
       options.lock,
     ),
+  );
+}
+
+/** Replace legacy control state once migration has made every entity file durable. */
+export async function commitMigratedState(
+  paths: DesignLibraryPaths,
+  migrate: (legacy: unknown) => DesignLibraryState,
+): Promise<DesignLibraryState> {
+  return enqueue(paths.stateFile, () =>
+    withLock(paths.lockDir, async () => {
+      const raw = await readUnnormalizedState(paths);
+      const committed = migrate(raw);
+      await writeAtomic(paths.stateFile, committed);
+      return committed;
+    }),
   );
 }
 

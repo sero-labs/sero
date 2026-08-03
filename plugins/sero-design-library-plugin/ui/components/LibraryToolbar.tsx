@@ -117,7 +117,7 @@ export function LibraryToolbar({
       <SearchInput
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}
-        placeholder="Search styles, tags, notes or analysis"
+        placeholder="Search titles, styles, tags or files"
         className="h-8 max-w-96 min-w-56 flex-1"
       />
 

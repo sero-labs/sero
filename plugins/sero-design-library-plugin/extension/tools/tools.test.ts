@@ -9,7 +9,7 @@ import { recordAttempt, reserveAsset } from '../../runtime/media/assets';
 import { seedDesign } from '../../runtime/test-fixtures';
 import type { MediaAttempt } from '../../shared/media';
 import { designAssetDir, designLibraryPathsFromHome, type DesignLibraryPaths } from '../../shared/paths';
-import { readState } from '../../shared/state-io';
+import { readStateWithIndexes } from '../../shared/state-io';
 import { UPLOAD_CHUNK_BYTES } from '../../shared/uploads';
 import { registerAssetTool } from './assets';
 import { registerItemTool } from './items';
@@ -145,7 +145,7 @@ describe('the item tool refuses unsafe ids', () => {
 
   it('queues nothing when an id is refused', async () => {
     await call('design_library_items', { action: 'purge', itemId: TRAVERSAL });
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 });
 
@@ -158,7 +158,7 @@ describe('the item tool validates field values', () => {
       value: 99,
     });
     expect(textOf(result)).toContain('`tags` expects an array of strings');
-    expect((await readState(paths)).requests).toEqual([]);
+    expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 
   it('rejects an unknown field name', async () => {
@@ -178,7 +178,7 @@ describe('the item tool validates field values', () => {
       field: 'tags',
       value: ['dense', 'editorial'],
     });
-    const [request] = (await readState(paths)).requests;
+    const [request] = (await readStateWithIndexes(paths)).requests;
     expect(request?.body).toMatchObject({ kind: 'item.set-field', field: 'tags' });
   });
 });

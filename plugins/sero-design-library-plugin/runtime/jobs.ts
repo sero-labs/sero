@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { DesignLibraryPaths } from '../shared/paths';
 import type { JobKind, JobRecord, JobTarget, MediaJobRequest } from '../shared/records';
 import { mutateDesign, mutateVariant, readDesign } from './design-store';
-import { listJobs, mutateItem, mutateJob, readItem, saveJob } from './store';
+import { healJobsIndex, mutateItem, mutateJob, readItem, saveJob } from './store';
 
 /**
  * The persisted job contract.
@@ -101,7 +101,7 @@ const TERMINAL: readonly JobRecord['status'][] = ['succeeded', 'failed', 'cancel
  * nothing else ever revisits it.
  */
 export async function reconcileJobs(paths: DesignLibraryPaths): Promise<JobRecord[]> {
-  const jobs = await listJobs(paths);
+  const jobs = await healJobsIndex(paths);
 
   // Media never resumes. Every other kind of job is free to run again — a
   // generation or an analysis costs a model call the user already asked for —

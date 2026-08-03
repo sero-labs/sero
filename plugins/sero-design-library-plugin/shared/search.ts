@@ -4,16 +4,61 @@
  * 'editorial', matching 'grid'" means.
  */
 
-import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, ViewPreferences } from './types';
+import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, LibraryViewPreferences } from './types';
 import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+interface SearchTextCacheEntry {
+  title: string;
+  fileName?: string;
+  primaryStyle: string;
+  tags: string[];
+  designTypes: string[];
+  text: string;
+}
 
-/** Every term must match somewhere in the item's searchable text. */
-export function matchesQuery(item: ItemSummary, query: string): boolean {
-  const terms = query.toLowerCase().split(/\s+/).filter((term) => term !== '');
-  if (terms.length === 0) return true;
-  return terms.every((term) => item.searchText.includes(term));
+const searchTextCache = new WeakMap<ItemSummary, SearchTextCacheEntry>();
+
+function sameStrings(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function searchText(item: ItemSummary): string {
+  const cached = searchTextCache.get(item);
+  if (
+    cached !== undefined &&
+    cached.title === item.title &&
+    cached.fileName === item.fileName &&
+    cached.primaryStyle === item.primaryStyle &&
+    sameStrings(cached.tags, item.tags) &&
+    sameStrings(cached.designTypes, item.designTypes)
+  ) return cached.text;
+  const value = [
+    item.title,
+    item.fileName ?? '',
+    item.primaryStyle,
+    ...item.tags,
+    ...item.designTypes,
+  ].join('\n').toLowerCase();
+  searchTextCache.set(item, {
+    title: item.title,
+    ...(item.fileName === undefined ? {} : { fileName: item.fileName }),
+    primaryStyle: item.primaryStyle,
+    tags: [...item.tags],
+    designTypes: [...item.designTypes],
+    text: value,
+  });
+  return value;
+}
+
+/** Every normalized term must match the item's cached high-level fields. */
+function matchesQuery(item: ItemSummary, terms: string[]): boolean {
+  const text = searchText(item);
+  return terms.every((term) => text.includes(term));
 }
 
 export function matchesScope(item: ItemSummary, scope: LibraryScope, now: number): boolean {
@@ -72,14 +117,15 @@ export function sortItems(items: ItemSummary[], sort: LibrarySort): ItemSummary[
 
 export function selectItems(
   items: ItemSummary[],
-  view: ViewPreferences,
+  view: LibraryViewPreferences,
   now = Date.now(),
 ): ItemSummary[] {
+  const terms = view.query.toLowerCase().split(/\s+/).filter((term) => term !== '');
   const matched = items.filter(
     (item) =>
       matchesScope(item, view.scope, now) &&
       matchesFilters(item, view.filters) &&
-      matchesQuery(item, view.query),
+      matchesQuery(item, terms),
   );
   return sortItems(matched, view.sort);
 }

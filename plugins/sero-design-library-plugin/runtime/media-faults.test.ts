@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { assetIsPending, currentAttempt } from '../shared/media';
 import { designAssetDir } from '../shared/paths';
 import { assetTarget } from '../shared/records';
-import { appendRequest, readState } from '../shared/state-io';
+import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 import { useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
 import { createJob, markRunning, reconcileJobs } from './jobs';
@@ -76,7 +76,7 @@ describe('a provider that fails', () => {
     await harness.coordinator.drain();
 
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'asset')?.status).toBe('failed');
     });
     // The Design is untouched — a provider outage is not a reason to lose it.
@@ -263,7 +263,7 @@ describe('two jobs racing for one asset', () => {
     // resumable and routes it to the media queue — the real path it takes.
     await harness.coordinator.start();
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.id === orphan.id)?.status).toBe('failed');
     });
 
@@ -287,7 +287,7 @@ describe('a video the user declines', () => {
     await harness.coordinator.drain();
 
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'asset')?.status).toBe('failed');
     });
 
@@ -304,7 +304,7 @@ describe('a video the user declines', () => {
     });
     await harness.coordinator.drain();
     await vi.waitFor(async () => {
-      const state = await readState(harness.paths);
+      const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.filter((job) => job.target.kind === 'asset')).toHaveLength(2);
     });
   });
