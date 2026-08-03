@@ -10,14 +10,15 @@
 
 import { useState } from 'react';
 import { Button, Card } from '@sero-ai/ui';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { deriveCreateStage, type CreateStage as Stage } from '../lib/create-stage';
 import { CreateLoopForm, type CreateLoopSubmit } from './CreateLoopForm';
 import { InputRequestCard } from './InputRequestCard';
 import { LoopMetaStrip } from './LoopMetaStrip';
-import { PlanView } from './PlanView';
+import { PlanMapSkeleton } from './PlanMap';
+import { PlanPresentation } from './PlanPresentation';
 import { RefinePlan } from './RefinePlan';
 
 interface CreateLoopWizardProps {
@@ -58,9 +59,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
       {stage === 'describe' && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
 
       {stage === 'planning' && (
-        <Card className="flex items-center gap-2 p-4 text-base text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> The AI is writing the plan…
-        </Card>
+        <PlanMapSkeleton />
       )}
 
       {stage === 'clarify' && loop && (
@@ -83,7 +82,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
               {loop.runtime.block.reason} — refine below, or cancel and try a clearer prompt.
             </Card>
           )}
-          <PlanView loop={loop} onAction={onAction} />
+          <PlanPresentation loop={loop} onAction={onAction} />
           <RefinePlan busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
