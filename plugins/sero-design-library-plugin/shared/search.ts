@@ -4,7 +4,7 @@
  * 'editorial', matching 'grid'" means.
  */
 
-import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, ViewPreferences } from './types';
+import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, LibraryViewPreferences } from './types';
 import { colourFamily } from './colour-families';
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -79,14 +79,14 @@ export function sortItems(items: ItemSummary[], sort: LibrarySort): ItemSummary[
 
 export function selectItems(
   items: ItemSummary[],
-  view: ViewPreferences & { query?: string },
+  view: LibraryViewPreferences,
   now = Date.now(),
 ): ItemSummary[] {
   const matched = items.filter(
     (item) =>
       matchesScope(item, view.scope, now) &&
       matchesFilters(item, view.filters) &&
-      matchesQuery(item, view.query ?? ''),
+      matchesQuery(item, view.query),
   );
   return sortItems(matched, view.sort);
 }

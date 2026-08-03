@@ -87,6 +87,7 @@ export interface LibraryFilters {
 
 export interface ViewPreferences {
   scope: LibraryScope;
+  query: string;
   filters: LibraryFilters;
   sort: LibrarySort;
   selectedItemId?: string;
@@ -105,7 +106,7 @@ export interface ViewPreferences {
  * survive, invisibly, until the next restart brought it back.
  */
 export type ViewPatch = { [K in keyof ViewPreferences]?: ViewPreferences[K] | null };
-export type LibraryViewPreferences = ViewPreferences & { query: string };
+export type LibraryViewPreferences = ViewPreferences;
 
 /** Apply a patch, turning an explicit `null` into an absent key. */
 export function applyViewPatch(view: ViewPreferences, patch: ViewPatch): ViewPreferences {
@@ -157,6 +158,7 @@ export const DEFAULT_STATE: DesignLibraryState = {
   mediaOptions: {},
   view: {
     scope: { kind: 'all' },
+    query: '',
     filters: EMPTY_FILTERS,
     sort: 'newest',
   },
@@ -237,6 +239,7 @@ function normalizeView(value: unknown): ViewPreferences {
   const sort = value.sort;
   return {
     scope: normalizeScope(value.scope),
+    query: typeof value.query === 'string' ? value.query : '',
     filters: normalizeFilters(value.filters),
     sort: sort === 'oldest' || sort === 'title' ? sort : 'newest',
     ...(typeof value.selectedItemId === 'string' ? { selectedItemId: value.selectedItemId } : {}),

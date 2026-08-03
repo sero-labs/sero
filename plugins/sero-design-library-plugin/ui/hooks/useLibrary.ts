@@ -77,7 +77,6 @@ export function useLibrary(): Library {
   // Local view state leads; the persisted copy follows. `null` means "nothing
   // changed locally yet", so a view restored from state on load still wins.
   const [localView, setLocalView] = useState<ViewPatch | null>(null);
-  const [query, setQuery] = useState('');
 
   // Retire optimistic keys the moment state reports them. Merging alone is not
   // enough: a key that stays forever also outranks any *later* value the
@@ -95,8 +94,8 @@ export function useLibrary(): Library {
   }
 
   const view = useMemo<LibraryViewPreferences>(
-    () => ({ ...mergeView(localView, state.view), query }),
-    [state.view, localView, query],
+    () => mergeView(localView, state.view),
+    [state.view, localView],
   );
 
   // Built once, lazily. `useRef(createDebouncedFn(...))` keeps the first value
@@ -126,7 +125,7 @@ export function useLibrary(): Library {
   const actions = useMemo<LibraryActions>(
     () => ({
       setScope: (scope) => patchView({ scope }),
-      setQuery,
+      setQuery: (query) => patchView({ query }),
       setFilters: (filters) => patchView({ filters }),
       setSort: (sort) => patchView({ sort }),
       // `null`, not `undefined`: the patch travels as JSON, and an undefined

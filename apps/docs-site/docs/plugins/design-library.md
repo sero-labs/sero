@@ -45,7 +45,7 @@ A field you edited is marked **Edited**. Blanking a field counts as an edit, so 
 
 ## Finding things
 
-- **Search** covers titles, tags, notes and every part of the analysis you can see.
+- **Search** covers titles, original file names, primary styles, tags and Design types. It does not search notes or detailed analysis.
 - **Filters** narrow by media, style, tag, colour and source. The colour filter uses families such as Reds, Greens, Blues and Neutrals. Values inside one filter widen the results; different filters narrow them.
 - **Favourites** and **Collections** are yours to arrange. A collection is a plain group you name.
 - Select references and open **Collections** to add or remove them. Use the action menu beside a custom collection to delete the collection; its references stay in the Library.

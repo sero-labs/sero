@@ -51,6 +51,7 @@ async function seedLegacyState(): Promise<void> {
   await writeJsonFile(paths.stateFile, {
     ...current,
     schemaVersion: 1,
+    view: { ...current.view, query: 'legacy search' },
     collections: [{ id: 'col-1', name: 'Saved', colour: 'primary', createdAt: 1 }],
     items: current.items,
     designs: current.designs,
@@ -82,6 +83,7 @@ describe('legacy state migration', () => {
       expect(raw).not.toHaveProperty(key);
     }
     expect(raw.collections).toEqual([{ id: 'col-1', name: 'Saved', colour: 'primary', createdAt: 1 }]);
+    expect((raw.view as Record<string, unknown>).query).toBe('legacy search');
     expect(raw.requests).toHaveLength(1);
     expect(await readFile(path.join(home, 'state.json.pre-index-backup'), 'utf8')).toContain('"schemaVersion": 1');
 

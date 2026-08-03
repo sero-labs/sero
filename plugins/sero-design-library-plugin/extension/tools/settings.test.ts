@@ -154,3 +154,14 @@ describe('media settings', () => {
     });
   });
 });
+
+describe('saved view preferences', () => {
+  it('lets the agent set the Library query', async () => {
+    await call({ action: 'set-view', view: { query: 'editorial grid' } });
+
+    expect((await readStateWithIndexes(paths)).requests[0]?.body).toEqual({
+      kind: 'view.set',
+      patch: { query: 'editorial grid' },
+    });
+  });
+});

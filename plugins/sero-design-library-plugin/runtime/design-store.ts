@@ -4,7 +4,7 @@ import type { DesignRecord, DesignVariant } from '../shared/design';
 import { normalizeDesignRecord } from '../shared/design-normalize';
 import type { DesignLibraryPaths } from '../shared/paths';
 import { designDir, designRecordFile, revisionDir, variantDir } from '../shared/paths';
-import { bumpControlRevision, updateIndex } from '../shared/index-storage';
+import { bumpControlRevision, readIndex, updateIndex } from '../shared/index-storage';
 import { normalizeDesignIndex } from '../shared/indexes';
 import { readJsonFile, withRecordLock, writeJsonFile } from '../shared/state-io';
 import { projectDesign } from './projection';
@@ -170,6 +170,17 @@ export async function pruneOrphanRevisions(
       });
       removed += 1;
     }
+  }
+  return removed;
+}
+
+/** Clean only Designs named by the compact index, without a directory scan. */
+export async function pruneIndexedOrphanRevisions(paths: DesignLibraryPaths): Promise<number> {
+  const designs = await readIndex(paths.designsIndexFile, normalizeDesignIndex);
+  let removed = 0;
+  for (const summary of designs) {
+    const design = await readDesign(paths, summary.id);
+    if (design) removed += await pruneOrphanRevisions(paths, design);
   }
   return removed;
 }

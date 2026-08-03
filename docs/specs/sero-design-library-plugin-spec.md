@@ -519,7 +519,7 @@ The plugin exposes its tools to the main Sero agent via `sero.plugin.bridgeTools
 
 ## 12. Storage and ownership
 
-`state.json` holds bounded control state only: schema and detail revisions, settings, media options, view preferences, collections and the transient request queue. Search text is local to the open Library view and is not persisted.
+`state.json` holds bounded control state only: schema and detail revisions, settings, media options, view preferences, collections and the transient request queue. The saved Library query is part of the bounded view preferences, so it returns after restart and the agent can set it.
 
 Each top-level entity has one complete JSON record. Items and Designs use one `record.json` in each entity directory. Gallery families use one `record.json` with their version metadata. Jobs and exports use one JSON file per record. Each entity type also has one compact `index.json` for list rendering, filters and high-level search. Binary assets, generated source, previews and Gallery snapshots stay outside these JSON files and keep their existing paths.
 

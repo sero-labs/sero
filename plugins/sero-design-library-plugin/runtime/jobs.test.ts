@@ -7,7 +7,7 @@ import { emptyAnalysis } from '../shared/librarian';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord } from '../shared/records';
 import { ITEM_SCHEMA_VERSION, itemTarget, libraryTarget, variantTarget } from '../shared/records';
-import { readStateWithIndexes } from '../shared/state-io';
+import { readStateWithIndexes, writeJsonFile } from '../shared/state-io';
 import { mutateVariant, readDesign } from './design-store';
 import {
   createJob,
@@ -100,6 +100,24 @@ describe('restart recovery', () => {
 
     const resumable = await reconcileJobs(paths);
     expect(resumable.map((entry) => entry.id)).toEqual([job.id]);
+  });
+
+  it('finds a running media record missing from the jobs index', async () => {
+    const job = await createJob(paths, 'media', libraryTarget('slot-missing-index'), {
+      capability: 'text-to-image',
+      prompt: 'paid generation',
+    });
+    await markRunning(paths, job.id);
+
+    // The process stops after the record rename and before the index rename.
+    await writeJsonFile(paths.jobsIndexFile, []);
+
+    await reconcileJobs(paths);
+
+    expect((await readJob(paths, job.id))?.status).toBe('failed');
+    expect((await readStateWithIndexes(paths)).jobs).toEqual([
+      expect.objectContaining({ id: job.id, status: 'failed' }),
+    ]);
   });
 });
 

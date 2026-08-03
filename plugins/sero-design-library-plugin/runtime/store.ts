@@ -151,6 +151,33 @@ async function scanJobRecords(paths: DesignLibraryPaths): Promise<{ jobs: JobRec
   };
 }
 
+/**
+ * Rebuild the jobs index from its authoritative records before restart recovery.
+ *
+ * A process can stop after a job record is durable but before its index entry
+ * lands. Recovery must still see that record, especially for media jobs that
+ * must not run twice. This is the only entity scan on normal startup.
+ */
+export async function healJobsIndex(paths: DesignLibraryPaths): Promise<JobRecord[]> {
+  const { jobs } = await scanJobRecords(paths);
+  const cutoff = Date.now() - FINISHED_JOB_RETENTION_MS;
+  const isLive = (job: JobRecord) =>
+    job.status === 'queued' || job.status === 'running' || (job.completedAt ?? job.createdAt) > cutoff;
+  const liveJobs = jobs.filter(isLive);
+
+  await Promise.all(
+    jobs.flatMap((job) => (isLive(job) ? [] : [rm(jobFile(paths, job.id), { force: true })])),
+  );
+  const changed = await replaceIndex(
+    paths,
+    paths.jobsIndexFile,
+    normalizeJobIndex,
+    liveJobs.map(projectJob),
+  );
+  if (changed) await bumpControlRevision(paths);
+  return liveJobs;
+}
+
 /** Assumes the caller holds the job's record lock. */
 async function writeJob(paths: DesignLibraryPaths, job: JobRecord): Promise<JobRecord> {
   await writeJsonFile(jobFile(paths, job.id), job);
@@ -218,8 +245,7 @@ export async function mutateJob(
 }
 
 /**
- * Rebuild the whole index from the records. Called at startup, which is what
- * makes an index write interrupted by a crash self-healing rather than fatal.
+ * Rebuild every index from the records during migration or an explicit repair.
  *
  * Returns the record directories this version could not read, item ids and
  * design ids together — they are reported to the user, never deleted.

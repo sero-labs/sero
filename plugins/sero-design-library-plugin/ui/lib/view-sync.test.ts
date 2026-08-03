@@ -16,6 +16,11 @@ describe('retiring optimistic view keys', () => {
     expect(outstandingView({ sort: 'oldest' }, base)).toEqual({ sort: 'oldest' });
   });
 
+  it('keeps a query local until saved state catches up', () => {
+    expect(mergeView({ query: 'editorial' }, base).query).toBe('editorial');
+    expect(outstandingView({ query: 'editorial' }, { ...base, query: 'editorial' })).toEqual({});
+  });
+
   it('drops a key once state reports the same value', () => {
     expect(Object.keys(outstandingView({ sort: 'oldest' }, { ...base, sort: 'oldest' }))).toEqual([]);
   });

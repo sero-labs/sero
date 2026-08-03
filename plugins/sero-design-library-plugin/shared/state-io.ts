@@ -113,8 +113,8 @@ export async function readState(paths: DesignLibraryPaths): Promise<DesignLibrar
 
 /** Test inspection helper. Product code reads each entity index directly. */
 export async function readStateWithIndexes(paths: DesignLibraryPaths): Promise<StateReadResult> {
-  const state = await readState(paths);
-  const [items, designs, gallery, jobs, exports] = await Promise.all([
+  const [state, items, designs, gallery, jobs, exports] = await Promise.all([
+    readState(paths),
     readIndexForTests(paths.itemsIndexFile, normalizeItemIndex),
     readIndexForTests(paths.designsIndexFile, normalizeDesignIndex),
     readIndexForTests(paths.galleryIndexFile, normalizeGalleryIndex),

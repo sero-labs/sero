@@ -27,3 +27,14 @@ describe('colour filter normalization', () => {
     expect(normalized.view.filters.colourFamilies).toEqual(['Reds']);
   });
 });
+
+describe('view normalization', () => {
+  it('keeps the saved Library query', () => {
+    const normalized = normalizeState({
+      ...DEFAULT_STATE,
+      view: { ...DEFAULT_STATE.view, query: 'editorial grid' },
+    });
+
+    expect(normalized.view.query).toBe('editorial grid');
+  });
+});

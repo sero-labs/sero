@@ -70,6 +70,7 @@ The version 2 state should contain:
 - Settings
 - Media model options
 - View preferences
+- Saved Library search query
 - Collections, unless measurements show that they need their own record store
 - The request queue
 - The next request id
@@ -82,7 +83,6 @@ It must not contain:
 - Gallery family records or summaries
 - Export history
 - Job history
-- Search text
 
 ### 2.4 Compact item index
 
@@ -175,6 +175,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Change Gallery writes and deletion to update `gallery/index.json`.
 - [x] Keep every Gallery family's version metadata in its single family record.
 - [x] Change job writes, retention, dismissal, and recovery to update `jobs/index.json`.
+- [x] Prune orphan revision directories for Designs listed in `designs/index.json` at startup.
 - [x] Persist one record per export and update `exports/index.json`.
 - [x] Remove startup work that rebuilds entity arrays inside `state.json`.
 - [x] Retain a deliberate full index-rebuild operation for migration and repair.
@@ -190,7 +191,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 
 ### Phase 5 — UI index subscriptions
 
-- [x] Add a small local hook that reads and watches a JSON index through the existing app-state bridge.
+- [x] Add and test a small local hook that reads and watches a JSON index through the existing app-state bridge.
 - [x] Make the Library page consume `items/index.json`.
 - [x] Make the Designs surfaces consume `designs/index.json`.
 - [x] Make the Gallery page consume `gallery/index.json`.
@@ -209,6 +210,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Update the search placeholder to **Search titles, styles, tags or files**.
 - [x] Update tests that currently expect notes or analysis to be searchable.
 - [x] Add explicit tests that notes, prompts, and detailed analysis are not index search fields.
+- [x] Restore the search query to saved view preferences and agent control.
 
 ### Phase 7 — Automatic migration
 
@@ -247,6 +249,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Run `git diff --check`.
 - [x] Check the line count of every touched source file.
 - [x] Review the migrated example profile without changing its source data.
+- [x] Test import, search, filters, Design detail, Gallery, and **Show more** in the running app with a copy of a real profile.
 - [x] Commit each coherent phase with a Conventional Commit message.
 - [x] Do not open a pull request until the specification and docs-site review are complete.
 

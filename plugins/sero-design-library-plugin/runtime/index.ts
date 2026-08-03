@@ -4,9 +4,9 @@ import { designLibraryPathsFromHome, type DesignLibraryPaths } from '../shared/p
 import { pendingRequests, readState } from '../shared/state-io';
 import { pruneStaleUploads } from '../shared/uploads';
 import { Coordinator } from './coordinator';
+import { pruneIndexedOrphanRevisions } from './design-store';
 import { pruneGalleryTemps } from './gallery-store';
 import { migrateLegacyState } from './migration';
-import { pruneFinishedJobs } from './store';
 
 /**
  * The Design Library background runtime — the single authoritative writer.
@@ -63,7 +63,7 @@ class DesignLibraryRuntime implements AppRuntime {
       );
     }
     await this.attempt('remove incomplete Gallery snapshots', () => pruneGalleryTemps(paths));
-    await this.attempt('prune retained jobs', () => pruneFinishedJobs(paths));
+    await this.attempt('remove orphan Design revisions', () => pruneIndexedOrphanRevisions(paths));
 
     this.coordinator = new Coordinator({
       host: this.ctx.host,
