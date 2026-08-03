@@ -17,6 +17,26 @@ import { runGalleryExport } from './export';
 type ExportRequestBody = Extract<LibraryRequestBody, { kind: `export.${string}` }>;
 
 const MAX_EXPORT_HISTORY = 20;
+const INTERRUPTED_EXPORT_ERROR = 'The export was interrupted by a Sero restart.';
+
+async function writeExportSummaryLocked(
+  paths: DesignLibraryPaths,
+  summary: ExportSummary,
+): Promise<void> {
+  await withIndexRepair(paths, 'exports', summary.id, async () => {
+    await writeJsonFile(exportFile(paths, summary.id), summary);
+    await updateIndex(paths, paths.exportsIndexFile, normalizeExportIndex, summary.id, summary);
+    await bumpControlRevision(paths);
+  });
+}
+
+async function writeExportSummary(
+  paths: DesignLibraryPaths,
+  summary: ExportSummary,
+): Promise<void> {
+  const file = exportFile(paths, summary.id);
+  await withRecordLock(paths, file, () => writeExportSummaryLocked(paths, summary));
+}
 
 export async function reindexExports(
   paths: DesignLibraryPaths,
@@ -57,6 +77,43 @@ export async function pruneExportHistory(
     if (deleted) removed += 1;
   }
   return removed;
+}
+
+/** Settle exports that could not publish a terminal state before shutdown. */
+export async function reconcileExports(
+  paths: DesignLibraryPaths,
+  completedAt = Date.now(),
+): Promise<number> {
+  const running = (await readIndex(paths.exportsIndexFile, normalizeExportIndex))
+    .filter((summary) => summary.status === 'running');
+  let reconciled = 0;
+
+  for (const summary of running) {
+    const file = exportFile(paths, summary.id);
+    const changed = await withRecordLock(paths, file, async () => {
+      const current = normalizeExportSummary(await readJsonFile<unknown>(file));
+      if (current?.status !== 'running') {
+        const updated = await updateIndex(
+          paths,
+          paths.exportsIndexFile,
+          normalizeExportIndex,
+          summary.id,
+          current,
+        );
+        if (updated) await bumpControlRevision(paths);
+        return false;
+      }
+      await writeExportSummaryLocked(paths, {
+        ...current,
+        status: 'failed',
+        completedAt,
+        error: INTERRUPTED_EXPORT_ERROR,
+      });
+      return true;
+    });
+    if (changed) reconciled += 1;
+  }
+  return reconciled;
 }
 
 export function isExportRequest(body: LibraryRequestBody): body is ExportRequestBody {
@@ -137,14 +194,7 @@ export class ExportRequests {
   }
 
   private async publish(summary: ExportSummary): Promise<void> {
-    const file = exportFile(this.paths, summary.id);
-    await withRecordLock(this.paths, file, async () => {
-      await withIndexRepair(this.paths, 'exports', summary.id, async () => {
-        await writeJsonFile(file, summary);
-        await updateIndex(this.paths, this.paths.exportsIndexFile, normalizeExportIndex, summary.id, summary);
-        await bumpControlRevision(this.paths);
-      });
-    });
+    await writeExportSummary(this.paths, summary);
   }
 
   private async pruneAfterTerminalPublish(): Promise<void> {

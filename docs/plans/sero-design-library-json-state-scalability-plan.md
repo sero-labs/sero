@@ -165,6 +165,7 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Update an index only when its projected value changes.
 - [x] Write the record before the index so an observed index never points to a missing record.
 - [x] Journal each item, Design, Gallery, and export projection before its record changes, then replay only interrupted projections at startup.
+- [x] Keep each journal marker and its control-state notification inside the matching record lock during replay.
 - [x] Update the small control-state revision after record and index writes complete.
 - [x] Keep unreadable records on disk and exclude them from rebuilt indexes.
 
@@ -178,10 +179,13 @@ The renderer can search and filter the compact item index in memory. Do not add 
 - [x] Change job writes, retention, dismissal, and recovery to update `jobs/index.json`.
 - [x] Prune orphan revision directories for Designs listed in `designs/index.json` at startup.
 - [x] Persist one record per export and update `exports/index.json`.
+- [x] Mark exports left running by a restart as interrupted before export pruning runs.
+- [x] Select the latest export by its creation time, independent of index file order.
 - [x] Keep only the 20 newest export records and index entries.
 - [x] Remove startup work that rebuilds entity arrays inside `state.json`.
 - [x] Retain a deliberate full index-rebuild operation for migration and repair.
 - [x] Let the agent schedule a full authoritative index repair for the next startup.
+- [x] Stop an automatic full repair after three failed starts and let a new repair request reset the attempts.
 
 ### Phase 4 — Extension read and request paths
 

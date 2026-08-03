@@ -86,14 +86,12 @@ export async function repairPendingIndexes(paths: DesignLibraryPaths): Promise<n
           break;
         }
       }
+      // The marker belongs to this record transaction. Keep the record lock
+      // until both the notification and marker removal are durable, so a new
+      // writer cannot start between replay and cleanup.
+      await bumpControlRevision(paths);
+      await clearIndexRepair(paths, repair.index, repair.id);
     });
   }
-
-  // A marker also means the original control-state notification may not have
-  // completed. Clear markers only after this notification is durable.
-  await bumpControlRevision(paths);
-  await Promise.all(
-    pending.map((repair) => clearIndexRepair(paths, repair.index, repair.id)),
-  );
   return pending.length;
 }

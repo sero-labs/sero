@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -71,6 +71,7 @@ describe('targeted index repair', () => {
       markIndexRepair(paths, 'gallery', 'fam-1'),
       markIndexRepair(paths, 'exports', 'exp-1'),
     ]);
+    const revisionBeforeRepair = (await readStateWithIndexes(paths)).revision;
 
     await expect(repairPendingIndexes(paths)).resolves.toBe(4);
     const state = await readStateWithIndexes(paths);
@@ -78,6 +79,7 @@ describe('targeted index repair', () => {
     expect(state.designs.map((entry) => entry.id)).toEqual(['dsn-1']);
     expect(state.gallery.map((entry) => entry.id)).toEqual(['fam-1']);
     expect(state.exports.map((entry) => entry.id)).toEqual(['exp-1']);
+    expect(state.revision).toBe(revisionBeforeRepair + 4);
     await expect(repairPendingIndexes(paths)).resolves.toBe(0);
   });
 
@@ -98,5 +100,20 @@ describe('targeted index repair', () => {
     expect(state.items.map((entry) => entry.id)).toEqual(['itm-full']);
     expect(state.exports.map((entry) => entry.id)).toEqual(['exp-full']);
     expect(await readJsonFile(paths.repairRequestFile)).toBeNull();
+  });
+
+  it('stops retrying a permanently failing full repair after three starts', async () => {
+    await writeJsonFile(paths.repairRequestFile, { requestedAt: 1 });
+    await mkdir(paths.exportsIndexFile, { recursive: true });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await expect(runRequestedFullRepair(paths)).rejects.toThrow();
+    }
+
+    await expect(access(paths.repairRequestFile)).rejects.toThrow();
+    const failed = JSON.parse(await readFile(paths.repairFailedFile, 'utf8')) as Record<string, unknown>;
+    expect(failed).toMatchObject({ requestedAt: 1, attempts: 3, failedAt: expect.any(Number) });
+    expect(failed.error).toEqual(expect.any(String));
+    await expect(runRequestedFullRepair(paths)).resolves.toBeNull();
   });
 });

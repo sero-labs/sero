@@ -6,7 +6,7 @@ import { Type } from 'typebox';
 
 import { readIndex } from '../../shared/index-storage';
 import { normalizeExportIndex } from '../../shared/indexes';
-import { isExportDestination } from '../../shared/export';
+import { isExportDestination, type ExportSummary } from '../../shared/export';
 import { normalizeGalleryVersion } from '../../shared/gallery';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { galleryVersionRecordFile } from '../../shared/paths';
@@ -18,6 +18,14 @@ const DESTINATIONS = ['downloads', 'workspace'] as const;
 
 function required(value: string | undefined, label: string): { id: string } | { error: ToolResult } {
   return checkId(value, label);
+}
+
+function latestExport(exports: ExportSummary[]): ExportSummary | undefined {
+  let latest: ExportSummary | undefined;
+  for (const entry of exports) {
+    if (latest === undefined || entry.createdAt > latest.createdAt) latest = entry;
+  }
+  return latest;
 }
 
 export function registerExportTool(pi: ExtensionAPI, paths: DesignLibraryPaths): void {
@@ -38,7 +46,7 @@ export function registerExportTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
         const exports = await readIndex(paths.exportsIndexFile, normalizeExportIndex);
         const selected = params.exportId
           ? exports.find((entry) => entry.id === params.exportId)
-          : exports.at(-1);
+          : latestExport(exports);
         if (!selected) return text('No exports have run yet.', { exports });
         return text(
           selected.status === 'succeeded'

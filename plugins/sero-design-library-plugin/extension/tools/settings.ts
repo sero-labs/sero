@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
@@ -121,6 +122,7 @@ export function registerSettingsTool(
 
         case 'repair-indexes': {
           await writeJsonFile(paths.repairRequestFile, { requestedAt: Date.now() });
+          await rm(paths.repairFailedFile, { force: true });
           return text('A full index repair is scheduled for the next Sero restart.');
         }
 

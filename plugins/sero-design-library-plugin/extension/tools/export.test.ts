@@ -74,11 +74,14 @@ describe('Design Library export tool', () => {
 
   it('reports the latest export status', async () => {
     await writeJsonFile(paths.exportsIndexFile, [{
+        id: 'exp-2', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+        status: 'succeeded', createdAt: 2, completedAt: 3, path: '/Downloads/latest',
+      }, {
         id: 'exp-1', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
         status: 'succeeded', createdAt: 1, completedAt: 2, path: '/Downloads/signal',
-    }]);
+      }]);
 
     const result = await call({ action: 'status' });
-    expect(resultText(result)).toContain('/Downloads/signal');
+    expect(resultText(result)).toContain('/Downloads/latest');
   });
 });

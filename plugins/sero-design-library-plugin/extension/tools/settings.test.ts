@@ -7,7 +7,7 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 
 import type { MediaModelCatalog } from '../../shared/media-model-catalog';
 import { designLibraryPathsFromHome, secretsFile, type DesignLibraryPaths } from '../../shared/paths';
-import { readStateWithIndexes } from '../../shared/state-io';
+import { readStateWithIndexes, writeJsonFile } from '../../shared/state-io';
 import { registerSettingsTool } from './settings';
 
 /**
@@ -168,10 +168,12 @@ describe('saved view preferences', () => {
 
 describe('index repair', () => {
   it('lets the agent schedule a full repair for the next restart', async () => {
+    await writeJsonFile(paths.repairFailedFile, { attempts: 3 });
     const result = await call({ action: 'repair-indexes' });
 
     expect(textOf(result)).toContain('next Sero restart');
     expect(await readFile(paths.repairRequestFile, 'utf8')).toContain('requestedAt');
+    await expect(readFile(paths.repairFailedFile, 'utf8')).rejects.toThrow();
     expect((await readStateWithIndexes(paths)).requests).toEqual([]);
   });
 });

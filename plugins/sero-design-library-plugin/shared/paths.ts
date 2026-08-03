@@ -31,6 +31,8 @@ export interface DesignLibraryPaths {
   indexRepairsDir: string;
   /** Durable request for a deliberate full index repair on next startup. */
   repairRequestFile: string;
+  /** A full repair request that reached its automatic retry limit. */
+  repairFailedFile: string;
   itemsDir: string;
   itemsIndexFile: string;
   designsDir: string;
@@ -59,6 +61,7 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     recordLocksDir: path.join(home, '.record-locks'),
     indexRepairsDir: path.join(home, '.index-repairs'),
     repairRequestFile: path.join(home, '.repair-indexes.json'),
+    repairFailedFile: path.join(home, '.repair-indexes.failed.json'),
     itemsDir: path.join(home, 'items'),
     itemsIndexFile: path.join(home, 'items', 'index.json'),
     designsDir: path.join(home, 'designs'),

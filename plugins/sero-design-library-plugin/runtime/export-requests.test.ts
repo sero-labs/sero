@@ -7,7 +7,7 @@ import type { AppRuntimeWorkspaceApi } from '@sero-ai/common';
 import { designLibraryPathsFromHome, exportFile, type DesignLibraryPaths } from '../shared/paths';
 import { readStateWithIndexes, writeJsonFile } from '../shared/state-io';
 import { runGalleryExport } from './export';
-import { ExportRequests, pruneExportHistory } from './export-requests';
+import { ExportRequests, pruneExportHistory, reconcileExports } from './export-requests';
 
 vi.mock('./export', () => ({ runGalleryExport: vi.fn() }));
 
@@ -132,5 +132,45 @@ describe('export request state', () => {
 
     await expect(pruneExportHistory(paths, 0)).resolves.toBe(0);
     await expect(access(exportFile(paths, running.id))).resolves.toBeUndefined();
+  });
+
+  it('marks an export left running by a restart as failed before pruning', async () => {
+    const running = {
+      id: 'exp-interrupted', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'running', createdAt: 1,
+    } as const;
+    await Promise.all([
+      writeJsonFile(exportFile(paths, running.id), running),
+      writeJsonFile(paths.exportsIndexFile, [running]),
+    ]);
+
+    await expect(reconcileExports(paths, 10)).resolves.toBe(1);
+
+    const failed = (await readStateWithIndexes(paths)).exports[0];
+    expect(failed).toMatchObject({
+      id: running.id,
+      status: 'failed',
+      completedAt: 10,
+      error: 'The export was interrupted by a Sero restart.',
+    });
+    await expect(pruneExportHistory(paths, 0)).resolves.toBe(1);
+    await expect(access(exportFile(paths, running.id))).rejects.toThrow();
+  });
+
+  it('preserves a terminal record when its index still says running', async () => {
+    const running = {
+      id: 'exp-terminal', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'running', createdAt: 1,
+    } as const;
+    const succeeded = {
+      ...running, status: 'succeeded', completedAt: 2, path: '/tmp/export',
+    } as const;
+    await Promise.all([
+      writeJsonFile(exportFile(paths, running.id), succeeded),
+      writeJsonFile(paths.exportsIndexFile, [running]),
+    ]);
+
+    await expect(reconcileExports(paths, 10)).resolves.toBe(0);
+    expect((await readStateWithIndexes(paths)).exports).toEqual([succeeded]);
   });
 });
