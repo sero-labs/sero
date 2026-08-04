@@ -1,5 +1,5 @@
 import { chmodSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AuthInteraction,
   Credential,
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   openExternal: vi.fn(async () => {}),
   ensureInfra: vi.fn(),
   refreshAfterCredentialChange: vi.fn(async () => {}),
+  packageProviders: [] as Array<{ id: string; name: string; envVar?: string }>,
 }));
 
 vi.mock('electron', () => ({
@@ -30,7 +31,22 @@ vi.mock('@electron/platform/env', () => ({
 }));
 
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
-  getPackageApiKeyProviders: () => [],
+  getPackageApiKeyProviders: () => mocks.packageProviders.map(({ id, name }) => ({ id, name })),
+  registerPackageProviderAuth: (runtime: {
+    getProvider: (providerId: string) => unknown;
+    registerProvider: (
+      providerId: string,
+      config: { name: string; apiKey?: string },
+    ) => void;
+  }) => {
+    for (const provider of mocks.packageProviders) {
+      if (runtime.getProvider(provider.id)) continue;
+      runtime.registerProvider(provider.id, {
+        name: provider.name,
+        apiKey: provider.envVar ? `$${provider.envVar}` : undefined,
+      });
+    }
+  },
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -97,6 +113,7 @@ describe('authentication IPC', () => {
     mocks.openExternal.mockClear();
     mocks.ensureInfra.mockReset();
     mocks.refreshAfterCredentialChange.mockClear();
+    mocks.packageProviders = [];
     writeFileSync(AUTH_PATH, '{}');
     chmodSync(AUTH_PATH, 0o644);
     registerAuthHandlers();
@@ -104,6 +121,10 @@ describe('authentication IPC', () => {
 
   afterAll(() => {
     unlinkSync(AUTH_PATH);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('builds provider status from runtime metadata without exposing secrets', async () => {
@@ -297,6 +318,56 @@ describe('authentication IPC', () => {
     expect(logout).toHaveBeenCalledWith('anthropic');
     expect(mocks.refreshAfterCredentialChange).toHaveBeenCalledTimes(3);
     expect(statSync(AUTH_PATH).mode & 0o777).toBe(0o600);
+  });
+
+  it('configures manifest providers and reads their environment status before a session', async () => {
+    const providerId = 'manifest-provider';
+    const envVar = 'MANIFEST_PROVIDER_KEY';
+    const providers = new Map<string, Provider>();
+    const login = vi.fn(async (
+      id: string,
+      _type: string,
+      interaction: AuthInteraction,
+    ) => {
+      const key = await interaction.prompt({ type: 'secret', message: 'API key' });
+      return { type: 'api_key' as const, key, providerId: id };
+    });
+    const registerProvider = vi.fn((id: string, config: { name: string }) => {
+      const provider = apiKeyProvider(id);
+      providers.set(id, { ...provider, name: config.name });
+    });
+    mocks.packageProviders = [{ id: providerId, name: 'Manifest Provider', envVar }];
+    vi.stubEnv(envVar, 'environment-secret');
+    const modelRuntime = {
+      getProvider: (id: string) => providers.get(id),
+      getProviders: () => [...providers.values()],
+      getProviderAuthStatus: (id: string) => (
+        id === providerId && process.env[envVar]
+          ? { configured: true, source: 'environment' as const, label: envVar }
+          : { configured: false }
+      ),
+      listCredentials: vi.fn(async () => []),
+      registerProvider,
+      login,
+    };
+    mocks.ensureInfra.mockResolvedValue({ modelRuntime });
+
+    await expect(handler(IpcChannels.auth.getProviders)()).resolves.toEqual({
+      oauth: [],
+      apiKey: [{
+        id: providerId,
+        name: 'Manifest Provider',
+        hasKey: true,
+        fromEnv: true,
+      }],
+    });
+    await handler(IpcChannels.auth.setApiKey)({}, providerId, 'saved-secret');
+
+    expect(registerProvider).toHaveBeenCalledWith(providerId, {
+      name: 'Manifest Provider',
+      apiKey: `$${envVar}`,
+    });
+    expect(login).toHaveBeenCalledOnce();
   });
 
   it('rejects API-key providers that require more than one prompt', async () => {

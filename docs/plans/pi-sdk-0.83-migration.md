@@ -577,6 +577,33 @@ This phase addresses the findings from the draft PR re-review.
 - [x] Run the root typecheck and complete local CI command.
 - [x] Inspect the final diff, diagnostics, file sizes, and working tree.
 
+## Phase 11: third review remediation
+
+This phase addresses the follow-up findings from the draft PR review.
+
+### Implementation checklist
+
+- [x] Return Local Models runtime refresh problems as non-blocking save warnings.
+- [x] Keep the renderer config in sync after a Local Models save warning.
+- [x] Register package provider authentication before an agent session starts.
+- [x] Detect package provider environment keys before extension registration.
+- [x] Keep builtin provider catalog entries authoritative over package manifests.
+- [x] Isolate Scheduler provider registrations with one model runtime per run.
+- [x] Restore the required Pi core peer for the source-published common package.
+- [x] Bump `@sero-ai/common` to `0.9.2` for the peer metadata correction.
+
+### Verification checklist
+
+- [x] Add focused regressions for Local Models warnings and renderer state.
+- [x] Add focused regressions for pre-session package provider auth and environment status.
+- [x] Add focused regressions for builtin catalog protection and Scheduler runtime isolation.
+- [x] Run the focused desktop, Scheduler, and package typechecks and tests.
+- [x] Smoke-test package provider auth against the published Pi `ModelRuntime`.
+- [x] Pack common and compile a clean consumer with its required peer.
+- [x] Run React Doctor for the changed renderer code.
+- [x] Run the root typecheck and complete local CI command.
+- [x] Inspect the final diff, diagnostics, file sizes, and working tree.
+
 ## Risk register
 
 | Risk | Effect | Mitigation |

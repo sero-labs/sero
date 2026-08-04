@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react';
 import type {
   LocalModelsConfig,
+  LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalProviderConfig,
   LocalModelEntry,
@@ -20,7 +21,7 @@ async function loadConfig(): Promise<LocalModelsConfig> {
 }
 
 /** Save config to main process (writes models.json + refreshes ModelRegistry). */
-async function saveConfig(config: LocalModelsConfig): Promise<void> {
+async function saveConfig(config: LocalModelsConfig): Promise<LocalModelsSaveResult> {
   return window.sero.localModels.saveConfig(config);
 }
 
@@ -32,6 +33,7 @@ export interface UseLocalModelsReturn {
   config: LocalModelsConfig | null;
   loading: boolean;
   error: string | null;
+  warning: string | null;
   reload: () => Promise<void>;
   addProvider: (name: string, provider: LocalProviderConfig) => Promise<void>;
   updateProvider: (name: string, provider: LocalProviderConfig) => Promise<void>;
@@ -49,6 +51,7 @@ export function useLocalModels(options: UseLocalModelsOptions = {}): UseLocalMod
   const [config, setConfig] = useState<LocalModelsConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const getEditableConfig = useCallback((): LocalModelsConfig => {
     if (error) {
@@ -60,6 +63,7 @@ export function useLocalModels(options: UseLocalModelsOptions = {}): UseLocalMod
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setWarning(null);
     try {
       const cfg = await loadConfig();
       setConfig(cfg);
@@ -72,9 +76,10 @@ export function useLocalModels(options: UseLocalModelsOptions = {}): UseLocalMod
   }, []);
 
   const persist = useCallback(async (cfg: LocalModelsConfig) => {
-    await saveConfig(cfg);
+    const result = await saveConfig(cfg);
     setConfig(cfg);
     setError(null);
+    setWarning(result.warning ?? null);
     try {
       await onSaved?.();
     } catch (err) {
@@ -168,6 +173,7 @@ export function useLocalModels(options: UseLocalModelsOptions = {}): UseLocalMod
     config,
     loading,
     error,
+    warning,
     reload,
     addProvider,
     updateProvider,

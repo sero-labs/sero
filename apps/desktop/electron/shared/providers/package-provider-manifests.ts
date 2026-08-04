@@ -3,6 +3,7 @@ import path from 'path';
 import type { SettingsPackageSource } from '@/types/ipc';
 import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero-ai/common';
 import { MODEL_TIERS } from '@sero-ai/common';
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { isCompatiblePluginResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { readSettingsResult } from '@electron/shared/settings/settings-helpers';
@@ -183,3 +184,13 @@ export function getPackageProviderEnvVar(providerId: string): string | undefined
   return getPackageProviderManifest(providerId)?.auth?.envVar;
 }
 
+/** Register auth metadata for package providers before their extensions load. */
+export function registerPackageProviderAuth(modelRuntime: ModelRuntime): void {
+  for (const provider of loadProviderManifests()) {
+    if (provider.auth?.type !== 'apiKey' || modelRuntime.getProvider(provider.id)) continue;
+    modelRuntime.registerProvider(provider.id, {
+      name: provider.name,
+      apiKey: provider.auth.envVar ? `$${provider.auth.envVar}` : undefined,
+    });
+  }
+}

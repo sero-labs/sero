@@ -51,15 +51,27 @@ describe('local models IPC', () => {
     expect(mocks.ensureInfra).not.toHaveBeenCalled();
   });
 
-  it('reports registry validation errors after saving models.json', async () => {
+  it('returns registry validation errors as non-blocking save warnings', async () => {
     mocks.refreshModelAvailability.mockResolvedValue({
       registryError: 'Provider "local": invalid configuration',
     });
     const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
     if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
 
-    await expect(saveConfig({}, { providers: {} })).rejects.toThrow(
-      'Provider "local": invalid configuration',
-    );
+    await expect(saveConfig({}, { providers: {} })).resolves.toEqual({
+      warning: 'Provider "local": invalid configuration',
+    });
+  });
+
+  it('succeeds when the runtime only reports an availability error', async () => {
+    mocks.refreshModelAvailability.mockResolvedValue({
+      registryError: 'Availability refresh: network unavailable',
+    });
+    const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
+    if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
+
+    await expect(saveConfig({}, { providers: {} })).resolves.toEqual({
+      warning: 'Availability refresh: network unavailable',
+    });
   });
 });

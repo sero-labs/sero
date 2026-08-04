@@ -5,6 +5,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { registerPackageProviderAuth } from '@electron/shared/providers/package-provider-manifests';
 import { pickFirstAvailableModel } from './model-selection';
 
 let infra: SharedInfra | null = null;
@@ -28,6 +29,7 @@ export async function ensureAiInfra(): Promise<SharedInfra> {
       modelsPath: `${SERO_AGENT_DIR}/models.json`,
       allowModelNetwork: false,
     });
+    registerPackageProviderAuth(modelRuntime);
     const modelRegistry = new ModelRegistry(modelRuntime);
     const settingsManager = SettingsManager.create(SERO_AGENT_DIR, SERO_AGENT_DIR);
     if (!settingsManager.getDefaultThinkingLevel()) {

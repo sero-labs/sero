@@ -30,6 +30,9 @@ import type {
 } from '@/types/ipc';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import {
+  registerPackageProviderAuth,
+} from '@electron/shared/providers/package-provider-manifests';
+import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
 } from '@electron/shared/auth/provider-catalog';
@@ -197,6 +200,7 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.getProviders,
     async (): Promise<AuthProvidersResponse> => {
       const infra = await ensureInfra();
+      registerPackageProviderAuth(infra.modelRuntime);
       const providers = infra.modelRuntime.getProviders();
       const credentials = new Map(
         (await infra.modelRuntime.listCredentials())
@@ -233,6 +237,7 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.login,
     async (ipcEvent, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
+      registerPackageProviderAuth(infra.modelRuntime);
       const provider = infra.modelRuntime.getProvider(providerId);
 
       if (!provider?.auth.oauth) {
@@ -304,6 +309,7 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.setApiKey,
     async (_event, providerId: string, key: string): Promise<void> => {
       const infra = await ensureInfra();
+      registerPackageProviderAuth(infra.modelRuntime);
       const provider = infra.modelRuntime.getProvider(providerId);
       const allowedProvider = getApiKeyProviderCatalog(
         infra.modelRuntime.getProviders(),

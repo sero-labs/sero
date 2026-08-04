@@ -63,19 +63,13 @@ const waitQueue: Array<{
 }> = [];
 
 let maxConcurrent = DEFAULT_MAX_CONCURRENT;
-const modelRuntimes = new Map<string, Promise<ModelRuntime>>();
 
-function getCronModelRuntime(agentDir: string): Promise<ModelRuntime> {
-  const existing = modelRuntimes.get(agentDir);
-  if (existing) return existing;
-  const runtime = ModelRuntime.create({
+function createCronModelRuntime(agentDir: string): Promise<ModelRuntime> {
+  return ModelRuntime.create({
     authPath: path.join(agentDir, 'auth.json'),
     modelsPath: path.join(agentDir, 'models.json'),
     allowModelNetwork: false,
   });
-  modelRuntimes.set(agentDir, runtime);
-  void runtime.catch(() => modelRuntimes.delete(agentDir));
-  return runtime;
 }
 
 /** Set the max concurrent sessions (for testing). */
@@ -181,8 +175,7 @@ export async function runTransientSession(
     process.env.SERO_CRON_SUBPROCESS = '1';
 
     try {
-      const modelRuntime = await getCronModelRuntime(sessionAgentDir);
-      await modelRuntime.refresh({ allowNetwork: false });
+      const modelRuntime = await createCronModelRuntime(sessionAgentDir);
       const isolatedCompletion = createIsolatedCompletionService({
         agentDir: sessionAgentDir,
         modelRuntime,

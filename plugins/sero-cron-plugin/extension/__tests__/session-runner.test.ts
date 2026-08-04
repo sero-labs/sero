@@ -7,9 +7,8 @@ const sessionInstances: Array<{
   aborted: boolean;
   messages: any[];
 }> = [];
-const mockModelRuntime = { id: 'shared-cron-runtime', refresh: vi.fn(async () => {}) };
+const mockModelRuntime = { id: 'shared-cron-runtime', providers: new Set<string>() };
 const reload = vi.fn(async () => {});
-
 function createMockSession(opts?: {
   promptDelay?: number;
   promptError?: Error;
@@ -107,6 +106,7 @@ import {
 
 beforeEach(() => {
   sessionInstances.length = 0;
+  mockModelRuntime.providers.clear();
   setMaxConcurrent(2);
   vi.mocked(createAgentSession).mockReset();
   vi.mocked(createAgentSession).mockImplementation(async () => {
@@ -117,10 +117,9 @@ beforeEach(() => {
     };
   });
   reload.mockClear();
-  mockModelRuntime.refresh.mockClear();
+  vi.mocked(ModelRuntime.create).mockClear();
   vi.mocked(registerIsolatedCompletionHost).mockClear();
 });
-
 afterEach(() => {
   delete process.env.SERO_CRON_SUBPROCESS;
 });
@@ -171,7 +170,6 @@ describe('runTransientSession', () => {
       allowModelNetwork: false,
     });
     expect(reload).toHaveBeenCalledOnce();
-    expect(mockModelRuntime.refresh).toHaveBeenCalledWith({ allowNetwork: false });
   });
 
   it('uses Pi built-in coding tools by name', async () => {
@@ -364,6 +362,9 @@ describe('concurrency control', () => {
 
   it('releases slot after job completes', async () => {
     setMaxConcurrent(1);
+    const secondRuntime = { id: 'second-runtime', providers: new Set<string>() };
+    mockModelRuntime.providers.add('first-job-provider');
+    vi.mocked(ModelRuntime.create).mockResolvedValueOnce(mockModelRuntime as unknown as ModelRuntime).mockResolvedValueOnce(secondRuntime as unknown as ModelRuntime);
 
     await runTransientSession('seq-1', 'first');
     expect(getActiveCount()).toBe(0);
@@ -373,6 +374,8 @@ describe('concurrency control', () => {
 
     expect(sessionInstances).toHaveLength(2);
     expect(sessionInstances.every((s) => s.disposed)).toBe(true);
+    expect(vi.mocked(createAgentSession).mock.calls[1]?.[0]?.modelRuntime).toBe(secondRuntime);
+    expect(secondRuntime.providers).not.toContain('first-job-provider');
   });
 
   it('releases slot after job failure', async () => {

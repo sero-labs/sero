@@ -4,10 +4,17 @@ const mocks = vi.hoisted(() => {
   const createRuntime = vi.fn();
   const createSettings = vi.fn();
   const pickFirstAvailableModel = vi.fn();
+  const registerPackageProviderAuth = vi.fn();
   const ModelRegistry = vi.fn(function ModelRegistry(runtime: unknown) {
     return { runtime };
   });
-  return { createRuntime, createSettings, pickFirstAvailableModel, ModelRegistry };
+  return {
+    createRuntime,
+    createSettings,
+    pickFirstAvailableModel,
+    registerPackageProviderAuth,
+    ModelRegistry,
+  };
 });
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
@@ -24,6 +31,10 @@ vi.mock('@electron/shared/infra/model-selection', () => ({
   pickFirstAvailableModel: mocks.pickFirstAvailableModel,
 }));
 
+vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
+  registerPackageProviderAuth: mocks.registerPackageProviderAuth,
+}));
+
 async function loadInfra() {
   return import('@electron/shared/infra/ai-infra');
 }
@@ -34,6 +45,7 @@ describe('AI infrastructure', () => {
     mocks.createRuntime.mockReset();
     mocks.createSettings.mockReset();
     mocks.pickFirstAvailableModel.mockReset();
+    mocks.registerPackageProviderAuth.mockReset();
     mocks.ModelRegistry.mockClear();
   });
 
@@ -61,6 +73,7 @@ describe('AI infrastructure', () => {
       modelsPath: '/profiles/current/agent/models.json',
       allowModelNetwork: false,
     });
+    expect(mocks.registerPackageProviderAuth).toHaveBeenCalledWith(runtime);
     expect(settingsManager.setDefaultThinkingLevel).toHaveBeenCalledWith('high');
   });
 

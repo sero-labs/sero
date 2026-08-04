@@ -45,7 +45,9 @@ export function getApiKeyProviderCatalog(providers: readonly Provider[]): NamedP
   for (const provider of BUILTIN_API_KEY_PROVIDERS) {
     if (runtimeProviderIds.has(provider.id)) byId.set(provider.id, provider);
   }
-  for (const provider of getPackageApiKeyProviders()) byId.set(provider.id, provider);
+  for (const provider of getPackageApiKeyProviders()) {
+    if (!byId.has(provider.id)) byId.set(provider.id, provider);
+  }
   return [...byId.values()];
 }
 

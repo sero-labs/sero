@@ -13,6 +13,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   LocalModelApi,
   LocalModelsConfig,
+  LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
 } from '@/types/ipc';
@@ -313,10 +314,10 @@ export function registerLocalModelsHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.localModels.saveConfig,
-    async (_event, config: LocalModelsConfig): Promise<void> => {
+    async (_event, config: LocalModelsConfig): Promise<LocalModelsSaveResult> => {
       await writeModelsConfig(config);
       const result = await refreshModelAvailability();
-      if (result.registryError) throw new Error(result.registryError);
+      return { warning: result.registryError };
     },
   );
 

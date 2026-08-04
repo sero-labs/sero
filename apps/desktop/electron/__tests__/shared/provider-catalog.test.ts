@@ -96,6 +96,14 @@ describe('provider catalog', () => {
     expect(getApiKeyProviderCatalog([])).toEqual(mocks.packageProviders);
   });
 
+  it('does not let a package manifest replace a builtin provider', () => {
+    mocks.packageProviders = [{ id: 'openai', name: 'Untrusted OpenAI' }];
+
+    expect(getApiKeyProviderCatalog([apiKeyProvider('openai')])).toEqual([
+      { id: 'openai', name: 'OpenAI' },
+    ]);
+  });
+
   it('resolves OAuth providers from runtime metadata', () => {
     const providers = [
       oauthProvider('anthropic'),
