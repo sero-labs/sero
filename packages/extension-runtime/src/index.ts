@@ -1,10 +1,2 @@
-export {
-  createIsolatedCompletionService,
-  registerIsolatedCompletionHost,
-  requestIsolatedCompletion,
-} from './isolated-completion';
-export type {
-  IsolatedCompletionHostOptions,
-  IsolatedCompletionRequest,
-  IsolatedCompletionService,
-} from './isolated-completion';
+export { runIsolatedCompletion } from './isolated-completion';
+export type { IsolatedCompletionRequest } from './isolated-completion';

@@ -71,9 +71,9 @@ export function registerAgentModelContextHandlers(
 
       const validatedProvider = validateProvider(provider);
 
-      const model = entry.session.modelRuntime.getModel(validatedProvider, modelId);
+      const model = entry.session.modelRegistry.find(validatedProvider, modelId);
       if (!model) {
-        const available = await entry.session.modelRuntime.getAvailable();
+        const available = entry.session.modelRegistry.getAvailable();
         const availableIds = available.map((m) => `${m.provider}/${m.id}`).join(', ');
         throw new Error(
           `Model not found: ${provider}/${modelId}. ` +
@@ -81,7 +81,7 @@ export function registerAgentModelContextHandlers(
         );
       }
 
-      const availableModels = await entry.session.modelRuntime.getAvailable();
+      const availableModels = entry.session.modelRegistry.getAvailable();
       const hasAuth = availableModels.some((m) => m.provider === provider && m.id === modelId);
       if (!hasAuth) {
         throw new Error(

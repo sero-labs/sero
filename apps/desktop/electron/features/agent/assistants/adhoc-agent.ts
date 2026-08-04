@@ -1,9 +1,8 @@
 import type { SettingsManager } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
-import { createIsolatedCompletionService } from '@sero-ai/extension-runtime';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
-import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 
@@ -34,7 +33,7 @@ export async function runAdhocAgent(
   thinkingLevel: ThinkingLevel = 'low',
 ): Promise<AdhocAgentResult> {
   const infra = await ensureInfra();
-  const available = await infra.modelRuntime.getAvailable();
+  const available = infra.modelRegistry.getAvailable();
   const selectedModel = selectFastModel(
     available,
     infra.settingsManager,
@@ -49,13 +48,10 @@ export async function runAdhocAgent(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ADHOC_TIMEOUT_MS);
   try {
-    const complete = createIsolatedCompletionService({
-      agentDir: SERO_AGENT_DIR,
-      modelRuntime: infra.modelRuntime,
-    });
-    const text = await complete({
+    const text = await runIsolatedCompletion({
       cwd: workspacePath,
       model: selectedModel.model,
+      modelRegistry: infra.modelRegistry,
       prompt,
       thinkingLevel,
       signal: controller.signal,
@@ -75,7 +71,7 @@ export async function runAdhocAgent(
 }
 
 function selectFastModel(
-  available: readonly Model<Api>[],
+  available: Model<Api>[],
   settingsManager: SettingsManager,
   fallback: Model<Api> | null,
 ): SelectedModel {

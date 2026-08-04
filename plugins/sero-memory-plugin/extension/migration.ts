@@ -26,7 +26,7 @@ import {
   stripManagedFileMetadata,
 } from './memory-format';
 import { error, errorDetails, info } from './logger';
-import type { IsolatedCompletionService } from '@sero-ai/extension-runtime';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 const MEMORY_BACKUP_SUFFIX = '.pre-v2-backup';
 
@@ -50,12 +50,14 @@ async function completeMarkdown(
   ctx: ExtensionContext,
   systemPrompt: string,
   prompt: string,
-  complete: IsolatedCompletionService,
 ): Promise<string | null> {
   if (!ctx.model) return null;
-  const text = await complete({
+  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+  if (!auth.ok || !auth.apiKey) return null;
+  const text = await runIsolatedCompletion({
     cwd: ctx.cwd,
     model: ctx.model,
+    modelRegistry: ctx.modelRegistry,
     prompt,
     systemPrompt,
     thinkingLevel: 'low',
@@ -65,12 +67,7 @@ async function completeMarkdown(
   return text || null;
 }
 
-async function compactMemoryContent(
-  ctx: ExtensionContext,
-  content: string,
-  maxChars: number,
-  complete: IsolatedCompletionService,
-): Promise<string | null> {
+async function compactMemoryContent(ctx: ExtensionContext, content: string, maxChars: number): Promise<string | null> {
   const body = stripManagedFileMetadata(content);
   if (!body) return null;
 
@@ -90,7 +87,6 @@ async function compactMemoryContent(
     ctx,
     'You condense local markdown memory into a short durable memory list. Output markdown only.',
     prompt,
-    complete,
   );
   if (!output) return null;
 
@@ -106,7 +102,6 @@ async function compactManagedMarkdown(
   label: string,
   content: string,
   maxChars: number,
-  complete: IsolatedCompletionService,
 ): Promise<string | null> {
   const body = stripManagedFileMetadata(content);
   if (!body) return null;
@@ -123,7 +118,6 @@ async function compactManagedMarkdown(
       body,
       `</${label}>`,
     ].join('\n'),
-    complete,
   );
   if (!output) return null;
 
@@ -145,12 +139,7 @@ async function logMigrationNotes(root: string, notes: string[]): Promise<void> {
   });
 }
 
-async function migrateMemoryFile(
-  ctx: ExtensionContext,
-  root: string,
-  notes: string[],
-  complete: IsolatedCompletionService,
-): Promise<boolean> {
+async function migrateMemoryFile(ctx: ExtensionContext, root: string, notes: string[]): Promise<boolean> {
   const filePath = getMemoryPath(root);
   const original = await readFile(filePath);
   info('migration_memory_scan', {
@@ -195,7 +184,7 @@ async function migrateMemoryFile(
       maxChars,
       chars: getTargetUsage('memory', nextContent).chars,
     });
-    const compacted = await compactMemoryContent(ctx, nextContent, maxChars, complete);
+    const compacted = await compactMemoryContent(ctx, nextContent, maxChars);
     if (compacted) {
       nextContent = compacted;
       changed = true;
@@ -219,7 +208,6 @@ async function migrateManagedMarkdownFile(
   label: 'identity' | 'user',
   filePath: string,
   notes: string[],
-  complete: IsolatedCompletionService,
 ): Promise<boolean> {
   const original = await readFile(filePath);
   info('migration_managed_scan', {
@@ -235,7 +223,7 @@ async function migrateManagedMarkdownFile(
   const maxChars = getCapacityForTarget(label);
 
   if (maxChars != null && getTargetUsage(label, nextContent).chars > maxChars) {
-    const compacted = await compactManagedMarkdown(ctx, label, nextContent, maxChars, complete);
+    const compacted = await compactManagedMarkdown(ctx, label, nextContent, maxChars);
     if (compacted) {
       nextContent = compacted;
       changed = true;
@@ -254,10 +242,7 @@ async function migrateManagedMarkdownFile(
   return true;
 }
 
-export async function runPhase1Migration(
-  ctx: ExtensionContext,
-  complete: IsolatedCompletionService,
-): Promise<MigrationSummary> {
+export async function runPhase1Migration(ctx: ExtensionContext): Promise<MigrationSummary> {
   const root = resolveMemoryRoot();
   await ensureDirectories(root);
   info('migration_start', { root });
@@ -265,9 +250,9 @@ export async function runPhase1Migration(
   const notes: string[] = [];
   try {
     const changedFlags = await Promise.all([
-      migrateMemoryFile(ctx, root, notes, complete),
-      migrateManagedMarkdownFile(ctx, 'identity', getIdentityPath(root), notes, complete),
-      migrateManagedMarkdownFile(ctx, 'user', getUserPath(root), notes, complete),
+      migrateMemoryFile(ctx, root, notes),
+      migrateManagedMarkdownFile(ctx, 'identity', getIdentityPath(root), notes),
+      migrateManagedMarkdownFile(ctx, 'user', getUserPath(root), notes),
     ]);
 
     const changed = changedFlags.some(Boolean);

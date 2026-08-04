@@ -37,9 +37,9 @@ function createMockSession(opts?: {
       }
       if (opts?.promptError) throw opts.promptError;
     }),
-    modelRuntime: {
-      getAvailable: vi.fn(async () => availableModels),
-      getModel: vi.fn((provider: string, modelId: string) =>
+    modelRegistry: {
+      getAvailable: vi.fn(() => availableModels),
+      find: vi.fn((provider: string, modelId: string) =>
         availableModels.find((model) => model.provider === provider && model.id === modelId),
       ),
     },

@@ -254,13 +254,12 @@ isStreaming, error.
 │    └─ .sero-workspace.json configs                           │
 │                                                              │
 │  AgentPool                                                   │
-│    ├─ Shared: ModelRuntime, SettingsManager                   │
+│    ├─ Shared: AuthStorage, ModelRegistry, SettingsManager     │
 │    ├─ Session A → AgentSession (cwd: /path/to/sero-dev)      │
 │    ├─ Session B → AgentSession (cwd: ~/.sero-ui/workspaces/global) │
 │    └─ Session C → AgentSession (cwd: /path/to/trading)       │
 │                                                              │
 │  Each AgentSession has:                                      │
-│    - the shared ModelRuntime for models and credentials       │
 │    - workspace-scoped tools (createCodingTools(cwd))          │
 │    - workspace-scoped ResourceLoader (skills, AGENTS.md)      │
 │    - its own SessionManager (persists to .jsonl)              │

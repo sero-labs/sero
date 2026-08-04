@@ -1,8 +1,4 @@
-import {
-  type Api,
-  type Model,
-  type ModelsRefreshOptions,
-} from '@earendil-works/pi-ai';
+import { type Model, type Api } from '@earendil-works/pi-ai';
 
 import {
   ensureInfra,
@@ -23,7 +19,7 @@ export interface ModelAvailabilityRefreshResult {
 }
 
 function buildAvailableModelSelections(
-  models: readonly Model<Api>[],
+  models: ReturnType<Awaited<ReturnType<typeof ensureInfra>>['modelRegistry']['getAvailable']>,
 ) {
   return models.map((model) => ({
     provider: model.provider,
@@ -52,21 +48,10 @@ async function reconcileLiveChatSessions(): Promise<number> {
   return results.reduce<number>((total, count) => total + count, 0);
 }
 
-export async function refreshModelAvailability(
-  refreshOptions?: ModelsRefreshOptions,
-): Promise<ModelAvailabilityRefreshResult> {
+export async function refreshModelAvailability(): Promise<ModelAvailabilityRefreshResult> {
   const infra = await ensureInfra();
 
-  const refreshResult = await infra.modelRuntime.refresh(refreshOptions);
-  if (refreshResult.aborted) {
-    throw new Error('Model refresh was cancelled');
-  }
-  if (refreshResult.errors.size > 0) {
-    const details = [...refreshResult.errors]
-      .map(([provider, error]) => `${provider}: ${error.message}`)
-      .join('; ');
-    throw new Error(`Provider model refresh failed: ${details}`);
-  }
+  infra.modelRegistry.refresh();
 
   const loadError = infra.modelRegistry.getError();
   if (loadError) {

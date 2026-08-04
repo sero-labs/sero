@@ -234,7 +234,8 @@ export async function runSubagent(
     const sessionOptions: CreateAgentSessionOptions = {
       cwd: sessionPath,
       agentDir: SERO_AGENT_DIR,
-      modelRuntime: infra.modelRuntime,
+      authStorage: infra.authStorage,
+      modelRegistry: infra.modelRegistry,
       ...sessionToolOptions(policy, customTools, config.tools),
       customTools,
       resourceLoader: loader,

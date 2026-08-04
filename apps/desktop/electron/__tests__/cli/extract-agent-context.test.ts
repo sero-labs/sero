@@ -24,7 +24,6 @@ function createMockExtensionContext(
     compact: vi.fn(),
     getSystemPrompt: vi.fn(() => 'system prompt'),
     ...overrides,
-    scopedModels: overrides?.scopedModels ?? [],
   };
 }
 

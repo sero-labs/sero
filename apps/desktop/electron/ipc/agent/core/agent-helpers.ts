@@ -65,7 +65,9 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
   const session = entry.session;
   const model = session.model;
 
-  const available = session.modelRuntime.getAvailableSnapshot();
+  session.modelRegistry.authStorage.reload();
+
+  const available = session.modelRegistry.getAvailable();
   const availableModels = buildAvailableModelGroups(available);
 
   const activeModel = model && available.some(

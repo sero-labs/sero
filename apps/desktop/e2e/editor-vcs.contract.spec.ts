@@ -86,7 +86,6 @@ test.beforeAll(async () => {
   home = createTempSeroHome();
   parentDir = path.join(home.path, 'editor-vcs-workspaces');
   fs.mkdirSync(parentDir, { recursive: true });
-  execFileSync('git', ['init', '--quiet', parentDir]);
 
   ({ app, page } = await launchSeroApp({
     seroHome: home.path,

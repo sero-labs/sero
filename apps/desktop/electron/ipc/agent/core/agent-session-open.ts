@@ -168,7 +168,8 @@ export async function openSessionInPool({
   const { session } = await createAgentSession({
     cwd: workspacePath,
     agentDir: SERO_AGENT_DIR,
-    modelRuntime: infra.modelRuntime,
+    authStorage: infra.authStorage,
+    modelRegistry: infra.modelRegistry,
     noTools: 'builtin',
     customTools: platformTools,
     resourceLoader: loader,

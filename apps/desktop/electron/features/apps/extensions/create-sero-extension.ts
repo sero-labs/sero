@@ -18,12 +18,6 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
 import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
-import {
-  createIsolatedCompletionService,
-  registerIsolatedCompletionHost,
-} from '@sero-ai/extension-runtime';
-import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
@@ -59,14 +53,6 @@ export function createSeroExtensionFactory(
   options?: SeroExtensionOptions,
 ) {
   return (pi: ExtensionAPI) => {
-    registerIsolatedCompletionHost(pi.events, async (request) => {
-      const { modelRuntime } = await ensureAiInfra();
-      return createIsolatedCompletionService({
-        agentDir: SERO_AGENT_DIR,
-        modelRuntime,
-      })(request);
-    });
-
     // ── System prompt injection ───────────────────────────────
 
     pi.on('before_agent_start', async (event) => {

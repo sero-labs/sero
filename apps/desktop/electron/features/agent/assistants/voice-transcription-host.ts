@@ -26,10 +26,9 @@ export async function resolveOpenAiApiKeys(): Promise<ResolvedOpenAiKeys> {
 
   try {
     const infra = await ensureInfra();
-    const resolved = await infra.modelRuntime.getAuth('openai');
-    const resolvedKey = resolved?.auth.apiKey?.trim();
-    if (resolvedKey) {
-      const primaryKey = resolvedKey;
+    const stored = infra.authStorage.get('openai');
+    if (stored?.type === 'api_key' && stored.key.trim()) {
+      const primaryKey = stored.key.trim();
       const fallbackKey = primaryKey === envKey ? '' : envKey;
       return { primaryKey, fallbackKey };
     }

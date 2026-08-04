@@ -26,7 +26,7 @@ export function NotesWidget() {
   return (
     <WidgetContent>
       <Stack gap="sm" fill>
-        <Inline gap="xs" align="center">
+        <Inline gap="xs" align="baseline">
           <Text variant="numeric" className="text-lg">
             {open.length}
           </Text>

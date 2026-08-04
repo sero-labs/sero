@@ -96,8 +96,7 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
 
 **Key notes:**
 - `keywords: ["pi-package"]` keeps Pi CLI compatibility
-- Pi SDK packages in `peerDependencies` (runtime provides them); the current
-  peer minimum is `>=0.83.0`, with exact `0.83.0` development packages
+- Pi SDK packages in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` in `devDependencies` (shared via MF singleton)
 - `@sero-ai/ui` in `devDependencies` (bundled at build time)
 - Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`

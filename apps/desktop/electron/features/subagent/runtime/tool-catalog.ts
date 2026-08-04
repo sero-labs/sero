@@ -107,7 +107,7 @@ export async function warmSubagentToolCatalog(): Promise<void> {
   warmed = true;
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
   try {
-    const infra = await ensureAiInfra();
+    const infra = ensureAiInfra();
     const loader = createSubagentResourceLoader({
       cwd: SERO_AGENT_DIR,
       workspaceManager,
@@ -119,7 +119,8 @@ export async function warmSubagentToolCatalog(): Promise<void> {
     const result = await createAgentSession({
       cwd: SERO_AGENT_DIR,
       agentDir: SERO_AGENT_DIR,
-      modelRuntime: infra.modelRuntime,
+      authStorage: infra.authStorage,
+      modelRegistry: infra.modelRegistry,
       noTools: 'builtin',
       customTools: [],
       resourceLoader: loader,
