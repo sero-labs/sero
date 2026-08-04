@@ -1,26 +1,25 @@
 /**
  * Auth IPC handlers — OAuth login + API key management.
  *
- * Bridges the Pi SDK's AuthStorage.login() callback-driven OAuth flow
- * across Electron IPC, and provides simple set/remove for API keys.
+ * Bridges Pi's provider-neutral ModelRuntime authentication protocol across
+ * Electron IPC and keeps credentials inside the main process.
  *
  * OAuth flow:
  *   1. Renderer calls `login(providerId)`
- *   2. Main calls `authStorage.login(providerId, callbacks)`
- *   3. Each callback sends an OAuthEvent to renderer via push channel
+ *   2. Main calls `modelRuntime.login(providerId, 'oauth', interaction)`
+ *   3. Each notification sends an OAuthEvent to the initiating renderer
  *   4. For prompts/manual input, main holds a Promise until renderer responds
  *   5. Renderer calls `respondPrompt(value)` or `respondManualCode(value)`
  *   6. On completion, main sends success/error event
  *
  * API key flow:
  *   Renderer calls `setApiKey(providerId, key)` or `removeApiKey(providerId)`.
- *   Main writes directly to auth.json via AuthStorage.
+ *   Main asks ModelRuntime to persist provider-owned credentials.
  */
 
 import fs from 'fs';
-import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
-import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
-import type { OAuthProviderId } from '@earendil-works/pi-ai';
+import { ipcMain, shell, type WebContents } from 'electron';
+import type { AuthEvent, AuthInteraction, AuthPrompt } from '@earendil-works/pi-ai';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -30,7 +29,10 @@ import type {
   OAuthEvent,
 } from '@/types/ipc';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
-import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '@electron/shared/auth/provider-catalog';
+import {
+  getApiKeyProviderCatalog,
+  getOAuthProviderCatalog,
+} from '@electron/shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '@electron/platform/env';
 import { refreshModelAvailabilityAfterCredentialChange } from './auth-model-refresh';
 
@@ -41,11 +43,7 @@ import { refreshModelAvailabilityAfterCredentialChange } from './auth-model-refr
 
 /** Ensure auth.json has 0o600 permissions. No-op if file doesn't exist. */
 function hardenAuthJsonPermissions(): void {
-  try {
-    fs.chmodSync(AUTH_JSON_PATH, 0o600);
-  } catch {
-    // File may not exist yet — that's fine
-  }
+  if (fs.existsSync(AUTH_JSON_PATH)) fs.chmodSync(AUTH_JSON_PATH, 0o600);
 }
 
 /**
@@ -53,65 +51,113 @@ function hardenAuthJsonPermissions(): void {
  * Logs a warning if permissions were wrong.
  */
 function repairAuthJsonPermissionsOnStartup(): void {
-  try {
-    const stat = fs.statSync(AUTH_JSON_PATH);
-    const mode = stat.mode & 0o777;
-    if (mode !== 0o600) {
-      fs.chmodSync(AUTH_JSON_PATH, 0o600);
-      console.warn(
-        `[auth] Repaired auth.json permissions: 0o${mode.toString(8)} → 0o600`,
-      );
-    }
-  } catch {
-    // File doesn't exist yet — nothing to repair
+  if (!fs.existsSync(AUTH_JSON_PATH)) return;
+  const mode = fs.statSync(AUTH_JSON_PATH).mode & 0o777;
+  if (mode !== 0o600) {
+    fs.chmodSync(AUTH_JSON_PATH, 0o600);
+    console.warn(
+      `[auth] Repaired auth.json permissions: 0o${mode.toString(8)} → 0o600`,
+    );
   }
 }
 
 // ── In-flight login state ────────────────────────────────────
 
-let abortController: AbortController | null = null;
-let promptResolver: ((value: string) => void) | null = null;
-let promptRejecter: ((err: Error) => void) | null = null;
-let manualCodeResolver: ((value: string) => void) | null = null;
-let manualCodeRejecter: ((err: Error) => void) | null = null;
-let selectResolver: ((value: string | undefined) => void) | null = null;
-let selectRejecter: ((err: Error) => void) | null = null;
+interface PendingResponse {
+  resolve: (value: string) => void;
+  reject: (error: Error) => void;
+}
 
-/**
- * The webContents that initiated the current login flow.
- * Events are sent only to this target to prevent leaking OAuth data
- * to unrelated windows (DevTools, webviews, detached panels).
- */
-let loginOriginWebContents: WebContents | null = null;
+interface LoginAttempt {
+  origin: WebContents;
+  controller: AbortController;
+  prompt: PendingResponse | null;
+  manualCode: PendingResponse | null;
+  select: PendingResponse | null;
+}
 
-/**
- * Send an OAuth event to the originating window only.
- * Falls back to the focused window if the originator was destroyed.
- */
-function sendAuthEvent(event: OAuthEvent): void {
-  if (loginOriginWebContents && !loginOriginWebContents.isDestroyed()) {
-    loginOriginWebContents.send(IpcChannels.auth.event, event);
-    return;
-  }
-  // Fallback: originating window was closed mid-flow
-  const focused = BrowserWindow.getFocusedWindow();
-  if (focused) {
-    focused.webContents.send(IpcChannels.auth.event, event);
-  } else {
-    console.warn('[auth] No window available to send OAuth event:', event.type);
+let activeLogin: LoginAttempt | null = null;
+
+function sendAuthEvent(attempt: LoginAttempt, event: OAuthEvent): void {
+  if (!attempt.origin.isDestroyed()) {
+    attempt.origin.send(IpcChannels.auth.event, event);
   }
 }
 
-/** Clear all pending resolvers (on cancel, complete, or error). */
-function clearPending(): void {
-  promptResolver = null;
-  promptRejecter = null;
-  manualCodeResolver = null;
-  manualCodeRejecter = null;
-  selectResolver = null;
-  selectRejecter = null;
-  abortController = null;
-  loginOriginWebContents = null;
+function cancelAttempt(attempt: LoginAttempt): void {
+  attempt.controller.abort();
+  const error = new Error('Login cancelled');
+  attempt.prompt?.reject(error);
+  attempt.manualCode?.reject(error);
+  attempt.select?.reject(error);
+  attempt.prompt = null;
+  attempt.manualCode = null;
+  attempt.select = null;
+}
+
+function waitForResponse(
+  attempt: LoginAttempt,
+  field: 'prompt' | 'manualCode' | 'select',
+  signal?: AbortSignal,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const response = { resolve, reject };
+    attempt[field] = response;
+    signal?.addEventListener('abort', () => {
+      if (attempt[field] !== response) return;
+      attempt[field] = null;
+      reject(new Error('Login cancelled'));
+    }, { once: true });
+  });
+}
+
+function notifyRenderer(attempt: LoginAttempt, event: AuthEvent): void {
+  if (event.type === 'auth_url') {
+    void shell.openExternal(event.url).catch(() => {});
+    sendAuthEvent(attempt, {
+      type: 'auth',
+      url: event.url,
+      instructions: event.instructions,
+    });
+  } else if (event.type === 'device_code') {
+    void shell.openExternal(event.verificationUri).catch(() => {});
+    sendAuthEvent(attempt, {
+      type: 'auth',
+      url: event.verificationUri,
+      instructions: `Enter code: ${event.userCode}`,
+    });
+  } else {
+    sendAuthEvent(attempt, { type: 'progress', message: event.message });
+  }
+}
+
+function promptRenderer(attempt: LoginAttempt, prompt: AuthPrompt): Promise<string> {
+  if (prompt.type === 'select') {
+    sendAuthEvent(attempt, {
+      type: 'select',
+      message: prompt.message,
+      options: prompt.options.map(({ id, label }) => ({ id, label })),
+    });
+    return waitForResponse(attempt, 'select', prompt.signal);
+  }
+  if (prompt.type === 'manual_code') {
+    sendAuthEvent(attempt, { type: 'manual_input', prompt: prompt.message });
+    return waitForResponse(attempt, 'manualCode', prompt.signal);
+  }
+  sendAuthEvent(attempt, {
+    type: 'prompt',
+    message: prompt.message,
+    placeholder: prompt.placeholder,
+  });
+  return waitForResponse(attempt, 'prompt', prompt.signal);
+}
+
+function createAuthInteraction(attempt: LoginAttempt): AuthInteraction {
+  return {
+    signal: attempt.controller.signal,
+    notify: (event) => notifyRenderer(attempt, event),
+    prompt: (prompt) => promptRenderer(attempt, prompt),
+  };
 }
 
 // ── Registration ─────────────────────────────────────────────
@@ -125,28 +171,29 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.getProviders,
     async (): Promise<AuthProvidersResponse> => {
       const infra = await ensureInfra();
-      infra.authStorage.reload();
+      const providers = infra.modelRuntime.getProviders();
+      const credentials = new Map(
+        (await infra.modelRuntime.listCredentials())
+          .map((credential) => [credential.providerId, credential]),
+      );
 
-      // OAuth providers
-      const oauthProviders = getOAuthProviders();
-      const oauth: OAuthProviderInfo[] = oauthProviders.map((p) => {
-        const cred = infra.authStorage.get(p.id);
+      const oauth: OAuthProviderInfo[] = getOAuthProviderCatalog(providers).map((provider) => {
+        const credential = credentials.get(provider.id);
         return {
-          id: p.id,
-          name: p.name,
-          isLoggedIn: cred?.type === 'oauth',
+          id: provider.id,
+          name: provider.name,
+          isLoggedIn: credential?.type === 'oauth',
         };
       });
 
-      // API key providers
-      const apiKey: ApiKeyProviderInfo[] = getApiKeyProviderCatalog().map((p) => {
-        const cred = infra.authStorage.get(p.id);
-        const envKey = getProviderEnvApiKey(p.id);
+      const apiKey: ApiKeyProviderInfo[] = getApiKeyProviderCatalog(providers).map((provider) => {
+        const credential = credentials.get(provider.id);
+        const status = infra.modelRuntime.getProviderAuthStatus(provider.id);
         return {
-          id: p.id,
-          name: p.name,
-          hasKey: cred?.type === 'api_key' || !!envKey,
-          fromEnv: !cred && !!envKey,
+          id: provider.id,
+          name: provider.name,
+          hasKey: status.configured,
+          fromEnv: !credential && status.source === 'environment',
         };
       });
 
@@ -158,15 +205,18 @@ export function registerAuthHandlers(): void {
   ipcMain.handle(
     IpcChannels.auth.login,
     async (ipcEvent, providerId: string): Promise<void> => {
-      // Track originating window so OAuth events go only to it
-      loginOriginWebContents = ipcEvent.sender;
-
       const infra = await ensureInfra();
-      const providers = getOAuthProviders();
-      const provider = providers.find((p) => p.id === providerId);
+      const provider = infra.modelRuntime.getProvider(providerId);
 
-      if (!provider) {
-        sendAuthEvent({
+      if (!provider?.auth.oauth) {
+        const failedAttempt: LoginAttempt = {
+          origin: ipcEvent.sender,
+          controller: new AbortController(),
+          prompt: null,
+          manualCode: null,
+          select: null,
+        };
+        sendAuthEvent(failedAttempt, {
           type: 'error',
           provider: providerId,
           message: `Unknown OAuth provider: ${providerId}`,
@@ -174,121 +224,39 @@ export function registerAuthHandlers(): void {
         return;
       }
 
-      // Abort any in-flight login
-      if (abortController) {
-        abortController.abort();
-        clearPending();
-      }
-
-      abortController = new AbortController();
-      const usesCallbackServer = provider.usesCallbackServer ?? false;
+      if (activeLogin) cancelAttempt(activeLogin);
+      const attempt: LoginAttempt = {
+        origin: ipcEvent.sender,
+        controller: new AbortController(),
+        prompt: null,
+        manualCode: null,
+        select: null,
+      };
+      activeLogin = attempt;
 
       try {
-        await infra.authStorage.login(providerId as OAuthProviderId, {
-          onAuth: (info) => {
-            // Open browser via Electron (better than exec)
-            shell.openExternal(info.url).catch(() => {
-              // Silently ignore — URL is shown in dialog anyway
-            });
+        await infra.modelRuntime.login(providerId, 'oauth', createAuthInteraction(attempt));
 
-            sendAuthEvent({
-              type: 'auth',
-              url: info.url,
-              instructions: info.instructions,
-            });
-
-            // For callback server providers, also request manual input
-            if (usesCallbackServer) {
-              sendAuthEvent({
-                type: 'manual_input',
-                prompt: 'Paste redirect URL below, or complete login in browser:',
-              });
-            } else if (providerId === 'github-copilot') {
-              sendAuthEvent({
-                type: 'waiting',
-                message: 'Waiting for browser authentication...',
-              });
-            }
-          },
-
-          onDeviceCode: (info) => {
-            shell.openExternal(info.verificationUri).catch(() => {
-              // Silently ignore — URL is shown in dialog anyway
-            });
-
-            sendAuthEvent({
-              type: 'auth',
-              url: info.verificationUri,
-              instructions: `Enter code: ${info.userCode}`,
-            });
-          },
-
-          onPrompt: async (prompt) => {
-            sendAuthEvent({
-              type: 'prompt',
-              message: prompt.message,
-              placeholder: prompt.placeholder,
-            });
-
-            // Wait for renderer to respond
-            return new Promise<string>((resolve, reject) => {
-              promptResolver = resolve;
-              promptRejecter = reject;
-            });
-          },
-
-          onProgress: (message) => {
-            sendAuthEvent({ type: 'progress', message });
-          },
-
-          onManualCodeInput: () => {
-            // Promise that resolves when renderer submits manual code
-            return new Promise<string>((resolve, reject) => {
-              manualCodeResolver = resolve;
-              manualCodeRejecter = reject;
-            });
-          },
-
-          onSelect: async (prompt) => {
-            sendAuthEvent({
-              type: 'select',
-              message: prompt.message,
-              options: prompt.options,
-            });
-
-            return new Promise<string | undefined>((resolve, reject) => {
-              selectResolver = resolve;
-              selectRejecter = reject;
-            });
-          },
-
-          signal: abortController.signal,
-        });
-
-        // Success — refresh model registry so new credentials are picked up.
-        // If an unrelated models.json error blocks reconciliation, keep the
-        // credential change successful and log the refresh failure separately.
-        await refreshModelAvailabilityAfterCredentialChange();
         hardenAuthJsonPermissions();
-
-        sendAuthEvent({
+        await refreshModelAvailabilityAfterCredentialChange(providerId);
+        sendAuthEvent(attempt, {
           type: 'success',
           provider: provider.name,
           message: `Logged in to ${provider.name}. Credentials saved.`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg === 'Login cancelled') {
-          sendAuthEvent({ type: 'cancelled' });
+        if (attempt.controller.signal.aborted || msg === 'Login cancelled') {
+          sendAuthEvent(attempt, { type: 'cancelled' });
         } else {
-          sendAuthEvent({
+          sendAuthEvent(attempt, {
             type: 'error',
             provider: provider.name,
             message: `Failed to login to ${provider.name}: ${msg}`,
           });
         }
       } finally {
-        clearPending();
+        if (activeLogin === attempt) activeLogin = null;
       }
     },
   );
@@ -298,8 +266,9 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.logout,
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
-      infra.authStorage.logout(providerId);
-      await refreshModelAvailabilityAfterCredentialChange();
+      await infra.modelRuntime.logout(providerId);
+      hardenAuthJsonPermissions();
+      await refreshModelAvailabilityAfterCredentialChange(providerId);
     },
   );
 
@@ -308,9 +277,12 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.setApiKey,
     async (_event, providerId: string, key: string): Promise<void> => {
       const infra = await ensureInfra();
-      infra.authStorage.set(providerId, { type: 'api_key', key });
+      await infra.modelRuntime.login(providerId, 'api_key', {
+        prompt: async () => key,
+        notify: () => {},
+      });
       hardenAuthJsonPermissions();
-      await refreshModelAvailabilityAfterCredentialChange();
+      await refreshModelAvailabilityAfterCredentialChange(providerId);
     },
   );
 
@@ -319,8 +291,9 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.removeApiKey,
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
-      infra.authStorage.remove(providerId);
-      await refreshModelAvailabilityAfterCredentialChange();
+      await infra.modelRuntime.logout(providerId);
+      hardenAuthJsonPermissions();
+      await refreshModelAvailabilityAfterCredentialChange(providerId);
     },
   );
 
@@ -328,10 +301,9 @@ export function registerAuthHandlers(): void {
   ipcMain.handle(
     IpcChannels.auth.respondPrompt,
     async (_event, value: string): Promise<boolean> => {
-      if (promptResolver) {
-        promptResolver(value);
-        promptResolver = null;
-        promptRejecter = null;
+      if (activeLogin?.prompt) {
+        activeLogin.prompt.resolve(value);
+        activeLogin.prompt = null;
         return true;
       }
       console.warn('[auth] respondPrompt called but no prompt is pending — ignoring');
@@ -343,10 +315,9 @@ export function registerAuthHandlers(): void {
   ipcMain.handle(
     IpcChannels.auth.respondManualCode,
     async (_event, value: string): Promise<boolean> => {
-      if (manualCodeResolver) {
-        manualCodeResolver(value);
-        manualCodeResolver = null;
-        manualCodeRejecter = null;
+      if (activeLogin?.manualCode) {
+        activeLogin.manualCode.resolve(value);
+        activeLogin.manualCode = null;
         return true;
       }
       console.warn('[auth] respondManualCode called but no input is pending — ignoring');
@@ -358,10 +329,9 @@ export function registerAuthHandlers(): void {
   ipcMain.handle(
     IpcChannels.auth.respondSelect,
     async (_event, value: string): Promise<boolean> => {
-      if (selectResolver) {
-        selectResolver(value);
-        selectResolver = null;
-        selectRejecter = null;
+      if (activeLogin?.select) {
+        activeLogin.select.resolve(value);
+        activeLogin.select = null;
         return true;
       }
       console.warn('[auth] respondSelect called but no selection is pending — ignoring');
@@ -373,20 +343,7 @@ export function registerAuthHandlers(): void {
   ipcMain.handle(
     IpcChannels.auth.cancel,
     async (): Promise<void> => {
-      if (abortController) {
-        abortController.abort();
-      }
-      // Reject any pending prompts
-      if (promptRejecter) {
-        promptRejecter(new Error('Login cancelled'));
-      }
-      if (manualCodeRejecter) {
-        manualCodeRejecter(new Error('Login cancelled'));
-      }
-      if (selectRejecter) {
-        selectRejecter(new Error('Login cancelled'));
-      }
-      clearPending();
+      if (activeLogin) cancelAttempt(activeLogin);
     },
   );
 }

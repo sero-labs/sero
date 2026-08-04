@@ -249,7 +249,7 @@ export function NotesApp() {
                 key={note.id}
                 className="group flex items-center gap-3 px-3 py-2 transition-colors hover:bg-secondary/40"
               >
-                <input aria-label="Checkbox input"
+                <input
                   type="checkbox"
                   checked={note.done}
                   onChange={() => toggleNote(note.id)}

@@ -1,4 +1,8 @@
-import type { AgentSession, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import {
+  ModelRegistry,
+  type AgentSession,
+  type ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import type {
   AssistantMessage,
   ImageContent,
@@ -155,14 +159,18 @@ export function buildDirectCliExtensionContext(
   entry: PromptPoolEntry,
   cwd: string,
 ): ExtensionContext {
+  const liveContext = entry.session.extensionRunner?.createContext();
+  if (liveContext) return { ...liveContext, cwd };
+
   return {
     cwd,
     mode: 'rpc',
     hasUI: true,
     ui: createSeroUIContext(),
     sessionManager: entry.session.sessionManager,
-    modelRegistry: entry.session.modelRegistry,
+    modelRegistry: new ModelRegistry(entry.session.modelRuntime),
     model: entry.session.model,
+    scopedModels: entry.session.scopedModels,
     isProjectTrusted: () => entry.session.settingsManager.isProjectTrusted(),
     isIdle: () => true,
     signal: entry.session.agent.signal,

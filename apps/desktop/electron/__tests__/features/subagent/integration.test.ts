@@ -42,7 +42,7 @@ function makeResult(response: string, cost = 0.01): RunResult {
 function makeMockDeps(): any {
   return {
     infra: {
-      authStorage: {},
+      modelRuntime: {},
       modelRegistry: {},
       settingsManager: { get: () => null },
     },

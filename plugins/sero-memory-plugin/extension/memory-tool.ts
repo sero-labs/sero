@@ -7,6 +7,7 @@
 
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 import { Text } from '@earendil-works/pi-tui';
 import { Type, type Static } from 'typebox';
 
@@ -426,6 +427,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
               p.schedule as AutoConsolidationCadence | undefined,
               p.trigger as ConsolidationTrigger | undefined,
               ctx,
+              (request) => requestIsolatedCompletion(pi.events, request),
             );
           case 'config':
             return handleMemoryConfig(

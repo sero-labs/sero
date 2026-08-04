@@ -39,6 +39,7 @@ function createMockAgentContext(): Omit<ExtensionContext, 'cwd'> {
   return {
     model: { id: 'claude-sonnet', api: 'anthropic-messages', provider: 'anthropic' } as ExtensionContext['model'],
     modelRegistry: { getApiKeyAndHeaders: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
+    scopedModels: [],
     sessionManager: { getSessionId: vi.fn(() => 'sid-1') } as unknown as ExtensionContext['sessionManager'],
     mode: 'rpc',
     hasUI: true,

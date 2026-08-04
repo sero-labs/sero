@@ -418,7 +418,7 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
           params,
           ctx.invocation.signal,
           onUpdate,
-          buildToolContext(ctx),
+          await buildToolContext(ctx),
         );
         const content = extractContent(result);
         const text = extractText(content);
@@ -460,7 +460,7 @@ export function bridgeCommand(name: string, description?: string): CliCommand {
         if (!registered) {
           return { output: 'ERROR: This command requires an active agent session.', exitCode: 1 };
         }
-        await registered.handler(args.join(' '), buildCommandContext(registered.name, ctx));
+        await registered.handler(args.join(' '), await buildCommandContext(registered.name, ctx));
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';

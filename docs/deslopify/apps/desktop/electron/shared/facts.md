@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/shared
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-08-04_
 
 ## What this code does
 This folder is the Electron main-process shared foundation layer: singleton infra bootstrap (`ensureInfra` + cross-feature managers), auth/provider catalog helpers, model/settings read-write utilities, media capture/encoding helpers, and small runtime utilities (native PTY loader, secret redaction, user-feedback event bus).
@@ -11,7 +11,7 @@ This folder is the Electron main-process shared foundation layer: singleton infr
 - Largest file: `apps/desktop/electron/shared/infra/shared-infra.ts` (258 LOC)
 - Files over 500 LOC: none
 - External dependencies of note:
-  - Pi SDK core infra (`AuthStorage`, `ModelRegistry`, `SettingsManager`, session/model types)
+  - Pi SDK core infra (`ModelRuntime`, `SettingsManager`, session/model types)
   - Electron media/runtime APIs (`BrowserWindow`, `screen`, `nativeImage`)
   - Host process primitives (`child_process` ffmpeg execution, sync filesystem reads/writes)
   - Cross-feature singletons (`container`, `workspace`, `subagent`, `gateway`, `vcs`, `lsp`)

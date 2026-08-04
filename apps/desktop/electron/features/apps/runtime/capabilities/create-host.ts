@@ -224,10 +224,8 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     models: {
       list: async () => {
-        const { modelRegistry } = ensureAiInfra();
-        // Reload auth so newly-added (or removed) provider keys are reflected.
-        modelRegistry.authStorage.reload();
-        return buildAvailableModelGroups(modelRegistry.getAvailable());
+        const { modelRuntime } = await ensureAiInfra();
+        return buildAvailableModelGroups(await modelRuntime.getAvailable());
       },
     },
     media: createMediaHost(),

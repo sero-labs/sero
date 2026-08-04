@@ -3,7 +3,7 @@ import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
 const mocks = vi.hoisted(() => ({
-  modelRegistryRefresh: vi.fn(),
+  modelRuntimeRefresh: vi.fn(),
   modelRegistryGetAvailable: vi.fn(),
   settingsReload: vi.fn(),
   getGlobalSettings: vi.fn(() => ({})),
@@ -61,7 +61,10 @@ describe('refreshModelAvailability', () => {
 
   beforeEach(() => {
     consoleWarn.mockClear();
-    mocks.modelRegistryRefresh.mockReset();
+    mocks.modelRuntimeRefresh.mockReset().mockResolvedValue({
+      aborted: false,
+      errors: new Map(),
+    });
     mocks.modelRegistryGetAvailable.mockReset();
     mocks.settingsReload.mockReset();
     mocks.getGlobalSettings.mockReset().mockReturnValue({});
@@ -88,8 +91,10 @@ describe('refreshModelAvailability', () => {
     const appSession = { id: 'app-1' } as unknown as AgentSession;
 
     mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        refresh: mocks.modelRuntimeRefresh,
+      },
       modelRegistry: {
-        refresh: mocks.modelRegistryRefresh,
         getError: vi.fn(() => null),
         getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue(availableModels),
       },
@@ -115,7 +120,7 @@ describe('refreshModelAvailability', () => {
 
     const result = await refreshModelAvailability();
 
-    expect(mocks.modelRegistryRefresh).toHaveBeenCalledOnce();
+    expect(mocks.modelRuntimeRefresh).toHaveBeenCalledOnce();
     expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledWith([
       { provider: 'openai', modelId: 'gpt-5.4-mini' },
       { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
@@ -138,8 +143,10 @@ describe('refreshModelAvailability', () => {
     const healthySession = { id: 'chat-b' } as unknown as AgentSession;
 
     mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        refresh: mocks.modelRuntimeRefresh,
+      },
       modelRegistry: {
-        refresh: mocks.modelRegistryRefresh,
         getError: vi.fn(() => null),
         getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue([sharedModel]),
       },
