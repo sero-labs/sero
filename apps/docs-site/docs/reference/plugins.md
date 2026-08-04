@@ -10,6 +10,11 @@ A plugin can provide:
 - optional runtime/background behavior
 - optional provider metadata for model integration
 
+Plugins that use Pi SDK types must declare Pi packages as peers with a minimum
+version of `0.83.0`. Use Pi `0.83.0` as the development version. Keep Pi
+packages external in extension bundles so the plugin uses the host's canonical
+runtime.
+
 ## Distribution modes
 
 Plugins can be installed from:

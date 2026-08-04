@@ -21,10 +21,10 @@ describe('refreshModelAvailabilityAfterCredentialChange', () => {
   it('does not fail the credential flow when model reconciliation hits an unrelated refresh error', async () => {
     mocks.refreshModelAvailability.mockRejectedValue(new Error('models.json is invalid'));
 
-    await expect(refreshModelAvailabilityAfterCredentialChange()).resolves.toBeUndefined();
+    await expect(refreshModelAvailabilityAfterCredentialChange('anthropic')).resolves.toBeUndefined();
 
     expect(consoleWarn).toHaveBeenCalledWith(
-      '[auth] Credentials changed but model refresh failed:',
+      '[auth] Credentials changed for anthropic but model refresh failed:',
       expect.any(Error),
     );
   });
@@ -36,9 +36,34 @@ describe('refreshModelAvailabilityAfterCredentialChange', () => {
       updatedAppSessions: 0,
     });
 
-    await expect(refreshModelAvailabilityAfterCredentialChange()).resolves.toBeUndefined();
+    await expect(refreshModelAvailabilityAfterCredentialChange('anthropic')).resolves.toBeUndefined();
 
     expect(mocks.refreshModelAvailability).toHaveBeenCalledOnce();
+    expect(mocks.refreshModelAvailability).toHaveBeenCalledWith({
+      force: true,
+      signal: expect.any(AbortSignal),
+    });
     expect(consoleWarn).not.toHaveBeenCalled();
+  });
+
+  it('serializes credential refreshes so an older result cannot finish last', async () => {
+    let finishFirst: (() => void) | undefined;
+    mocks.refreshModelAvailability
+      .mockImplementationOnce(() => new Promise<void>((resolve) => {
+        finishFirst = resolve;
+      }))
+      .mockResolvedValueOnce({
+        sharedModel: null,
+        updatedChatSessions: 0,
+        updatedAppSessions: 0,
+      });
+
+    const first = refreshModelAvailabilityAfterCredentialChange('first');
+    const second = refreshModelAvailabilityAfterCredentialChange('second');
+    await vi.waitFor(() => expect(mocks.refreshModelAvailability).toHaveBeenCalledTimes(1));
+    finishFirst?.();
+    await Promise.all([first, second]);
+
+    expect(mocks.refreshModelAvailability).toHaveBeenCalledTimes(2);
   });
 });

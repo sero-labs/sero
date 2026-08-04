@@ -116,7 +116,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22.19.0
           cache: pnpm
 
       - name: Check workflow prerequisites

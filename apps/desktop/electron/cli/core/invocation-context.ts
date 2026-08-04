@@ -72,6 +72,7 @@ export function extractAgentContext(ctx: ExtensionContext): BridgedAgentContext 
     sessionManager: ctx.sessionManager,
     modelRegistry: ctx.modelRegistry,
     model: ctx.model,
+    scopedModels: ctx.scopedModels,
     isProjectTrusted: () => ctx.isProjectTrusted(),
     isIdle: () => ctx.isIdle(),
     signal: ctx.signal,

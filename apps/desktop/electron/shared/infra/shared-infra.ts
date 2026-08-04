@@ -2,8 +2,8 @@
  * Shared AI infrastructure — lazy-initialised singletons.
  *
  * Used by both the agent pool (chat sessions) and the app agent pool
- * (per-app background sessions). Ensures we have a single AuthStorage,
- * ModelRegistry, SettingsManager, and default model across the app.
+ * (per-app background sessions). Ensures we have a single ModelRuntime,
+ * extension-facing ModelRegistry, SettingsManager, and default model.
  *
  * Also exports the ContainerManager singleton used by agent sessions
  * and terminal IPC handlers.
@@ -81,7 +81,7 @@ export { refreshInfraModelSelection, type SharedInfra } from './ai-infra';
 
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
-  const infra = ensureAiInfra();
+  const infra = await ensureAiInfra();
 
   // Wire subagent manager deps lazily (avoids circular imports)
   if (!subagentManager.isInitialized) {

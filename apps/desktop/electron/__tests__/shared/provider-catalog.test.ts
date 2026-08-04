@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Provider } from '@earendil-works/pi-ai';
 
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
   getPackageApiKeyProviders: () => [],
@@ -13,13 +14,47 @@ import {
 
 const removedProviderIds = ['google-gemini-cli', 'google-antigravity'];
 
+function apiKeyProvider(id: string): Provider {
+  return {
+    id,
+    name: id,
+    auth: { apiKey: { name: `${id} key`, login: vi.fn(), resolve: vi.fn() } },
+    getModels: () => [],
+  } as unknown as Provider;
+}
+
+function oauthProvider(id: string): Provider {
+  return {
+    id,
+    name: id,
+    auth: {
+      oauth: {
+        name: `${id} login`,
+        login: vi.fn(),
+        refresh: vi.fn(),
+        toAuth: vi.fn(),
+      },
+    },
+    getModels: () => [],
+  } as unknown as Provider;
+}
+
 describe('provider catalog', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
   it('lists Pi API-key providers exposed by Sero auth', () => {
-    const ids = getApiKeyProviderCatalog().map((provider) => provider.id);
+    const providers = [
+      'deepseek',
+      'moonshotai',
+      'moonshotai-cn',
+      'xiaomi',
+      'xiaomi-token-plan-cn',
+      'xiaomi-token-plan-ams',
+      'xiaomi-token-plan-sgp',
+    ].map(apiKeyProvider);
+    const ids = getApiKeyProviderCatalog(providers).map((provider) => provider.id);
 
     expect(ids).toEqual(expect.arrayContaining([
       'deepseek',
@@ -37,8 +72,13 @@ describe('provider catalog', () => {
     }
   });
 
-  it('resolves Pi OAuth providers from the subpath export', () => {
-    const oauthIds = getOAuthProviderCatalog().map((provider) => provider.id);
+  it('resolves OAuth providers from runtime metadata', () => {
+    const providers = [
+      oauthProvider('anthropic'),
+      oauthProvider('github-copilot'),
+      oauthProvider('openai-codex'),
+    ];
+    const oauthIds = getOAuthProviderCatalog(providers).map((provider) => provider.id);
 
     expect(oauthIds).toEqual(expect.arrayContaining([
       'anthropic',

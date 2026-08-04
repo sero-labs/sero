@@ -34,7 +34,7 @@ import {
   type DailyLogCandidate,
 } from './consolidation-helpers';
 import { runQmdUpdateNow } from './qmd';
-import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
+import type { IsolatedCompletionService } from '@sero-ai/extension-runtime';
 
 export type ConsolidationTrigger = 'manual' | 'cron' | 'auto';
 
@@ -53,19 +53,14 @@ async function completeConsolidationPrompt(
   ctx: ExtensionContext,
   prompt: string,
   trigger: ConsolidationTrigger,
+  complete: IsolatedCompletionService,
 ): Promise<string> {
   if (!ctx.model) {
     throw new Error('Memory consolidation requires an active model.');
   }
-  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
-  if (!auth.ok || !auth.apiKey) {
-    throw new Error('No API key available for the active model.');
-  }
-
-  return runIsolatedCompletion({
+  return complete({
     cwd: ctx.cwd,
     model: ctx.model,
-    modelRegistry: ctx.modelRegistry,
     prompt,
     systemPrompt: [
       'You curate durable long-term markdown memory from noisy work logs.',
@@ -187,7 +182,8 @@ function buildSummaryMessage(summary: Omit<ConsolidationSummary, 'message'>): st
 
 export async function runMemoryConsolidation(
   ctx: ExtensionContext,
-  trigger: ConsolidationTrigger = 'manual',
+  trigger: ConsolidationTrigger,
+  complete: IsolatedCompletionService,
 ): Promise<ConsolidationSummary> {
   const root = resolveMemoryRoot();
   await ensureDirectories(root);
@@ -221,7 +217,7 @@ export async function runMemoryConsolidation(
 
   for (const batch of batches) {
     const prompt = buildConsolidationPrompt(memoryEntries, batch);
-    const raw = await completeConsolidationPrompt(ctx, prompt, trigger);
+    const raw = await completeConsolidationPrompt(ctx, prompt, trigger, complete);
     const normalized = normalizeCandidateEntries(raw);
     const filtered = filterNovelEntries(memoryEntries, normalized);
     duplicateEntries += filtered.duplicates;
@@ -307,10 +303,11 @@ export async function hasPendingStaleLogs(staleDays = 7): Promise<boolean> {
 
 export async function runMemoryConsolidationSafely(
   ctx: ExtensionContext,
-  trigger: ConsolidationTrigger = 'manual',
+  trigger: ConsolidationTrigger,
+  complete: IsolatedCompletionService,
 ): Promise<ConsolidationSummary> {
   try {
-    return await runMemoryConsolidation(ctx, trigger);
+    return await runMemoryConsolidation(ctx, trigger, complete);
   } catch (err) {
     error('memory_consolidation_failed', {
       trigger,
