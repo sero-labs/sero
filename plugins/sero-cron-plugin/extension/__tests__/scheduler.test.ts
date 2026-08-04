@@ -6,14 +6,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { CronJob, CronRunResult } from '../../shared/types';
+import type { CronJob, CronRunResult, Reminder } from '../../shared/types';
+import type { SessionRunOptions, SessionRunResult } from '../session-runner';
 
 // ── Mocks ──────────────────────────────────────────────────────
 
 // Mock session-runner
 const mockRunTransientSession = vi.fn();
 vi.mock('../session-runner', () => ({
-  runTransientSession: (...args: any[]) => mockRunTransientSession(...args),
+  runTransientSession: (jobKey: string, prompt: string, options?: SessionRunOptions) =>
+    mockRunTransientSession(jobKey, prompt, options),
 }));
 
 // Mock logger
@@ -26,19 +28,22 @@ vi.mock('../logger', () => ({
 // Mock cron matcher — controlled by tests
 const mockMatchesCron = vi.fn();
 vi.mock('../../shared/cron', () => ({
-  matchesCron: (...args: any[]) => mockMatchesCron(...args),
+  matchesCron: (expression: string, date: Date) => mockMatchesCron(expression, date),
 }));
 
 // Mock reminder utils — controllable per test
-const mockShouldFire = vi.fn(() => false);
-const mockStatusAfterFire = vi.fn((r: any) => ({ ...r, status: 'completed', lastFiredAt: new Date().toISOString() }));
+const mockShouldFire = vi.fn((_reminder: Reminder, _now: Date) => false);
+const mockStatusAfterFire = vi.fn((reminder: Reminder): Reminder => ({
+  ...reminder,
+  status: 'completed',
+  lastFiredAt: new Date().toISOString(),
+}));
 vi.mock('../../shared/reminder-utils', () => ({
-  shouldFire: (...args: any[]) => mockShouldFire(...args),
-  statusAfterFire: (...args: any[]) => mockStatusAfterFire(...args),
+  shouldFire: (reminder: Reminder, now: Date) => mockShouldFire(reminder, now),
+  statusAfterFire: (reminder: Reminder) => mockStatusAfterFire(reminder),
 }));
 
 import { CronScheduler, type SchedulerCallbacks } from '../scheduler';
-import type { Reminder } from '../../shared/types';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -53,7 +58,7 @@ function makeJob(overrides?: Partial<CronJob>): CronJob {
   };
 }
 
-function defaultSessionResult(overrides?: Partial<any>) {
+function defaultSessionResult(overrides?: Partial<SessionRunResult>): SessionRunResult {
   return {
     output: 'Agent completed the task',
     exitCode: 0,
@@ -80,7 +85,11 @@ beforeEach(() => {
   mockRunTransientSession.mockResolvedValue(defaultSessionResult());
   mockMatchesCron.mockReturnValue(false);
   mockShouldFire.mockReturnValue(false);
-  mockStatusAfterFire.mockImplementation((r: any) => ({ ...r, status: 'completed', lastFiredAt: new Date().toISOString() }));
+  mockStatusAfterFire.mockImplementation((reminder: Reminder) => ({
+    ...reminder,
+    status: 'completed',
+    lastFiredAt: new Date().toISOString(),
+  }));
 });
 
 afterEach(() => {

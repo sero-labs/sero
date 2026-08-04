@@ -144,14 +144,15 @@ describe('direct CLI chat prompts', () => {
       getSessionId: vi.fn(() => 'session-1'),
       appendMessage: vi.fn(),
     };
-    const modelRegistry = { getApiKey: vi.fn() };
+    const modelRuntime = { id: 'shared-runtime' };
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
       pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
-        modelRegistry,
+        modelRuntime,
+        scopedModels: [],
         abort,
         compact,
         getContextUsage: () => undefined,
@@ -169,7 +170,8 @@ describe('direct CLI chat prompts', () => {
 
     expect(ctx.cwd).toBe('/tmp/ws-1/packages/app');
     expect(ctx.model).toBe(entry.session.model);
-    expect(ctx.modelRegistry).toBe(modelRegistry as never);
+    expect((ctx.modelRegistry as unknown as { runtime: unknown }).runtime).toBe(modelRuntime);
+    expect(ctx.scopedModels).toEqual([]);
     expect(ctx.sessionManager).toBe(sessionManager as never);
     expect(ctx.getSystemPrompt()).toBe('system prompt');
     expect(compact).toHaveBeenCalledWith('summarize');

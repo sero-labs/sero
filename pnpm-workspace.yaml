@@ -19,7 +19,7 @@ catalog:
   # a different react version than the apps, splitting the install into two
   # react copies and breaking hooks at runtime.
   react: "^19.2.8"
-  react-dom: "^19.2.4"
+  react-dom: "^19.2.8"
 
   # Build tooling
   tailwindcss: "4.3.3"
@@ -38,18 +38,14 @@ catalog:
   # Types
   "@types/react": "^19.2.13"
   "@types/react-dom": "^19.2.3"
+  jsdom: "^26.1.0"
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  # NOTE: pi-ai/pi-coding-agent/pi-tui held back at 0.80.6 — 0.82.1 removes
-  # `AuthStorage` from the package root export and changes ModelRegistry /
-  # CreateAgentSessionOptions, breaking @sero-ai/extension-runtime. Bump these
-  # separately once isolated-completion.ts is migrated to the new API.
-  # Tracked in https://github.com/sero-labs/sero/issues/345
-  "@earendil-works/pi-agent-core": "0.80.6"
-  "@earendil-works/pi-ai": "0.80.6"
-  "@earendil-works/pi-coding-agent": "0.80.6"
-  "@earendil-works/pi-tui": "0.80.6"
+  "@earendil-works/pi-agent-core": "0.83.0"
+  "@earendil-works/pi-ai": "0.83.0"
+  "@earendil-works/pi-coding-agent": "0.83.0"
+  "@earendil-works/pi-tui": "0.83.0"
 
   # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.4.3"
@@ -72,12 +68,12 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@earendil-works/pi-agent-core": ">=0.80.6"
-    "@earendil-works/pi-ai": ">=0.80.6"
-    "@earendil-works/pi-coding-agent": ">=0.80.6"
-    "@earendil-works/pi-tui": ">=0.80.6"
+    "@earendil-works/pi-agent-core": ">=0.83.0"
+    "@earendil-works/pi-ai": ">=0.83.0"
+    "@earendil-works/pi-coding-agent": ">=0.83.0"
+    "@earendil-works/pi-tui": ">=0.83.0"
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.8"
-    react-dom: "^19.2.4"
+    react-dom: "^19.2.8"
     zod: ">=4.0.0"

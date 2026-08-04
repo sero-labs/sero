@@ -128,7 +128,7 @@ function createConfig(signal: AbortSignal): RunnerConfig {
 function createDeps(): RunnerDeps {
   return {
     infra: {
-      authStorage: {},
+      modelRuntime: {},
       modelRegistry: {
         getAvailable: vi.fn(() => []),
         find: vi.fn(() => null),

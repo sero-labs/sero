@@ -7,6 +7,7 @@ function createLoggerApi() {
   return {
     events: {
       emit: vi.fn(),
+      on: vi.fn(() => () => {}),
     },
   };
 }
@@ -68,10 +69,10 @@ describe('logger', () => {
     info('scheduler:tick', { minute: '2026-04-14T12:00:00.000Z' });
     await flushLoggerWrites();
 
-    const fileWarnings = consoleWarnSpy.mock.calls.filter(
-      ([message]) =>
-        typeof message === 'string' && message.includes('file logging unavailable'),
-    );
+    const fileWarnings = consoleWarnSpy.mock.calls.filter((call: unknown[]) => {
+      const message: unknown = call[0];
+      return typeof message === 'string' && message.includes('file logging unavailable');
+    });
 
     expect(fileWarnings).toHaveLength(1);
     expect(api.events.emit).toHaveBeenCalledWith(

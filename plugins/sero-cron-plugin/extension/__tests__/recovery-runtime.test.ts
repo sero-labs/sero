@@ -25,6 +25,7 @@ function makeReminder(overrides?: Partial<Reminder>): Reminder {
     type: 'once',
     channel: 'notification',
     status: 'active',
+    createdAt: '2025-06-15T08:00:00Z',
     fireAt: new Date(Date.now() - 60_000).toISOString(),
     recoverIfMissed: true,
     ...overrides,

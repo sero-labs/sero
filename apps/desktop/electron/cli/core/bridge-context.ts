@@ -1,5 +1,4 @@
 import {
-  AuthStorage,
   ModelRegistry,
   SessionManager,
   type ExtensionCommandContext,
@@ -7,11 +6,10 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
+import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import type { CliCommandContext, CliSessionRuntime } from './types';
 import type { CliSessionEntry } from '../bridges/session-bridge';
 import { getCliSessionBridge } from '../bridges/session-bridge';
-
-const FALLBACK_MODEL_REGISTRY = ModelRegistry.inMemory(AuthStorage.inMemory());
 
 export type SeroBridgedToolContext = ExtensionContext & {
   sessionRuntime?: CliSessionRuntime;
@@ -34,15 +32,17 @@ function resolveSessionEntry(
   }
 }
 
-function createFallbackExtensionContext(cwd: string): ExtensionContext {
+async function createFallbackExtensionContext(cwd: string): Promise<ExtensionContext> {
+  const { modelRegistry } = await ensureAiInfra();
   return {
     ui: createSeroUIContext(),
     mode: 'rpc',
     hasUI: true,
     cwd,
     sessionManager: SessionManager.inMemory(cwd),
-    modelRegistry: FALLBACK_MODEL_REGISTRY,
+    modelRegistry,
     model: undefined,
+    scopedModels: [],
     isProjectTrusted: () => false,
     isIdle: () => true,
     signal: undefined,
@@ -73,8 +73,9 @@ function createSessionBackedExtensionContext(
     hasUI: true,
     cwd,
     sessionManager: entry.session.sessionManager,
-    modelRegistry: entry.session.modelRegistry,
+    modelRegistry: new ModelRegistry(entry.session.modelRuntime),
     model: entry.session.model,
+    scopedModels: entry.session.scopedModels,
     isProjectTrusted: () => entry.session.settingsManager.isProjectTrusted(),
     isIdle: () => !entry.session.isStreaming,
     signal: entry.session.agent.signal,
@@ -108,13 +109,13 @@ function createUnavailableCommandAction<TResult>(
   };
 }
 
-export function buildToolContext(ctx: CliCommandContext): SeroBridgedToolContext {
+export async function buildToolContext(ctx: CliCommandContext): Promise<SeroBridgedToolContext> {
   const entry = resolveSessionEntry(ctx);
   const baseContext = ctx.agentContext
     ? { ...ctx.agentContext, cwd: ctx.cwd }
     : entry
       ? createSessionBackedExtensionContext(entry, ctx.cwd)
-      : createFallbackExtensionContext(ctx.cwd);
+      : await createFallbackExtensionContext(ctx.cwd);
 
   return {
     ...baseContext,
@@ -122,10 +123,10 @@ export function buildToolContext(ctx: CliCommandContext): SeroBridgedToolContext
   };
 }
 
-export function buildCommandContext(
+export async function buildCommandContext(
   commandName: string,
   ctx: CliCommandContext,
-): SeroBridgedCommandContext {
+): Promise<SeroBridgedCommandContext> {
   const liveCommandContext = resolveSessionEntry(ctx)?.session.extensionRunner?.createCommandContext();
   if (liveCommandContext) {
     return {
@@ -135,7 +136,7 @@ export function buildCommandContext(
     };
   }
 
-  const baseContext = buildToolContext(ctx);
+  const baseContext = await buildToolContext(ctx);
   return {
     ...baseContext,
     getSystemPromptOptions: () => {

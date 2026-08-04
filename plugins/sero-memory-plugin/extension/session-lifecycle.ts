@@ -23,7 +23,7 @@ import { nowTimestamp } from './memory-format';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
-import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
+import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -193,8 +193,6 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
       if (ctx.model) {
         try {
-          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
-          if (auth.ok && auth.apiKey) {
             const llmMessages = convertToLlm(messages);
             const conversationText = serializeConversation(llmMessages);
             const { text: truncated, truncated: wasTruncated } = truncateText(
@@ -219,10 +217,9 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
               }
               promptLines.push('', '<conversation>', truncated, '</conversation>');
 
-              const summaryText = await runIsolatedCompletion({
+              const summaryText = await requestIsolatedCompletion(pi.events, {
                 cwd: ctx.cwd,
                 model: ctx.model,
-                modelRegistry: ctx.modelRegistry,
                 prompt: promptLines.join('\n'),
                 systemPrompt: SUMMARY_SYSTEM_PROMPT,
                 thinkingLevel: 'low',
@@ -234,7 +231,6 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
               qmdDirty = true;
               info('session_summary_written', { sessionId });
             }
-          }
         } catch (err) {
           const fallback = buildSummaryFallback(
             err instanceof Error ? err.message : 'unknown error',
