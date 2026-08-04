@@ -50,7 +50,7 @@ jobs:
           run_install: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22.19.0
           cache: pnpm
       - name: Validate OS/runtime selection
         run: |
@@ -94,7 +94,7 @@ jobs:
           run_install: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22.19.0
           cache: pnpm
       - name: Validate OS/runtime selection
         run: |
@@ -141,7 +141,7 @@ jobs:
           run_install: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22.19.0
           cache: pnpm
       - name: Validate Windows bash/MSYS prerequisites
         run: |

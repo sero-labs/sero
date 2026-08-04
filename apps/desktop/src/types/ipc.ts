@@ -263,6 +263,7 @@ export type {
   LocalModelOverride,
   LocalProviderConfig,
   LocalModelsConfig,
+  LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
   LocalProviderPreset,

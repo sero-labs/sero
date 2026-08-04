@@ -1,11 +1,14 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 
 import { getConfiguredModelFallbackChain } from '@electron/shared/settings/model-fallback-chain';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import { setRuntimeSessionModel } from './agent-helpers';
 
+type AvailableModels = readonly Model<Api>[];
+
 function findAvailableModelByProviderAndId(
-  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+  availableModels: AvailableModels,
   provider: string | undefined,
   modelId: string | undefined,
 ) {
@@ -14,7 +17,7 @@ function findAvailableModelByProviderAndId(
 }
 
 function findAvailableModelByReference(
-  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+  availableModels: AvailableModels,
   reference: string,
   preferredProvider?: string,
 ) {
@@ -43,7 +46,7 @@ function findAvailableModelByReference(
 
 function pickFallbackModel(
   session: AgentSession,
-  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+  availableModels: AvailableModels,
 ) {
   session.settingsManager.reload();
 
@@ -88,18 +91,16 @@ export function clearUnavailableSessionModel(session: AgentSession): boolean {
 export async function ensureSessionHasAvailableModel(
   session: AgentSession,
 ): Promise<boolean> {
-  session.modelRegistry.authStorage.reload();
-
   const currentModel = session.model;
   const refreshedModel = currentModel
-    ? session.modelRegistry.find(currentModel.provider, currentModel.id)
+    ? session.modelRuntime.getModel(currentModel.provider, currentModel.id)
     : undefined;
 
   if (currentModel && refreshedModel && refreshedModel !== currentModel) {
     setRuntimeSessionModel(session, refreshedModel);
   }
 
-  const availableModels = session.modelRegistry.getAvailable();
+  const availableModels = await session.modelRuntime.getAvailable();
   const currentProvider = refreshedModel?.provider ?? currentModel?.provider;
   const currentModelId = refreshedModel?.id ?? currentModel?.id;
   const currentStillAvailable = !!findAvailableModelByProviderAndId(

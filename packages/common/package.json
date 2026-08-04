@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/common",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "description": "Shared types and utilities for Sero packages",
   "type": "module",
   "main": "./src/index.ts",
@@ -18,10 +18,11 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "@earendil-works/pi-agent-core": "0.82.1"
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "catalog:peer"
   },
   "devDependencies": {
+    "@earendil-works/pi-agent-core": "catalog:",
     "typescript": "^5.9.3"
   }
 }

@@ -3,7 +3,7 @@ import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
 const mocks = vi.hoisted(() => ({
-  modelRegistryRefresh: vi.fn(),
+  modelRuntimeRefresh: vi.fn(),
   modelRegistryGetAvailable: vi.fn(),
   settingsReload: vi.fn(),
   getGlobalSettings: vi.fn(() => ({})),
@@ -61,7 +61,10 @@ describe('refreshModelAvailability', () => {
 
   beforeEach(() => {
     consoleWarn.mockClear();
-    mocks.modelRegistryRefresh.mockReset();
+    mocks.modelRuntimeRefresh.mockReset().mockResolvedValue({
+      aborted: false,
+      errors: new Map(),
+    });
     mocks.modelRegistryGetAvailable.mockReset();
     mocks.settingsReload.mockReset();
     mocks.getGlobalSettings.mockReset().mockReturnValue({});
@@ -88,8 +91,10 @@ describe('refreshModelAvailability', () => {
     const appSession = { id: 'app-1' } as unknown as AgentSession;
 
     mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        refresh: mocks.modelRuntimeRefresh,
+      },
       modelRegistry: {
-        refresh: mocks.modelRegistryRefresh,
         getError: vi.fn(() => null),
         getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue(availableModels),
       },
@@ -115,7 +120,7 @@ describe('refreshModelAvailability', () => {
 
     const result = await refreshModelAvailability();
 
-    expect(mocks.modelRegistryRefresh).toHaveBeenCalledOnce();
+    expect(mocks.modelRuntimeRefresh).toHaveBeenCalledOnce();
     expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledWith([
       { provider: 'openai', modelId: 'gpt-5.4-mini' },
       { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },
@@ -130,6 +135,8 @@ describe('refreshModelAvailability', () => {
       sharedModel,
       updatedChatSessions: 1,
       updatedAppSessions: 1,
+      refreshWarnings: [],
+      registryError: undefined,
     });
   });
 
@@ -138,8 +145,10 @@ describe('refreshModelAvailability', () => {
     const healthySession = { id: 'chat-b' } as unknown as AgentSession;
 
     mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        refresh: mocks.modelRuntimeRefresh,
+      },
       modelRegistry: {
-        refresh: mocks.modelRegistryRefresh,
         getError: vi.fn(() => null),
         getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue([sharedModel]),
       },
@@ -168,5 +177,39 @@ describe('refreshModelAvailability', () => {
     expect(mocks.emitAgentEvent).toHaveBeenCalledTimes(1);
     expect(result.updatedChatSessions).toBe(0);
     expect(result.updatedAppSessions).toBe(0);
+  });
+
+  it('reconciles sessions after partial provider and availability errors', async () => {
+    const sharedModel = createModel('openai', 'gpt-5.4-mini');
+    mocks.modelRuntimeRefresh.mockResolvedValue({
+      aborted: false,
+      errors: new Map([['custom', new Error('catalog unavailable')]]),
+    });
+    mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: { refresh: mocks.modelRuntimeRefresh },
+      modelRegistry: {
+        getError: vi.fn(() => 'Provider "broken": invalid configuration'),
+        getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue([sharedModel]),
+      },
+      settingsManager: {
+        reload: mocks.settingsReload,
+        getGlobalSettings: mocks.getGlobalSettings,
+      },
+    });
+    mocks.cleanupUnavailableModelSelections.mockReturnValue(false);
+    mocks.refreshInfraModelSelection.mockReturnValue(sharedModel);
+    mocks.getAgentPoolEntries.mockReturnValue([]);
+    mocks.getAppAgentSessions.mockReturnValue([]);
+    mocks.syncAppSessionPoolModels.mockResolvedValue(0);
+
+    const result = await refreshModelAvailability();
+
+    expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledOnce();
+    expect(mocks.refreshInfraModelSelection).toHaveBeenCalledOnce();
+    expect(result.refreshWarnings).toEqual([
+      'Provider model refresh failed: custom: catalog unavailable',
+      'Provider "broken": invalid configuration',
+    ]);
+    expect(result.registryError).toBe('Provider "broken": invalid configuration');
   });
 });

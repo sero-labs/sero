@@ -11,12 +11,20 @@
  * - Re-entrancy guard — sessions skip loading cron extension to avoid loops
  */
 
+import path from 'node:path';
 import {
   createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
+  ModelRuntime,
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { Model } from '@earendil-works/pi-ai';
+import type { Api, Model } from '@earendil-works/pi-ai';
+import {
+  createIsolatedCompletionService,
+  registerIsolatedCompletionHost,
+} from '@sero-ai/extension-runtime';
 import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────
@@ -55,6 +63,14 @@ const waitQueue: Array<{
 }> = [];
 
 let maxConcurrent = DEFAULT_MAX_CONCURRENT;
+
+function createCronModelRuntime(agentDir: string): Promise<ModelRuntime> {
+  return ModelRuntime.create({
+    authPath: path.join(agentDir, 'auth.json'),
+    modelsPath: path.join(agentDir, 'models.json'),
+    allowModelNetwork: false,
+  });
+}
 
 /** Set the max concurrent sessions (for testing). */
 export function setMaxConcurrent(n: number): void {
@@ -129,6 +145,8 @@ export async function runTransientSession(
   opts: SessionRunOptions = {},
 ): Promise<SessionRunResult> {
   const { cwd, model, timeoutMs = 600_000, agentDir } = opts;
+  const sessionCwd = cwd || process.cwd();
+  const sessionAgentDir = agentDir || getAgentDir();
   const startedAt = Date.now();
 
   // ── Acquire concurrency slot ────────────────────────────
@@ -144,7 +162,7 @@ export async function runTransientSession(
   try {
     info('session-runner:start', {
       jobKey,
-      cwd: cwd ?? process.cwd(),
+      cwd: sessionCwd,
       timeoutMs,
       promptLen: prompt.length,
       concurrent: activeSessions.size,
@@ -157,11 +175,28 @@ export async function runTransientSession(
     process.env.SERO_CRON_SUBPROCESS = '1';
 
     try {
+      const modelRuntime = await createCronModelRuntime(sessionAgentDir);
+      const isolatedCompletion = createIsolatedCompletionService({
+        agentDir: sessionAgentDir,
+        modelRuntime,
+      });
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: sessionCwd,
+        agentDir: sessionAgentDir,
+        extensionFactories: [
+          (pi) => {
+            registerIsolatedCompletionHost(pi.events, isolatedCompletion);
+          },
+        ],
+      });
+      await resourceLoader.reload();
       const sessionResult = await createAgentSession({
-        cwd: cwd || process.cwd(),
-        agentDir: agentDir || process.env.PI_CODING_AGENT_DIR || undefined,
+        cwd: sessionCwd,
+        agentDir: sessionAgentDir,
+        modelRuntime,
+        resourceLoader,
         tools: ['read', 'bash', 'edit', 'write'],
-        sessionManager: SessionManager.inMemory(cwd || process.cwd()),
+        sessionManager: SessionManager.inMemory(sessionCwd),
       });
       session = sessionResult.session;
       await applyModelOverride(session, model);
@@ -223,7 +258,7 @@ async function applyModelOverride(
   const normalized = modelOverride?.trim();
   if (!normalized || normalized === 'default') return;
 
-  const model = findModelOverride(session, normalized);
+  const model = await findModelOverride(session, normalized);
   if (!model) {
     info('session-runner:model-override-not-found', { model: normalized });
     return;
@@ -232,18 +267,18 @@ async function applyModelOverride(
   await session.setModel(model);
 }
 
-function findModelOverride(
+async function findModelOverride(
   session: AgentSession,
   modelOverride: string,
-): Model<any> | undefined {
-  const available = session.modelRegistry.getAvailable();
+): Promise<Model<Api> | undefined> {
+  const available = await session.modelRuntime.getAvailable();
   const slashIndex = modelOverride.indexOf('/');
 
   if (slashIndex > 0) {
     const provider = modelOverride.slice(0, slashIndex);
     const modelId = modelOverride.slice(slashIndex + 1);
     return (
-      session.modelRegistry.find(provider, modelId) ??
+      session.modelRuntime.getModel(provider, modelId) ??
       available.find((model) => model.provider === provider && model.id === modelId)
     );
   }

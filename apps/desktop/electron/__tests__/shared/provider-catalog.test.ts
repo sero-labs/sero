@@ -1,25 +1,62 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Provider } from '@earendil-works/pi-ai';
+
+const mocks = vi.hoisted(() => ({
+  packageProviders: [] as Array<{ id: string; name: string }>,
+}));
 
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
-  getPackageApiKeyProviders: () => [],
-  getPackageProviderEnvVar: () => undefined,
+  getPackageApiKeyProviders: () => mocks.packageProviders,
 }));
 
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
-  getProviderEnvApiKey,
 } from '@electron/shared/auth/provider-catalog';
 
 const removedProviderIds = ['google-gemini-cli', 'google-antigravity'];
 
+function apiKeyProvider(id: string): Provider {
+  return {
+    id,
+    name: id,
+    auth: { apiKey: { name: `${id} key`, login: vi.fn(), resolve: vi.fn() } },
+    getModels: () => [],
+  } as unknown as Provider;
+}
+
+function oauthProvider(id: string): Provider {
+  return {
+    id,
+    name: id,
+    auth: {
+      oauth: {
+        name: `${id} login`,
+        login: vi.fn(),
+        refresh: vi.fn(),
+        toAuth: vi.fn(),
+      },
+    },
+    getModels: () => [],
+  } as unknown as Provider;
+}
+
 describe('provider catalog', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  beforeEach(() => {
+    mocks.packageProviders = [];
   });
 
   it('lists Pi API-key providers exposed by Sero auth', () => {
-    const ids = getApiKeyProviderCatalog().map((provider) => provider.id);
+    const providers = [
+      'deepseek',
+      'moonshotai',
+      'moonshotai-cn',
+      'xiaomi',
+      'xiaomi-token-plan-cn',
+      'xiaomi-token-plan-ams',
+      'xiaomi-token-plan-sgp',
+    ].map(apiKeyProvider);
+    const ids = getApiKeyProviderCatalog(providers).map((provider) => provider.id);
 
     expect(ids).toEqual(expect.arrayContaining([
       'deepseek',
@@ -37,8 +74,43 @@ describe('provider catalog', () => {
     }
   });
 
-  it('resolves Pi OAuth providers from the subpath export', () => {
-    const oauthIds = getOAuthProviderCatalog().map((provider) => provider.id);
+  it('excludes runtime providers that need unsupported setup fields', () => {
+    const providers = [
+      apiKeyProvider('anthropic'),
+      apiKeyProvider('amazon-bedrock'),
+      apiKeyProvider('cloudflare-workers-ai'),
+      apiKeyProvider('github-copilot'),
+      apiKeyProvider('google-vertex'),
+    ];
+
+    expect(getApiKeyProviderCatalog(providers)).toEqual([
+      { id: 'anthropic', name: 'Anthropic' },
+    ]);
+  });
+
+  it('keeps package providers before an extension registers them', () => {
+    mocks.packageProviders = [
+      { id: 'alibaba-coding-plan', name: 'Alibaba Coding Plan' },
+    ];
+
+    expect(getApiKeyProviderCatalog([])).toEqual(mocks.packageProviders);
+  });
+
+  it('does not let a package manifest replace a builtin provider', () => {
+    mocks.packageProviders = [{ id: 'openai', name: 'Untrusted OpenAI' }];
+
+    expect(getApiKeyProviderCatalog([apiKeyProvider('openai')])).toEqual([
+      { id: 'openai', name: 'OpenAI' },
+    ]);
+  });
+
+  it('resolves OAuth providers from runtime metadata', () => {
+    const providers = [
+      oauthProvider('anthropic'),
+      oauthProvider('github-copilot'),
+      oauthProvider('openai-codex'),
+    ];
+    const oauthIds = getOAuthProviderCatalog(providers).map((provider) => provider.id);
 
     expect(oauthIds).toEqual(expect.arrayContaining([
       'anthropic',
@@ -48,14 +120,5 @@ describe('provider catalog', () => {
     for (const removedProviderId of removedProviderIds) {
       expect(oauthIds).not.toContain(removedProviderId);
     }
-  });
-
-  it('reads documented provider environment variables without the compat API', () => {
-    vi.stubEnv('ANTHROPIC_OAUTH_TOKEN', 'oauth-token');
-    vi.stubEnv('ANTHROPIC_API_KEY', 'api-key');
-    vi.stubEnv('OPENAI_API_KEY', 'openai-key');
-
-    expect(getProviderEnvApiKey('anthropic')).toBe('oauth-token');
-    expect(getProviderEnvApiKey('openai')).toBe('openai-key');
   });
 });

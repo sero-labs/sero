@@ -1,4 +1,8 @@
-import { type Model, type Api } from '@earendil-works/pi-ai';
+import {
+  type Api,
+  type Model,
+  type ModelsRefreshOptions,
+} from '@earendil-works/pi-ai';
 
 import {
   ensureInfra,
@@ -16,10 +20,12 @@ export interface ModelAvailabilityRefreshResult {
   sharedModel: Model<Api> | null;
   updatedChatSessions: number;
   updatedAppSessions: number;
+  refreshWarnings: string[];
+  registryError?: string;
 }
 
 function buildAvailableModelSelections(
-  models: ReturnType<Awaited<ReturnType<typeof ensureInfra>>['modelRegistry']['getAvailable']>,
+  models: readonly Model<Api>[],
 ) {
   return models.map((model) => ({
     provider: model.provider,
@@ -48,15 +54,24 @@ async function reconcileLiveChatSessions(): Promise<number> {
   return results.reduce<number>((total, count) => total + count, 0);
 }
 
-export async function refreshModelAvailability(): Promise<ModelAvailabilityRefreshResult> {
+export async function refreshModelAvailability(
+  refreshOptions?: ModelsRefreshOptions,
+): Promise<ModelAvailabilityRefreshResult> {
   const infra = await ensureInfra();
 
-  infra.modelRegistry.refresh();
+  const refreshResult = await infra.modelRuntime.refresh(refreshOptions);
+  const refreshWarnings: string[] = [];
+  if (refreshResult.aborted) refreshWarnings.push('Model refresh was cancelled');
+  if (refreshResult.errors.size > 0) {
+    const details = [...refreshResult.errors]
+      .map(([provider, error]) => `${provider}: ${error.message}`)
+      .join('; ');
+    refreshWarnings.push(`Provider model refresh failed: ${details}`);
+  }
 
   const loadError = infra.modelRegistry.getError();
-  if (loadError) {
-    throw new Error(loadError);
-  }
+  if (loadError) refreshWarnings.push(loadError);
+  for (const warning of refreshWarnings) console.warn(`[model-refresh] ${warning}`);
 
   const availableModels = infra.modelRegistry.getAvailable();
   const cleanedSettings = cleanupUnavailableModelSelections(
@@ -81,5 +96,7 @@ export async function refreshModelAvailability(): Promise<ModelAvailabilityRefre
     sharedModel,
     updatedChatSessions,
     updatedAppSessions,
+    refreshWarnings,
+    registryError: loadError ?? undefined,
   };
 }

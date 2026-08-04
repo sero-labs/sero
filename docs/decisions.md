@@ -96,9 +96,10 @@ See `docs/ideas/multi-workspace-spec.md` for the full implementation plan.
 ## AD-011: Multiple Simultaneous AgentSessions
 
 Singleton `AgentSession` replaced by `AgentPool` — a `Map<sessionId, AgentSession>`
-in the Electron main process. Shared infrastructure (AuthStorage, ModelRegistry,
-SettingsManager) created once; per-session resources (ResourceLoader, tools,
-SessionManager) scoped to the session's workspace cwd.
+in the Electron main process. Shared infrastructure is created once; per-session
+resources (ResourceLoader, tools, SessionManager) are scoped to the session's
+workspace cwd. AD-026 replaces the original auth and registry pair with one
+shared `ModelRuntime`.
 
 All `AgentStreamEvent`s tagged with `sessionId` so the renderer routes events
 to the correct store entry. Active agents indicated in the sidebar.
@@ -339,7 +340,7 @@ contexts must share workspaces, sessions, auth tokens, and settings.
   read before anything else. It must live at a known path because we don't
   know the profile (and thus `SERO_HOME`) until we read it.
 - **Restart-based switching** — `app.relaunch()` + `app.exit()`. Lazy
-  singletons in `shared-infra.ts` (AuthStorage, ModelRegistry, etc.) are
+  singletons in `shared-infra.ts` (`ModelRuntime`, settings, and managers) are
   initialised once and never reset. A clean restart is the only safe way to
   ensure no stale state leaks between profiles.
 - **Automatic migration** — Existing `~/.sero-ui/` installations are silently
@@ -476,3 +477,29 @@ into.** No git UI and no git state live in `apps/desktop`.
   plugin context and open-file-**and-switch-view**, and nothing about vcs. Any
   later addition is a version bump plus a `requiredHostCapabilities` floor,
   because external plugins pin the package.
+
+## AD-026: One Host-Owned Pi Model Runtime
+
+**Decision:** The desktop main process owns one asynchronous Pi `ModelRuntime`
+for each Sero process. Main sessions, app sessions, subagents, tool-catalog
+sessions, and isolated background completions use this runtime. Plugins receive
+Pi's `ModelRegistry` facade. They do not receive the raw runtime or credential
+store.
+
+- Runtime files are `<SERO_HOME>/agent/auth.json` and
+  `<SERO_HOME>/agent/models.json`.
+- Credential secrets stay in Electron main. Renderer APIs receive status only.
+- Stored API keys use the provider-owned `ModelRuntime.login(..., 'api_key')`
+  flow. `setRuntimeApiKey()` is only for temporary process overrides and must
+  not replace profile credential storage.
+- Provider registration is host-global because all sessions share the runtime.
+  Re-registering the same provider updates the host registration. Explicit
+  `unregisterProvider()` removes it globally. A session dispose does not remove
+  providers. Plugin code must unregister only when it intentionally disables
+  the provider for the whole host.
+- Background plugin work requests the narrow Sero isolated-completion service
+  through the extension event bus. The service does not expose the runtime.
+- Each session still owns its messages, tools, resource loader, and persistence.
+
+Pi SDK packages use workspace catalogs. The strict development version is
+`0.83.0`, and packages that exchange Pi objects require `>=0.83.0` peers.

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 
 const state = vi.hoisted(() => ({
   builtinPackagePaths: ['/builtin/provider-package'],
@@ -37,9 +38,9 @@ vi.mock('fs', () => ({
 
 import {
   getPackageApiKeyProviders,
-  getPackageProviderEnvVar,
   getPackageProviderManifest,
   invalidatePackageProviderManifestCache,
+  registerPackageProviderAuth,
 } from '@electron/shared/providers/package-provider-manifests';
 
 function setProviderManifest(providerName: string, envVar = 'TEST_API_KEY'): void {
@@ -79,7 +80,6 @@ describe('package provider manifest cache', () => {
     expect(getPackageApiKeyProviders()).toEqual([
       { id: 'test-provider', name: 'Test Provider' },
     ]);
-    expect(getPackageProviderEnvVar('test-provider')).toBe('TEST_API_KEY');
   });
 
   it('drops stale cached results after explicit invalidation', () => {
@@ -97,5 +97,39 @@ describe('package provider manifest cache', () => {
       defaults: { HIGH: 'model-pro' },
       logo: undefined,
     });
+  });
+
+  it('registers manifest auth without replacing an existing provider', () => {
+    const registerProvider = vi.fn();
+    const runtime = {
+      getProvider: vi.fn((providerId: string) => (
+        providerId === 'builtin-provider' ? { id: providerId } : undefined
+      )),
+      registerProvider,
+    } as unknown as ModelRuntime;
+
+    registerPackageProviderAuth(runtime);
+
+    expect(registerProvider).toHaveBeenCalledWith('test-provider', {
+      name: 'Test Provider',
+      apiKey: '$TEST_API_KEY',
+    });
+
+    state.packageJsonByPath.set(
+      '/builtin/provider-package/package.json',
+      JSON.stringify({
+        sero: {
+          providers: [{
+            id: 'builtin-provider',
+            name: 'Replacement',
+            auth: { type: 'apiKey' },
+          }],
+        },
+      }),
+    );
+    invalidatePackageProviderManifestCache();
+    registerPackageProviderAuth(runtime);
+
+    expect(registerProvider).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,6 +2,7 @@ import type {
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
   LocalModelsConfig,
+  LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
   QrLoginData,
@@ -20,7 +21,7 @@ export interface SeroLocalModelsAPI {
   /** Read the current models.json config. Returns empty config if file doesn't exist. */
   getConfig(): Promise<LocalModelsConfig>;
   /** Write the full models.json config to disk and refresh the model registry. */
-  saveConfig(config: LocalModelsConfig): Promise<void>;
+  saveConfig(config: LocalModelsConfig): Promise<LocalModelsSaveResult>;
   /** Test connectivity to a local provider using its selected API + auth settings. */
   testConnection(request: LocalModelsConnectionRequest): Promise<{ ok: boolean; error?: string }>;
   /** Fetch available models from a provider's API (OpenAI, Anthropic, Google, Ollama). */

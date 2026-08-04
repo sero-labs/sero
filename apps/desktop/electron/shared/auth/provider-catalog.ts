@@ -1,9 +1,23 @@
-import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
-import { getPackageApiKeyProviders, getPackageProviderEnvVar } from '../providers/package-provider-manifests';
+import type { CredentialInfo, Provider } from '@earendil-works/pi-ai';
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { getPackageApiKeyProviders } from '../providers/package-provider-manifests';
 
 export interface NamedProvider {
   id: string;
   name: string;
+}
+
+type ProviderAuthStatus = ReturnType<ModelRuntime['getProviderAuthStatus']>;
+
+/** Report API keys configured outside Sero's stored or runtime credentials. */
+export function isExternalApiKeyConfigured(
+  credential: CredentialInfo | undefined,
+  status: ProviderAuthStatus,
+): boolean {
+  return !credential
+    && status.configured
+    && status.source !== 'stored'
+    && status.source !== 'runtime';
 }
 
 // Mirrors Pi API-key auth.json keys from docs/providers.md and
@@ -39,58 +53,22 @@ const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   // google-gemini-cli and google-antigravity were removed from Pi built-ins in 0.71.
 ];
 
-const BUILTIN_PROVIDER_ENV_VARS: Record<string, readonly string[]> = {
-  anthropic: ['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
-  openai: ['OPENAI_API_KEY'],
-  google: ['GEMINI_API_KEY'],
-  openrouter: ['OPENROUTER_API_KEY'],
-  xai: ['XAI_API_KEY'],
-  groq: ['GROQ_API_KEY'],
-  cerebras: ['CEREBRAS_API_KEY'],
-  mistral: ['MISTRAL_API_KEY'],
-  deepseek: ['DEEPSEEK_API_KEY'],
-  'azure-openai-responses': ['AZURE_OPENAI_API_KEY'],
-  huggingface: ['HF_TOKEN'],
-  'vercel-ai-gateway': ['AI_GATEWAY_API_KEY'],
-  zai: ['ZAI_API_KEY'],
-  opencode: ['OPENCODE_API_KEY'],
-  'opencode-go': ['OPENCODE_API_KEY'],
-  'kimi-coding': ['KIMI_API_KEY'],
-  minimax: ['MINIMAX_API_KEY'],
-  'minimax-cn': ['MINIMAX_CN_API_KEY'],
-  moonshotai: ['MOONSHOT_API_KEY'],
-  'moonshotai-cn': ['MOONSHOT_API_KEY'],
-  fireworks: ['FIREWORKS_API_KEY'],
-  xiaomi: ['XIAOMI_API_KEY'],
-  'xiaomi-token-plan-cn': ['XIAOMI_TOKEN_PLAN_CN_API_KEY'],
-  'xiaomi-token-plan-ams': ['XIAOMI_TOKEN_PLAN_AMS_API_KEY'],
-  'xiaomi-token-plan-sgp': ['XIAOMI_TOKEN_PLAN_SGP_API_KEY'],
-};
-
-export function getApiKeyProviderCatalog(): NamedProvider[] {
+export function getApiKeyProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
+  const runtimeProviderIds = new Set(providers.map((provider) => provider.id));
   const byId = new Map<string, NamedProvider>();
   for (const provider of BUILTIN_API_KEY_PROVIDERS) {
-    byId.set(provider.id, provider);
+    if (runtimeProviderIds.has(provider.id)) byId.set(provider.id, provider);
   }
   for (const provider of getPackageApiKeyProviders()) {
-    byId.set(provider.id, provider);
+    if (!byId.has(provider.id)) byId.set(provider.id, provider);
   }
   return [...byId.values()];
 }
 
-export function getProviderEnvApiKey(providerId: string): string | undefined {
-  for (const envVar of BUILTIN_PROVIDER_ENV_VARS[providerId] ?? []) {
-    const value = process.env[envVar];
-    if (value) return value;
+export function getOAuthProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
+  const catalog: NamedProvider[] = [];
+  for (const provider of providers) {
+    if (provider.auth.oauth) catalog.push({ id: provider.id, name: provider.name });
   }
-
-  const envVar = getPackageProviderEnvVar(providerId);
-  return envVar ? process.env[envVar] : undefined;
-}
-
-export function getOAuthProviderCatalog(): NamedProvider[] {
-  return getOAuthProviders().map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-  }));
+  return catalog;
 }

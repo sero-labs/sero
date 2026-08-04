@@ -1,46 +1,59 @@
 import {
-  AuthStorage,
   ModelRegistry,
+  ModelRuntime,
   SettingsManager,
 } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { registerPackageProviderAuth } from '@electron/shared/providers/package-provider-manifests';
 import { pickFirstAvailableModel } from './model-selection';
 
-let authStorage: AuthStorage | null = null;
-let modelRegistry: ModelRegistry | null = null;
-let settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
-let model: Model<Api> | null = null;
+let infra: SharedInfra | null = null;
+let initialization: Promise<SharedInfra> | null = null;
 
 export interface SharedInfra {
-  authStorage: AuthStorage;
+  modelRuntime: ModelRuntime;
   modelRegistry: ModelRegistry;
   settingsManager: ReturnType<typeof SettingsManager.create>;
   model: Model<Api> | null;
 }
 
 /** Initialize only the AI SDK state, without starting application services. */
-export function ensureAiInfra(): SharedInfra {
-  if (!authStorage) {
-    authStorage = AuthStorage.create(`${SERO_AGENT_DIR}/auth.json`);
-    modelRegistry = ModelRegistry.create(authStorage, `${SERO_AGENT_DIR}/models.json`);
-    settingsManager = SettingsManager.create(SERO_AGENT_DIR, SERO_AGENT_DIR);
+export async function ensureAiInfra(): Promise<SharedInfra> {
+  if (infra) return infra;
+  if (initialization) return initialization;
+
+  initialization = (async () => {
+    const modelRuntime = await ModelRuntime.create({
+      authPath: `${SERO_AGENT_DIR}/auth.json`,
+      modelsPath: `${SERO_AGENT_DIR}/models.json`,
+      allowModelNetwork: false,
+    });
+    registerPackageProviderAuth(modelRuntime);
+    const modelRegistry = new ModelRegistry(modelRuntime);
+    const settingsManager = SettingsManager.create(SERO_AGENT_DIR, SERO_AGENT_DIR);
     if (!settingsManager.getDefaultThinkingLevel()) {
       settingsManager.setDefaultThinkingLevel('high');
     }
-    model = pickFirstAvailableModel(modelRegistry, settingsManager);
-  }
+    infra = {
+      modelRuntime,
+      modelRegistry,
+      settingsManager,
+      model: pickFirstAvailableModel(modelRegistry, settingsManager),
+    };
+    return infra;
+  })();
 
-  return {
-    authStorage,
-    modelRegistry: modelRegistry!,
-    settingsManager: settingsManager!,
-    model,
-  };
+  try {
+    return await initialization;
+  } catch (error) {
+    initialization = null;
+    throw error;
+  }
 }
 
 export function refreshInfraModelSelection(): Model<Api> | null {
-  if (!modelRegistry || !settingsManager) return model;
-  model = pickFirstAvailableModel(modelRegistry, settingsManager);
-  return model;
+  if (!infra) return null;
+  infra.model = pickFirstAvailableModel(infra.modelRegistry, infra.settingsManager);
+  return infra.model;
 }

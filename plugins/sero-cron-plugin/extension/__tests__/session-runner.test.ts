@@ -7,7 +7,8 @@ const sessionInstances: Array<{
   aborted: boolean;
   messages: any[];
 }> = [];
-
+const mockModelRuntime = { id: 'shared-cron-runtime', providers: new Set<string>() };
+const reload = vi.fn(async () => {});
 function createMockSession(opts?: {
   promptDelay?: number;
   promptError?: Error;
@@ -37,9 +38,9 @@ function createMockSession(opts?: {
       }
       if (opts?.promptError) throw opts.promptError;
     }),
-    modelRegistry: {
-      getAvailable: vi.fn(() => availableModels),
-      find: vi.fn((provider: string, modelId: string) =>
+    modelRuntime: {
+      getAvailable: vi.fn(async () => availableModels),
+      getModel: vi.fn((provider: string, modelId: string) =>
         availableModels.find((model) => model.provider === provider && model.id === modelId),
       ),
     },
@@ -65,6 +66,26 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   SessionManager: {
     inMemory: vi.fn((cwd?: string) => ({ type: 'inMemory', cwd })),
   },
+  DefaultResourceLoader: class {
+    constructor(options: {
+      extensionFactories?: Array<(pi: { events: { on: ReturnType<typeof vi.fn> } }) => void>;
+    }) {
+      for (const factory of options.extensionFactories ?? []) {
+        factory({ events: { on: vi.fn() } });
+      }
+    }
+
+    reload = reload;
+  },
+  getAgentDir: vi.fn(() => '/test/default-agent-dir'),
+  ModelRuntime: {
+    create: vi.fn(async () => mockModelRuntime),
+  },
+}));
+
+vi.mock('@sero-ai/extension-runtime', () => ({
+  createIsolatedCompletionService: vi.fn(() => vi.fn()),
+  registerIsolatedCompletionHost: vi.fn(),
 }));
 
 vi.mock('../logger', () => ({
@@ -73,7 +94,8 @@ vi.mock('../logger', () => ({
   error: vi.fn(),
 }));
 
-import { createAgentSession } from '@earendil-works/pi-coding-agent';
+import { createAgentSession, ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { registerIsolatedCompletionHost } from '@sero-ai/extension-runtime';
 import {
   runTransientSession,
   setMaxConcurrent,
@@ -84,6 +106,7 @@ import {
 
 beforeEach(() => {
   sessionInstances.length = 0;
+  mockModelRuntime.providers.clear();
   setMaxConcurrent(2);
   vi.mocked(createAgentSession).mockReset();
   vi.mocked(createAgentSession).mockImplementation(async () => {
@@ -93,11 +116,23 @@ beforeEach(() => {
       extensionsResult: { extensions: [], errors: [], runtime: {} as any },
     };
   });
+  reload.mockClear();
+  vi.mocked(ModelRuntime.create).mockClear();
+  vi.mocked(registerIsolatedCompletionHost).mockClear();
 });
-
 afterEach(() => {
   delete process.env.SERO_CRON_SUBPROCESS;
 });
+
+function mockSessionMessages(messages: any[]): void {
+  vi.mocked(createAgentSession).mockImplementationOnce(async () => {
+    const session = createMockSession({ messages });
+    return {
+      session: session as any,
+      extensionsResult: { extensions: [], errors: [], runtime: {} as any },
+    };
+  });
+}
 
 describe('runTransientSession', () => {
   it('creates an in-memory session, runs prompt, and disposes', async () => {
@@ -112,6 +147,7 @@ describe('runTransientSession', () => {
     expect(sessionInstances[0].promptCalls).toHaveLength(1);
     expect(sessionInstances[0].promptCalls[0].text).toBe('Hello agent');
     expect(sessionInstances[0].disposed).toBe(true);
+    expect(registerIsolatedCompletionHost).toHaveBeenCalledOnce();
   });
 
   it('passes cwd and agentDir to createAgentSession', async () => {
@@ -124,8 +160,16 @@ describe('runTransientSession', () => {
       expect.objectContaining({
         cwd: '/test/workspace',
         agentDir: '/test/agent-dir',
+        modelRuntime: mockModelRuntime,
+        resourceLoader: expect.anything(),
       }),
     );
+    expect(ModelRuntime.create).toHaveBeenCalledWith({
+      authPath: '/test/agent-dir/auth.json',
+      modelsPath: '/test/agent-dir/models.json',
+      allowModelNetwork: false,
+    });
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it('uses Pi built-in coding tools by name', async () => {
@@ -318,6 +362,9 @@ describe('concurrency control', () => {
 
   it('releases slot after job completes', async () => {
     setMaxConcurrent(1);
+    const secondRuntime = { id: 'second-runtime', providers: new Set<string>() };
+    mockModelRuntime.providers.add('first-job-provider');
+    vi.mocked(ModelRuntime.create).mockResolvedValueOnce(mockModelRuntime as unknown as ModelRuntime).mockResolvedValueOnce(secondRuntime as unknown as ModelRuntime);
 
     await runTransientSession('seq-1', 'first');
     expect(getActiveCount()).toBe(0);
@@ -327,6 +374,8 @@ describe('concurrency control', () => {
 
     expect(sessionInstances).toHaveLength(2);
     expect(sessionInstances.every((s) => s.disposed)).toBe(true);
+    expect(vi.mocked(createAgentSession).mock.calls[1]?.[0]?.modelRuntime).toBe(secondRuntime);
+    expect(secondRuntime.providers).not.toContain('first-job-provider');
   });
 
   it('releases slot after job failure', async () => {
@@ -405,90 +454,46 @@ describe('timeout', () => {
 
 describe('output extraction', () => {
   it('extracts text from last assistant message', async () => {
-    vi.mocked(createAgentSession).mockImplementationOnce(async () => {
-      const session = createMockSession({
-        messages: [
-          { role: 'user', content: [{ type: 'text', text: 'hello' }] },
-          {
-            role: 'assistant',
-            content: [
-              { type: 'text', text: 'First part. ' },
-              { type: 'text', text: 'Second part.' },
-            ],
-          },
+    mockSessionMessages([
+      { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First part. ' },
+          { type: 'text', text: 'Second part.' },
         ],
-      });
-      return {
-        session: session as any,
-        extensionsResult: { extensions: [], errors: [], runtime: {} as any },
-      };
-    });
-
+      },
+    ]);
     const result = await runTransientSession('multi-text', 'test');
     expect(result.output).toBe('First part. \nSecond part.');
   });
 
   it('returns empty string when no assistant message', async () => {
-    vi.mocked(createAgentSession).mockImplementationOnce(async () => {
-      const session = createMockSession({
-        messages: [
-          { role: 'user', content: [{ type: 'text', text: 'hello' }] },
-        ],
-      });
-      return {
-        session: session as any,
-        extensionsResult: { extensions: [], errors: [], runtime: {} as any },
-      };
-    });
-
+    mockSessionMessages([
+      { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+    ]);
     const result = await runTransientSession('no-reply', 'test');
     expect(result.output).toBe('');
   });
 
   it('skips non-text content blocks', async () => {
-    vi.mocked(createAgentSession).mockImplementationOnce(async () => {
-      const session = createMockSession({
-        messages: [
-          {
-            role: 'assistant',
-            content: [
-              { type: 'thinking', thinking: 'internal thoughts' },
-              { type: 'text', text: 'Visible output' },
-            ],
-          },
-        ],
-      });
-      return {
-        session: session as any,
-        extensionsResult: { extensions: [], errors: [], runtime: {} as any },
-      };
-    });
-
+    mockSessionMessages([{
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: 'internal thoughts' },
+        { type: 'text', text: 'Visible output' },
+      ],
+    }]);
     const result = await runTransientSession('mixed-content', 'test');
     expect(result.output).toBe('Visible output');
   });
 
   it('uses the LAST assistant message', async () => {
-    vi.mocked(createAgentSession).mockImplementationOnce(async () => {
-      const session = createMockSession({
-        messages: [
-          {
-            role: 'assistant',
-            content: [{ type: 'text', text: 'Early response' }],
-          },
-          { role: 'user', content: [{ type: 'text', text: 'followup' }] },
-          {
-            role: 'assistant',
-            content: [{ type: 'text', text: 'Final response' }],
-          },
-        ],
-      });
-      return {
-        session: session as any,
-        extensionsResult: { extensions: [], errors: [], runtime: {} as any },
-      };
-    });
-
+    mockSessionMessages([
+      { role: 'assistant', content: [{ type: 'text', text: 'Early response' }] },
+      { role: 'user', content: [{ type: 'text', text: 'followup' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Final response' }] },
+    ]);
     const result = await runTransientSession('multi-turn', 'test');
     expect(result.output).toBe('Final response');
   });

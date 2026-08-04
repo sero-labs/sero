@@ -13,10 +13,10 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   LocalModelApi,
   LocalModelsConfig,
+  LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
 } from '@/types/ipc';
-import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
@@ -240,11 +240,6 @@ async function readModelsConfig(): Promise<LocalModelsConfig> {
     if (!isMissingFileError(error)) throw error;
   }
 
-  const { modelRegistry } = await ensureInfra();
-  modelRegistry.refresh();
-  const loadError = modelRegistry.getError();
-  if (loadError) throw new Error(loadError);
-
   if (raw === null) return { providers: {} };
   return JSON.parse(raw) as LocalModelsConfig;
 }
@@ -319,9 +314,10 @@ export function registerLocalModelsHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.localModels.saveConfig,
-    async (_event, config: LocalModelsConfig): Promise<void> => {
+    async (_event, config: LocalModelsConfig): Promise<LocalModelsSaveResult> => {
       await writeModelsConfig(config);
-      await refreshModelAvailability();
+      const result = await refreshModelAvailability();
+      return { warning: result.registryError };
     },
   );
 

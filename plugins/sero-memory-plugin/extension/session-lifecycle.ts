@@ -23,7 +23,7 @@ import { nowTimestamp } from './memory-format';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
-import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
+import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -193,47 +193,43 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
       if (ctx.model) {
         try {
-          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
-          if (auth.ok && auth.apiKey) {
-            const llmMessages = convertToLlm(messages);
-            const conversationText = serializeConversation(llmMessages);
-            const { text: truncated, truncated: wasTruncated } = truncateText(
-              conversationText.trim(),
-              SUMMARY_MAX_CHARS,
-            );
+          const llmMessages = convertToLlm(messages);
+          const conversationText = serializeConversation(llmMessages);
+          const { text: truncated, truncated: wasTruncated } = truncateText(
+            conversationText.trim(),
+            SUMMARY_MAX_CHARS,
+          );
 
-            if (truncated) {
-              const promptLines = [
-                'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
-                'Return markdown only with these exact headings:',
-                '### Decisions',
-                '### Lessons Learned',
-                '### Notes',
-                '### Follow-ups',
-                'Use bullet points under each heading. If there is nothing, write "None.".',
-              ];
-              if (wasTruncated) {
-                promptLines.push(
-                  `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
-                );
-              }
-              promptLines.push('', '<conversation>', truncated, '</conversation>');
-
-              const summaryText = await runIsolatedCompletion({
-                cwd: ctx.cwd,
-                model: ctx.model,
-                modelRegistry: ctx.modelRegistry,
-                prompt: promptLines.join('\n'),
-                systemPrompt: SUMMARY_SYSTEM_PROMPT,
-                thinkingLevel: 'low',
-                signal: ctx.signal,
-              });
-
-              const summary = summaryText || buildSummaryFallback('Summary was empty');
-              await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
-              qmdDirty = true;
-              info('session_summary_written', { sessionId });
+          if (truncated) {
+            const promptLines = [
+              'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
+              'Return markdown only with these exact headings:',
+              '### Decisions',
+              '### Lessons Learned',
+              '### Notes',
+              '### Follow-ups',
+              'Use bullet points under each heading. If there is nothing, write "None.".',
+            ];
+            if (wasTruncated) {
+              promptLines.push(
+                `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
+              );
             }
+            promptLines.push('', '<conversation>', truncated, '</conversation>');
+
+            const summaryText = await requestIsolatedCompletion(pi.events, {
+              cwd: ctx.cwd,
+              model: ctx.model,
+              prompt: promptLines.join('\n'),
+              systemPrompt: SUMMARY_SYSTEM_PROMPT,
+              thinkingLevel: 'low',
+              signal: ctx.signal,
+            });
+
+            const summary = summaryText || buildSummaryFallback('Summary was empty');
+            await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
+            qmdDirty = true;
+            info('session_summary_written', { sessionId });
           }
         } catch (err) {
           const fallback = buildSummaryFallback(

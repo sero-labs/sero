@@ -71,6 +71,11 @@ export interface LocalModelsConfig {
   providers: Record<string, LocalProviderConfig>;
 }
 
+/** Result of a models.json save and runtime refresh. */
+export interface LocalModelsSaveResult {
+  warning?: string;
+}
+
 /** Connection parameters used by the UI for test/discovery calls. */
 export interface LocalModelsConnectionRequest {
   baseUrl: string;

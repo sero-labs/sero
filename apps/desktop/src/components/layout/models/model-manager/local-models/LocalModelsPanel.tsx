@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, memo } from 'react';
-import { Plus, RefreshCw, Settings2, Trash2, Server, ChevronRight } from 'lucide-react';
+import { Plus, RefreshCw, Settings2, Trash2, Server, ChevronRight, TriangleAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import type { LocalProviderConfig } from '@/types/local-models';
@@ -108,7 +108,7 @@ const ProviderRow = memo(function ProviderRow({
 });
 
 export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
-  const { config, loading, error } = localModels;
+  const { config, loading, error, warning } = localModels;
   const [view, setView] = useState<'list' | 'add' | 'edit'>('list');
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
@@ -178,6 +178,12 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
   // List view
   return (
     <div className="flex flex-col gap-3 p-3">
+      {warning && (
+        <div className="flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-status-warning" />
+          <span>{warning}</span>
+        </div>
+      )}
       {/* Header + Add button */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-[var(--text-muted)]">

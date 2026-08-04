@@ -2,6 +2,9 @@
 
 ## Start from the repo root
 
+Use Node.js 22.19.0 or newer. Pi SDK 0.83 does not support older Node 22
+releases.
+
 ```bash
 pnpm install
 pnpm build
