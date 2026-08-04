@@ -1,4 +1,4 @@
-name: Dependabot auto-merge
+name: Trusted auto-merge
 
 on:
   pull_request_target:
@@ -9,17 +9,32 @@ permissions:
   pull-requests: write
 
 jobs:
-  enable-auto-merge:
-    if: github.actor == 'dependabot[bot]'
+  maintainer:
+    if: github.event.pull_request.user.login == 'monobyte'
     runs-on: ubuntu-latest
     steps:
-      - name: Approve Dependabot update
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr review "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --approve --body "Automated Dependabot approval"
       - name: Enable squash auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash --auto
+
+  dependabot:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned commit from GitHub's Dependabot automation documentation.
+      - name: Read Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7
+        with:
+          github-token: ${{ github.token }}
+      - name: Enable squash auto-merge
+        if: >-
+          steps.metadata.outputs.dependency-group-name == 'security-updates' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash --auto

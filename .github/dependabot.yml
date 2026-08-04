@@ -12,10 +12,10 @@ updates:
       timezone: Europe/London
     # Dependabot does not apply this routine-update cooldown to security fixes.
     cooldown:
-      default-days: 2
-    # Every workspace update rewrites the shared root lockfile. Keep one npm
-    # update in flight so Dependabot branches never conflict with each other.
-    open-pull-requests-limit: 1
+      default-days: 7
+    # Every workspace update rewrites the shared root lockfile. Routine and
+    # major updates each use one grouped PR instead of competing lockfile PRs.
+    open-pull-requests-limit: 2
     rebase-strategy: auto
     commit-message:
       prefix: "chore(deps)"
@@ -27,25 +27,30 @@ updates:
       # SERO_PLUGIN_RUNTIME_ABI, and republish — see docs/plugins/technical.md.
       - dependency-name: "@module-federation/*"
     groups:
-      production-minor-and-patch:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      routine-updates:
         applies-to: version-updates
-        dependency-type: production
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
-      development-minor-and-patch:
+      major-updates:
         applies-to: version-updates
-        dependency-type: development
+        patterns:
+          - "*"
         update-types:
-          - minor
-          - patch
+          - major
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
     cooldown:
-      default-days: 2
+      default-days: 7
     open-pull-requests-limit: 2
     commit-message:
       prefix: "chore(actions)"
