@@ -41,10 +41,15 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
+  # NOTE: pi-ai/pi-coding-agent/pi-tui held back at 0.80.6 — 0.82.1 removes
+  # `AuthStorage` from the package root export and changes ModelRegistry /
+  # CreateAgentSessionOptions, breaking @sero-ai/extension-runtime. Bump these
+  # separately once isolated-completion.ts is migrated to the new API.
+  # Tracked in https://github.com/sero-labs/sero/issues/345
   "@earendil-works/pi-agent-core": "0.80.6"
-  "@earendil-works/pi-ai": "0.82.1"
-  "@earendil-works/pi-coding-agent": "0.82.1"
-  "@earendil-works/pi-tui": "0.82.1"
+  "@earendil-works/pi-ai": "0.80.6"
+  "@earendil-works/pi-coding-agent": "0.80.6"
+  "@earendil-works/pi-tui": "0.80.6"
 
   # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.4.3"
