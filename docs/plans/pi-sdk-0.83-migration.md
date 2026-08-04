@@ -567,6 +567,7 @@ This phase addresses the findings from the draft PR re-review.
 - [x] Report SDK registry errors when Local Models saves an invalid configuration.
 - [x] Settle and clear cancelled login attempts before any follow-up prompt.
 - [x] Make the common package Pi core peer optional for its type-only import.
+- [x] Bump `@sero-ai/common` to `0.9.1` for publication.
 - [x] Remove the unused Local Models infrastructure import.
 
 ### Verification checklist
