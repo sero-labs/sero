@@ -24,7 +24,8 @@ export function extractHeadingTitle(text: string): string | null {
 }
 
 function extractTextTitle(text: string, url: string): string {
-	return extractHeadingTitle(text) ?? (new URL(url).pathname.split("/").pop() || url);
+	const fallback = url.split(/[?#]/)[0]?.split("/").pop() || url;
+	return extractHeadingTitle(text) ?? fallback;
 }
 
 function isLikelyJSRendered(html: string): boolean {
@@ -162,8 +163,9 @@ export async function extractViaHttp(
 		const { document } = parseHTML(text);
 		const reader = new Readability(document as ConstructorParameters<typeof Readability>[0]);
 		const article = reader.parse();
+		const articleContent = article?.content;
 
-		if (!article?.content) {
+		if (!articleContent) {
 			const rscResult = extractRSCContent(text);
 			if (rscResult) {
 				activityMonitor.logComplete(activityId, response.status);
@@ -176,7 +178,7 @@ export async function extractViaHttp(
 			return { url, title: "", content: "", error: errorMsg };
 		}
 
-		const markdown = turndown.turndown(article.content);
+		const markdown = turndown.turndown(articleContent);
 		activityMonitor.logComplete(activityId, response.status);
 
 		if (markdown.length < MIN_USEFUL_CONTENT) {
