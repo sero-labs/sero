@@ -109,6 +109,7 @@ function cancelAttempt(attempt: LoginAttempt): void {
   attempt.prompt = null;
   attempt.manualCode = null;
   attempt.select = null;
+  if (activeLogin === attempt) activeLogin = null;
 }
 
 function waitForResponse(
@@ -117,17 +118,19 @@ function waitForResponse(
   signal?: AbortSignal,
 ): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    if (signal?.aborted) {
+    if (attempt.controller.signal.aborted || signal?.aborted) {
       reject(new Error('Login cancelled'));
       return;
     }
     const response = { resolve, reject };
     attempt[field] = response;
-    signal?.addEventListener('abort', () => {
+    const cancel = () => {
       if (attempt[field] !== response) return;
       attempt[field] = null;
       reject(new Error('Login cancelled'));
-    }, { once: true });
+    };
+    attempt.controller.signal.addEventListener('abort', cancel, { once: true });
+    signal?.addEventListener('abort', cancel, { once: true });
   });
 }
 
@@ -152,6 +155,9 @@ function notifyRenderer(attempt: LoginAttempt, event: AuthEvent): void {
 }
 
 function promptRenderer(attempt: LoginAttempt, prompt: AuthPrompt): Promise<string> {
+  if (attempt.controller.signal.aborted) {
+    return Promise.reject(new Error('Login cancelled'));
+  }
   if (prompt.type === 'select') {
     sendAuthEvent(attempt, {
       type: 'select',
@@ -209,11 +215,12 @@ export function registerAuthHandlers(): void {
       const apiKey: ApiKeyProviderInfo[] = getApiKeyProviderCatalog(providers).map((provider) => {
         const credential = credentials.get(provider.id);
         const status = infra.modelRuntime.getProviderAuthStatus(provider.id);
+        const fromEnv = !credential && status.source === 'environment';
         return {
           id: provider.id,
           name: provider.name,
-          hasKey: status.configured,
-          fromEnv: !credential && status.source === 'environment',
+          hasKey: credential?.type === 'api_key' || fromEnv,
+          fromEnv,
         };
       });
 

@@ -136,6 +136,7 @@ describe('refreshModelAvailability', () => {
       updatedChatSessions: 1,
       updatedAppSessions: 1,
       refreshWarnings: [],
+      registryError: undefined,
     });
   });
 
@@ -209,5 +210,6 @@ describe('refreshModelAvailability', () => {
       'Provider model refresh failed: custom: catalog unavailable',
       'Provider "broken": invalid configuration',
     ]);
+    expect(result.registryError).toBe('Provider "broken": invalid configuration');
   });
 });

@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Provider } from '@earendil-works/pi-ai';
 
+const mocks = vi.hoisted(() => ({
+  packageProviders: [] as Array<{ id: string; name: string }>,
+}));
+
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
-  getPackageApiKeyProviders: () => [],
+  getPackageApiKeyProviders: () => mocks.packageProviders,
 }));
 
 import {
@@ -38,6 +42,10 @@ function oauthProvider(id: string): Provider {
 }
 
 describe('provider catalog', () => {
+  beforeEach(() => {
+    mocks.packageProviders = [];
+  });
+
   it('lists Pi API-key providers exposed by Sero auth', () => {
     const providers = [
       'deepseek',
@@ -78,6 +86,14 @@ describe('provider catalog', () => {
     expect(getApiKeyProviderCatalog(providers)).toEqual([
       { id: 'anthropic', name: 'Anthropic' },
     ]);
+  });
+
+  it('keeps package providers before an extension registers them', () => {
+    mocks.packageProviders = [
+      { id: 'alibaba-coding-plan', name: 'Alibaba Coding Plan' },
+    ];
+
+    expect(getApiKeyProviderCatalog([])).toEqual(mocks.packageProviders);
   });
 
   it('resolves OAuth providers from runtime metadata', () => {

@@ -50,4 +50,16 @@ describe('local models IPC', () => {
     await expect(getConfig()).resolves.toEqual(config);
     expect(mocks.ensureInfra).not.toHaveBeenCalled();
   });
+
+  it('reports registry validation errors after saving models.json', async () => {
+    mocks.refreshModelAvailability.mockResolvedValue({
+      registryError: 'Provider "local": invalid configuration',
+    });
+    const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
+    if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
+
+    await expect(saveConfig({}, { providers: {} })).rejects.toThrow(
+      'Provider "local": invalid configuration',
+    );
+  });
 });

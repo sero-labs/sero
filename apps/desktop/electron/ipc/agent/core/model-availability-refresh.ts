@@ -21,6 +21,7 @@ export interface ModelAvailabilityRefreshResult {
   updatedChatSessions: number;
   updatedAppSessions: number;
   refreshWarnings: string[];
+  registryError?: string;
 }
 
 function buildAvailableModelSelections(
@@ -96,5 +97,6 @@ export async function refreshModelAvailability(
     updatedChatSessions,
     updatedAppSessions,
     refreshWarnings,
+    registryError: loadError ?? undefined,
   };
 }

@@ -107,8 +107,8 @@ describe('authentication IPC', () => {
   });
 
   it('builds provider status from runtime metadata without exposing secrets', async () => {
-    const oauth = oauthProvider();
-    const apiKey = apiKeyProvider();
+    const oauth = oauthProvider('anthropic');
+    const apiKey = apiKeyProvider('openai');
     const modelRuntime = {
       getProviders: () => [oauth, apiKey],
       listCredentials: vi.fn(async () => [
@@ -126,7 +126,10 @@ describe('authentication IPC', () => {
 
     expect(result).toEqual({
       oauth: [{ id: oauth.id, name: oauth.name, isLoggedIn: true }],
-      apiKey: [{ id: apiKey.id, name: 'Anthropic', hasKey: true, fromEnv: true }],
+      apiKey: [
+        { id: oauth.id, name: 'Anthropic', hasKey: false, fromEnv: false },
+        { id: apiKey.id, name: 'OpenAI', hasKey: true, fromEnv: true },
+      ],
     });
   });
 
@@ -233,6 +236,34 @@ describe('authentication IPC', () => {
       { type: 'cancelled' },
     );
     expect(otherWindow.send).not.toHaveBeenCalled();
+  });
+
+  it('rejects follow-up prompts after cancellation', async () => {
+    const provider = oauthProvider();
+    const origin = sender();
+    const modelRuntime = {
+      getProvider: () => provider,
+      login: vi.fn(async (_id: string, _type: string, interaction: AuthInteraction) => {
+        await new Promise<void>((resolve) => {
+          interaction.signal?.addEventListener('abort', () => resolve(), { once: true });
+        });
+        await interaction.prompt({ type: 'text', message: 'Too late' });
+        return { type: 'oauth' as const, access: 'unused' };
+      }),
+    };
+    mocks.ensureInfra.mockResolvedValue({ modelRuntime });
+
+    const login = handler(IpcChannels.auth.login)({ sender: origin }, provider.id);
+    await vi.waitFor(() => expect(modelRuntime.login).toHaveBeenCalledOnce());
+    await handler(IpcChannels.auth.cancel)({ sender: origin });
+    await login;
+
+    expect(origin.send).not.toHaveBeenCalledWith(
+      IpcChannels.auth.event,
+      expect.objectContaining({ type: 'prompt', message: 'Too late' }),
+    );
+    await expect(handler(IpcChannels.auth.respondPrompt)({ sender: origin }, 'unused'))
+      .resolves.toBe(false);
   });
 
   it('persists replacement API keys and removes credentials through ModelRuntime', async () => {

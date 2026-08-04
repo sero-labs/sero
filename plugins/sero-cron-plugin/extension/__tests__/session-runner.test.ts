@@ -7,7 +7,7 @@ const sessionInstances: Array<{
   aborted: boolean;
   messages: any[];
 }> = [];
-const mockModelRuntime = { id: 'shared-cron-runtime' };
+const mockModelRuntime = { id: 'shared-cron-runtime', refresh: vi.fn(async () => {}) };
 const reload = vi.fn(async () => {});
 
 function createMockSession(opts?: {
@@ -117,6 +117,7 @@ beforeEach(() => {
     };
   });
   reload.mockClear();
+  mockModelRuntime.refresh.mockClear();
   vi.mocked(registerIsolatedCompletionHost).mockClear();
 });
 
@@ -170,6 +171,7 @@ describe('runTransientSession', () => {
       allowModelNetwork: false,
     });
     expect(reload).toHaveBeenCalledOnce();
+    expect(mockModelRuntime.refresh).toHaveBeenCalledWith({ allowNetwork: false });
   });
 
   it('uses Pi built-in coding tools by name', async () => {

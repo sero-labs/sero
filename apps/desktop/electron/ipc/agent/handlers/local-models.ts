@@ -16,7 +16,6 @@ import type {
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
 } from '@/types/ipc';
-import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
@@ -316,7 +315,8 @@ export function registerLocalModelsHandlers(): void {
     IpcChannels.localModels.saveConfig,
     async (_event, config: LocalModelsConfig): Promise<void> => {
       await writeModelsConfig(config);
-      await refreshModelAvailability();
+      const result = await refreshModelAvailability();
+      if (result.registryError) throw new Error(result.registryError);
     },
   );
 

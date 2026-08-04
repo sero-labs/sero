@@ -182,6 +182,7 @@ export async function runTransientSession(
 
     try {
       const modelRuntime = await getCronModelRuntime(sessionAgentDir);
+      await modelRuntime.refresh({ allowNetwork: false });
       const isolatedCompletion = createIsolatedCompletionService({
         agentDir: sessionAgentDir,
         modelRuntime,

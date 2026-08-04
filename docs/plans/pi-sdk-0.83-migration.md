@@ -541,7 +541,7 @@ This phase addresses the findings recorded after the first migration review.
 - [x] Scope prompt responses and cancellation to the initiating window.
 - [x] Declare the Pi SDK minimum Node.js version in the root package manifest.
 - [x] Remove the unused provider environment-key helper.
-- [x] Filter package API-key providers against the runtime provider list.
+- [x] Filter curated built-in API-key providers against the runtime provider list.
 - [x] Correct memory shutdown-summary indentation.
 
 ### Verification checklist
@@ -553,6 +553,27 @@ This phase addresses the findings recorded after the first migration review.
 - [x] Run focused desktop, Scheduler, memory, subagent, and extension-runtime tests.
 - [x] Run focused desktop and Scheduler typechecks.
 - [x] Run the complete local CI command.
+- [x] Inspect the final diff, diagnostics, file sizes, and working tree.
+
+## Phase 10: second review remediation
+
+This phase addresses the findings from the draft PR re-review.
+
+### Implementation checklist
+
+- [x] Keep OAuth credentials separate from API-key status and removal controls.
+- [x] Refresh the cached Scheduler model runtime before each run.
+- [x] Keep package-declared API-key providers in the auth catalog before registration.
+- [x] Report SDK registry errors when Local Models saves an invalid configuration.
+- [x] Settle and clear cancelled login attempts before any follow-up prompt.
+- [x] Make the common package Pi core peer optional for its type-only import.
+- [x] Remove the unused Local Models infrastructure import.
+
+### Verification checklist
+
+- [x] Add focused regression tests for all applicable re-review findings.
+- [x] Run focused desktop and Scheduler tests.
+- [x] Run the root typecheck and complete local CI command.
 - [x] Inspect the final diff, diagnostics, file sizes, and working tree.
 
 ## Risk register

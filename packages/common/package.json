@@ -21,6 +21,11 @@
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "catalog:peer"
   },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-agent-core": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@earendil-works/pi-agent-core": "catalog:",
     "typescript": "^5.9.3"

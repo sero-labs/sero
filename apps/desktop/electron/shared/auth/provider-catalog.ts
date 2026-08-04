@@ -42,9 +42,10 @@ const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
 export function getApiKeyProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
   const runtimeProviderIds = new Set(providers.map((provider) => provider.id));
   const byId = new Map<string, NamedProvider>();
-  for (const provider of [...BUILTIN_API_KEY_PROVIDERS, ...getPackageApiKeyProviders()]) {
+  for (const provider of BUILTIN_API_KEY_PROVIDERS) {
     if (runtimeProviderIds.has(provider.id)) byId.set(provider.id, provider);
   }
+  for (const provider of getPackageApiKeyProviders()) byId.set(provider.id, provider);
   return [...byId.values()];
 }
 
