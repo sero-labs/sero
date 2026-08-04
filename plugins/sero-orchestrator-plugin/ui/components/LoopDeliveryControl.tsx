@@ -17,8 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  NativeSelect,
-  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@sero-ai/ui';
 import type { DeliveryDestinationId, Loop, OrchestratorAction } from '../../shared/types';
 import { DELIVERY_DESTINATIONS, deliveryDestinationInfo, effectiveDelivery } from '../../shared/delivery-types';
@@ -70,13 +73,18 @@ export function LoopDeliveryControl({
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <NativeSelect value={destination} onChange={(e) => setDestination(e.target.value as DeliveryDestinationId)}>
-              {DELIVERY_DESTINATIONS.map((d) => (
-                <NativeSelectOption key={d.id} value={d.id}>
-                  {d.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            <Select value={destination} onValueChange={(value) => setDestination(value as DeliveryDestinationId)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DELIVERY_DESTINATIONS.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {hints.map((h) => (
               <Input
                 key={h.key}
