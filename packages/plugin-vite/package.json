@@ -29,7 +29,7 @@
     "vite": ">=6.0.0"
   },
   "dependencies": {
-    "postcss": "^8.5.22",
+    "postcss": "^8.5.24",
     "postcss-selector-parser": "^7.1.4"
   },
   "devDependencies": {
