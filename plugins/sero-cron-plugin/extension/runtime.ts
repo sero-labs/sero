@@ -42,7 +42,7 @@ import { StateWatcher } from './state-watcher';
 export interface CronCommandContext {
   cwd?: string;
   ui?: {
-    notify: (message: string, type?: 'info' | 'warning' | 'error') => void;
+    notify: (message: string, type?: string) => void;
   };
 }
 

@@ -11,7 +11,7 @@ function toAvailableThinkingLevels(model: RegistryModelLike): ThinkingLevel[] {
 }
 
 export function buildAvailableModelGroups(
-  available: readonly RegistryModelLike[],
+  available: RegistryModelLike[],
 ): AvailableModelGroup[] {
   const grouped = new Map<string, RegistryModelLike[]>();
 

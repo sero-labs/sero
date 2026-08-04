@@ -17,7 +17,6 @@
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import {
   checkBootstrapStatus,
@@ -224,10 +223,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       } else {
         const phase1State = getPhase1MigrationState(sessionId);
         if (!phase1State?.checked) {
-          const migration = await runPhase1Migration(
-            ctx,
-            (request) => requestIsolatedCompletion(pi.events, request),
-          );
+          const migration = await runPhase1Migration(ctx);
           setPhase1MigrationState(sessionId, migration.changed);
           info('before_agent_start_migration', {
             changed: migration.changed,

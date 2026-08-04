@@ -67,7 +67,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.19.0
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -97,7 +97,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.19.0
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies

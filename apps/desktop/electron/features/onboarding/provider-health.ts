@@ -7,6 +7,7 @@ import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
+  getProviderEnvApiKey,
 } from '@electron/shared/auth/provider-catalog';
 import { buildOnboardingAvailableModelGroups } from './model-groups';
 import { providerDisplayName } from './provider-metadata';
@@ -19,7 +20,9 @@ export interface ProviderHealthSnapshot {
 function buildGroupsFromInfra(
   infra: Awaited<ReturnType<typeof ensureInfra>>,
 ): AvailableModelGroup[] {
-  return buildOnboardingAvailableModelGroups(infra.modelRuntime.getAvailableSnapshot())
+  const { modelRegistry } = infra;
+  modelRegistry.authStorage.reload();
+  return buildOnboardingAvailableModelGroups(modelRegistry.getAvailable())
     .sort((a, b) => a.provider.localeCompare(b.provider))
     .map((group) => ({
       ...group,
@@ -100,17 +103,13 @@ export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapsho
     );
   }
 
-  const providers = infra.modelRuntime.getProviders();
-  const credentials = new Map(
-    (await infra.modelRuntime.listCredentials())
-      .map((credential) => [credential.providerId, credential]),
-  );
+  infra.authStorage.reload();
   const providerHealth: ProviderHealthInfo[] = [];
   const knownProviders = new Set<string>();
 
-  for (const provider of getOAuthProviderCatalog(providers)) {
+  for (const provider of getOAuthProviderCatalog()) {
     knownProviders.add(provider.id);
-    const credential = credentials.get(provider.id);
+    const credential = infra.authStorage.get(provider.id);
     const usableModelIds = usableModelIdsByProvider.get(provider.id) ?? [];
     const status: ProviderHealthStatus = usableModelIds.length > 0
       ? 'healthy'
@@ -124,17 +123,16 @@ export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapsho
     }));
   }
 
-  for (const provider of getApiKeyProviderCatalog(providers)) {
+  for (const provider of getApiKeyProviderCatalog()) {
     knownProviders.add(provider.id);
-    const credential = credentials.get(provider.id);
-    const authStatus = infra.modelRuntime.getProviderAuthStatus(provider.id);
-    const fromEnvironment = !credential && authStatus.source === 'environment';
+    const credential = infra.authStorage.get(provider.id);
+    const envKey = getProviderEnvApiKey(provider.id);
     const usableModelIds = usableModelIdsByProvider.get(provider.id) ?? [];
 
     let status: ProviderHealthStatus;
     if (usableModelIds.length > 0) {
-      status = fromEnvironment ? 'env' : 'healthy';
-    } else if (fromEnvironment) {
+      status = envKey && !credential ? 'env' : 'healthy';
+    } else if (envKey && !credential) {
       status = 'env';
     } else if (credential?.type === 'api_key') {
       status = 'broken_invalid';

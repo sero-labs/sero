@@ -1,10 +1,4 @@
-# Historical: migrating Sero from Pi 0.78.0 to 0.80.6
-
-> This is a historical migration record. It is not current SDK guidance.
-> Sero 0.83 uses one shared `ModelRuntime`; sessions receive `modelRuntime`,
-> provider authentication runs through that runtime, and isolated completions
-> run through the host service boundary. See AD-026 in `docs/decisions.md` and
-> `docs/plans/pi-sdk-0.83-migration.md` for the current design.
+# Migrating Sero from Pi 0.78.0 to 0.80.6
 
 A focused playbook for moving Sero onto Pi 0.80.6. Everything Sero does today
 must keep working — normal chat, background memory jobs, web summaries, custom

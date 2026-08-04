@@ -16,7 +16,7 @@ import {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { Api, Model } from '@earendil-works/pi-ai';
+import type { Model } from '@earendil-works/pi-ai';
 import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ async function applyModelOverride(
   const normalized = modelOverride?.trim();
   if (!normalized || normalized === 'default') return;
 
-  const model = await findModelOverride(session, normalized);
+  const model = findModelOverride(session, normalized);
   if (!model) {
     info('session-runner:model-override-not-found', { model: normalized });
     return;
@@ -232,18 +232,18 @@ async function applyModelOverride(
   await session.setModel(model);
 }
 
-async function findModelOverride(
+function findModelOverride(
   session: AgentSession,
   modelOverride: string,
-): Promise<Model<Api> | undefined> {
-  const available = await session.modelRuntime.getAvailable();
+): Model<any> | undefined {
+  const available = session.modelRegistry.getAvailable();
   const slashIndex = modelOverride.indexOf('/');
 
   if (slashIndex > 0) {
     const provider = modelOverride.slice(0, slashIndex);
     const modelId = modelOverride.slice(slashIndex + 1);
     return (
-      session.modelRuntime.getModel(provider, modelId) ??
+      session.modelRegistry.find(provider, modelId) ??
       available.find((model) => model.provider === provider && model.id === modelId)
     );
   }

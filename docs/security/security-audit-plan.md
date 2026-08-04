@@ -174,7 +174,7 @@ Sero is an Electron-based agent workspace that runs AI coding sessions inside ma
 ### 4.1 Credential Storage
 
 #### Current State
-- Provider credentials are owned by Pi SDK `ModelRuntime` and stored in profile-scoped `auth.json`; Sero keeps the file at mode `0600`
+- API keys stored in `auth.json` via Pi SDK's `AuthStorage`, encrypted with Electron `safeStorage` (OS keychain)
 - GitHub token stored in `~/.sero-ui/github-auth.json`, encrypted with `safeStorage.encryptString()`
 - Fallback to base64 encoding if OS encryption is unavailable (`safe-storage.ts:25-26`)
 - Google keyring uses hardcoded password `'sero-google-keyring'` (`google/auth-manager.ts:65`)
@@ -513,7 +513,7 @@ Based on code review, the following issues have been identified before active te
 | ID | Finding | Location | Status |
 |----|---------|----------|--------|
 | F-04 | Token passed in URL query parameter | `gateway/channels/web.ts` | **Fixed** — Removed `?token=` URL support; auth overlay required |
-| F-05 | `auth.json` file permissions not explicitly set to `0600` | `electron/ipc/auth.ts` | **Fixed** — authentication writes enforce mode `0600` |
+| F-05 | `auth.json` file permissions not explicitly set to `0600` | `electron/ipc/auth.ts` | Open — requires upstream Pi SDK `AuthStorage` changes |
 | F-06 | Base64 fallback for credential storage (no warning) | `safe-storage.ts:25-26` | **Fixed** — Added warning log + renderer notification on fallback |
 | F-07 | Hardcoded Google keyring password | `google/auth-manager.ts:65` | **Fixed** — Derived from `hostname + uid` via SHA-256 |
 | F-08 | No message size limit on WebSocket server | `gateway/index.ts` | **Fixed** — `maxPayload: 1MB` on `ws.Server` |
@@ -525,7 +525,7 @@ Based on code review, the following issues have been identified before active te
 |----|---------|----------|--------|
 | F-10 | Shell command concatenation in container exec | `container/index.ts:227` | Open — container provides secondary barrier |
 | F-11 | Idempotency key defined but not enforced | `gateway/protocol.ts:22` | Open |
-| F-12 | OAuth events broadcast to all windows | `electron/ipc/auth.ts:62-67` | **Fixed** — events go only to the initiating window |
+| F-12 | OAuth events broadcast to all windows | `electron/ipc/auth.ts:62-67` | Open |
 | F-13 | No SSRF protection in net proxy | `electron/ipc/net.ts` | **Fixed** — DNS resolution + private IP blocking + protocol allowlist |
 | F-14 | Net proxy passes headers unfiltered | `electron/ipc/net.ts` | **Fixed** — Blocked host/cookie/authorization headers |
 | F-15 | No symlink resolution in path validation | `electron/ipc/editor.ts:43-57` | **Fixed** — Added `realpathSync()` + null byte + path length checks |
@@ -548,7 +548,7 @@ Based on code review, the following issues have been identified before active te
 1. ~~**Rate limiting on gateway**~~ ✅ — Sliding window rate limiter in `gateway/rate-limiter.ts`. 5 failures / 60s → 5 min block per IP.
 2. ~~**Remove `?token=` URL support**~~ ✅ — Token no longer read from `location.search`. Auth overlay always shown.
 3. ~~**Fail-closed Discord**~~ ✅ — Adapter refuses to start when `SERO_DISCORD_USERS` is empty. Warning logged.
-4. ~~**Set `auth.json` permissions**~~ ✅ — Authentication writes enforce mode `0600`.
+4. **Set `auth.json` permissions** — Requires upstream Pi SDK `AuthStorage` changes. Open.
 5. ~~**WebSocket `maxPayload`**~~ ✅ — Set to 1 MB in `ws.Server` constructor.
 6. ~~**Max connections**~~ ✅ — 50 total, 10 per IP. Enforced in `handleConnection()`.
 

@@ -8,6 +8,7 @@ function createModel(provider: string, id: string): Model<Api> {
 }
 
 describe('ensureSessionHasAvailableModel', () => {
+  const authReload = vi.fn();
   const findModel = vi.fn();
   const getAvailable = vi.fn();
   const settingsReload = vi.fn();
@@ -17,6 +18,7 @@ describe('ensureSessionHasAvailableModel', () => {
   const setModel = vi.fn(async () => {});
 
   beforeEach(() => {
+    authReload.mockReset();
     findModel.mockReset();
     getAvailable.mockReset();
     settingsReload.mockReset();
@@ -32,9 +34,10 @@ describe('ensureSessionHasAvailableModel', () => {
       model: runtimeState.model,
       agent: { state: runtimeState },
       setModel,
-      modelRuntime: {
-        getModel: findModel.mockReturnValue(undefined),
-        getAvailable: getAvailable.mockResolvedValue([]),
+      modelRegistry: {
+        authStorage: { reload: authReload },
+        find: findModel.mockReturnValue(undefined),
+        getAvailable: getAvailable.mockReturnValue([]),
       },
       settingsManager: {
         reload: settingsReload,
@@ -47,6 +50,7 @@ describe('ensureSessionHasAvailableModel', () => {
     const changed = await ensureSessionHasAvailableModel(session);
 
     expect(changed).toBe(true);
+    expect(authReload).toHaveBeenCalledOnce();
     expect(runtimeState.model).toBeUndefined();
     expect(setModel).not.toHaveBeenCalled();
   });
@@ -56,9 +60,10 @@ describe('ensureSessionHasAvailableModel', () => {
       model: undefined,
       agent: { state: { model: undefined } },
       setModel,
-      modelRuntime: {
-        getModel: findModel.mockReturnValue(undefined),
-        getAvailable: getAvailable.mockResolvedValue([]),
+      modelRegistry: {
+        authStorage: { reload: authReload },
+        find: findModel.mockReturnValue(undefined),
+        getAvailable: getAvailable.mockReturnValue([]),
       },
       settingsManager: {
         reload: settingsReload,

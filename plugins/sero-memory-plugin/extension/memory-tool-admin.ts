@@ -1,5 +1,4 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
-import type { IsolatedCompletionService } from '@sero-ai/extension-runtime';
 
 import {
   describeAutoConsolidationCadence,
@@ -34,7 +33,6 @@ export async function handleMemoryConsolidate(
   schedule: AutoConsolidationCadence | undefined,
   trigger: ConsolidationTrigger | undefined,
   ctx: ExtensionContext,
-  complete: IsolatedCompletionService,
 ): Promise<ToolTextResult> {
   if (schedule) {
     try {
@@ -63,7 +61,7 @@ export async function handleMemoryConsolidate(
     }
   }
 
-  const summary = await runMemoryConsolidationSafely(ctx, trigger ?? 'manual', complete);
+  const summary = await runMemoryConsolidationSafely(ctx, trigger ?? 'manual');
   if (ctx.hasUI && summary.changed) {
     ctx.ui.notify(
       summary.addedEntries > 0

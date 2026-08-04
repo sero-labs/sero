@@ -102,18 +102,18 @@ These rules apply to every phase:
 
 ### Checklist
 
-- [x] Record the current passing root typecheck and relevant test commands before changing dependencies.
-- [x] Add or identify tests for shared infrastructure initialization.
-- [x] Add or identify tests for custom provider visibility across session paths.
-- [x] Change the strict Pi catalog entries to `0.83.0`.
-- [x] Remove the Pi holdback comment from `pnpm-workspace.yaml`.
-- [x] Raise the Pi peer catalog minimum to `>=0.83.0` for packages that exchange Pi objects.
-- [x] Move `packages/common` from its hard-coded dependency to a peer dependency using `catalog:peer`.
-- [x] Add `pi-agent-core` to `packages/common` development dependencies using `catalog:`.
-- [x] Keep canonical Pi types. Do not create a local copy of `ThinkingLevel`.
-- [x] Regenerate `pnpm-lock.yaml`.
-- [x] Check all Pi resolutions with `pnpm why`.
-- [x] Set CI Node versions to at least `22.19.0` if any workflow can resolve an older Node 22 release.
+- [ ] Record the current passing root typecheck and relevant test commands before changing dependencies.
+- [ ] Add or identify tests for shared infrastructure initialization.
+- [ ] Add or identify tests for custom provider visibility across session paths.
+- [ ] Change the strict Pi catalog entries to `0.83.0`.
+- [ ] Remove the Pi holdback comment from `pnpm-workspace.yaml`.
+- [ ] Raise the Pi peer catalog minimum to `>=0.83.0` for packages that exchange Pi objects.
+- [ ] Move `packages/common` from its hard-coded dependency to a peer dependency using `catalog:peer`.
+- [ ] Add `pi-agent-core` to `packages/common` development dependencies using `catalog:`.
+- [ ] Keep canonical Pi types. Do not create a local copy of `ThinkingLevel`.
+- [ ] Regenerate `pnpm-lock.yaml`.
+- [ ] Check all Pi resolutions with `pnpm why`.
+- [ ] Set CI Node versions to at least `22.19.0` if any workflow can resolve an older Node 22 release.
 
 ### Main files
 
@@ -127,10 +127,10 @@ These rules apply to every phase:
 
 ### Acceptance criteria
 
-- [x] `packages/common` cannot drift from the host Pi version during local development.
-- [x] Published `packages/common` asks its host for the canonical Pi type package.
-- [x] `pnpm why` does not show an old Pi runtime under a built-in plugin.
-- [x] The expected migration type errors are reproducible and no unrelated dependency error is introduced.
+- [ ] `packages/common` cannot drift from the host Pi version during local development.
+- [ ] Published `packages/common` asks its host for the canonical Pi type package.
+- [ ] `pnpm why` does not show an old Pi runtime under a built-in plugin.
+- [ ] The expected migration type errors are reproducible and no unrelated dependency error is introduced.
 
 ## Phase 1: create the shared host `ModelRuntime`
 
@@ -149,16 +149,16 @@ Do not expose credential storage as a separate mutable public object.
 
 ### Checklist
 
-- [x] Add asynchronous shared runtime initialization.
-- [x] Use `SERO_AGENT_DIR/auth.json` and `SERO_AGENT_DIR/models.json` through supported `ModelRuntime` options.
-- [x] Keep model network access disabled during critical startup unless an existing flow requires it.
-- [x] Restore cached model state before initial model selection.
-- [x] Create or obtain the extension-facing `ModelRegistry` facade from the same runtime.
-- [x] Preserve default thinking-level setup.
-- [x] Preserve first available model selection.
-- [x] Make failed initialization retryable. Do not retain a rejected promise forever.
-- [x] Update synchronous callers to await shared infrastructure where required.
-- [x] Remove all public `AuthStorage` imports.
+- [ ] Add asynchronous shared runtime initialization.
+- [ ] Use `SERO_AGENT_DIR/auth.json` and `SERO_AGENT_DIR/models.json` through supported `ModelRuntime` options.
+- [ ] Keep model network access disabled during critical startup unless an existing flow requires it.
+- [ ] Restore cached model state before initial model selection.
+- [ ] Create or obtain the extension-facing `ModelRegistry` facade from the same runtime.
+- [ ] Preserve default thinking-level setup.
+- [ ] Preserve first available model selection.
+- [ ] Make failed initialization retryable. Do not retain a rejected promise forever.
+- [ ] Update synchronous callers to await shared infrastructure where required.
+- [ ] Remove all public `AuthStorage` imports.
 
 ### Main files
 
@@ -169,29 +169,29 @@ Do not expose credential storage as a separate mutable public object.
 
 ### Acceptance criteria
 
-- [x] Concurrent calls receive the same runtime instance.
-- [x] The runtime uses `~/.sero-ui/agent/`, not `~/.pi/agent/`.
-- [x] Existing `auth.json`, `models.json`, and settings remain usable.
-- [x] Built-in and configured models are present after initialization.
-- [x] Initial model selection still works.
-- [x] A failed initialization can succeed on a later call.
+- [ ] Concurrent calls receive the same runtime instance.
+- [ ] The runtime uses `~/.sero-ui/agent/`, not `~/.pi/agent/`.
+- [ ] Existing `auth.json`, `models.json`, and settings remain usable.
+- [ ] Built-in and configured models are present after initialization.
+- [ ] Initial model selection still works.
+- [ ] A failed initialization can succeed on a later call.
 
 ## Phase 2: migrate every session creation path
 
 ### Checklist
 
-- [x] Replace `authStorage` and `modelRegistry` session options with `modelRuntime`.
-- [x] Migrate main workspace session creation.
-- [x] Migrate per-app session creation.
-- [x] Migrate subagent session creation.
-- [x] Migrate subagent tool-catalog warm-up.
-- [x] Replace host reads of `session.modelRegistry` with `session.modelRuntime` or a facade derived from the same runtime.
-- [x] Replace old model lookup calls with `ModelRuntime.getModel()` and related current APIs.
-- [x] Preserve session model restoration.
-- [x] Preserve model switching and model tier resolution.
-- [x] Add `scopedModels` to all manually built `ExtensionContext` objects.
-- [x] Use the live session context when one exists.
-- [x] Avoid a second fallback runtime in synchronous CLI context code.
+- [ ] Replace `authStorage` and `modelRegistry` session options with `modelRuntime`.
+- [ ] Migrate main workspace session creation.
+- [ ] Migrate per-app session creation.
+- [ ] Migrate subagent session creation.
+- [ ] Migrate subagent tool-catalog warm-up.
+- [ ] Replace host reads of `session.modelRegistry` with `session.modelRuntime` or a facade derived from the same runtime.
+- [ ] Replace old model lookup calls with `ModelRuntime.getModel()` and related current APIs.
+- [ ] Preserve session model restoration.
+- [ ] Preserve model switching and model tier resolution.
+- [ ] Add `scopedModels` to all manually built `ExtensionContext` objects.
+- [ ] Use the live session context when one exists.
+- [ ] Avoid a second fallback runtime in synchronous CLI context code.
 
 ### Main files
 
@@ -209,12 +209,12 @@ Do not expose credential storage as a separate mutable public object.
 
 ### Acceptance criteria
 
-- [x] Main, app, subagent, and warm-up sessions use the same runtime.
-- [x] Each session has separate messages, tools, resource loading, and persistence.
-- [x] Existing sessions restore their saved provider and model when available.
-- [x] Model switching and scoped models work.
-- [x] CLI fallback contexts are valid against Pi `0.83.0`.
-- [x] No old session option or `session.modelRegistry` access remains.
+- [ ] Main, app, subagent, and warm-up sessions use the same runtime.
+- [ ] Each session has separate messages, tools, resource loading, and persistence.
+- [ ] Existing sessions restore their saved provider and model when available.
+- [ ] Model switching and scoped models work.
+- [ ] CLI fallback contexts are valid against Pi `0.83.0`.
+- [ ] No old session option or `session.modelRegistry` access remains.
 
 ## Phase 3: migrate authentication and model refresh
 
@@ -232,24 +232,21 @@ Sero must continue to route all login events only to the window that started the
 
 ### Checklist
 
-- [x] Remove `getOAuthProviders()` and `OAuthProviderId` usage.
-- [x] Build OAuth and API-key provider lists from runtime provider metadata.
-- [x] Map `auth_url`, `device_code`, `info`, and `progress` notifications to Sero IPC events.
-- [x] Map text, secret, select, and manual-code prompts to Sero IPC requests.
-- [x] Respect both login cancellation and per-prompt cancellation.
-- [x] Use `ModelRuntime.login()` for interactive login.
-- [x] Use `ModelRuntime.logout()` for logout.
-- [x] Use persistent `ModelRuntime.login(..., 'api_key')` and `logout()` for
-  saved API-key changes. Reserve transient `setRuntimeApiKey()` and
-  `removeRuntimeApiKey()` for process-only overrides, as required by the
-  published `0.83.0` contract.
-- [x] Use supported credential status and listing APIs for the settings UI.
-- [x] Preserve environment-key detection and display.
-- [x] Preserve `auth.json` permission repair and `0600` hardening.
-- [x] Await refresh when the new model snapshot is required.
-- [x] Handle provider refresh errors separately from credential mutation success.
-- [x] Add a bounded or cancellable background refresh after credential changes.
-- [x] Update all old direct credential reload sites.
+- [ ] Remove `getOAuthProviders()` and `OAuthProviderId` usage.
+- [ ] Build OAuth and API-key provider lists from runtime provider metadata.
+- [ ] Map `auth_url`, `device_code`, `info`, and `progress` notifications to Sero IPC events.
+- [ ] Map text, secret, select, and manual-code prompts to Sero IPC requests.
+- [ ] Respect both login cancellation and per-prompt cancellation.
+- [ ] Use `ModelRuntime.login()` for interactive login.
+- [ ] Use `ModelRuntime.logout()` for logout.
+- [ ] Use `setRuntimeApiKey()` and `removeRuntimeApiKey()` for API-key changes.
+- [ ] Use supported credential status and listing APIs for the settings UI.
+- [ ] Preserve environment-key detection and display.
+- [ ] Preserve `auth.json` permission repair and `0600` hardening.
+- [ ] Await refresh when the new model snapshot is required.
+- [ ] Handle provider refresh errors separately from credential mutation success.
+- [ ] Add a bounded or cancellable background refresh after credential changes.
+- [ ] Update all old direct credential reload sites.
 
 ### Main files
 
@@ -264,15 +261,15 @@ Sero must continue to route all login events only to the window that started the
 
 ### Acceptance criteria
 
-- [x] Stored API keys can be added, replaced, and removed.
-- [x] Environment credentials are shown but are not overwritten.
-- [x] OAuth callback, device-code, manual-code, prompt, select, and cancellation flows work.
-- [x] Authentication events go only to the initiating window.
-- [x] Logout updates model availability.
-- [x] A successful credential mutation remains successful if remote refresh later fails.
-- [x] Refresh failure messages identify the affected provider.
-- [x] No stale refresh can overwrite a newer result.
-- [x] `auth.json` remains mode `0600` after each write.
+- [ ] Stored API keys can be added, replaced, and removed.
+- [ ] Environment credentials are shown but are not overwritten.
+- [ ] OAuth callback, device-code, manual-code, prompt, select, and cancellation flows work.
+- [ ] Authentication events go only to the initiating window.
+- [ ] Logout updates model availability.
+- [ ] A successful credential mutation remains successful if remote refresh later fails.
+- [ ] Refresh failure messages identify the affected provider.
+- [ ] No stale refresh can overwrite a newer result.
+- [ ] `auth.json` remains mode `0600` after each write.
 
 ## Phase 4: implement the isolated completion boundary
 
@@ -300,21 +297,21 @@ Keep `ModelRegistry.complete()` as a possible later optimization. It must not re
 
 ### Checklist
 
-- [x] Define a narrow isolated completion request and result contract.
-- [x] Keep Pi SDK types canonical where they cross the contract.
-- [x] Implement the host service with the shared runtime.
-- [x] Preserve the current system-prompt isolation.
-- [x] Preserve timeout and abort behavior.
-- [x] Preserve provider-neutral thinking-level behavior.
-- [x] Preserve agent-level retry behavior where the current session provides it.
-- [x] Ensure temporary sessions do not trigger extension lifecycle hooks.
-- [x] Ensure temporary sessions never write a session file.
-- [x] Dispose the session on success, error, and cancellation.
-- [x] Migrate desktop adhoc completion calls.
-- [x] Migrate memory consolidation.
-- [x] Migrate memory format migration.
-- [x] Migrate memory shutdown summaries.
-- [x] Update `packages/extension-runtime` exports and tests.
+- [ ] Define a narrow isolated completion request and result contract.
+- [ ] Keep Pi SDK types canonical where they cross the contract.
+- [ ] Implement the host service with the shared runtime.
+- [ ] Preserve the current system-prompt isolation.
+- [ ] Preserve timeout and abort behavior.
+- [ ] Preserve provider-neutral thinking-level behavior.
+- [ ] Preserve agent-level retry behavior where the current session provides it.
+- [ ] Ensure temporary sessions do not trigger extension lifecycle hooks.
+- [ ] Ensure temporary sessions never write a session file.
+- [ ] Dispose the session on success, error, and cancellation.
+- [ ] Migrate desktop adhoc completion calls.
+- [ ] Migrate memory consolidation.
+- [ ] Migrate memory format migration.
+- [ ] Migrate memory shutdown summaries.
+- [ ] Update `packages/extension-runtime` exports and tests.
 
 ### Main files
 
@@ -329,17 +326,17 @@ Keep `ModelRegistry.complete()` as a possible later optimization. It must not re
 
 ### Acceptance criteria
 
-- [x] A built-in provider completes successfully.
-- [x] An extension-registered faux provider completes successfully.
-- [x] The selected thinking level reaches the provider.
-- [x] `APPEND_SYSTEM.md` and other project instructions are absent.
-- [x] No extension or memory lifecycle hook runs.
-- [x] No tool is available.
-- [x] No session file is created.
-- [x] Cancellation stops the active request.
-- [x] Timeout reports the current Sero timeout error.
-- [x] The temporary session is disposed on all exit paths.
-- [x] Existing memory fallback behavior remains unchanged.
+- [ ] A built-in provider completes successfully.
+- [ ] An extension-registered faux provider completes successfully.
+- [ ] The selected thinking level reaches the provider.
+- [ ] `APPEND_SYSTEM.md` and other project instructions are absent.
+- [ ] No extension or memory lifecycle hook runs.
+- [ ] No tool is available.
+- [ ] No session file is created.
+- [ ] Cancellation stops the active request.
+- [ ] Timeout reports the current Sero timeout error.
+- [ ] The temporary session is disposed on all exit paths.
+- [ ] Existing memory fallback behavior remains unchanged.
 
 ## Phase 5: verify custom provider propagation
 
@@ -347,44 +344,44 @@ This is the required vertical validation before broad cleanup.
 
 ### Checklist
 
-- [x] Register a faux provider through the same path as an extension.
-- [x] Use it from a main workspace session.
-- [x] Use it from a per-app session where the provider should be visible.
-- [x] Use it from a subagent.
-- [x] Use it from isolated background completion.
-- [x] Verify resolved API key, headers, base URL, and stream function.
-- [x] Reload extensions and confirm provider state is correct.
-- [x] Remove or disable the provider and confirm no stale registration remains.
-- [x] Test two live sessions while provider registration changes.
+- [ ] Register a faux provider through the same path as an extension.
+- [ ] Use it from a main workspace session.
+- [ ] Use it from a per-app session where the provider should be visible.
+- [ ] Use it from a subagent.
+- [ ] Use it from isolated background completion.
+- [ ] Verify resolved API key, headers, base URL, and stream function.
+- [ ] Reload extensions and confirm provider state is correct.
+- [ ] Remove or disable the provider and confirm no stale registration remains.
+- [ ] Test two live sessions while provider registration changes.
 
 ### Acceptance criteria
 
-- [x] All intended session paths dispatch through the same registered provider implementation.
-- [x] No path silently creates a fresh default runtime.
-- [x] Provider removal does not leave a stale selectable model.
-- [x] One session cannot remove a provider still owned by another active registration without an explicit ownership policy.
+- [ ] All intended session paths dispatch through the same registered provider implementation.
+- [ ] No path silently creates a fresh default runtime.
+- [ ] Provider removal does not leave a stale selectable model.
+- [ ] One session cannot remove a provider still owned by another active registration without an explicit ownership policy.
 
 ## Phase 6: built-in plugins and templates
 
 ### Checklist
 
-- [x] Update Pi peer dependencies in all built-in plugins.
-- [x] Update the plugin skill example and package template.
-- [x] Confirm all extension entry points are included in typecheck scripts.
-- [x] Typecheck each built-in extension.
-- [x] Run each plugin test suite.
-- [x] Build each plugin.
-- [x] Confirm Pi dependencies remain external in extension bundles.
-- [x] Check memory plugin use of `getApiKeyAndHeaders()` against `0.83.0`.
-- [x] Check user-feedback TUI components against `pi-tui@0.83.0`.
-- [x] Check provider registration in all built-in extensions.
+- [ ] Update Pi peer dependencies in all built-in plugins.
+- [ ] Update the plugin skill example and package template.
+- [ ] Confirm all extension entry points are included in typecheck scripts.
+- [ ] Typecheck each built-in extension.
+- [ ] Run each plugin test suite.
+- [ ] Build each plugin.
+- [ ] Confirm Pi dependencies remain external in extension bundles.
+- [ ] Check memory plugin use of `getApiKeyAndHeaders()` against `0.83.0`.
+- [ ] Check user-feedback TUI components against `pi-tui@0.83.0`.
+- [ ] Check provider registration in all built-in extensions.
 
 ### Acceptance criteria
 
-- [x] Every built-in plugin passes typecheck, test, and build.
-- [x] No plugin bundle contains a private Pi runtime.
-- [x] No plugin uses a removed Pi export.
-- [x] A plugin created from the template typechecks against `0.83.0`.
+- [ ] Every built-in plugin passes typecheck, test, and build.
+- [ ] No plugin bundle contains a private Pi runtime.
+- [ ] No plugin uses a removed Pi export.
+- [ ] A plugin created from the template typechecks against `0.83.0`.
 
 ## Phase 7: external plugin repositories
 
@@ -392,58 +389,58 @@ External plugins are Git-only. Update and commit each repository separately. Do 
 
 ### Repositories
 
-- [x] `sero-alibaba-plugin`
-- [x] `sero-calc-plugin`
-- [x] `sero-daily-quote-plugin`
-- [x] `sero-google-plugin`
-- [x] `sero-humanizer-plugin`
-- [x] `sero-imagegen-plugin`
-- [x] `sero-kanban-plugin`
-- [x] `sero-logbook-plugin`
-- [x] `sero-loom-plugin`
-- [x] `sero-notes-plugin`
-- [x] `sero-plan-mode-plugin`
-- [x] `sero-research-plugin`
-- [x] `sero-signal-desk-plugin`
-- [x] `sero-slopzilla-plugin`
-- [x] `sero-starling-plugin`
-- [x] `sero-tetris-plugin`
-- [x] `sero-todo-plugin-main`
-- [x] `sero-weight-tracker-plugin`
+- [ ] `sero-alibaba-plugin`
+- [ ] `sero-calc-plugin`
+- [ ] `sero-daily-quote-plugin`
+- [ ] `sero-google-plugin`
+- [ ] `sero-humanizer-plugin`
+- [ ] `sero-imagegen-plugin`
+- [ ] `sero-kanban-plugin`
+- [ ] `sero-logbook-plugin`
+- [ ] `sero-loom-plugin`
+- [ ] `sero-notes-plugin`
+- [ ] `sero-plan-mode-plugin`
+- [ ] `sero-research-plugin`
+- [ ] `sero-signal-desk-plugin`
+- [ ] `sero-slopzilla-plugin`
+- [ ] `sero-starling-plugin`
+- [ ] `sero-tetris-plugin`
+- [ ] `sero-todo-plugin-main`
+- [ ] `sero-weight-tracker-plugin`
 
 ### Per-repository checklist
 
-- [x] Read the repository instructions before editing.
-- [x] Confirm the package manager.
-- [x] Keep one lockfile format. `sero-research-plugin` currently has both npm and pnpm lockfiles.
-- [x] Update the lockfile against Pi `0.83.0`.
-- [x] Update peer minimums where the source now requires `0.83.0`.
-- [x] Add an extension TypeScript configuration if missing.
-- [x] Ensure `typecheck` includes extension and runtime source, not only UI source.
-- [x] Search for removed Pi exports and old session options.
-- [x] Search for removed TypeBox APIs.
-- [x] Run typecheck.
-- [x] Run tests.
-- [x] Run build.
-- [x] Confirm Pi stays external in extension bundles.
-- [x] Commit with a Conventional Commit message.
+- [ ] Read the repository instructions before editing.
+- [ ] Confirm the package manager.
+- [ ] Keep one lockfile format. `sero-research-plugin` currently has both npm and pnpm lockfiles.
+- [ ] Update the lockfile against Pi `0.83.0`.
+- [ ] Update peer minimums where the source now requires `0.83.0`.
+- [ ] Add an extension TypeScript configuration if missing.
+- [ ] Ensure `typecheck` includes extension and runtime source, not only UI source.
+- [ ] Search for removed Pi exports and old session options.
+- [ ] Search for removed TypeBox APIs.
+- [ ] Run typecheck.
+- [ ] Run tests.
+- [ ] Run build.
+- [ ] Confirm Pi stays external in extension bundles.
+- [ ] Commit with a Conventional Commit message.
 
 ### Special checks
 
-- [x] `sero-alibaba-plugin`: update its stale installed `0.78.0` state and test provider registration plus one faux dispatch.
-- [x] `sero-imagegen-plugin`: verify `ctx.modelRegistry.getApiKeyForProvider()` behavior.
-- [x] `sero-google-plugin`: run extension and runtime typechecks and authentication tests.
-- [x] `sero-kanban-plugin`: run all background runtime tests.
-- [x] `sero-plan-mode-plugin`: run its separate extension TypeScript configuration.
-- [x] `sero-logbook-plugin`, `sero-research-plugin`, and `sero-signal-desk-plugin`: preserve the selected pnpm workflow.
+- [ ] `sero-alibaba-plugin`: update its stale installed `0.78.0` state and test provider registration plus one faux dispatch.
+- [ ] `sero-imagegen-plugin`: verify `ctx.modelRegistry.getApiKeyForProvider()` behavior.
+- [ ] `sero-google-plugin`: run extension and runtime typechecks and authentication tests.
+- [ ] `sero-kanban-plugin`: run all background runtime tests.
+- [ ] `sero-plan-mode-plugin`: run its separate extension TypeScript configuration.
+- [ ] `sero-logbook-plugin`, `sero-research-plugin`, and `sero-signal-desk-plugin`: preserve the selected pnpm workflow.
 
 ### Acceptance criteria
 
-- [x] Every external repository has one current lockfile.
-- [x] Every extension source is typechecked.
-- [x] Every repository passes its available typecheck, tests, and build.
-- [x] No external extension bundles Pi.
-- [x] All external plugins load in the migrated Sero host.
+- [ ] Every external repository has one current lockfile.
+- [ ] Every extension source is typechecked.
+- [ ] Every repository passes its available typecheck, tests, and build.
+- [ ] No external extension bundles Pi.
+- [ ] All external plugins load in the migrated Sero host.
 
 ## Phase 8: final validation and documentation
 
@@ -478,50 +475,50 @@ Use React Doctor after changes to the authentication React UI. Run Pi Lens diagn
 
 ### Manual acceptance checklist
 
-- [x] Start Sero with an existing profile and credentials.
-- [x] Open an existing workspace session.
-- [x] Restore its saved model.
-- [x] Send and stream a prompt.
-- [x] Switch model and thinking level.
-- [x] Add, replace, and remove an API key.
-- [x] Complete one browser OAuth flow.
-- [x] Cancel one OAuth flow.
-- [x] Complete one device-code or manual-code flow where available.
-- [x] Confirm model availability changes after login and logout.
-- [x] Load a `models.json` custom model.
-- [x] Load the Alibaba custom provider.
-- [x] Run a main session with the custom provider.
-- [x] Run a subagent with the custom provider.
-- [x] Run a per-app agent.
-- [x] Run memory consolidation.
-- [x] Run an adhoc background completion.
-- [x] Confirm project `APPEND_SYSTEM.md` does not affect the background result.
-- [x] Confirm no duplicate memory lifecycle run occurs.
-- [x] Load representative built-in plugins.
-- [x] Load representative external plugins.
+- [ ] Start Sero with an existing profile and credentials.
+- [ ] Open an existing workspace session.
+- [ ] Restore its saved model.
+- [ ] Send and stream a prompt.
+- [ ] Switch model and thinking level.
+- [ ] Add, replace, and remove an API key.
+- [ ] Complete one browser OAuth flow.
+- [ ] Cancel one OAuth flow.
+- [ ] Complete one device-code or manual-code flow where available.
+- [ ] Confirm model availability changes after login and logout.
+- [ ] Load a `models.json` custom model.
+- [ ] Load the Alibaba custom provider.
+- [ ] Run a main session with the custom provider.
+- [ ] Run a subagent with the custom provider.
+- [ ] Run a per-app agent.
+- [ ] Run memory consolidation.
+- [ ] Run an adhoc background completion.
+- [ ] Confirm project `APPEND_SYSTEM.md` does not affect the background result.
+- [ ] Confirm no duplicate memory lifecycle run occurs.
+- [ ] Load representative built-in plugins.
+- [ ] Load representative external plugins.
 
 ### Documentation checklist
 
-- [x] Update `apps/docs-site` pages that describe authentication, providers, plugin dependencies, or Node requirements.
-- [x] Update the plugin guide and template if the peer dependency policy changes.
-- [x] Update comments that refer to `AuthStorage` or the old registry ownership model.
-- [x] Update issue #345 with the final scope or link it to split implementation issues.
-- [x] Record any intentional behavior difference in `docs/decisions.md` if required.
+- [ ] Update `apps/docs-site` pages that describe authentication, providers, plugin dependencies, or Node requirements.
+- [ ] Update the plugin guide and template if the peer dependency policy changes.
+- [ ] Update comments that refer to `AuthStorage` or the old registry ownership model.
+- [ ] Update issue #345 with the final scope or link it to split implementation issues.
+- [ ] Record any intentional behavior difference in `docs/decisions.md` if required.
 
 ### Final acceptance criteria
 
-- [x] `pnpm typecheck` passes with zero errors.
-- [x] Root tests and production builds pass.
-- [x] No `AuthStorage` root import remains.
-- [x] No `CreateAgentSessionOptions.authStorage` or `.modelRegistry` use remains.
-- [x] No host code reads `session.modelRegistry`.
-- [x] No direct hard-coded Pi version remains outside approved catalog definitions.
-- [x] The lockfile has no unintended old Pi runtime.
-- [x] Existing profiles and credentials work without manual migration.
-- [x] Main, app, subagent, warm-up, and isolated session paths work.
-- [x] Built-in and external custom providers work.
-- [x] Authentication events remain private to the initiating window.
-- [x] All touched source files remain below 500 lines.
+- [ ] `pnpm typecheck` passes with zero errors.
+- [ ] Root tests and production builds pass.
+- [ ] No `AuthStorage` root import remains.
+- [ ] No `CreateAgentSessionOptions.authStorage` or `.modelRegistry` use remains.
+- [ ] No host code reads `session.modelRegistry`.
+- [ ] No direct hard-coded Pi version remains outside approved catalog definitions.
+- [ ] The lockfile has no unintended old Pi runtime.
+- [ ] Existing profiles and credentials work without manual migration.
+- [ ] Main, app, subagent, warm-up, and isolated session paths work.
+- [ ] Built-in and external custom providers work.
+- [ ] Authentication events remain private to the initiating window.
+- [ ] All touched source files remain below 500 lines.
 
 ## Risk register
 

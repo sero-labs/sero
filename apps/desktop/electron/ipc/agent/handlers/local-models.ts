@@ -240,9 +240,9 @@ async function readModelsConfig(): Promise<LocalModelsConfig> {
     if (!isMissingFileError(error)) throw error;
   }
 
-  const { modelRuntime } = await ensureInfra();
-  await modelRuntime.refresh({ allowNetwork: false });
-  const loadError = modelRuntime.getError();
+  const { modelRegistry } = await ensureInfra();
+  modelRegistry.refresh();
+  const loadError = modelRegistry.getError();
   if (loadError) throw new Error(loadError);
 
   if (raw === null) return { providers: {} };

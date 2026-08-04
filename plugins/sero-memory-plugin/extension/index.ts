@@ -14,7 +14,6 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import { checkBootstrapStatus } from './bootstrap';
 import { registerContextInjection, markBootstrapDone } from './context-injector';
@@ -46,8 +45,6 @@ import {
 import { startBackfillInBackground } from './session-transcripts';
 
 export default function memoryExtension(pi: ExtensionAPI): void {
-  const complete = (request: Parameters<typeof requestIsolatedCompletion>[1]) =>
-    requestIsolatedCompletion(pi.events, request);
   info('extension_loaded', { logPath: getMemoryLogPath() });
 
   let awaitingBootstrapFollowUp = false;
@@ -94,7 +91,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
     let migrationChanged = false;
     if (!status.needsBootstrap) {
-      const migration = await runPhase1Migration(ctx, complete);
+      const migration = await runPhase1Migration(ctx);
       migrationChanged = migration.changed;
       setPhase1MigrationState(sessionId, migration.changed);
       info('migration_result', {
@@ -131,7 +128,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         }
         info('session_consolidation_triggered', { source });
         try {
-          const result = await runMemoryConsolidationSafely(ctx, 'auto', complete);
+          const result = await runMemoryConsolidationSafely(ctx, 'auto');
           info('session_consolidation_complete', {
             source,
             changed: result.changed,

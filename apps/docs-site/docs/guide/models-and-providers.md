@@ -4,10 +4,6 @@ Sero uses providers for model access and model tiers for everyday choices. A pro
 
 Sero does **not** bundle third-party credentials. You connect your own accounts, API keys, environment-backed credentials, or local endpoints.
 
-Sero reads authentication methods from the active Pi provider metadata. Saved
-credentials stay in the desktop main process. Environment credentials are shown
-as environment-backed and are not overwritten when you change a saved key.
-
 ## Quick path
 
 1. Create or open a profile.
@@ -46,9 +42,7 @@ as environment-backed and are not overwritten when you change a saved key.
 | OpenCode | `opencode` | API key or env-backed key | OpenCode provider. |
 | Kimi | `kimi-coding` | API key or env-backed key | Kimi coding provider. |
 
-Environment-backed keys are detected through Pi's provider auth handling. They
-are not copied into the UI as plain Sero-owned credentials. A failed remote
-model refresh does not undo a successful login or key change.
+Environment-backed keys are detected through Pi's provider env handling. They are not copied into the UI as plain Sero-owned credentials.
 
 ## Plugin-defined providers
 
@@ -59,10 +53,6 @@ Packages can add provider metadata through `sero.providers` in their manifest. S
 | Alibaba Coding Plan | `alibaba-coding-plan` | `git:https://github.com/sero-labs/sero-alibaba-plugin.git` | API key; env var `ALIBABA_CODING_PLAN_KEY` | External provider-only plugin. Install it before selecting Qwen-family defaults. |
 
 Plugin-defined providers follow the same health/reconnect behavior as other API-key providers when their manifest declares `auth.type: "apiKey"`.
-
-Provider registrations are shared across active Sero sessions. A plugin must
-use `unregisterProvider()` only when it intends to disable that provider for
-the whole desktop host.
 
 ## Provider health statuses
 

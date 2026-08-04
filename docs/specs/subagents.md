@@ -123,7 +123,7 @@
 ┌─ Electron Main Process ────────────────────────────────────────────┐
 │                                                                     │
 │  SharedInfra (singleton) — shared-infra.ts                          │
-│    ├─ ModelRuntime, SettingsManager                                 │
+│    ├─ AuthStorage, ModelRegistry, SettingsManager                   │
 │    ├─ ContainerManager                                              │
 │    └─ SubagentManager (NEW)                                         │
 │                                                                     │
@@ -447,7 +447,8 @@ const loader = createSubagentResourceLoader({
 const { session } = await createAgentSession({
   cwd: wsPath,
   agentDir: SERO_AGENT_DIR,
-  modelRuntime: infra.modelRuntime,
+  authStorage: infra.authStorage,
+  modelRegistry: infra.modelRegistry,
   tools: useContainer ? [] : createCodingTools(wsPath),
   customTools: containerTools,
   resourceLoader: loader,

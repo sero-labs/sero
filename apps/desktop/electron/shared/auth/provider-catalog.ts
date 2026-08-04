@@ -1,4 +1,4 @@
-import type { Provider } from '@earendil-works/pi-ai';
+import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
 import { getPackageApiKeyProviders, getPackageProviderEnvVar } from '../providers/package-provider-manifests';
 
 export interface NamedProvider {
@@ -67,17 +67,10 @@ const BUILTIN_PROVIDER_ENV_VARS: Record<string, readonly string[]> = {
   'xiaomi-token-plan-sgp': ['XIAOMI_TOKEN_PLAN_SGP_API_KEY'],
 };
 
-export function getApiKeyProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
+export function getApiKeyProviderCatalog(): NamedProvider[] {
   const byId = new Map<string, NamedProvider>();
-  for (const provider of providers) {
-    if (provider.auth.apiKey?.login) {
-      byId.set(provider.id, { id: provider.id, name: provider.name });
-    }
-  }
   for (const provider of BUILTIN_API_KEY_PROVIDERS) {
-    if (providers.some((candidate) => candidate.id === provider.id)) {
-      byId.set(provider.id, provider);
-    }
+    byId.set(provider.id, provider);
   }
   for (const provider of getPackageApiKeyProviders()) {
     byId.set(provider.id, provider);
@@ -95,10 +88,9 @@ export function getProviderEnvApiKey(providerId: string): string | undefined {
   return envVar ? process.env[envVar] : undefined;
 }
 
-export function getOAuthProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
-  const catalog: NamedProvider[] = [];
-  for (const provider of providers) {
-    if (provider.auth.oauth) catalog.push({ id: provider.id, name: provider.name });
-  }
-  return catalog;
+export function getOAuthProviderCatalog(): NamedProvider[] {
+  return getOAuthProviders().map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+  }));
 }
