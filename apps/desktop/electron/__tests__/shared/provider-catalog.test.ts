@@ -1,15 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Provider } from '@earendil-works/pi-ai';
 
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
   getPackageApiKeyProviders: () => [],
-  getPackageProviderEnvVar: () => undefined,
 }));
 
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
-  getProviderEnvApiKey,
 } from '@electron/shared/auth/provider-catalog';
 
 const removedProviderIds = ['google-gemini-cli', 'google-antigravity'];
@@ -40,10 +38,6 @@ function oauthProvider(id: string): Provider {
 }
 
 describe('provider catalog', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it('lists Pi API-key providers exposed by Sero auth', () => {
     const providers = [
       'deepseek',
@@ -72,6 +66,20 @@ describe('provider catalog', () => {
     }
   });
 
+  it('excludes runtime providers that need unsupported setup fields', () => {
+    const providers = [
+      apiKeyProvider('anthropic'),
+      apiKeyProvider('amazon-bedrock'),
+      apiKeyProvider('cloudflare-workers-ai'),
+      apiKeyProvider('github-copilot'),
+      apiKeyProvider('google-vertex'),
+    ];
+
+    expect(getApiKeyProviderCatalog(providers)).toEqual([
+      { id: 'anthropic', name: 'Anthropic' },
+    ]);
+  });
+
   it('resolves OAuth providers from runtime metadata', () => {
     const providers = [
       oauthProvider('anthropic'),
@@ -88,14 +96,5 @@ describe('provider catalog', () => {
     for (const removedProviderId of removedProviderIds) {
       expect(oauthIds).not.toContain(removedProviderId);
     }
-  });
-
-  it('reads documented provider environment variables without the compat API', () => {
-    vi.stubEnv('ANTHROPIC_OAUTH_TOKEN', 'oauth-token');
-    vi.stubEnv('ANTHROPIC_API_KEY', 'api-key');
-    vi.stubEnv('OPENAI_API_KEY', 'openai-key');
-
-    expect(getProviderEnvApiKey('anthropic')).toBe('oauth-token');
-    expect(getProviderEnvApiKey('openai')).toBe('openai-key');
   });
 });

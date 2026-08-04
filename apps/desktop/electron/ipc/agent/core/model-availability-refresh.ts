@@ -20,6 +20,7 @@ export interface ModelAvailabilityRefreshResult {
   sharedModel: Model<Api> | null;
   updatedChatSessions: number;
   updatedAppSessions: number;
+  refreshWarnings: string[];
 }
 
 function buildAvailableModelSelections(
@@ -58,20 +59,18 @@ export async function refreshModelAvailability(
   const infra = await ensureInfra();
 
   const refreshResult = await infra.modelRuntime.refresh(refreshOptions);
-  if (refreshResult.aborted) {
-    throw new Error('Model refresh was cancelled');
-  }
+  const refreshWarnings: string[] = [];
+  if (refreshResult.aborted) refreshWarnings.push('Model refresh was cancelled');
   if (refreshResult.errors.size > 0) {
     const details = [...refreshResult.errors]
       .map(([provider, error]) => `${provider}: ${error.message}`)
       .join('; ');
-    throw new Error(`Provider model refresh failed: ${details}`);
+    refreshWarnings.push(`Provider model refresh failed: ${details}`);
   }
 
   const loadError = infra.modelRegistry.getError();
-  if (loadError) {
-    throw new Error(loadError);
-  }
+  if (loadError) refreshWarnings.push(loadError);
+  for (const warning of refreshWarnings) console.warn(`[model-refresh] ${warning}`);
 
   const availableModels = infra.modelRegistry.getAvailable();
   const cleanedSettings = cleanupUnavailableModelSelections(
@@ -96,5 +95,6 @@ export async function refreshModelAvailability(
     sharedModel,
     updatedChatSessions,
     updatedAppSessions,
+    refreshWarnings,
   };
 }

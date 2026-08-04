@@ -1,6 +1,6 @@
 # Pi SDK 0.83 migration plan
 
-Status: ready for implementation
+Status: review remediation complete
 
 Related issue: [#345](https://github.com/sero-labs/sero/issues/345)
 
@@ -522,6 +522,38 @@ Use React Doctor after changes to the authentication React UI. Run Pi Lens diagn
 - [x] Built-in and external custom providers work.
 - [x] Authentication events remain private to the initiating window.
 - [x] All touched source files remain below 500 lines.
+
+## Phase 9: review remediation
+
+This phase addresses the findings recorded after the first migration review.
+
+### Implementation checklist
+
+- [x] Limit API-key setup to the curated providers that Sero can configure.
+- [x] Reject API-key login flows that request unsupported extra fields.
+- [x] Register isolated-completion hosts for main and subagent sessions.
+- [x] Give Scheduler sessions a stable runtime and isolated-completion host.
+- [x] Reconcile model selections and live sessions after partial refresh errors.
+- [x] Keep auth IPC handlers available when auth-file permission repair fails.
+- [x] Keep unrelated provider and availability errors from blocking the Local Models editor.
+- [x] Settle prompts whose cancellation signal is already aborted.
+- [x] Permit network catalog refresh after credential changes.
+- [x] Scope prompt responses and cancellation to the initiating window.
+- [x] Declare the Pi SDK minimum Node.js version in the root package manifest.
+- [x] Remove the unused provider environment-key helper.
+- [x] Filter package API-key providers against the runtime provider list.
+- [x] Correct memory shutdown-summary indentation.
+
+### Verification checklist
+
+- [x] Add focused regression tests for provider filtering and API-key prompts.
+- [x] Add focused regression tests for auth cancellation, window isolation, and permission failures.
+- [x] Add focused regression tests for partial model refresh and Local Models access.
+- [x] Add focused regression tests for subagent and Scheduler isolated-completion host wiring.
+- [x] Run focused desktop, Scheduler, memory, subagent, and extension-runtime tests.
+- [x] Run focused desktop and Scheduler typechecks.
+- [x] Run the complete local CI command.
+- [x] Inspect the final diff, diagnostics, file sizes, and working tree.
 
 ## Risk register
 

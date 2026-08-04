@@ -63,6 +63,7 @@
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "workspace:*",
     "typebox": "catalog:"
   },
   "peerDependencies": {

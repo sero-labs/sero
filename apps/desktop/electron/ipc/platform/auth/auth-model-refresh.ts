@@ -11,6 +11,7 @@ export function refreshModelAvailabilityAfterCredentialChange(
     const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
     try {
       await refreshModelAvailability({
+        allowNetwork: true,
         force: true,
         signal: controller.signal,
       });

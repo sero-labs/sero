@@ -135,6 +135,7 @@ describe('refreshModelAvailability', () => {
       sharedModel,
       updatedChatSessions: 1,
       updatedAppSessions: 1,
+      refreshWarnings: [],
     });
   });
 
@@ -175,5 +176,38 @@ describe('refreshModelAvailability', () => {
     expect(mocks.emitAgentEvent).toHaveBeenCalledTimes(1);
     expect(result.updatedChatSessions).toBe(0);
     expect(result.updatedAppSessions).toBe(0);
+  });
+
+  it('reconciles sessions after partial provider and availability errors', async () => {
+    const sharedModel = createModel('openai', 'gpt-5.4-mini');
+    mocks.modelRuntimeRefresh.mockResolvedValue({
+      aborted: false,
+      errors: new Map([['custom', new Error('catalog unavailable')]]),
+    });
+    mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: { refresh: mocks.modelRuntimeRefresh },
+      modelRegistry: {
+        getError: vi.fn(() => 'Provider "broken": invalid configuration'),
+        getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue([sharedModel]),
+      },
+      settingsManager: {
+        reload: mocks.settingsReload,
+        getGlobalSettings: mocks.getGlobalSettings,
+      },
+    });
+    mocks.cleanupUnavailableModelSelections.mockReturnValue(false);
+    mocks.refreshInfraModelSelection.mockReturnValue(sharedModel);
+    mocks.getAgentPoolEntries.mockReturnValue([]);
+    mocks.getAppAgentSessions.mockReturnValue([]);
+    mocks.syncAppSessionPoolModels.mockResolvedValue(0);
+
+    const result = await refreshModelAvailability();
+
+    expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledOnce();
+    expect(mocks.refreshInfraModelSelection).toHaveBeenCalledOnce();
+    expect(result.refreshWarnings).toEqual([
+      'Provider model refresh failed: custom: catalog unavailable',
+      'Provider "broken": invalid configuration',
+    ]);
   });
 });

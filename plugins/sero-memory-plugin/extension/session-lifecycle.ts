@@ -193,44 +193,44 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
       if (ctx.model) {
         try {
-            const llmMessages = convertToLlm(messages);
-            const conversationText = serializeConversation(llmMessages);
-            const { text: truncated, truncated: wasTruncated } = truncateText(
-              conversationText.trim(),
-              SUMMARY_MAX_CHARS,
-            );
+          const llmMessages = convertToLlm(messages);
+          const conversationText = serializeConversation(llmMessages);
+          const { text: truncated, truncated: wasTruncated } = truncateText(
+            conversationText.trim(),
+            SUMMARY_MAX_CHARS,
+          );
 
-            if (truncated) {
-              const promptLines = [
-                'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
-                'Return markdown only with these exact headings:',
-                '### Decisions',
-                '### Lessons Learned',
-                '### Notes',
-                '### Follow-ups',
-                'Use bullet points under each heading. If there is nothing, write "None.".',
-              ];
-              if (wasTruncated) {
-                promptLines.push(
-                  `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
-                );
-              }
-              promptLines.push('', '<conversation>', truncated, '</conversation>');
-
-              const summaryText = await requestIsolatedCompletion(pi.events, {
-                cwd: ctx.cwd,
-                model: ctx.model,
-                prompt: promptLines.join('\n'),
-                systemPrompt: SUMMARY_SYSTEM_PROMPT,
-                thinkingLevel: 'low',
-                signal: ctx.signal,
-              });
-
-              const summary = summaryText || buildSummaryFallback('Summary was empty');
-              await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
-              qmdDirty = true;
-              info('session_summary_written', { sessionId });
+          if (truncated) {
+            const promptLines = [
+              'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
+              'Return markdown only with these exact headings:',
+              '### Decisions',
+              '### Lessons Learned',
+              '### Notes',
+              '### Follow-ups',
+              'Use bullet points under each heading. If there is nothing, write "None.".',
+            ];
+            if (wasTruncated) {
+              promptLines.push(
+                `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
+              );
             }
+            promptLines.push('', '<conversation>', truncated, '</conversation>');
+
+            const summaryText = await requestIsolatedCompletion(pi.events, {
+              cwd: ctx.cwd,
+              model: ctx.model,
+              prompt: promptLines.join('\n'),
+              systemPrompt: SUMMARY_SYSTEM_PROMPT,
+              thinkingLevel: 'low',
+              signal: ctx.signal,
+            });
+
+            const summary = summaryText || buildSummaryFallback('Summary was empty');
+            await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
+            qmdDirty = true;
+            info('session_summary_written', { sessionId });
+          }
         } catch (err) {
           const fallback = buildSummaryFallback(
             err instanceof Error ? err.message : 'unknown error',

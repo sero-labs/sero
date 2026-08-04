@@ -11,12 +11,20 @@
  * - Re-entrancy guard — sessions skip loading cron extension to avoid loops
  */
 
+import path from 'node:path';
 import {
   createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
+  ModelRuntime,
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
+import {
+  createIsolatedCompletionService,
+  registerIsolatedCompletionHost,
+} from '@sero-ai/extension-runtime';
 import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────
@@ -55,6 +63,20 @@ const waitQueue: Array<{
 }> = [];
 
 let maxConcurrent = DEFAULT_MAX_CONCURRENT;
+const modelRuntimes = new Map<string, Promise<ModelRuntime>>();
+
+function getCronModelRuntime(agentDir: string): Promise<ModelRuntime> {
+  const existing = modelRuntimes.get(agentDir);
+  if (existing) return existing;
+  const runtime = ModelRuntime.create({
+    authPath: path.join(agentDir, 'auth.json'),
+    modelsPath: path.join(agentDir, 'models.json'),
+    allowModelNetwork: false,
+  });
+  modelRuntimes.set(agentDir, runtime);
+  void runtime.catch(() => modelRuntimes.delete(agentDir));
+  return runtime;
+}
 
 /** Set the max concurrent sessions (for testing). */
 export function setMaxConcurrent(n: number): void {
@@ -129,6 +151,8 @@ export async function runTransientSession(
   opts: SessionRunOptions = {},
 ): Promise<SessionRunResult> {
   const { cwd, model, timeoutMs = 600_000, agentDir } = opts;
+  const sessionCwd = cwd || process.cwd();
+  const sessionAgentDir = agentDir || getAgentDir();
   const startedAt = Date.now();
 
   // ── Acquire concurrency slot ────────────────────────────
@@ -144,7 +168,7 @@ export async function runTransientSession(
   try {
     info('session-runner:start', {
       jobKey,
-      cwd: cwd ?? process.cwd(),
+      cwd: sessionCwd,
       timeoutMs,
       promptLen: prompt.length,
       concurrent: activeSessions.size,
@@ -157,11 +181,28 @@ export async function runTransientSession(
     process.env.SERO_CRON_SUBPROCESS = '1';
 
     try {
+      const modelRuntime = await getCronModelRuntime(sessionAgentDir);
+      const isolatedCompletion = createIsolatedCompletionService({
+        agentDir: sessionAgentDir,
+        modelRuntime,
+      });
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: sessionCwd,
+        agentDir: sessionAgentDir,
+        extensionFactories: [
+          (pi) => {
+            registerIsolatedCompletionHost(pi.events, isolatedCompletion);
+          },
+        ],
+      });
+      await resourceLoader.reload();
       const sessionResult = await createAgentSession({
-        cwd: cwd || process.cwd(),
-        agentDir: agentDir || process.env.PI_CODING_AGENT_DIR || undefined,
+        cwd: sessionCwd,
+        agentDir: sessionAgentDir,
+        modelRuntime,
+        resourceLoader,
         tools: ['read', 'bash', 'edit', 'write'],
-        sessionManager: SessionManager.inMemory(cwd || process.cwd()),
+        sessionManager: SessionManager.inMemory(sessionCwd),
       });
       session = sessionResult.session;
       await applyModelOverride(session, model);

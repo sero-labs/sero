@@ -31,7 +31,6 @@ vi.mock('@electron/platform/env', () => ({
 
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
   getPackageApiKeyProviders: () => [],
-  getPackageProviderEnvVar: () => undefined,
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -43,7 +42,10 @@ vi.mock('@electron/ipc/platform/auth/auth-model-refresh', () => ({
 }));
 
 import { IpcChannels } from '@/types/ipc-channels';
-import { registerAuthHandlers } from '@electron/ipc/platform/auth/auth';
+import {
+  registerAuthHandlers,
+  repairAuthJsonPermissionsOnStartup,
+} from '@electron/ipc/platform/auth/auth';
 
 function oauthProvider(id = 'test-oauth'): Provider {
   return {
@@ -61,7 +63,7 @@ function oauthProvider(id = 'test-oauth'): Provider {
   } as unknown as Provider;
 }
 
-function apiKeyProvider(id = 'test-key'): Provider {
+function apiKeyProvider(id = 'anthropic'): Provider {
   return {
     id,
     name: 'Test Key',
@@ -124,7 +126,7 @@ describe('authentication IPC', () => {
 
     expect(result).toEqual({
       oauth: [{ id: oauth.id, name: oauth.name, isLoggedIn: true }],
-      apiKey: [{ id: apiKey.id, name: apiKey.name, hasKey: true, fromEnv: true }],
+      apiKey: [{ id: apiKey.id, name: 'Anthropic', hasKey: true, fromEnv: true }],
     });
   });
 
@@ -166,22 +168,24 @@ describe('authentication IPC', () => {
       IpcChannels.auth.event,
       expect.objectContaining({ type: 'prompt', message: 'Account' }),
     ));
-    await handler(IpcChannels.auth.respondPrompt)({}, 'account');
+    await expect(handler(IpcChannels.auth.respondPrompt)({ sender: otherWindow }, 'poison'))
+      .resolves.toBe(false);
+    await handler(IpcChannels.auth.respondPrompt)({ sender: origin }, 'account');
     await vi.waitFor(() => expect(origin.send).toHaveBeenCalledWith(
       IpcChannels.auth.event,
       expect.objectContaining({ type: 'prompt', message: 'Secret' }),
     ));
-    await handler(IpcChannels.auth.respondPrompt)({}, 'secret');
+    await handler(IpcChannels.auth.respondPrompt)({ sender: origin }, 'secret');
     await vi.waitFor(() => expect(origin.send).toHaveBeenCalledWith(
       IpcChannels.auth.event,
       expect.objectContaining({ type: 'manual_input' }),
     ));
-    await handler(IpcChannels.auth.respondManualCode)({}, 'callback');
+    await handler(IpcChannels.auth.respondManualCode)({ sender: origin }, 'callback');
     await vi.waitFor(() => expect(origin.send).toHaveBeenCalledWith(
       IpcChannels.auth.event,
       expect.objectContaining({ type: 'select' }),
     ));
-    await handler(IpcChannels.auth.respondSelect)({}, 'one');
+    await handler(IpcChannels.auth.respondSelect)({ sender: origin }, 'one');
     await login;
 
     expect(answers).toEqual(['account', 'secret', 'callback', 'one']);
@@ -199,6 +203,7 @@ describe('authentication IPC', () => {
     const provider = oauthProvider();
     const origin = sender();
     const otherWindow = sender();
+    let loginSignal: AbortSignal | undefined;
     const modelRuntime = {
       getProvider: () => provider,
       login: vi.fn(async (
@@ -206,6 +211,7 @@ describe('authentication IPC', () => {
         _type: string,
         interaction: AuthInteraction,
       ): Promise<Credential> => new Promise((_resolve, reject) => {
+        loginSignal = interaction.signal;
         interaction.signal?.addEventListener(
           'abort',
           () => reject(new Error('Login cancelled')),
@@ -217,7 +223,9 @@ describe('authentication IPC', () => {
 
     const login = handler(IpcChannels.auth.login)({ sender: origin }, provider.id);
     await vi.waitFor(() => expect(modelRuntime.login).toHaveBeenCalledOnce());
-    await handler(IpcChannels.auth.cancel)();
+    await handler(IpcChannels.auth.cancel)({ sender: otherWindow });
+    expect(loginSignal?.aborted).toBe(false);
+    await handler(IpcChannels.auth.cancel)({ sender: origin });
     await login;
 
     expect(origin.send).toHaveBeenCalledWith(
@@ -228,28 +236,108 @@ describe('authentication IPC', () => {
   });
 
   it('persists replacement API keys and removes credentials through ModelRuntime', async () => {
+    const savedKeys: string[] = [];
     const login = vi.fn(async (
       _providerId: string,
       _type: string,
       interaction: AuthInteraction,
     ) => {
       const key = await interaction.prompt({ type: 'secret', message: 'API key' });
+      savedKeys.push(key);
       return { type: 'api_key' as const, key };
     });
     const logout = vi.fn(async () => {});
-    mocks.ensureInfra.mockResolvedValue({ modelRuntime: { login, logout } });
+    const provider = apiKeyProvider();
+    mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        getProvider: () => provider,
+        getProviders: () => [provider],
+        login,
+        logout,
+      },
+    });
 
-    await handler(IpcChannels.auth.setApiKey)({}, 'test-key', 'first');
-    await handler(IpcChannels.auth.setApiKey)({}, 'test-key', 'replacement');
-    await handler(IpcChannels.auth.removeApiKey)({}, 'test-key');
+    await handler(IpcChannels.auth.setApiKey)({}, 'anthropic', 'first');
+    await handler(IpcChannels.auth.setApiKey)({}, 'anthropic', 'replacement');
+    await handler(IpcChannels.auth.removeApiKey)({}, 'anthropic');
 
     expect(login).toHaveBeenCalledTimes(2);
-    await expect(login.mock.calls[1][2].prompt({
-      type: 'secret',
-      message: 'API key',
-    })).resolves.toBe('replacement');
-    expect(logout).toHaveBeenCalledWith('test-key');
+    expect(savedKeys).toEqual(['first', 'replacement']);
+    expect(logout).toHaveBeenCalledWith('anthropic');
     expect(mocks.refreshAfterCredentialChange).toHaveBeenCalledTimes(3);
     expect(statSync(AUTH_PATH).mode & 0o777).toBe(0o600);
+  });
+
+  it('rejects API-key providers that require more than one prompt', async () => {
+    const provider = apiKeyProvider();
+    const login = vi.fn(async (
+      _providerId: string,
+      _type: string,
+      interaction: AuthInteraction,
+    ) => {
+      await interaction.prompt({ type: 'secret', message: 'API key' });
+      await interaction.prompt({ type: 'text', message: 'Account ID' });
+      return { type: 'api_key' as const, key: 'unused' };
+    });
+    mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: {
+        getProvider: () => provider,
+        getProviders: () => [provider],
+        login,
+      },
+    });
+
+    await expect(
+      handler(IpcChannels.auth.setApiKey)({}, provider.id, 'secret-value'),
+    ).rejects.toThrow('requires unsupported API key setup');
+    expect(mocks.refreshAfterCredentialChange).not.toHaveBeenCalled();
+  });
+
+  it('settles a prompt whose signal was already aborted', async () => {
+    const provider = oauthProvider();
+    const origin = sender();
+    const modelRuntime = {
+      getProvider: () => provider,
+      login: vi.fn(async (
+        _providerId: string,
+        _type: string,
+        interaction: AuthInteraction,
+      ) => {
+        const controller = new AbortController();
+        controller.abort();
+        await interaction.prompt({
+          type: 'manual_code',
+          message: 'Paste callback',
+          signal: controller.signal,
+        });
+        return { type: 'oauth' as const, access: 'unused' };
+      }),
+    };
+    mocks.ensureInfra.mockResolvedValue({ modelRuntime });
+
+    await handler(IpcChannels.auth.login)({ sender: origin }, provider.id);
+
+    expect(origin.send).toHaveBeenCalledWith(
+      IpcChannels.auth.event,
+      { type: 'cancelled' },
+    );
+  });
+
+  it('registers auth handlers when permission repair fails', () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => repairAuthJsonPermissionsOnStartup({
+      existsSync: () => true,
+      statSync: () => ({ mode: 0o100644 }),
+      chmodSync: () => {
+        throw new Error('read-only filesystem');
+      },
+    })).not.toThrow();
+    expect(mocks.handlers.has(IpcChannels.auth.login)).toBe(true);
+    expect(mocks.handlers.has(IpcChannels.auth.setApiKey)).toBe(true);
+    expect(consoleWarn).toHaveBeenCalledWith(
+      '[auth] Could not repair auth.json permissions:',
+      expect.any(Error),
+    );
+    consoleWarn.mockRestore();
   });
 });

@@ -43,21 +43,37 @@ import { refreshModelAvailabilityAfterCredentialChange } from './auth-model-refr
 
 /** Ensure auth.json has 0o600 permissions. No-op if file doesn't exist. */
 function hardenAuthJsonPermissions(): void {
-  if (fs.existsSync(AUTH_JSON_PATH)) fs.chmodSync(AUTH_JSON_PATH, 0o600);
+  if (!fs.existsSync(AUTH_JSON_PATH)) return;
+  try {
+    fs.chmodSync(AUTH_JSON_PATH, 0o600);
+  } catch (error) {
+    console.warn('[auth] Could not set auth.json permissions to 0o600:', error);
+  }
 }
 
 /**
  * Check auth.json permissions at startup and repair if needed.
  * Logs a warning if permissions were wrong.
  */
-function repairAuthJsonPermissionsOnStartup(): void {
-  if (!fs.existsSync(AUTH_JSON_PATH)) return;
-  const mode = fs.statSync(AUTH_JSON_PATH).mode & 0o777;
-  if (mode !== 0o600) {
-    fs.chmodSync(AUTH_JSON_PATH, 0o600);
+interface AuthPermissionFileSystem {
+  existsSync(path: string): boolean;
+  statSync(path: string): { mode: number };
+  chmodSync(path: string, mode: number): void;
+}
+
+export function repairAuthJsonPermissionsOnStartup(
+  fileSystem: AuthPermissionFileSystem = fs,
+): void {
+  if (!fileSystem.existsSync(AUTH_JSON_PATH)) return;
+  try {
+    const mode = fileSystem.statSync(AUTH_JSON_PATH).mode & 0o777;
+    if (mode === 0o600) return;
+    fileSystem.chmodSync(AUTH_JSON_PATH, 0o600);
     console.warn(
       `[auth] Repaired auth.json permissions: 0o${mode.toString(8)} → 0o600`,
     );
+  } catch (error) {
+    console.warn('[auth] Could not repair auth.json permissions:', error);
   }
 }
 
@@ -101,6 +117,10 @@ function waitForResponse(
   signal?: AbortSignal,
 ): Promise<string> {
   return new Promise<string>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('Login cancelled'));
+      return;
+    }
     const response = { resolve, reject };
     attempt[field] = response;
     signal?.addEventListener('abort', () => {
@@ -277,8 +297,22 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.setApiKey,
     async (_event, providerId: string, key: string): Promise<void> => {
       const infra = await ensureInfra();
+      const provider = infra.modelRuntime.getProvider(providerId);
+      const allowedProvider = getApiKeyProviderCatalog(
+        infra.modelRuntime.getProviders(),
+      ).some((candidate) => candidate.id === providerId);
+      if (!provider?.auth.apiKey?.login || !allowedProvider) {
+        throw new Error(`API key setup is not supported for provider: ${providerId}`);
+      }
+      let promptAnswered = false;
       await infra.modelRuntime.login(providerId, 'api_key', {
-        prompt: async () => key,
+        prompt: async (prompt) => {
+          if (promptAnswered || (prompt.type !== 'secret' && prompt.type !== 'text')) {
+            throw new Error(`Provider ${providerId} requires unsupported API key setup`);
+          }
+          promptAnswered = true;
+          return key;
+        },
         notify: () => {},
       });
       hardenAuthJsonPermissions();
@@ -300,8 +334,8 @@ export function registerAuthHandlers(): void {
   // ── Respond to pending prompt ──────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.respondPrompt,
-    async (_event, value: string): Promise<boolean> => {
-      if (activeLogin?.prompt) {
+    async (event, value: string): Promise<boolean> => {
+      if (activeLogin?.origin === event.sender && activeLogin.prompt) {
         activeLogin.prompt.resolve(value);
         activeLogin.prompt = null;
         return true;
@@ -314,8 +348,8 @@ export function registerAuthHandlers(): void {
   // ── Respond to pending manual code input ───────────────────
   ipcMain.handle(
     IpcChannels.auth.respondManualCode,
-    async (_event, value: string): Promise<boolean> => {
-      if (activeLogin?.manualCode) {
+    async (event, value: string): Promise<boolean> => {
+      if (activeLogin?.origin === event.sender && activeLogin.manualCode) {
         activeLogin.manualCode.resolve(value);
         activeLogin.manualCode = null;
         return true;
@@ -328,8 +362,8 @@ export function registerAuthHandlers(): void {
   // ── Respond to pending selection ───────────────────────────
   ipcMain.handle(
     IpcChannels.auth.respondSelect,
-    async (_event, value: string): Promise<boolean> => {
-      if (activeLogin?.select) {
+    async (event, value: string): Promise<boolean> => {
+      if (activeLogin?.origin === event.sender && activeLogin.select) {
         activeLogin.select.resolve(value);
         activeLogin.select = null;
         return true;
@@ -342,8 +376,8 @@ export function registerAuthHandlers(): void {
   // ── Cancel in-progress login ───────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.cancel,
-    async (): Promise<void> => {
-      if (activeLogin) cancelAttempt(activeLogin);
+    async (event): Promise<void> => {
+      if (activeLogin?.origin === event.sender) cancelAttempt(activeLogin);
     },
   );
 }

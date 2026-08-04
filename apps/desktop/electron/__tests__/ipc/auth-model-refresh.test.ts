@@ -40,6 +40,7 @@ describe('refreshModelAvailabilityAfterCredentialChange', () => {
 
     expect(mocks.refreshModelAvailability).toHaveBeenCalledOnce();
     expect(mocks.refreshModelAvailability).toHaveBeenCalledWith({
+      allowNetwork: true,
       force: true,
       signal: expect.any(AbortSignal),
     });

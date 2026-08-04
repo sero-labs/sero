@@ -1,5 +1,5 @@
 import type { Provider } from '@earendil-works/pi-ai';
-import { getPackageApiKeyProviders, getPackageProviderEnvVar } from '../providers/package-provider-manifests';
+import { getPackageApiKeyProviders } from '../providers/package-provider-manifests';
 
 export interface NamedProvider {
   id: string;
@@ -39,60 +39,13 @@ const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   // google-gemini-cli and google-antigravity were removed from Pi built-ins in 0.71.
 ];
 
-const BUILTIN_PROVIDER_ENV_VARS: Record<string, readonly string[]> = {
-  anthropic: ['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
-  openai: ['OPENAI_API_KEY'],
-  google: ['GEMINI_API_KEY'],
-  openrouter: ['OPENROUTER_API_KEY'],
-  xai: ['XAI_API_KEY'],
-  groq: ['GROQ_API_KEY'],
-  cerebras: ['CEREBRAS_API_KEY'],
-  mistral: ['MISTRAL_API_KEY'],
-  deepseek: ['DEEPSEEK_API_KEY'],
-  'azure-openai-responses': ['AZURE_OPENAI_API_KEY'],
-  huggingface: ['HF_TOKEN'],
-  'vercel-ai-gateway': ['AI_GATEWAY_API_KEY'],
-  zai: ['ZAI_API_KEY'],
-  opencode: ['OPENCODE_API_KEY'],
-  'opencode-go': ['OPENCODE_API_KEY'],
-  'kimi-coding': ['KIMI_API_KEY'],
-  minimax: ['MINIMAX_API_KEY'],
-  'minimax-cn': ['MINIMAX_CN_API_KEY'],
-  moonshotai: ['MOONSHOT_API_KEY'],
-  'moonshotai-cn': ['MOONSHOT_API_KEY'],
-  fireworks: ['FIREWORKS_API_KEY'],
-  xiaomi: ['XIAOMI_API_KEY'],
-  'xiaomi-token-plan-cn': ['XIAOMI_TOKEN_PLAN_CN_API_KEY'],
-  'xiaomi-token-plan-ams': ['XIAOMI_TOKEN_PLAN_AMS_API_KEY'],
-  'xiaomi-token-plan-sgp': ['XIAOMI_TOKEN_PLAN_SGP_API_KEY'],
-};
-
 export function getApiKeyProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
+  const runtimeProviderIds = new Set(providers.map((provider) => provider.id));
   const byId = new Map<string, NamedProvider>();
-  for (const provider of providers) {
-    if (provider.auth.apiKey?.login) {
-      byId.set(provider.id, { id: provider.id, name: provider.name });
-    }
-  }
-  for (const provider of BUILTIN_API_KEY_PROVIDERS) {
-    if (providers.some((candidate) => candidate.id === provider.id)) {
-      byId.set(provider.id, provider);
-    }
-  }
-  for (const provider of getPackageApiKeyProviders()) {
-    byId.set(provider.id, provider);
+  for (const provider of [...BUILTIN_API_KEY_PROVIDERS, ...getPackageApiKeyProviders()]) {
+    if (runtimeProviderIds.has(provider.id)) byId.set(provider.id, provider);
   }
   return [...byId.values()];
-}
-
-export function getProviderEnvApiKey(providerId: string): string | undefined {
-  for (const envVar of BUILTIN_PROVIDER_ENV_VARS[providerId] ?? []) {
-    const value = process.env[envVar];
-    if (value) return value;
-  }
-
-  const envVar = getPackageProviderEnvVar(providerId);
-  return envVar ? process.env[envVar] : undefined;
 }
 
 export function getOAuthProviderCatalog(providers: readonly Provider[]): NamedProvider[] {
