@@ -5,7 +5,13 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@sero-ai/ui/components/ui/select';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, LifeBuoy, Search, Server } from 'lucide-react';
 import type { McpServerSnapshot } from '../../../shared/types';
@@ -80,19 +86,22 @@ export function McpSearchWorkbenchPanel({
           </div>
           <div className="space-y-2">
             <Label htmlFor="mcp-search-server-filter">Server scope</Label>
-            <NativeSelect
-              id="mcp-search-server-filter"
+            <Select
               value={search.serverFilter}
-              onChange={(event) => search.setServerFilter(event.target.value)}
-              className="w-full"
+              onValueChange={search.setServerFilter}
             >
-              <NativeSelectOption value="all">All servers</NativeSelectOption>
-              {servers.map((server) => (
-                <NativeSelectOption key={server.serverName} value={server.serverName}>
-                  {server.serverName}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger id="mcp-search-server-filter" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All servers</SelectItem>
+                {servers.map((server) => (
+                  <SelectItem key={server.serverName} value={server.serverName}>
+                    {server.serverName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-end">
             <Button type="submit" className="w-full lg:w-auto" disabled={search.loading}>

@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { Button, Card, Input, Label, NativeSelect, NativeSelectOption, Switch, Textarea } from '@sero-ai/ui';
+import {
+  Button,
+  Card,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Textarea,
+} from '@sero-ai/ui';
 import { Loader2 } from 'lucide-react';
 import type { DeliveryDestinationId, LoopDeliverySettings } from '../../shared/types';
 import { DELIVERY_DESTINATIONS, deliveryDestinationInfo, isDeliveryDestinationId } from '../../shared/delivery-types';
@@ -94,17 +106,20 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
         )}
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="loop-delivery" className="font-normal">Deliver results to</Label>
-          <NativeSelect
-            id="loop-delivery"
-            className="w-44"
+          <Select
             value={destination}
-            onChange={(e) => setDestination(isDeliveryDestinationId(e.target.value) ? e.target.value : 'auto')}
+            onValueChange={(value) => setDestination(isDeliveryDestinationId(value) ? value : 'auto')}
           >
-            <NativeSelectOption value="auto">Automatic</NativeSelectOption>
-            {DELIVERY_DESTINATIONS.map((d) => (
-              <NativeSelectOption key={d.id} value={d.id}>{d.label}</NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger id="loop-delivery" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Automatic</SelectItem>
+              {DELIVERY_DESTINATIONS.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {paramHints.map((h) => (
           <Input
