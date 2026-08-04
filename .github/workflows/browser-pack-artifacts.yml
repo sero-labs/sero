@@ -110,7 +110,7 @@ jobs:
               ;;
           esac
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           run_install: false
 
@@ -168,7 +168,7 @@ jobs:
           ref: ${{ github.ref }}
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           run_install: false
 
