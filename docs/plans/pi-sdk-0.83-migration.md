@@ -604,6 +604,24 @@ This phase addresses the follow-up findings from the draft PR review.
 - [x] Run the root typecheck and complete local CI command.
 - [x] Inspect the final diff, diagnostics, file sizes, and working tree.
 
+## Phase 12: fourth review remediation
+
+This phase addresses the final API-key status finding from the draft PR review.
+
+### Implementation checklist
+
+- [x] Keep externally configured API keys visible after extension registration changes their SDK source.
+- [x] Keep onboarding provider health marked as environment-configured for model configuration keys and commands.
+- [x] Share the external API-key status rule across Settings and onboarding.
+- [x] Remove the unused package provider environment-variable helper.
+
+### Verification checklist
+
+- [x] Add focused regressions for command-configured API keys in Settings and onboarding.
+- [x] Run the desktop tests and root typecheck.
+- [x] Run the complete local CI command.
+- [x] Inspect the final diff, diagnostics, file sizes, and working tree.
+
 ## Risk register
 
 | Risk | Effect | Mitigation |

@@ -180,10 +180,6 @@ export function getPackageApiKeyProviders(): Array<{ id: string; name: string }>
     }));
 }
 
-export function getPackageProviderEnvVar(providerId: string): string | undefined {
-  return getPackageProviderManifest(providerId)?.auth?.envVar;
-}
-
 /** Register auth metadata for package providers before their extensions load. */
 export function registerPackageProviderAuth(modelRuntime: ModelRuntime): void {
   for (const provider of loadProviderManifests()) {

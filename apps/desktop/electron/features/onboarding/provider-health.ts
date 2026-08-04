@@ -7,6 +7,7 @@ import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
+  isExternalApiKeyConfigured,
 } from '@electron/shared/auth/provider-catalog';
 import { buildOnboardingAvailableModelGroups } from './model-groups';
 import { providerDisplayName } from './provider-metadata';
@@ -128,7 +129,7 @@ export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapsho
     knownProviders.add(provider.id);
     const credential = credentials.get(provider.id);
     const authStatus = infra.modelRuntime.getProviderAuthStatus(provider.id);
-    const fromEnvironment = !credential && authStatus.source === 'environment';
+    const fromEnvironment = isExternalApiKeyConfigured(credential, authStatus);
     const usableModelIds = usableModelIdsByProvider.get(provider.id) ?? [];
 
     let status: ProviderHealthStatus;

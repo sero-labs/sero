@@ -1,9 +1,23 @@
-import type { Provider } from '@earendil-works/pi-ai';
+import type { CredentialInfo, Provider } from '@earendil-works/pi-ai';
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { getPackageApiKeyProviders } from '../providers/package-provider-manifests';
 
 export interface NamedProvider {
   id: string;
   name: string;
+}
+
+type ProviderAuthStatus = ReturnType<ModelRuntime['getProviderAuthStatus']>;
+
+/** Report API keys configured outside Sero's stored or runtime credentials. */
+export function isExternalApiKeyConfigured(
+  credential: CredentialInfo | undefined,
+  status: ProviderAuthStatus,
+): boolean {
+  return !credential
+    && status.configured
+    && status.source !== 'stored'
+    && status.source !== 'runtime';
 }
 
 // Mirrors Pi API-key auth.json keys from docs/providers.md and

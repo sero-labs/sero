@@ -35,6 +35,7 @@ import {
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
+  isExternalApiKeyConfigured,
 } from '@electron/shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '@electron/platform/env';
 import { refreshModelAvailabilityAfterCredentialChange } from './auth-model-refresh';
@@ -219,7 +220,7 @@ export function registerAuthHandlers(): void {
       const apiKey: ApiKeyProviderInfo[] = getApiKeyProviderCatalog(providers).map((provider) => {
         const credential = credentials.get(provider.id);
         const status = infra.modelRuntime.getProviderAuthStatus(provider.id);
-        const fromEnv = !credential && status.source === 'environment';
+        const fromEnv = isExternalApiKeyConfigured(credential, status);
         return {
           id: provider.id,
           name: provider.name,

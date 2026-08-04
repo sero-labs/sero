@@ -38,7 +38,6 @@ vi.mock('fs', () => ({
 
 import {
   getPackageApiKeyProviders,
-  getPackageProviderEnvVar,
   getPackageProviderManifest,
   invalidatePackageProviderManifestCache,
   registerPackageProviderAuth,
@@ -81,7 +80,6 @@ describe('package provider manifest cache', () => {
     expect(getPackageApiKeyProviders()).toEqual([
       { id: 'test-provider', name: 'Test Provider' },
     ]);
-    expect(getPackageProviderEnvVar('test-provider')).toBe('TEST_API_KEY');
   });
 
   it('drops stale cached results after explicit invalidation', () => {

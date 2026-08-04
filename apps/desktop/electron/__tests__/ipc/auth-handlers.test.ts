@@ -154,6 +154,31 @@ describe('authentication IPC', () => {
     });
   });
 
+  it('keeps command-configured API keys visible after extension registration', async () => {
+    vi.stubEnv('COMMAND_PROVIDER_KEY', 'environment-secret');
+    const provider = apiKeyProvider('openai');
+    const modelRuntime = {
+      getProviders: () => [provider],
+      listCredentials: vi.fn(async () => []),
+      getProviderAuthStatus: vi.fn(() => ({
+        configured: true,
+        source: 'models_json_command' as const,
+        label: '!printenv COMMAND_PROVIDER_KEY',
+      })),
+    };
+    mocks.ensureInfra.mockResolvedValue({ modelRuntime });
+
+    await expect(handler(IpcChannels.auth.getProviders)()).resolves.toEqual({
+      oauth: [],
+      apiKey: [{
+        id: 'openai',
+        name: 'OpenAI',
+        hasKey: true,
+        fromEnv: true,
+      }],
+    });
+  });
+
   it('maps every auth notification and prompt through the initiating window', async () => {
     const provider = oauthProvider();
     const origin = sender();
