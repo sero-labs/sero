@@ -1,0 +1,185 @@
+/**
+ * Selecting what the grid shows. Pure functions over summaries so the UI, the
+ * extension's read tools and tests all agree on what "Favourites, tagged
+ * 'editorial', matching 'grid'" means.
+ */
+
+import type { ItemSummary, LibraryFilters, LibraryScope, LibrarySort, LibraryViewPreferences } from './types';
+import { colourFamily } from './colour-families';
+
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+interface SearchTextCacheEntry {
+  title: string;
+  fileName?: string;
+  primaryStyle: string;
+  tags: string[];
+  designTypes: string[];
+  text: string;
+}
+
+const searchTextCache = new WeakMap<ItemSummary, SearchTextCacheEntry>();
+
+function sameStrings(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function searchText(item: ItemSummary): string {
+  const cached = searchTextCache.get(item);
+  if (
+    cached !== undefined &&
+    cached.title === item.title &&
+    cached.fileName === item.fileName &&
+    cached.primaryStyle === item.primaryStyle &&
+    sameStrings(cached.tags, item.tags) &&
+    sameStrings(cached.designTypes, item.designTypes)
+  ) return cached.text;
+  const value = [
+    item.title,
+    item.fileName ?? '',
+    item.primaryStyle,
+    ...item.tags,
+    ...item.designTypes,
+  ].join('\n').toLowerCase();
+  searchTextCache.set(item, {
+    title: item.title,
+    ...(item.fileName === undefined ? {} : { fileName: item.fileName }),
+    primaryStyle: item.primaryStyle,
+    tags: [...item.tags],
+    designTypes: [...item.designTypes],
+    text: value,
+  });
+  return value;
+}
+
+/** Every normalized term must match the item's cached high-level fields. */
+function matchesQuery(item: ItemSummary, terms: string[]): boolean {
+  const text = searchText(item);
+  return terms.every((term) => text.includes(term));
+}
+
+export function matchesScope(item: ItemSummary, scope: LibraryScope, now: number): boolean {
+  // Deleted items are visible in Trash and nowhere else.
+  const deleted = item.deletedAt !== undefined;
+  if (scope.kind === 'trash') return deleted;
+  if (deleted) return false;
+
+  switch (scope.kind) {
+    case 'all':
+      return true;
+    case 'favourites':
+      return item.favourite;
+    case 'awaiting':
+      return item.analysisStatus !== 'ready';
+    case 'recent':
+      return now - item.createdAt <= RECENT_WINDOW_MS;
+    case 'collection':
+      return item.collectionIds.includes(scope.collectionId);
+    case 'style':
+      return item.primaryStyle === scope.style;
+  }
+}
+
+/** A filter with no selections is inactive; selections within one filter are OR. */
+function passesList<T>(selected: T[], has: (value: T) => boolean): boolean {
+  return selected.length === 0 || selected.some(has);
+}
+
+export function matchesFilters(item: ItemSummary, filters: LibraryFilters): boolean {
+  if (!passesList(filters.mediaKinds, (kind) => item.kind === kind)) return false;
+  if (!passesList(filters.styles, (style) => item.primaryStyle === style)) return false;
+  if (!passesList(filters.tags, (tag) => item.tags.includes(tag))) return false;
+  if (
+    !passesList(filters.colourFamilies, (family) =>
+      item.colours.some((colour) => colourFamily(colour) === family),
+    )
+  ) return false;
+  if (!passesList(filters.sourceKinds, (source) => item.sourceKind === source)) return false;
+  if (!passesList(filters.analysisStatuses, (status) => item.analysisStatus === status)) return false;
+  if (filters.createdAfter !== undefined && item.createdAt < filters.createdAfter) return false;
+  return true;
+}
+
+export function sortItems(items: ItemSummary[], sort: LibrarySort): ItemSummary[] {
+  // `toSorted` returns a new array, so the copy-then-sort dance is unnecessary.
+  switch (sort) {
+    case 'oldest':
+      return items.toSorted((a, b) => a.createdAt - b.createdAt);
+    case 'title':
+      return items.toSorted((a, b) => a.title.localeCompare(b.title));
+    case 'newest':
+      return items.toSorted((a, b) => b.createdAt - a.createdAt);
+  }
+}
+
+export function selectItems(
+  items: ItemSummary[],
+  view: LibraryViewPreferences,
+  now = Date.now(),
+): ItemSummary[] {
+  const terms = view.query.toLowerCase().split(/\s+/).filter((term) => term !== '');
+  const matched = items.filter(
+    (item) =>
+      matchesScope(item, view.scope, now) &&
+      matchesFilters(item, view.filters) &&
+      matchesQuery(item, terms),
+  );
+  return sortItems(matched, view.sort);
+}
+
+/**
+ * Style groups are derived, not learned. They are the Librarian's own
+ * `primaryStyle` values counted across live items — no embeddings, no extra
+ * model calls (spec §5.1).
+ */
+export interface StyleGroup {
+  style: string;
+  count: number;
+}
+
+export function deriveStyleGroups(items: ItemSummary[], minimumMembers = 2): StyleGroup[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    if (item.deletedAt !== undefined) continue;
+    const style = item.primaryStyle.trim();
+    if (style === '') continue;
+    counts.set(style, (counts.get(style) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .flatMap(([style, count]) => (count >= minimumMembers ? [{ style, count }] : []))
+    .sort((a, b) => b.count - a.count || a.style.localeCompare(b.style));
+}
+
+/** Facet values present in the live library, for building filter menus. */
+export interface LibraryFacets {
+  styles: string[];
+  tags: string[];
+  colours: string[];
+  sourceKinds: string[];
+}
+
+export function deriveFacets(items: ItemSummary[]): LibraryFacets {
+  const styles = new Set<string>();
+  const tags = new Set<string>();
+  const colours = new Set<string>();
+  const sourceKinds = new Set<string>();
+  for (const item of items) {
+    if (item.deletedAt !== undefined) continue;
+    if (item.primaryStyle !== '') styles.add(item.primaryStyle);
+    item.tags.forEach((tag) => tags.add(tag));
+    item.colours.forEach((colour) => colours.add(colour));
+    sourceKinds.add(item.sourceKind);
+  }
+  // `Array.from` rather than a spread: this materialises a Set, it is not a
+  // defensive copy of an array that `toSorted` would replace.
+  const sorted = (values: Set<string>) => Array.from(values).sort((a, b) => a.localeCompare(b));
+  return {
+    styles: sorted(styles),
+    tags: sorted(tags),
+    colours: sorted(colours),
+    sourceKinds: sorted(sourceKinds),
+  };
+}

@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 
+import { SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('plugin manager discovery registration', () => {
@@ -12,6 +13,7 @@ describe('plugin manager discovery registration', () => {
     pluginMeta: Record<string, unknown> = {
       category: 'utilities',
       tags: ['test'],
+      runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
     },
   ): Promise<string> {
     if (!tempRoot) {
@@ -181,6 +183,7 @@ describe('plugin manager discovery registration', () => {
           plugin: {
             category: 'utilities',
             tags: ['test'],
+            runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
           },
         },
       }, null, 2),
@@ -249,6 +252,7 @@ describe('plugin manager discovery registration', () => {
           plugin: {
             category: 'utilities',
             tags: ['test'],
+            runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
           },
         },
       }, null, 2),
@@ -269,6 +273,7 @@ describe('plugin manager discovery registration', () => {
           plugin: {
             category: 'utilities',
             tags: ['test'],
+            runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
           },
         },
       }, null, 2),

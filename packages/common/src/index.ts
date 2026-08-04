@@ -13,6 +13,7 @@ export { relativeTime } from './time';
 
 export {
   SERO_HOST_CAPABILITIES,
+  SERO_PLUGIN_RUNTIME_ABI,
 } from './plugins';
 
 export type {
@@ -94,6 +95,8 @@ export type {
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
   AppRuntimeToolchainsApi,
+  AppRuntimePreparedImage,
+  AppRuntimeMediaApi,
   AppRuntimeActiveSession,
   AppRuntimeSessionState,
   AppRuntimeTurnStatus,
@@ -373,6 +376,7 @@ export type {
   SeroSessionsBridge,
   SeroAdminBridge,
   SeroAppControlBridge,
+  SeroCaptureRect,
   SeroEditorBridge,
   SeroWebHostBridge,
 } from './admin-bridge';

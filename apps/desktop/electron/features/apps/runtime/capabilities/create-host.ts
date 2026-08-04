@@ -56,6 +56,7 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
+import { createMediaHost } from './media';
 import { createSessionHost } from './session-host';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
@@ -229,6 +230,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         return buildAvailableModelGroups(modelRegistry.getAvailable());
       },
     },
+    media: createMediaHost(),
     session: createSessionHost(),
     toolchains: {
       ensure: async (tool) => {

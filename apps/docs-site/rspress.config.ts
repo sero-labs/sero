@@ -76,6 +76,7 @@ const referenceQuality = [
 
 const selectedPlugins = [
   { text: 'Plugin Catalog', link: '/plugins/catalog' },
+  { text: 'Design Library', link: '/plugins/design-library' },
   { text: 'Graphify', link: '/plugins/graphify' },
   { text: 'User Feedback', link: '/plugins/user-feedback' },
   { text: 'Google', link: '/plugins/google' },

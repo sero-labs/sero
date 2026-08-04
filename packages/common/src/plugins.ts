@@ -20,16 +20,39 @@ export const SERO_HOST_CAPABILITIES = [
   'appAgent.invokeTool',
   'tool.cli',
   'appRuntime.background',
+  /**
+   * `host.media.prepareImage` is available to background runtimes. Declare this
+   * only if your runtime cannot work without it — a runtime that can fall back
+   * to sending the original image should check for the method instead, so it
+   * stays installable on older hosts.
+   */
+  'appRuntime.media',
+  /** Federated UI can capture a visible region inside its active app panel. */
+  'appControl.capture',
   /** Host mounts `sero.app.explorerView` as an Explorer view. */
   'ui.explorerView',
   /** Host mounts `sero.app.titlebar` as a title-bar control. */
   'ui.titlebar',
 ] as const;
 
+/**
+ * Federated-UI ABI the host can mount.
+ *
+ * Module Federation's share protocol is a private contract between the host and
+ * a plugin's built bundle, so a plugin built against a different MF line cannot
+ * share React with this host — it resolves a null React and crashes on its first
+ * hook. Bump this whenever the MF version moves in a way that changes the
+ * generated remoteEntry, and republish every plugin.
+ *
+ * - 1 — @module-federation/vite 1.11.x (runtime negotiation)
+ * - 2 — @module-federation/vite 1.19.x (`__mf_module_cache__` share cache)
+ */
+export const SERO_PLUGIN_RUNTIME_ABI = 2;
+
 export type SeroHostCapability = (typeof SERO_HOST_CAPABILITIES)[number];
 
 export interface PluginCompatibilityIssue {
-  kind: 'minSeroVersion' | 'requiredHostCapability';
+  kind: 'minSeroVersion' | 'requiredHostCapability' | 'pluginRuntimeAbi';
   message: string;
   expected?: string;
   actual?: string;
@@ -48,6 +71,12 @@ export interface PluginMeta {
   tags: string[];
   minSeroVersion?: string;
   requiredHostCapabilities?: string[];
+  /**
+   * Federated-UI ABI this plugin's bundle was built against. Must equal
+   * `SERO_PLUGIN_RUNTIME_ABI`; a plugin that omits it predates the ABI and
+   * cannot be mounted.
+   */
+  runtimeAbi?: number;
   /** true for pre-built npm bundles; false/undefined for source repos built on install */
   preBuilt?: boolean;
   /** build-time hint for release packaging to ship bundled JS extension entries */

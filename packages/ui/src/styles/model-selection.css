@@ -1,0 +1,2 @@
+/* Import after plugin.css when a federated plugin uses @sero-ai/ui/model-selection/*. */
+@source "../components/model-selection";

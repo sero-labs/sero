@@ -54,6 +54,18 @@ export function registerAppControlHandlers(): void {
   });
 
   ipcMain.handle(
+    IpcChannels.appControl.captureRegion,
+    async (_e, rect: AppPanelRect): Promise<string | null> => {
+      try {
+        return await appControlHostService.captureAppRegion(rect);
+      } catch (err) {
+        console.error('[app-control] Region capture failed:', err);
+        return null;
+      }
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.appControl.interact,
     async (_e, params: AppInteractionParams): Promise<AppInteractionResult> => {
       return appControlHostService.interact(params);

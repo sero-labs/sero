@@ -16,7 +16,7 @@
  */
 
 import { FolderTree } from 'lucide-react';
-import { PromptInputActionMenuItem } from '@sero-ai/ui/components/ai-elements/prompt-input-elements';
+import { PromptInputActionMenuItem } from '@sero-ai/ui/ai-elements/prompt-input-elements';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useBrowserStore } from '@/stores/browser';

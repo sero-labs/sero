@@ -7,9 +7,9 @@ import {
   resolveSupportedThinkingLevel,
   validateGlobalTierSelections,
 } from '@sero-ai/common';
-import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
-import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
-import { ThinkingPicker } from '@sero-ai/ui/components/model-selection/thinking-picker';
+import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
+import { ModelWarningList } from '@sero-ai/ui/model-selection/model-warning-list';
+import { ThinkingPicker } from '@sero-ai/ui/model-selection/thinking-picker';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import {

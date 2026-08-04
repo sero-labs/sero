@@ -12,7 +12,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Settings2, Brain, Database, MessageSquare, Users, Swords, ChevronDown, Loader2 } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
-} from '@sero-ai/ui/components/ai-elements/prompt-input';
+} from '@sero-ai/ui/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedCollaborationMode,

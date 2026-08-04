@@ -209,8 +209,12 @@ function buildManifest(
   const scope = app.scope === 'global' ? 'global' : 'workspace';
   const pluginDeclared = hasPluginDeclaration(pkgJson);
   const parsedPlugin = parsePluginMeta(pkgJson.sero?.plugin);
-  const compatibilityRequirements = pluginDeclared
-    ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin)
+  // A federated UI is ABI-checked even with no `sero.plugin` block at all: the
+  // block is optional for install, so gating on it would let an unmarked bundle
+  // mount unguarded.
+  const expectsFederatedUi = Boolean(app.ui);
+  const compatibilityRequirements = pluginDeclared || expectsFederatedUi
+    ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin, { expectsFederatedUi })
     : null;
   const suppressUi = options.suppressUi === true;
 

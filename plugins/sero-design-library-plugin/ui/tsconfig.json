@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  },
+  "include": ["./**/*", "../shared/**/*"],
+  "exclude": [
+    "../shared/**/*.test.ts",
+    "../shared/file-lock.ts",
+    "../shared/state-io.ts",
+    "../shared/paths.ts",
+    "../shared/credentials.ts"
+  ]
+}

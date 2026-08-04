@@ -5,7 +5,7 @@ import type {
   PluginCompatibilityIssue,
   PluginCompatibilityStatus,
 } from '@sero-ai/common';
-import { SERO_HOST_CAPABILITIES } from '@sero-ai/common';
+import { SERO_HOST_CAPABILITIES, SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 
 interface DesktopPackageJson {
   version?: string;
@@ -19,6 +19,12 @@ export interface SeroHostCompatibilityContext {
 interface PluginCompatibilityRequirements {
   minSeroVersion?: string;
   requiredHostCapabilities?: readonly string[];
+  /**
+   * Set only for plugins that ship a federated UI. Plugins that contribute just
+   * tools or an extension have no remoteEntry to be incompatible, so they are
+   * exempt from the ABI check entirely.
+   */
+  federatedUi?: { runtimeAbi?: number };
 }
 
 let desktopPackageVersion: string | null = null;
@@ -148,6 +154,22 @@ function minVersionIssue(minSeroVersion: string, hostVersion: string): PluginCom
   };
 }
 
+/**
+ * A plugin built against a different Module Federation line cannot share React
+ * with this host, so it would crash on its first hook rather than fail visibly.
+ * Report it as an incompatibility so the host can say what to do instead.
+ */
+function runtimeAbiIssue(pluginAbi: number | undefined): PluginCompatibilityIssue {
+  return {
+    kind: 'pluginRuntimeAbi',
+    expected: String(SERO_PLUGIN_RUNTIME_ABI),
+    actual: pluginAbi === undefined ? 'none' : String(pluginAbi),
+    message: pluginAbi === undefined
+      ? 'Built for an older version of Sero. Reinstall the plugin to update it.'
+      : `Built for a different version of Sero (plugin UI runtime ${pluginAbi}, host expects ${SERO_PLUGIN_RUNTIME_ABI}). Reinstall the plugin to update it.`,
+  };
+}
+
 function missingCapabilityIssue(capability: string): PluginCompatibilityIssue {
   return {
     kind: 'requiredHostCapability',
@@ -171,6 +193,10 @@ export function evaluatePluginCompatibility(
     if (comparison === null || comparison < 0) {
       issues.push(minVersionIssue(plugin.minSeroVersion, hostVersion));
     }
+  }
+
+  if (plugin.federatedUi && plugin.federatedUi.runtimeAbi !== SERO_PLUGIN_RUNTIME_ABI) {
+    issues.push(runtimeAbiIssue(plugin.federatedUi.runtimeAbi));
   }
 
   for (const capability of plugin.requiredHostCapabilities ?? []) {

@@ -43,6 +43,7 @@ import {
   preloadFederatedModule,
   prioritizeFederatedStyles,
   refreshTransientRemote,
+  setIncompatibleApps,
 } from './federation-registry';
 
 describe('federation registry remote retry behaviour', () => {
@@ -86,6 +87,22 @@ describe('federation registry remote retry behaviour', () => {
     } else {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  });
+
+  it('refuses to resolve or preload an app the host cannot mount', async () => {
+    setIncompatibleApps(['todo']);
+
+    // Every federated surface — app panel, widget, explorer view, title bar —
+    // resolves through these two, so blocking here is what keeps a stale plugin
+    // from crashing whatever rendered it.
+    expect(getFederatedComponent('todo', 'TodoApp', undefined)).toBeNull();
+
+    await preloadFederatedModule('todo', 'TodoApp', undefined);
+    expect(runtimeMocks.loadRemote).not.toHaveBeenCalled();
+
+    // Reinstalling a compatible build must work without a restart.
+    setIncompatibleApps([]);
+    expect(getFederatedComponent('todo', 'TodoApp', undefined)).not.toBeNull();
   });
 
   it('retries a dev remote after clearing a transient fallback cache', async () => {

@@ -436,8 +436,8 @@ export const IpcChannels = {
     info: 'sero:app-control:info',
     /** Open a workspace file in the explorer editor. */
     openFile: 'sero:app-control:open-file',
-    /** Capture a screenshot of the app panel area. Returns base64 PNG. */
-    screenshot: 'sero:app-control:screenshot',
+    /** Capture the app panel as base64 PNG. */ screenshot: 'sero:app-control:screenshot',
+    captureRegion: 'sero:app-control:capture-region', // Window-relative, constrained to the app panel.
     /** Execute a DOM interaction in the app panel. */
     interact: 'sero:app-control:interact',
     /** Get the app panel's bounding rect (for capturePage). */

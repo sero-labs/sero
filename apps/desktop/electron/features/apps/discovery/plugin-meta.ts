@@ -31,13 +31,20 @@ function isPluginCategory(value: string): value is PluginMeta['category'] {
 export interface PluginCompatibilityRequirements {
   minSeroVersion?: string;
   requiredHostCapabilities?: string[];
+  /** Set only when the plugin ships a federated UI — see compatibility.ts. */
+  federatedUi?: { runtimeAbi?: number };
 }
 
 export function extractPluginCompatibilityRequirements(
   plugin: unknown,
+  options: { expectsFederatedUi: boolean },
 ): PluginCompatibilityRequirements | null {
   if (!isRecord(plugin)) {
-    return null;
+    // Absent or malformed `sero.plugin` is itself the "predates the ABI" signal,
+    // so a plugin that ships a UI still has to be checked — `sero.plugin` is
+    // optional for install, and failing open here would mount the very bundle
+    // the ABI check exists to refuse.
+    return options.expectsFederatedUi ? { federatedUi: {} } : null;
   }
 
   const requirements: PluginCompatibilityRequirements = {};
@@ -60,9 +67,18 @@ export function extractPluginCompatibilityRequirements(
     }
   }
 
-  return requirements.minSeroVersion || requirements.requiredHostCapabilities?.length
-    ? requirements
-    : null;
+  if (options.expectsFederatedUi) {
+    const runtimeAbi = typeof plugin.runtimeAbi === 'number' && Number.isInteger(plugin.runtimeAbi)
+      ? plugin.runtimeAbi
+      : undefined;
+    // Set the key even when the value is missing: an absent `runtimeAbi` is
+    // itself the signal that the bundle predates the ABI.
+    requirements.federatedUi = { runtimeAbi };
+  }
+
+  // Always return requirements for a declared plugin — a UI plugin has to be ABI
+  // checked even when it states no other requirement.
+  return requirements;
 }
 
 export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
@@ -152,6 +168,12 @@ export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
     }
   } else if (plugin.requiredHostCapabilities !== undefined) {
     warnings.push('ignored invalid `sero.plugin.requiredHostCapabilities`; expected string[]');
+  }
+
+  if (typeof plugin.runtimeAbi === 'number' && Number.isInteger(plugin.runtimeAbi)) {
+    parsed.runtimeAbi = plugin.runtimeAbi;
+  } else if (plugin.runtimeAbi !== undefined) {
+    warnings.push('ignored non-integer `sero.plugin.runtimeAbi`');
   }
 
   if (typeof plugin.preBuilt === 'boolean') {

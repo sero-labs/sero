@@ -22,14 +22,14 @@ import { LibraryLinkBadge } from './LibraryLinkBadge';
 import { LibraryLinkSection } from './LibraryLinkSection';
 import { LiveActivityStrip } from './LiveActivityStrip';
 import { CollapsibleSection } from './CollapsibleSection';
-import { PlanView } from './PlanView';
+import { PlanPresentation } from './PlanPresentation';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
 import { SuggestionsInbox } from './SuggestionsInbox';
 import { InputRequestCard } from './InputRequestCard';
 
 const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disabled', 'blocked']);
-const MemoizedPlanView = memo(PlanView);
+const MemoizedPlanPresentation = memo(PlanPresentation);
 
 interface LoopDetailProps {
   loop: Loop;
@@ -120,7 +120,11 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       )}
 
       <CollapsibleSection title="Plan" hint={`${loop.plan.steps.length} step(s)`} defaultOpen>
-        <MemoizedPlanView loop={loop} onAction={onAction} />
+        <MemoizedPlanPresentation
+          key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
+          loop={loop}
+          onAction={onAction}
+        />
         {REFINABLE.has(loop.status) && (
           <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}

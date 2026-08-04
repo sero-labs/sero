@@ -38,6 +38,7 @@
       "category": "productivity",
       "tags": ["notes", "example", "reference"],
       "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2,
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
         "tool.cli",

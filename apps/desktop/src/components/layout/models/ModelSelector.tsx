@@ -4,7 +4,7 @@ import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
 import { ModelManagerDialog } from './model-manager/ModelManagerDialog';
 import { ModelSelectorList } from './model-selector/ModelSelectorList';
 import { MemoizedModelSelectorTrigger } from './model-selector/ModelSelectorTrigger';
-import { ThinkingPicker } from '@sero-ai/ui/components/model-selection/thinking-picker';
+import { ThinkingPicker } from '@sero-ai/ui/model-selection/thinking-picker';
 import { useModelSelectorState } from './model-selector/useModelSelectorState';
 
 export function ModelSelector({ disabled }: { disabled: boolean }) {

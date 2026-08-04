@@ -9,7 +9,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFocusedCommands } from '@/stores/agent-selectors';
 import { useWorkspaceFiles, fuzzyMatchFiles } from '@/hooks/useWorkspaceFiles';
 import type { SeroSlashCommandInfo, ChatAttachment, ChatComposerPrefill } from '@/types/ipc';
-import type { PromptInputMessage } from '@sero-ai/ui/components/ai-elements/prompt-input';
+import type { PromptInputMessage } from '@sero-ai/ui/ai-elements/prompt-input';
 
 /** Built-in commands handled client-side (not sent to the agent). */
 const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [

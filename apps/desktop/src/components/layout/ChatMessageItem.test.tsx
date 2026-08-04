@@ -21,7 +21,7 @@ vi.mock('lucide-react', () => ({
   ChevronDown: () => <svg data-icon="chevron-down" />,
 }));
 
-vi.mock('@sero-ai/ui/components/ai-elements/message', () => ({
+vi.mock('@sero-ai/ui/ai-elements/message', () => ({
   Message: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   MessageActions: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   MessageAction: ({ children, label, onClick }: ComponentPropsWithoutRef<'button'> & { label?: string }) => (

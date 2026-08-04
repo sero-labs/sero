@@ -6,10 +6,10 @@ import {
   AttachmentPreview,
   AttachmentInfo,
   AttachmentRemove,
-} from '@sero-ai/ui/components/ai-elements/attachments';
+} from '@sero-ai/ui/ai-elements/attachments';
 import {
   usePromptInputAttachments,
-} from '@sero-ai/ui/components/ai-elements/prompt-input';
+} from '@sero-ai/ui/ai-elements/prompt-input';
 import type { ChatAttachment } from '@/types/ipc';
 import { useLightbox, type LightboxImage } from './ImageLightbox';
 

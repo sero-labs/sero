@@ -63,6 +63,8 @@ These values are currently recognized by the host:
 - `appAgent.invokeTool`
 - `tool.cli`
 - `appRuntime.background`
+- `appRuntime.media`
+- `appControl.capture`
 - `ui.explorerView`
 - `ui.titlebar`
 
@@ -96,10 +98,25 @@ Declare this when your plugin contributes an Explorer view
 (`sero.app.explorerView`). Hosts without it show no activity-bar entry for the
 view at all.
 
+### `appControl.capture`
+
+Declare this when a federated UI must capture a visible rectangle inside its
+active app panel. The UI calls `window.sero.appControl.captureRegion(...)` with
+window-relative CSS coordinates. The host clips the request to the app panel
+and returns PNG bytes. Keep domain rules, image storage and later processing in
+the plugin; this capability only captures pixels already on screen.
+
 ### `ui.titlebar`
 
 Declare this when your plugin contributes a title-bar control
 (`sero.app.titlebar`).
+
+### `appRuntime.media`
+
+Declare this only when your background runtime **cannot work** without
+`host.media.prepareImage(...)`. A runtime that can send the original image
+instead should test for the method rather than declare the capability, so it
+stays installable on older hosts.
 
 ### `appRuntime.background`
 
@@ -130,6 +147,37 @@ are not globally unique), `durationMs`, and `usage` (`inputTokens`,
 `outputTokens`, `totalTokens`). Metadata is best-effort on failure paths too.
 Record the resolved identity rather than the requested model when you need
 honest provenance — tier aliases resolve at run time.
+
+#### Preparing images for a model (2026-07)
+
+`host.media.prepareImage(data, mimeType, text?)` shrinks an image to the budget
+Sero's own tools use before sending it to a model — capped dimensions,
+re-encoded as whichever of PNG or JPEG is smaller, degrading quality and then
+size until it fits. `data` is base64 with no `data:` prefix.
+
+Use it for any image your runtime puts in front of a model. A full-resolution
+screenshot spends a large share of the context window and can exceed the
+provider's own limit, and neither failure is loud: the first just makes every
+later turn worse, the second surfaces as an opaque API error.
+
+```ts
+const prepared = await host.media.prepareImage(bytes.toString('base64'), 'image/png', caption);
+return {
+  content: [
+    { type: 'text', text: prepared.text ?? caption },
+    { type: 'image', data: prepared.data, mimeType: prepared.mimeType },
+  ],
+};
+```
+
+`prepared.text` is your caption plus a note giving the original dimensions when
+the image was scaled — pass it through, or the model will describe the
+reference at the wrong size. `wasResized` is false when the image was already
+within budget and passed through untouched.
+
+To stay installable on hosts that predate this, call it optionally
+(`host.media?.prepareImage(...)`) and fall back to the original bytes. Declare
+`appRuntime.media` only if your runtime genuinely cannot work without it.
 
 ## Compatibility behavior
 

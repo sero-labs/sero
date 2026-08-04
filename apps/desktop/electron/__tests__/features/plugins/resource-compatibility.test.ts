@@ -9,6 +9,7 @@ import {
   type Skill,
   type Theme,
 } from '@earendil-works/pi-coding-agent';
+import { SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -48,6 +49,7 @@ describe('plugin resource compatibility filtering', () => {
           plugin: {
             category: 'utilities',
             tags: ['test'],
+            runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
             ...(minSeroVersion ? { minSeroVersion } : {}),
           },
         },

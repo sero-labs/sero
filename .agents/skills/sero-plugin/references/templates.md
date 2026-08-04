@@ -65,7 +65,8 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
     "plugin": {
       "category": "productivity",
       "tags": ["myapp", "example"],
-      "minSeroVersion": "0.1.0"
+      "minSeroVersion": "0.1.0",
+      "runtimeAbi": 2
     }
   },
   "dependencies": {
@@ -874,8 +875,19 @@ If you do this, declare:
 ```
 
 **Why needed:**
-- `@import "@sero-ai/ui/styles/plugin.css"` — imports Sero's shared Tailwind 4 theme bridge and scans shared UI components
+- `@import "@sero-ai/ui/styles/plugin.css"` — imports Sero's shared Tailwind 4 theme bridge and scans shared primitives plus dashboard components
 - `@source "./**/*.{ts,tsx}"` — keeps external remotes from silently missing plugin-local utility classes at runtime
+
+Add the matching source stylesheet immediately after `plugin.css` when the UI
+uses a specialized component family:
+
+```css
+@import "@sero-ai/ui/styles/ai-elements.css";
+@import "@sero-ai/ui/styles/model-selection.css";
+@import "@sero-ai/ui/styles/context-editor.css";
+```
+
+Only import the specialized stylesheets the plugin needs.
 
 ---
 
@@ -897,6 +909,8 @@ If you do this, declare:
     "paths": {
       "@sero-ai/app-runtime": ["../../app-runtime/src/index.ts"],
       "@sero-ai/ui": ["../../ui/src/index.ts"],
+      "@sero-ai/ui/ai-elements/*": ["../../ui/src/components/ai-elements/*"],
+      "@sero-ai/ui/model-selection/*": ["../../ui/src/components/model-selection/*"],
       "@sero-ai/ui/*": ["../../ui/src/*"]
     }
   },

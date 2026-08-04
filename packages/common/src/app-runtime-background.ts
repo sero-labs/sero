@@ -387,6 +387,42 @@ export interface AppRuntimeModelsApi {
   list(): Promise<SharedAvailableModelGroup[]>;
 }
 
+export interface AppRuntimePreparedImage {
+  /** Base64, no data: prefix. */
+  data: string;
+  mimeType: string;
+  /**
+   * Any caption passed in, plus a note giving the original dimensions when the
+   * image was scaled — so the model can map coordinates back.
+   */
+  text?: string;
+  /** False when the image was already inside the budget and passed through. */
+  wasResized: boolean;
+  width: number;
+  height: number;
+  originalWidth: number;
+  originalHeight: number;
+}
+
+export interface AppRuntimeMediaApi {
+  /**
+   * Shrink an image to the same budget the desktop app's own tools use before
+   * handing it to a model — capped dimensions, re-encoded as whichever of PNG
+   * or JPEG comes out smaller, degrading quality and then size until it fits.
+   *
+   * Any runtime that puts an image in front of a model should go through this.
+   * A full-resolution screenshot costs a large share of the context window and
+   * can exceed the provider's own limit, and both are silent failures: the
+   * first just makes everything after it worse, the second arrives as an
+   * unhelpful API error.
+   */
+  prepareImage(
+    data: string,
+    mimeType: string,
+    text?: string,
+  ): Promise<AppRuntimePreparedImage>;
+}
+
 export interface AppRuntimeActiveSession {
   sessionId: string;
   workspaceId: string;
@@ -437,6 +473,12 @@ export interface AppRuntimeHost {
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
   models: AppRuntimeModelsApi;
+  /**
+   * Optional so a runtime built against this type still compiles — and runs —
+   * against a host that predates the capability. Call it with `?.` and fall
+   * back; declare `appRuntime.media` only if you truly cannot.
+   */
+  media?: AppRuntimeMediaApi;
   session: AppRuntimeSessionHost;
 }
 

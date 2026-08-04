@@ -11,6 +11,27 @@ Import everything from the package root:
 import { WidgetContent, Stack, Metric, Status, ItemList } from '@sero-ai/ui';
 ```
 
+The root is for primitives, dashboard components, hooks and theme utilities.
+Import AI elements from their stable subpaths so plugins only load the editor
+and rendering dependencies they use:
+
+```tsx
+import { Message } from '@sero-ai/ui/ai-elements/message';
+```
+
+Federated plugins that use AI elements should also import their Tailwind source
+entry after the base plugin stylesheet. The same rule applies to model-selection
+and context-editor components:
+
+```css
+@import "@sero-ai/ui/styles/plugin.css";
+@import "@sero-ai/ui/styles/ai-elements.css";
+@import "@sero-ai/ui/styles/model-selection.css";
+@import "@sero-ai/ui/styles/context-editor.css";
+```
+
+Only import the specialized stylesheets for component families the plugin uses.
+
 Detailed props are canonical in the exported TypeScript types. The
 machine-readable catalogue (the data behind the tables below) ships as plain
 JSON at a stable subpath — read it directly:

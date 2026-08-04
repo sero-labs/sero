@@ -121,9 +121,11 @@ the sidebar list stays available in Detail for fast loop-to-loop movement.
 | `ui/components/LiveActivityStrip.tsx` | Running step + accumulated tokens/cost/elapsed (push). | <110 |
 | `ui/components/StepCard.tsx` | Extracted spine step card + tuning expander (keeps PlanView under cap). | <170 |
 | `ui/components/CreateLoopWizard.tsx` | D1→D2→D3 guided flow wrapper. | <180 |
+| `ui/components/PlanMap.tsx` | Read-only, responsive plan overview using HTML nodes over an SVG connector layer. | <300 |
+| `ui/components/PlanPresentation.tsx` | Map / Details switch and map orientation controls. | <100 |
 
 ### Rewritten / restructured
-- `PlanView.tsx` → C3 spine + C1 grouping (parallel boxed, branch grouped); delegates each step to `StepCard`.
+- `PlanView.tsx` → C3 spine + C1 grouping (parallel boxed, branch grouped); delegates each step to `StepCard` and remains the power-user Details view.
 - `LoopDetail.tsx` → B1 calm column; input request top-weighted; `LiveActivityStrip` when `runtime.activeRunId`; plan + history collapsible; Library folded in.
 - `OrchestratorApp.tsx` → adds Home view + nav; routes Create through the wizard.
 - `LoopList.tsx`, `LibraryBrowser.tsx`, controls → restyled to the visual system.
@@ -149,12 +151,32 @@ questions (`pendingInput.source === 'planner'`).
 
 1. **D1 Describe** — restyled create form: prompt first; safety options (worktree, dirty, activate) secondary.
 2. **D2 Clarify** — after `create`, if the new draft has `runtime.pendingInput` with `source: 'planner'`, render the questions inline (reuse `InputRequestCard` → `answer_input`); planner re-runs on submit.
-3. **D3 Review** — when the draft has a populated plan, show the read-only spine + `RefinePlan` + **Save draft** / **Activate**. A validation block surfaces here with refine/restart.
+3. **D3 Review** — when the draft has a populated plan, show the high-level map by default, with the editable spine behind **Details**, then `RefinePlan` + **Save draft** / **Activate**. A validation block surfaces here with refine/restart.
 
 The wizard tracks which stage the watched loop is in (no plan + pendingInput ⇒ D2; plan present ⇒ D3) and transitions on file updates — no polling.
 
-## 8. Out of scope (this pass)
-- React-Flow node graph (C4) — revisit only if a graph view is wanted later.
+## 8. Plan map
+
+The plan map is an overview, not a second workflow editor. It shows titles,
+dependency topology and live step state, with detail available by selecting a
+node or switching to the existing Details view.
+
+- **Auto** uses left-to-right flow in wide containers and top-to-bottom flow
+  below 760 px. Horizontal and Vertical can also be selected explicitly.
+- Nodes use fixed collision-free geometry. The entire stage scales to the
+  container, with zoom controls for closer inspection.
+- Runtime state changes colour and emphasis only. Nodes never move while a run
+  is executing; skipped routes dim rather than disappear.
+- Fan-out stays one durable node. Approval gates, branch decisions and bounded
+  feedback are compact markers; feedback uses a distinct outer return edge.
+- Planning shows a forming-map placeholder until the complete plan is
+  available. Incremental node streaming is out of scope.
+
+The implementation uses normal React nodes and one SVG connector layer. It adds
+no graph-layout or graph-rendering dependency.
+
+## 9. Out of scope (this pass)
+- Editable node graph, freeform positioning and plan authoring on the map.
 - B2 canvas + inspector — explicitly dropped.
 - Token-by-token live streaming — push-after-step only in v1.
 - Any change to planner/engine/recovery/library runtime logic.

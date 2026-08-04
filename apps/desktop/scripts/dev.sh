@@ -247,7 +247,12 @@ if [ "$(uname -s)" = "Linux" ]; then
 fi
 
 ELECTRON_LOG="$(log_path sero-electron.log)"
-SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . > "$ELECTRON_LOG" 2>&1 &
+# Extra Electron flags for the dev run, e.g.
+#   SERO_ELECTRON_ARGS="--remote-debugging-port=9222" pnpm dev
+# which lets a tool attach to the running window to inspect or screenshot it.
+# Unset by default: the port is open to anything local while it is on.
+# shellcheck disable=SC2086  # deliberate word splitting; these are CLI flags
+SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . ${SERO_ELECTRON_ARGS:-} > "$ELECTRON_LOG" 2>&1 &
 ELECTRON_PID=$!
 CHILD_PIDS+=($ELECTRON_PID)
 

@@ -53,11 +53,13 @@ export function useEditorMonacoState() {
   }, []);
 
   const handleBeforeMount = useCallback((monaco: typeof monacoApi) => {
-    monaco.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
+    // Monaco moved the typescript contribution to the top level in 0.55;
+    // monaco.languages.typescript is now an empty deprecation stub.
+    monaco.typescript?.typescriptDefaults?.setDiagnosticsOptions({
       noSemanticValidation: true,
       noSyntaxValidation: true,
     });
-    monaco.languages.typescript?.javascriptDefaults?.setDiagnosticsOptions({
+    monaco.typescript?.javascriptDefaults?.setDiagnosticsOptions({
       noSemanticValidation: true,
       noSyntaxValidation: true,
     });

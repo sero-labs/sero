@@ -1,0 +1,2 @@
+/* Import after plugin.css when a federated plugin uses components/context-editor/*. */
+@source "../components/context-editor";

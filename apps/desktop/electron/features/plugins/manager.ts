@@ -257,6 +257,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
     const compatibilityRequirements = extractPluginCompatibilityRequirements(
       validated.pkg.sero?.plugin,
+      { expectsFederatedUi: Boolean(validated.app.ui) },
     );
     assertPluginCompatible(compatibilityRequirements);
     assertPreparedUiExists(staged.stageDir, validated.app);
