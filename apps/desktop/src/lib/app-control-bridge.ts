@@ -31,8 +31,114 @@ import type {
 
 // ── Recording State ──────────────────────────────────────────
 
+const RECORDING_CURSOR_SVG = `
+  <svg viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M2 1v20l5-5 4 11 4-2-4-11h7L2 1Z" fill="white" stroke="black" stroke-width="2" stroke-linejoin="round" />
+  </svg>
+`;
+
+const CLICK_HIGHLIGHT_DURATION_MS = 700;
+
 let recordingActive = false;
+let recordingClickHighlights = new Set<HTMLDivElement>();
+let recordingCursor: HTMLDivElement | null = null;
 let recordingStartedAt: string | null = null;
+
+function removeRecordingCursor(): void {
+  window.removeEventListener('mousemove', moveRecordingCursor);
+  recordingCursor?.remove();
+  recordingCursor = null;
+}
+
+function removeRecordingClickHighlights(): void {
+  window.removeEventListener('pointerdown', showRecordingClickHighlight);
+  for (const highlight of recordingClickHighlights) highlight.remove();
+  recordingClickHighlights = new Set();
+}
+
+function showRecordingClickHighlight(event: PointerEvent): void {
+  const highlight = document.createElement('div');
+  const core = document.createElement('span');
+  highlight.dataset.seroRecordingClick = '';
+  highlight.setAttribute('aria-hidden', 'true');
+  highlight.style.cssText = [
+    'position: fixed',
+    `left: ${event.clientX}px`,
+    `top: ${event.clientY}px`,
+    'width: 40px',
+    'height: 40px',
+    'border: 2px solid #71b9ff',
+    'border-radius: 9999px',
+    'box-shadow: 0 0 20px rgb(113 185 255 / 0.5)',
+    'pointer-events: none',
+    'transform: translate(-50%, -50%)',
+    'z-index: 2147483647',
+  ].join(';');
+  core.style.cssText = [
+    'position: absolute',
+    'top: 50%',
+    'left: 50%',
+    'width: 8px',
+    'height: 8px',
+    'border-radius: 50%',
+    'background: #d8efff',
+    'box-shadow: 0 0 14px #71b9ff',
+    'transform: translate(-50%, -50%)',
+  ].join(';');
+  highlight.appendChild(core);
+  document.body.appendChild(highlight);
+  recordingClickHighlights.add(highlight);
+  highlight.animate?.(
+    [
+      { opacity: 1, transform: 'translate(-50%, -50%) scale(0.22)' },
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(1.85)' },
+    ],
+    { duration: CLICK_HIGHLIGHT_DURATION_MS, easing: 'cubic-bezier(.1,.75,.35,1)' },
+  );
+  core.animate?.(
+    [
+      { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(0.2)' },
+    ],
+    { duration: CLICK_HIGHLIGHT_DURATION_MS, easing: 'ease-out' },
+  );
+  window.setTimeout(() => {
+    highlight.remove();
+    recordingClickHighlights.delete(highlight);
+  }, CLICK_HIGHLIGHT_DURATION_MS);
+}
+
+function addRecordingClickHighlights(): void {
+  removeRecordingClickHighlights();
+  window.addEventListener('pointerdown', showRecordingClickHighlight);
+}
+
+function moveRecordingCursor(event: MouseEvent): void {
+  if (!recordingCursor) return;
+  recordingCursor.style.display = 'block';
+  recordingCursor.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
+}
+
+function addRecordingCursor(): void {
+  removeRecordingCursor();
+  recordingCursor = document.createElement('div');
+  recordingCursor.dataset.seroRecordingCursor = '';
+  recordingCursor.setAttribute('aria-hidden', 'true');
+  recordingCursor.style.cssText = [
+    'position: fixed',
+    'top: 0',
+    'left: 0',
+    'width: 20px',
+    'height: 28px',
+    'display: none',
+    'pointer-events: none',
+    'z-index: 2147483647',
+  ].join(';');
+  recordingCursor.innerHTML = RECORDING_CURSOR_SVG;
+  document.body.appendChild(recordingCursor);
+  window.addEventListener('mousemove', moveRecordingCursor);
+}
+
 
 // ── Bridge Interface ─────────────────────────────────────────
 
@@ -138,12 +244,16 @@ export function initAppControlBridge(): () => void {
     recordStart() {
       if (recordingActive) return false;
       if (!getAppPanelRect()) return false;
+      addRecordingCursor();
+      addRecordingClickHighlights();
       recordingActive = true;
       recordingStartedAt = new Date().toISOString();
       return true;
     },
     recordStop() {
       if (!recordingActive) return false;
+      removeRecordingCursor();
+      removeRecordingClickHighlights();
       recordingActive = false;
       recordingStartedAt = null;
       return true;
@@ -168,6 +278,8 @@ export function initAppControlBridge(): () => void {
   };
 
   return () => {
+    removeRecordingCursor();
+    removeRecordingClickHighlights();
     delete window.__appControl;
   };
 }

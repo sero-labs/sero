@@ -15,6 +15,7 @@ vi.mock('@/lib/app-control/dom/full-screenshot', () => ({
   stitchFullScreenshot: vi.fn(),
 }));
 
+import { getAppPanelRect } from '@/lib/app-control/dom-interactions';
 import { initAppControlBridge } from './app-control-bridge';
 import { useAppStore } from '@/stores/app';
 import { useEditorBridge } from '@/stores/editor-bridge';
@@ -42,5 +43,42 @@ describe('app control bridge — openFile', () => {
     expect(explorer.activePanel).toBe('explorer');
     expect(explorer.sidebarOpen).toBe(true);
     expect(useEditorBridge.getState().pendingOpen?.filePath).toBe('/repo/src/index.ts');
+  });
+});
+
+describe('app control bridge — recording cursor', () => {
+  beforeEach(() => {
+    vi.mocked(getAppPanelRect).mockReturnValue({ x: 0, y: 0, width: 320, height: 180 });
+    initAppControlBridge();
+  });
+
+  it('shows a renderer cursor at the latest pointer position while recording', () => {
+    expect(window.__appControl!.recordStart()).toBe(true);
+
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: 80 }));
+
+    const cursor = document.querySelector<HTMLElement>('[data-sero-recording-cursor]');
+    expect(cursor).not.toBeNull();
+    expect(cursor?.style.transform).toBe('translate(40px, 80px)');
+
+    expect(window.__appControl!.recordStop()).toBe(true);
+    expect(document.querySelector('[data-sero-recording-cursor]')).toBeNull();
+  });
+
+  it('shows a short pulse at each click while recording', () => {
+    vi.useFakeTimers();
+    expect(window.__appControl!.recordStart()).toBe(true);
+
+    window.dispatchEvent(new MouseEvent('pointerdown', { clientX: 120, clientY: 160 }));
+
+    const highlight = document.querySelector<HTMLElement>('[data-sero-recording-click]');
+    expect(highlight).not.toBeNull();
+    expect(highlight?.style.left).toBe('120px');
+    expect(highlight?.style.top).toBe('160px');
+    expect(highlight?.style.border).toBe('2px solid rgb(113, 185, 255)');
+
+    vi.advanceTimersByTime(700);
+    expect(document.querySelector('[data-sero-recording-click]')).toBeNull();
+    expect(window.__appControl!.recordStop()).toBe(true);
   });
 });
