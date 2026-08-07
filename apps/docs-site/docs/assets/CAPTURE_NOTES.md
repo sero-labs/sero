@@ -29,6 +29,10 @@ This file tracks screenshot and media hygiene for the public docs site. Use it b
 | `plugins/weight-demo-redacted.png` | Weight Tracker plugin | demo weight data | 1440×900 target | fake/demo health data only | omitted this pass; do not capture personal health data |
 | `plugins/loom-studio.png` | Loom | full-canvas generated artwork | 1224×720 cropped capture | default synthetic artwork only; host chrome and profile details removed | captured 2026-07-09 |
 | `plugins/loom-controls.png` | Loom | generated artwork with agent-defined Controls panel, prompt bar, and rail | 1224×720 cropped capture | default synthetic artwork only; host chrome and profile details removed | captured 2026-07-09 |
+| `plugins/agent-plugins-preview.png` | Agent Plugins | Admin → Plugins → Agent Plugins, preview of the public example package | 1022 CSS px cropped panel | disposable profile; public `agentplugins/agent-plugins-example` source only | captured 2026-08-07 |
+| `plugins/agent-plugins-details.png` | Agent Plugins | installed card with the details open | 1022 CSS px cropped panel | disposable profile; no profile paths in frame | captured 2026-08-07 |
+| `plugins/agent-plugins-cli.png` | Agent Plugins | Show in Sero CLI with the namespace field | 1022 CSS px cropped panel | disposable profile; no profile paths in frame | captured 2026-08-07 |
+| `plugins/agent-plugins-remove.png` | Agent Plugins | remove dialog with the keep-data choice | 416 CSS px cropped dialog | disposable profile | captured 2026-08-07 |
 
 ## Stable asset directories
 
@@ -44,4 +48,5 @@ This file tracks screenshot and media hygiene for the public docs site. Use it b
 
 ## Current omissions
 
-Loom now has two cropped, redacted plugin captures. The docs continue to use existing beta-era screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.
+Loom has two cropped, redacted plugin captures, and Agent Plugins has four
+taken from a disposable profile. The docs continue to use existing beta-era screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.

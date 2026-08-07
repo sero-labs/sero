@@ -36,6 +36,10 @@ For the at-a-glance list of built-in and external/local plugins, see the
 [Plugins](/reference/plugins). For the end-user management flow, see
 [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
+Portable **Agent Plugins** are a different system. They add Agent Skills and MCP
+servers, and they never create an app or a sidebar entry. See
+[Agent Plugins](/reference/agent-plugins).
+
 ![Local Plugin Management](../assets/images/local-plugin-preview.jpg)
 
 ### App Store and discovery

@@ -54,6 +54,7 @@ const referenceRuntime = [
   { text: 'State and Folders', link: '/reference/state-and-folders' },
   { text: 'models.json', link: '/reference/models-json' },
   { text: 'Agent Definitions', link: '/reference/agent-definitions' },
+  { text: 'Agent Plugins', link: '/reference/agent-plugins' },
   { text: 'Orchestrator', link: '/reference/orchestrator' }
 ];
 
