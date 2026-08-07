@@ -18,7 +18,8 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
               Raw MCP config
             </CardTitle>
             <CardDescription>
-              Advanced editor for MCP config JSON. Unknown keys are preserved, and saving refreshes the shared MCP snapshot.
+              This file contains user-managed servers only. Agent Plugin definitions are read-only and stay in their owning packages.
+              Unknown keys are preserved, and saving refreshes the shared MCP snapshot.
             </CardDescription>
           </div>
           <div className="flex gap-2">

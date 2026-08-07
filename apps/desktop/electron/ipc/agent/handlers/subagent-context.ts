@@ -19,6 +19,7 @@ import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { filterCompatiblePluginSkills } from '@electron/features/plugins/resource-compatibility';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
@@ -38,7 +39,9 @@ async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInf
     cwd,
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
-    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    skillsOverride: (base) => withAgentPluginSkills(
+      filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    ),
   });
   await loader.reload();
   return loader.getSkills().skills.map((s) => ({

@@ -31,6 +31,7 @@ import {
   filterCompatiblePluginSkills,
   filterCompatiblePluginThemes,
 } from '@electron/features/plugins/resource-compatibility';
+import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { readGlobalAgentsMd } from './global-agents';
 import {
   buildTurnUndoMapByTurn,
@@ -146,7 +147,9 @@ export async function openSessionInPool({
         hostRuntime: hostRuntimeOptions,
       }),
     ],
-    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    skillsOverride: (base) => withAgentPluginSkills(
+      filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    ),
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
     extensionsOverride: (base) => bridgeExtensionTools(filterCompatiblePluginExtensions(base), { sessionId }),

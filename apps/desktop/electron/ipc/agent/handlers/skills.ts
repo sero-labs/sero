@@ -24,6 +24,7 @@ import { appStateManager } from '@electron/features/apps/state/manager';
 import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
+import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import type { SkillSummary, AvailableSkillSummary, SkillFileData, SkillSource } from '@/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
@@ -109,6 +110,7 @@ export function registerSkillHandlers(): void {
         noExtensions: true,
         noPromptTemplates: true,
         noThemes: true,
+        skillsOverride: withAgentPluginSkills,
       });
       await loader.reload();
 

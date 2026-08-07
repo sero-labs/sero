@@ -15,6 +15,7 @@ export interface ManagerActionOptions {
 }
 
 export interface SyncSnapshotOptions {
+  /** Effective config with Agent Plugin sources already applied. */
   config?: McpConfigDocument;
   rawConfigUpdatedAt?: string | null;
   metadataCache?: McpMetadataCacheDocument;

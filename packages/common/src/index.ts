@@ -323,6 +323,34 @@ export type {
 } from './plugin-dev';
 
 export type {
+  AgentPluginSourceKind,
+  AgentPluginDiagnosticLevel,
+  AgentPluginComponentKind,
+  AgentPluginDiagnostic,
+  AgentPluginManifest,
+  AgentPluginSkill,
+  AgentPluginMcpTransport,
+  AgentPluginMcpServer,
+  AgentPluginCliState,
+  InstalledAgentPlugin,
+  AgentPluginInspection,
+  AgentPluginInstallRequest,
+  AgentPluginUpdateRequest,
+  AgentPluginUpdatePreview,
+  AgentPluginCliSettingsRequest,
+  AgentPluginRemoveRequest,
+  AgentPluginChangeEvent,
+  AgentPluginMcpSource,
+  AgentPluginMcpSourcesRequest,
+  SeroAgentPluginsBridge,
+} from './agent-plugins';
+export {
+  AGENT_PLUGIN_CLI_REFRESH_EVENT,
+  AGENT_PLUGIN_MCP_SOURCES_EVENT,
+  MCP_METADATA_CACHE_RELATIVE_PATH,
+} from './agent-plugins';
+
+export type {
   GlobalModelConfigStateIPC,
   WorkspaceRootIPC,
   ProfileInfo,

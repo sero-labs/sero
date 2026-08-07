@@ -88,7 +88,7 @@ export interface CliCommand {
     context: CliCommandContext,
     onUpdate?: (update: CliCommandUpdate) => void,
   ) => Promise<CliResult>;
-  source?: 'app' | 'ipc' | 'builtin';
+  source?: 'app' | 'ipc' | 'builtin' | 'agent-plugin';
   owner?: CliAppCommandOwner;
   group?: string;
   hidden?: boolean;

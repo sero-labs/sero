@@ -47,6 +47,7 @@ import { registerPromptHandlers } from './agent/handlers/prompts';
 import { registerCollaborationHandlers } from './collaboration/collaboration';
 import { registerAppControlHandlers } from './apps/app-control';
 import { registerPluginHandlers } from './integrations/plugins';
+import { registerAgentPluginHandlers } from './integrations/agent-plugins';
 import { registerPluginConfigHandlers } from './apps/plugin-config';
 import { registerThemeHandlers } from './platform/ui/themes';
 import { registerDoctorHandlers } from './doctor/doctor';
@@ -94,6 +95,7 @@ export function registerAllIpcHandlers(): void {
   registerCollaborationHandlers();
   registerAppControlHandlers();
   registerPluginHandlers();
+  registerAgentPluginHandlers();
   registerPluginConfigHandlers();
   registerThemeHandlers();
   registerDoctorHandlers();

@@ -3,10 +3,12 @@ import { buildMcpPromptBlock } from './prompt';
 import { getMcpRuntime } from './runtime/mcp-runtime';
 import { registerMcpManagerTool } from './tools/manager-tool';
 import { registerMcpProxyTool } from './tools/proxy-tool';
+import { configureAgentPluginMcpSource } from './config/agent-plugin-source';
 
 const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
+  const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
   runtime.attachPi(pi);
 
   pi.on('before_agent_start', async (event) => ({
@@ -20,6 +22,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
   });
 
   pi.on('session_shutdown', async () => {
+    releaseAgentPluginSource();
     await runtime.handleSessionShutdown().catch((error) => {
       console.error('[mcp] Failed to shut down runtime cleanly', error);
     });

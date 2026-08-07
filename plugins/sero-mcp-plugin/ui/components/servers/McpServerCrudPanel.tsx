@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { openSeroApp } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -67,9 +68,12 @@ export function McpServerCrudPanel({
   const mutations = useMcpServerMutations();
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
   const [saveAttempted, setSaveAttempted] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'user' | 'agent-plugin'>('all');
   const [uncontrolledSelectedServerName, setUncontrolledSelectedServerName] = useState<string | null>(null);
 
-  const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
+  const sortedServers = useMemo(() => servers
+    .filter((server) => sourceFilter === 'all' || (server.source ?? 'user') === sourceFilter)
+    .sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers, sourceFilter]);
   const selectedServerName = controlledSelectedServerName ?? uncontrolledSelectedServerName;
   const setSelectedServerName = onSelectServerName ?? setUncontrolledSelectedServerName;
   const validationError = useMemo(() => (draft ? validateServerEditorInput(draft) : null), [draft]);
@@ -91,10 +95,22 @@ export function McpServerCrudPanel({
             </CardTitle>
             <CardDescription>Add, connect, and inspect MCP servers. Raw JSON stays available for advanced edits.</CardDescription>
           </div>
-          <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
-            <Plus className="mr-2 size-4" />
-            Add server
-          </Button>
+          <div className="flex items-center gap-2">
+            <NativeSelect
+              aria-label="Filter servers by source"
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
+              className="h-8 w-auto text-sm"
+            >
+              <NativeSelectOption value="all">All sources</NativeSelectOption>
+              <NativeSelectOption value="user">User config</NativeSelectOption>
+              <NativeSelectOption value="agent-plugin">Agent Plugins</NativeSelectOption>
+            </NativeSelect>
+            <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
+              <Plus className="mr-2 size-4" />
+              Add server
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -232,7 +248,24 @@ export function McpServerCrudPanel({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div>
-                        <div className="font-medium text-foreground">{server.serverName}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="font-medium text-foreground">
+                            {server.managedByAgentPlugin?.serverName ?? server.serverName}
+                          </div>
+                          {server.managedByAgentPlugin ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => openAdminAgentPlugin(server.managedByAgentPlugin!.pluginId)}
+                            >
+                              Managed by Agent Plugin: {server.managedByAgentPlugin.pluginName}
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary">User config</Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {server.transport.toUpperCase()} · {server.lifecycle} lifecycle · auth {server.authMode}
                         </div>
@@ -266,10 +299,12 @@ export function McpServerCrudPanel({
                         {isExpanded ? <ChevronUp className="mr-2 size-4" /> : <ChevronDown className="mr-2 size-4" />}
                         {isExpanded ? 'Hide details' : 'Show details'}
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => beginDraft(createServerEditorInputFromSnapshot(server))}>
-                        <Pencil className="mr-2 size-4" />
-                        Edit
-                      </Button>
+                      {!server.managedByAgentPlugin && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => beginDraft(createServerEditorInputFromSnapshot(server))}>
+                          <Pencil className="mr-2 size-4" />
+                          Edit
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -284,10 +319,12 @@ export function McpServerCrudPanel({
                         <Power className="mr-2 size-4" />
                         {server.enabled ? 'Disable' : 'Enable'}
                       </Button>
-                      <Button type="button" variant="outline" size="sm" disabled={mutations.pendingAction === removeAction} onClick={() => void mutations.removeServer(server.serverName)}>
-                        <Trash2 className="mr-2 size-4" />
-                        Remove
-                      </Button>
+                      {!server.managedByAgentPlugin && (
+                          <Button type="button" variant="outline" size="sm" disabled={mutations.pendingAction === removeAction} onClick={() => void mutations.removeServer(server.serverName)}>
+                            <Trash2 className="mr-2 size-4" />
+                            Remove
+                          </Button>
+                      )}
                     </div>
                   </div>
                   {isExpanded && (
@@ -374,6 +411,10 @@ function formatCompactTimestamp(value: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function openAdminAgentPlugin(pluginId: string): void {
+  void openSeroApp('admin', { agentPluginId: pluginId });
 }
 
 function createPresetDraft(input: Partial<McpServerEditorInput> & { transport: McpServerEditorInput['transport'] }): McpServerEditorInput {

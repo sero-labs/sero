@@ -5,23 +5,27 @@ import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { useAttachedFolders } from '../hooks/useAttachedFolders';
 import { usePluginDevSessions } from '../hooks/usePluginDevSessions';
 import { usePlugins } from '../hooks/usePlugins';
+import { useAgentPlugins } from '../hooks/useAgentPlugins';
 import { AttachedFoldersSection } from './plugins/AttachedFoldersSection';
 import { InstalledPluginsSection } from './plugins/InstalledPluginsSection';
 import { LocalPluginDevelopmentSection } from './plugins/LocalPluginDevelopmentSection';
+import { AgentPluginsSection } from './plugins/AgentPluginsSection';
 
 function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
 
-export const PluginsPanel = memo(function PluginsPanel() {
+export const PluginsPanel = memo(function PluginsPanel({ focusedAgentPluginId = null }: { focusedAgentPluginId?: string | null }) {
   const { workspaceId } = useAppInfo();
   const installed = usePlugins();
+  const agentPlugins = useAgentPlugins();
   const devSessions = usePluginDevSessions();
   const attached = useAttachedFolders(workspaceId);
   const handleStartDevSession = useCallback(() => devSessions.startDevSession(), [devSessions.startDevSession]);
 
   const summary = [
     `${installed.plugins.length} installed`,
+    plural(agentPlugins.plugins.length, 'Agent Plugin'),
     plural(devSessions.sessions.length, 'local session'),
     plural(attached.attachedFolders.length, 'attached folder'),
   ].join(' · ');
@@ -51,6 +55,8 @@ export const PluginsPanel = memo(function PluginsPanel() {
             onUninstall={installed.uninstall}
             onReveal={installed.revealInFinder}
           />
+
+          <AgentPluginsSection controller={agentPlugins} focusedPluginId={focusedAgentPluginId} />
 
           <LocalPluginDevelopmentSection
             sessions={devSessions.sessions}

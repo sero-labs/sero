@@ -1,10 +1,13 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { AGENT_PLUGIN_CLI_REFRESH_EVENT } from '@sero-ai/common';
 import type { McpServerEditorInput } from '../../shared/types';
 import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
-import { readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
+import { areMetadataCacheServersEqual, readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
 import { ensureConfigFile, getConfigUpdatedAt, writeConfig } from '../config/io';
+import { withAgentPluginMcpSources } from '../config/agent-plugin-source';
+import { setAgentPluginServerEnabled } from '../config/agent-plugin-client-state';
 import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
@@ -27,6 +30,7 @@ import {
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
 import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
+import { readMcpConfigPair, withMcpServerEnabled, type McpConfigPair } from './runtime-config';
 import { buildServerConfig, mutationErrorResult } from './runtime-utils';
 import { executeManagerActionRoute } from './runtime-manager-router';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
@@ -65,7 +69,9 @@ function createMcpRuntime(): McpRuntime {
     isEnabled: () => sessionRefCount > 0,
     onTick: async () => {
       await runExclusive(async () => {
-        const config = lastState?.config ?? await ensureConfigFile(getMcpConfigPath());
+        const config = lastState?.config ?? await withAgentPluginMcpSources(
+          await ensureConfigFile(getMcpConfigPath()),
+        );
         await reconcileManagedServers(lastKnownCwd, config, 'keep-alive');
       });
     },
@@ -105,7 +111,6 @@ function createMcpRuntime(): McpRuntime {
           manager.closeAll(),
         ]);
         runtimeStatuses.clear();
-
         if (lastState || lastKnownCwd) {
           try {
             await syncSnapshot(lastKnownCwd || process.cwd());
@@ -174,10 +179,19 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult(`Error: ${validationError}`, { snapshotWritten: false });
     }
     try {
+      const configPair = await readMcpConfigPair();
+      const effectiveConfig = configPair.effectiveConfig;
+      const originalName = serverInput.originalServerName?.trim();
+      const nextName = serverInput.serverName.trim();
+      const managedServer = [originalName, nextName]
+        .filter((name): name is string => !!name)
+        .map((name) => effectiveConfig.mcpServers[name])
+        .find((server) => server?.managedByAgentPlugin);
+      if (managedServer?.managedByAgentPlugin) {
+        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
+      }
       const synced = await mutateConfig(cwd, (config) => {
         const nextServers = { ...config.mcpServers };
-        const originalName = serverInput.originalServerName?.trim();
-        const nextName = serverInput.serverName.trim();
         const hasRenameCollision = Boolean(
           originalName && originalName !== nextName && nextServers[nextName],
         );
@@ -192,7 +206,7 @@ function createMcpRuntime(): McpRuntime {
         }
         nextServers[nextName] = buildServerConfig(serverInput, existing);
         config.mcpServers = nextServers;
-      });
+      }, undefined, configPair);
       return createToolResult(`Saved MCP server "${serverInput.serverName.trim()}".`, {
         snapshotWritten: true,
         configPath: synced.configPath,
@@ -209,6 +223,12 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult('Error: Server name is required.', { snapshotWritten: false });
     }
     try {
+      const configPair = await readMcpConfigPair();
+      const effectiveConfig = configPair.effectiveConfig;
+      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
+      if (managedServer?.managedByAgentPlugin) {
+        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
+      }
       await manager.close(normalizedServerName);
       runtimeStatuses.delete(normalizedServerName);
       const synced = await mutateConfig(cwd, (config) => {
@@ -218,7 +238,7 @@ function createMcpRuntime(): McpRuntime {
         const nextServers = { ...config.mcpServers };
         delete nextServers[normalizedServerName];
         config.mcpServers = nextServers;
-      }, normalizedServerName);
+      }, normalizedServerName, configPair);
       return createToolResult(`Removed MCP server "${normalizedServerName}".`, {
         snapshotWritten: true,
         configPath: synced.configPath,
@@ -235,6 +255,24 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult('Error: Server name is required.', { snapshotWritten: false });
     }
     try {
+      const configPair = await readMcpConfigPair();
+      const effectiveConfig = configPair.effectiveConfig;
+      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
+      if (managedServer?.managedByAgentPlugin) {
+        if (!enabled) {
+          await manager.close(normalizedServerName);
+          runtimeStatuses.delete(normalizedServerName);
+        }
+        await setAgentPluginServerEnabled(normalizedServerName, enabled);
+        const nextConfig = withMcpServerEnabled(effectiveConfig, normalizedServerName, enabled);
+        const synced = await syncSnapshot(cwd, { config: nextConfig });
+        return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} managed MCP server "${managedServer.managedByAgentPlugin.serverName}".`, {
+          snapshotWritten: true,
+          configPath: synced.configPath,
+          statePath: synced.statePath,
+          serverCount: synced.snapshot.summary.totalServers,
+        });
+      }
       if (!enabled) {
         await manager.close(normalizedServerName);
         runtimeStatuses.delete(normalizedServerName);
@@ -251,7 +289,7 @@ function createMcpRuntime(): McpRuntime {
             enabled,
           },
         };
-      });
+      }, undefined, configPair);
       return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} MCP server "${normalizedServerName}".`, {
         snapshotWritten: true,
         configPath: synced.configPath,
@@ -386,9 +424,9 @@ function createMcpRuntime(): McpRuntime {
     }
     return syncSnapshot(cwd, { config, metadataCache: nextCache ?? await readMetadataCache() });
   }
-  async function mutateConfig(cwd: string | undefined, mutate: (config: McpConfigDocument) => void, removeServerName?: string): Promise<SyncedRuntimeState> {
-    const configPath = getMcpConfigPath();
-    const config = await ensureConfigFile(configPath);
+  async function mutateConfig(cwd: string | undefined, mutate: (config: McpConfigDocument) => void, removeServerName?: string, configPair?: McpConfigPair): Promise<SyncedRuntimeState> {
+    const current = configPair ?? await readMcpConfigPair();
+    const config = current.userConfig;
     const nextConfig: McpConfigDocument = {
       ...config,
       mcpServers: { ...config.mcpServers },
@@ -397,15 +435,15 @@ function createMcpRuntime(): McpRuntime {
     let metadataCache = await readMetadataCache();
     if (removeServerName) {
       metadataCache = removeMetadataCacheEntry(metadataCache, removeServerName);
-      await writeMetadataCache(metadataCache);
     }
-    return writeConfigAndSyncSnapshot(cwd, nextConfig, metadataCache);
+    return writeConfigAndSyncSnapshot(cwd, nextConfig, metadataCache, current.effectiveConfig);
   }
-  async function writeConfigAndSyncSnapshot(cwd: string | undefined, config: McpConfigDocument, metadataCacheOverride?: McpMetadataCacheDocument): Promise<SyncedRuntimeState> {
+  async function writeConfigAndSyncSnapshot(cwd: string | undefined, config: McpConfigDocument, metadataCacheOverride?: McpMetadataCacheDocument, previousConfigOverride?: McpConfigDocument): Promise<SyncedRuntimeState> {
     const configPath = getMcpConfigPath();
-    const previousConfig = await ensureConfigFile(configPath);
+    const previousConfig = previousConfigOverride ?? (await readMcpConfigPair()).effectiveConfig;
     let metadataCache = metadataCacheOverride ?? await readMetadataCache();
-    for (const serverName of getChangedServerNames(previousConfig, config)) {
+    const effectiveConfig = await withAgentPluginMcpSources(config);
+    for (const serverName of getChangedServerNames(previousConfig, effectiveConfig)) {
       await uiSessions.closeIfServerMatches(serverName);
       await manager.close(serverName);
       runtimeStatuses.delete(serverName);
@@ -413,8 +451,8 @@ function createMcpRuntime(): McpRuntime {
     }
     await writeConfig(config, configPath);
     const rawConfigUpdatedAt = await getConfigUpdatedAt(configPath);
-    const synced = await syncSnapshot(cwd, { config, rawConfigUpdatedAt, metadataCache });
-    return await reconcileManagedServers(cwd, config, 'startup') ?? synced;
+    const synced = await syncSnapshot(cwd, { config: effectiveConfig, rawConfigUpdatedAt, metadataCache });
+    return await reconcileManagedServers(cwd, effectiveConfig, 'startup') ?? synced;
   }
   async function syncSnapshot(cwd?: string, options: SyncSnapshotOptions = {}): Promise<SyncedRuntimeState> {
     if (cwd) {
@@ -425,10 +463,14 @@ function createMcpRuntime(): McpRuntime {
     const statePath = getMcpStatePath(resolvedCwd);
     await ensureOAuthDir();
     const [config, rawConfigUpdatedAt, metadataCache] = await Promise.all([
-      options.config !== undefined ? Promise.resolve(options.config) : ensureConfigFile(configPath),
+      options.config !== undefined
+        ? Promise.resolve(options.config)
+        : ensureConfigFile(configPath).then(withAgentPluginMcpSources),
       options.rawConfigUpdatedAt != null ? Promise.resolve(options.rawConfigUpdatedAt) : getConfigUpdatedAt(configPath),
       options.metadataCache !== undefined ? Promise.resolve(options.metadataCache) : readMetadataCache(),
     ]);
+    const refreshAgentPluginCli = !lastState
+      || !areMetadataCacheServersEqual(lastState.metadataCache.servers, metadataCache.servers);
     const snapshot = await buildSnapshot({
       configPath,
       rawConfigUpdatedAt,
@@ -438,6 +480,9 @@ function createMcpRuntime(): McpRuntime {
       runtimeStatuses,
     });
     await writeMetadataCache(metadataCache);
+    if (refreshAgentPluginCli) {
+      attachedPi?.events.emit(AGENT_PLUGIN_CLI_REFRESH_EVENT, undefined);
+    }
     await writeState(snapshot, statePath);
     lastState = { configPath, statePath, config, metadataCache, rawConfigUpdatedAt, snapshot };
     return lastState;

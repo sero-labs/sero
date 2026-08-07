@@ -49,6 +49,20 @@ function normalizeServerSnapshot(value: unknown): McpServerSnapshot | null {
       inputSchema: tool.inputSchema,
       resourceUri: typeof tool.resourceUri === 'string' ? tool.resourceUri : '',
     })).filter((tool) => tool.name.length > 0 && tool.resourceUri.length > 0) : [],
+    source: value.source === 'agent-plugin' ? 'agent-plugin' : 'user',
+    managedByAgentPlugin: normalizeAgentPluginOwner(value.managedByAgentPlugin),
+  };
+}
+
+function normalizeAgentPluginOwner(value: unknown): McpServerSnapshot['managedByAgentPlugin'] {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.pluginId !== 'string' || typeof value.pluginName !== 'string' || typeof value.serverName !== 'string') {
+    return undefined;
+  }
+  return {
+    pluginId: value.pluginId,
+    pluginName: value.pluginName,
+    serverName: value.serverName,
   };
 }
 
@@ -168,4 +182,3 @@ export async function updateState<T>(
     }
   }
 }
-

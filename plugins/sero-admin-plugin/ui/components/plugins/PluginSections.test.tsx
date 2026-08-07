@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { InstalledPlugin } from '@sero-ai/common';
+import type { InstalledAgentPlugin, InstalledPlugin } from '@sero-ai/common';
 import type { PluginDevSessionIPC, WorkspaceRootIPC } from '../../hooks/host';
+import type { AgentPluginsController } from '../../hooks/useAgentPlugins';
 import { AttachedFoldersSection } from './AttachedFoldersSection';
+import { AgentPluginCard } from './AgentPluginCard';
+import { AgentPluginInstallReview } from './AgentPluginInstallReview';
 import { InstalledPluginsSection } from './InstalledPluginsSection';
 import { LocalPluginDevelopmentSection } from './LocalPluginDevelopmentSection';
 
@@ -49,6 +52,113 @@ function createAttachedFolder(overrides: Partial<WorkspaceRootIPC> = {}): Worksp
 }
 
 describe('plugin management sections', () => {
+  it('warns users to install Agent Plugins only from trusted sources', () => {
+    const html = renderToStaticMarkup(
+      <AgentPluginInstallReview
+        inspection={{
+          manifest: { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'Example' },
+          source: 'npm:example',
+          sourceKind: 'npm',
+          contentDigest: 'fixture-digest',
+          valid: true,
+          skills: [],
+          mcpServers: [{
+            name: 'local',
+            runtimeName: 'agent-plugin:fixture:local',
+            transport: 'stdio',
+            valid: true,
+            approved: false,
+            exposedToCli: false,
+            command: './bin/server',
+            args: ['--safe'],
+            cwd: '/plugin/data',
+            env: { PATH: '/plugin/bin', API_TOKEN: 'secret' },
+          }, {
+            name: 'remote',
+            runtimeName: 'agent-plugin:fixture:remote',
+            transport: 'streamable-http',
+            valid: true,
+            approved: false,
+            exposedToCli: false,
+            url: 'https://example.com/mcp',
+            headers: { Authorization: 'Bearer secret', 'X-Tenant': 'example' },
+          }],
+          diagnostics: [],
+          requiresMcpApproval: false,
+          suggestedNamespace: 'example',
+        }}
+        approveMcp={false}
+        exposeToCli={false}
+        namespace="example"
+        busy={false}
+        onApproveMcpChange={() => {}}
+        onExposeToCliChange={() => {}}
+        onNamespaceChange={() => {}}
+        onInstall={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(html).toContain('Install only from sources you trust.');
+    expect(html).toContain('MCP servers can connect to services or run commands on this machine.');
+    expect(html).toContain('local: ./bin/server --safe (cwd: /plugin/data; env: API_TOKEN, PATH)');
+    expect(html).toContain('remote: https://example.com/mcp (headers: Authorization, X-Tenant)');
+    expect(html).not.toContain('Bearer secret');
+  });
+
+  it('shows safe MCP details before initial and update approval', () => {
+    const plugin: InstalledAgentPlugin = {
+      id: 'ap-example',
+      manifest: { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'Example' },
+      source: 'npm:example',
+      sourceKind: 'npm',
+      contentDigest: 'installed-digest',
+      installedAt: '2026-08-07T12:00:00.000Z',
+      updatedAt: '2026-08-07T12:00:00.000Z',
+      packagePath: '/plugins/ap-example',
+      dataPath: '/data/ap-example',
+      enabled: true,
+      mcpApprovalHash: null,
+      skills: [],
+      mcpServers: [{
+        name: 'local', runtimeName: 'agent-plugin:ap-example:local', transport: 'stdio',
+        valid: true, approved: false, exposedToCli: false,
+        command: './bin/server', cwd: '/plugin/data', env: { PATH: '/plugin/bin' },
+      }],
+      diagnostics: [],
+      cli: { enabled: false, namespace: 'example', skillCommands: [], mcpCommands: [] },
+    };
+    const controller = {
+      plugins: [plugin], inspection: null, loading: false, busy: false, error: null,
+      updatePreview: {
+        pluginId: plugin.id,
+        contentDigest: 'updated-digest',
+        addedComponents: [], removedComponents: [], changedComponents: ['mcp:remote'],
+        addedCliCommands: [], removedCliCommands: [], requiresMcpApproval: true,
+        mcpServers: [{
+          name: 'remote', runtimeName: 'agent-plugin:ap-example:remote', transport: 'streamable-http',
+          valid: true, approved: false, exposedToCli: false,
+          url: 'https://example.com/mcp', headers: { Authorization: 'Bearer secret' },
+        }],
+      },
+      clearInspection: () => {},
+      inspect: async () => null,
+      install: async () => null,
+      setEnabled: async () => null,
+      approve: async () => null,
+      setCliExposure: async () => null,
+      previewUpdate: async () => null,
+      update: async () => null,
+      remove: async () => null,
+      reveal: async () => null,
+    } satisfies AgentPluginsController;
+
+    const html = renderToStaticMarkup(<AgentPluginCard plugin={plugin} controller={controller} focused />);
+    expect(html).toContain('local: ./bin/server (cwd: /plugin/data; env: PATH)');
+    expect(html).toContain('remote: https://example.com/mcp (headers: Authorization)');
+    expect(html).not.toContain('Bearer secret');
+  });
+
   it('renders installed plugins, local development, and attached folders as distinct concepts', () => {
     const html = renderToStaticMarkup(
       <>

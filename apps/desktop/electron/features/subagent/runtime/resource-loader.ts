@@ -13,6 +13,7 @@ import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import {
   filterCompatiblePluginAgentsFiles,
   filterCompatiblePluginExtensions,
@@ -68,7 +69,9 @@ export function createSubagentResourceLoader(
       ),
     ],
     skillsOverride: (base) => {
-      const filtered = filterCompatiblePluginSkills(skillVisibilityOverride(base));
+      const filtered = withAgentPluginSkills(
+        filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+      );
       if (disabledSkills.size === 0) return filtered;
       return {
         ...filtered,

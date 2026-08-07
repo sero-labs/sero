@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { MCP_METADATA_CACHE_RELATIVE_PATH } from '@sero-ai/common';
 
 const DEFAULT_PI_AGENT_DIR = path.join(homedir(), '.pi', 'agent');
 const STATE_RELATIVE_PATH = path.join('.sero', 'apps', 'mcp', 'state.json');
@@ -44,7 +45,7 @@ export function getMcpConfigPath(): string {
 
 export function getMcpMetadataCachePath(): string {
   const seroHome = getSeroHomeDir();
-  if (seroHome) return path.join(seroHome, 'apps', 'mcp', 'metadata-cache.json');
+  if (seroHome) return path.join(seroHome, MCP_METADATA_CACHE_RELATIVE_PATH);
   return path.join(getPiAgentDir(), 'mcp-cache.json');
 }
 

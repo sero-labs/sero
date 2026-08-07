@@ -26,7 +26,7 @@ function ownerKey(owner: CliAppCommandOwner): string {
 function assertAllowedCommandName(name: string): void {
   if (!name) throw new Error('CLI command name is required');
 
-  const root = name.split(' ')[0];
+  const root = name.split(/[ /]/, 1)[0];
   if (root && BLACKLISTED_ROOTS.has(root)) {
     throw new Error(`CLI command root is blacklisted: ${root}`);
   }
@@ -56,6 +56,8 @@ function resolveScopedSessionId(scope?: CliRegistryScope): string | null | undef
 
 export class CliRegistry {
   private commands = new Map<string, CliCommand>();
+  private agentPluginCommands = new Map<string, CliCommand>();
+  private agentPluginCommandProvider: (() => CliCommand[]) | null = null;
   private appOwnerCommands = new Map<string, AppOwnerCommands>();
 
   register(command: CliCommand): void {
@@ -85,6 +87,44 @@ export class CliRegistry {
     }
   }
 
+  replaceAgentPluginCommands(commands: CliCommand[]): void {
+    this.agentPluginCommands = this.normalizeAgentPluginCommands(commands);
+  }
+
+  setAgentPluginCommandProvider(provider: () => CliCommand[]): void {
+    this.agentPluginCommandProvider = provider;
+    this.refreshAgentPluginCommands();
+  }
+
+  refreshAgentPluginCommands(): void {
+    if (this.agentPluginCommandProvider) {
+      this.agentPluginCommands = this.normalizeAgentPluginCommands(this.agentPluginCommandProvider());
+    }
+  }
+
+  private normalizeAgentPluginCommands(commands: CliCommand[]): Map<string, CliCommand> {
+    const next = new Map<string, CliCommand>();
+    for (const command of commands) {
+      const name = normalizeName(command.name);
+      try {
+        assertAllowedCommandName(name);
+      } catch (error) {
+        console.warn('[cli] Skipped invalid Agent Plugin command:', error);
+        continue;
+      }
+      if (this.commands.has(name)) {
+        console.warn(`[cli] Skipped Agent Plugin command that collides with a Sero command: ${name}`);
+        continue;
+      }
+      if (next.has(name)) {
+        console.warn(`[cli] Skipped duplicate Agent Plugin command: ${name}`);
+        continue;
+      }
+      next.set(name, { ...command, name, source: 'agent-plugin' });
+    }
+    return next;
+  }
+
   removeAppCommandsForSession(sessionId: string): void {
     for (const [key, value] of [...this.appOwnerCommands.entries()]) {
       if (value.owner.sessionId === sessionId) {
@@ -94,7 +134,7 @@ export class CliRegistry {
   }
 
   private buildVisibleCommands(scope?: CliRegistryScope): Map<string, CliCommand> {
-    const visible = new Map(this.commands);
+    const visible = new Map([...this.commands, ...this.agentPluginCommands]);
     const scopedSessionId = resolveScopedSessionId(scope);
 
     for (const ownerCommands of this.appOwnerCommands.values()) {
@@ -103,6 +143,10 @@ export class CliRegistry {
       }
 
       for (const [name, command] of ownerCommands.commands) {
+        if (this.agentPluginCommands.has(name)) {
+          console.warn(`[cli] Skipped app command that collides with an Agent Plugin command: ${name}`);
+          continue;
+        }
         visible.set(name, command);
       }
     }

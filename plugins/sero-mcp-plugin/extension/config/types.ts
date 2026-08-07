@@ -26,6 +26,14 @@ export interface McpServerConfig extends Record<string, unknown> {
   exposeResources?: boolean;
   excludeTools?: string[];
   debug?: boolean;
+  portableTransport?: 'stdio' | 'streamable-http' | 'sse';
+  /** Keep declared values literal and merge the SDK default process environment. */
+  literalEnv?: boolean;
+  managedByAgentPlugin?: {
+    pluginId: string;
+    pluginName: string;
+    serverName: string;
+  };
 }
 
 export interface McpConfigSettings extends Record<string, unknown> {
