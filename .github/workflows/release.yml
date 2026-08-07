@@ -44,6 +44,7 @@ concurrency:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
+  NODE_OPTIONS: --max-old-space-size=4096
   SERO_E2E_RUNTIME: host
   SERO_HOST_FIRST: '1'
   SERO_E2E_HOST_RELEASE_SMOKE: '1'
@@ -137,9 +138,9 @@ jobs:
       - name: Run host release smoke
         run: |
           if [[ "${{ matrix.os }}" == "linux" ]] && command -v xvfb-run >/dev/null 2>&1; then
-            xvfb-run -a pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+            xvfb-run -a pnpm --filter @sero/desktop e2e:workflow runtime-host-release.workflow.spec.ts
           else
-            pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+            pnpm --filter @sero/desktop e2e:workflow runtime-host-release.workflow.spec.ts
           fi
 
       - name: Build packaged artifacts

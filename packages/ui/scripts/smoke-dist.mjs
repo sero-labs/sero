@@ -8,7 +8,7 @@
 
 import { createRequire } from "node:module";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -133,7 +133,7 @@ const EXPECTED = [
   "ActivityExample",
 ];
 
-const esm = await import(resolve(dist, "reference.js"));
+const esm = await import(pathToFileURL(resolve(dist, "reference.js")).href);
 for (const name of EXPECTED) {
   if (typeof esm[name] !== "function") fail(`reference.js missing export ${name}`);
 }
