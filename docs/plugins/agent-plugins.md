@@ -11,15 +11,19 @@ themes, widgets, and host capabilities. An Agent Plugin has a root
 ## Install
 
 Open **Admin > Plugins > Agent Plugins**. Enter an npm source, Git URL, or
-absolute local directory. Select **Inspect source** before installation.
+absolute local directory. Select **Preview** before installation.
 Npm sources accept registry package names with an optional version or tag.
 Git sources accept HTTPS, SSH, and Git URLs.
 
-The review shows skills, local MCP executables, remote endpoints, validation
-errors, and the optional Sero CLI namespace. Review the exact local commands
-and remote URLs. No MCP server can start until you approve the shown
-definitions. If the source changes after review, Sero stops the installation
-and asks you to inspect it again.
+The preview lists each skill and MCP server by name, with the exact local
+command or remote URL beside it, and states why a component was skipped. No
+MCP server can start until you approve the shown definitions. If the source
+changes after the preview, Sero stops the installation and asks you to preview
+it again.
+
+Installed plugins get a namespace in the Sero CLI from the package name. To
+change it, open the plugin details and edit the namespace beside **Show in
+Sero CLI**.
 
 ## Storage
 

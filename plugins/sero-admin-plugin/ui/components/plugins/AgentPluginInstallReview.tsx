@@ -1,110 +1,86 @@
 import { TriangleAlert } from 'lucide-react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { Input } from '@sero-ai/ui/components/ui/input';
+import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
+import { Label } from '@sero-ai/ui/components/ui/label';
 import type { AgentPluginInspection } from '@sero-ai/common';
-import { formatMcpDefinition } from './agent-plugin-mcp';
+import { Band, ComponentGrid, DiagnosticList, MetaLine, componentCounts, diagnosticLookup, looseDiagnostics, mcpRows, skillRows } from './agent-plugin-ui';
 
 export function AgentPluginInstallReview({
   inspection,
   approveMcp,
   exposeToCli,
-  namespace,
   busy,
   onApproveMcpChange,
   onExposeToCliChange,
-  onNamespaceChange,
   onInstall,
   onCancel,
 }: {
   inspection: AgentPluginInspection;
   approveMcp: boolean;
   exposeToCli: boolean;
-  namespace: string;
   busy: boolean;
   onApproveMcpChange: (value: boolean) => void;
   onExposeToCliChange: (value: boolean) => void;
-  onNamespaceChange: (value: string) => void;
   onInstall: () => void;
   onCancel: () => void;
 }) {
-  const validSkills = inspection.skills.filter((skill) => skill.valid);
   const validServers = inspection.mcpServers.filter((server) => server.valid);
-  const stdioCount = validServers.filter((server) => server.transport === 'stdio').length;
-  const remoteCount = validServers.length - stdioCount;
+  const skipped = inspection.diagnostics.filter((item) => item.level === 'error');
+  const reasonFor = diagnosticLookup(inspection.diagnostics);
+  const otherDiagnostics = looseDiagnostics(inspection.diagnostics, inspection.skills, inspection.mcpServers);
+
   return (
-    <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <div className="rounded-lg border border-primary/30 bg-primary/5">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-semibold">{inspection.manifest?.name ?? 'Invalid package'}</h4>
             {inspection.manifest?.version && <Badge variant="secondary">v{inspection.manifest.version}</Badge>}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{inspection.manifest?.description ?? 'Review portable components before installation.'}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{inspection.manifest?.description ?? 'Review portable components before installation.'}</p>
+          <MetaLine parts={[
+            ...componentCounts(inspection.skills, inspection.mcpServers),
+            ...(skipped.length > 0 ? [<span key="skipped" className="text-amber-400">{skipped.length === 1 ? '1 component skipped' : `${skipped.length} components skipped`}</span>] : []),
+          ]} />
         </div>
         <Badge variant={inspection.valid ? 'default' : 'destructive'}>{inspection.valid ? 'Ready to install' : 'Invalid manifest'}</Badge>
       </div>
 
-      <div className="grid gap-3 text-xs sm:grid-cols-3">
-        <ComponentSummary label="Skills" value={validSkills.length} />
-        <ComponentSummary label="Local MCP executables" value={stdioCount} />
-        <ComponentSummary label="Remote MCP endpoints" value={remoteCount} />
+      <div className="flex items-start gap-2 border-t border-border/40 bg-amber-500/5 px-3.5 py-2.5 text-xs leading-relaxed text-amber-300/80">
+        <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-amber-400" />
+        <p><strong className="font-medium text-amber-400">Install only from sources you trust.</strong> Skills can direct the agent. MCP servers can connect to services or run commands on this machine.</p>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        <p><strong>Install only from sources you trust.</strong> Skills can direct the agent. MCP servers can connect to services or run commands on this machine.</p>
-      </div>
+      <Band>
+        <ComponentGrid groups={[
+          { label: 'Skills', rows: skillRows(inspection.skills, reasonFor) },
+          { label: 'MCP servers', rows: mcpRows(inspection.mcpServers, reasonFor) },
+        ]} />
+      </Band>
 
-      {inspection.diagnostics.length > 0 && (
-        <ul className="space-y-1 rounded-md border border-border/60 bg-background/60 p-3 text-xs">
-          {inspection.diagnostics.map((item) => (
-            <li key={`${item.component}:${item.componentName ?? ''}:${item.message}`} className={item.level === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
-              {item.componentName ? `${item.componentName}: ` : ''}{item.message}
-            </li>
-          ))}
-        </ul>
-      )}
+      {otherDiagnostics.length > 0 && <Band><DiagnosticList diagnostics={otherDiagnostics} /></Band>}
 
-      {validServers.length > 0 && (
-        <div className="space-y-2 rounded-md border border-border/60 bg-background/60 p-3 text-xs">
-          <strong>MCP access to approve</strong>
-          <ul className="space-y-1 font-mono text-muted-foreground">
-            {validServers.map((server) => (
-              <li key={server.name}>{server.name}: {formatMcpDefinition(server)}</li>
-            ))}
-          </ul>
-          <label className="flex items-start gap-2 font-sans text-foreground">
-            <input type="checkbox" checked={approveMcp} onChange={(event) => onApproveMcpChange(event.target.checked)} />
-            <span><strong>Approve these MCP definitions.</strong> Local servers can run commands. Remote servers can connect to the shown endpoints.</span>
-          </label>
-        </div>
-      )}
-
-      <label className="flex items-start gap-2 text-xs">
-        <input type="checkbox" checked={exposeToCli} onChange={(event) => onExposeToCliChange(event.target.checked)} />
-        <span>Expose selected skills and approved MCP servers through Sero CLI.</span>
-      </label>
-
-      {exposeToCli && (
-        <div className="space-y-2">
-          <label htmlFor="agent-plugin-cli-namespace" className="text-xs text-muted-foreground">CLI namespace</label>
-          <Input id="agent-plugin-cli-namespace" value={namespace} onChange={(event) => onNamespaceChange(event.target.value)} className="h-8 font-mono text-xs" />
-          <div className="flex flex-wrap gap-1.5">
-            {validSkills.map((skill) => <Badge key={skill.name} variant="outline">{namespace}/{skill.name}</Badge>)}
-            {validServers.map((server) => <Badge key={server.name} variant="outline">{namespace}/{server.name}/&lt;tool&gt;</Badge>)}
+      <Band className="flex flex-col gap-3">
+        {validServers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="agent-plugin-approve-mcp" checked={approveMcp} onCheckedChange={(checked) => onApproveMcpChange(checked === true)} />
+              <Label htmlFor="agent-plugin-approve-mcp" className="text-xs font-normal">Approve these MCP definitions</Label>
+            </div>
+            <p className="mt-1.5 pl-6 text-xs text-muted-foreground">Local servers can run commands. Remote servers can connect to the shown endpoints.</p>
           </div>
+        )}
+        <div className="flex items-center gap-2">
+          <Checkbox id="agent-plugin-cli-exposure" checked={exposeToCli} onCheckedChange={(checked) => onExposeToCliChange(checked === true)} />
+          <Label htmlFor="agent-plugin-cli-exposure" className="text-xs font-normal">Show in Sero CLI</Label>
         </div>
-      )}
+      </Band>
 
-      <div className="flex justify-end gap-2">
+      <Band className="flex justify-end gap-2 py-2.5">
         <Button type="button" variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
         <Button type="button" size="sm" disabled={busy || !inspection.valid} onClick={onInstall}>Install Agent Plugin</Button>
-      </div>
+      </Band>
     </div>
   );
-}
-
-function ComponentSummary({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-md border border-border/60 bg-background/60 p-3"><strong className="block text-base">{value}</strong>{label}</div>;
 }

@@ -55,15 +55,15 @@ export function AgentPluginsSection({
         title="Agent Plugins"
         description="Portable Agent Skills and MCP servers. Agent Plugins stay separate from Sero apps and never create sidebar entries."
       />
-      <div className="space-y-4 p-4">
+      <div className="space-y-3 p-4">
         <div className="flex flex-col gap-2 @xl:flex-row">
           <Input value={source} onChange={(event) => setSource(event.target.value)} disabled={controller.busy || inspecting} placeholder="npm:package, git URL, or absolute local directory" className="h-9 flex-1 text-xs" />
-          <Button type="button" variant="outline" size="sm" onClick={async () => {
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={async () => {
             const folder = await getSero().workspace.pickFolder();
             if (folder) setSource(folder);
-          }} disabled={controller.busy || inspecting}><FolderOpen className="mr-2 size-4" />Browse</Button>
-          <Button type="button" size="sm" disabled={!source.trim() || controller.busy || inspecting} onClick={() => void inspect()}>
-            {inspecting ? <><Spinner className="size-3.5" />Inspecting source…</> : 'Inspect source'}
+          }} disabled={controller.busy || inspecting}><FolderOpen className="size-3.5" />Browse</Button>
+          <Button type="button" size="sm" className="h-9" disabled={!source.trim() || controller.busy || inspecting} onClick={() => void inspect()}>
+            {inspecting ? <><Spinner className="size-3.5" />Previewing…</> : 'Preview'}
           </Button>
         </div>
 
@@ -74,11 +74,9 @@ export function AgentPluginsSection({
             inspection={controller.inspection}
             approveMcp={approveMcp}
             exposeToCli={exposeToCli}
-            namespace={namespace}
             busy={controller.busy}
             onApproveMcpChange={setApproveMcp}
             onExposeToCliChange={setExposeToCli}
-            onNamespaceChange={setNamespace}
             onInstall={() => void install()}
             onCancel={controller.clearInspection}
           />
@@ -87,7 +85,7 @@ export function AgentPluginsSection({
         {controller.loading ? (
           <p className="py-5 text-center text-xs text-muted-foreground">Loading Agent Plugins…</p>
         ) : controller.plugins.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/50 p-6 text-center"><p className="text-sm font-medium">No Agent Plugins installed</p><p className="mt-1 text-xs text-muted-foreground">Inspect a portable package before installation.</p></div>
+          <div className="rounded-lg border border-dashed border-border/50 p-6 text-center"><p className="text-sm font-medium">No Agent Plugins installed</p><p className="mt-1 text-xs text-muted-foreground">Paste a package source and preview it before you install.</p></div>
         ) : (
           <ul className="space-y-2">{controller.plugins.map((plugin) => <AgentPluginCard key={plugin.id} plugin={plugin} controller={controller} focused={plugin.id === focusedPluginId} />)}</ul>
         )}

@@ -13,19 +13,23 @@ export function useAgentPlugins() {
   const [plugins, setPlugins] = useState<InstalledAgentPlugin[]>([]);
   const [inspection, setInspection] = useState<AgentPluginInspection | null>(null);
   const [updatePreview, setUpdatePreview] = useState<AgentPluginUpdatePreview | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Reload keeps the rendered list in place. Only the first load shows a
+   * placeholder — swapping the list out on every action unmounts the cards and
+   * closes any details panel the user has open.
+   */
   const reload = useCallback(async () => {
-    setLoading(true);
     try {
       setPlugins(await getSero().agentPlugins.list());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Failed to load Agent Plugins.');
     } finally {
-      setLoading(false);
+      setLoaded(true);
     }
   }, []);
 
@@ -53,10 +57,11 @@ export function useAgentPlugins() {
     plugins,
     inspection,
     updatePreview,
-    loading,
+    loading: !loaded,
     busy,
     error,
     clearInspection: () => setInspection(null),
+    clearUpdatePreview: () => setUpdatePreview(null),
     inspect: async (source: string) => {
       const result = await run(() => getSero().agentPlugins.inspectSource(source));
       if (result) setInspection(result);
@@ -71,11 +76,22 @@ export function useAgentPlugins() {
       if (result) setUpdatePreview(result);
       return result;
     },
-    update: (id: string, contentDigest: string, approveMcpChanges: boolean) => (
-      run(() => getSero().agentPlugins.update({ id, contentDigest, approveMcpChanges }))
-    ),
+    update: async (id: string, contentDigest: string, approveMcpChanges: boolean) => {
+      const result = await run(() => getSero().agentPlugins.update({ id, contentDigest, approveMcpChanges }));
+      if (result) setUpdatePreview(null);
+      return result;
+    },
     remove: (request: AgentPluginRemoveRequest) => run(() => getSero().agentPlugins.remove(request)),
-    reveal: (id: string, target: 'package' | 'data') => run(() => getSero().agentPlugins.reveal(id, target)),
+    // Revealing a folder changes nothing in the profile, so it neither reloads
+    // the list nor blocks the surface while the file manager opens.
+    reveal: async (id: string, target: 'package' | 'data') => {
+      setError(null);
+      try {
+        await getSero().agentPlugins.reveal(id, target);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Failed to open the folder.');
+      }
+    },
   };
 }
 

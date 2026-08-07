@@ -51,6 +51,47 @@ function createAttachedFolder(overrides: Partial<WorkspaceRootIPC> = {}): Worksp
   };
 }
 
+const SCHEMA = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
+
+function createAgentPlugin(overrides: Partial<InstalledAgentPlugin> = {}): InstalledAgentPlugin {
+  return {
+    id: 'ap-example',
+    manifest: { $schema: SCHEMA, name: 'Example' },
+    source: 'npm:example',
+    sourceKind: 'npm',
+    contentDigest: 'installed-digest',
+    installedAt: '2026-08-07T12:00:00.000Z',
+    updatedAt: '2026-08-07T12:00:00.000Z',
+    packagePath: '/plugins/ap-example',
+    dataPath: '/data/ap-example',
+    enabled: true,
+    mcpApprovalHash: null,
+    skills: [],
+    mcpServers: [],
+    diagnostics: [],
+    cli: { enabled: false, namespace: 'example', skillCommands: [], mcpCommands: [] },
+    ...overrides,
+  };
+}
+
+function createAgentPluginController(overrides: Partial<AgentPluginsController> = {}): AgentPluginsController {
+  return {
+    plugins: [], inspection: null, updatePreview: null, loading: false, busy: false, error: null,
+    clearInspection: () => {},
+    clearUpdatePreview: () => {},
+    inspect: async () => null,
+    install: async () => null,
+    setEnabled: async () => null,
+    approve: async () => null,
+    setCliExposure: async () => null,
+    previewUpdate: async () => null,
+    update: async () => null,
+    remove: async () => null,
+    reveal: async () => {},
+    ...overrides,
+  };
+}
+
 describe('plugin management sections', () => {
   it('warns users to install Agent Plugins only from trusted sources', () => {
     const html = renderToStaticMarkup(
@@ -89,11 +130,9 @@ describe('plugin management sections', () => {
         }}
         approveMcp={false}
         exposeToCli={false}
-        namespace="example"
         busy={false}
         onApproveMcpChange={() => {}}
         onExposeToCliChange={() => {}}
-        onNamespaceChange={() => {}}
         onInstall={() => {}}
         onCancel={() => {}}
       />,
@@ -101,9 +140,10 @@ describe('plugin management sections', () => {
 
     expect(html).toContain('Install only from sources you trust.');
     expect(html).toContain('MCP servers can connect to services or run commands on this machine.');
-    expect(html).toContain('local: ./bin/server --safe (cwd: /plugin/data; env: API_TOKEN, PATH)');
-    expect(html).toContain('remote: https://example.com/mcp (headers: Authorization, X-Tenant)');
+    expect(html).toContain('stdio · ./bin/server --safe (cwd: /plugin/data; env: API_TOKEN, PATH)');
+    expect(html).toContain('https://example.com/mcp (headers: Authorization, X-Tenant)');
     expect(html).not.toContain('Bearer secret');
+    expect(html).toContain('Show in Sero CLI');
   });
 
   it('shows safe MCP details before initial and update approval', () => {
@@ -142,6 +182,7 @@ describe('plugin management sections', () => {
         }],
       },
       clearInspection: () => {},
+      clearUpdatePreview: () => {},
       inspect: async () => null,
       install: async () => null,
       setEnabled: async () => null,
@@ -150,20 +191,66 @@ describe('plugin management sections', () => {
       previewUpdate: async () => null,
       update: async () => null,
       remove: async () => null,
-      reveal: async () => null,
+      reveal: async () => {},
     } satisfies AgentPluginsController;
 
     const html = renderToStaticMarkup(<AgentPluginCard plugin={plugin} controller={controller} focused />);
-    expect(html).toContain('Plugin contents');
-    expect(html).toContain('Sero settings');
-    expect(html).toContain('Plugin actions');
-    expect(html).toContain('Remove plugin');
-    expect(html.match(/data-slot="checkbox"/g)).toHaveLength(2);
-    expect(html).toContain('Keep plugin data');
-    expect(html).not.toContain('Retain PLUGIN_DATA');
-    expect(html).toContain('local: ./bin/server (cwd: /plugin/data; env: PATH)');
+    expect(html).toContain('Show in Sero CLI');
+    expect(html).toContain('Plugin source');
+    expect(html).toContain('Check for update');
+    expect(html).toContain('Approve shown MCP definitions');
+    expect(html).not.toContain('Plugin contents');
+    expect(html).not.toContain('Sero settings');
+    expect(html).toContain('stdio · ./bin/server (cwd: /plugin/data; env: PATH)');
     expect(html).toContain('remote: https://example.com/mcp (headers: Authorization)');
     expect(html).not.toContain('Bearer secret');
+  });
+
+  it('keeps an update installable when no component changed', () => {
+    const plugin = createAgentPlugin();
+    const html = renderToStaticMarkup(
+      <AgentPluginCard
+        plugin={plugin}
+        focused
+        controller={createAgentPluginController({
+          plugins: [plugin],
+          updatePreview: {
+            pluginId: plugin.id, contentDigest: 'updated-digest',
+            previousVersion: '1.0.0', nextVersion: '1.1.0',
+            addedComponents: [], removedComponents: [], changedComponents: [],
+            addedCliCommands: [], removedCliCommands: [], requiresMcpApproval: false, mcpServers: [],
+          },
+        })}
+      />,
+    );
+
+    expect(html).toContain('1.0.0 → 1.1.0');
+    expect(html).toContain('No skill, MCP or Sero CLI changes.');
+    expect(html).toContain('Install update');
+  });
+
+  it('reports diagnostics no component row carries, and never crosses a skill with an MCP server of the same name', () => {
+    const plugin = createAgentPlugin({
+      skills: [{ name: 'shared', description: 'A skill', directoryName: 'shared', filePath: '/x/SKILL.md', valid: false, exposedToCli: false }],
+      mcpServers: [{ name: 'shared', runtimeName: 'agent-plugin:ap-example:shared', transport: 'stdio', valid: false, approved: false, exposedToCli: false }],
+      diagnostics: [
+        { level: 'error', component: 'skill', componentName: 'shared', message: 'SKILL.md description is missing' },
+        { level: 'error', component: 'mcp', componentName: 'shared', message: 'unsupported schema version 2.0.0' },
+        { level: 'error', component: 'skill', componentName: 'shared', message: 'SKILL.md exceeds the size limit' },
+        { level: 'error', component: 'manifest', message: 'plugin.json declares an unknown extension' },
+        { level: 'warning', component: 'skill', componentName: 'shared', message: 'the skill name is long' },
+      ],
+    });
+    const html = renderToStaticMarkup(
+      <AgentPluginCard plugin={plugin} focused controller={createAgentPluginController({ plugins: [plugin] })} />,
+    );
+
+    expect(html).toContain('Skipped · SKILL.md description is missing');
+    expect(html).toContain('Skipped · unsupported schema version 2.0.0');
+    expect(html).toContain('plugin.json declares an unknown extension');
+    expect(html).toContain('the skill name is long');
+    // A second error for the same component keeps its own line instead of vanishing.
+    expect(html).toContain('SKILL.md exceeds the size limit');
   });
 
   it('renders installed plugins, local development, and attached folders as distinct concepts', () => {
