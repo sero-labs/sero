@@ -394,6 +394,8 @@ interface SeroProfilesAPI {
 interface SeroPluginsAPI {
   /** Install a plugin from a source (npm:pkg, git:url, or local path). */
   install(source: string): Promise<SeroAppManifest>;
+  /** Pick a local folder and install its plugin package. */
+  installFromFolder(): Promise<SeroAppManifest | null>;
   /** Uninstall a plugin by ID. */
   uninstall(pluginId: string): Promise<void>;
   /** List all installed plugins (from ~/.sero-ui/agent/plugins/). */

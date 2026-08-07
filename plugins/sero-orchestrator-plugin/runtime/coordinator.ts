@@ -451,6 +451,9 @@ export class Coordinator {
       return { ok: false, error: outcome.error ?? 'Revision failed.' };
     }
     await this.replaceLoop(outcome.loop);
+    if (loop.status !== 'active' && outcome.loop.status === 'active') {
+      return this.runNext(loopId, outcome.loop);
+    }
     return { ok: true, loop: outcome.loop };
   }
 

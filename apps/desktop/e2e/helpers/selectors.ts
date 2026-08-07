@@ -56,8 +56,8 @@ export const chat = {
   input: 'textarea[name="message"]',
   /** Submit button (visible when not streaming). */
   submitButton: 'button[aria-label="Submit"]',
-  /** Stop button (visible when streaming). */
-  stopButton: 'button[aria-label="Stop"]',
+  /** Stop button rendered while the agent is streaming. */
+  stopButton: 'button:has-text("Stop")',
   /** Agent streaming spinner. */
   streamingSpinner: '[class*="animate-spin"]',
   /** Empty state message when no session is selected. */

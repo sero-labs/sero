@@ -1,7 +1,10 @@
 import { BrowserWindow } from 'electron';
 import { browserViewManager } from '@electron/features/browser/view-manager';
 import { captureFullWindow, captureRegion } from '@electron/shared/media/capture';
-import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
+import {
+  createVideoRecording,
+  type VideoRecording,
+} from '@electron/shared/media/video-encoder';
 import type {
   AppControlEntry,
   AppFullScreenshotTarget,
@@ -20,20 +23,15 @@ const DEFAULT_RECORDING_CRF = 23;
 const APP_OPEN_READY_TIMEOUT_MS = 1_500;
 const APP_OPEN_READY_POLL_MS = 50;
 
-interface RecordingFrame {
-  timestamp: number;
-  base64: string;
-}
-
 interface RecordingState {
   active: boolean;
   startedAt: string | null;
-  frames: RecordingFrame[];
+  recording: VideoRecording | null;
+  failure: Error | null;
   /** Set false to stop the self-rescheduling capture loop. */
   looping: boolean;
   fps: number;
   fullWindow: boolean;
-  crf: number;
 }
 
 interface OpenAndWaitOptions {
@@ -51,11 +49,11 @@ interface BrowserCaptureTarget {
 const recordingState: RecordingState = {
   active: false,
   startedAt: null,
-  frames: [],
+  recording: null,
+  failure: null,
   looping: false,
   fps: DEFAULT_RECORDING_FPS,
   fullWindow: false,
-  crf: DEFAULT_RECORDING_CRF,
 };
 
 function sleep(ms: number): Promise<void> {
@@ -129,17 +127,18 @@ async function captureRecordingFrame(): Promise<void> {
     } else {
       base64 = (await appControlHostService.captureVisibleApp())?.base64 ?? null;
     }
-    if (base64) recordingState.frames.push({ timestamp: Date.now(), base64 });
-  } catch {
-    // Skip frame capture failures during recording.
+    if (base64 && recordingState.recording) {
+      await recordingState.recording.append(base64, Date.now());
+    }
+  } catch (error) {
+    recordingState.failure = error instanceof Error ? error : new Error(String(error));
+    recordingState.looping = false;
   }
 }
 
 /**
- * Self-rescheduling capture loop. Unlike setInterval, it awaits each frame
- * before scheduling the next, so slow captures never pile up — the real frame
- * rate simply drops toward what the window can sustain (recorded in the frame
- * timestamps, which the encoder uses to keep playback real-time).
+ * Capture loop that waits for each encoded frame before scheduling the next.
+ * Slow captures reduce the actual frame rate instead of creating a backlog.
  */
 async function runRecordingLoop(): Promise<void> {
   const intervalMs = Math.round(1000 / recordingState.fps);
@@ -155,13 +154,6 @@ async function runRecordingLoop(): Promise<void> {
   }
 }
 
-/** Playback FPS that makes the frames span their real wall-clock duration. */
-function effectiveFps(frames: RecordingFrame[], fallback: number): number {
-  if (frames.length < 2) return fallback;
-  const spanSec = (frames[frames.length - 1]!.timestamp - frames[0]!.timestamp) / 1000;
-  if (spanSec <= 0) return fallback;
-  return Math.min(MAX_RECORDING_FPS, Math.max(1, (frames.length - 1) / spanSec));
-}
 
 export const appControlHostService = {
   async list(): Promise<AppControlEntry[]> {
@@ -307,17 +299,31 @@ export const appControlHostService = {
 
   async recordStart(options: AppRecordingOptions = {}): Promise<boolean> {
     if (recordingState.active) return false;
+    const fps = Math.min(MAX_RECORDING_FPS, Math.max(1, options.fps ?? DEFAULT_RECORDING_FPS));
+    const crf = options.crf ?? DEFAULT_RECORDING_CRF;
+    const recording = await createVideoRecording({ fps, crf });
     const started = await execRenderer<boolean>('window.__appControl?.recordStart() ?? false');
-    if (!started) return false;
+    if (!started) {
+      await recording.discard();
+      return false;
+    }
 
     recordingState.active = true;
     recordingState.startedAt = new Date().toISOString();
-    recordingState.frames = [];
-    recordingState.fps = Math.min(MAX_RECORDING_FPS, Math.max(1, options.fps ?? DEFAULT_RECORDING_FPS));
+    recordingState.recording = recording;
+    recordingState.failure = null;
+    recordingState.fps = fps;
     recordingState.fullWindow = options.fullWindow ?? false;
-    recordingState.crf = options.crf ?? DEFAULT_RECORDING_CRF;
     recordingState.looping = true;
     await captureRecordingFrame();
+    if (recordingState.failure) {
+      await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
+      await recording.discard();
+      recordingState.active = false;
+      recordingState.startedAt = null;
+      recordingState.recording = null;
+      return false;
+    }
     void runRecordingLoop();
     return true;
   },
@@ -328,29 +334,24 @@ export const appControlHostService = {
     await captureRecordingFrame();
     await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
 
-    const frames = [...recordingState.frames];
-    const crf = recordingState.crf;
-    const fallbackFps = recordingState.fps;
+    const recording = recordingState.recording;
+    const failure = recordingState.failure;
     recordingState.active = false;
     recordingState.startedAt = null;
-    recordingState.frames = [];
-    if (frames.length === 0) return null;
+    recordingState.recording = null;
+    recordingState.failure = null;
+    if (!recording) return null;
+    if (failure || recording.timestamps.length === 0) {
+      await recording.discard();
+      if (failure) console.error('[app-control] Recording stream failed:', failure);
+      return null;
+    }
 
     try {
-      const result = await encodeFramesToMp4({
-        frames,
-        fps: effectiveFps(frames, fallbackFps),
-        crf,
-        outputPath: options.outputPath,
-      });
-      return {
-        path: result.path,
-        isVideo: result.isVideo,
-        durationMs: result.durationMs,
-        frameCount: result.frameCount,
-      };
-    } catch (err) {
-      console.error('[app-control] Record encode failed:', err);
+      return await recording.finish(options.outputPath);
+    } catch (error) {
+      await recording.discard();
+      console.error('[app-control] Record encode failed:', error);
       return null;
     }
   },
@@ -359,6 +360,8 @@ export const appControlHostService = {
     if (!recordingState.active) return { recording: false };
     return {
       recording: true,
+      ready: (recordingState.recording?.timestamps.length ?? 0) > 0,
+      frameCount: recordingState.recording?.timestamps.length ?? 0,
       startedAt: recordingState.startedAt ?? undefined,
       durationMs: recordingState.startedAt
         ? Date.now() - new Date(recordingState.startedAt).getTime()

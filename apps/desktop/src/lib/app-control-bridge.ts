@@ -119,7 +119,7 @@ function moveRecordingCursor(event: MouseEvent): void {
   recordingCursor.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
 }
 
-function addRecordingCursor(): void {
+function addRecordingCursor(initialRect: AppPanelRect): void {
   removeRecordingCursor();
   recordingCursor = document.createElement('div');
   recordingCursor.dataset.seroRecordingCursor = '';
@@ -130,10 +130,11 @@ function addRecordingCursor(): void {
     'left: 0',
     'width: 20px',
     'height: 28px',
-    'display: none',
+    'display: block',
     'pointer-events: none',
     'z-index: 2147483647',
   ].join(';');
+  recordingCursor.style.transform = `translate(${initialRect.x + initialRect.width / 2}px, ${initialRect.y + initialRect.height / 2}px)`;
   recordingCursor.innerHTML = RECORDING_CURSOR_SVG;
   document.body.appendChild(recordingCursor);
   window.addEventListener('mousemove', moveRecordingCursor);
@@ -243,8 +244,9 @@ export function initAppControlBridge(): () => void {
     stitchFullScreenshot,
     recordStart() {
       if (recordingActive) return false;
-      if (!getAppPanelRect()) return false;
-      addRecordingCursor();
+      const appPanelRect = getAppPanelRect();
+      if (!appPanelRect) return false;
+      addRecordingCursor(appPanelRect);
       addRecordingClickHighlights();
       recordingActive = true;
       recordingStartedAt = new Date().toISOString();

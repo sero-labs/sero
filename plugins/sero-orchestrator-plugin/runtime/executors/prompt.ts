@@ -26,6 +26,8 @@ USE THE CONTEXT YOU ARE GIVEN. Your task includes the loop's current variables a
 
 THE WORKING DIRECTORY IS SHARED AND CUMULATIVE. Every step of this loop runs in the SAME git worktree, one after another. Files that an earlier step created or edited — INCLUDING new files that are still untracked (not yet \`git add\`ed or committed) — are this loop's in-progress work product, NOT stray cruft. Never delete, revert, \`git checkout --\`/\`git restore\`, \`git stash\`, or \`git clean\` another step's changes unless your own step explicitly tells you to undo work. When your step inspects or reviews the changes, account for untracked files too (e.g. \`git status\`, or \`git add -A\` then \`git diff --staged\`): a new untracked file is intended work from a prior step, not an accident. If the changes look wrong, report it via your StepOutcome ("needs-revision" or "blocked") instead of erasing them.
 
+SERO PROCESS SAFETY. A loop step already runs inside the user's existing Sero host. NEVER launch, restart, or stop Sero, Electron, or the Sero development server. Never run an E2E helper that calls \`launchSeroApp\`. If visible Sero automation is required, connect to the existing Sero host through its provided control surface. If that control surface is unavailable, report the step as blocked instead of starting another process.
+
 CRITICAL — how to report the result: after doing the work, your reply MUST END with exactly one JSON object, wrapped in a \`\`\`json code fence, and nothing after it. Use these EXACT field names and these EXACT status values:
 
 \`\`\`json

@@ -15,9 +15,75 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Locator, Page } from '@playwright/test';
+import type { AppRecordingStatus } from '../../src/types/app-control';
+import {
+  probeVideo,
+  validateSpeedSegments,
+  withBoundedRetries,
+  type DemoSpeedSegment,
+} from './demo-media';
 
 const execFileAsync = promisify(execFile);
+
+export {
+  CAMPAIGN_CLIPS,
+  createReviewContactSheet,
+  formatElapsed,
+  validateDemoVideo,
+  withBoundedRetries,
+} from './demo-media';
+export type { CampaignClipId, CampaignClipProfile, DemoValidation } from './demo-media';
+
+export type DemoExplorerPanel = 'explorer' | 'browser' | 'orchestration';
+
+export interface DemoRecorderDiagnostics {
+  label: string;
+  capturedAt: string;
+  recorder: AppRecordingStatus;
+  cursor: { count: number; visible: boolean; transform: string };
+  focus: { documentHasFocus: boolean; visibilityState: DocumentVisibilityState };
+}
+
+export interface DemoInteractionLog {
+  visibleClickCount: number;
+  visiblePanels: DemoExplorerPanel[];
+  recorderDiagnostics: DemoRecorderDiagnostics[];
+}
+
+export function createDemoInteractionLog(): DemoInteractionLog {
+  return { visibleClickCount: 0, visiblePanels: [], recorderDiagnostics: [] };
+}
+
+export async function collectDemoRecorderDiagnostics(
+  page: Page,
+  label: string,
+): Promise<DemoRecorderDiagnostics> {
+  const [recorder, renderer] = await Promise.all([
+    page.evaluate(() => window.sero.appControl.recordStatus()),
+    page.evaluate(() => {
+      const cursor = document.querySelector<HTMLElement>('[data-sero-recording-cursor]');
+      return {
+        cursor: {
+          count: document.querySelectorAll('[data-sero-recording-cursor]').length,
+          visible: cursor ? getComputedStyle(cursor).display !== 'none' : false,
+          transform: cursor?.style.transform ?? '',
+        },
+        focus: {
+          documentHasFocus: document.hasFocus(),
+          visibilityState: document.visibilityState,
+        },
+      };
+    }),
+  ]);
+  return {
+    label,
+    capturedAt: new Date().toISOString(),
+    recorder,
+    cursor: renderer.cursor,
+    focus: renderer.focus,
+  };
+}
 
 /** Output dir OUTSIDE the repo. Override with SERO_DEMO_OUT. */
 export function demoOutDir(): string {
@@ -65,6 +131,156 @@ export async function installCaptionOverlay(page: Page): Promise<void> {
   });
 }
 
+/** Install a truthful wall-clock timer that remains visible through real-time capture. */
+export async function installElapsedOverlay(page: Page, startedAt = Date.now()): Promise<void> {
+  await page.evaluate((start) => {
+    document.getElementById('__demo_elapsed')?.remove();
+    const el = document.createElement('div');
+    el.id = '__demo_elapsed';
+    el.style.cssText = [
+      'position:fixed', 'right:24px', 'top:52px', 'z-index:2147483647',
+      'padding:8px 12px', 'border-radius:8px', 'background:rgba(10,10,12,.86)',
+      'color:#fff', 'font:600 18px/1.2 ui-monospace,SFMono-Regular,monospace',
+      'pointer-events:none', 'font-variant-numeric:tabular-nums',
+    ].join(';');
+    const render = () => {
+      const totalSeconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      el.textContent = `ELAPSED ${minutes}:${seconds}`;
+    };
+    document.body.appendChild(el);
+    render();
+    const timer = window.setInterval(render, 250);
+    el.dataset.timer = String(timer);
+  }, startedAt);
+}
+
+export async function removeElapsedOverlay(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const el = document.getElementById('__demo_elapsed');
+    if (!el) return;
+    window.clearInterval(Number(el.dataset.timer));
+    el.remove();
+  });
+}
+
+interface DemoClickOptions {
+  name?: string;
+  timeoutMs?: number;
+}
+
+/** Click a visible control and verify the recorder's cursor and blue pulse. */
+export async function clickForDemo(
+  page: Page,
+  target: Locator,
+  log: DemoInteractionLog,
+  options: DemoClickOptions = {},
+): Promise<void> {
+  const name = options.name ?? 'Demo interaction target';
+  const timeout = options.timeoutMs ?? 5_000;
+  await target.waitFor({ state: 'visible', timeout }).catch(() => {
+    throw new Error(`${name} was not visible within ${timeout}ms.`);
+  });
+  const box = await target.boundingBox();
+  if (!box) throw new Error(`${name} has no visible bounding box.`);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const diagnostics = await collectDemoRecorderDiagnostics(page, `before click: ${name}`);
+  log.recorderDiagnostics.push(diagnostics);
+  if (!diagnostics.recorder.ready || !diagnostics.cursor.visible) {
+    throw new Error(`Sero recorder was not ready before clicking ${name}. ${JSON.stringify(diagnostics)}`);
+  }
+  await target.click({ timeout });
+  const pulseVisible = await page.locator('[data-sero-recording-click]').count();
+  if (pulseVisible < 1) throw new Error(`Sero recording click pulse did not appear after clicking ${name}.`);
+  log.visibleClickCount += 1;
+}
+
+const panelLabels: Record<DemoExplorerPanel, string> = {
+  explorer: 'Explorer',
+  browser: 'Browser',
+  orchestration: 'Orchestration',
+};
+
+function explorerActivityBar(page: Page): Locator {
+  return page.locator('[data-testid="active-app-panel"]').getByRole('navigation');
+}
+
+function explorerPanelEvidence(page: Page, panel: DemoExplorerPanel): Locator {
+  const activePanel = page.locator('[data-testid="active-app-panel"]');
+  const sidebar = page.locator('[data-testid="explorer-sidebar-content"]');
+  if (panel === 'explorer') return sidebar.locator('[data-testid="file-tree"]');
+  if (panel === 'browser') {
+    return activePanel.locator('[data-testid="browser-viewport"]').or(
+      activePanel.getByText('No browser tabs open in this workspace', { exact: true }),
+    );
+  }
+  return sidebar.getByText('Orchestration', { exact: true }).first();
+}
+
+async function navigationDiagnostics(page: Page): Promise<string> {
+  const activePanel = page.locator('[data-testid="active-app-panel"]');
+  const activeText = await activePanel.innerText({ timeout: 1_000 }).catch(() => '<unavailable>');
+  const visibleButtons = await activePanel.getByRole('button').allTextContents().catch(() => []);
+  const recorder = await collectDemoRecorderDiagnostics(page, 'navigation failure').catch(() => null);
+  return [
+    `active text: ${activeText.replace(/\s+/g, ' ').slice(0, 240) || '<empty>'}`,
+    `active buttons: ${visibleButtons.map((text) => text.trim()).filter(Boolean).join(', ') || '<icon-only or none>'}`,
+    `recorder: ${recorder ? JSON.stringify(recorder) : '<unavailable>'}`,
+  ].join('; ');
+}
+
+/** Open Explorer through the visible main sidebar when another app is active. */
+export async function openExplorerForDemo(page: Page, log: DemoInteractionLog): Promise<void> {
+  try {
+    await withBoundedRetries(async () => {
+      if (await explorerActivityBar(page).isVisible()) return true;
+
+      const sidebarPanel = page.locator('[data-testid="main-sidebar-panel"]');
+      const explorerButton = sidebarPanel.getByRole('button', { name: 'Explorer', exact: true });
+      if (!(await explorerButton.isVisible())) {
+        await clickForDemo(
+          page,
+          page.getByRole('button', { name: 'Toggle sidebar', exact: true }),
+          log,
+          { name: 'Toggle sidebar' },
+        );
+      }
+      await clickForDemo(page, explorerButton, log, { name: 'Explorer app' });
+      await explorerActivityBar(page).waitFor({ state: 'visible', timeout: 5_000 });
+      return true;
+    }, { attempts: 3, delayMs: 500 });
+  } catch (error) {
+    const details = await navigationDiagnostics(page);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not open Explorer through visible UI. ${message} Diagnostics: ${details}`);
+  }
+}
+
+/** Switch Explorer panels through the labelled activity bar with bounded retries. */
+export async function switchExplorerPanelForDemo(
+  page: Page,
+  panel: DemoExplorerPanel,
+  log: DemoInteractionLog,
+): Promise<void> {
+  const label = panelLabels[panel];
+  const evidence = explorerPanelEvidence(page, panel);
+  try {
+    await withBoundedRetries(async () => {
+      if (await evidence.isVisible()) return true;
+      const button = explorerActivityBar(page).getByRole('button', { name: label, exact: true });
+      await clickForDemo(page, button, log, { name: `${label} panel` });
+      await evidence.waitFor({ state: 'visible', timeout: 5_000 });
+      return true;
+    }, { attempts: 3, delayMs: 500 });
+    if (!log.visiblePanels.includes(panel)) log.visiblePanels.push(panel);
+  } catch (error) {
+    const details = await navigationDiagnostics(page);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not switch to the ${label} panel through visible UI. ${message} Diagnostics: ${details}`);
+  }
+}
+
 /** Show a caption; leaves it up until the next call or clearCaption(). */
 export async function caption(page: Page, text: string, holdMs = 0): Promise<void> {
   await page.evaluate((t) => {
@@ -84,11 +300,30 @@ export async function clearCaption(page: Page): Promise<void> {
 export async function startDemoRecording(
   page: Page,
   opts: { fps?: number; crf?: number } = {},
+  log?: DemoInteractionLog,
 ): Promise<boolean> {
-  return page.evaluate(
+  const started = await page.evaluate(
     (o) => window.sero.appControl.recordStart({ fps: o.fps ?? 15, crf: o.crf ?? 20, fullWindow: true }),
     { fps: opts.fps, crf: opts.crf },
   );
+  if (!started) return false;
+
+  let latest: DemoRecorderDiagnostics | null = null;
+  await withBoundedRetries(async (attempt) => {
+    latest = await collectDemoRecorderDiagnostics(page, `startup readiness attempt ${attempt}`);
+    log?.recorderDiagnostics.push(latest);
+    return latest;
+  }, {
+    attempts: 3,
+    delayMs: 250,
+    accept: (diagnostics) => Boolean(
+      diagnostics.recorder.recording && diagnostics.recorder.ready && diagnostics.cursor.visible,
+    ),
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Sero recorder did not become ready. ${message} Last diagnostics: ${JSON.stringify(latest)}`);
+  });
+  return true;
 }
 
 /**
@@ -177,38 +412,39 @@ export async function encodeYouTube(input: string, output: string): Promise<void
 export async function assembleDemo(
   rawPath: string,
   output: string,
-  segments: Array<{ start: number; end: number; speed: number }>,
+  segments: DemoSpeedSegment[],
 ): Promise<void> {
+  const duration = (await probeVideo(rawPath)).durationSeconds;
+  const segmentErrors = validateSpeedSegments(segments, duration);
+  if (segmentErrors.length > 0) throw new Error(segmentErrors.join('\n'));
+
   const ordered = [...segments].sort((a, b) => a.start - b.start);
-  // Fill gaps with 1× segments so the whole timeline is covered.
-  const full: Array<{ start: number; end: number; speed: number }> = [];
+  const full: DemoSpeedSegment[] = [];
   let cursor = 0;
-  for (const seg of ordered) {
-    if (seg.start > cursor) full.push({ start: cursor, end: seg.start, speed: 1 });
-    full.push(seg);
-    cursor = seg.end;
+  for (const segment of ordered) {
+    if (segment.start > cursor) full.push({ start: cursor, end: segment.start, speed: 1 });
+    full.push(segment);
+    cursor = segment.end;
   }
-  full.push({ start: cursor, end: Number.MAX_SAFE_INTEGER, speed: 1 });
+  if (cursor < duration) full.push({ start: cursor, end: duration, speed: 1 });
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-demo-assemble-'));
   const parts: string[] = [];
   try {
-    for (let i = 0; i < full.length; i++) {
-      const seg = full[i]!;
+    for (let i = 0; i < full.length; i += 1) {
+      const segment = full[i]!;
       const part = path.join(tmpDir, `part-${String(i).padStart(3, '0')}.mp4`);
-      const trim = seg.end === Number.MAX_SAFE_INTEGER
-        ? ['-ss', String(seg.start)]
-        : ['-ss', String(seg.start), '-to', String(seg.end)];
+      // Timelapse and elapsed labels are captured in the visible DOM. Keeping
+      // text out of ffmpeg works with the minimal release encoder on every OS.
       await execFileAsync('ffmpeg', [
-        '-y', ...trim, '-i', rawPath,
-        '-vf', `setpts=${(1 / seg.speed).toFixed(4)}*PTS`,
-        '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-pix_fmt', 'yuv420p',
-        part,
-      ]).catch(() => { /* a zero-length tail segment is fine to skip */ });
-      if (fs.existsSync(part) && fs.statSync(part).size > 0) parts.push(part);
+        '-y', '-ss', String(segment.start), '-to', String(segment.end), '-i', rawPath,
+        '-vf', `setpts=${(1 / segment.speed).toFixed(4)}*PTS`, '-an', '-c:v', 'libx264', '-preset', 'fast',
+        '-crf', '20', '-pix_fmt', 'yuv420p', part,
+      ]);
+      parts.push(part);
     }
     const listFile = path.join(tmpDir, 'concat.txt');
-    fs.writeFileSync(listFile, parts.map((p) => `file '${p}'`).join('\n'));
+    fs.writeFileSync(listFile, parts.map((part) => `file '${part}'`).join('\n'));
     const joined = path.join(tmpDir, 'joined.mp4');
     await execFileAsync('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', joined]);
     await encodeYouTube(joined, output);

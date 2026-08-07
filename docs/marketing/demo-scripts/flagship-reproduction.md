@@ -27,52 +27,41 @@ Ask Sero, in the workspace chat:
 > published dependency versions — no monorepo workspace links), so it installs
 > from its local folder through the plugin manager.
 
-That last sentence matters — see constraint 1 below. Without it the agent
-mimics the monorepo's own plugins and produces something that won't install.
+That last sentence prevents workspace dependencies that the plugin manager
+cannot install.
 
-## What happens (proven repeatable, full run green)
+## Current recording status
 
-1. **Sero builds the plugin from the one prompt.** In the dry-run this took
-   about **7 minutes** and produced a complete, standalone, installable
-   `sero.app` package at `release-checklist-plugin/` — `package.json` with a
-   `sero.app` id, the Pi extension, the module-federation UI panel, a build
-   script, and only published dependency versions (no monorepo links).
-2. **Mounting it inside Sero.** Install the plugin from its local folder through
-   the plugin manager (App Store dialog → install the local package). That
-   install builds it and registers it — verified green: it appears in the app
-   list as `release-checklist` and the **Release Checklist** panel opens like
-   any other app.
-3. **The result.** Run **Generate report** in the panel; it writes
-   `release-readiness.md` with real repo facts — verified output: latest tag
-   `v0.4.0-beta.0`, 174 commits since, working-tree state, open PRs, and
-   release-blocking issues.
+The one-prompt build is proven by the dry-run.
 
-## Two things to set up for the recording
+It creates a standalone `sero.app` package in `release-checklist-plugin/`.
 
-**1. Build it standalone — resolved.** The first dry-run had the agent mimic the
-monorepo's own plugins and declare `@sero-ai/* = workspace:*` deps, which the
-plugin manager refuses on local install ("unsupported dependency spec …
-workspace:*"). Adding "build it as a standalone, installable plugin like the
-community examples — published versions only, plain-React UI, no workspace
-links" to the prompt fixed it completely: the second dry-run built, installed,
-mounted, and generated the report end-to-end. So keep that phrasing in the demo
-ask. Reference pattern: the community `sero-calc-plugin` (Pi extension + plain
-React UI with a local `cn()` helper, `@sero-ai/app-runtime` as a normal
-versioned dep, Pi packages as peer deps).
+The full claim is not ready to record.
 
-**2. The approval beat is not automatic in a default session.** In the dry-run
-the build turn completed with **zero** approval prompts — the agent worked in
-the already-attached workspace and its commands were not gated, so no approval
-card appeared. A visible approval is the typical, intended path and this demo
-should show one, so set the recording up to actually hit a gate: run the session
-in a permission mode that gates writes/commands, or have the agent perform an
-action that requires attaching a folder or running a flagged command. Confirm
-the approval card is on camera before recording — do not imply a gate the
-default flow skips. (Where a workflow intentionally has no gate, that is a valid
-choice — tell the honest control story instead; see the strategy's trust notes.)
+The dry-run installs that folder with the private automation call
+`window.sero.plugins.install(path)`.
+
+That call is not a person-facing Sero control.
+
+The App Store currently has no verified **Install from folder** action.
+
+The dry-run also received zero approval prompts.
+
+There is no documented Sero setting that forces an approval card before writes
+or commands.
+
+Do not claim that the plugin was installed, opened, or approved on camera.
+
+The current video script is in
+[restart-checklist.md](../restart-checklist.md).
+
+The full flagship recording needs both of these product capabilities:
+
+1. A visible **Install from folder** action.
+2. A repeatable user-controlled approval gate.
 
 ## Timing note for the recording
 
-The build turn is minutes, not seconds. If the recording is sped up, label the
-timelapse with the real duration (strategy rule). The approval beats and the
-final panel/report should run at real speed so nothing looks staged.
+The build turn is minutes, not seconds.
+
+If the recording is sped up, label the timelapse with the real duration.

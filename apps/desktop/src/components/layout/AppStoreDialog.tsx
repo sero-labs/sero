@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { Search, Store, Loader2, Globe } from 'lucide-react';
+import { FolderDown, Globe, Loader2, Search, Store } from 'lucide-react';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { PluginSafetyDisclaimer } from '@sero-ai/ui/components/ui/plugin-safety-disclaimer';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
@@ -72,6 +73,8 @@ export function AppStoreDialog({
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverSearched, setDiscoverSearched] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [folderInstallLoading, setFolderInstallLoading] = useState(false);
+  const [folderInstallError, setFolderInstallError] = useState<string | null>(null);
 
   const discoverRequestIdRef = useRef(0);
   const discoverSessionRef = useRef(0);
@@ -167,6 +170,20 @@ export function AppStoreDialog({
     setDiscoverResults((results) => markPluginUninstalled(results, plugin));
   };
 
+  const handleInstallFromFolder = async () => {
+    setFolderInstallLoading(true);
+    setFolderInstallError(null);
+    try {
+      const manifest = await window.sero.plugins.installFromFolder();
+      if (manifest && dialogOpenRef.current) handleOpenChange(false);
+    } catch (err) {
+      if (!dialogOpenRef.current) return;
+      setFolderInstallError(toErrorMessage(err, 'Installation failed.'));
+    } finally {
+      if (dialogOpenRef.current) setFolderInstallLoading(false);
+    }
+  };
+
   const handleOpenChange = (nextOpen: boolean) => {
     dialogOpenRef.current = nextOpen;
     onOpenChange(nextOpen);
@@ -181,6 +198,8 @@ export function AppStoreDialog({
       setDiscoverLoading(false);
       setDiscoverSearched(false);
       setDiscoverError(null);
+      setFolderInstallLoading(false);
+      setFolderInstallError(null);
     }
   };
 
@@ -212,16 +231,33 @@ export function AppStoreDialog({
 
           <TabsContent value="installed" className="mt-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b border-[var(--border-default)] px-4 py-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--banner-primary)]" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search installed apps..."
-                  autoFocus
-                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
-                />
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--banner-primary)]" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search installed apps..."
+                    autoFocus
+                    className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 shrink-0"
+                  disabled={folderInstallLoading}
+                  onClick={() => void handleInstallFromFolder()}
+                >
+                  {folderInstallLoading ? <Loader2 className="size-4 animate-spin" /> : <FolderDown className="size-4" />}
+                  Install from folder
+                </Button>
               </div>
+              {folderInstallError ? (
+                <p role="alert" className="mt-2 text-sm text-status-error">
+                  Couldn't install plugin. {folderInstallError}
+                </p>
+              ) : null}
             </div>
 
             <ScrollArea className="min-h-0 flex-1">

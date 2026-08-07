@@ -1,4 +1,10 @@
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  chromium,
+  type Browser,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import { execFile } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import path from 'path';
@@ -59,6 +65,41 @@ export interface LaunchOptions {
   slowMo?: number;
 }
 
+export function nestedSeroLaunchReason(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string | undefined {
+  const hostPid = env.SERO_DESKTOP_HOST_PID;
+  if (!hostPid) return undefined;
+  return `Refusing to launch a second Sero instance from desktop host ${hostPid}. Connect to the existing host instead.`;
+}
+
+export function seroCdpEndpoint(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const configured = env.SERO_E2E_EXISTING_CDP?.trim();
+  if (!configured) {
+    throw new Error('SERO_E2E_EXISTING_CDP must identify the existing Sero host.');
+  }
+  return /^\d+$/.test(configured) ? `http://127.0.0.1:${configured}` : configured;
+}
+
+export async function connectToRunningSero(
+  options: { endpoint?: string; slowMo?: number } = {},
+): Promise<{ browser: Browser; page: Page }> {
+  const endpoint = options.endpoint ?? seroCdpEndpoint();
+  const browser = await chromium.connectOverCDP(endpoint, {
+    slowMo: options.slowMo,
+    timeout: 30_000,
+  });
+  const pages = browser.contexts().flatMap((context) => context.pages());
+  for (const page of pages) {
+    const isSero = await page.evaluate(() => Boolean(window.sero?.appControl)).catch(() => false);
+    if (isSero) return { browser, page };
+  }
+  await browser.close();
+  throw new Error(`No running Sero renderer was available at ${endpoint}.`);
+}
+
 /**
  * Launch the Sero Electron application for e2e testing.
  *
@@ -70,6 +111,9 @@ export interface LaunchOptions {
 export async function launchSeroApp(
   options: LaunchOptions = {},
 ): Promise<{ app: ElectronApplication; page: Page }> {
+  const nestedLaunchReason = nestedSeroLaunchReason();
+  if (nestedLaunchReason) throw new Error(nestedLaunchReason);
+
   const desktopRoot = path.resolve(__dirname, '../..');
   const mainEntry = path.join(desktopRoot, 'dist/electron/main.mjs');
 

@@ -1,207 +1,241 @@
 /**
- * Auto-generated flagship demo: "I asked Sero to build itself a release-checklist
- * plugin." Drives the real build → review → install → run flow (same as
- * flagship-dryrun) with a fixed frame, burned-in captions, and Sero's own
- * recorder, then assembles a paced ~1080p YouTube MP4 outside the repo — the
- * long build section is time-lapsed, the rest plays real-time.
+ * Public-launch plugin workflow: describe, create, install, and use a plugin
+ * through visible controls in one existing Sero process.
  *
- *   SERO_E2E_REAL_HOME=1 npx playwright test e2e/flagship-demo.agent.spec.ts --project=agent
+ *   SERO_E2E_EXISTING_CDP=9222 npx playwright test e2e/flagship-demo.agent.spec.ts --project=agent
  *
- * Output: ~/Movies/sero-demos/flagship-*.mp4 (override dir with SERO_DEMO_OUT).
- * The raw recording + markers.json are kept so post-processing can be re-run
- * (assembleDemo) without re-capturing.
+ * Output: ~/Movies/sero-demos/plugin-build.mp4 and the complete raw recording.
  */
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { closeSeroApp, launchSeroApp } from './helpers';
+import { test, expect, type Browser, type Page } from '@playwright/test';
+import { chat, connectToRunningSero, layout } from './helpers';
 import { waitForShell } from './helpers/workflow';
-import { createOpenAgentSession, promptAndCollectEvents, assistantTextFromEvents } from './helpers/agent';
 import {
+  assembleDemo,
+  CAMPAIGN_CLIPS,
   caption,
   clearCaption,
-  concatDemo,
+  clickForDemo,
+  createDemoInteractionLog,
+  createReviewContactSheet,
   demoOutDir,
   installCaptionOverlay,
-  setDemoWindow,
   startDemoRecording,
   stopRecordingRaw,
-  titleCard,
+  validateDemoVideo,
 } from './helpers/demo';
 
-const REAL_HOME = process.env.SERO_E2E_REAL_HOME === '1';
-const REPO_SLUG = 'sero-labs/sero';
-const WS_NAME = 'flagship-demo-e2e';
+const EXISTING_CDP = process.env.SERO_E2E_EXISTING_CDP;
+const WS_NAME = 'release-checklist-demo';
+const PLUGIN_FOLDER = 'release-checklist-plugin';
 
-const FLAGSHIP_PROMPT = [
-  'Build me a release-checklist plugin and get it working inside Sero. It needs a UI panel called',
-  '"Release Checklist" that produces a release readiness report for this repository — latest release',
-  'tag and commits since it, whether the working tree is clean, open pull requests, and any',
-  'release-blocking open issues — with a "Generate report" action that writes release-readiness.md',
-  'and shows it in the panel. Build it as a standalone, installable Sero plugin like the community',
-  'plugin examples (self-contained package, plain-React UI, only published dependency versions — no',
-  'monorepo workspace links), so it installs from its local folder through the plugin manager. Do',
-  'not commit, push, or post anything.',
-].join(' ');
+const PLUGIN_PROMPT = `Build a standalone release checklist plugin for this project.
 
-let app: ElectronApplication;
+Create it in a new folder named \`release-checklist-plugin\`.
+
+Add a panel named \`Release Checklist\`.
+
+The panel needs one \`Generate report\` action.
+
+The report must show:
+
+- The latest release.
+- Changes since that release.
+- Current uncommitted changes.
+- Open pull requests.
+- Release-blocking issues.
+
+Save the same report as \`release-readiness.md\` in the project folder.
+
+Use the installed plugin-building skill and make the package ready to install from its folder.
+
+Build it, but do not install or commit it.
+
+Proceed without asking follow-up questions.`;
+
+let browser: Browser;
 let page: Page;
-let wsDir: string;
-let sessionId: string;
 
 function git(cwd: string, args: string[]): string {
-  return execFileSync('git', ['-C', cwd, '-c', 'user.email=e2e@sero.test', '-c', 'user.name=sero-e2e', ...args], {
-    encoding: 'utf8',
-  }).trim();
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).trim();
 }
 
-async function pumpApprovals(): Promise<void> {
-  const pending = await page.evaluate(() => window.sero.userFeedback.getPending()).catch(() => []);
-  for (const q of pending ?? []) {
-    const answers: { questionId: string; value: string; label: string; wasCustom: boolean }[] = [];
-    for (const item of q.questions) {
-      const options = item.options ?? [];
-      const pick =
-        options.find((o) => /^(allow|approve|yes|attach|proceed|continue|ok)/i.test(o.label)) ??
-        options.find((o) => !/block|cancel|deny|reject|no\b/i.test(o.label)) ??
-        options[0];
-      if (pick) answers.push({ questionId: item.id, value: pick.value, label: pick.label, wasCustom: false });
-    }
-    if (answers.length === 0) continue;
-    await page
-      .evaluate(({ id, responses }) => window.sero.userFeedback.answer({ id, answers: responses, cancelled: false }),
-        { id: q.id, responses: answers })
-      .catch(() => {});
-  }
+function prepareWorkspace(): string {
+  const wsDir = path.join(os.homedir(), '.sero-ui', 'workspaces', WS_NAME);
+  fs.rmSync(wsDir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(wsDir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(wsDir, 'README.md'), '# Launchpad\n\nA small product release project.\n');
+  fs.writeFileSync(path.join(wsDir, 'package.json'), JSON.stringify({
+    name: 'launchpad',
+    private: true,
+    version: '1.1.0',
+  }, null, 2));
+  fs.writeFileSync(path.join(wsDir, 'src', 'index.ts'), 'export const releaseName = \"Launchpad 1.1\";\n');
+  git(wsDir, ['init', '-q']);
+  git(wsDir, ['config', 'user.name', 'Demo User']);
+  git(wsDir, ['config', 'user.email', 'demo@example.com']);
+  git(wsDir, ['add', '.']);
+  git(wsDir, ['commit', '-q', '-m', 'chore: create launchpad']);
+  git(wsDir, ['tag', 'v1.0.0']);
+  fs.writeFileSync(path.join(wsDir, 'CHANGELOG.md'), '# Changes\n\n- Prepare the Launchpad 1.1 release.\n');
+  git(wsDir, ['add', 'CHANGELOG.md']);
+  git(wsDir, ['commit', '-q', '-m', 'feat: prepare launchpad 1.1']);
+  return wsDir;
 }
 
-async function drivenTurn(prompt: string, timeoutMs: number): Promise<string> {
-  const turn = promptAndCollectEvents(page, sessionId, prompt, timeoutMs);
-  let settled = false;
-  const marked = turn.finally(() => { settled = true; });
-  while (!settled) {
-    await pumpApprovals();
-    await new Promise((r) => setTimeout(r, 4_000));
-  }
-  return assistantTextFromEvents((await marked).events);
-}
+async function createVisibleAgentSession(workspacePath: string) {
+  const setup = await page.evaluate(async ({ folderPath, name }) => {
+    const workspace = await window.sero.workspace.addFolder(folderPath, name);
+    const sessions = await window.sero.sessions.list(workspace.id);
+    return { workspace, existingSessionIds: sessions.map((session) => session.id) };
+  }, { folderPath: workspacePath, name: 'Release Checklist Demo' });
 
-function newPluginDir(): string | undefined {
-  const untracked = git(wsDir, ['status', '--porcelain']).split('\n').filter((l) => l.startsWith('??')).map((l) => l.slice(3).trim());
-  for (const entry of untracked) {
-    const abs = path.join(wsDir, entry);
-    const stack = [abs];
-    while (stack.length) {
-      const cur = stack.pop()!;
-      if (!fs.existsSync(cur)) continue;
-      if (fs.statSync(cur).isDirectory()) {
-        if (path.basename(cur) === 'node_modules') continue;
-        stack.push(...fs.readdirSync(cur).map((f) => path.join(cur, f)));
-      } else if (path.basename(cur) === 'package.json') {
-        try {
-          if (JSON.parse(fs.readFileSync(cur, 'utf8'))?.sero?.app) return path.dirname(cur);
-        } catch { /* ignore */ }
-      }
-    }
-  }
-  return undefined;
-}
-
-test.skip(!REAL_HOME, 'flagship demo drives the real app: SERO_E2E_REAL_HOME=1');
-
-test('records the flagship "Sero builds itself a plugin" demo', async () => {
-  test.setTimeout(3_600_000);
-  const seroHome = path.join(os.homedir(), '.sero-ui');
-  wsDir = path.join(seroHome, 'workspaces', WS_NAME);
-  if (!fs.existsSync(path.join(wsDir, '.git'))) {
-    fs.mkdirSync(path.dirname(wsDir), { recursive: true });
-    execFileSync('git', ['clone', '-q', '--filter=blob:none', `https://github.com/${REPO_SLUG}.git`, wsDir]);
-  }
-  git(wsDir, ['reset', '--hard', 'origin/main']);
-  git(wsDir, ['clean', '-fdx', '-e', '.sero']);
-  fs.rmSync(path.join(wsDir, 'release-readiness.md'), { force: true });
-  fs.mkdirSync(path.join(wsDir, '.git', 'info'), { recursive: true });
-  fs.writeFileSync(path.join(wsDir, '.git', 'info', 'exclude'), '.sero/\n');
-
-  ({ app, page } = await launchSeroApp({ seroHome, runtime: 'host', env: {}, slowMo: 120 }));
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForShell(page);
-  await setDemoWindow(app, 1280, 720);
-  await installCaptionOverlay(page);
 
-  const fixture = await createOpenAgentSession(page, wsDir, 'Flagship demo');
-  sessionId = fixture.session.id;
+  const workspaceNode = page.getByTestId(`workspace-node-${setup.workspace.id}`);
+  await expect(workspaceNode).toBeVisible({ timeout: 10_000 });
+  await workspaceNode.locator('xpath=..').locator('[title="New session"]').click();
+
+  await expect.poll(async () => page.evaluate(async ({ workspaceId, existingSessionIds }) => {
+    const sessions = await window.sero.sessions.list(workspaceId);
+    return sessions.some((session) => !existingSessionIds.includes(session.id));
+  }, { workspaceId: setup.workspace.id, existingSessionIds: setup.existingSessionIds }), {
+    message: 'the visible New session action must create a session',
+    timeout: 10_000,
+  }).toBe(true);
+
+  await expect(page.locator(chat.emptyNoMessages)).toBeVisible({ timeout: 10_000 });
+}
+
+function selectFolderInNativeDialog(folderPath: string): void {
+  execFileSync('osascript', [
+    '-e', 'tell application "System Events"',
+    '-e', 'keystroke "g" using {command down, shift down}',
+    '-e', 'delay 0.5',
+    '-e', `keystroke ${JSON.stringify(folderPath)}`,
+    '-e', 'delay 0.5',
+    '-e', 'key code 36',
+    '-e', 'delay 1',
+    '-e', 'key code 36',
+    '-e', 'end tell',
+  ]);
+}
+
+async function installGeneratedPlugin(pluginPath: string): Promise<void> {
+  await clickForDemo(
+    page,
+    page.getByRole('button', { name: 'Open App Store' }),
+    interactions,
+    { name: 'Open App Store' },
+  );
+  const installButton = page.getByRole('button', { name: 'Install from folder' });
+  await clickForDemo(page, installButton, interactions, { name: 'Install from folder' });
+  selectFolderInNativeDialog(pluginPath);
+  await expect(
+    page.getByRole('heading', { name: 'Release Checklist', exact: true }),
+  ).toBeVisible({ timeout: 180_000 });
+}
+
+const interactions = createDemoInteractionLog();
+
+test.skip(!EXISTING_CDP, 'plugin workflow recording needs SERO_E2E_EXISTING_CDP');
+test.skip(process.platform !== 'darwin', 'native folder selection is automated on macOS');
+
+test('records the complete plugin workflow', async () => {
+  test.setTimeout(3_600_000);
+  const wsDir = prepareWorkspace();
+  ({ browser, page } = await connectToRunningSero({ slowMo: 100 }));
 
   const dir = demoOutDir();
-  const seg1 = path.join(dir, 'flagship-seg1-ask.mp4');
-  const card = path.join(dir, 'flagship-card.mp4');
-  const seg2 = path.join(dir, 'flagship-seg2-payoff.mp4');
-  let buildOk = false;
-  let reply = '';
-
-  // ── Kick off the real build turn in the background; the approval pump runs
-  //    inside drivenTurn. We record only its first ~30s (segment 1), let it
-  //    finish OFF-camera, then record the reliable payoff (segment 2).
-  const build = (async () => {
-    reply = await drivenTurn(FLAGSHIP_PROMPT, 3_000_000);
-    if (!newPluginDir()) {
-      reply = await drivenTurn(
-        'Finish the standalone, installable release-checklist plugin in this workspace (self-contained package, plain-React UI, published dependency versions only — no workspace links) so it builds and can be installed from its local folder. Do not commit or push.',
-        1_800_000,
-      );
-    }
-  })();
+  const rawPath = path.join(dir, 'plugin-build-raw.mp4');
+  const finalPath = path.join(dir, CAMPAIGN_CLIPS['plugin-build'].fileName);
+  const manifestPath = path.join(dir, 'plugin-build.json');
+  let recordedAt = 0;
+  let recordingStopped = false;
 
   try {
-    // ── SEGMENT 1: the ask + the real build starting (~32s) ──────────────
-    expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
-    await caption(page, 'I asked my AI workspace to build a feature for itself.', 4_000);
-    await caption(page, 'Build a release-checklist plugin — and run it inside Sero.', 4_000);
-    await caption(page, 'Sero plans it, then starts writing the plugin — live.', 3_000);
-    // Let real activity show (chat streams, files appear in the tree).
-    await page.waitForTimeout(18_000);
-    await caption(page, 'Building the full plugin…  ⏩ sped up', 3_000);
-    await stopRecordingRaw(page, seg1);
+    await waitForShell(page);
+    await createVisibleAgentSession(wsDir);
+    await installCaptionOverlay(page);
+    const input = page.locator(chat.input);
+    if (!(await input.isVisible())) {
+      await page.locator(layout.chatToggle).click();
+    }
+    await expect(input).toBeEnabled({ timeout: 10_000 });
+    expect(await startDemoRecording(page, { fps: 15, crf: 18 }, interactions)).toBe(true);
+    recordedAt = Date.now();
 
-    // ── Build finishes off-camera (this is the long, boring part) ────────
-    await build;
-    const pluginDir = newPluginDir();
-    expect(pluginDir, 'the agent must produce a sero.app plugin package').toBeTruthy();
-    const appId: string = JSON.parse(fs.readFileSync(path.join(pluginDir!, 'package.json'), 'utf8')).sero.app.id;
-
-    // ── SEGMENT 2: the reliable payoff — install → mount → report (~40s) ──
-    expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
-    await caption(page, 'Sero finished. I review what it built, then install it.', 3_500);
-    const installed = await page.evaluate((src) => window.sero.plugins.install(src), pluginDir!);
-    expect(Boolean((installed as { id?: string })?.id), 'plugin installs from its local folder').toBe(true);
-
-    await caption(page, 'It mounts inside Sero like any other app.', 3_000);
-    expect(await page.evaluate((id) => Boolean(window.__appControl?.openApp(id)), appId)).toBe(true);
-    await page.locator(`[data-app="${appId}"]`).first().waitFor({ state: 'visible', timeout: 30_000 });
-    await page.waitForTimeout(3_000);
-
-    await caption(page, 'And it produces a real release readiness report.', 3_000);
-    await page.locator(`[data-app="${appId}"]`).first().getByRole('button', { name: /generate/i }).click({ timeout: 10_000 }).catch(() => {});
-    await expect.poll(() => fs.existsSync(path.join(wsDir, 'release-readiness.md')), { timeout: 90_000 }).toBe(true);
-    buildOk = true;
-    await page.waitForTimeout(4_000);
-    await caption(page, 'Sero extended itself — reviewed, installed, running.', 4_500);
+    await caption(page, CAMPAIGN_CLIPS['plugin-build'].caption, 4_000);
     await clearCaption(page);
-    await page.waitForTimeout(1_200);
-    await stopRecordingRaw(page, seg2);
-  } finally {
-    fs.writeFileSync(path.join(dir, 'flagship-markers.json'), JSON.stringify({ buildOk, seg1, seg2, reply: reply.slice(0, 500) }, null, 2));
-    await closeSeroApp(app).catch(() => {});
-  }
+    await page.locator(chat.input).fill(PLUGIN_PROMPT);
 
-  // ── Assemble: seg1 + a "sped up" build card + seg2 → 1080p YouTube MP4 ──
-  expect(buildOk, 'the full flagship flow (build → install → report) must complete').toBe(true);
-  await titleCard('Sero builds the full plugin — sped up', 2.5, card);
-  const finalPath = path.join(dir, 'flagship-demo.mp4');
-  await concatDemo([seg1, card, seg2], finalPath);
-  // eslint-disable-next-line no-console
-  console.log(`\n\n=== FLAGSHIP DEMO: ${finalPath}\n    segments: ${seg1} | ${seg2} ===\n`);
-  expect(fs.existsSync(finalPath)).toBe(true);
+    const buildStartedAt = Date.now();
+    await clickForDemo(page, page.locator(chat.submitButton), interactions);
+    await expect(page.locator(chat.stopButton)).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(chat.stopButton)).toBeHidden({ timeout: 3_000_000 });
+    const buildFinishedAt = Date.now();
+
+    const pluginPath = path.join(wsDir, PLUGIN_FOLDER);
+    const packageFile = path.join(pluginPath, 'package.json');
+    expect(fs.existsSync(packageFile), 'the requested plugin package must exist').toBe(true);
+    const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8')) as { sero?: { app?: unknown } };
+    expect(packageJson.sero?.app, 'package.json must declare sero.app').toBeTruthy();
+
+    await installGeneratedPlugin(pluginPath);
+    const generateReport = page.getByRole('button', { name: 'Generate report' });
+    await clickForDemo(page, generateReport, interactions, { name: 'Generate report' });
+    const report = page.getByRole('region', { name: 'Release readiness report' });
+    await expect(report).toContainText('Latest release', { timeout: 120_000 });
+    expect(fs.existsSync(path.join(wsDir, 'release-readiness.md'))).toBe(true);
+
+    await caption(page, 'The release checklist is ready to use.', 6_000);
+    await clearCaption(page);
+    await page.waitForTimeout(2_000);
+    const rawResult = await stopRecordingRaw(page, rawPath);
+    recordingStopped = true;
+    expect(rawResult).toBeTruthy();
+
+    const buildStart = (buildStartedAt - recordedAt) / 1000;
+    const buildEnd = (buildFinishedAt - recordedAt) / 1000;
+    const acceleratedStart = Math.min(buildStart + 8, buildEnd);
+    const acceleratedDuration = Math.max(0, buildEnd - acceleratedStart);
+    const speed = Math.max(1, Math.min(16, acceleratedDuration / 35));
+    const segments = speed > 1
+      ? [{
+          start: acceleratedStart,
+          end: buildEnd,
+          speed,
+          label: 'TIMELAPSE',
+          realElapsedMs: Math.round(acceleratedDuration * 1000),
+        }]
+      : [];
+    await assembleDemo(rawPath, finalPath, segments);
+    const reviewSheet = path.join(dir, 'plugin-build-review.jpg');
+    await createReviewContactSheet(finalPath, reviewSheet);
+    const validation = await validateDemoVideo(finalPath, CAMPAIGN_CLIPS['plugin-build'], {
+      outputDir: dir,
+      visibleClickCount: interactions.visibleClickCount,
+    });
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      clip: CAMPAIGN_CLIPS['plugin-build'],
+      rawPath,
+      finalPath,
+      reviewSheet,
+      realBuildElapsedMs: buildFinishedAt - buildStartedAt,
+      segments,
+      visibleClickCount: interactions.visibleClickCount,
+      validation,
+    }, null, 2));
+    expect(validation.errors).toEqual([]);
+  } finally {
+    if (!recordingStopped) {
+      await stopRecordingRaw(page, rawPath).catch(() => null);
+    }
+    await browser.close().catch(() => {});
+  }
 });

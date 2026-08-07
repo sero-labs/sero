@@ -3,7 +3,7 @@
  * plugin development sessions.
  */
 
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
   SeroAppManifest,
@@ -46,6 +46,31 @@ async function pickPluginDevSourcePath(): Promise<string | null> {
   return result.filePaths[0] ?? null;
 }
 
+async function pickPluginInstallSourcePath(): Promise<string | null> {
+  const win = BrowserWindow.getFocusedWindow();
+  const options: OpenDialogOptions = {
+    properties: ['openDirectory'],
+    title: 'Install Plugin from Folder',
+    buttonLabel: 'Install Plugin',
+  };
+  const result = win
+    ? await dialog.showOpenDialog(win, options)
+    : await dialog.showOpenDialog(options);
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0] ?? null;
+}
+
+async function installAndActivatePlugin(source: string): Promise<SeroAppManifest> {
+  const manifest = await installPlugin(source);
+  disposeAppSessionsForApp(manifest.id);
+  await appRuntimeManager.reconcile();
+  broadcastPluginEvent({ type: 'installed', manifest });
+  reloadAllSessionResources().catch((err) => {
+    console.warn('[plugins] Failed to reload active chat session resources after install:', err);
+  });
+  return manifest;
+}
+
 export function registerPluginHandlers(): void {
   reconcileInstalledPluginActivation().catch((err) => {
     console.warn('[plugins] Failed to reconcile installed plugin activation state:', err);
@@ -53,15 +78,14 @@ export function registerPluginHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.plugins.install,
-    async (_event, source: string): Promise<SeroAppManifest> => {
-      const manifest = await installPlugin(source);
-      disposeAppSessionsForApp(manifest.id);
-      await appRuntimeManager.reconcile();
-      broadcastPluginEvent({ type: 'installed', manifest });
-      reloadAllSessionResources().catch((err) => {
-        console.warn('[plugins] Failed to reload active chat session resources after install:', err);
-      });
-      return manifest;
+    async (_event, source: string): Promise<SeroAppManifest> => installAndActivatePlugin(source),
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.installFromFolder,
+    async (): Promise<SeroAppManifest | null> => {
+      const source = await pickPluginInstallSourcePath();
+      return source ? installAndActivatePlugin(source) : null;
     },
   );
 

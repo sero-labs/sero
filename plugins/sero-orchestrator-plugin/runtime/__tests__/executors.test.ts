@@ -26,6 +26,13 @@ function inputFor(host: FakeHost, loop: Loop, stepId: string, workspace?: Resolv
 
 const outcome = (o: StepOutcome) => JSON.stringify(o);
 
+describe('STEP_SYSTEM_PROMPT', () => {
+  it('forbids launching another Sero process from a loop step', () => {
+    expect(STEP_SYSTEM_PROMPT).toContain('NEVER launch, restart, or stop Sero');
+    expect(STEP_SYSTEM_PROMPT).toContain('existing Sero host');
+  });
+});
+
 describe('parseStepOutcome', () => {
   it('parses the exact shape', () => {
     expect(parseStepOutcome('```json\n{"status":"succeeded","summary":"done"}\n```')?.status).toBe('succeeded');

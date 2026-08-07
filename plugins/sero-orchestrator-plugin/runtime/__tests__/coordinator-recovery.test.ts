@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Coordinator } from '../coordinator';
 import type { RecoveryDecision } from '../../shared/types';
 import { computeReadySteps } from '../readiness';
@@ -22,6 +22,53 @@ describe('Coordinator.revise (manual)', () => {
     expect(host.state.loops[0].plan.steps).toHaveLength(2);
     expect(host.state.loops[0].prompt).toBe('p'); // goal returned verbatim
     expect(host.state.loops[0].revisions.some((r) => r.status === 'applied')).toBe(true);
+  });
+
+  it('applies management limits returned with a revised plan', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({
+      response: JSON.stringify({
+        goal: 'p',
+        plan: sequentialPlan().plan,
+        limits: { maxConcurrentSteps: 2, maxWallClockMs: 21_600_000, maxTotalTokens: 2_000_000 },
+      }),
+    });
+
+    const res = await new Coordinator(host).revise('loop-1', 'allow six hours and two concurrent steps');
+
+    expect(res.ok).toBe(true);
+    expect(host.state.loops[0].limits).toMatchObject({
+      maxConcurrentSteps: 2,
+      maxWallClockMs: 21_600_000,
+      maxTotalTokens: 2_000_000,
+    });
+
+    const blocked = seedActiveLoop(host, oneStepPlan().plan);
+    blocked.status = 'blocked';
+    blocked.runtime.block = {
+      kind: 'management-limit',
+      reason: 'reached max total tokens (180000)',
+      createdAt: 't',
+      limit: 'maxTotalTokens',
+    };
+    host.state = { ...host.state, loops: [blocked] };
+    host.modelResponses.push({
+      response: JSON.stringify({
+        goal: 'p',
+        plan: oneStepPlan().plan,
+        limits: { maxTotalTokens: 2_000_000 },
+      }),
+    });
+
+    const coordinator = new Coordinator(host);
+    const runNext = vi.spyOn(coordinator, 'runNext').mockResolvedValue({ ok: true, loop: blocked });
+    const resumed = await coordinator.revise('loop-1', 'raise the token limit');
+
+    expect(resumed.ok).toBe(true);
+    expect(host.state.loops[0].status).not.toBe('blocked');
+    expect(host.state.loops[0].runtime.block).toBeUndefined();
+    expect(runNext).toHaveBeenCalledWith('loop-1', expect.objectContaining({ status: 'active' }));
   });
 
   it('rejects and records an invalid revised plan', async () => {

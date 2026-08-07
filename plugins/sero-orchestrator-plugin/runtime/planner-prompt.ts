@@ -55,8 +55,10 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
     ]
   },
   "suggestedTriggers": [ { "type": "manual"|"cron"|"event"|"hybrid", "schedule": string?, "eventSource": string?, "eventFilter": object?, "eventCondition": string?, "debounceMs": number?, "maxFires": number? } ]?,
-  "suggestedLimits": { "maxAttemptsPerStep": number?, "maxConcurrentSteps": number?, "maxTotalTokens": number? }?
+  "suggestedLimits": { "maxAttemptsPerStep": number?, "maxConcurrentSteps": number?, "maxWallClockMs": number?, "maxTotalTokens": number? }?
 }
+
+MANAGEMENT LIMITS. Use "suggestedLimits" when the default limits cannot fit the planned work. Choose a realistic wall-clock budget for the complete run, including long builds, recordings, or external operations. Keep concurrency within the number of genuinely independent steps.
 
 RECURRING / SCHEDULED LOOPS — read this before writing any step. If the GOAL asks the work to repeat on a cadence ("every 10 minutes", "hourly", "each morning", "twice a day", "check periodically"), the schedule itself is set up for you automatically — you do NOT need to add a trigger. Your job is to shape the plan as a SINGLE iteration that the orchestrator re-runs each interval:
 - The plan describes ONE pass of the work. NEVER create a step that waits, sleeps, delays, "waits before the next iteration", polls on a timer, or "repeats"/"loops" the plan. There is no such step — the schedule does that. A plan with a "wait" or "repeat" step is WRONG.

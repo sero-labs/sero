@@ -185,6 +185,10 @@ export interface AppRecordingOptions {
 /** Recording status info. */
 export interface AppRecordingStatus {
   recording: boolean;
+  /** True after the first frame has been captured. */
+  ready?: boolean;
+  /** Frames captured by the active recorder. */
+  frameCount?: number;
   startedAt?: string;
   durationMs?: number;
 }

@@ -8,12 +8,24 @@
  */
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { closeSeroApp, launchSeroApp } from './helpers';
+import { closeSeroApp, createTempSeroHome, launchWorkflowApp } from './helpers';
 import { waitForShell } from './helpers/workflow';
-import { caption, installCaptionOverlay, setDemoWindow, startDemoRecording, stopDemoRecording } from './helpers/demo';
+import {
+  caption,
+  collectDemoRecorderDiagnostics,
+  createDemoInteractionLog,
+  demoOutDir,
+  installCaptionOverlay,
+  openExplorerForDemo,
+  setDemoWindow,
+  startDemoRecording,
+  stopDemoRecording,
+  stopRecordingRaw,
+  switchExplorerPanelForDemo,
+} from './helpers/demo';
+import { probeVideo } from './helpers/demo-media';
 
 const REAL_HOME = process.env.SERO_E2E_REAL_HOME === '1';
 
@@ -25,33 +37,80 @@ test.skip(!REAL_HOME, 'needs SERO_E2E_REAL_HOME=1');
 test('captures a captioned, fixed-frame 1080p demo clip outside the repo', async () => {
   test.setTimeout(180_000);
 
-  ({ app, page } = await launchSeroApp({
-    seroHome: path.join(os.homedir(), '.sero-ui'),
+  const home = createTempSeroHome();
+  ({ app, page } = await launchWorkflowApp({
+    home,
     runtime: 'host',
-    env: {},
     slowMo: 150,
+  }).catch((error: unknown) => {
+    home.cleanup();
+    throw error;
   }));
-  await waitForShell(page);
-  await setDemoWindow(app, 1280, 800);
-  await installCaptionOverlay(page);
+  const interactions = createDemoInteractionLog();
+  const evidenceDir = demoOutDir();
+  const failedRaw = path.join(evidenceDir, 'smoke-demo-failed-raw.mp4');
+  const diagnosticsPath = path.join(evidenceDir, 'smoke-recorder-diagnostics.json');
+  let recorderStarted = false;
+  let recorderStopped = false;
+  let failure: string | null = null;
+  let out: Awaited<ReturnType<typeof stopDemoRecording>> = null;
 
-  expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
+  try {
+    await waitForShell(page);
+    await setDemoWindow(app, 1280, 800);
+    await installCaptionOverlay(page);
 
-  await caption(page, 'Sero is a workspace where AI agents come to work', 2_000);
-  await page.evaluate(() => window.__appControl?.openApp('orchestrator')).catch(() => {});
-  await caption(page, 'Durable loops run real workflows on a schedule', 2_500);
-  await page.evaluate(() => window.__appControl?.openApp('git')).catch(() => {});
-  await caption(page, 'Source control, terminal, browser — one place', 2_500);
-  await page.evaluate(() => window.__appControl?.openApp('memory')).catch(() => {});
-  await caption(page, 'And it remembers your projects across sessions', 2_500);
+    recorderStarted = await startDemoRecording(page, { fps: 15, crf: 20 }, interactions);
+    expect(recorderStarted).toBe(true);
+    await openExplorerForDemo(page, interactions);
+    await switchExplorerPanelForDemo(page, 'explorer', interactions);
 
-  const out = await stopDemoRecording(page, 'smoke-demo');
-  await closeSeroApp(app);
+    await caption(page, 'Sero keeps files, browser, terminal, and agent work together.', 2_000);
+    await switchExplorerPanelForDemo(page, 'browser', interactions);
+    await page.screenshot({ path: path.join(evidenceDir, 'smoke-browser.png') });
+    await caption(page, 'The visible Browser panel stays inside the workspace.', 2_500);
+
+    await switchExplorerPanelForDemo(page, 'orchestration', interactions);
+    await page.screenshot({ path: path.join(evidenceDir, 'smoke-orchestration.png') });
+    await caption(page, 'Orchestration shows active agent work.', 2_500);
+
+    await switchExplorerPanelForDemo(page, 'explorer', interactions);
+    await page.screenshot({ path: path.join(evidenceDir, 'smoke-explorer.png') });
+    await caption(page, 'Every panel switch is a visible, verified interaction.', 2_500);
+
+    expect(interactions.visiblePanels).toEqual(['explorer', 'browser', 'orchestration']);
+    expect(interactions.visibleClickCount).toBeGreaterThanOrEqual(3);
+    out = await stopDemoRecording(page, 'smoke-demo');
+    recorderStopped = true;
+    const stopped = await collectDemoRecorderDiagnostics(page, 'after clean stop');
+    interactions.recorderDiagnostics.push(stopped);
+    expect(stopped.recorder.recording).toBe(false);
+    expect(stopped.cursor.count).toBe(0);
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+    throw error;
+  } finally {
+    if (recorderStarted && !recorderStopped) {
+      await stopRecordingRaw(page, failedRaw).catch(() => null);
+    }
+    fs.writeFileSync(diagnosticsPath, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      failure,
+      recorderStarted,
+      recorderStopped,
+      interactions,
+    }, null, 2));
+    await closeSeroApp(app).catch(() => undefined);
+    home.cleanup();
+  }
 
   expect(out, 'a 1080p MP4 must be produced').toBeTruthy();
   expect(fs.existsSync(out!.youtube)).toBe(true);
   const fps = out!.frameCount / (out!.durationMs / 1000);
+  const probe = await probeVideo(out!.youtube);
+  expect(probe).toMatchObject({ codec: 'h264', pixelFormat: 'yuv420p', height: 1080 });
+  expect(fps).toBeGreaterThanOrEqual(10);
   // eslint-disable-next-line no-console
-  console.log(`\n\n=== DEMO: ${out!.youtube}\n    raw: ${out!.raw}\n    ${out!.frameCount} frames over ${Math.round(out!.durationMs / 1000)}s (~${fps.toFixed(1)} fps) ===\n`);
+  console.log(`\n\n=== DEMO: ${out!.youtube}\n    raw: ${out!.raw}\n    evidence: ${evidenceDir}/smoke-{browser,orchestration,explorer}.png\n    diagnostics: ${diagnosticsPath}\n    ${out!.frameCount} frames over ${Math.round(out!.durationMs / 1000)}s (~${fps.toFixed(1)} fps) ===\n`);
   expect(fs.statSync(out!.youtube).size).toBeGreaterThan(50_000);
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/persist-layout', () => ({ persistLayout: vi.fn() }));
 vi.mock('@/lib/open-app', () => ({ openApp: vi.fn() }));
@@ -52,13 +52,20 @@ describe('app control bridge — recording cursor', () => {
     initAppControlBridge();
   });
 
-  it('shows a renderer cursor at the latest pointer position while recording', () => {
-    expect(window.__appControl!.recordStart()).toBe(true);
+  afterEach(() => {
+    window.__appControl?.recordStop();
+    vi.useRealTimers();
+  });
 
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: 80 }));
+  it('shows the cursor before the first recorded movement and follows later movement', () => {
+    expect(window.__appControl!.recordStart()).toBe(true);
 
     const cursor = document.querySelector<HTMLElement>('[data-sero-recording-cursor]');
     expect(cursor).not.toBeNull();
+    expect(cursor?.style.display).toBe('block');
+    expect(cursor?.style.transform).toBe('translate(160px, 90px)');
+
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: 80 }));
     expect(cursor?.style.transform).toBe('translate(40px, 80px)');
 
     expect(window.__appControl!.recordStop()).toBe(true);
