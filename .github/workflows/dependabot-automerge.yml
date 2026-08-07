@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   maintainer:
-    if: github.event.pull_request.user.login == 'monobyte'
+    if: github.event.pull_request.user.login == 'monobyte' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - name: Enable squash auto-merge
