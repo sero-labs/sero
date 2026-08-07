@@ -84,12 +84,28 @@ function cliCommands(
   skills: InstalledAgentPlugin['skills'],
   servers: AgentPluginMcpServer[],
 ): InstalledAgentPlugin['cli'] {
+  const skillCommands: string[] = [];
+  const mcpCommands: string[] = [];
+  for (const skill of skills) {
+    if (skill.valid && skill.exposedToCli) skillCommands.push(`${namespace}/${skill.name}`);
+  }
+  for (const server of servers) {
+    if (server.valid && server.exposedToCli) mcpCommands.push(`${namespace}/${server.name}/<tool>`);
+  }
   return {
     enabled: true,
     namespace,
-    skillCommands: skills.filter((skill) => skill.valid && skill.exposedToCli).map((skill) => `${namespace}/${skill.name}`),
-    mcpCommands: servers.filter((server) => server.valid && server.exposedToCli).map((server) => `${namespace}/${server.name}/<tool>`),
+    skillCommands,
+    mcpCommands,
   };
+}
+
+function namesWhere<T extends { name: string }>(items: T[], include: (item: T) => boolean): Set<string> {
+  const names = new Set<string>();
+  for (const item of items) {
+    if (include(item)) names.add(item.name);
+  }
+  return names;
 }
 
 async function inspectStaged(
@@ -147,8 +163,8 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
         source: request.source,
         sourceKind: staged.sourceKind,
         approvedHash,
-        cliSkillNames: request.exposeToCli ? new Set(preview.skills.filter((skill) => skill.valid).map((skill) => skill.name)) : new Set(),
-        cliServerNames: request.exposeToCli ? new Set(preview.mcpServers.filter((server) => server.valid).map((server) => server.name)) : new Set(),
+        cliSkillNames: request.exposeToCli ? namesWhere(preview.skills, (skill) => skill.valid) : new Set(),
+        cliServerNames: request.exposeToCli ? namesWhere(preview.mcpServers, (server) => server.valid) : new Set(),
       });
       const now = new Date().toISOString();
       const plugin: InstalledAgentPlugin = {
@@ -206,8 +222,8 @@ async function inspectUpdate(plugin: InstalledAgentPlugin): Promise<{ staged: St
     source: plugin.source,
     sourceKind: staged.sourceKind,
     approvedHash: plugin.executableApprovalHash,
-    cliSkillNames: new Set(plugin.skills.filter((skill) => skill.exposedToCli).map((skill) => skill.name)),
-    cliServerNames: new Set(plugin.mcpServers.filter((server) => server.exposedToCli).map((server) => server.name)),
+    cliSkillNames: namesWhere(plugin.skills, (skill) => skill.exposedToCli),
+    cliServerNames: namesWhere(plugin.mcpServers, (server) => server.exposedToCli),
   });
   return { staged, inspection };
 }
@@ -222,13 +238,17 @@ export async function previewAgentPluginUpdate(id: string): Promise<AgentPluginU
     if (!update.inspection.valid || !update.inspection.manifest) throw new Error(update.inspection.diagnostics[0]?.message ?? 'Invalid update.');
     const diff = componentDiff(plugin, update.inspection);
     const nextCli = cliCommands(plugin.cli.namespace, update.inspection.skills, update.inspection.mcpServers);
+    const currentCliCommands = [...plugin.cli.skillCommands, ...plugin.cli.mcpCommands];
+    const nextCliCommands = [...nextCli.skillCommands, ...nextCli.mcpCommands];
+    const currentCliCommandSet = new Set(currentCliCommands);
+    const nextCliCommandSet = new Set(nextCliCommands);
     return {
       pluginId: id,
       previousVersion: plugin.manifest.version,
       nextVersion: update.inspection.manifest.version,
       ...diff,
-      addedCliCommands: nextCli.skillCommands.concat(nextCli.mcpCommands).filter((command) => !plugin.cli.skillCommands.includes(command) && !plugin.cli.mcpCommands.includes(command)),
-      removedCliCommands: plugin.cli.skillCommands.concat(plugin.cli.mcpCommands).filter((command) => !nextCli.skillCommands.includes(command) && !nextCli.mcpCommands.includes(command)),
+      addedCliCommands: nextCliCommands.filter((command) => !currentCliCommandSet.has(command)),
+      removedCliCommands: currentCliCommands.filter((command) => !nextCliCommandSet.has(command)),
       requiresExecutableApproval: update.inspection.approvalHash !== plugin.executableApprovalHash,
     };
   } finally {
@@ -262,8 +282,8 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
         source: current.source,
         sourceKind: staged.sourceKind,
         approvedHash,
-        cliSkillNames: new Set(current.skills.filter((skill) => skill.exposedToCli).map((skill) => skill.name)),
-        cliServerNames: new Set(current.mcpServers.filter((server) => server.exposedToCli).map((server) => server.name)),
+        cliSkillNames: namesWhere(current.skills, (skill) => skill.exposedToCli),
+        cliServerNames: namesWhere(current.mcpServers, (server) => server.exposedToCli),
       });
       const updated: InstalledAgentPlugin = {
         ...current,
@@ -310,8 +330,12 @@ export function setAgentPluginEnabled(id: string, enabled: boolean): Promise<Ins
 export function setAgentPluginCliExposure(request: AgentPluginCliSettingsRequest): Promise<InstalledAgentPlugin> {
   return serializeMutation(() => updateRecord(request.id, (plugin, all) => {
     const namespace = namespaceFor(request.namespaceAlias, plugin.cli.namespace || plugin.manifest.name, all, plugin.id);
-    const skillNames = new Set(request.skillNames ?? plugin.skills.filter((skill) => skill.valid).map((skill) => skill.name));
-    const serverNames = new Set(request.serverNames ?? plugin.mcpServers.filter((server) => server.valid).map((server) => server.name));
+    const skillNames = request.skillNames
+      ? new Set(request.skillNames)
+      : namesWhere(plugin.skills, (skill) => skill.valid);
+    const serverNames = request.serverNames
+      ? new Set(request.serverNames)
+      : namesWhere(plugin.mcpServers, (server) => server.valid);
     const skills = plugin.skills.map((skill) => ({ ...skill, exposedToCli: request.enabled && skill.valid && skillNames.has(skill.name) }));
     const servers = plugin.mcpServers.map((server) => ({ ...server, exposedToCli: request.enabled && server.valid && serverNames.has(server.name) }));
     return {
@@ -333,8 +357,8 @@ export function approveAgentPluginComponents(id: string): Promise<InstalledAgent
       source: plugin.source,
       sourceKind: plugin.sourceKind,
       approvedHash: undefined,
-      cliSkillNames: new Set(plugin.skills.filter((skill) => skill.exposedToCli).map((skill) => skill.name)),
-      cliServerNames: new Set(plugin.mcpServers.filter((server) => server.exposedToCli).map((server) => server.name)),
+      cliSkillNames: namesWhere(plugin.skills, (skill) => skill.exposedToCli),
+      cliServerNames: namesWhere(plugin.mcpServers, (server) => server.exposedToCli),
     });
     const approvedHash = inspection.approvalHash;
     return {
@@ -360,13 +384,18 @@ export function removeAgentPlugin(request: AgentPluginRemoveRequest): Promise<vo
 
 export function getAgentPluginMcpSources(): AgentPluginMcpSource[] {
   const plugins = readAgentPluginRegistrySync().plugins;
-  return plugins.flatMap((plugin) => (
-    plugin.enabled
-      ? plugin.mcpServers.filter((server) => server.valid && server.approved).map((server) => ({
-        pluginId: plugin.id,
-        pluginName: plugin.manifest.name,
-        server,
-      }))
-      : []
-  ));
+  const sources: AgentPluginMcpSource[] = [];
+  for (const plugin of plugins) {
+    if (!plugin.enabled) continue;
+    for (const server of plugin.mcpServers) {
+      if (server.valid && server.approved) {
+        sources.push({
+          pluginId: plugin.id,
+          pluginName: plugin.manifest.name,
+          server,
+        });
+      }
+    }
+  }
+  return sources;
 }

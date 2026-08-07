@@ -17,7 +17,6 @@ export function AgentPluginCard({
   focused?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [namespace, setNamespace] = useState(plugin.cli.namespace);
   const [retainData, setRetainData] = useState(true);
   const preview = controller.updatePreview?.pluginId === plugin.id ? controller.updatePreview : null;
   const validSkills = plugin.skills.filter((skill) => skill.valid);
@@ -60,7 +59,7 @@ export function AgentPluginCard({
             <div className="rounded-md border border-border/60 p-3 text-xs">
               <strong>Diagnostics</strong>
               <ul className="mt-2 space-y-1">
-                {plugin.diagnostics.map((item, index) => <li key={`${item.component}:${index}`} className={item.level === 'error' ? 'text-destructive' : 'text-muted-foreground'}>{item.componentName ? `${item.componentName}: ` : ''}{item.message}</li>)}
+                {plugin.diagnostics.map((item) => <li key={`${item.component}:${item.componentName ?? ''}:${item.message}`} className={item.level === 'error' ? 'text-destructive' : 'text-muted-foreground'}>{item.componentName ? `${item.componentName}: ` : ''}{item.message}</li>)}
               </ul>
             </div>
           )}
@@ -69,14 +68,14 @@ export function AgentPluginCard({
             <Button type="button" size="sm" onClick={() => void controller.approve(plugin.id)}>Approve local MCP execution</Button>
           )}
 
-          <div className="space-y-2 rounded-md border border-border/60 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={plugin.cli.enabled} onChange={(event) => void controller.setCliExposure({ id: plugin.id, enabled: event.target.checked, namespaceAlias: namespace })} />Expose through Sero CLI</label>
-              <Input value={namespace} onChange={(event) => setNamespace(event.target.value)} disabled={!plugin.cli.enabled} className="h-8 max-w-56 font-mono text-xs" />
-              {plugin.cli.enabled && <Button type="button" variant="outline" size="sm" onClick={() => void controller.setCliExposure({ id: plugin.id, enabled: true, namespaceAlias: namespace })}>Save namespace</Button>}
-            </div>
-            {plugin.cli.enabled && <p className="text-xs text-muted-foreground">{plugin.cli.skillCommands.concat(plugin.cli.mcpCommands).join(' · ') || 'No valid components are exposed.'}</p>}
-          </div>
+          <AgentPluginCliSettings
+            key={plugin.cli.namespace}
+            pluginId={plugin.id}
+            enabled={plugin.cli.enabled}
+            initialNamespace={plugin.cli.namespace}
+            commandSummary={plugin.cli.skillCommands.concat(plugin.cli.mcpCommands).join(' · ')}
+            controller={controller}
+          />
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" disabled={availableServers.length === 0} onClick={() => void openSeroApp('mcp', { serverName: availableServers[0]!.runtimeName })}><PlugZap className="mr-2 size-4" />Open owned servers in MCP</Button>
@@ -102,6 +101,32 @@ export function AgentPluginCard({
         </div>
       )}
     </li>
+  );
+}
+
+function AgentPluginCliSettings({
+  pluginId,
+  enabled,
+  initialNamespace,
+  commandSummary,
+  controller,
+}: {
+  pluginId: string;
+  enabled: boolean;
+  initialNamespace: string;
+  commandSummary: string;
+  controller: AgentPluginsController;
+}) {
+  const [namespace, setNamespace] = useState(() => initialNamespace);
+  return (
+    <div className="space-y-2 rounded-md border border-border/60 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={enabled} onChange={(event) => void controller.setCliExposure({ id: pluginId, enabled: event.target.checked, namespaceAlias: namespace })} />Expose through Sero CLI</label>
+        <Input value={namespace} onChange={(event) => setNamespace(event.target.value)} disabled={!enabled} className="h-8 max-w-56 font-mono text-xs" />
+        {enabled && <Button type="button" variant="outline" size="sm" onClick={() => void controller.setCliExposure({ id: pluginId, enabled: true, namespaceAlias: namespace })}>Save namespace</Button>}
+      </div>
+      {enabled && <p className="text-xs text-muted-foreground">{commandSummary || 'No valid components are exposed.'}</p>}
+    </div>
   );
 }
 

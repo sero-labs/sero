@@ -7,8 +7,10 @@ export function isPathInside(root: string, target: string): boolean {
 }
 
 export async function resolveContainedPath(root: string, target: string): Promise<string> {
-  const realRoot = await fs.realpath(root);
-  const realTarget = await fs.realpath(target);
+  const [realRoot, realTarget] = await Promise.all([
+    fs.realpath(root),
+    fs.realpath(target),
+  ]);
   if (!isPathInside(realRoot, realTarget)) {
     throw new Error(`Package path resolves outside the Agent Plugin root: ${target}`);
   }

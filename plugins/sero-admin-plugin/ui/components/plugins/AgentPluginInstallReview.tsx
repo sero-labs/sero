@@ -27,8 +27,10 @@ export function AgentPluginInstallReview({
   onInstall: () => void;
   onCancel: () => void;
 }) {
-  const stdioCount = inspection.mcpServers.filter((server) => server.transport === 'stdio' && server.valid).length;
-  const remoteCount = inspection.mcpServers.filter((server) => server.transport !== 'stdio' && server.valid).length;
+  const validSkills = inspection.skills.filter((skill) => skill.valid);
+  const validServers = inspection.mcpServers.filter((server) => server.valid);
+  const stdioCount = validServers.filter((server) => server.transport === 'stdio').length;
+  const remoteCount = validServers.length - stdioCount;
   return (
     <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -43,7 +45,7 @@ export function AgentPluginInstallReview({
       </div>
 
       <div className="grid gap-3 text-xs sm:grid-cols-3">
-        <ComponentSummary label="Skills" value={inspection.skills.filter((skill) => skill.valid).length} />
+        <ComponentSummary label="Skills" value={validSkills.length} />
         <ComponentSummary label="Local MCP executables" value={stdioCount} />
         <ComponentSummary label="Remote MCP endpoints" value={remoteCount} />
       </div>
@@ -55,8 +57,8 @@ export function AgentPluginInstallReview({
 
       {inspection.diagnostics.length > 0 && (
         <ul className="space-y-1 rounded-md border border-border/60 bg-background/60 p-3 text-xs">
-          {inspection.diagnostics.map((item, index) => (
-            <li key={`${item.component}:${item.componentName ?? ''}:${index}`} className={item.level === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+          {inspection.diagnostics.map((item) => (
+            <li key={`${item.component}:${item.componentName ?? ''}:${item.message}`} className={item.level === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
               {item.componentName ? `${item.componentName}: ` : ''}{item.message}
             </li>
           ))}
@@ -80,8 +82,8 @@ export function AgentPluginInstallReview({
           <label htmlFor="agent-plugin-cli-namespace" className="text-xs text-muted-foreground">CLI namespace</label>
           <Input id="agent-plugin-cli-namespace" value={namespace} onChange={(event) => onNamespaceChange(event.target.value)} className="h-8 font-mono text-xs" />
           <div className="flex flex-wrap gap-1.5">
-            {inspection.skills.filter((skill) => skill.valid).map((skill) => <Badge key={skill.name} variant="outline">{namespace}/{skill.name}</Badge>)}
-            {inspection.mcpServers.filter((server) => server.valid).map((server) => <Badge key={server.name} variant="outline">{namespace}/{server.name}/&lt;tool&gt;</Badge>)}
+            {validSkills.map((skill) => <Badge key={skill.name} variant="outline">{namespace}/{skill.name}</Badge>)}
+            {validServers.map((server) => <Badge key={server.name} variant="outline">{namespace}/{server.name}/&lt;tool&gt;</Badge>)}
           </div>
         </div>
       )}

@@ -64,14 +64,14 @@ export async function withAgentPluginMcpSources(userConfig: McpConfigDocument): 
     requestAgentPluginMcpSources(),
     readAgentPluginClientState(),
   ]);
-  const managedServers = Object.fromEntries(
-    sources
-      .filter((source) => source.server.valid && source.server.approved)
-      .map((source) => [
-        source.server.runtimeName,
-        toServerConfig(source, clientState.servers[source.server.runtimeName]?.enabled ?? true),
-      ]),
-  );
+  const managedServers: Record<string, McpServerConfig> = {};
+  for (const source of sources) {
+    if (!source.server.valid || !source.server.approved) continue;
+    managedServers[source.server.runtimeName] = toServerConfig(
+      source,
+      clientState.servers[source.server.runtimeName]?.enabled ?? true,
+    );
+  }
   return {
     ...userConfig,
     mcpServers: {
