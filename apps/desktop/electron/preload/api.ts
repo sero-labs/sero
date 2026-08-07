@@ -33,6 +33,7 @@ import {
 } from './apps/app-domain';
 import { browserBridge } from './apps/browser';
 import { pluginsBridge } from './integrations/plugins';
+import { agentPluginsBridge } from './integrations/agent-plugins';
 import { orchestratorBridge } from './integrations/orchestrator';
 import {
   agentBridge,
@@ -76,6 +77,7 @@ export const seroPreloadApi = {
   orchestrator: orchestratorBridge,
   github: githubBridge,
   plugins: pluginsBridge,
+  agentPlugins: agentPluginsBridge,
   terminal: terminalBridge,
   layout: layoutBridge,
   themes: themesBridge,

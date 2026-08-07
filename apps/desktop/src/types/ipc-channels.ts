@@ -9,6 +9,7 @@ import { appAgentIpcChannels } from './ipc-channels-app-agent';
 import { workspaceIpcChannels } from './ipc-channels-workspace';
 import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
+import { agentPluginIpcChannels, pluginIpcChannels } from './ipc-channels-plugins';
 import {
   feedbackIpcChannels,
   gatewayIpcChannels,
@@ -407,24 +408,8 @@ export const IpcChannels = {
     event: 'sero:collaboration:event',
   },
   gateway: gatewayIpcChannels,
-  plugins: {
-    /** Install a plugin from a source (npm:, git:, or local path). */
-    install: 'sero:plugins:install',
-    /** Uninstall a plugin by ID. */
-    uninstall: 'sero:plugins:uninstall',
-    /** List all installed plugins. */
-    list: 'sero:plugins:list',
-    listDevSessions: 'sero:plugins:list-dev-sessions',
-    startDevSession: 'sero:plugins:start-dev-session',
-    refreshDevSession: 'sero:plugins:refresh-dev-session',
-    stopDevSession: 'sero:plugins:stop-dev-session',
-    /** Check if a specific app is an installed plugin. */
-    isPlugin: 'sero:plugins:is-plugin',
-    /** Search for public plugins on GitHub (topic) and npm (keyword). */
-    search: 'sero:plugins:search',
-    /** Main → renderer push: plugin install and dev-session lifecycle changes. */
-    event: 'sero:plugins:event',
-  },
+  plugins: pluginIpcChannels,
+  agentPlugins: agentPluginIpcChannels,
   appControl: {
     /** List all available apps with manifest info. */
     list: 'sero:app-control:list',

@@ -108,6 +108,8 @@ async function createServerSnapshot(
     lastFailedAt: runtimeStatus?.lastFailedAt ?? null,
     resources,
     uiTools,
+    source: serverConfig.managedByAgentPlugin ? 'agent-plugin' : 'user',
+    managedByAgentPlugin: serverConfig.managedByAgentPlugin,
   };
 }
 

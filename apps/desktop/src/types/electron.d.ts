@@ -20,7 +20,7 @@ import type {
   SeroPluginConfigAPI,
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
-import type { SeroUserFeedbackBridge } from '@sero-ai/common';
+import type { SeroAgentPluginsBridge, SeroUserFeedbackBridge } from '@sero-ai/common';
 import type {
   ProfileInfo,
   SeroSessionInfo,
@@ -455,6 +455,7 @@ export interface SeroAPI {
   modelConfig: SeroModelConfigAPI;
   onboarding: SeroOnboardingAPI;
   plugins: SeroPluginsAPI;
+  agentPlugins: SeroAgentPluginsBridge;
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;
   doctor: SeroDoctorAPI;

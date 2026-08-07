@@ -27,6 +27,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 
 ## Plugin author facts
 
+- [Agent Plugins](/reference/agent-plugins) — portable Agent Skills, managed MCP servers, permissions, storage, and CLI exposure.
 - [Plugins](/reference/plugins) — distribution modes, local development, and beta guidance.
 - [App Runtime](/reference/app-runtime) — `@sero-ai/app-runtime` hooks, bridge APIs, and widget registry.
 - [Plugin Author Quick Path](/reference/plugin-author-quick-path) — practical path from package shape to extension, UI, runtime, and widgets.

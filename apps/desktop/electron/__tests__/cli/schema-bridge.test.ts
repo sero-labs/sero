@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createJsonSchemaCliAdapter } from '@electron/cli/core';
 
 /**
  * Mirrors the coerceValue + schemaToParams logic from schema-bridge.ts.
@@ -74,5 +75,30 @@ describe('coerceValue', () => {
   it('handles boolean true (bare flag)', () => {
     const prop: SchemaProp = { name: 'verbose', type: 'boolean', description: '', required: false };
     expect(coerceValue(true, prop)).toBe(true);
+  });
+});
+
+describe('cached MCP JSON Schema CLI adapter', () => {
+  it('maps safe object schemas to flags and typed values', () => {
+    const adapter = createJsonSchemaCliAdapter('portable/deploy/release', 'Create a release', {
+      type: 'object',
+      properties: {
+        environment: { type: 'string', description: 'Target environment' },
+        dryRun: { type: 'boolean' },
+      },
+      required: ['environment'],
+    });
+    expect(adapter.jsonMode).toBe(false);
+    expect(adapter.parse(['staging', '--dryRun'])).toEqual({ environment: 'staging', dryRun: true });
+    expect(adapter.help).toContain('sero portable/deploy/release <environment>');
+  });
+
+  it('uses explicit JSON mode for unsupported compound schemas', () => {
+    const adapter = createJsonSchemaCliAdapter('portable/deploy/release', 'Create a release', {
+      oneOf: [{ type: 'object' }, { type: 'string' }],
+    });
+    expect(adapter.jsonMode).toBe(true);
+    expect(adapter.parse(['{"environment":"staging"}'])).toEqual({ environment: 'staging' });
+    expect(() => adapter.parse(['[]'])).toThrow('must be a JSON object');
   });
 });

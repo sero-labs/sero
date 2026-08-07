@@ -55,6 +55,12 @@ export interface McpServerSnapshot {
   lastFailedAt?: string | null;
   resources: McpResourceSummary[];
   uiTools: McpUiToolSummary[];
+  source?: 'user' | 'agent-plugin';
+  managedByAgentPlugin?: {
+    pluginId: string;
+    pluginName: string;
+    serverName: string;
+  };
 }
 
 export interface McpSummary {

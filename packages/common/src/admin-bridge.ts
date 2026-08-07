@@ -1,4 +1,5 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
+import type { SeroAgentPluginsBridge } from './agent-plugins';
 import type { PluginDevSessionIPC } from './plugin-dev';
 import type { InstalledPlugin, PluginChangeEventIPC } from './plugins';
 import type {
@@ -446,6 +447,7 @@ export interface SeroAdminBridge {
   shell: SeroShellBridge;
   workspace: SeroWorkspaceBridge;
   plugins: SeroPluginsBridge;
+  agentPlugins: SeroAgentPluginsBridge;
   auth: SeroAuthBridge;
   subagent: SeroSubagentBridge;
   skills: SeroSkillsBridge;

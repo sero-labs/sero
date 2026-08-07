@@ -503,3 +503,39 @@ store.
 
 Pi SDK packages use workspace catalogs. The strict development version is
 `0.83.0`, and packages that exchange Pi objects require `>=0.83.0` peers.
+
+## AD-027: Agent Plugins Are a Separate Host-Owned Subsystem
+
+**Decision:** Sero supports the portable Agent Plugins v1 format through a
+separate Electron-owned registry and lifecycle. Agent Plugins are not Sero
+plugins, Pi packages, or sidebar apps.
+
+- Installed package content is immutable under
+  `<SERO_AGENT_DIR>/agent-plugins/<install-id>/`.
+- Writable state is under
+  `<SERO_AGENT_DIR>/agent-plugin-data/<install-id>/` and survives updates.
+- `<SERO_AGENT_DIR>/agent-plugins.json` owns provenance, enablement,
+  executable approval, diagnostics, and optional CLI exposure.
+- The host validates the bundled v1 schemas and package boundaries before a
+  component reaches Pi or MCP. It never retrieves schemas while it loads a
+  package.
+- Valid Agent Skills enter Pi through the resource-loader override and active
+  session reload. Sero does not add the package to Pi settings or create a
+  synthetic `package.json`.
+- The MCP app reads an effective, read-only Agent Plugin source. Portable
+  definitions never enter the user's raw MCP config. Runtime identities use
+  `agent-plugin:<install-id>:<server-name>`.
+- Namespaced CLI exposure is Sero-owned and off by default. Skill commands load
+  instructions into the current agent. MCP commands call the existing MCP
+  runtime and cannot bypass approval, auth, lifecycle, exclusions, or scope.
+
+**Rules:**
+
+- Use the full term **Agent Plugin** in types, code, and product copy.
+- A package with both contracts remains two independent installations.
+- Local stdio execution needs explicit approval. An update that changes the
+  executable definition needs renewed approval.
+- Keep `PLUGIN_ROOT` immutable and `PLUGIN_DATA` persistent. Expand only the
+  two exact v1 placeholders in `args`, `env` values, and `cwd`.
+- Invalid skills and MCP entries fail independently. A fatal manifest error is
+  the only portable error that blocks all components.

@@ -19,6 +19,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
 import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
+import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
@@ -55,6 +56,7 @@ export function createSeroExtensionFactory(
 ) {
   return (pi: ExtensionAPI) => {
     registerSharedIsolatedCompletionHost(pi.events);
+    registerAgentPluginHostCapability(pi.events);
 
     // ── System prompt injection ───────────────────────────────
 

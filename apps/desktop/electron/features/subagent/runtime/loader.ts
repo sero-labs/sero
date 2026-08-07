@@ -20,6 +20,7 @@ import { buildCliPromptBlock } from '@electron/cli';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
+import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 
 /**
  * Creates a reduced extension factory for subagent child sessions.
@@ -36,6 +37,7 @@ export function createSubagentExtensionFactory(
 ) {
   return (pi: ExtensionAPI) => {
     registerSharedIsolatedCompletionHost(pi.events);
+    registerAgentPluginHostCapability(pi.events);
 
     // ── System prompt injection (CLI + container) ─────────────
     pi.on('before_agent_start', async (event) => {

@@ -13,6 +13,8 @@ const runMock = vi.fn();
 const serverCrudRenderMock = vi.fn();
 
 vi.mock('@sero-ai/app-runtime', () => ({
+  consumeAppLaunchParams: () => undefined,
+  onAppLaunchParams: () => () => {},
   useAppState: (initialState: McpAppState) => useAppStateMock(initialState),
   useAppTools: () => useAppToolsMock(),
 }));
@@ -117,7 +119,8 @@ describe('McpApp', () => {
             resourceCount: 2,
             uiToolCount: 1,
             resources: [],
-            uiTools: [],
+          uiTools: [],
+          source: 'user',
           },
         ],
       }),
@@ -151,7 +154,8 @@ describe('McpApp', () => {
             resourceCount: 2,
             uiToolCount: 1,
             resources: [],
-            uiTools: [],
+          uiTools: [],
+          source: 'user',
           },
         ],
       }),

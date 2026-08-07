@@ -29,6 +29,7 @@ import {
   replaceBridgedExtensionSessionItems,
 } from './bridges/extension-session-bridge';
 import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features/plugins/bridge-policy';
+import { buildAgentPluginCliCommands } from '../features/agent-plugins/cli';
 
 let registry: CliRegistry | null = null;
 
@@ -57,8 +58,14 @@ export function getCliRegistry(): CliRegistry {
   if (!registry) {
     registry = new CliRegistry();
     registerCoreCommands(registry);
+    registry.setAgentPluginCommandProvider(() => buildAgentPluginCliCommands(registry!));
   }
   return registry;
+}
+
+export function refreshAgentPluginCliCommands(): void {
+  if (!registry) return;
+  registry.refreshAgentPluginCommands();
 }
 
 export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {

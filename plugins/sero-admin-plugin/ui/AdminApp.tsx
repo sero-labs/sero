@@ -8,7 +8,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
+import {
+  consumeAppLaunchParams,
+  onAppLaunchParams,
+  useAppState,
+} from '@sero-ai/app-runtime';
 import type { AdminSection, AdminState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useProfiles';
@@ -39,6 +43,10 @@ function normalizeSection(section: AdminState['lastSection'] | 'modelDefaults' |
 
 export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
+  const [linkedAgentPluginId, setLinkedAgentPluginId] = useState<string | null>(() => {
+    const params = consumeAppLaunchParams<{ agentPluginId?: unknown }>('admin');
+    return typeof params?.agentPluginId === 'string' ? params.agentPluginId : null;
+  });
   const { activeProfile, loading: profilesLoading } = useProfiles();
 
   const [resourceLoading, setResourceLoading] = useState(true);
@@ -61,10 +69,18 @@ export function AdminApp() {
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
-  const activeSection = normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
+  const activeSection = linkedAgentPluginId
+    ? 'plugins'
+    : normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
   const selectedConfigKey = state.lastConfigKey;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
+
+  useEffect(() => {
+    return onAppLaunchParams<{ agentPluginId?: unknown }>('admin', (params) => {
+      if (typeof params.agentPluginId === 'string') setLinkedAgentPluginId(params.agentPluginId);
+    });
+  }, []);
 
   useEffect(() => {
     setResourceLoading(true);
@@ -115,6 +131,7 @@ export function AdminApp() {
 
   const handleSectionChange = useCallback((section: AdminSection) => {
     setError(null);
+    setLinkedAgentPluginId(null);
     updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
@@ -278,7 +295,7 @@ export function AdminApp() {
         return <ModelPanel />;
 
       case 'plugins':
-        return <PluginsPanel />;
+        return <PluginsPanel focusedAgentPluginId={linkedAgentPluginId} />;
 
       case 'logs':
         return <LogViewer />;

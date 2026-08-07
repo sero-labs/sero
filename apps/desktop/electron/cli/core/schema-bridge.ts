@@ -45,7 +45,7 @@ export function getBridgedToolTimeoutMs(toolName: string): number | undefined {
 
 type SchemaPropType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
 
-interface SchemaProp {
+export interface SchemaProp {
   name: string;
   type: SchemaPropType;
   description: string;
@@ -55,8 +55,8 @@ interface SchemaProp {
   itemsSchema?: Record<string, unknown>;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getAnyOfVariants(schema: Record<string, unknown>): Record<string, unknown>[] {
@@ -64,12 +64,12 @@ function getAnyOfVariants(schema: Record<string, unknown>): Record<string, unkno
   return Array.isArray(anyOf) ? anyOf.filter(isRecord) : [];
 }
 
-function getSchemaProperties(schema: Record<string, unknown>): Record<string, unknown> {
+export function getSchemaProperties(schema: Record<string, unknown>): Record<string, unknown> {
   const properties = schema.properties;
   return isRecord(properties) ? properties : {};
 }
 
-function getRequiredKeys(schema: Record<string, unknown>): Set<string> {
+export function getRequiredKeys(schema: Record<string, unknown>): Set<string> {
   const required = schema.required;
   return new Set(
     Array.isArray(required)
@@ -103,7 +103,7 @@ function extractEnumValues(resolved: Record<string, unknown>): string[] | undefi
   return anyOfValues.length ? anyOfValues : undefined;
 }
 
-function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
+export function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
   const properties = getSchemaProperties(schema);
   const required = getRequiredKeys(schema);
   const props: SchemaProp[] = [];
@@ -133,7 +133,7 @@ function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
   return props;
 }
 
-function getCliParamType(type: SchemaPropType): 'string' | 'number' | 'boolean' {
+export function getCliParamType(type: SchemaPropType): 'string' | 'number' | 'boolean' {
   if (type === 'number' || type === 'integer') return 'number';
   if (type === 'boolean') return 'boolean';
   return 'string';
@@ -159,7 +159,7 @@ function coerceValue(value: string | true, prop: SchemaProp): unknown {
   return value;
 }
 
-function schemaToParams(
+export function schemaToParams(
   props: SchemaProp[],
   args: string[],
 ): Record<string, unknown> {
@@ -245,7 +245,7 @@ function buildJsonExample(schema: Record<string, unknown>): Record<string, unkno
   return example;
 }
 
-function generateHelp(
+export function generateHelp(
   name: string,
   description: string,
   props: SchemaProp[],

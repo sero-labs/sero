@@ -5,6 +5,8 @@ import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
 import { readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
 import { ensureConfigFile, getConfigUpdatedAt, writeConfig } from '../config/io';
+import { withAgentPluginMcpSources } from '../config/agent-plugin-source';
+import { setAgentPluginServerEnabled } from '../config/agent-plugin-client-state';
 import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
@@ -65,7 +67,9 @@ function createMcpRuntime(): McpRuntime {
     isEnabled: () => sessionRefCount > 0,
     onTick: async () => {
       await runExclusive(async () => {
-        const config = lastState?.config ?? await ensureConfigFile(getMcpConfigPath());
+        const config = lastState?.config ?? await withAgentPluginMcpSources(
+          await ensureConfigFile(getMcpConfigPath()),
+        );
         await reconcileManagedServers(lastKnownCwd, config, 'keep-alive');
       });
     },
@@ -235,6 +239,22 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult('Error: Server name is required.', { snapshotWritten: false });
     }
     try {
+      const effectiveConfig = await withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
+      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
+      if (managedServer?.managedByAgentPlugin) {
+        if (!enabled) {
+          await manager.close(normalizedServerName);
+          runtimeStatuses.delete(normalizedServerName);
+        }
+        await setAgentPluginServerEnabled(normalizedServerName, enabled);
+        const synced = await syncSnapshot(cwd);
+        return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} managed MCP server "${managedServer.managedByAgentPlugin.serverName}".`, {
+          snapshotWritten: true,
+          configPath: synced.configPath,
+          statePath: synced.statePath,
+          serverCount: synced.snapshot.summary.totalServers,
+        });
+      }
       if (!enabled) {
         await manager.close(normalizedServerName);
         runtimeStatuses.delete(normalizedServerName);
@@ -403,9 +423,10 @@ function createMcpRuntime(): McpRuntime {
   }
   async function writeConfigAndSyncSnapshot(cwd: string | undefined, config: McpConfigDocument, metadataCacheOverride?: McpMetadataCacheDocument): Promise<SyncedRuntimeState> {
     const configPath = getMcpConfigPath();
-    const previousConfig = await ensureConfigFile(configPath);
+    const previousConfig = await withAgentPluginMcpSources(await ensureConfigFile(configPath));
     let metadataCache = metadataCacheOverride ?? await readMetadataCache();
-    for (const serverName of getChangedServerNames(previousConfig, config)) {
+    const effectiveConfig = await withAgentPluginMcpSources(config);
+    for (const serverName of getChangedServerNames(previousConfig, effectiveConfig)) {
       await uiSessions.closeIfServerMatches(serverName);
       await manager.close(serverName);
       runtimeStatuses.delete(serverName);
@@ -413,8 +434,8 @@ function createMcpRuntime(): McpRuntime {
     }
     await writeConfig(config, configPath);
     const rawConfigUpdatedAt = await getConfigUpdatedAt(configPath);
-    const synced = await syncSnapshot(cwd, { config, rawConfigUpdatedAt, metadataCache });
-    return await reconcileManagedServers(cwd, config, 'startup') ?? synced;
+    const synced = await syncSnapshot(cwd, { config: effectiveConfig, rawConfigUpdatedAt, metadataCache });
+    return await reconcileManagedServers(cwd, effectiveConfig, 'startup') ?? synced;
   }
   async function syncSnapshot(cwd?: string, options: SyncSnapshotOptions = {}): Promise<SyncedRuntimeState> {
     if (cwd) {
@@ -424,11 +445,12 @@ function createMcpRuntime(): McpRuntime {
     const configPath = getMcpConfigPath();
     const statePath = getMcpStatePath(resolvedCwd);
     await ensureOAuthDir();
-    const [config, rawConfigUpdatedAt, metadataCache] = await Promise.all([
+    const [baseConfig, rawConfigUpdatedAt, metadataCache] = await Promise.all([
       options.config !== undefined ? Promise.resolve(options.config) : ensureConfigFile(configPath),
       options.rawConfigUpdatedAt != null ? Promise.resolve(options.rawConfigUpdatedAt) : getConfigUpdatedAt(configPath),
       options.metadataCache !== undefined ? Promise.resolve(options.metadataCache) : readMetadataCache(),
     ]);
+    const config = await withAgentPluginMcpSources(baseConfig);
     const snapshot = await buildSnapshot({
       configPath,
       rawConfigUpdatedAt,

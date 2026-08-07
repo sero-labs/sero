@@ -1,4 +1,6 @@
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -108,11 +110,15 @@ export class McpServerManager {
   }
 
   private async connectStdio(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
+    const pluginData = definition.env?.PLUGIN_DATA;
+    if (pluginData && definition.cwd && isPathInside(pluginData, definition.cwd)) {
+      await fs.mkdir(definition.cwd, { recursive: true });
+    }
     const client = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
     const transport = new StdioClientTransport({
       command: definition.command!,
       args: definition.args ?? [],
-      env: resolveEnv(definition.env),
+      env: resolveEnv(definition.env, definition.literalEnv === true),
       cwd: definition.cwd,
       stderr: definition.debug ? 'inherit' : 'ignore',
     });
@@ -143,6 +149,10 @@ export class McpServerManager {
         })
       : undefined;
 
+    if (definition.portableTransport === 'sse') {
+      return this.connectSse(name, url, requestInit);
+    }
+
     const streamableClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
@@ -157,8 +167,19 @@ export class McpServerManager {
       if (error instanceof UnauthorizedError) {
         return this.createDisconnectedConnection(name, 'needs-auth', 'Authentication is required before connecting.');
       }
+      if (definition.portableTransport === 'streamable-http') {
+        return this.createErrorConnection(name, error);
+      }
     }
 
+    return this.connectSse(name, url, requestInit);
+  }
+
+  private async connectSse(
+    name: string,
+    url: URL,
+    requestInit: { headers?: Record<string, string>; redirect?: 'manual' },
+  ): Promise<ManagedConnection> {
     const sseClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
     const sseTransport = new SSEClientTransport(url, { requestInit });
     try {
@@ -251,8 +272,9 @@ export class McpServerManager {
   }
 }
 
-function resolveEnv(env: Record<string, string> | undefined): Record<string, string> | undefined {
+function resolveEnv(env: Record<string, string> | undefined, literal: boolean): Record<string, string> | undefined {
   if (!env) return undefined;
+  if (literal) return { ...env };
   return Object.fromEntries(
     Object.entries(env).map(([key, value]) => [key, expandEnvReferences(value)]),
   );
@@ -262,12 +284,20 @@ function expandEnvReferences(value: string): string {
   return value.replace(/\$\{([^}]+)\}/g, (_match, key: string) => process.env[key] ?? '');
 }
 
-function buildRequestInit(definition: McpServerConfig, bearerToken?: string): { headers?: Record<string, string> } | undefined {
+function buildRequestInit(
+  definition: McpServerConfig,
+  bearerToken?: string,
+): { headers?: Record<string, string>; redirect?: 'manual' } {
   const headers: Record<string, string> = { ...(definition.headers ?? {}) };
   if (bearerToken) {
     headers.Authorization = `Bearer ${bearerToken}`;
   }
-  return Object.keys(headers).length > 0 ? { headers } : undefined;
+  return Object.keys(headers).length > 0 ? { headers, redirect: 'manual' } : { redirect: 'manual' };
+}
+
+function isPathInside(root: string, target: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function normalizeTools(rawTools: unknown): ManagedTool[] {

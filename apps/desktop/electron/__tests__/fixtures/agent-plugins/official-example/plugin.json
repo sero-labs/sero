@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-plugins-example",
+  "version": "1.0.0",
+  "description": "Sero test fixture based on the official Agent Plugins v1 example."
+}

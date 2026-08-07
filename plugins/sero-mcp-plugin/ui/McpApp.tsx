@@ -1,5 +1,9 @@
-import { memo, useMemo, useState } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
+import { memo, useEffect, useMemo, useState } from 'react';
+import {
+  consumeAppLaunchParams,
+  onAppLaunchParams,
+  useAppState,
+} from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -27,8 +31,15 @@ export function McpApp() {
   const bootstrap = useMcpBootstrap();
   const diagnostics = useMcpDiagnostics();
   const rawConfig = useMcpRawConfig();
-  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(() => {
+    const params = consumeAppLaunchParams<{ serverName?: unknown }>('mcp');
+    return typeof params?.serverName === 'string' ? params.serverName : null;
+  });
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => onAppLaunchParams<{ serverName?: unknown }>('mcp', (params) => {
+    if (typeof params.serverName === 'string') setSelectedServerName(params.serverName);
+  }), []);
 
   const resolvedSelectedServerName = useMemo(() => {
     if (selectedServerName && state.servers.some((server) => server.serverName === selectedServerName)) {
