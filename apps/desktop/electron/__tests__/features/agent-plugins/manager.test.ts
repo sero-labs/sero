@@ -104,6 +104,12 @@ describe('Agent Plugin manager lifecycle', () => {
 
     const preview = await manager.previewAgentPluginUpdate(plugin.id);
     expect(preview.requiresMcpApproval).toBe(true);
+    expect(preview.mcpServers[0]).toMatchObject({
+      name: 'release',
+      args: ['--changed'],
+      env: expect.objectContaining({ PLUGIN_ROOT: expect.any(String), PLUGIN_DATA: expect.any(String) }),
+    });
+    expect(preview.mcpServers[0]?.command).toMatch(/\/bin\/server$/);
     await expect(manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveMcpChanges: false }))
       .rejects.toThrow('needs approval');
     const updated = await manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveMcpChanges: true });

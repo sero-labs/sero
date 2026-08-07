@@ -256,6 +256,7 @@ export async function previewAgentPluginUpdate(id: string): Promise<AgentPluginU
       ...diff,
       addedCliCommands: nextCliCommands.filter((command) => !currentCliCommandSet.has(command)),
       removedCliCommands: currentCliCommands.filter((command) => !nextCliCommandSet.has(command)),
+      mcpServers: update.inspection.mcpServers.filter((server) => server.valid),
       requiresMcpApproval: update.inspection.approvalHash !== plugin.mcpApprovalHash,
     };
   } finally {

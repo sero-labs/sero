@@ -3,6 +3,7 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import type { AgentPluginInspection } from '@sero-ai/common';
+import { formatMcpDefinition } from './agent-plugin-mcp';
 
 export function AgentPluginInstallReview({
   inspection,
@@ -106,21 +107,4 @@ export function AgentPluginInstallReview({
 
 function ComponentSummary({ label, value }: { label: string; value: number }) {
   return <div className="rounded-md border border-border/60 bg-background/60 p-3"><strong className="block text-base">{value}</strong>{label}</div>;
-}
-
-function formatMcpDefinition(server: AgentPluginInspection['mcpServers'][number]): string {
-  const details: string[] = [];
-  if (server.transport === 'stdio') {
-    if (server.cwd) details.push(`cwd: ${server.cwd}`);
-    const envNames = Object.keys(server.env ?? {}).sort();
-    if (envNames.length > 0) details.push(`env: ${envNames.join(', ')}`);
-    return appendMcpDetails([server.command, ...(server.args ?? [])].filter(Boolean).join(' '), details);
-  }
-  const headerNames = Object.keys(server.headers ?? {}).sort();
-  if (headerNames.length > 0) details.push(`headers: ${headerNames.join(', ')}`);
-  return appendMcpDetails(server.url ?? 'Missing URL', details);
-}
-
-function appendMcpDetails(target: string, details: string[]): string {
-  return details.length > 0 ? `${target} (${details.join('; ')})` : target;
 }

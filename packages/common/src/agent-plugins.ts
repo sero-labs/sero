@@ -110,6 +110,7 @@ export interface AgentPluginUpdatePreview {
   changedComponents: string[];
   addedCliCommands: string[];
   removedCliCommands: string[];
+  mcpServers: AgentPluginMcpServer[];
   requiresMcpApproval: boolean;
 }
 

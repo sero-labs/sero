@@ -6,6 +6,7 @@ import { Input } from '@sero-ai/ui/components/ui/input';
 import { ChevronDown, ChevronUp, Database, FolderOpen, PlugZap, RefreshCw, Trash2 } from 'lucide-react';
 import type { InstalledAgentPlugin } from '@sero-ai/common';
 import type { AgentPluginsController } from '../../hooks/useAgentPlugins';
+import { formatMcpDefinition } from './agent-plugin-mcp';
 
 export function AgentPluginCard({
   plugin,
@@ -70,7 +71,7 @@ export function AgentPluginCard({
               <strong>MCP access needs approval</strong>
               <ul className="space-y-1 font-mono text-muted-foreground">
                 {pendingServers.map((server) => (
-                  <li key={server.name}>{server.name}: {server.transport === 'stdio' ? [server.command, ...(server.args ?? [])].filter(Boolean).join(' ') : server.url}</li>
+                  <li key={server.name}>{server.name}: {formatMcpDefinition(server)}</li>
                 ))}
               </ul>
               <Button type="button" size="sm" onClick={() => void controller.approve(plugin.id)}>Approve shown MCP definitions</Button>
@@ -98,7 +99,16 @@ export function AgentPluginCard({
               <strong>Update review {preview.previousVersion ?? 'unversioned'} → {preview.nextVersion ?? 'unversioned'}</strong>
               <p>Added: {preview.addedComponents.join(', ') || 'none'} · Removed: {preview.removedComponents.join(', ') || 'none'} · Changed: {preview.changedComponents.join(', ') || 'none'}</p>
               <p>CLI added: {preview.addedCliCommands.join(', ') || 'none'} · CLI removed: {preview.removedCliCommands.join(', ') || 'none'}</p>
-              {preview.requiresMcpApproval && <p className="text-amber-400">This update changes MCP access and needs renewed approval.</p>}
+              {preview.requiresMcpApproval && (
+                <div className="space-y-1 text-amber-400">
+                  <p>This update changes MCP access and needs renewed approval.</p>
+                  <ul className="font-mono text-muted-foreground">
+                    {preview.mcpServers.length > 0
+                      ? preview.mcpServers.map((server) => <li key={server.name}>{server.name}: {formatMcpDefinition(server)}</li>)
+                      : <li>No MCP definitions remain.</li>}
+                  </ul>
+                </div>
+              )}
               <Button type="button" size="sm" onClick={() => void controller.update(plugin.id, preview.contentDigest, preview.requiresMcpApproval)}>Install reviewed update</Button>
             </div>
           )}
