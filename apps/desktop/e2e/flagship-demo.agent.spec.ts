@@ -5,6 +5,12 @@
  *   SERO_E2E_EXISTING_CDP=9222 npx playwright test e2e/flagship-demo.agent.spec.ts --project=agent
  *
  * Output: ~/Movies/sero-demos/plugin-build.mp4 and the complete raw recording.
+ *
+ * Add SERO_DEMO_REHEARSE=1 to reuse the plugin an earlier run built and skip
+ * the build. A rehearsal takes about a minute instead of about ten, so the
+ * install and report steps can be tested without paying for a full build. Its
+ * recording is never publishable, so every rehearsal file carries a
+ * `rehearsal-` prefix.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -35,10 +41,16 @@ import {
   removeDemoPlugin,
   type DemoPluginIdentity,
 } from './helpers/demo-setup';
+import { waitForAgentTurn } from './helpers/demo-agent-turn';
 
 const EXISTING_CDP = process.env.SERO_E2E_EXISTING_CDP;
 const WS_NAME = 'release-checklist-demo';
 const PLUGIN_FOLDER = 'release-checklist-plugin';
+const REPORT_FILE = 'release-readiness.md';
+
+/** Reuse the plugin an earlier run built. See the file header. */
+const REHEARSE = process.env.SERO_DEMO_REHEARSE === '1';
+const FILE_PREFIX = REHEARSE ? 'rehearsal-' : '';
 
 /** What the prompt asks for, and what the stage must be clean of beforehand. */
 const DEMO_PLUGIN: DemoPluginIdentity = { id: 'release-checklist', name: 'Release Checklist' };
@@ -78,6 +90,15 @@ function git(cwd: string, args: string[]): string {
 
 function prepareWorkspace(): string {
   const wsDir = path.join(os.homedir(), '.sero-ui', 'workspaces', WS_NAME);
+  if (REHEARSE) {
+    expect(
+      fs.existsSync(path.join(wsDir, PLUGIN_FOLDER, 'package.json')),
+      'rehearsal mode reuses the plugin an earlier run built, and there is none',
+    ).toBe(true);
+    // Delete the earlier report so the Generate report step still proves itself.
+    fs.rmSync(path.join(wsDir, REPORT_FILE), { force: true });
+    return wsDir;
+  }
   fs.rmSync(wsDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(wsDir, 'src'), { recursive: true });
   fs.writeFileSync(path.join(wsDir, 'README.md'), '# Launchpad\n\nA small product release project.\n');
@@ -148,9 +169,9 @@ test('records the complete plugin workflow', async () => {
   ({ browser, page } = await connectToRunningSero({ slowMo: 100 }));
 
   const dir = demoOutDir();
-  const rawPath = path.join(dir, 'plugin-build-raw.mp4');
-  const finalPath = path.join(dir, CAMPAIGN_CLIPS['plugin-build'].fileName);
-  const manifestPath = path.join(dir, 'plugin-build.json');
+  const rawPath = path.join(dir, `${FILE_PREFIX}plugin-build-raw.mp4`);
+  const finalPath = path.join(dir, `${FILE_PREFIX}${CAMPAIGN_CLIPS['plugin-build'].fileName}`);
+  const manifestPath = path.join(dir, `${FILE_PREFIX}plugin-build.json`);
   let recordedAt = 0;
   let recordingStopped = false;
 
@@ -175,16 +196,22 @@ test('records the complete plugin workflow', async () => {
     // ── Describe and build ───────────────────────────────────
     await caption(page, CAMPAIGN_CLIPS['plugin-build'].caption, 4_000);
     await clearCaption(page);
-    await page.locator(chat.input).fill(PLUGIN_PROMPT);
 
+    const pluginPath = path.join(wsDir, PLUGIN_FOLDER);
     const buildStartedAt = Date.now();
-    await clickForDemo(page, page.locator(chat.submitButton), interactions);
-    await expect(page.locator(chat.stopButton)).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator(chat.stopButton)).toBeHidden({ timeout: 3_000_000 });
+    if (REHEARSE) {
+      await caption(page, 'Rehearsal: the build step is skipped.', 2_000);
+      await clearCaption(page);
+    } else {
+      await page.locator(chat.input).fill(PLUGIN_PROMPT);
+      await clickForDemo(page, page.locator(chat.submitButton), interactions);
+      await waitForAgentTurn(page, {
+        isComplete: () => fs.existsSync(path.join(pluginPath, 'package.json')),
+      });
+    }
     const buildFinishedAt = Date.now();
 
     // ── Install and use ──────────────────────────────────────
-    const pluginPath = path.join(wsDir, PLUGIN_FOLDER);
     const plugin = readGeneratedPluginApp(pluginPath);
     await installPluginFromFolder(page, { folderPath: pluginPath, plugin, log: interactions });
 
@@ -192,7 +219,7 @@ test('records the complete plugin workflow', async () => {
     await clickForDemo(page, generateReport, interactions, { name: 'Generate report' });
     const report = page.getByRole('region', { name: 'Release readiness report' });
     await expect(report).toContainText('Latest release', { timeout: 120_000 });
-    expect(fs.existsSync(path.join(wsDir, 'release-readiness.md'))).toBe(true);
+    expect(fs.existsSync(path.join(wsDir, REPORT_FILE))).toBe(true);
 
     await caption(page, 'The release checklist is ready to use.', 6_000);
     await clearCaption(page);
@@ -217,7 +244,7 @@ test('records the complete plugin workflow', async () => {
         }]
       : [];
     await assembleDemo(rawPath, finalPath, segments);
-    const reviewSheet = path.join(dir, 'plugin-build-review.jpg');
+    const reviewSheet = path.join(dir, `${FILE_PREFIX}plugin-build-review.jpg`);
     await createReviewContactSheet(finalPath, reviewSheet);
     const validation = await validateDemoVideo(finalPath, CAMPAIGN_CLIPS['plugin-build'], {
       outputDir: dir,
@@ -225,6 +252,7 @@ test('records the complete plugin workflow', async () => {
     });
     fs.writeFileSync(manifestPath, JSON.stringify({
       clip: CAMPAIGN_CLIPS['plugin-build'],
+      rehearsal: REHEARSE,
       rawPath,
       finalPath,
       reviewSheet,
@@ -234,7 +262,9 @@ test('records the complete plugin workflow', async () => {
       nativeDialogClickCount: interactions.nativeDialogClickCount,
       validation,
     }, null, 2));
-    expect(validation.errors).toEqual([]);
+    // A rehearsal has no build, so it can never match the clip profile. The
+    // result stays in the manifest, but it must not fail the rehearsal.
+    if (!REHEARSE) expect(validation.errors).toEqual([]);
   } finally {
     if (!recordingStopped) {
       await stopRecordingRaw(page, rawPath).catch(() => null);

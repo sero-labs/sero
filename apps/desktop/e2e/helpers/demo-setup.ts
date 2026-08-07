@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { expect, type Page } from '@playwright/test';
 import { clickForDemo, clickNativeDialogTrigger, type DemoInteractionLog } from './demo';
 import { withBoundedRetries } from './demo-media';
+import { layout } from './selectors';
 
 export interface DemoPluginIdentity {
   /** `sero.app.id` of the plugin the demo builds. */
@@ -75,6 +76,22 @@ export async function expectCleanDemoStage(page: Page, plugin: DemoPluginIdentit
   ).toHaveCount(0);
 }
 
+/**
+ * Make sure the main sidebar is on screen.
+ *
+ * `MainSidebar` renders nothing while the sidebar is collapsed, so every
+ * control inside it — including `Open App Store` — leaves the page. A panel
+ * resize can collapse the sidebar on its own during a long run, so the demo
+ * must not assume the sidebar it saw at the start is still there.
+ */
+export async function ensureMainSidebarOpen(page: Page, log: DemoInteractionLog): Promise<void> {
+  const openAppStore = page.getByRole('button', { name: 'Open App Store' });
+  if (await openAppStore.isVisible().catch(() => false)) return;
+
+  await clickForDemo(page, page.locator(layout.sidebarToggle), log, { name: 'Toggle sidebar' });
+  await openAppStore.waitFor({ state: 'visible', timeout: 10_000 });
+}
+
 /** Type a folder path into the macOS open panel and confirm it. */
 function selectFolderInNativeDialog(folderPath: string): void {
   execFileSync('osascript', [
@@ -105,6 +122,7 @@ export async function installPluginFromFolder(
   const { folderPath, plugin, log } = options;
   const openAppStore = page.getByRole('button', { name: 'Open App Store' });
 
+  await ensureMainSidebarOpen(page, log);
   await clickForDemo(page, openAppStore, log, { name: 'Open App Store' });
   await clickNativeDialogTrigger(
     page,

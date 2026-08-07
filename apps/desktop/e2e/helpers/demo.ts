@@ -177,6 +177,42 @@ interface DemoClickOptions {
   timeoutMs?: number;
 }
 
+/**
+ * Save what the screen looked like when a demo click could not run.
+ *
+ * A missing control reads the same as a wrong selector, so the message alone
+ * does not say which one it was. The screenshot does.
+ */
+async function captureClickFailure(page: Page, name: string): Promise<string> {
+  const slug = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const file = path.join(demoOutDir(), `demo-click-failure-${slug}.png`);
+  await page.screenshot({ path: file }).catch(() => {});
+  return file;
+}
+
+/** Shared pre-click checks: the control is visible and the recorder is ready. */
+async function prepareDemoClick(
+  page: Page,
+  target: Locator,
+  log: DemoInteractionLog,
+  label: string,
+  name: string,
+  timeout: number,
+): Promise<void> {
+  await target.waitFor({ state: 'visible', timeout }).catch(async () => {
+    const shot = await captureClickFailure(page, name);
+    throw new Error(`${name} was not visible within ${timeout}ms. Screenshot: ${shot}`);
+  });
+  const box = await target.boundingBox();
+  if (!box) throw new Error(`${name} has no visible bounding box.`);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const diagnostics = await collectDemoRecorderDiagnostics(page, label);
+  log.recorderDiagnostics.push(diagnostics);
+  if (!diagnostics.recorder.ready || !diagnostics.cursor.visible) {
+    throw new Error(`Sero recorder was not ready before clicking ${name}. ${JSON.stringify(diagnostics)}`);
+  }
+}
+
 /** Click a visible control and verify the recorder's cursor and blue pulse. */
 export async function clickForDemo(
   page: Page,
@@ -186,17 +222,7 @@ export async function clickForDemo(
 ): Promise<void> {
   const name = options.name ?? 'Demo interaction target';
   const timeout = options.timeoutMs ?? 5_000;
-  await target.waitFor({ state: 'visible', timeout }).catch(() => {
-    throw new Error(`${name} was not visible within ${timeout}ms.`);
-  });
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`${name} has no visible bounding box.`);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  const diagnostics = await collectDemoRecorderDiagnostics(page, `before click: ${name}`);
-  log.recorderDiagnostics.push(diagnostics);
-  if (!diagnostics.recorder.ready || !diagnostics.cursor.visible) {
-    throw new Error(`Sero recorder was not ready before clicking ${name}. ${JSON.stringify(diagnostics)}`);
-  }
+  await prepareDemoClick(page, target, log, `before click: ${name}`, name, timeout);
   await target.click({ timeout });
   const pulseVisible = await page.locator('[data-sero-recording-click]').count();
   if (pulseVisible < 1) throw new Error(`Sero recording click pulse did not appear after clicking ${name}.`);
@@ -219,17 +245,7 @@ export async function clickNativeDialogTrigger(
 ): Promise<void> {
   const name = options.name ?? 'Native dialog trigger';
   const timeout = options.timeoutMs ?? 5_000;
-  await target.waitFor({ state: 'visible', timeout }).catch(() => {
-    throw new Error(`${name} was not visible within ${timeout}ms.`);
-  });
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`${name} has no visible bounding box.`);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  const diagnostics = await collectDemoRecorderDiagnostics(page, `before native click: ${name}`);
-  log.recorderDiagnostics.push(diagnostics);
-  if (!diagnostics.recorder.ready || !diagnostics.cursor.visible) {
-    throw new Error(`Sero recorder was not ready before clicking ${name}. ${JSON.stringify(diagnostics)}`);
-  }
+  await prepareDemoClick(page, target, log, `before native click: ${name}`, name, timeout);
   await target.click({ timeout });
   log.nativeDialogClickCount += 1;
 }

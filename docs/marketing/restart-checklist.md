@@ -121,6 +121,27 @@ The test writes these files:
 - `~/Movies/sero-demos/plugin-build-review.jpg` — a contact sheet for review.
 - `~/Movies/sero-demos/plugin-build.json` — what the run measured.
 
+### Rehearse the steps after the build
+
+A full run costs about eleven minutes. Most failures happen after the build, in
+the install and report steps. Rehearsal mode reuses the plugin the last run
+built and skips the build, so those steps take about one minute to test.
+
+```bash
+cd apps/desktop
+SERO_E2E_EXISTING_CDP=9222 \
+SERO_DEMO_REHEARSE=1 \
+pnpm exec playwright test e2e/flagship-demo.agent.spec.ts \
+  --project=agent \
+  --retries=0
+```
+
+Rehearsal mode needs a plugin from an earlier run. Without one, the test stops
+and says so.
+
+A rehearsal video has no build in it. Never publish one. Every rehearsal file
+carries a `rehearsal-` prefix, so it cannot overwrite the real recording.
+
 ### Review the video before you use it
 
 Open the contact sheet. Reject the video unless every statement is true:
