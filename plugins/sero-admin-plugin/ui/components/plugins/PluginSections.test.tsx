@@ -154,6 +154,13 @@ describe('plugin management sections', () => {
     } satisfies AgentPluginsController;
 
     const html = renderToStaticMarkup(<AgentPluginCard plugin={plugin} controller={controller} focused />);
+    expect(html).toContain('Plugin contents');
+    expect(html).toContain('Sero settings');
+    expect(html).toContain('Plugin actions');
+    expect(html).toContain('Remove plugin');
+    expect(html.match(/data-slot="checkbox"/g)).toHaveLength(2);
+    expect(html).toContain('Keep plugin data');
+    expect(html).not.toContain('Retain PLUGIN_DATA');
     expect(html).toContain('local: ./bin/server (cwd: /plugin/data; env: PATH)');
     expect(html).toContain('remote: https://example.com/mcp (headers: Authorization)');
     expect(html).not.toContain('Bearer secret');

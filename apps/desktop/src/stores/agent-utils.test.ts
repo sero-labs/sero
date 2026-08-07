@@ -148,4 +148,75 @@ describe('handleAgentStreamEvent', () => {
       isStreaming: false,
     });
   });
+
+  it('refreshes slash commands when session resources change', () => {
+    let state: AgentState = {
+      agents: {
+        'session-1': {
+          sessionId: 'session-1',
+          sessionPath: '/tmp/session-1.json',
+          workspaceId: 'ws-1',
+          messages: [],
+          isStreaming: false,
+          error: null,
+          commands: [],
+          modelState: null,
+        },
+      },
+      composerPrefills: {},
+      focusedSessionId: 'session-1',
+      showThinkingBlocks: true,
+      showMemoryBlocks: true,
+      collaborations: {},
+      openSession: vi.fn(),
+      closeSession: vi.fn(),
+      sendPrompt: vi.fn(),
+      steerAgent: vi.fn(),
+      abort: vi.fn(),
+      focusSession: vi.fn(),
+      clearFocus: vi.fn(),
+      reloadResources: vi.fn(),
+      setModel: vi.fn(),
+      setThinkingLevel: vi.fn(),
+      fetchModelState: vi.fn(),
+      toggleThinkingBlocks: vi.fn(),
+      toggleMemoryBlocks: vi.fn(),
+      setComposerPrefill: vi.fn(),
+      clearComposerPrefill: vi.fn(),
+      toggleCollaborationMode: vi.fn(),
+      setCollaborationStrategy: vi.fn(),
+      setDebateConfig: vi.fn(),
+      sendCollaborationPrompt: vi.fn(),
+      hydrateCollaborationState: vi.fn(),
+      initEventListener: vi.fn(),
+      initCollaborationListener: vi.fn(),
+    };
+    const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
+      state = { ...state, ...updater(state) };
+    };
+
+    handleAgentStreamEvent(
+      {
+        type: 'resources_change',
+        sessionId: 'session-1',
+        commands: [{ name: 'migrate-agent-plugin', source: 'skill' }],
+        state: {
+          model: { provider: 'test', modelId: 'model', name: 'Model', reasoning: false },
+          thinkingLevel: 'off',
+          availableThinkingLevels: [],
+          supportsXhigh: false,
+          supportsMax: false,
+          availableModels: [],
+        },
+      },
+      set,
+      () => state,
+      vi.fn(),
+    );
+
+    expect(state.agents['session-1']?.commands).toEqual([
+      { name: 'migrate-agent-plugin', source: 'skill' },
+    ]);
+    expect(state.agents['session-1']?.modelState?.model.name).toBe('Model');
+  });
 });

@@ -8,6 +8,15 @@
 import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type { ChatComposerPrefill, ChatTurnUndoRef } from './turn-undo';
 
+/** Slash command info from the Pi SDK. */
+export interface SeroSlashCommandInfo {
+  name: string;
+  description?: string;
+  source: 'extension' | 'prompt' | 'skill';
+  location?: 'user' | 'project' | 'path';
+  path?: string;
+}
+
 // ── Chat Messages ──────────────────────────────────────────────
 
 /** Renderer-friendly message types for the ChatPanel. */
@@ -98,6 +107,7 @@ export type AgentStreamEvent =
   | { type: 'composer_prefill'; sessionId: string; prefill: ChatComposerPrefill }
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }
+  | { type: 'resources_change'; sessionId: string; commands: SeroSlashCommandInfo[]; state: SessionModelState }
   | { type: 'memory_context'; sessionId: string; context: string }
   | { type: 'error'; sessionId: string; error: string }
   | { type: 'container_starting'; sessionId: string; workspaceId: string }

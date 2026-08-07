@@ -388,6 +388,19 @@ export function handleAgentStreamEvent(
       }));
       break;
 
+    case 'resources_change':
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            commands: event.commands,
+            modelState: event.state,
+          },
+        },
+      }));
+      break;
+
     case 'error':
       clearAgentSessionBuffers(sid);
       set((state) => ({

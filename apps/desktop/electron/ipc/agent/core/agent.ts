@@ -56,8 +56,9 @@ export async function reloadAllSessionResources(): Promise<void> {
   await Promise.all([...pool.entries()].map(async ([sessionId, entry]) => {
     await entry.session.reload();
     sendEvent({
-      type: 'model_change',
+      type: 'resources_change',
       sessionId,
+      commands: buildCommandList(entry),
       state: buildModelState(entry),
     });
   }));

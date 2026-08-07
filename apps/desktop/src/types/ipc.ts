@@ -163,17 +163,6 @@ export type {
   ContextPreset,
 } from '@sero-ai/common';
 
-// ── Slash Commands ─────────────────────────────────────────────
-
-/** Slash command info from PI SDK. Mirrors SlashCommandInfo from pi-coding-agent. */
-export interface SeroSlashCommandInfo {
-  name: string;
-  description?: string;
-  source: 'extension' | 'prompt' | 'skill';
-  location?: 'user' | 'project' | 'path';
-  path?: string;
-}
-
 // ── Chat turn undo ─────────────────────────────────────────────
 
 export type { ChatComposerPrefill, ChatTurnUndoRef } from './turn-undo';
@@ -188,6 +177,7 @@ export type {
   ChatAssistantMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
+  SeroSlashCommandInfo,
 } from './agent';
 
 // ── Container ──────────────────────────────────────────────────
