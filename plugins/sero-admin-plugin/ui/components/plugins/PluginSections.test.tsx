@@ -69,16 +69,27 @@ describe('plugin management sections', () => {
             exposedToCli: false,
             command: './bin/server',
             args: ['--safe'],
+            cwd: '/plugin/data',
+            env: { PATH: '/plugin/bin', API_TOKEN: 'secret' },
+          }, {
+            name: 'remote',
+            runtimeName: 'agent-plugin:fixture:remote',
+            transport: 'streamable-http',
+            valid: true,
+            approved: false,
+            exposedToCli: false,
+            url: 'https://example.com/mcp',
+            headers: { Authorization: 'Bearer secret', 'X-Tenant': 'example' },
           }],
           diagnostics: [],
-          requiresExecutableApproval: false,
+          requiresMcpApproval: false,
           suggestedNamespace: 'example',
         }}
-        approveExecutable={false}
+        approveMcp={false}
         exposeToCli={false}
         namespace="example"
         busy={false}
-        onApproveExecutableChange={() => {}}
+        onApproveMcpChange={() => {}}
         onExposeToCliChange={() => {}}
         onNamespaceChange={() => {}}
         onInstall={() => {}}
@@ -88,7 +99,9 @@ describe('plugin management sections', () => {
 
     expect(html).toContain('Install only from sources you trust.');
     expect(html).toContain('MCP servers can connect to services or run commands on this machine.');
-    expect(html).toContain('local: ./bin/server --safe');
+    expect(html).toContain('local: ./bin/server --safe (cwd: /plugin/data; env: API_TOKEN, PATH)');
+    expect(html).toContain('remote: https://example.com/mcp (headers: Authorization, X-Tenant)');
+    expect(html).not.toContain('Bearer secret');
   });
 
   it('renders installed plugins, local development, and attached folders as distinct concepts', () => {

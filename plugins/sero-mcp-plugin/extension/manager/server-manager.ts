@@ -272,14 +272,14 @@ export class McpServerManager {
   }
 }
 
-function resolveEnv(env: Record<string, string> | undefined, literal: boolean): Record<string, string> | undefined {
+export function resolveEnv(env: Record<string, string> | undefined, literal: boolean): Record<string, string> | undefined {
   if (!env) return undefined;
   const resolved = literal
     ? env
     : Object.fromEntries(
         Object.entries(env).map(([key, value]) => [key, expandEnvReferences(value)]),
       );
-  return { ...getDefaultEnvironment(), ...resolved };
+  return literal ? { ...getDefaultEnvironment(), ...resolved } : resolved;
 }
 
 function expandEnvReferences(value: string): string {

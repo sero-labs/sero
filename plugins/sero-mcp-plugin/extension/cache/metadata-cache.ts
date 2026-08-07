@@ -164,6 +164,13 @@ export function createEmptyMetadataCache(): McpMetadataCacheDocument {
   return { ...DEFAULT_METADATA_CACHE, servers: {} };
 }
 
+export function areMetadataCacheServersEqual(
+  left: McpMetadataCacheDocument['servers'],
+  right: McpMetadataCacheDocument['servers'],
+): boolean {
+  return stableStringify(left) === stableStringify(right);
+}
+
 function stableStringify(value: unknown): string {
   if (value === null || value === undefined || typeof value !== 'object') {
     const serialized = JSON.stringify(value);

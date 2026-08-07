@@ -59,7 +59,7 @@ describe('Agent Plugin manager lifecycle', () => {
     const plugin = await manager.installAgentPlugin({
       source: fixture,
       contentDigest: inspection.contentDigest,
-      approveExecutableComponents: false,
+      approveMcpDefinitions: false,
       exposeToCli: true,
     });
 
@@ -92,7 +92,7 @@ describe('Agent Plugin manager lifecycle', () => {
     const plugin = await manager.installAgentPlugin({
       source,
       contentDigest: inspection.contentDigest,
-      approveExecutableComponents: true,
+      approveMcpDefinitions: true,
       exposeToCli: false,
     });
     const marker = path.join(plugin.dataPath, 'state.txt');
@@ -103,10 +103,10 @@ describe('Agent Plugin manager lifecycle', () => {
     await fs.writeFile(mcpPath, JSON.stringify(next));
 
     const preview = await manager.previewAgentPluginUpdate(plugin.id);
-    expect(preview.requiresExecutableApproval).toBe(true);
-    await expect(manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveExecutableChanges: false }))
+    expect(preview.requiresMcpApproval).toBe(true);
+    await expect(manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveMcpChanges: false }))
       .rejects.toThrow('needs approval');
-    const updated = await manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveExecutableChanges: true });
+    const updated = await manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveMcpChanges: true });
     expect(updated.mcpServers[0]).toMatchObject({ approved: true, args: ['--changed'] });
     await expect(fs.readFile(marker, 'utf8')).resolves.toBe('retained');
 
@@ -124,7 +124,7 @@ describe('Agent Plugin manager lifecycle', () => {
     await expect(manager.installAgentPlugin({
       source,
       contentDigest: inspection.contentDigest,
-      approveExecutableComponents: true,
+      approveMcpDefinitions: true,
       exposeToCli: false,
     })).rejects.toThrow('changed after inspection');
   });
@@ -148,7 +148,7 @@ describe('Agent Plugin manager lifecycle', () => {
     const plugin = await manager.installAgentPlugin({
       source,
       contentDigest: inspection.contentDigest,
-      approveExecutableComponents: true,
+      approveMcpDefinitions: true,
       exposeToCli: true,
     });
     const cachePath = path.join(tempRoot, 'apps', 'mcp', 'metadata-cache.json');
@@ -199,7 +199,7 @@ describe('Agent Plugin manager lifecycle', () => {
     const plugin = await manager.installAgentPlugin({
       source,
       contentDigest: inspection.contentDigest,
-      approveExecutableComponents: false,
+      approveMcpDefinitions: false,
       exposeToCli: false,
     });
     expect(plugin.cli.enabled).toBe(false);

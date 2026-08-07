@@ -16,7 +16,7 @@ export function AgentPluginsSection({
   focusedPluginId?: string | null;
 }) {
   const [source, setSource] = useState('');
-  const [approveExecutable, setApproveExecutable] = useState(false);
+  const [approveMcp, setApproveMcp] = useState(false);
   const [exposeToCli, setExposeToCli] = useState(false);
   const [namespace, setNamespace] = useState('');
 
@@ -29,13 +29,13 @@ export function AgentPluginsSection({
     const result = await controller.install({
       source,
       contentDigest: controller.inspection?.contentDigest ?? '',
-      approveExecutableComponents: approveExecutable,
+      approveMcpDefinitions: approveMcp,
       exposeToCli,
       namespaceAlias: namespace || undefined,
     });
     if (result) {
       setSource('');
-      setApproveExecutable(false);
+      setApproveMcp(false);
       setExposeToCli(false);
       controller.clearInspection();
     }
@@ -63,11 +63,11 @@ export function AgentPluginsSection({
         {controller.inspection && (
           <AgentPluginInstallReview
             inspection={controller.inspection}
-            approveExecutable={approveExecutable}
+            approveMcp={approveMcp}
             exposeToCli={exposeToCli}
             namespace={namespace}
             busy={controller.busy}
-            onApproveExecutableChange={setApproveExecutable}
+            onApproveMcpChange={setApproveMcp}
             onExposeToCliChange={setExposeToCli}
             onNamespaceChange={setNamespace}
             onInstall={() => void install()}

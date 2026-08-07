@@ -6,22 +6,22 @@ import type { AgentPluginInspection } from '@sero-ai/common';
 
 export function AgentPluginInstallReview({
   inspection,
-  approveExecutable,
+  approveMcp,
   exposeToCli,
   namespace,
   busy,
-  onApproveExecutableChange,
+  onApproveMcpChange,
   onExposeToCliChange,
   onNamespaceChange,
   onInstall,
   onCancel,
 }: {
   inspection: AgentPluginInspection;
-  approveExecutable: boolean;
+  approveMcp: boolean;
   exposeToCli: boolean;
   namespace: string;
   busy: boolean;
-  onApproveExecutableChange: (value: boolean) => void;
+  onApproveMcpChange: (value: boolean) => void;
   onExposeToCliChange: (value: boolean) => void;
   onNamespaceChange: (value: string) => void;
   onInstall: () => void;
@@ -74,7 +74,7 @@ export function AgentPluginInstallReview({
             ))}
           </ul>
           <label className="flex items-start gap-2 font-sans text-foreground">
-            <input type="checkbox" checked={approveExecutable} onChange={(event) => onApproveExecutableChange(event.target.checked)} />
+            <input type="checkbox" checked={approveMcp} onChange={(event) => onApproveMcpChange(event.target.checked)} />
             <span><strong>Approve these MCP definitions.</strong> Local servers can run commands. Remote servers can connect to the shown endpoints.</span>
           </label>
         </div>
@@ -109,8 +109,18 @@ function ComponentSummary({ label, value }: { label: string; value: number }) {
 }
 
 function formatMcpDefinition(server: AgentPluginInspection['mcpServers'][number]): string {
+  const details: string[] = [];
   if (server.transport === 'stdio') {
-    return [server.command, ...(server.args ?? [])].filter(Boolean).join(' ');
+    if (server.cwd) details.push(`cwd: ${server.cwd}`);
+    const envNames = Object.keys(server.env ?? {}).sort();
+    if (envNames.length > 0) details.push(`env: ${envNames.join(', ')}`);
+    return appendMcpDetails([server.command, ...(server.args ?? [])].filter(Boolean).join(' '), details);
   }
-  return server.url ?? 'Missing URL';
+  const headerNames = Object.keys(server.headers ?? {}).sort();
+  if (headerNames.length > 0) details.push(`headers: ${headerNames.join(', ')}`);
+  return appendMcpDetails(server.url ?? 'Missing URL', details);
+}
+
+function appendMcpDetails(target: string, details: string[]): string {
+  return details.length > 0 ? `${target} (${details.join('; ')})` : target;
 }

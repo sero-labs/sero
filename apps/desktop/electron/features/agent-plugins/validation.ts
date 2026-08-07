@@ -390,7 +390,7 @@ export async function inspectAgentPluginRoot(options: InspectOptions): Promise<V
       mcpServers: mcp.servers,
       diagnostics,
       approvalHash: mcp.approvalHash,
-      requiresExecutableApproval: mcp.approvalHash !== null && mcp.approvalHash !== options.approvedHash,
+      requiresMcpApproval: mcp.approvalHash !== null && mcp.approvalHash !== options.approvedHash,
       suggestedNamespace: manifest.name,
     };
   } catch (error) {
@@ -410,7 +410,7 @@ function emptyInspection(options: InspectOptions, diagnostics: AgentPluginDiagno
     mcpServers: [],
     diagnostics,
     approvalHash: null,
-    requiresExecutableApproval: false,
+    requiresMcpApproval: false,
     suggestedNamespace: null,
   };
 }

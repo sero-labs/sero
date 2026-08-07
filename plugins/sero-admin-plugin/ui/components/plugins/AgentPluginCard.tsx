@@ -98,8 +98,8 @@ export function AgentPluginCard({
               <strong>Update review {preview.previousVersion ?? 'unversioned'} → {preview.nextVersion ?? 'unversioned'}</strong>
               <p>Added: {preview.addedComponents.join(', ') || 'none'} · Removed: {preview.removedComponents.join(', ') || 'none'} · Changed: {preview.changedComponents.join(', ') || 'none'}</p>
               <p>CLI added: {preview.addedCliCommands.join(', ') || 'none'} · CLI removed: {preview.removedCliCommands.join(', ') || 'none'}</p>
-              {preview.requiresExecutableApproval && <p className="text-amber-400">This update changes MCP access and needs renewed approval.</p>}
-              <Button type="button" size="sm" onClick={() => void controller.update(plugin.id, preview.contentDigest, preview.requiresExecutableApproval)}>Install reviewed update</Button>
+              {preview.requiresMcpApproval && <p className="text-amber-400">This update changes MCP access and needs renewed approval.</p>}
+              <Button type="button" size="sm" onClick={() => void controller.update(plugin.id, preview.contentDigest, preview.requiresMcpApproval)}>Install reviewed update</Button>
             </div>
           )}
 

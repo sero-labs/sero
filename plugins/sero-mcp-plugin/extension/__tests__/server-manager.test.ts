@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { McpServerConfig } from '../config/types';
-import { buildRequestInit, McpServerManager } from '../manager/server-manager';
+import { buildRequestInit, McpServerManager, resolveEnv } from '../manager/server-manager';
 
 const managers: McpServerManager[] = [];
 
@@ -9,6 +9,14 @@ afterEach(async () => {
 });
 
 describe('MCP server manager transport defaults', () => {
+  it('preserves the exact environment declared by a user server', () => {
+    expect(resolveEnv({ ONLY: 'value' }, false)).toEqual({ ONLY: 'value' });
+    expect(resolveEnv({ ONLY: 'value' }, true)).toEqual(expect.objectContaining({
+      ONLY: 'value',
+      PATH: expect.any(String),
+    }));
+  });
+
   it('spawns a literal-env stdio Agent Plugin with the inherited executable path', async () => {
     const manager = new McpServerManager();
     managers.push(manager);

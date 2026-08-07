@@ -71,8 +71,8 @@ export function useAgentPlugins() {
       if (result) setUpdatePreview(result);
       return result;
     },
-    update: (id: string, contentDigest: string, approveExecutableChanges: boolean) => (
-      run(() => getSero().agentPlugins.update({ id, contentDigest, approveExecutableChanges }))
+    update: (id: string, contentDigest: string, approveMcpChanges: boolean) => (
+      run(() => getSero().agentPlugins.update({ id, contentDigest, approveMcpChanges }))
     ),
     remove: (request: AgentPluginRemoveRequest) => run(() => getSero().agentPlugins.remove(request)),
     reveal: (id: string, target: 'package' | 'data') => run(() => getSero().agentPlugins.reveal(id, target)),

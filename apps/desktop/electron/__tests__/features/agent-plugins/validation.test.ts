@@ -76,7 +76,7 @@ describe('Agent Plugins v1 validation', () => {
       },
     }));
     const preview = await inspect(root);
-    expect(preview.requiresExecutableApproval).toBe(true);
+    expect(preview.requiresMcpApproval).toBe(true);
     expect(preview.mcpServers[0]).toMatchObject({ transport: 'stdio', valid: true, approved: false });
     const approved = await inspect(root, preview.approvalHash);
     expect(approved.mcpServers[0]?.approved).toBe(true);
@@ -126,7 +126,7 @@ describe('Agent Plugins v1 validation', () => {
       mcpServers: { remote: { type: 'streamable-http', url: 'https://trusted.example/mcp' } },
     }));
     const preview = await inspect(root);
-    expect(preview.requiresExecutableApproval).toBe(true);
+    expect(preview.requiresMcpApproval).toBe(true);
     expect(preview.mcpServers[0]?.approved).toBe(false);
     expect((await inspect(root, preview.approvalHash)).mcpServers[0]?.approved).toBe(true);
 
@@ -135,7 +135,7 @@ describe('Agent Plugins v1 validation', () => {
       mcpServers: { remote: { type: 'streamable-http', url: 'https://changed.example/mcp' } },
     }));
     const changed = await inspect(root, preview.approvalHash);
-    expect(changed.requiresExecutableApproval).toBe(true);
+    expect(changed.requiresMcpApproval).toBe(true);
     expect(changed.mcpServers[0]?.approved).toBe(false);
   });
 
@@ -174,7 +174,7 @@ describe('Agent Plugins v1 validation', () => {
     }));
     const result = await inspect(root);
     expect(result.mcpServers[0]?.valid).toBe(false);
-    expect(result.requiresExecutableApproval).toBe(false);
+    expect(result.requiresMcpApproval).toBe(false);
   });
 
   it('rejects post-expansion working directory escapes', async () => {

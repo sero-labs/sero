@@ -158,7 +158,7 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
         : (request.namespaceAlias ?? preview.manifest.name).trim();
       await fs.mkdir(dataPath, { recursive: true });
       await fs.rename(staged.root, packagePath);
-      const approvedHash = request.approveExecutableComponents ? preview.approvalHash : null;
+      const approvedHash = request.approveMcpDefinitions ? preview.approvalHash : null;
       const inspection = await inspectAgentPluginRoot({
         root: packagePath,
         dataPath,
@@ -182,7 +182,7 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
         packagePath,
         dataPath,
         enabled: true,
-        executableApprovalHash: approvedHash,
+        mcpApprovalHash: approvedHash,
         skills: inspection.skills,
         mcpServers: inspection.mcpServers,
         diagnostics: inspection.diagnostics,
@@ -227,7 +227,7 @@ async function inspectUpdate(plugin: InstalledAgentPlugin): Promise<{ staged: St
     source: plugin.source,
     sourceKind: staged.sourceKind,
     contentDigest: staged.contentDigest,
-    approvedHash: plugin.executableApprovalHash,
+    approvedHash: plugin.mcpApprovalHash,
     cliSkillNames: namesWhere(plugin.skills, (skill) => skill.exposedToCli),
     cliServerNames: namesWhere(plugin.mcpServers, (server) => server.exposedToCli),
   });
@@ -256,7 +256,7 @@ export async function previewAgentPluginUpdate(id: string): Promise<AgentPluginU
       ...diff,
       addedCliCommands: nextCliCommands.filter((command) => !currentCliCommandSet.has(command)),
       removedCliCommands: currentCliCommands.filter((command) => !nextCliCommandSet.has(command)),
-      requiresExecutableApproval: update.inspection.approvalHash !== plugin.executableApprovalHash,
+      requiresMcpApproval: update.inspection.approvalHash !== plugin.mcpApprovalHash,
     };
   } finally {
     await cleanupStagedAgentPlugin(staged);
@@ -278,13 +278,13 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
         throw new Error('Agent Plugin source changed after update review. Review the update again before installation.');
       }
       if (!update.inspection.valid || !update.inspection.manifest) throw new Error(update.inspection.diagnostics[0]?.message ?? 'Invalid update.');
-      const executableChanged = update.inspection.approvalHash !== current.executableApprovalHash;
-      if (executableChanged && !request.approveExecutableChanges) {
+      const mcpDefinitionsChanged = update.inspection.approvalHash !== current.mcpApprovalHash;
+      if (mcpDefinitionsChanged && !request.approveMcpChanges) {
         throw new Error('This update changes MCP server definitions and needs approval.');
       }
       await fs.rename(current.packagePath, backupPath);
       await fs.rename(staged.root, current.packagePath);
-      const approvedHash = executableChanged ? update.inspection.approvalHash : current.executableApprovalHash;
+      const approvedHash = mcpDefinitionsChanged ? update.inspection.approvalHash : current.mcpApprovalHash;
       const inspection = await inspectAgentPluginRoot({
         root: current.packagePath,
         dataPath: current.dataPath,
@@ -302,7 +302,7 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
         sourceKind: staged.sourceKind,
         contentDigest: staged.contentDigest,
         updatedAt: new Date().toISOString(),
-        executableApprovalHash: approvedHash,
+        mcpApprovalHash: approvedHash,
         skills: inspection.skills,
         mcpServers: inspection.mcpServers,
         diagnostics: inspection.diagnostics,
@@ -376,7 +376,7 @@ export function approveAgentPluginComponents(id: string): Promise<InstalledAgent
     const approvedHash = inspection.approvalHash;
     return {
       ...plugin,
-      executableApprovalHash: approvedHash,
+      mcpApprovalHash: approvedHash,
       mcpServers: inspection.mcpServers.map((server) => ({ ...server, approved: server.valid && approvedHash !== null })),
       diagnostics: inspection.diagnostics,
       updatedAt: new Date().toISOString(),

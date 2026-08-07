@@ -66,7 +66,7 @@ export interface InstalledAgentPlugin {
   packagePath: string;
   dataPath: string;
   enabled: boolean;
-  executableApprovalHash: string | null;
+  mcpApprovalHash: string | null;
   skills: AgentPluginSkill[];
   mcpServers: AgentPluginMcpServer[];
   diagnostics: AgentPluginDiagnostic[];
@@ -82,14 +82,14 @@ export interface AgentPluginInspection {
   skills: AgentPluginSkill[];
   mcpServers: AgentPluginMcpServer[];
   diagnostics: AgentPluginDiagnostic[];
-  requiresExecutableApproval: boolean;
+  requiresMcpApproval: boolean;
   suggestedNamespace: string | null;
 }
 
 export interface AgentPluginInstallRequest {
   source: string;
   contentDigest: string;
-  approveExecutableComponents: boolean;
+  approveMcpDefinitions: boolean;
   exposeToCli: boolean;
   namespaceAlias?: string;
 }
@@ -97,7 +97,7 @@ export interface AgentPluginInstallRequest {
 export interface AgentPluginUpdateRequest {
   id: string;
   contentDigest: string;
-  approveExecutableChanges: boolean;
+  approveMcpChanges: boolean;
 }
 
 export interface AgentPluginUpdatePreview {
@@ -110,7 +110,7 @@ export interface AgentPluginUpdatePreview {
   changedComponents: string[];
   addedCliCommands: string[];
   removedCliCommands: string[];
-  requiresExecutableApproval: boolean;
+  requiresMcpApproval: boolean;
 }
 
 export interface AgentPluginCliSettingsRequest {
