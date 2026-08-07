@@ -53,12 +53,16 @@ if (process.env.NODE_ENV === 'test') {
 }
 /** Reload all active session runtimes after resource/package edits. */
 export async function reloadAllSessionResources(): Promise<void> {
+  // Read once for the whole batch: the pushed list must hide the same commands
+  // as the getCommands/reloadResources paths, or hidden commands come back in
+  // the menu after every package edit.
+  const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
   await Promise.all([...pool.entries()].map(async ([sessionId, entry]) => {
     await entry.session.reload();
     sendEvent({
       type: 'resources_change',
       sessionId,
-      commands: buildCommandList(entry),
+      commands: buildCommandList(entry, hidden),
       state: buildModelState(entry),
     });
   }));
