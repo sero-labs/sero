@@ -5,6 +5,12 @@ import {
 } from '@sero-ai/common';
 import { cn } from '../../lib/utils';
 
+// Compact label so all seven segments stay on a single line without wrapping.
+const COMPACT_LABELS: Record<ThinkingLevel, string> = {
+  ...THINKING_LABELS,
+  xhigh: 'X-High',
+};
+
 interface ThinkingLevelPickerProps {
   value: string;
   onChange: (value: ThinkingLevel) => void;
@@ -28,7 +34,7 @@ export function ThinkingLevelPicker({
     : THINKING_LEVELS.filter((level) => allowed.has(level));
 
   return (
-    <div className={cn('grid grid-cols-6 gap-1 rounded-lg border border-border/50 bg-muted/20 p-1', className)}>
+    <div className={cn('grid grid-cols-7 gap-1 rounded-lg border border-border/50 bg-muted/20 p-1', className)}>
       {levels.map((level) => {
         const isActive = value === level;
         const isAvailable = allowed.has(level) || !availableLevels;
@@ -39,14 +45,14 @@ export function ThinkingLevelPicker({
             disabled={disabled || !isAvailable}
             onClick={() => onChange(level)}
             className={cn(
-              'rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
+              'whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
               (!isAvailable || disabled) && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
             )}
           >
-            {THINKING_LABELS[level]}
+            {COMPACT_LABELS[level]}
           </button>
         );
       })}

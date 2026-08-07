@@ -82,7 +82,7 @@ export function OnboardingWizard() {
           }
         }}
       >
-        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto" onInteractOutside={(event) => event.preventDefault()}>
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto" onInteractOutside={(event) => event.preventDefault()}>
           <div className="space-y-4">
             <OnboardingLogo />
             {readyRecommendation ? (
