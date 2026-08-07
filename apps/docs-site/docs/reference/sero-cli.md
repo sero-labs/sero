@@ -90,9 +90,9 @@ See [Browser and Capture](/guide/browser-and-capture). `app` commands are UI-bac
 | `sero app snapshot` | Returns visible headings, sections, buttons, links, and inputs as JSON. |
 | `sero app scroll-containers` | Lists scrollable containers with refs, dimensions, scrollTop, and max scroll. |
 | `sero app get-text [--app <id\|name>] [<selector>\|--selector <sel>] [--visible-only] [--around "text"]` | Returns text content, optionally limited to visible or nearby text. |
-| `sero app record start` | Starts 2 FPS capture. |
+| `sero app record start [--fps <n>] [--crf <n>] [--full-window]` | Starts capture. Default 2 FPS, up to 30; `--crf` sets quality (lower is better, default 23); `--full-window` captures the whole Sero window instead of the active app panel. Needs `ffmpeg` on `PATH`. |
 | `sero app record status` | Shows recording state/duration. |
-| `sero app record stop [--save <path>]` | Saves MP4 or PNG frame folder. Default: `<workspace>/sero-recordings/`. |
+| `sero app record stop [--save <path>]` | Saves the MP4. Default: `<workspace>/sero-recordings/`. |
 | `sero app preview <url>` | Opens a dev-server URL in Explorer's editor preview so `app screenshot/record` can capture it. |
 
 ## `browser`

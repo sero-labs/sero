@@ -1,13 +1,12 @@
 // Cloudflare Pages Function: POST /api/subscribe — "Get beta updates" sign-up.
 //
-// STUB: no storage backend is bound yet, so this returns 503 not_configured
-// and the form shows a friendly "not live yet" message. To go live with the
-// zero-dependency option, create a KV namespace and bind it in wrangler.jsonc:
-//
-//   "kv_namespaces": [{ "binding": "BETA_SUBSCRIBERS", "id": "<namespace-id>" }]
+// Addresses are stored in the BETA_SUBSCRIBERS KV namespace bound in
+// wrangler.jsonc. Without that binding (e.g. a preview environment that has
+// not been configured) the endpoint returns 503 not_configured and the form
+// shows a friendly "not live yet" message instead of losing the address.
 //
 // Alternative backends (Buttondown, Formspree) are documented in
-// docs/marketing/drafts/homepage-notes.md — backend choice is Dan's call.
+// docs/marketing/drafts/homepage-notes.md.
 
 interface KVNamespaceLike {
 	put(key: string, value: string): Promise<void>;

@@ -54,6 +54,13 @@ That's a finished MP4 (H.264, yuv420p) you can upload or edit.
 
 ## Captions
 
-Add captions/voiceover in your editor of choice. (The experimental auto-capture
-harness under `apps/desktop/e2e/helpers/demo.ts` can burn captions in
-programmatically, but manual recording + an editor is the reliable path today.)
+Add captions and voiceover in your editor of choice.
+
+## Recording the flagship demo instead
+
+The flagship plugin demo is automated. It drives Sero, burns in its captions,
+and writes the finished MP4 by itself. Use
+[restart-checklist.md](../restart-checklist.md) for that run. The helpers live
+in `apps/desktop/e2e/helpers/demo.ts`.
+
+Use the manual recipe above for any demo that has no automated script.

@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { chat, connectToRunningSero, layout } from './helpers';
-import { waitForShell } from './helpers/workflow';
+import { openExplorer, waitForShell } from './helpers/workflow';
 import {
   assembleDemo,
   CAMPAIGN_CLIPS,
@@ -28,10 +28,20 @@ import {
   stopRecordingRaw,
   validateDemoVideo,
 } from './helpers/demo';
+import {
+  deleteWorkspaceSessions,
+  expectCleanDemoStage,
+  installPluginFromFolder,
+  removeDemoPlugin,
+  type DemoPluginIdentity,
+} from './helpers/demo-setup';
 
 const EXISTING_CDP = process.env.SERO_E2E_EXISTING_CDP;
 const WS_NAME = 'release-checklist-demo';
 const PLUGIN_FOLDER = 'release-checklist-plugin';
+
+/** What the prompt asks for, and what the stage must be clean of beforehand. */
+const DEMO_PLUGIN: DemoPluginIdentity = { id: 'release-checklist', name: 'Release Checklist' };
 
 const PLUGIN_PROMPT = `Build a standalone release checklist plugin for this project.
 
@@ -60,6 +70,8 @@ Proceed without asking follow-up questions.`;
 let browser: Browser;
 let page: Page;
 
+const interactions = createDemoInteractionLog();
+
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).trim();
 }
@@ -87,61 +99,45 @@ function prepareWorkspace(): string {
   return wsDir;
 }
 
+/** Add the demo workspace, clear its earlier sessions, and open one new session. */
 async function createVisibleAgentSession(workspacePath: string) {
-  const setup = await page.evaluate(async ({ folderPath, name }) => {
-    const workspace = await window.sero.workspace.addFolder(folderPath, name);
-    const sessions = await window.sero.sessions.list(workspace.id);
-    return { workspace, existingSessionIds: sessions.map((session) => session.id) };
-  }, { folderPath: workspacePath, name: 'Release Checklist Demo' });
+  const workspace = await page.evaluate(
+    ({ folderPath, name }) => window.sero.workspace.addFolder(folderPath, name),
+    { folderPath: workspacePath, name: 'Release Checklist Demo' },
+  );
+  await deleteWorkspaceSessions(page, workspace.id);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForShell(page);
 
-  const workspaceNode = page.getByTestId(`workspace-node-${setup.workspace.id}`);
+  const workspaceNode = page.getByTestId(`workspace-node-${workspace.id}`);
   await expect(workspaceNode).toBeVisible({ timeout: 10_000 });
   await workspaceNode.locator('xpath=..').locator('[title="New session"]').click();
 
-  await expect.poll(async () => page.evaluate(async ({ workspaceId, existingSessionIds }) => {
-    const sessions = await window.sero.sessions.list(workspaceId);
-    return sessions.some((session) => !existingSessionIds.includes(session.id));
-  }, { workspaceId: setup.workspace.id, existingSessionIds: setup.existingSessionIds }), {
-    message: 'the visible New session action must create a session',
-    timeout: 10_000,
-  }).toBe(true);
+  await expect.poll(
+    async () => page.evaluate((id) => window.sero.sessions.list(id).then((s) => s.length), workspace.id),
+    { message: 'the visible New session action must create exactly one session', timeout: 10_000 },
+  ).toBe(1);
 
   await expect(page.locator(chat.emptyNoMessages)).toBeVisible({ timeout: 10_000 });
 }
 
-function selectFolderInNativeDialog(folderPath: string): void {
-  execFileSync('osascript', [
-    '-e', 'tell application "System Events"',
-    '-e', 'keystroke "g" using {command down, shift down}',
-    '-e', 'delay 0.5',
-    '-e', `keystroke ${JSON.stringify(folderPath)}`,
-    '-e', 'delay 0.5',
-    '-e', 'key code 36',
-    '-e', 'delay 1',
-    '-e', 'key code 36',
-    '-e', 'end tell',
-  ]);
+/** Fail early if the agent named the plugin something the demo cannot show. */
+function readGeneratedPluginApp(pluginPath: string): DemoPluginIdentity {
+  const packageFile = path.join(pluginPath, 'package.json');
+  expect(fs.existsSync(packageFile), 'the requested plugin package must exist').toBe(true);
+  const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8')) as {
+    sero?: { app?: { id?: string; name?: string } };
+  };
+  const app = packageJson.sero?.app;
+  expect(app, 'package.json must declare sero.app').toBeTruthy();
+  expect(app?.id, 'sero.app.id must be set').toBeTruthy();
+  // The panel name is what the caption claims and what the stage was cleared
+  // of. The id is the agent's choice, so read it rather than assume it.
+  expect(app?.name, 'the built panel must carry the name the prompt asked for')
+    .toBe(DEMO_PLUGIN.name);
+  return { id: app!.id!, name: app!.name! };
 }
-
-async function installGeneratedPlugin(pluginPath: string): Promise<void> {
-  await clickForDemo(
-    page,
-    page.getByRole('button', { name: 'Open App Store' }),
-    interactions,
-    { name: 'Open App Store' },
-  );
-  const installButton = page.getByRole('button', { name: 'Install from folder' });
-  await clickForDemo(page, installButton, interactions, { name: 'Install from folder' });
-  selectFolderInNativeDialog(pluginPath);
-  await expect(
-    page.getByRole('heading', { name: 'Release Checklist', exact: true }),
-  ).toBeVisible({ timeout: 180_000 });
-}
-
-const interactions = createDemoInteractionLog();
 
 test.skip(!EXISTING_CDP, 'plugin workflow recording needs SERO_E2E_EXISTING_CDP');
 test.skip(process.platform !== 'darwin', 'native folder selection is automated on macOS');
@@ -160,7 +156,13 @@ test('records the complete plugin workflow', async () => {
 
   try {
     await waitForShell(page);
+
+    // ── Clean stage (before the recorder starts) ──────────────
+    await removeDemoPlugin(page, DEMO_PLUGIN);
     await createVisibleAgentSession(wsDir);
+    await openExplorer(page);
+    await expectCleanDemoStage(page, DEMO_PLUGIN);
+
     await installCaptionOverlay(page);
     const input = page.locator(chat.input);
     if (!(await input.isVisible())) {
@@ -170,6 +172,7 @@ test('records the complete plugin workflow', async () => {
     expect(await startDemoRecording(page, { fps: 15, crf: 18 }, interactions)).toBe(true);
     recordedAt = Date.now();
 
+    // ── Describe and build ───────────────────────────────────
     await caption(page, CAMPAIGN_CLIPS['plugin-build'].caption, 4_000);
     await clearCaption(page);
     await page.locator(chat.input).fill(PLUGIN_PROMPT);
@@ -180,13 +183,11 @@ test('records the complete plugin workflow', async () => {
     await expect(page.locator(chat.stopButton)).toBeHidden({ timeout: 3_000_000 });
     const buildFinishedAt = Date.now();
 
+    // ── Install and use ──────────────────────────────────────
     const pluginPath = path.join(wsDir, PLUGIN_FOLDER);
-    const packageFile = path.join(pluginPath, 'package.json');
-    expect(fs.existsSync(packageFile), 'the requested plugin package must exist').toBe(true);
-    const packageJson = JSON.parse(fs.readFileSync(packageFile, 'utf8')) as { sero?: { app?: unknown } };
-    expect(packageJson.sero?.app, 'package.json must declare sero.app').toBeTruthy();
+    const plugin = readGeneratedPluginApp(pluginPath);
+    await installPluginFromFolder(page, { folderPath: pluginPath, plugin, log: interactions });
 
-    await installGeneratedPlugin(pluginPath);
     const generateReport = page.getByRole('button', { name: 'Generate report' });
     await clickForDemo(page, generateReport, interactions, { name: 'Generate report' });
     const report = page.getByRole('region', { name: 'Release readiness report' });
@@ -200,6 +201,7 @@ test('records the complete plugin workflow', async () => {
     recordingStopped = true;
     expect(rawResult).toBeTruthy();
 
+    // ── Pace, encode, and validate ───────────────────────────
     const buildStart = (buildStartedAt - recordedAt) / 1000;
     const buildEnd = (buildFinishedAt - recordedAt) / 1000;
     const acceleratedStart = Math.min(buildStart + 8, buildEnd);
@@ -229,6 +231,7 @@ test('records the complete plugin workflow', async () => {
       realBuildElapsedMs: buildFinishedAt - buildStartedAt,
       segments,
       visibleClickCount: interactions.visibleClickCount,
+      nativeDialogClickCount: interactions.nativeDialogClickCount,
       validation,
     }, null, 2));
     expect(validation.errors).toEqual([]);

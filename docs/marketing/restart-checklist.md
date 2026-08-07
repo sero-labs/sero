@@ -26,9 +26,17 @@ The video includes a visible mouse cursor.
 
 The video includes a blue circle when you click.
 
+The recorder streams frames to `ffmpeg` while it records.
+
+A long recording no longer exhausts Sero's memory.
+
+The App Store has a visible **Install from folder** action.
+
+That action installs a plugin package from a folder you select.
+
 You do not need to test the recorder again before recording the videos below.
 
-## Your next task: record Sero creating a plugin
+## Your next task: record Sero creating and using a plugin
 
 A **Sero plugin** is a separate package that Sero can install.
 
@@ -38,103 +46,103 @@ It can also add Pi tools or background work.
 
 This video shows Sero creating a plugin from one request.
 
+It then shows a person installing and using that plugin.
+
 The plugin is named **Release Checklist**.
 
-After installation, it would add a panel named **Release Checklist**.
+The panel inspects a Git repository and creates a release report.
 
-The panel would inspect a Git repository and create a release report.
-
-The report would include the latest release, recent commits, open pull requests, and blocking issues.
+The report includes the latest release, recent commits, open pull requests, and
+blocking issues.
 
 ### Important limit
 
-Do not try to show the plugin running inside Sero.
+Do not claim an approval gate.
 
-Sero does not currently give you a screen button to install a plugin from a folder.
+Sero has no setting that reliably creates an approval card for this task.
 
-Do not try to show an approval card.
+Do not call the installation one click. You select the folder yourself.
 
-Sero has no setting that reliably creates that card for this task.
+### How the recording runs
 
-This video ends when Sero creates the plugin files.
+The recording is automated. You start one Sero process, then start the test.
 
-### Set up the screen
+The test drives the whole demo and writes the finished video.
 
-1. Open Sero.
-2. Open a real Git repository as the workspace.
-3. Use a repository that has releases, pull requests, and issues.
-4. Connect a model.
-5. Open the workspace chat.
-6. Keep the repository file tree visible.
+Before recording, the test cleans the stage:
+
+1. It uninstalls any earlier Release Checklist plugin.
+2. It deletes older sessions in the demo workspace.
+3. It opens Explorer, so no plugin panel is on screen.
+
+### Set up the machine
+
+1. Close every running Sero process.
+2. Connect a model in Sero.
+3. Keep your hands off the keyboard and mouse during the run.
+
+The run sends keystrokes to a macOS folder picker. Typing at the same time
+breaks it.
+
+### Build and start Sero
+
+```bash
+cd apps/desktop
+pnpm run build:electron
+```
+
+```bash
+cd apps/desktop
+SERO_DEV_PLUGINS=orchestrator,git,admin \
+SERO_ELECTRON_ARGS="--remote-debugging-port=9222" \
+SERO_HOME_OVERRIDE="$HOME/.sero-ui" \
+bash scripts/dev.sh
+```
+
+Confirm only one Electron process uses port `9222`.
 
 ### Record the video
 
-1. Open a terminal outside the repository.
-2. Start the recorder:
+```bash
+cd apps/desktop
+SERO_E2E_EXISTING_CDP=9222 \
+pnpm exec playwright test e2e/flagship-demo.agent.spec.ts \
+  --project=agent \
+  --retries=0
+```
 
-   ```bash
-   sero app record start --fps 15 --full-window --crf 18
-   ```
+The build turn takes about eleven minutes. The test speeds that part up and
+labels it as a timelapse.
 
-3. Return to the Sero chat.
-4. Paste this exact message:
+The test writes these files:
 
-   ```text
-   Build a standalone Sero plugin in a new top-level folder named `release-checklist-plugin`.
+- `~/Movies/sero-demos/plugin-build.mp4` — the finished video.
+- `~/Movies/sero-demos/plugin-build-raw.mp4` — the complete raw recording.
+- `~/Movies/sero-demos/plugin-build-review.jpg` — a contact sheet for review.
+- `~/Movies/sero-demos/plugin-build.json` — what the run measured.
 
-   Give it a UI panel named `Release Checklist`.
+### Review the video before you use it
 
-   The panel must create a release readiness report for this repository.
+Open the contact sheet. Reject the video unless every statement is true:
 
-   The report must contain:
+- No Release Checklist panel appears before the prompt.
+- Only one fresh session appears in the sidebar.
+- The build finishes on screen.
+- The App Store shows `Install from folder`.
+- The installed Release Checklist panel opens.
+- `Generate report` runs and a real report appears.
+- The cursor stays visible and ordinary clicks show the blue circle.
+- No black or frozen sections exist.
 
-   - The latest release tag.
-   - Commits since that tag.
-   - Working-tree status.
-   - Open pull requests.
-   - Release-blocking open issues.
+Automatic checks alone are not enough. The pictures must also make sense.
 
-   Add one `Generate report` action.
-
-   The action must write `release-readiness.md` in the workspace root.
-
-   The panel must show the same report.
-
-   Use only published versioned dependencies.
-
-   Do not use any `workspace:*` dependency.
-
-   Do not import `@sero-ai/ui`.
-
-   Use plain React with a local `cn()` helper.
-
-   Build the plugin.
-
-   Do not install it.
-
-   Do not commit, push, or post anything.
-   ```
-
-5. Wait for Sero to finish.
-6. If the wait takes more than one minute, speed up only the waiting part.
-7. Put the real elapsed time over the sped-up part.
-8. In the file tree, open `release-checklist-plugin/package.json`.
-9. Show the `sero.app` section in that file.
-10. Stop the recorder:
-
-   ```bash
-   sero app record stop --save ~/Movies/sero-demos/plugin-build.mp4
-   ```
-
-### Edit and publish the video
+### Publish the video
 
 Use this caption:
 
 ```text
-Sero built a standalone Sero plugin from one prompt.
+Sero built a standalone Sero plugin from one prompt, then ran it.
 ```
-
-Do not say that Sero installed or ran the plugin.
 
 Do not say that you approved an action.
 
@@ -223,14 +231,16 @@ Record stars, traffic, and downloads for 48 hours after each post.
 
 A **pull request** is the review request for this branch.
 
-Complete these code fixes first:
+These code fixes are complete:
 
-1. Split `apps/desktop/e2e/marketing-loops.agent.spec.ts` into files below 500 lines.
-2. Correct the stale comment in `apps/homepage/functions/api/subscribe.ts`.
-3. Test invalid email, missing KV storage, and successful KV writes.
-4. Make the demo smoke test fail when panel switching fails.
-5. Decide whether the recording IPC is only for tests or for people using Sero.
-6. If people use it, complete the renderer, Zustand, preload, main-process, and Pi SDK layers.
+1. `apps/desktop/e2e/marketing-loops.agent.spec.ts` is under 500 lines. Its
+   mechanics moved to `apps/desktop/e2e/helpers/marketing-loops.ts`.
+2. `apps/homepage/functions/api/subscribe.ts` describes the bound KV namespace.
+3. `apps/homepage/functions/api/subscribe.test.ts` covers an invalid email, a
+   missing KV binding, and a successful write.
+4. The demo smoke test fails when a panel switch does not come from a click.
+5. The recorder is a CLI feature, not a UI feature. See AD-027 in
+   `docs/decisions.md`.
 
 Then run the targeted tests and `pnpm typecheck` from the repository root.
 

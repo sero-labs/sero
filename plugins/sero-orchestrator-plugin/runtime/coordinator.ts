@@ -21,6 +21,7 @@ import type {
 import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
+import { deleteLoop } from './delete-loop';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planIsActivatable } from './plan-mapping';
 import { validateDeliverySettings } from './schema';
@@ -293,21 +294,7 @@ export class Coordinator {
   async delete(loopId: string, deleteBranch?: boolean): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const resolved = loop.runtime.workspace.resolved;
-    if (resolved?.type === 'managed-worktree') {
-      // An event-pr worktree's branch belongs to a PR, never to this loop —
-      // deleteBranch must not reach it (spec 15, FR-P2).
-      await this.host.removeWorktree(resolved.worktreeKey ?? loopId, {
-        force: true,
-        deleteBranch: resolved.externalBranch ? undefined : deleteBranch,
-      });
-    }
-    await this.host.updateState((state) => ({
-      ...state,
-      loops: state.loops.filter((l) => l.id !== loopId),
-    }));
-    this.host.log(`Deleted loop ${loopId}`);
-    return { ok: true };
+    return deleteLoop(this.host, loop, deleteBranch);
   }
 
   // ── Lifecycle transitions ─────────────────────────────────

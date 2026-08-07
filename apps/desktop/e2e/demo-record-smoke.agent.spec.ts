@@ -79,6 +79,12 @@ test('captures a captioned, fixed-frame 1080p demo clip outside the repo', async
     await caption(page, 'Every panel switch is a visible, verified interaction.', 2_500);
 
     expect(interactions.visiblePanels).toEqual(['explorer', 'browser', 'orchestration']);
+    // A panel already on screen needs no click, so the visited list alone
+    // cannot prove the switches happened on camera. These must be clicked.
+    expect(
+      interactions.clickedPanels,
+      'each demo panel switch must come from a visible, verified click',
+    ).toEqual(expect.arrayContaining(['browser', 'orchestration', 'explorer']));
     expect(interactions.visibleClickCount).toBeGreaterThanOrEqual(3);
     out = await stopDemoRecording(page, 'smoke-demo');
     recorderStopped = true;

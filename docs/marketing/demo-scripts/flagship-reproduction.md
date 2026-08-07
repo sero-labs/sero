@@ -36,29 +36,37 @@ The one-prompt build is proven by the dry-run.
 
 It creates a standalone `sero.app` package in `release-checklist-plugin/`.
 
-The full claim is not ready to record.
+The App Store has a visible **Install from folder** action.
 
-The dry-run installs that folder with the private automation call
-`window.sero.plugins.install(path)`.
+That action opens a folder picker and installs the selected package.
 
-That call is not a person-facing Sero control.
+The installed panel opens inside Sero and generates a real report.
 
-The App Store currently has no verified **Install from folder** action.
+This path was verified by hand from end to end.
 
-The dry-run also received zero approval prompts.
+The recording is automated by
+[`apps/desktop/e2e/flagship-demo.agent.spec.ts`](../../../apps/desktop/e2e/flagship-demo.agent.spec.ts).
 
-There is no documented Sero setting that forces an approval card before writes
-or commands.
+### What the video may claim
 
-Do not claim that the plugin was installed, opened, or approved on camera.
+The video may show and claim these steps:
 
-The current video script is in
-[restart-checklist.md](../restart-checklist.md).
+1. One prompt describes the plugin.
+2. Sero builds the plugin.
+3. A person installs it from its folder.
+4. The panel opens inside Sero.
+5. `Generate report` produces a real report.
 
-The full flagship recording needs both of these product capabilities:
+### What the video must not claim
 
-1. A visible **Install from folder** action.
-2. A repeatable user-controlled approval gate.
+Do not claim an approval gate.
+
+Sero has no documented setting that forces an approval card before writes or
+commands.
+
+No repeatable approval prompt was observed during these runs.
+
+Do not call the installation one click. The person selects the folder.
 
 ## Timing note for the recording
 

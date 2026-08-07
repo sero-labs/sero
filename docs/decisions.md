@@ -539,3 +539,22 @@ plugins, Pi packages, or sidebar apps.
   two exact v1 placeholders in `args`, `env` values, and `cwd`.
 - Invalid skills and MCP entries fail independently. A fatal manifest error is
   the only portable error that blocks all components.
+  
+## AD-028: The Screen Recorder Is a CLI Feature, Not a UI Feature
+
+**Decision:** Sero's screen recorder is a real user feature, and its only
+person-facing control is the `sero app record` CLI command. It has no renderer
+UI and therefore no Zustand store slice.
+
+- `sero app record start [--fps N] [--crf N] [--full-window]` and
+  `sero app record stop [--save <path>]` are the supported controls.
+- Frames stream straight into `ffmpeg` (`image2pipe`), so recording length is
+  bounded by disk, not by the Electron heap. The recorder never holds the image
+  sequence in memory.
+- `window.sero.appControl.record*` is the automation seam. The CLI command and
+  the demo-capture e2e specs both drive the recorder through it.
+- The standard four-layer IPC rule (React → Zustand → preload → main) does not
+  apply here, because no component renders recorder state. A future recorder
+  UI must add the missing layers rather than read main-process state directly.
+- `ffmpeg` must be on `PATH`. Without it the recorder reports a failure instead
+  of collecting frames it cannot encode.
