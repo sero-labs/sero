@@ -65,11 +65,19 @@ export function AgentPluginInstallReview({
         </ul>
       )}
 
-      {stdioCount > 0 && (
-        <label className="flex items-start gap-2 text-xs">
-          <input type="checkbox" checked={approveExecutable} onChange={(event) => onApproveExecutableChange(event.target.checked)} />
-          <span><strong>Approve local execution.</strong> These MCP servers can run commands on this machine. They cannot start until approved.</span>
-        </label>
+      {validServers.length > 0 && (
+        <div className="space-y-2 rounded-md border border-border/60 bg-background/60 p-3 text-xs">
+          <strong>MCP access to approve</strong>
+          <ul className="space-y-1 font-mono text-muted-foreground">
+            {validServers.map((server) => (
+              <li key={server.name}>{server.name}: {formatMcpDefinition(server)}</li>
+            ))}
+          </ul>
+          <label className="flex items-start gap-2 font-sans text-foreground">
+            <input type="checkbox" checked={approveExecutable} onChange={(event) => onApproveExecutableChange(event.target.checked)} />
+            <span><strong>Approve these MCP definitions.</strong> Local servers can run commands. Remote servers can connect to the shown endpoints.</span>
+          </label>
+        </div>
       )}
 
       <label className="flex items-start gap-2 text-xs">
@@ -98,4 +106,11 @@ export function AgentPluginInstallReview({
 
 function ComponentSummary({ label, value }: { label: string; value: number }) {
   return <div className="rounded-md border border-border/60 bg-background/60 p-3"><strong className="block text-base">{value}</strong>{label}</div>;
+}
+
+function formatMcpDefinition(server: AgentPluginInspection['mcpServers'][number]): string {
+  if (server.transport === 'stdio') {
+    return [server.command, ...(server.args ?? [])].filter(Boolean).join(' ');
+  }
+  return server.url ?? 'Missing URL';
 }

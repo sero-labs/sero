@@ -45,6 +45,7 @@ describe('buildWorkspaceContainerConfig', () => {
       readOnlyMounts: [
         path.join('/tmp/sero-agent', 'skills'),
         path.join('/tmp/sero-agent', 'prompts'),
+        path.join('/tmp/sero-agent', 'agent-plugins'),
         path.join('/tmp/sero-host-artifacts', 'shared', 'pi-docs'),
       ],
       writableMounts: [],

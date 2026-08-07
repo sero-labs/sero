@@ -26,12 +26,22 @@ function normalizeRegistry(raw: unknown): AgentPluginRegistryDocument {
 
 export async function readAgentPluginRegistry(): Promise<AgentPluginRegistryDocument> {
   if (!existsSync(AGENT_PLUGIN_REGISTRY_PATH)) return EMPTY_REGISTRY;
-  return normalizeRegistry(JSON.parse(await fs.readFile(AGENT_PLUGIN_REGISTRY_PATH, 'utf8')));
+  try {
+    return normalizeRegistry(JSON.parse(await fs.readFile(AGENT_PLUGIN_REGISTRY_PATH, 'utf8')));
+  } catch (error) {
+    console.warn('[agent-plugins] Failed to read registry:', error);
+    return EMPTY_REGISTRY;
+  }
 }
 
 export function readAgentPluginRegistrySync(): AgentPluginRegistryDocument {
   if (!existsSync(AGENT_PLUGIN_REGISTRY_PATH)) return EMPTY_REGISTRY;
-  return normalizeRegistry(JSON.parse(readFileSync(AGENT_PLUGIN_REGISTRY_PATH, 'utf8')));
+  try {
+    return normalizeRegistry(JSON.parse(readFileSync(AGENT_PLUGIN_REGISTRY_PATH, 'utf8')));
+  } catch (error) {
+    console.warn('[agent-plugins] Failed to read registry:', error);
+    return EMPTY_REGISTRY;
+  }
 }
 
 export async function writeAgentPluginRegistry(plugins: InstalledAgentPlugin[]): Promise<void> {

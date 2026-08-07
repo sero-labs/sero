@@ -8,7 +8,7 @@ import { configureAgentPluginMcpSource } from './config/agent-plugin-source';
 const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
-  configureAgentPluginMcpSource(pi.events);
+  const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
   runtime.attachPi(pi);
 
   pi.on('before_agent_start', async (event) => ({
@@ -22,6 +22,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
   });
 
   pi.on('session_shutdown', async () => {
+    releaseAgentPluginSource();
     await runtime.handleSessionShutdown().catch((error) => {
       console.error('[mcp] Failed to shut down runtime cleanly', error);
     });

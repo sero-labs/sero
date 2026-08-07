@@ -12,10 +12,14 @@ themes, widgets, and host capabilities. An Agent Plugin has a root
 
 Open **Admin > Plugins > Agent Plugins**. Enter an npm source, Git URL, or
 absolute local directory. Select **Inspect source** before installation.
+Npm sources accept registry package names with an optional version or tag.
+Git sources accept HTTPS, SSH, and Git URLs.
 
 The review shows skills, local MCP executables, remote endpoints, validation
-errors, and the optional Sero CLI namespace. Local MCP executables do not run
-until you approve them.
+errors, and the optional Sero CLI namespace. Review the exact local commands
+and remote URLs. No MCP server can start until you approve the shown
+definitions. If the source changes after review, Sero stops the installation
+and asks you to inspect it again.
 
 ## Storage
 
@@ -40,6 +44,12 @@ Enabled skills become available to new and active sessions without a restart.
 Sero uses the Pi resource loader for this integration, but it does not turn an
 Agent Plugin into a Pi package.
 
+For container workspaces, Sero mounts the installed Agent Plugin package
+directory read-only at the same absolute path. This lets a skill refer to files
+inside its own package. Restart an existing workspace container after the first
+Agent Plugin installation so the new mount is present. `PLUGIN_DATA` stays on
+the host and is not available to general container commands.
+
 ## MCP servers
 
 Agent Plugin servers appear in the MCP app with an ownership badge. Their
@@ -50,7 +60,8 @@ authenticate a managed server in MCP. These controls do not edit `mcp.json`.
 
 Sero supports stdio, Streamable HTTP, and legacy SSE entries. Non-loopback
 remote endpoints must use HTTPS. Sero blocks package path escapes and does not
-forward configured headers through redirects.
+forward Agent Plugin headers through redirects. An update that changes a local
+command or remote endpoint needs new approval.
 
 ## Sero CLI
 

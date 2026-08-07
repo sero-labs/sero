@@ -9,7 +9,13 @@ plugins and do not create Sero apps or sidebar entries.
 
 Open **Admin > Plugins > Agent Plugins** to inspect and install a package from
 an npm source, Git URL, or absolute local directory. Review all components
-before installation. Local MCP executables need explicit approval.
+before installation. Npm sources accept registry package names with an optional
+version or tag. Git sources accept HTTPS, SSH, and Git URLs.
+
+Approve only MCP definitions that you trust. The review shows each local
+command and remote URL. Sero stops the installation if the package content
+changes after inspection. An update that changes an MCP definition needs new
+approval.
 
 An Agent Plugin can provide:
 
@@ -24,6 +30,9 @@ identity.
 
 Sero keeps installed package content separate from writable `PLUGIN_DATA`.
 Data survives updates and can be retained when you remove the package.
+Container workspaces mount installed Agent Plugin packages read-only at the
+same absolute path. Restart an existing workspace container after the first
+Agent Plugin installation so this mount is present.
 
 CLI skill commands use `<plugin-name>/<skill-name>`. Discovered MCP tools use
 `<plugin-name>/<server-name>/<tool-name>`. Sero maps safe object schemas to CLI

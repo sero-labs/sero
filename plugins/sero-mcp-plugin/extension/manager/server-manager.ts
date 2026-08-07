@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { McpOAuthProvider } from '../auth/oauth-provider';
@@ -178,7 +178,7 @@ export class McpServerManager {
   private async connectSse(
     name: string,
     url: URL,
-    requestInit: { headers?: Record<string, string>; redirect?: 'manual' },
+    requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
   ): Promise<ManagedConnection> {
     const sseClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
     const sseTransport = new SSEClientTransport(url, { requestInit });
@@ -274,25 +274,30 @@ export class McpServerManager {
 
 function resolveEnv(env: Record<string, string> | undefined, literal: boolean): Record<string, string> | undefined {
   if (!env) return undefined;
-  if (literal) return { ...env };
-  return Object.fromEntries(
-    Object.entries(env).map(([key, value]) => [key, expandEnvReferences(value)]),
-  );
+  const resolved = literal
+    ? env
+    : Object.fromEntries(
+        Object.entries(env).map(([key, value]) => [key, expandEnvReferences(value)]),
+      );
+  return { ...getDefaultEnvironment(), ...resolved };
 }
 
 function expandEnvReferences(value: string): string {
   return value.replace(/\$\{([^}]+)\}/g, (_match, key: string) => process.env[key] ?? '');
 }
 
-function buildRequestInit(
+export function buildRequestInit(
   definition: McpServerConfig,
   bearerToken?: string,
-): { headers?: Record<string, string>; redirect?: 'manual' } {
+): { headers?: Record<string, string>; redirect?: 'manual' } | undefined {
   const headers: Record<string, string> = { ...(definition.headers ?? {}) };
   if (bearerToken) {
     headers.Authorization = `Bearer ${bearerToken}`;
   }
-  return Object.keys(headers).length > 0 ? { headers, redirect: 'manual' } : { redirect: 'manual' };
+  const redirect = definition.managedByAgentPlugin ? { redirect: 'manual' as const } : {};
+  return Object.keys(headers).length > 0
+    ? { headers, ...redirect }
+    : definition.managedByAgentPlugin ? redirect : undefined;
 }
 
 function isPathInside(root: string, target: string): boolean {

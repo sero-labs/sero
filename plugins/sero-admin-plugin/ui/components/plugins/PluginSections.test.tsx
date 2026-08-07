@@ -57,9 +57,19 @@ describe('plugin management sections', () => {
           manifest: { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'Example' },
           source: 'npm:example',
           sourceKind: 'npm',
+          contentDigest: 'fixture-digest',
           valid: true,
           skills: [],
-          mcpServers: [],
+          mcpServers: [{
+            name: 'local',
+            runtimeName: 'agent-plugin:fixture:local',
+            transport: 'stdio',
+            valid: true,
+            approved: false,
+            exposedToCli: false,
+            command: './bin/server',
+            args: ['--safe'],
+          }],
           diagnostics: [],
           requiresExecutableApproval: false,
           suggestedNamespace: 'example',
@@ -78,6 +88,7 @@ describe('plugin management sections', () => {
 
     expect(html).toContain('Install only from sources you trust.');
     expect(html).toContain('MCP servers can connect to services or run commands on this machine.');
+    expect(html).toContain('local: ./bin/server --safe');
   });
 
   it('renders installed plugins, local development, and attached folders as distinct concepts', () => {

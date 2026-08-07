@@ -60,6 +60,7 @@ export interface InstalledAgentPlugin {
   manifest: AgentPluginManifest;
   source: string;
   sourceKind: AgentPluginSourceKind;
+  contentDigest: string;
   installedAt: string;
   updatedAt: string;
   packagePath: string;
@@ -76,6 +77,7 @@ export interface AgentPluginInspection {
   manifest: AgentPluginManifest | null;
   source: string;
   sourceKind: AgentPluginSourceKind;
+  contentDigest: string;
   valid: boolean;
   skills: AgentPluginSkill[];
   mcpServers: AgentPluginMcpServer[];
@@ -86,6 +88,7 @@ export interface AgentPluginInspection {
 
 export interface AgentPluginInstallRequest {
   source: string;
+  contentDigest: string;
   approveExecutableComponents: boolean;
   exposeToCli: boolean;
   namespaceAlias?: string;
@@ -93,11 +96,13 @@ export interface AgentPluginInstallRequest {
 
 export interface AgentPluginUpdateRequest {
   id: string;
+  contentDigest: string;
   approveExecutableChanges: boolean;
 }
 
 export interface AgentPluginUpdatePreview {
   pluginId: string;
+  contentDigest: string;
   previousVersion?: string;
   nextVersion?: string;
   addedComponents: string[];
@@ -127,6 +132,8 @@ export interface AgentPluginChangeEvent {
 }
 
 export const AGENT_PLUGIN_MCP_SOURCES_EVENT = 'sero:agent-plugin-mcp-sources';
+export const AGENT_PLUGIN_CLI_REFRESH_EVENT = 'sero:agent-plugin-cli-refresh';
+export const MCP_METADATA_CACHE_RELATIVE_PATH = 'apps/mcp/metadata-cache.json';
 
 export interface AgentPluginMcpSource {
   pluginId: string;

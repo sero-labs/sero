@@ -32,6 +32,7 @@ interface InspectOptions {
   installId: string;
   source: string;
   sourceKind: AgentPluginSourceKind;
+  contentDigest: string;
   approvedHash?: string | null;
   cliSkillNames?: Set<string>;
   cliServerNames?: Set<string>;
@@ -256,7 +257,14 @@ async function resolveStdioServer(
 }
 
 function isLoopback(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.');
+  const normalized = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname;
+  if (normalized === 'localhost' || normalized === '::1') return true;
+  const octets = normalized.split('.');
+  return octets.length === 4
+    && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+    && Number(octets[0]) === 127;
 }
 
 function resolveRemoteServer(
@@ -291,7 +299,7 @@ function resolveRemoteServer(
     runtimeName,
     transport: raw.type,
     valid: true,
-    approved: true,
+    approved: false,
     exposedToCli: exposed,
     url: url.toString(),
     headers,
@@ -317,7 +325,7 @@ async function discoverMcp(
     diagnostics.push(diagnostic('mcp', 'mcp.json must use the matching Agent Plugins v1 schema and closed top-level shape.'));
     return { servers: [], approvalHash: null };
   }
-  const stdioDefinitions: Array<[string, Record<string, unknown>]> = [];
+  const approvalDefinitions: Array<[string, Record<string, unknown>]> = [];
   const servers: AgentPluginMcpServer[] = [];
   for (const [name, value] of Object.entries(raw.mcpServers)) {
     const runtimeName = `agent-plugin:${options.installId}:${name}`;
@@ -328,10 +336,12 @@ async function discoverMcp(
     try {
       if (value.type === 'stdio') {
         const server = await resolveStdioServer(value, name, options.root, options.dataPath, runtimeName, options.cliServerNames?.has(name) ?? false);
-        stdioDefinitions.push([name, value]);
+        approvalDefinitions.push([name, value]);
         servers.push(server);
       } else {
-        servers.push(resolveRemoteServer(value, name, runtimeName, options.cliServerNames?.has(name) ?? false));
+        const server = resolveRemoteServer(value, name, runtimeName, options.cliServerNames?.has(name) ?? false);
+        approvalDefinitions.push([name, value]);
+        servers.push(server);
       }
     } catch (error) {
       diagnostics.push(diagnostic('mcp', error instanceof Error ? error.message : 'Invalid MCP server.', name));
@@ -345,11 +355,11 @@ async function discoverMcp(
       });
     }
   }
-  const approvalHash = stdioDefinitions.length === 0
+  const approvalHash = approvalDefinitions.length === 0
     ? null
-    : createHash('sha256').update(JSON.stringify(stdioDefinitions)).digest('hex');
+    : createHash('sha256').update(JSON.stringify(approvalDefinitions)).digest('hex');
   for (const server of servers) {
-    if (server.transport === 'stdio' && server.valid) server.approved = approvalHash === options.approvedHash;
+    if (server.valid) server.approved = approvalHash === options.approvedHash;
   }
   return { servers, approvalHash };
 }
@@ -374,6 +384,7 @@ export async function inspectAgentPluginRoot(options: InspectOptions): Promise<V
       manifest,
       source: options.source,
       sourceKind: options.sourceKind,
+      contentDigest: options.contentDigest,
       valid: true,
       skills,
       mcpServers: mcp.servers,
@@ -393,6 +404,7 @@ function emptyInspection(options: InspectOptions, diagnostics: AgentPluginDiagno
     manifest: null,
     source: options.source,
     sourceKind: options.sourceKind,
+    contentDigest: options.contentDigest,
     valid: false,
     skills: [],
     mcpServers: [],

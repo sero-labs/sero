@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CliRegistry, type CliCommand } from '@electron/cli/core';
 
 function command(name: string): CliCommand {
@@ -10,19 +10,26 @@ function command(name: string): CliCommand {
   };
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('Agent Plugin CLI registry', () => {
-  it('applies reserved-root policy before the first slash', () => {
+  it('skips a command with a reserved root', () => {
     const registry = new CliRegistry();
-    expect(() => registry.replaceAgentPluginCommands([command('auth/escape')]))
-      .toThrow('CLI command root is blacklisted: auth');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    registry.replaceAgentPluginCommands([command('auth/escape')]);
+    expect(registry.list()).toEqual([]);
   });
 
-  it('rejects duplicate generated paths', () => {
+  it('skips duplicate generated paths', () => {
     const registry = new CliRegistry();
-    expect(() => registry.replaceAgentPluginCommands([
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    registry.replaceAgentPluginCommands([
       command('portable/server/tool'),
       command('portable/server/tool'),
-    ])).toThrow('Agent Plugin CLI command collision');
+    ]);
+    expect(registry.list().map((entry) => entry.name)).toEqual(['portable/server/tool']);
   });
 
   it('refreshes discovered tool paths from the provider without restart', () => {
@@ -31,9 +38,24 @@ describe('Agent Plugin CLI registry', () => {
     registry.setAgentPluginCommandProvider(() => tools.map((tool) => command(`portable/docs/${tool}`)));
     expect(registry.get('portable/docs/search')).toBeDefined();
     tools = ['search', 'fetch'];
+    expect(registry.get('portable/docs/fetch')).toBeUndefined();
+    registry.refreshAgentPluginCommands();
     expect(registry.list().map((entry) => entry.name)).toEqual([
       'portable/docs/fetch',
       'portable/docs/search',
     ]);
+  });
+
+  it('skips an app command that collides with an Agent Plugin command', () => {
+    const registry = new CliRegistry();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    registry.replaceAgentPluginCommands([command('portable/docs')]);
+    registry.replaceAppCommandsForSession('session', [{
+      ...command('portable/docs'),
+      source: 'app',
+      owner: { kind: 'session-extension', sessionId: 'session', extensionPath: '/fixture/extension.ts' },
+    }]);
+
+    expect(registry.list({ sessionId: 'session' }).map((entry) => entry.source)).toEqual(['agent-plugin']);
   });
 });

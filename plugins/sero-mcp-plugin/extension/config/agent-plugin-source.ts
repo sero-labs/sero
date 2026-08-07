@@ -7,22 +7,38 @@ import {
 import type { McpConfigDocument, McpServerConfig } from './types';
 import { readAgentPluginClientState } from './agent-plugin-client-state';
 
-let sourceEvents: EventBus | null = null;
+const sourceEvents = new Set<EventBus>();
 
-export function configureAgentPluginMcpSource(events: EventBus | null): void {
-  sourceEvents = events;
+export function configureAgentPluginMcpSource(events: EventBus | null): () => void {
+  if (!events) {
+    sourceEvents.clear();
+    return () => {};
+  }
+  sourceEvents.add(events);
+  return () => sourceEvents.delete(events);
 }
 
 async function requestAgentPluginMcpSources(): Promise<AgentPluginMcpSource[]> {
-  if (!sourceEvents) return [];
-  return new Promise((resolve, reject) => {
+  if (sourceEvents.size === 0) return [];
+  return new Promise((resolve) => {
     let accepted = false;
-    sourceEvents!.emit(AGENT_PLUGIN_MCP_SOURCES_EVENT, {
+    let settled = false;
+    const request = {
       accept: () => { accepted = true; },
-      resolve,
-    } satisfies AgentPluginMcpSourcesRequest);
+      resolve: (sources) => {
+        if (settled) return;
+        settled = true;
+        resolve(sources);
+      },
+    } satisfies AgentPluginMcpSourcesRequest;
+    for (const events of sourceEvents) {
+      events.emit(AGENT_PLUGIN_MCP_SOURCES_EVENT, request);
+    }
     queueMicrotask(() => {
-      if (!accepted) reject(new Error('Agent Plugin host capability is unavailable.'));
+      if (!accepted && !settled) {
+        settled = true;
+        resolve([]);
+      }
     });
   });
 }

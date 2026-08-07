@@ -106,9 +106,20 @@ export class CliRegistry {
     const next = new Map<string, CliCommand>();
     for (const command of commands) {
       const name = normalizeName(command.name);
-      assertAllowedCommandName(name);
-      if (this.commands.has(name)) throw new Error(`Agent Plugin CLI command collides with a Sero command: ${name}`);
-      if (next.has(name)) throw new Error(`Agent Plugin CLI command collision: ${name}`);
+      try {
+        assertAllowedCommandName(name);
+      } catch (error) {
+        console.warn('[cli] Skipped invalid Agent Plugin command:', error);
+        continue;
+      }
+      if (this.commands.has(name)) {
+        console.warn(`[cli] Skipped Agent Plugin command that collides with a Sero command: ${name}`);
+        continue;
+      }
+      if (next.has(name)) {
+        console.warn(`[cli] Skipped duplicate Agent Plugin command: ${name}`);
+        continue;
+      }
       next.set(name, { ...command, name, source: 'agent-plugin' });
     }
     return next;
@@ -123,7 +134,6 @@ export class CliRegistry {
   }
 
   private buildVisibleCommands(scope?: CliRegistryScope): Map<string, CliCommand> {
-    this.refreshAgentPluginCommands();
     const visible = new Map([...this.commands, ...this.agentPluginCommands]);
     const scopedSessionId = resolveScopedSessionId(scope);
 
@@ -134,7 +144,8 @@ export class CliRegistry {
 
       for (const [name, command] of ownerCommands.commands) {
         if (this.agentPluginCommands.has(name)) {
-          throw new Error(`CLI app command collides with an Agent Plugin command: ${name}`);
+          console.warn(`[cli] Skipped app command that collides with an Agent Plugin command: ${name}`);
+          continue;
         }
         visible.set(name, command);
       }

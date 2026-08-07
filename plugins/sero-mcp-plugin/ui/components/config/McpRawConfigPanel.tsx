@@ -17,10 +17,10 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
               <FileJson className="size-4 text-primary" />
               Raw MCP config
             </CardTitle>
-          <CardDescription>
-            This file contains user-managed servers only. Agent Plugin definitions are read-only and stay in their owning packages.
-            Unknown keys are preserved, and saving refreshes the shared MCP snapshot.
-          </CardDescription>
+            <CardDescription>
+              This file contains user-managed servers only. Agent Plugin definitions are read-only and stay in their owning packages.
+              Unknown keys are preserved, and saving refreshes the shared MCP snapshot.
+            </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={state.close}>

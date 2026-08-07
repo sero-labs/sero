@@ -6,7 +6,12 @@ import {
   type CliRegistry,
 } from '@electron/cli/core';
 import { SERO_HOME } from '@electron/platform/env';
-import type { AgentPluginMcpServer, AgentPluginSkill, InstalledAgentPlugin } from '@sero-ai/common';
+import {
+  MCP_METADATA_CACHE_RELATIVE_PATH,
+  type AgentPluginMcpServer,
+  type AgentPluginSkill,
+  type InstalledAgentPlugin,
+} from '@sero-ai/common';
 import { readAgentPluginRegistrySync } from './registry';
 
 interface CachedMcpTool {
@@ -21,19 +26,22 @@ interface McpMetadataCacheDocument {
 
 const MCP_TOOL_SEGMENT = /^[A-Za-z0-9_.-]+$/;
 
-function readCachedTools(serverName: string): CachedMcpTool[] {
-  const cachePath = path.join(SERO_HOME, 'apps', 'mcp', 'metadata-cache.json');
-  if (!existsSync(cachePath)) return [];
+function readMetadataCache(): McpMetadataCacheDocument {
+  const cachePath = path.join(SERO_HOME, MCP_METADATA_CACHE_RELATIVE_PATH);
+  if (!existsSync(cachePath)) return {};
   try {
-    const cache = JSON.parse(readFileSync(cachePath, 'utf8')) as McpMetadataCacheDocument;
-    const tools = cache.servers?.[serverName]?.tools;
-    return Array.isArray(tools)
-      ? tools.filter((tool) => typeof tool.name === 'string' && MCP_TOOL_SEGMENT.test(tool.name))
-      : [];
+    return JSON.parse(readFileSync(cachePath, 'utf8')) as McpMetadataCacheDocument;
   } catch (error) {
     console.warn('[agent-plugins] Failed to read cached MCP tools:', error);
-    return [];
+    return {};
   }
+}
+
+function readCachedTools(cache: McpMetadataCacheDocument, serverName: string): CachedMcpTool[] {
+  const tools = cache.servers?.[serverName]?.tools;
+  return Array.isArray(tools)
+    ? tools.filter((tool) => typeof tool.name === 'string' && MCP_TOOL_SEGMENT.test(tool.name))
+    : [];
 }
 
 function createSkillCommand(plugin: InstalledAgentPlugin, skill: AgentPluginSkill): CliCommand {
@@ -45,7 +53,15 @@ function createSkillCommand(plugin: InstalledAgentPlugin, skill: AgentPluginSkil
     group: `Agent Plugin: ${plugin.manifest.name}`,
     source: 'agent-plugin',
     async execute(args) {
-      const instructions = await fs.readFile(skill.filePath, 'utf8');
+      let instructions: string;
+      try {
+        instructions = await fs.readFile(skill.filePath, 'utf8');
+      } catch (error) {
+        return {
+          output: `Agent Skill file is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          exitCode: 1,
+        };
+      }
       const task = args.join(' ').trim();
       return {
         output: task ? `${instructions}\n\nUser task for this skill:\n${task}` : instructions,
@@ -102,6 +118,7 @@ function createMcpToolCommand(
 
 export function buildAgentPluginCliCommands(registry: CliRegistry): CliCommand[] {
   const commands: CliCommand[] = [];
+  const cache = readMetadataCache();
   for (const plugin of readAgentPluginRegistrySync().plugins) {
     if (!plugin.enabled || !plugin.cli.enabled) continue;
     for (const skill of plugin.skills) {
@@ -109,7 +126,7 @@ export function buildAgentPluginCliCommands(registry: CliRegistry): CliCommand[]
     }
     for (const server of plugin.mcpServers) {
       if (!server.valid || !server.approved || !server.exposedToCli) continue;
-      for (const tool of readCachedTools(server.runtimeName)) {
+      for (const tool of readCachedTools(cache, server.runtimeName)) {
         commands.push(createMcpToolCommand(plugin, server, tool, registry));
       }
     }

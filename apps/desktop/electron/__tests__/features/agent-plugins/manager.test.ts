@@ -19,6 +19,7 @@ describe('Agent Plugin manager lifecycle', () => {
     }));
     return {
       ...await import('@electron/features/agent-plugins/manager'),
+      ...await import('@electron/features/agent-plugins/registry'),
       ...await import('@electron/features/agent-plugins/skills'),
       ...await import('@electron/features/agent-plugins/cli'),
       ...await import('@electron/cli/core'),
@@ -54,8 +55,10 @@ describe('Agent Plugin manager lifecycle', () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
     const fixture = path.resolve(process.cwd(), 'electron/__tests__/fixtures/agent-plugins/official-example');
     const manager = await importManager();
+    const inspection = await manager.inspectAgentPluginSource(fixture);
     const plugin = await manager.installAgentPlugin({
       source: fixture,
+      contentDigest: inspection.contentDigest,
       approveExecutableComponents: false,
       exposeToCli: true,
     });
@@ -65,6 +68,13 @@ describe('Agent Plugin manager lifecycle', () => {
     expect(plugin.cli.skillCommands).toEqual(['agent-plugins-example/migrate-agent-plugin']);
     expect(manager.withAgentPluginSkills({ skills: [], diagnostics: [] }).skills.map((skill) => skill.name))
       .toEqual(['migrate-agent-plugin']);
+
+    const skillCommand = manager.buildAgentPluginCliCommands(new manager.CliRegistry())[0]!;
+    await fs.rm(plugin.skills[0]!.filePath);
+    await expect(skillCommand.execute([], {
+      workspaceId: 'workspace',
+      invocation: { workspaceId: 'workspace', sessionId: 'session', turnId: null, source: 'tool' },
+    } as CliCommandContext)).resolves.toMatchObject({ exitCode: 1 });
 
     await manager.setAgentPluginEnabled(plugin.id, false);
     expect(manager.withAgentPluginSkills({ skills: [], diagnostics: [] }).skills).toEqual([]);
@@ -78,8 +88,10 @@ describe('Agent Plugin manager lifecycle', () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
     const source = await createExecutablePlugin();
     const manager = await importManager();
+    const inspection = await manager.inspectAgentPluginSource(source);
     const plugin = await manager.installAgentPlugin({
       source,
+      contentDigest: inspection.contentDigest,
       approveExecutableComponents: true,
       exposeToCli: false,
     });
@@ -90,10 +102,11 @@ describe('Agent Plugin manager lifecycle', () => {
     next.mcpServers.release.args = ['--changed'];
     await fs.writeFile(mcpPath, JSON.stringify(next));
 
-    expect((await manager.previewAgentPluginUpdate(plugin.id)).requiresExecutableApproval).toBe(true);
-    await expect(manager.updateAgentPlugin({ id: plugin.id, approveExecutableChanges: false }))
+    const preview = await manager.previewAgentPluginUpdate(plugin.id);
+    expect(preview.requiresExecutableApproval).toBe(true);
+    await expect(manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveExecutableChanges: false }))
       .rejects.toThrow('needs approval');
-    const updated = await manager.updateAgentPlugin({ id: plugin.id, approveExecutableChanges: true });
+    const updated = await manager.updateAgentPlugin({ id: plugin.id, contentDigest: preview.contentDigest, approveExecutableChanges: true });
     expect(updated.mcpServers[0]).toMatchObject({ approved: true, args: ['--changed'] });
     await expect(fs.readFile(marker, 'utf8')).resolves.toBe('retained');
 
@@ -101,12 +114,40 @@ describe('Agent Plugin manager lifecycle', () => {
     await expect(fs.stat(plugin.dataPath)).rejects.toThrow();
   });
 
+  it('rejects install content that differs from the inspected source', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
+    const source = await createExecutablePlugin();
+    const manager = await importManager();
+    const inspection = await manager.inspectAgentPluginSource(source);
+    await fs.writeFile(path.join(source, 'changed.txt'), 'changed after review');
+
+    await expect(manager.installAgentPlugin({
+      source,
+      contentDigest: inspection.contentDigest,
+      approveExecutableComponents: true,
+      exposeToCli: false,
+    })).rejects.toThrow('changed after inspection');
+  });
+
+  it('returns an empty registry when its JSON is corrupt', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
+    const manager = await importManager();
+    await fs.mkdir(manager.agentDir, { recursive: true });
+    await fs.writeFile(path.join(manager.agentDir, 'agent-plugins.json'), '{broken');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(manager.readAgentPluginRegistrySync().plugins).toEqual([]);
+    await expect(manager.readAgentPluginRegistry()).resolves.toEqual({ version: 1, plugins: [] });
+  });
+
   it('registers exact cached MCP tool paths and delegates to the managed runtime', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
     const source = await createExecutablePlugin();
     const manager = await importManager();
+    const inspection = await manager.inspectAgentPluginSource(source);
     const plugin = await manager.installAgentPlugin({
       source,
+      contentDigest: inspection.contentDigest,
       approveExecutableComponents: true,
       exposeToCli: true,
     });
@@ -154,8 +195,10 @@ describe('Agent Plugin manager lifecycle', () => {
       name: 'mcp',
     }));
     const manager = await importManager();
+    const inspection = await manager.inspectAgentPluginSource(source);
     const plugin = await manager.installAgentPlugin({
       source,
+      contentDigest: inspection.contentDigest,
       approveExecutableComponents: false,
       exposeToCli: false,
     });

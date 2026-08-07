@@ -61,15 +61,14 @@ function namespaceFor(
   currentId?: string,
 ): string {
   const namespace = (requested ?? fallback).trim();
-  const root = namespace.split('/')[0] ?? '';
   if (!VALID_NAMESPACE.test(namespace) || namespace.includes('/')) {
     throw new Error('Agent Plugin CLI namespace must use lowercase letters, numbers, periods, and hyphens.');
   }
-  if (RESERVED_CLI_ROOTS.has(root)) {
+  if (RESERVED_CLI_ROOTS.has(namespace)) {
     throw new Error(`Agent Plugin CLI namespace is reserved: ${namespace}`);
   }
   const nativeCollision = getCliRegistry().list().find((command) => (
-    command.source !== 'agent-plugin' && command.name.split(/[ /]/, 1)[0] === root
+    command.source !== 'agent-plugin' && command.name.split(/[ /]/, 1)[0] === namespace
   ));
   if (nativeCollision) {
     throw new Error(`Agent Plugin CLI namespace conflicts with Sero command: ${nativeCollision.name}`);
@@ -120,6 +119,7 @@ async function inspectStaged(
     installId,
     source,
     sourceKind: staged.sourceKind,
+    contentDigest: staged.contentDigest,
   });
 }
 
@@ -144,6 +144,9 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
     let staged: StagedAgentPluginSource | null = null;
     try {
       staged = await stageAgentPluginSource(request.source);
+      if (staged.contentDigest !== request.contentDigest) {
+        throw new Error('Agent Plugin source changed after inspection. Inspect the source again before installation.');
+      }
       const preview = await inspectStaged(staged, request.source);
       if (!preview.valid || !preview.manifest) throw new Error(preview.diagnostics[0]?.message ?? 'Invalid Agent Plugin.');
       const registry = await readAgentPluginRegistry();
@@ -162,6 +165,7 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
         installId: id,
         source: request.source,
         sourceKind: staged.sourceKind,
+        contentDigest: staged.contentDigest,
         approvedHash,
         cliSkillNames: request.exposeToCli ? namesWhere(preview.skills, (skill) => skill.valid) : new Set(),
         cliServerNames: request.exposeToCli ? namesWhere(preview.mcpServers, (server) => server.valid) : new Set(),
@@ -172,6 +176,7 @@ export function installAgentPlugin(request: AgentPluginInstallRequest): Promise<
         manifest: inspection.manifest!,
         source: request.source,
         sourceKind: staged.sourceKind,
+        contentDigest: staged.contentDigest,
         installedAt: now,
         updatedAt: now,
         packagePath,
@@ -221,6 +226,7 @@ async function inspectUpdate(plugin: InstalledAgentPlugin): Promise<{ staged: St
     installId: plugin.id,
     source: plugin.source,
     sourceKind: staged.sourceKind,
+    contentDigest: staged.contentDigest,
     approvedHash: plugin.executableApprovalHash,
     cliSkillNames: namesWhere(plugin.skills, (skill) => skill.exposedToCli),
     cliServerNames: namesWhere(plugin.mcpServers, (server) => server.exposedToCli),
@@ -244,6 +250,7 @@ export async function previewAgentPluginUpdate(id: string): Promise<AgentPluginU
     const nextCliCommandSet = new Set(nextCliCommands);
     return {
       pluginId: id,
+      contentDigest: update.staged.contentDigest,
       previousVersion: plugin.manifest.version,
       nextVersion: update.inspection.manifest.version,
       ...diff,
@@ -267,10 +274,13 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
     try {
       const update = await inspectUpdate(current);
       staged = update.staged;
+      if (staged.contentDigest !== request.contentDigest) {
+        throw new Error('Agent Plugin source changed after update review. Review the update again before installation.');
+      }
       if (!update.inspection.valid || !update.inspection.manifest) throw new Error(update.inspection.diagnostics[0]?.message ?? 'Invalid update.');
       const executableChanged = update.inspection.approvalHash !== current.executableApprovalHash;
       if (executableChanged && !request.approveExecutableChanges) {
-        throw new Error('This update changes executable MCP components and needs approval.');
+        throw new Error('This update changes MCP server definitions and needs approval.');
       }
       await fs.rename(current.packagePath, backupPath);
       await fs.rename(staged.root, current.packagePath);
@@ -281,6 +291,7 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
         installId: current.id,
         source: current.source,
         sourceKind: staged.sourceKind,
+        contentDigest: staged.contentDigest,
         approvedHash,
         cliSkillNames: namesWhere(current.skills, (skill) => skill.exposedToCli),
         cliServerNames: namesWhere(current.mcpServers, (server) => server.exposedToCli),
@@ -289,6 +300,7 @@ export function updateAgentPlugin(request: AgentPluginUpdateRequest): Promise<In
         ...current,
         manifest: inspection.manifest!,
         sourceKind: staged.sourceKind,
+        contentDigest: staged.contentDigest,
         updatedAt: new Date().toISOString(),
         executableApprovalHash: approvedHash,
         skills: inspection.skills,
@@ -356,6 +368,7 @@ export function approveAgentPluginComponents(id: string): Promise<InstalledAgent
       installId: plugin.id,
       source: plugin.source,
       sourceKind: plugin.sourceKind,
+      contentDigest: plugin.contentDigest,
       approvedHash: undefined,
       cliSkillNames: namesWhere(plugin.skills, (skill) => skill.exposedToCli),
       cliServerNames: namesWhere(plugin.mcpServers, (server) => server.exposedToCli),
@@ -364,7 +377,7 @@ export function approveAgentPluginComponents(id: string): Promise<InstalledAgent
     return {
       ...plugin,
       executableApprovalHash: approvedHash,
-      mcpServers: inspection.mcpServers.map((server) => ({ ...server, approved: server.transport !== 'stdio' || approvedHash !== null })),
+      mcpServers: inspection.mcpServers.map((server) => ({ ...server, approved: server.valid && approvedHash !== null })),
       diagnostics: inspection.diagnostics,
       updatedAt: new Date().toISOString(),
     };

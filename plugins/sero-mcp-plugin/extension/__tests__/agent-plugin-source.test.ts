@@ -98,4 +98,28 @@ describe('Agent Plugin MCP source adapter', () => {
     const effective = await withAgentPluginMcpSources(createDefaultMcpConfig());
     expect(effective.mcpServers).toEqual({});
   });
+
+  it('uses another session bus when one session has no host handler', async () => {
+    configureAgentPluginMcpSource({ emit() {} } as unknown as EventBus);
+    provide([{
+      pluginId: 'ap-test',
+      pluginName: 'portable-tools',
+      server: {
+        name: 'remote', runtimeName: 'agent-plugin:ap-test:remote', transport: 'streamable-http',
+        valid: true, approved: true, exposedToCli: false, url: 'https://example.com/mcp',
+      },
+    }]);
+
+    const effective = await withAgentPluginMcpSources(createDefaultMcpConfig());
+
+    expect(effective.mcpServers['agent-plugin:ap-test:remote']).toBeDefined();
+  });
+
+  it('continues with user config when no session accepts the source request', async () => {
+    configureAgentPluginMcpSource({ emit() {} } as unknown as EventBus);
+    const userConfig = createDefaultMcpConfig();
+    userConfig.mcpServers.user = { transport: 'stdio', command: 'user-server' };
+
+    await expect(withAgentPluginMcpSources(userConfig)).resolves.toEqual(userConfig);
+  });
 });

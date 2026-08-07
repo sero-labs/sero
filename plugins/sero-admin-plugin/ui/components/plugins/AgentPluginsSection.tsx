@@ -28,6 +28,7 @@ export function AgentPluginsSection({
   const install = async () => {
     const result = await controller.install({
       source,
+      contentDigest: controller.inspection?.contentDigest ?? '',
       approveExecutableComponents: approveExecutable,
       exposeToCli,
       namespaceAlias: namespace || undefined,

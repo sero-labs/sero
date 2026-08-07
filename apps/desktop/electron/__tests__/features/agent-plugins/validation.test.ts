@@ -29,6 +29,7 @@ async function inspect(root: string, approvedHash?: string | null) {
     installId: 'fixture',
     source: root,
     sourceKind: 'local',
+    contentDigest: 'fixture-digest',
     approvedHash,
   });
 }
@@ -97,6 +98,45 @@ describe('Agent Plugins v1 validation', () => {
     expect(result.mcpServers.find((server) => server.name === 'secure')?.valid).toBe(true);
     expect(result.mcpServers.find((server) => server.name === 'insecure')?.valid).toBe(false);
     expect(result.valid).toBe(true);
+  });
+
+  it('allows exact IPv4 and IPv6 loopback hosts but rejects a lookalike host', async () => {
+    const root = await makeRoot();
+    await fs.writeFile(path.join(root, 'mcp.json'), JSON.stringify({
+      $schema: AGENT_PLUGIN_MCP_SCHEMA,
+      mcpServers: {
+        ipv4: { type: 'streamable-http', url: 'http://127.0.0.8/mcp' },
+        ipv6: { type: 'streamable-http', url: 'http://[::1]:3000/mcp' },
+        lookalike: { type: 'streamable-http', url: 'http://127.0.0.1.evil.example/mcp' },
+      },
+    }));
+
+    const result = await inspect(root);
+
+    expect(result.mcpServers.find((server) => server.name === 'ipv4')?.valid).toBe(true);
+    expect(result.mcpServers.find((server) => server.name === 'ipv6')?.valid).toBe(true);
+    expect(result.mcpServers.find((server) => server.name === 'lookalike')?.valid).toBe(false);
+  });
+
+  it('requires renewed approval when a remote endpoint changes', async () => {
+    const root = await makeRoot();
+    const mcpPath = path.join(root, 'mcp.json');
+    await fs.writeFile(mcpPath, JSON.stringify({
+      $schema: AGENT_PLUGIN_MCP_SCHEMA,
+      mcpServers: { remote: { type: 'streamable-http', url: 'https://trusted.example/mcp' } },
+    }));
+    const preview = await inspect(root);
+    expect(preview.requiresExecutableApproval).toBe(true);
+    expect(preview.mcpServers[0]?.approved).toBe(false);
+    expect((await inspect(root, preview.approvalHash)).mcpServers[0]?.approved).toBe(true);
+
+    await fs.writeFile(mcpPath, JSON.stringify({
+      $schema: AGENT_PLUGIN_MCP_SCHEMA,
+      mcpServers: { remote: { type: 'streamable-http', url: 'https://changed.example/mcp' } },
+    }));
+    const changed = await inspect(root, preview.approvalHash);
+    expect(changed.requiresExecutableApproval).toBe(true);
+    expect(changed.mcpServers[0]?.approved).toBe(false);
   });
 
   it('keeps skills active when the MCP schema version is unsupported', async () => {

@@ -22,6 +22,7 @@ export function AgentPluginCard({
   const validSkills = plugin.skills.filter((skill) => skill.valid);
   const validServers = plugin.mcpServers.filter((server) => server.valid);
   const availableServers = validServers.filter((server) => server.approved);
+  const pendingServers = validServers.filter((server) => !server.approved);
   const errors = plugin.diagnostics.filter((item) => item.level === 'error');
 
   return (
@@ -64,8 +65,16 @@ export function AgentPluginCard({
             </div>
           )}
 
-          {plugin.mcpServers.some((server) => server.valid && server.transport === 'stdio' && !server.approved) && (
-            <Button type="button" size="sm" onClick={() => void controller.approve(plugin.id)}>Approve local MCP execution</Button>
+          {pendingServers.length > 0 && (
+            <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+              <strong>MCP access needs approval</strong>
+              <ul className="space-y-1 font-mono text-muted-foreground">
+                {pendingServers.map((server) => (
+                  <li key={server.name}>{server.name}: {server.transport === 'stdio' ? [server.command, ...(server.args ?? [])].filter(Boolean).join(' ') : server.url}</li>
+                ))}
+              </ul>
+              <Button type="button" size="sm" onClick={() => void controller.approve(plugin.id)}>Approve shown MCP definitions</Button>
+            </div>
           )}
 
           <AgentPluginCliSettings
@@ -89,8 +98,8 @@ export function AgentPluginCard({
               <strong>Update review {preview.previousVersion ?? 'unversioned'} → {preview.nextVersion ?? 'unversioned'}</strong>
               <p>Added: {preview.addedComponents.join(', ') || 'none'} · Removed: {preview.removedComponents.join(', ') || 'none'} · Changed: {preview.changedComponents.join(', ') || 'none'}</p>
               <p>CLI added: {preview.addedCliCommands.join(', ') || 'none'} · CLI removed: {preview.removedCliCommands.join(', ') || 'none'}</p>
-              {preview.requiresExecutableApproval && <p className="text-amber-400">This update changes executable capability and needs renewed approval.</p>}
-              <Button type="button" size="sm" onClick={() => void controller.update(plugin.id, preview.requiresExecutableApproval)}>Install reviewed update</Button>
+              {preview.requiresExecutableApproval && <p className="text-amber-400">This update changes MCP access and needs renewed approval.</p>}
+              <Button type="button" size="sm" onClick={() => void controller.update(plugin.id, preview.contentDigest, preview.requiresExecutableApproval)}>Install reviewed update</Button>
             </div>
           )}
 

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { AGENT_PLUGIN_CLI_REFRESH_EVENT } from '@sero-ai/common';
 import type { McpServerEditorInput } from '../../shared/types';
 import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
@@ -178,10 +179,18 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult(`Error: ${validationError}`, { snapshotWritten: false });
     }
     try {
+      const effectiveConfig = await withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
+      const originalName = serverInput.originalServerName?.trim();
+      const nextName = serverInput.serverName.trim();
+      const managedServer = [originalName, nextName]
+        .filter((name): name is string => !!name)
+        .map((name) => effectiveConfig.mcpServers[name])
+        .find((server) => server?.managedByAgentPlugin);
+      if (managedServer?.managedByAgentPlugin) {
+        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
+      }
       const synced = await mutateConfig(cwd, (config) => {
         const nextServers = { ...config.mcpServers };
-        const originalName = serverInput.originalServerName?.trim();
-        const nextName = serverInput.serverName.trim();
         const hasRenameCollision = Boolean(
           originalName && originalName !== nextName && nextServers[nextName],
         );
@@ -213,6 +222,11 @@ function createMcpRuntime(): McpRuntime {
       return createToolResult('Error: Server name is required.', { snapshotWritten: false });
     }
     try {
+      const effectiveConfig = await withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
+      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
+      if (managedServer?.managedByAgentPlugin) {
+        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
+      }
       await manager.close(normalizedServerName);
       runtimeStatuses.delete(normalizedServerName);
       const synced = await mutateConfig(cwd, (config) => {
@@ -451,6 +465,8 @@ function createMcpRuntime(): McpRuntime {
       options.metadataCache !== undefined ? Promise.resolve(options.metadataCache) : readMetadataCache(),
     ]);
     const config = await withAgentPluginMcpSources(baseConfig);
+    const refreshAgentPluginCli = !lastState
+      || JSON.stringify(lastState.metadataCache.servers) !== JSON.stringify(metadataCache.servers);
     const snapshot = await buildSnapshot({
       configPath,
       rawConfigUpdatedAt,
@@ -460,6 +476,9 @@ function createMcpRuntime(): McpRuntime {
       runtimeStatuses,
     });
     await writeMetadataCache(metadataCache);
+    if (refreshAgentPluginCli) {
+      attachedPi?.events.emit(AGENT_PLUGIN_CLI_REFRESH_EVENT, undefined);
+    }
     await writeState(snapshot, statePath);
     lastState = { configPath, statePath, config, metadataCache, rawConfigUpdatedAt, snapshot };
     return lastState;

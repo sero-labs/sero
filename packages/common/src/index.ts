@@ -344,7 +344,11 @@ export type {
   AgentPluginMcpSourcesRequest,
   SeroAgentPluginsBridge,
 } from './agent-plugins';
-export { AGENT_PLUGIN_MCP_SOURCES_EVENT } from './agent-plugins';
+export {
+  AGENT_PLUGIN_CLI_REFRESH_EVENT,
+  AGENT_PLUGIN_MCP_SOURCES_EVENT,
+  MCP_METADATA_CACHE_RELATIVE_PATH,
+} from './agent-plugins';
 
 export type {
   GlobalModelConfigStateIPC,

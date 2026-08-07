@@ -50,6 +50,7 @@ export async function buildWorkspaceContainerConfig(
     readOnlyMounts: [
       path.join(SERO_AGENT_DIR, 'skills'),
       path.join(SERO_AGENT_DIR, 'prompts'),
+      path.join(SERO_AGENT_DIR, 'agent-plugins'),
       getSharedPiDocsRoot(),
     ],
     writableMounts,
