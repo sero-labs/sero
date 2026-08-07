@@ -173,7 +173,7 @@ jobs:
           sudo apt-get install -y ./apps/desktop/release/*.deb
           trap 'sudo apt-get remove -y sero' EXIT
           set +e
-          timeout 30 xvfb-run -a /opt/Sero/@serodesktop --doctor --quick --json > /tmp/sero-doctor.json 2> /tmp/sero-doctor.err
+          timeout 30 xvfb-run -a /opt/Sero/sero --doctor --quick --json > /tmp/sero-doctor.json 2> /tmp/sero-doctor.err
           status=$?
           set -e
           if ! node <<'NODE'
@@ -196,7 +196,7 @@ jobs:
             exit "$status"
           fi
           set +e
-          timeout 15 xvfb-run -a /opt/Sero/@serodesktop > /tmp/sero-ui-smoke.out 2> /tmp/sero-ui-smoke.err
+          timeout 15 xvfb-run -a /opt/Sero/sero > /tmp/sero-ui-smoke.out 2> /tmp/sero-ui-smoke.err
           ui_status=$?
           set -e
           cat /tmp/sero-ui-smoke.err

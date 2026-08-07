@@ -48,7 +48,7 @@ function buildDesktopEntry(pkg) {
     '[Desktop Entry]',
     'Name=Sero',
     `Comment=${pkg.description ?? 'Sero desktop app'}`,
-    'Exec=/opt/Sero/@serodesktop %U',
+    'Exec=/opt/Sero/sero %U',
     'Terminal=false',
     'Type=Application',
     'Categories=Development;',
@@ -62,7 +62,7 @@ function linuxUnpackedDir() {
     path.join(releaseDir, `linux-${process.arch}-unpacked`),
     path.join(releaseDir, 'linux-unpacked'),
   ];
-  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, '@serodesktop')));
+  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, 'sero')));
   if (!found) {
     throw new Error(
       `Unpacked Linux app not found. Checked: ${candidates.join(', ')}. ` +
