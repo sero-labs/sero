@@ -6,6 +6,89 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.6.0-beta.0](https://github.com/sero-labs/sero/compare/v0.5.0-beta.0...v0.6.0-beta.0) (2026-08-07)
+
+### Features
+
+* **cron:** surface scheduled Orchestrator loops with editable schedules ([#246](https://github.com/sero-labs/sero/issues/246)) ([b99a921](https://github.com/sero-labs/sero/commit/b99a9212827e442aa9a1dcb9ea5704ab0fc2c173))
+* **dashboard:** git & orchestrator widgets + free resize and scroll-gutter fixes ([#243](https://github.com/sero-labs/sero/issues/243)) ([a002d0a](https://github.com/sero-labs/sero/commit/a002d0a20984309e76b41641aa48bebea71a2da3))
+* **design-library:** add Gallery ([#330](https://github.com/sero-labs/sero/issues/330)) ([7a7e3be](https://github.com/sero-labs/sero/commit/7a7e3bef17b5d562f51ebd39b9764bbfc05d8504))
+* **design-library:** close first manual-pass gaps ([#329](https://github.com/sero-labs/sero/issues/329)) ([b6bc14a](https://github.com/sero-labs/sero/commit/b6bc14a192d53b5ce2eceefb9d04d42cc9b5ccf4))
+* **design-library:** Design Library plugin — Library surface (PR 1 of 3) ([#318](https://github.com/sero-labs/sero/issues/318)) ([709d192](https://github.com/sero-labs/sero/commit/709d192c57b6663ae1e3bccd3114e899a2d0b409))
+* **design-library:** export Gallery versions ([#331](https://github.com/sero-labs/sero/issues/331)) ([9ab9753](https://github.com/sero-labs/sero/commit/9ab97535e8a04a8d032745497fbd7f6f3f7807cd))
+* **design-library:** improve generation workflows ([#334](https://github.com/sero-labs/sero/issues/334)) ([517a99b](https://github.com/sero-labs/sero/commit/517a99b87b5b1dd226f44343f8445b53aeb1ae08))
+* **design-library:** media — generated imagery and video ([#326](https://github.com/sero-labs/sero/issues/326)) ([e070682](https://github.com/sero-labs/sero/commit/e0706826790c4ff5b3f3e6d592f2cdc2973a021f)), closes [#328](https://github.com/sero-labs/sero/issues/328)
+* **design-library:** the generation pipeline and Design surface (PR 2a of 3) ([#320](https://github.com/sero-labs/sero/issues/320)) ([0bb487b](https://github.com/sero-labs/sero/commit/0bb487b586f2b60307b89b2b327c55f40c90eddd))
+* **design-library:** the working surface — tweaks, revisions and the sessions rail (PR 2b of 3) ([#324](https://github.com/sero-labs/sero/issues/324)) ([56250b0](https://github.com/sero-labs/sero/commit/56250b083037acb697c23ba59a73f0a38e3f93cb))
+* **explorer:** rebuild diff view on @pierre/diffs and @pierre/trees ([#279](https://github.com/sero-labs/sero/issues/279)) ([5d7ffc0](https://github.com/sero-labs/sero/commit/5d7ffc099ffa3dfd1b5af68d9db8a38ffae5ebf9))
+* global search via plugin-contributed search panels ([#270](https://github.com/sero-labs/sero/issues/270)) ([78c41f9](https://github.com/sero-labs/sero/commit/78c41f9c944a2ec6defc13151e4cf6c504635ac9))
+* integrate portable Agent Plugins v1 ([#355](https://github.com/sero-labs/sero/issues/355)) ([e689f14](https://github.com/sero-labs/sero/commit/e689f143e9602ee76d12882d923e638a9efefb7d))
+* migrate to Pi SDK 0.80.6 ([#244](https://github.com/sero-labs/sero/issues/244)) ([682e2da](https://github.com/sero-labs/sero/commit/682e2daa293d7e424a3cd1276d49eb0dd4b210d5))
+* modern glass dashboard + shared widget components ([#234](https://github.com/sero-labs/sero/issues/234)) ([25613ab](https://github.com/sero-labs/sero/commit/25613ab1e55460ac3b587d8bb1e815fedf423534))
+* **orchestrator:** add responsive plan map ([#322](https://github.com/sero-labs/sero/issues/322)) ([f854e2b](https://github.com/sero-labs/sero/commit/f854e2b7e749d0bcb2d46b181d0b6961f71ced50))
+* **orchestrator:** bounded dynamic fan-out for plan steps ([#287](https://github.com/sero-labs/sero/issues/287)) ([87bb84a](https://github.com/sero-labs/sero/commit/87bb84a5410673f7a24bf2819d5b907bd8100fe9))
+* **orchestrator:** improve dirty workspace prompts ([#264](https://github.com/sero-labs/sero/issues/264)) ([e00529b](https://github.com/sero-labs/sero/commit/e00529b824872e6b5b5dce8e80db2ce1d4d3dbcd))
+* **orchestrator:** support bounded cyclic workflows ([#285](https://github.com/sero-labs/sero/issues/285)) ([1554dae](https://github.com/sero-labs/sero/commit/1554daec56d9dc14d55003eb10b9699309128a51))
+* **plugins:** isolate federated plugin CSS ([#271](https://github.com/sero-labs/sero/issues/271)) ([8996b6c](https://github.com/sero-labs/sero/commit/8996b6cb41dcb1a54ecc1b30ff6dad26e41d5c87))
+* React Grab element picker for browser tabs and dev-server previews ([#282](https://github.com/sero-labs/sero/issues/282)) ([852f3c6](https://github.com/sero-labs/sero/commit/852f3c6288772ead550733c25dd9117aba52ab86))
+* **sidebar:** refresh workspace tree visuals ([060f1fe](https://github.com/sero-labs/sero/commit/060f1fee806c83c6976c9c3adfabf21023e54861))
+* **workspace:** clone repos and sync existing git repos into workspaces ([#269](https://github.com/sero-labs/sero/issues/269)) ([0f0dd57](https://github.com/sero-labs/sero/commit/0f0dd57024aa16015ed4ae28fa873f921f5e6652))
+* **workspace:** delete workspaces from the sidebar + graphify index cleanup ([#274](https://github.com/sero-labs/sero/issues/274)) ([035eeb5](https://github.com/sero-labs/sero/commit/035eeb5de0a3ba881ddfd1887d8c543635b53a3a))
+
+### Bug Fixes
+
+* add React Doctor checks and address top findings ([#249](https://github.com/sero-labs/sero/issues/249)) ([b7a8197](https://github.com/sero-labs/sero/commit/b7a81974019af08ba9d351736aefb271006ea339))
+* address high-impact React Doctor findings ([#252](https://github.com/sero-labs/sero/issues/252)) ([0f355b1](https://github.com/sero-labs/sero/commit/0f355b1410d130cddfd7e0388f98ece6b74b057f))
+* address React Doctor cleanup findings ([#251](https://github.com/sero-labs/sero/issues/251)) ([58341bb](https://github.com/sero-labs/sero/commit/58341bb23f7483e30fe3db50dc3690302badd08b))
+* **agent-plugins:** refresh skills and improve UX ([b4e8f95](https://github.com/sero-labs/sero/commit/b4e8f951b3aa96da2762f49a6c2ad1231c9df8ff))
+* **agent:** keep hidden slash commands hidden after a resource reload ([1dfe445](https://github.com/sero-labs/sero/commit/1dfe445b32846da40b40fefbbceb55f4fea58858))
+* **deps:** make Dependabot security updates reliable ([d554c06](https://github.com/sero-labs/sero/commit/d554c0627fed61f7414115c5d24f82923a8a4ccf))
+* **deps:** pin keyv/cacheable family against npm supply-chain attack ([7e65610](https://github.com/sero-labs/sero/commit/7e656105f911af845a5ea0aa86a8f913b86c332a))
+* **design-library:** improve options controls ([b4ad2f9](https://github.com/sero-labs/sero/commit/b4ad2f94251be45de577e1716caa56f98e8c08ab))
+* **design-library:** polish design screen ([#336](https://github.com/sero-labs/sero/issues/336)) ([8e11cca](https://github.com/sero-labs/sero/commit/8e11ccad01ef0062eb20822a51e74faecc5e6dda))
+* **design-library:** refine Gallery page ([#337](https://github.com/sero-labs/sero/issues/337)) ([14076d5](https://github.com/sero-labs/sero/commit/14076d545bea65ae3e87a0a8567cf359de2b711c))
+* **design-library:** use shared generation controls ([#335](https://github.com/sero-labs/sero/issues/335)) ([a5f0e7a](https://github.com/sero-labs/sero/commit/a5f0e7a146a0960b2cd75ca26066f9eef0c46f44))
+* **desktop:** isolate Chromium profile data ([#250](https://github.com/sero-labs/sero/issues/250)) ([c3f0a9d](https://github.com/sero-labs/sero/commit/c3f0a9d08a3310c108d01ccd20ddd23f54b620ba))
+* **desktop:** repair browser page-extraction script so "share page" works ([#266](https://github.com/sero-labs/sero/issues/266)) ([f8e3aa4](https://github.com/sero-labs/sero/commit/f8e3aa4c9e7a633b311a7245a301cd5fbc36718f)), closes [#247](https://github.com/sero-labs/sero/issues/247)
+* **desktop:** set app name to Sero for macOS menu bar ([#333](https://github.com/sero-labs/sero/issues/333)) ([27fac5d](https://github.com/sero-labs/sero/commit/27fac5db0e9ad1c61c3f020164858d1ef23bb94e))
+* **onboarding:** widen setup dialog and prevent effort-level wrap ([e2a9300](https://github.com/sero-labs/sero/commit/e2a930040d50ce26d8142034746519128ddabf9a))
+* **orchestrator:** clean merged iteration branches ([4d2425c](https://github.com/sero-labs/sero/commit/4d2425c8cea68dd519e921e51fa18beef7b34fa1))
+* Pi 0.80.6 migration follow-ups (max thinking level + shared extension runtime) ([#245](https://github.com/sero-labs/sero/issues/245)) ([21f841a](https://github.com/sero-labs/sero/commit/21f841ab32da796116f3f5fa02f73ac011caa628)), closes [#244](https://github.com/sero-labs/sero/issues/244)
+* replace removed Lucide GitHub icon ([c74f0ed](https://github.com/sero-labs/sero/commit/c74f0ed843e8546d7e931f30069a6889161ff7e3))
+* **sessions:** keep generated titles concise ([#275](https://github.com/sero-labs/sero/issues/275)) ([2fd4925](https://github.com/sero-labs/sero/commit/2fd4925e040a9ffd88f925473d1c0bf930ece3fa))
+* stabilize local Electron and plugin styles ([#268](https://github.com/sero-labs/sero/issues/268)) ([a2fefae](https://github.com/sero-labs/sero/commit/a2fefae277405269b2480198b4a64d5e3b4d8ae8))
+* **ui:** polish ThinkingPicker alignment and centering ([616ed48](https://github.com/sero-labs/sero/commit/616ed4855f00709942e073da1ee8bcecfae15d37))
+* **ui:** prevent root barrel imports from bundling unrelated assets ([#317](https://github.com/sero-labs/sero/issues/317)) ([01112d2](https://github.com/sero-labs/sero/commit/01112d240a67fef4d8acb3fb20953c3751a48afe))
+* **ui:** replace status-* color misuse with brand/accent tokens ([#263](https://github.com/sero-labs/sero/issues/263)) ([5f3d58d](https://github.com/sero-labs/sero/commit/5f3d58da5b682a6fd4331eda63f0b335a0717120))
+* **web:** handle optional readability content ([e3c9c45](https://github.com/sero-labs/sero/commit/e3c9c45469d7fca4faa984636b2c0443ddd792e8))
+
+### Performance
+
+* **react:** reduce unnecessary rendering ([#272](https://github.com/sero-labs/sero/issues/272)) ([b8ac9db](https://github.com/sero-labs/sero/commit/b8ac9dba3bf73185688834928275a0af7361edc6))
+
+### Documentation
+
+* add Agent Board design plan ([#280](https://github.com/sero-labs/sero/issues/280)) ([43a4d5b](https://github.com/sero-labs/sero/commit/43a4d5b6d126a1fa649585a5ce10581493d568fa))
+* add Pi SDK 0.83 migration plan ([21823e5](https://github.com/sero-labs/sero/commit/21823e5bd077c761c8815e7465aa42921e146f44))
+* **agents:** move pi docs into pi-docs skill, fix stale paths ([97ddfb5](https://github.com/sero-labs/sero/commit/97ddfb52561c5390b4141b3c30596341732b3330))
+* **design-library:** close first-release plan ([#332](https://github.com/sero-labs/sero/issues/332)) ([5c08347](https://github.com/sero-labs/sero/commit/5c083477913c9843cf431149e370d7736cdbfcfb))
+* **site:** illustrate the Agent Plugins surface ([c2ca3ba](https://github.com/sero-labs/sero/commit/c2ca3ba758b539d77693a4f1fc34388b29d30120))
+* **specs:** add clean-room spec for built-in usage plugin ([#242](https://github.com/sero-labs/sero/issues/242)) ([43ad464](https://github.com/sero-labs/sero/commit/43ad4648b0d1eeffbaa029de84059481b1b2336b))
+
+### Refactoring
+
+* **admin:** flatten the Agent Plugins surface ([3992825](https://github.com/sero-labs/sero/commit/39928253b1450d33e90786df21b52c1521cb5397))
+* **agent:** migrate to Pi SDK 0.83 ([#347](https://github.com/sero-labs/sero/issues/347)) ([35aa19d](https://github.com/sero-labs/sero/commit/35aa19d1801ae7d47eb204194bd031823e446158))
+* **agent:** migrate to Pi SDK 0.83 with review fixes ([#350](https://github.com/sero-labs/sero/issues/350)) ([705729b](https://github.com/sero-labs/sero/commit/705729b94d52cee9c485a42bff1d44b33373cfa3)), closes [#347](https://github.com/sero-labs/sero/issues/347)
+* big update of font-sizes to make more consistent and remove hardcoded values ([f8c2349](https://github.com/sero-labs/sero/commit/f8c2349b6584722a8281267b25f13c13704c009c))
+* **desktop:** remove ImageGen host coupling ([#265](https://github.com/sero-labs/sero/issues/265)) ([f827e34](https://github.com/sero-labs/sero/commit/f827e348630546e9e0428f375c7966b9cf656477))
+* **git:** one Git app that owns git ([#294](https://github.com/sero-labs/sero/issues/294)) ([#309](https://github.com/sero-labs/sero/issues/309)) ([5006490](https://github.com/sero-labs/sero/commit/500649091c2e830f620a49a92abac145ac659d32)), closes [#303](https://github.com/sero-labs/sero/issues/303) [#298](https://github.com/sero-labs/sero/issues/298) [#298](https://github.com/sero-labs/sero/issues/298) [#304](https://github.com/sero-labs/sero/issues/304) [#305](https://github.com/sero-labs/sero/issues/305) [#305](https://github.com/sero-labs/sero/issues/305) [#305](https://github.com/sero-labs/sero/issues/305)
+* more styling ([1aaf37b](https://github.com/sero-labs/sero/commit/1aaf37b950b0e0d24448c9121c16af3e9ae4da02))
+* styling stuff ([12e1a78](https://github.com/sero-labs/sero/commit/12e1a780620c16832eaaeb07f19d605b6a640ba3))
+* **ui:** replace native selects ([f7d205e](https://github.com/sero-labs/sero/commit/f7d205e803a87df7ddac58c30d88153f638043c0))
+* unify the VCS/git integration (AD-024) ([#286](https://github.com/sero-labs/sero/issues/286)) ([cf027df](https://github.com/sero-labs/sero/commit/cf027df4512f51ec46d68c5818a4c319222424f3))
+* ux improvements to admin plugin ([938d0c7](https://github.com/sero-labs/sero/commit/938d0c70863b1266d1fa1a4db83710840d8d1336))
+
 ## [0.5.0-beta.0](https://github.com/sero-labs/sero/compare/v0.4.0-beta.0...v0.5.0-beta.0) (2026-07-10)
 
 ### Features
