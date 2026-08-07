@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -45,6 +46,11 @@ export function AgentPluginInstallReview({
         <ComponentSummary label="Skills" value={inspection.skills.filter((skill) => skill.valid).length} />
         <ComponentSummary label="Local MCP executables" value={stdioCount} />
         <ComponentSummary label="Remote MCP endpoints" value={remoteCount} />
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
+        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        <p><strong>Install only from sources you trust.</strong> Skills can direct the agent. MCP servers can connect to services or run commands on this machine.</p>
       </div>
 
       {inspection.diagnostics.length > 0 && (

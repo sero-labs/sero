@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { InstalledPlugin } from '@sero-ai/common';
 import type { PluginDevSessionIPC, WorkspaceRootIPC } from '../../hooks/host';
 import { AttachedFoldersSection } from './AttachedFoldersSection';
+import { AgentPluginInstallReview } from './AgentPluginInstallReview';
 import { InstalledPluginsSection } from './InstalledPluginsSection';
 import { LocalPluginDevelopmentSection } from './LocalPluginDevelopmentSection';
 
@@ -49,6 +50,36 @@ function createAttachedFolder(overrides: Partial<WorkspaceRootIPC> = {}): Worksp
 }
 
 describe('plugin management sections', () => {
+  it('warns users to install Agent Plugins only from trusted sources', () => {
+    const html = renderToStaticMarkup(
+      <AgentPluginInstallReview
+        inspection={{
+          manifest: { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'Example' },
+          source: 'npm:example',
+          sourceKind: 'npm',
+          valid: true,
+          skills: [],
+          mcpServers: [],
+          diagnostics: [],
+          requiresExecutableApproval: false,
+          suggestedNamespace: 'example',
+        }}
+        approveExecutable={false}
+        exposeToCli={false}
+        namespace="example"
+        busy={false}
+        onApproveExecutableChange={() => {}}
+        onExposeToCliChange={() => {}}
+        onNamespaceChange={() => {}}
+        onInstall={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(html).toContain('Install only from sources you trust.');
+    expect(html).toContain('MCP servers can connect to services or run commands on this machine.');
+  });
+
   it('renders installed plugins, local development, and attached folders as distinct concepts', () => {
     const html = renderToStaticMarkup(
       <>
