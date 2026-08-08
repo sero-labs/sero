@@ -38,6 +38,10 @@ export function AddWorkspaceMenu() {
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const [workspaceCreationSelections, setWorkspaceCreationSelections] = useState<Record<string, boolean>>({});
+  const [workspaceSetupFailure, setWorkspaceSetupFailure] = useState<{
+    workspaceId: string;
+    message: string;
+  } | null>(null);
 
   // Clone view state
   const [cloneUrl, setCloneUrl] = useState('');
@@ -78,6 +82,7 @@ export function AddWorkspaceMenu() {
     setCloneError(null);
     setCloneAuthHint(false);
     setWorkspaceCreationSelections({});
+    setWorkspaceSetupFailure(null);
   };
 
   const handleImportExisting = async () => {
@@ -109,6 +114,7 @@ export function AddWorkspaceMenu() {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
     setIsCreating(true);
+    setWorkspaceSetupFailure(null);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
       const enabledContributions = workspaceCreationContributions.filter((app) => (
@@ -116,7 +122,11 @@ export function AddWorkspaceMenu() {
           ?? app.manifest!.workspaceCreation!.defaultEnabled
           ?? false
       ));
-      const results = await Promise.allSettled(enabledContributions.map((app) => {
+      await loadSessions();
+      setOpen(false);
+      // Prompt user to set up remote origin without waiting for plugin agent sessions.
+      setNewWorkspace(ws);
+      void Promise.allSettled(enabledContributions.map((app) => Promise.resolve().then(() => {
         const contribution = app.manifest!.workspaceCreation!;
         return window.sero.appAgent.invokeTool(app.id, ws.id, contribution.tool, {
           ...contribution.params,
@@ -124,19 +134,25 @@ export function AddWorkspaceMenu() {
           workspaceName: ws.name,
           workspacePath: ws.path,
         });
-      }));
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.warn(
-            `[workspace] ${enabledContributions[index].label} setup failed:`,
-            result.reason,
-          );
-        }
+      }))).then((results) => {
+        const failures = results.flatMap((result, index) => {
+          const label = enabledContributions[index].label;
+          if (result.status === 'rejected') {
+            const message = result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason);
+            return [`${label}: ${message}`];
+          }
+          if (result.value.isError) {
+            return [`${label}: ${result.value.text || 'Setup failed.'}`];
+          }
+          return [];
+        });
+        if (failures.length === 0) return;
+        const message = failures.join(' ');
+        console.warn('[workspace] Workspace setup failed:', message);
+        setWorkspaceSetupFailure({ workspaceId: ws.id, message });
       });
-      await loadSessions();
-      setOpen(false);
-      // Prompt user to set up remote origin for the new workspace
-      setNewWorkspace(ws);
     } catch (err) {
       console.error('Failed to create workspace:', err);
     } finally {
@@ -259,6 +275,11 @@ export function AddWorkspaceMenu() {
         open={!!newWorkspace}
         onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
         workspace={newWorkspace}
+        setupError={
+          workspaceSetupFailure?.workspaceId === newWorkspace.id
+            ? workspaceSetupFailure.message
+            : null
+        }
       />
     )}
     </>
