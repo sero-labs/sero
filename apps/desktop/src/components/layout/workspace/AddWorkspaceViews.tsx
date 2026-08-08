@@ -1,7 +1,14 @@
 import { FolderInput, FolderOpen, FolderPlus, GitBranch, Loader2, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { cn } from '@sero-ai/ui/lib/utils';
+
+export interface WorkspaceCreationOption {
+  id: string;
+  label: string;
+  enabled: boolean;
+}
 
 /** Initial view, three action rows. */
 export function PickView({
@@ -46,6 +53,8 @@ export function CreateView({
   onBack,
   onCreate,
   isCreating,
+  options,
+  onOptionChange,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   name: string;
@@ -56,6 +65,8 @@ export function CreateView({
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
+  options: WorkspaceCreationOption[];
+  onOptionChange: (id: string, enabled: boolean) => void;
 }) {
   return (
     <form
@@ -74,6 +85,21 @@ export function CreateView({
       </Field>
 
       <LocationField parentPath={parentPath} onPick={onPickLocation} onClear={onClearLocation} />
+
+      {options.map((option) => (
+        <label
+          key={option.id}
+          htmlFor={`workspace-create-option-${option.id}`}
+          className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]"
+        >
+          {option.label}
+          <Switch
+            id={`workspace-create-option-${option.id}`}
+            checked={option.enabled}
+            onCheckedChange={(enabled) => onOptionChange(option.id, enabled)}
+          />
+        </label>
+      ))}
 
       <FormActions onBack={onBack} submitLabel="Create" busy={isCreating} disabled={!name.trim()} />
     </form>

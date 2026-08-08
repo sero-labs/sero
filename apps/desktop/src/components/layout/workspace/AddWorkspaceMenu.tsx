@@ -4,6 +4,7 @@ import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useGitHubAuthStore } from '@/stores/github-auth';
+import { getWorkspaceCreationContributionApps, useAppStore } from '@/stores/app';
 import {
   Popover,
   PopoverContent,
@@ -36,6 +37,7 @@ export function AddWorkspaceMenu() {
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
+  const [workspaceCreationSelections, setWorkspaceCreationSelections] = useState<Record<string, boolean>>({});
 
   // Clone view state
   const [cloneUrl, setCloneUrl] = useState('');
@@ -56,6 +58,14 @@ export function AddWorkspaceMenu() {
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
+  const workspaceCreationContributions = useAppStore((s) => getWorkspaceCreationContributionApps(s.apps));
+  const workspaceCreationOptions = workspaceCreationContributions.map((app) => ({
+    id: app.id,
+    label: app.manifest!.workspaceCreation!.label,
+    enabled: workspaceCreationSelections[app.id]
+      ?? app.manifest!.workspaceCreation!.defaultEnabled
+      ?? false,
+  }));
 
   const reset = () => {
     setView('pick');
@@ -66,6 +76,7 @@ export function AddWorkspaceMenu() {
     cloneNameEditedRef.current = false;
     setCloneError(null);
     setCloneAuthHint(false);
+    setWorkspaceCreationSelections({});
   };
 
   const handleImportExisting = async () => {
@@ -99,6 +110,28 @@ export function AddWorkspaceMenu() {
     setIsCreating(true);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
+      const enabledContributions = workspaceCreationContributions.filter((app) => (
+        workspaceCreationSelections[app.id]
+          ?? app.manifest!.workspaceCreation!.defaultEnabled
+          ?? false
+      ));
+      const results = await Promise.allSettled(enabledContributions.map((app) => {
+        const contribution = app.manifest!.workspaceCreation!;
+        return window.sero.appAgent.invokeTool(app.id, ws.id, contribution.tool, {
+          ...contribution.params,
+          workspaceId: ws.id,
+          workspaceName: ws.name,
+          workspacePath: ws.path,
+        });
+      }));
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(
+            `[workspace] ${enabledContributions[index].label} setup failed:`,
+            result.reason,
+          );
+        }
+      });
       await loadSessions();
       setOpen(false);
       // Prompt user to set up remote origin for the new workspace
@@ -192,6 +225,11 @@ export function AddWorkspaceMenu() {
             onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
             onCreate={handleCreate}
             isCreating={isCreating}
+            options={workspaceCreationOptions}
+            onOptionChange={(id, enabled) => setWorkspaceCreationSelections((current) => ({
+              ...current,
+              [id]: enabled,
+            }))}
           />
         )}
         {view === 'clone' && (

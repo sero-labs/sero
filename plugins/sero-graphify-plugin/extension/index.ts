@@ -12,7 +12,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
-import { readStateFile, appendIndexRequest } from '../shared/state-io';
+import { readStateFile, appendIndexRequest, appendIndexRequests } from '../shared/state-io';
 import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
@@ -144,16 +144,29 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     parameters: Type.Object({
       action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
+      workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const state = await readStateFile(paths.stateFile);
       let workspaceId: string | undefined;
       if (params.action !== 'enable-all' && params.action !== 'sync') {
         const entries = Object.values(state?.workspaces ?? {});
-        const entry = params.workspace
+        const entry = params.workspaceId
+          ? entries.find((candidate) => candidate.workspaceId === params.workspaceId)
+          : params.workspace
           ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
           : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
         if (!entry) {
+          // A workspace-creation contribution runs immediately after the host
+          // creates the workspace. Queue sync first so the following enable
+          // request can target its new registry entry.
+          if (params.action === 'enable' && params.workspaceId) {
+            const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
+              { action: 'sync' },
+              { action: 'enable', workspaceId: params.workspaceId },
+            ]);
+            return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
+          }
           return text(`Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
         }
         workspaceId = entry.workspaceId;
