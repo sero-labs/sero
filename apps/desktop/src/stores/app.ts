@@ -3,6 +3,7 @@ export {
   getDiscoveredApps,
   getExplorerViewContributionApps,
   getSearchContributionApps,
+  getWorkspaceCreationContributionApps,
   getSidebarApps,
   getTitleBarContributionApps,
   type AppEntry,

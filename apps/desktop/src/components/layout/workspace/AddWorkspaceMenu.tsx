@@ -58,7 +58,8 @@ export function AddWorkspaceMenu() {
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
-  const workspaceCreationContributions = useAppStore((s) => getWorkspaceCreationContributionApps(s.apps));
+  const apps = useAppStore((s) => s.apps);
+  const workspaceCreationContributions = getWorkspaceCreationContributionApps(apps);
   const workspaceCreationOptions = workspaceCreationContributions.map((app) => ({
     id: app.id,
     label: app.manifest!.workspaceCreation!.label,
@@ -222,7 +223,7 @@ export function AddWorkspaceMenu() {
             parentPath={parentPath}
             onPickLocation={handlePickLocation}
             onClearLocation={() => setParentPath(null)}
-            onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
+            onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}
             options={workspaceCreationOptions}

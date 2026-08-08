@@ -71,4 +71,28 @@ describe('workspace creation app contribution discovery', () => {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('omits params that are not an object', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-workspace-creation-params-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+    const packageDir = path.join(tempRoot, 'plugin');
+
+    try {
+      await writeApp(packageDir, {
+        label: 'Enable indexing',
+        tool: 'enable_index',
+        params: ['full'],
+      });
+      const { readAppManifestFromPackagePath } = await import('@electron/features/apps/discovery');
+
+      expect((await readAppManifestFromPackagePath(packageDir))?.workspaceCreation).toEqual({
+        label: 'Enable indexing',
+        defaultEnabled: false,
+        tool: 'enable_index',
+        params: undefined,
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

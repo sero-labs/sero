@@ -63,7 +63,7 @@ interface PkgWorkspaceCreationDef {
   label?: string;
   defaultEnabled?: boolean;
   tool?: string;
-  params?: Record<string, unknown>;
+  params?: unknown;
 }
 
 interface PkgSeroApp {
@@ -201,6 +201,11 @@ function parseTitleBar(app: PkgSeroApp): SeroTitleBarManifest | null {
   return { component: app.titlebar.component };
 }
 
+function parseWorkspaceCreationParams(params: unknown): Record<string, unknown> | undefined {
+  if (typeof params !== 'object' || params === null || Array.isArray(params)) return undefined;
+  return params as Record<string, unknown>;
+}
+
 function parseWorkspaceCreation(app: PkgSeroApp): SeroWorkspaceCreationManifest | null {
   const contribution = app.workspaceCreation;
   if (
@@ -214,7 +219,7 @@ function parseWorkspaceCreation(app: PkgSeroApp): SeroWorkspaceCreationManifest 
     label: contribution.label.trim(),
     defaultEnabled: contribution.defaultEnabled === true,
     tool: contribution.tool.trim(),
-    params: contribution.params,
+    params: parseWorkspaceCreationParams(contribution.params),
   };
 }
 
