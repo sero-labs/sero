@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -59,8 +59,10 @@ export function AddWorkspaceMenu() {
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
-  const workspaceCreationContributions = useAppStore(
-    (s) => getContributions(s.apps, 'workspace.create.option'),
+  const apps = useAppStore((s) => s.apps);
+  const workspaceCreationContributions = useMemo(
+    () => getContributions(apps, 'workspace.create.option'),
+    [apps],
   );
   const workspaceCreationOptions = workspaceCreationContributions.map((resolved) => ({
     id: resolved.key,

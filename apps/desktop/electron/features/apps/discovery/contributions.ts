@@ -26,6 +26,21 @@ export interface ParsedAppContributions {
   diagnostics: AppContributionDiagnostic[];
 }
 
+export function warnContributionDiagnostics(
+  packagePath: string,
+  diagnostics: AppContributionDiagnostic[],
+): void {
+  if (diagnostics.length === 0) return;
+  const messages: string[] = [];
+  for (const entry of diagnostics) {
+    messages.push(`[${entry.code}] ${entry.message}`);
+  }
+  console.warn(
+    `[app-discovery] Ignoring invalid sero.app.contributes entries in "${packagePath}": `
+    + messages.join('; '),
+  );
+}
+
 function isObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -313,11 +328,12 @@ export function parseAppContributions(
     ...explicit.components.map((entry) => entry.extensionPoint),
     ...explicit.controls.map((entry) => entry.extensionPoint),
   ]);
-  const explicitWidgetIds = new Set(
-    explicit.components
-      .filter((entry) => entry.extensionPoint === 'ui.dashboard.widget')
-      .map((entry) => entry.id),
-  );
+  const explicitWidgetIds = new Set<string>();
+  for (const entry of explicit.components) {
+    if (entry.extensionPoint === 'ui.dashboard.widget') {
+      explicitWidgetIds.add(entry.id);
+    }
+  }
   const legacy = readLegacyEntries(source).filter((entry) => {
     if (entry.extensionPoint === 'ui.dashboard.widget') return !explicitWidgetIds.has(entry.id);
     return !explicitPoints.has(entry.extensionPoint);

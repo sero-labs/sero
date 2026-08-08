@@ -27,6 +27,7 @@ import {
 } from './plugin-meta';
 import {
   parseAppContributions,
+  warnContributionDiagnostics,
   type ContributionManifestSource,
 } from './contributions';
 
@@ -142,6 +143,7 @@ function buildManifest(
   if (pluginDeclared) {
     warnInvalidPluginMeta(packagePath, parsedPlugin.warnings);
   }
+  warnContributionDiagnostics(packagePath, parsedContributions.diagnostics);
 
   return {
     id: app.id,

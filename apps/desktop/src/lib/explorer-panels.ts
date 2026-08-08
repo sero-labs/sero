@@ -25,6 +25,26 @@ export function isBuiltinExplorerPanel(value: unknown): value is BuiltinExplorer
   return typeof value === 'string' && builtins.has(value);
 }
 
+interface ExplorerContributionIdentity {
+  key: string;
+  appId: string;
+}
+
+/** Accept the legacy app id when that app contributes exactly one Explorer view. */
+export function resolveExplorerPanelId(
+  panel: ExplorerPanel,
+  contributions: ExplorerContributionIdentity[],
+): ExplorerPanel {
+  let legacyMatch: string | undefined;
+  for (const contribution of contributions) {
+    if (contribution.key === panel) return panel;
+    if (contribution.appId !== panel) continue;
+    if (legacyMatch) return panel;
+    legacyMatch = contribution.key;
+  }
+  return legacyMatch ?? panel;
+}
+
 /**
  * True for panels that fill the whole Explorer area, leaving no room for the
  * host sidebar: the browser, and every app-contributed view.

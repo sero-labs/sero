@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { parseAppContributions } from '@electron/features/apps/discovery/contributions';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  parseAppContributions,
+  warnContributionDiagnostics,
+} from '@electron/features/apps/discovery/contributions';
 
 describe('app contribution parsing', () => {
   it('parses multiple component and control contributions', () => {
@@ -113,5 +116,24 @@ describe('app contribution parsing', () => {
 
     expect(parsed.contributions.components).toEqual([]);
     expect(parsed.contributions.controls).toHaveLength(1);
+  });
+
+  it('logs non-fatal contribution diagnostics with package context', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [{
+          id: 'future',
+          extensionPoint: 'ui.future.surface',
+          component: 'FuturePanel',
+        }],
+      },
+    });
+
+    warnContributionDiagnostics('/tmp/future-plugin', parsed.diagnostics);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('/tmp/future-plugin'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('unknown-extension-point'));
+    warn.mockRestore();
   });
 });

@@ -24,7 +24,7 @@ vi.mock('@/lib/federation-registry', () => ({
 
 import { FederatedContributionMount } from './FederatedContributionMount';
 
-function createManifest(): SeroAppManifest {
+function createManifest(overrides: Partial<SeroAppManifest> = {}): SeroAppManifest {
   return {
     id: 'notes',
     name: 'Notes',
@@ -44,6 +44,7 @@ function createManifest(): SeroAppManifest {
     isPlugin: false,
     contributions: { components: [], controls: [] },
     contributionDiagnostics: [],
+    ...overrides,
   };
 }
 
@@ -130,5 +131,48 @@ describe('FederatedContributionMount', () => {
 
     expect(container.textContent).toContain('Broken unavailable');
     expect(container.textContent).toContain('Healthy');
+  });
+
+  it('retries a failed contribution when discovery replaces its manifest', async () => {
+    function Broken() {
+      throw new Error('broken contribution');
+    }
+    const Healthy = () => <span>Reloaded contribution</span>;
+    federationMocks.getFederatedComponent.mockImplementation(
+      (_appId: string, _component: string, _devPort: number | undefined, remoteEntry: string | null) => (
+        remoteEntry ? Healthy : Broken
+      ),
+    );
+    const contribution = {
+      id: 'search',
+      extensionPoint: 'ui.global-search.panel' as const,
+      component: 'NotesSearch',
+    };
+
+    await act(async () => {
+      root.render(
+        <FederatedContributionMount
+          manifest={createManifest()}
+          contribution={contribution}
+          contributionKey="notes:search"
+          loading={null}
+          unavailable={<span>Unavailable</span>}
+        />,
+      );
+    });
+    expect(container.textContent).toContain('Unavailable');
+
+    await act(async () => {
+      root.render(
+        <FederatedContributionMount
+          manifest={createManifest({ remoteEntryOverride: 'http://localhost:5173/mf-manifest.json?t=2' })}
+          contribution={contribution}
+          contributionKey="notes:search"
+          loading={null}
+          unavailable={<span>Unavailable</span>}
+        />,
+      );
+    });
+    expect(container.textContent).toContain('Reloaded contribution');
   });
 });

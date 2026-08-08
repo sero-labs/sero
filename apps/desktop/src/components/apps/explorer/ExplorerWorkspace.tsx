@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import {
   ResizablePanelGroup,
@@ -24,7 +24,11 @@ import {
 } from '@/stores/terminal';
 import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
 import { getContributions, useAppStore } from '@/stores/app';
-import { panelOwnsMainArea, type ExplorerPanel } from '@/lib/explorer-panels';
+import {
+  panelOwnsMainArea,
+  resolveExplorerPanelId,
+  type ExplorerPanel,
+} from '@/lib/explorer-panels';
 
 const TERMINAL_MIN_HEIGHT = 100;
 
@@ -44,17 +48,20 @@ export function ExplorerWorkspace() {
   const workspaceId = activeWorkspace?.id ?? 'global';
   const { sidebarOpen, activePanel, terminalOpen, explorerSidebarSizePct, terminalSizePct } =
     useWorkspaceExplorer(workspaceId);
-  const showSidebar = sidebarOpen && !panelOwnsMainArea(activePanel);
   const setExplorer = useExplorerStore((state) => state.set);
+  const apps = useAppStore((state) => state.apps);
+  const contributedViews = useMemo(
+    () => getContributions(apps, 'ui.explorer.view'),
+    [apps],
+  );
+  const resolvedActivePanel = resolveExplorerPanelId(activePanel, contributedViews);
+  const showSidebar = sidebarOpen && !panelOwnsMainArea(resolvedActivePanel);
   // A contributed view fills the whole area; `undefined` while its plugin is
   // absent, which the placeholder below reports rather than silently
   // redirecting to the file tree.
-  const contributedView = useAppStore((state) => (
-    panelOwnsMainArea(activePanel)
-      ? getContributions(state.apps, 'ui.explorer.view')
-        .find((resolved) => resolved.key === activePanel)
-      : undefined
-  ));
+  const contributedView = panelOwnsMainArea(resolvedActivePanel)
+    ? contributedViews.find((resolved) => resolved.key === resolvedActivePanel)
+    : undefined;
   const termTabs = useWorkspaceTerminals(workspaceId);
   const activeTerminalId = useActiveTerminalId(workspaceId);
 
@@ -92,7 +99,7 @@ export function ExplorerWorkspace() {
         return;
       }
 
-      if (panel === activePanel && sidebarOpen) {
+      if (panel === resolvedActivePanel && sidebarOpen) {
         setExplorer(workspaceId, { sidebarOpen: false });
         return;
       }
@@ -102,7 +109,7 @@ export function ExplorerWorkspace() {
         sidebarOpen: !panelOwnsMainArea(panel),
       });
     },
-    [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
+    [workspaceId, resolvedActivePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
   );
 
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -182,7 +189,7 @@ export function ExplorerWorkspace() {
       {/* ── Top: activity bar + sidebar + editor ───────────── */}
       <div className="flex min-h-0 flex-1">
         <ActivityBar
-          activePanel={activePanel}
+          activePanel={resolvedActivePanel}
           sidebarOpen={showSidebar}
           terminalOpen={terminalOpen}
           onPanelClick={handlePanelClick}
@@ -214,7 +221,7 @@ export function ExplorerWorkspace() {
               >
                 {showSidebar && (
                   <ExplorerSidebar
-                    activePanel={activePanel}
+                    activePanel={resolvedActivePanel}
                     workspaceId={workspaceId}
                     fileTreeProps={{
                       workspaceId,
@@ -237,12 +244,12 @@ export function ExplorerWorkspace() {
               {/* ── Editor fills all remaining space ─────────────── */}
               <ResizablePanel id="explorer-editor" minSize={200} className="min-w-0">
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
-                  {activePanel === 'browser' ? (
+                  {resolvedActivePanel === 'browser' ? (
                     <BrowserPanel workspaceId={workspaceId} />
-                  ) : panelOwnsMainArea(activePanel) ? (
+                  ) : panelOwnsMainArea(resolvedActivePanel) ? (
                     contributedView
                       ? <ExplorerViewMount resolved={contributedView} />
-                      : <ExplorerViewMissing panelId={activePanel} />
+                      : <ExplorerViewMissing panelId={resolvedActivePanel} />
                   ) : (
                     <EditorPanel
                       workspaceId={workspaceId}

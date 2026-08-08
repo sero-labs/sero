@@ -18,6 +18,7 @@ interface FederatedContributionMountProps {
 
 interface ContributionErrorBoundaryProps {
   identity: string;
+  resetToken: SeroAppManifest;
   fallback: ReactNode;
   children: ReactNode;
 }
@@ -37,7 +38,10 @@ class ContributionErrorBoundary extends Component<
   }
 
   componentDidUpdate(previous: ContributionErrorBoundaryProps): void {
-    if (previous.identity !== this.props.identity && this.state.failed) {
+    if (
+      (previous.identity !== this.props.identity || previous.resetToken !== this.props.resetToken)
+      && this.state.failed
+    ) {
       this.setState({ failed: false });
     }
   }
@@ -72,7 +76,11 @@ export function FederatedContributionMount({
   if (!LazyComponent) return unavailable;
 
   return (
-    <ContributionErrorBoundary identity={contributionKey} fallback={unavailable}>
+    <ContributionErrorBoundary
+      identity={contributionKey}
+      resetToken={manifest}
+      fallback={unavailable}
+    >
       <AppProvider value={contextValue}>
         <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
           <div
