@@ -119,6 +119,11 @@ export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => app.manifest?.search && isAppEntrySupported(app));
 }
 
+/** Apps that contribute an option to the new-workspace form. */
+export function getWorkspaceCreationContributionApps(apps: AppEntry[]): AppEntry[] {
+  return apps.filter((app) => app.manifest?.workspaceCreation && isAppEntrySupported(app));
+}
+
 /** Apps that contribute an Explorer view (`sero.app.explorerView`) and are host-supported. */
 export function getExplorerViewContributionApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => app.manifest?.explorerView && isAppEntrySupported(app));

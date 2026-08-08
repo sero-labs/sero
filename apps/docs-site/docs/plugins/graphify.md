@@ -8,6 +8,12 @@ Graphify builds a knowledge graph of your code across every workspace you opt in
 
 ## Getting started
 
+When you create a workspace, **Enable Graphify indexing** is on by default if
+Graphify is available. Turn it off in the creation form if you do not want to
+index that workspace.
+
+For an existing workspace:
+
 1. Open **Graphify** from the sidebar.
 2. Toggle on the workspaces you want indexed, or click **Index all**.
 3. Wait for the first build to finish — this is the only step that uses your AI provider.

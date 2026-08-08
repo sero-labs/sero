@@ -27,6 +27,12 @@
         "component": "GraphifySearch",
         "description": "Search the profile-wide knowledge graph"
       },
+      "workspaceCreation": {
+        "label": "Enable Graphify indexing",
+        "defaultEnabled": true,
+        "tool": "graphify_index",
+        "params": { "action": "enable" }
+      },
       "devPort": 5197,
       "runtime": "./runtime/index.ts"
     },

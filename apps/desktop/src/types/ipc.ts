@@ -269,6 +269,7 @@ export type {
   SeroSearchManifest,
   SeroTitleBarManifest,
   SeroWidgetManifest,
+  SeroWorkspaceCreationManifest,
 } from './sero-apps';
 
 // ── Plugins ─────────────────────────────────────────────────

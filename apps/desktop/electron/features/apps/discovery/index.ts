@@ -16,6 +16,7 @@ import type {
   SeroSearchManifest,
   SeroTitleBarManifest,
   SeroWidgetManifest,
+  SeroWorkspaceCreationManifest,
   SettingsPackageSource,
 } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
@@ -58,6 +59,13 @@ interface PkgTitleBarDef {
   component?: string;
 }
 
+interface PkgWorkspaceCreationDef {
+  label?: string;
+  defaultEnabled?: boolean;
+  tool?: string;
+  params?: Record<string, unknown>;
+}
+
 interface PkgSeroApp {
   id: string;
   styleIsolation?: 'scope';
@@ -74,6 +82,7 @@ interface PkgSeroApp {
   search?: PkgSearchDef;
   explorerView?: PkgExplorerViewDef;
   titlebar?: PkgTitleBarDef;
+  workspaceCreation?: PkgWorkspaceCreationDef;
 }
 
 interface PkgJson {
@@ -192,6 +201,23 @@ function parseTitleBar(app: PkgSeroApp): SeroTitleBarManifest | null {
   return { component: app.titlebar.component };
 }
 
+function parseWorkspaceCreation(app: PkgSeroApp): SeroWorkspaceCreationManifest | null {
+  const contribution = app.workspaceCreation;
+  if (
+    typeof contribution?.label !== 'string'
+    || !contribution.label.trim()
+    || typeof contribution.tool !== 'string'
+    || !contribution.tool.trim()
+  ) return null;
+
+  return {
+    label: contribution.label.trim(),
+    defaultEnabled: contribution.defaultEnabled === true,
+    tool: contribution.tool.trim(),
+    params: contribution.params,
+  };
+}
+
 function buildManifest(
   pkgJson: PkgJson,
   packagePath: string,
@@ -253,6 +279,7 @@ function buildManifest(
     search: suppressUi ? null : parseSearch(app),
     explorerView: suppressUi ? null : parseExplorerView(app),
     titlebar: suppressUi ? null : parseTitleBar(app),
+    workspaceCreation: parseWorkspaceCreation(app),
   };
 }
 
