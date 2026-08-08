@@ -467,6 +467,77 @@ When a plugin changes:
 Control contributions update from the same manifest change and need no
 separate lifecycle channel.
 
+## Documentation and Authoring Guidance
+
+The implementation is not complete until the public documentation and the
+agent authoring guidance describe the canonical manifest. Do not publish the
+new syntax before the host can discover, validate and render it.
+
+### Repository documentation
+
+Update the source documentation that plugin maintainers use:
+
+- `docs/plugins/guide.md`
+- `docs/plugins/technical.md`
+- `docs/plugins/host-compatibility.md`
+- `docs/plugins/quickstart.md`
+- `docs/plugins/end-to-end-example.md`
+
+The documentation must:
+
+- explain the difference between `sero.app.component`, contributed components
+  and contributed controls;
+- list each supported extension point and its point-specific fields;
+- show complete component and control manifest examples;
+- describe validation, compatibility and legacy normalisation;
+- state that extension points are host-defined and cannot be invented by a
+  plugin; and
+- direct new plugins to use `sero.app.contributes` while identifying the old
+  fields as compatibility syntax only.
+
+### Documentation site
+
+Add a dedicated plugin extension-point reference page under
+`apps/docs-site/docs/reference/` and add it to the plugin-author sidebar in
+`apps/docs-site/rspress.config.ts`.
+
+Also update these existing pages:
+
+- `apps/docs-site/docs/reference/plugins.md`
+- `apps/docs-site/docs/reference/plugin-author-quick-path.md`
+- `apps/docs-site/docs/reference/plugin-quickstart.md`
+- `apps/docs-site/docs/reference/plugin-end-to-end-example.md`
+- `apps/docs-site/docs/guide/dashboard-widgets.md`
+
+The docs site must use the same examples and terminology as the repository
+documentation. Static manifest widgets must use a component contribution with
+`extensionPoint: "ui.dashboard.widget"`. Runtime widget registration remains a
+separate app-runtime API in the first release.
+
+### Plugin-authoring skills
+
+Update the template skills that create and style plugin UI:
+
+- `packages/templates/skills/sero-plugin/SKILL.md`
+- `packages/templates/skills/sero-plugin/references/templates.md`
+- `packages/templates/skills/sero-plugin/references/api-and-widgets.md`
+- `packages/templates/skills/sero-plugin/example/`
+- `packages/templates/skills/sero-dashboard-ui/SKILL.md`
+- `packages/templates/skills/sero-dashboard-ui/references/widget-patterns.md`
+
+The `sero-plugin` skill must generate the canonical `contributes.components`
+and `contributes.controls` syntax. It must not generate a legacy contribution
+field for a new plugin. Its Notes example must exercise the canonical dashboard
+widget declaration.
+
+The `sero-dashboard-ui` skill must explain that a static widget is a federated
+component contributed to `ui.dashboard.widget`. It must keep the host-widget
+chrome and shared-component guidance unchanged. It must distinguish this
+static manifest path from `useWidgetRegistration()` for runtime widgets.
+
+After these template package changes are merged, publish the affected package
+version so new profiles receive the updated skills.
+
 ## Implementation Plan
 
 ### Phase 1: canonical contracts
@@ -512,8 +583,13 @@ separate lifecycle channel.
 
 ### Phase 7: documentation and verification
 
-- Update plugin author documentation and examples.
+- Update the repository plugin documentation listed above.
+- Add the docs-site extension-point reference and update related author pages.
+- Update the `sero-plugin` and `sero-dashboard-ui` skills and their examples.
 - Document every supported extension point and point-specific payload.
+- Verify that repository docs, docs-site examples and template skills use the
+  same canonical manifest syntax.
+- Build the docs site and validate both skill folders.
 - Add manifest discovery, normalisation, selector, mount, action and hot-reload
   tests.
 - Run monorepo typecheck and focused desktop/plugin test suites.
@@ -534,6 +610,11 @@ separate lifecycle channel.
 - Unsupported or failed optional contributions do not disable unrelated plugin
   functionality.
 - Host-owned layout and plugin-owned component state remain separate.
+- Repository documentation and the docs site describe the canonical extension
+  point contract.
+- The `sero-plugin` and `sero-dashboard-ui` skills generate and explain the
+  canonical static contribution syntax.
+- No new authoring example uses a legacy manifest contribution field.
 - All touched source files remain below 500 lines.
 
 ## Decisions
