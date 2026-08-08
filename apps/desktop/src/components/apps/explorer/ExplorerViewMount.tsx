@@ -1,6 +1,6 @@
 /**
  * ExplorerViewMount, loads and mounts an app's federated Explorer view
- * (declared via `sero.app.explorerView`).
+ * contributed to `ui.explorer.view`.
  *
  * Mirrors SearchContributionMount: the host contributes the slot, the plugin
  * contributes what goes in it (AD-025). A contributed view fills the whole
@@ -8,48 +8,24 @@
  * unmounts when you switch away, so the plugin keeps its own view state.
  */
 
-import { Suspense, useId } from 'react';
-import { AppProvider } from '@sero-ai/app-runtime';
-import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
-import type { SeroAppManifest } from '@/types/ipc';
-import { getFederatedComponent } from '@/lib/federation-registry';
-import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
+import type { ResolvedContribution } from '@/stores/app';
+import { FederatedContributionMount } from '@/components/apps/FederatedContributionMount';
 
-export function ExplorerViewMount({ manifest }: { manifest: SeroAppManifest }) {
-  const { contextValue, status } = useAppRuntimeMount(manifest);
-  const surfaceId = useId();
-
-  if (status === 'loading-workspace') {
-    return <ExplorerViewLoading />;
-  }
-
-  if (status === 'missing-workspace') {
-    return <ExplorerViewMessage message="No workspace selected" />;
-  }
-
-  const LazyComponent = manifest.explorerView
-    ? getFederatedComponent(
-        manifest.id,
-        manifest.explorerView.component,
-        manifest.devPort,
-        manifest.remoteEntryOverride,
-      )
-    : null;
-  if (!LazyComponent) {
-    return <ExplorerViewMessage message={`${manifest.name} view unavailable`} />;
-  }
-
+export function ExplorerViewMount({
+  resolved,
+}: {
+  resolved: ResolvedContribution<'ui.explorer.view'>;
+}) {
   return (
-    <AppProvider value={contextValue}>
-      <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
-        <div data-sero-plugin={manifest.id} className="contents">
-          <Suspense fallback={<ExplorerViewLoading />}>
-            <LazyComponent />
-          </Suspense>
-        </div>
-      </PluginStyleScope>
-    </AppProvider>
+    <FederatedContributionMount
+      manifest={resolved.manifest}
+      contribution={resolved.contribution}
+      contributionKey={resolved.key}
+      loading={<ExplorerViewLoading />}
+      unavailable={<ExplorerViewMessage message={`${resolved.manifest.name} view unavailable`} />}
+      missingWorkspace={<ExplorerViewMessage message="No workspace selected" />}
+    />
   );
 }
 

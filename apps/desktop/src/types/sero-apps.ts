@@ -1,25 +1,16 @@
 import type { PackageSource } from '@earendil-works/pi-coding-agent';
 import type {
+  AppContributionDiagnostic,
+  AppContributions,
   PluginCompatibilityStatus,
   PluginMeta,
 } from '@sero-ai/common';
-import type { ExplorerViewManifest } from './explorer-view-manifest';
-import type { SearchManifest } from './search-manifest';
-import type { TitleBarManifest } from './titlebar-manifest';
-import type { WidgetManifest } from './widget-manifest';
-import type { WorkspaceCreationManifest } from './workspace-creation-manifest';
 
 /**
  * Canonical Pi package source shape from settings.json.
  * Supports plain sources plus filtered package objects.
  */
 export type SettingsPackageSource = PackageSource;
-
-export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
-export type { SearchManifest as SeroSearchManifest } from './search-manifest';
-export type { ExplorerViewManifest as SeroExplorerViewManifest } from './explorer-view-manifest';
-export type { TitleBarManifest as SeroTitleBarManifest } from './titlebar-manifest';
-export type { WorkspaceCreationManifest as SeroWorkspaceCreationManifest } from './workspace-creation-manifest';
 
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {
@@ -70,14 +61,8 @@ export interface SeroAppManifest {
   plugin?: PluginMeta | null;
   /** Host/plugin compatibility status derived from the current Sero runtime. */
   hostCompatibility?: PluginCompatibilityStatus | null;
-  /** Widget definitions declared in the app manifest. */
-  widgets: WidgetManifest[];
-  /** Global-search panel contribution declared in the app manifest. */
-  search?: SearchManifest | null;
-  /** Explorer view contribution declared in the app manifest. */
-  explorerView?: ExplorerViewManifest | null;
-  /** Title-bar contribution declared in the app manifest. */
-  titlebar?: TitleBarManifest | null;
-  /** Option contributed to the new-workspace form. */
-  workspaceCreation?: WorkspaceCreationManifest | null;
+  /** Validated component and control contributions. */
+  contributions: AppContributions;
+  /** Non-fatal problems found while parsing contribution declarations. */
+  contributionDiagnostics: AppContributionDiagnostic[];
 }

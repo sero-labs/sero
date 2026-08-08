@@ -35,7 +35,7 @@ The Notes example demonstrates:
   - `sero.plugin`
   - `runtime`
   - `requiredHostCapabilities`
-  - widget metadata
+  - a static widget under `sero.app.contributes.components`
 - `shared/types.ts`
   - one shared state contract used by extension, runtime, and UI
 - `extension/index.ts`
@@ -91,13 +91,15 @@ See [`quickstart.md`](./quickstart.md).
 ### Use Notes when you want:
 - a plugin-owned **background runtime**
 - a complete example of **all plugin surfaces together**
-- a reference for `requiredHostCapabilities`, widgets, and runtime wiring
+- a reference for `requiredHostCapabilities`, extension points, widgets, and runtime wiring
 
 ## How to adapt it
 
 Start from the example README first:
 - remove `runtime/` if you do not need long-lived background behavior
 - remove widgets if you do not need dashboard surfaces
+- keep static widgets as component contributions to `ui.dashboard.widget`;
+  `useWidgetRegistration()` is only for widgets registered at runtime
 - keep `shared/types.ts` as the single source of truth for plugin state
 - keep the UI/extension/runtime split rather than collapsing everything into one
   file

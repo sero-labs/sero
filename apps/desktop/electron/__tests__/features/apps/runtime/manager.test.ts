@@ -40,7 +40,8 @@ function createManifest(
       hostVersion: '0.1.0',
       issues: [],
     },
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...overrides,
   };
 }

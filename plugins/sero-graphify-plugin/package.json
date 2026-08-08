@@ -23,15 +23,31 @@
       "stateFile": ".sero/apps/graphify/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GraphifyApp",
-      "search": {
-        "component": "GraphifySearch",
-        "description": "Search the profile-wide knowledge graph"
-      },
-      "workspaceCreation": {
-        "label": "Enable Graphify indexing",
-        "defaultEnabled": true,
-        "tool": "graphify_index",
-        "params": { "action": "enable" }
+      "contributes": {
+        "components": [
+          {
+            "id": "global-search",
+            "extensionPoint": "ui.global-search.panel",
+            "component": "GraphifySearch",
+            "description": "Search the profile-wide knowledge graph"
+          }
+        ],
+        "controls": [
+          {
+            "id": "workspace-indexing",
+            "extensionPoint": "workspace.create.option",
+            "control": {
+              "type": "switch",
+              "label": "Enable Graphify indexing",
+              "defaultValue": true
+            },
+            "action": {
+              "type": "tool",
+              "tool": "graphify_index",
+              "params": { "action": "enable" }
+            }
+          }
+        ]
       },
       "devPort": 5197,
       "runtime": "./runtime/index.ts"

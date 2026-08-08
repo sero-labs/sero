@@ -23,7 +23,7 @@ import {
   useTerminalStore,
 } from '@/stores/terminal';
 import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
-import { getExplorerViewContributionApps, useAppStore } from '@/stores/app';
+import { getContributions, useAppStore } from '@/stores/app';
 import { panelOwnsMainArea, type ExplorerPanel } from '@/lib/explorer-panels';
 
 const TERMINAL_MIN_HEIGHT = 100;
@@ -51,7 +51,8 @@ export function ExplorerWorkspace() {
   // redirecting to the file tree.
   const contributedView = useAppStore((state) => (
     panelOwnsMainArea(activePanel)
-      ? getExplorerViewContributionApps(state.apps).find((app) => app.id === activePanel)?.manifest
+      ? getContributions(state.apps, 'ui.explorer.view')
+        .find((resolved) => resolved.key === activePanel)
       : undefined
   ));
   const termTabs = useWorkspaceTerminals(workspaceId);
@@ -240,7 +241,7 @@ export function ExplorerWorkspace() {
                     <BrowserPanel workspaceId={workspaceId} />
                   ) : panelOwnsMainArea(activePanel) ? (
                     contributedView
-                      ? <ExplorerViewMount manifest={contributedView} />
+                      ? <ExplorerViewMount resolved={contributedView} />
                       : <ExplorerViewMissing panelId={activePanel} />
                   ) : (
                     <EditorPanel

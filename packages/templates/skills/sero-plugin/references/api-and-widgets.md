@@ -194,23 +194,24 @@ Two registration methods: static (manifest) and dynamic (runtime hook).
 
 ### Static widgets (manifest)
 
-Declare in `sero.app.widgets` in package.json:
+Contribute a federated component to `ui.dashboard.widget` in package.json:
 
 ```json
 {
   "sero": {
     "app": {
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "summary",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Summary",
           "component": "MyAppWidget",
           "description": "Quick overview of items",
           "defaultSize": { "w": 2, "h": 2 },
           "minSize": { "w": 1, "h": 1 },
           "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+        }]
+      }
     }
   }
 }
@@ -221,6 +222,7 @@ Widget manifest fields:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Unique within the app |
+| `extensionPoint` | Yes | Must be `ui.dashboard.widget` |
 | `name` | Yes | Display name in header and picker |
 | `component` | Yes | Exported component name from MF remote |
 | `description` | No | Shown in Add Widget picker |
@@ -380,7 +382,18 @@ Widget runtime API:
 | `component` | No | Exported component name. Required if `ui` is set. |
 | `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |
 | `styleIsolation` | For UI plugins | Set to `"scope"`. The matching Vite helper contains plugin CSS and host mounts provide scoped portal roots. |
-| `widgets` | No | Array of widget definitions |
+| `contributes` | No | Canonical component and host-control contributions. Static widgets use `contributes.components` with `ui.dashboard.widget`. |
+
+Supported component extension points are `ui.global-search.panel`,
+`ui.explorer.view`, `ui.titlebar.control`, and `ui.dashboard.widget`. The
+supported control extension point is `workspace.create.option`, with a
+`switch` control and app-local `tool` action. Contribution IDs are unique
+across both arrays. Unknown points are ignored by the host, so set
+`minSeroVersion` if the plugin cannot work without a newer point.
+
+The old `search`, `explorerView`, `titlebar`, `widgets`, and
+`workspaceCreation` fields are compatibility syntax only. Do not generate them
+for a new plugin.
 
 ### sero.plugin fields
 

@@ -43,7 +43,8 @@ function makeManifest(overrides: Partial<SeroAppManifest> & Pick<SeroAppManifest
     packagePath,
     isPlugin: true,
     plugin: null,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...rest,
     runtimeEntry: rest.runtimeEntry ?? null,
   };

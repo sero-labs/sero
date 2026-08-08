@@ -65,7 +65,8 @@ function createManifest(overrides: Partial<SeroAppManifest> = {}): SeroAppManife
     packagePath: '/tmp/dev-plugin',
     isPlugin: true,
     plugin: null,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...overrides,
   };
 }

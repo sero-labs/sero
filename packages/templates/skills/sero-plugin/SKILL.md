@@ -154,6 +154,9 @@ Critical:
 - `@sero-ai/app-runtime` and `@sero-ai/ui` in `devDependencies`
 - `stateFile` is required even for global apps (Pi-CLI fallback)
 - `ui`, `component`, `devPort` only when the plugin ships a UI
+- Put extra federated components and host-rendered controls under
+  `sero.app.contributes`. Never generate legacy `widgets`, `search`,
+  `explorerView`, `titlebar`, or `workspaceCreation` fields for a new plugin.
 - `runtime` only when the plugin ships a runtime; add `runtime/tsconfig.json` to the `typecheck` script
 - Declare prompt templates in `pi.prompts` and plugin skills in `pi.skills`; folders alone are not auto-loaded
 - If you need a same-name slash shortcut for a bridged tool, use a prompt template in `pi.prompts` rather than `pi.registerCommand` with the same name
@@ -310,6 +313,7 @@ Verify:
 | Runtime never starts | Declare `sero.app.runtime` + `requiredHostCapabilities: ["appRuntime.background"]`; check `/tmp/sero-electron.log` |
 | Build fails because no HTML entry exists | Add `ui/index.html` |
 | "No UI module registered" | Set `sero.app.component` and `devPort` |
+| Contributed surface does not appear | Use a host-defined `extensionPoint` under `sero.app.contributes`, expose the named component, and check `minSeroVersion` |
 | "No workspace selected" | Pick one, or set `scope: "global"` |
 | State not syncing | Verify same `stateFile` path, use atomic writes |
 | Keyboard stealing input | Scope listeners to container, not `window` |

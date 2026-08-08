@@ -72,8 +72,7 @@ export const Dashboard = memo(function Dashboard() {
 
   // Resolve available widgets from all app manifests
   const availableWidgets = useMemo<AvailableWidget[]>(() => {
-    const manifests = apps.filter((a) => a.manifest).map((a) => a.manifest!);
-    return getAvailableWidgets(manifests, runtimeWidgets);
+    return getAvailableWidgets(apps, runtimeWidgets);
   }, [apps, runtimeWidgets]);
 
   // Build a lookup for widget metadata

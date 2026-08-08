@@ -84,10 +84,18 @@ Plugin authors build widgets from the shared `@sero-ai/ui` dashboard components,
 which give one consistent look for spacing, typography, status colours and
 overflow. See [Dashboard Components](/reference/dashboard-components).
 
+A static widget is a federated component under
+`sero.app.contributes.components` with
+`"extensionPoint": "ui.dashboard.widget"`. Use `useWidgetRegistration()` only
+for a runtime widget that must appear and disappear with the current renderer
+lifecycle. Both use host-owned widget chrome. See
+[Plugin Extension Points](/reference/plugin-extension-points).
+
 ## Related docs
 
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Dashboard Components](/reference/dashboard-components)
+- [Plugin Extension Points](/reference/plugin-extension-points)
 - [State and Folders](/reference/state-and-folders)

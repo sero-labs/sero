@@ -60,7 +60,8 @@ function createManifest(
     remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...overrides,
     runtimeEntry: overrides?.runtimeEntry ?? null,
   };

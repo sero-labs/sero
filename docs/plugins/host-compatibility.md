@@ -95,8 +95,9 @@ Declare this when your extension depends on tool-level CLI bridging, including:
 ### `ui.explorerView`
 
 Declare this when your plugin contributes an Explorer view
-(`sero.app.explorerView`). Hosts without it show no activity-bar entry for the
-view at all.
+(`extensionPoint: "ui.explorer.view"`). Hosts without it show no activity-bar
+entry for the view at all. New plugins declare the view under
+`sero.app.contributes.components`.
 
 ### `appControl.capture`
 
@@ -109,7 +110,13 @@ the plugin; this capability only captures pixels already on screen.
 ### `ui.titlebar`
 
 Declare this when your plugin contributes a title-bar control
-(`sero.app.titlebar`).
+(`extensionPoint: "ui.titlebar.control"`). New plugins declare the control
+under `sero.app.contributes.components`.
+
+Extension-point contributions are optional by default. If the whole plugin
+requires an extension point introduced by a newer Sero release, set
+`minSeroVersion`. An older host cannot enforce a requirement inside manifest
+syntax that it does not understand.
 
 ### `appRuntime.media`
 

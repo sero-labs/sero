@@ -4,7 +4,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { getAppIcon } from '@/lib/app-icons';
-import { getExplorerViewContributionApps, useAppStore } from '@/stores/app';
+import { getContributions, useAppStore } from '@/stores/app';
 import { useSubagentStore } from '@/stores/subagent';
 import type { ExplorerPanel } from '@/lib/explorer-panels';
 
@@ -25,16 +25,16 @@ const builtinItems: ActivityItem[] = [
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
 ];
 
-/** Activity-bar entries for apps declaring `sero.app.explorerView`. */
+/** Activity-bar entries contributed to `ui.explorer.view`. */
 function useContributedItems(): ActivityItem[] {
   const apps = useAppStore((s) => s.apps);
   return useMemo(
-    () => getExplorerViewContributionApps(apps).map((app) => {
-      const view = app.manifest!.explorerView!;
-      const Icon = getAppIcon(view.icon ?? app.icon);
+    () => getContributions(apps, 'ui.explorer.view').map((resolved) => {
+      const view = resolved.contribution;
+      const Icon = getAppIcon(view.icon ?? resolved.app.icon);
       return {
-        id: app.id,
-        label: view.label ?? app.label,
+        id: resolved.key,
+        label: view.label ?? resolved.app.label,
         icon: <Icon className="size-[18px]" />,
       };
     }),
@@ -55,7 +55,7 @@ interface ActivityBarProps {
  * ActivityBar, narrow icon strip for the explorer workspace.
  *
  * Built-in panels first, then any view an installed app contributes via
- * `sero.app.explorerView` — the Git view arrives that way. Shows a badge on the
+ * `ui.explorer.view` — the Git view arrives that way. Shows a badge on the
  * orchestration icon when subagents are running.
  */
 export function ActivityBar({

@@ -12,11 +12,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   SeroAppManifest,
-  SeroExplorerViewManifest,
-  SeroSearchManifest,
-  SeroTitleBarManifest,
-  SeroWidgetManifest,
-  SeroWorkspaceCreationManifest,
   SettingsPackageSource,
 } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
@@ -30,43 +25,15 @@ import {
   parsePluginMeta,
   warnInvalidPluginMeta,
 } from './plugin-meta';
+import {
+  parseAppContributions,
+  type ContributionManifestSource,
+} from './contributions';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 const SERO_PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'plugins');
 
-interface PkgWidgetDef {
-  id?: string;
-  name?: string;
-  component?: string;
-  defaultSize?: { w?: number; h?: number };
-  minSize?: { w?: number; h?: number };
-  maxSize?: { w?: number; h?: number };
-  description?: string;
-}
-
-interface PkgSearchDef {
-  component?: string;
-  description?: string;
-}
-
-interface PkgExplorerViewDef {
-  component?: string;
-  label?: string;
-  icon?: string;
-}
-
-interface PkgTitleBarDef {
-  component?: string;
-}
-
-interface PkgWorkspaceCreationDef {
-  label?: string;
-  defaultEnabled?: boolean;
-  tool?: string;
-  params?: Record<string, unknown>;
-}
-
-interface PkgSeroApp {
+interface PkgSeroApp extends ContributionManifestSource {
   id: string;
   styleIsolation?: 'scope';
   name: string;
@@ -78,11 +45,6 @@ interface PkgSeroApp {
   runtimeExternals?: string[];
   component?: string;
   devPort?: number;
-  widgets?: PkgWidgetDef[];
-  search?: PkgSearchDef;
-  explorerView?: PkgExplorerViewDef;
-  titlebar?: PkgTitleBarDef;
-  workspaceCreation?: PkgWorkspaceCreationDef;
 }
 
 interface PkgJson {
@@ -150,74 +112,6 @@ function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): stri
   )].sort((a, b) => a.localeCompare(b));
 }
 
-function parseWidgets(app: PkgSeroApp): SeroWidgetManifest[] {
-  const widgets: SeroWidgetManifest[] = [];
-  if (!Array.isArray(app.widgets)) return widgets;
-
-  for (const widget of app.widgets) {
-    if (!widget.id || !widget.name || !widget.component) continue;
-    widgets.push({
-      id: widget.id,
-      name: widget.name,
-      component: widget.component,
-      defaultSize: {
-        w: typeof widget.defaultSize?.w === 'number' ? widget.defaultSize.w : 2,
-        h: typeof widget.defaultSize?.h === 'number' ? widget.defaultSize.h : 2,
-      },
-      minSize: widget.minSize ? {
-        w: typeof widget.minSize.w === 'number' ? widget.minSize.w : 1,
-        h: typeof widget.minSize.h === 'number' ? widget.minSize.h : 1,
-      } : undefined,
-      maxSize: widget.maxSize ? {
-        w: typeof widget.maxSize.w === 'number' ? widget.maxSize.w : 4,
-        h: typeof widget.maxSize.h === 'number' ? widget.maxSize.h : 4,
-      } : undefined,
-      description: typeof widget.description === 'string' ? widget.description : undefined,
-    });
-  }
-
-  return widgets;
-}
-
-function parseSearch(app: PkgSeroApp): SeroSearchManifest | null {
-  if (typeof app.search?.component !== 'string' || !app.search.component) return null;
-  return {
-    component: app.search.component,
-    description: typeof app.search.description === 'string' ? app.search.description : undefined,
-  };
-}
-
-function parseExplorerView(app: PkgSeroApp): SeroExplorerViewManifest | null {
-  if (typeof app.explorerView?.component !== 'string' || !app.explorerView.component) return null;
-  return {
-    component: app.explorerView.component,
-    label: typeof app.explorerView.label === 'string' ? app.explorerView.label : undefined,
-    icon: typeof app.explorerView.icon === 'string' ? app.explorerView.icon : undefined,
-  };
-}
-
-function parseTitleBar(app: PkgSeroApp): SeroTitleBarManifest | null {
-  if (typeof app.titlebar?.component !== 'string' || !app.titlebar.component) return null;
-  return { component: app.titlebar.component };
-}
-
-function parseWorkspaceCreation(app: PkgSeroApp): SeroWorkspaceCreationManifest | null {
-  const contribution = app.workspaceCreation;
-  if (
-    typeof contribution?.label !== 'string'
-    || !contribution.label.trim()
-    || typeof contribution.tool !== 'string'
-    || !contribution.tool.trim()
-  ) return null;
-
-  return {
-    label: contribution.label.trim(),
-    defaultEnabled: contribution.defaultEnabled === true,
-    tool: contribution.tool.trim(),
-    params: contribution.params,
-  };
-}
-
 function buildManifest(
   pkgJson: PkgJson,
   packagePath: string,
@@ -243,6 +137,7 @@ function buildManifest(
     ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin, { expectsFederatedUi })
     : null;
   const suppressUi = options.suppressUi === true;
+  const parsedContributions = parseAppContributions(app, { suppressUi });
 
   if (pluginDeclared) {
     warnInvalidPluginMeta(packagePath, parsedPlugin.warnings);
@@ -275,11 +170,8 @@ function buildManifest(
     hostCompatibility: compatibilityRequirements
       ? evaluatePluginCompatibility(compatibilityRequirements)
       : null,
-    widgets: parseWidgets(app),
-    search: suppressUi ? null : parseSearch(app),
-    explorerView: suppressUi ? null : parseExplorerView(app),
-    titlebar: suppressUi ? null : parseTitleBar(app),
-    workspaceCreation: parseWorkspaceCreation(app),
+    contributions: parsedContributions.contributions,
+    contributionDiagnostics: parsedContributions.diagnostics,
   };
 }
 

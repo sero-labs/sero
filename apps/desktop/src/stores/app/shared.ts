@@ -1,3 +1,7 @@
+import type {
+  AppExtensionPointId,
+  ContributionForExtensionPoint,
+} from '@sero-ai/common';
 import type { SeroAppManifest } from '@/types/ipc';
 
 export interface AppEntry {
@@ -114,24 +118,39 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   return [...builtins, ...favourites];
 }
 
-/** Apps that contribute a global-search panel (`sero.app.search`) and are host-supported. */
-export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
-  return apps.filter((app) => app.manifest?.search && isAppEntrySupported(app));
+export interface ResolvedContribution<P extends AppExtensionPointId = AppExtensionPointId> {
+  key: string;
+  appId: string;
+  app: AppEntry;
+  manifest: SeroAppManifest;
+  contribution: ContributionForExtensionPoint<P>;
 }
 
-/** Apps that contribute an option to the new-workspace form. */
-export function getWorkspaceCreationContributionApps(apps: AppEntry[]): AppEntry[] {
-  return apps.filter((app) => app.manifest?.workspaceCreation && isAppEntrySupported(app));
-}
-
-/** Apps that contribute an Explorer view (`sero.app.explorerView`) and are host-supported. */
-export function getExplorerViewContributionApps(apps: AppEntry[]): AppEntry[] {
-  return apps.filter((app) => app.manifest?.explorerView && isAppEntrySupported(app));
-}
-
-/** Apps that contribute a title-bar control (`sero.app.titlebar`) and are host-supported. */
-export function getTitleBarContributionApps(apps: AppEntry[]): AppEntry[] {
-  return apps.filter((app) => app.manifest?.titlebar && isAppEntrySupported(app));
+/** Resolve valid contributions for one host-owned extension point. */
+export function getContributions<P extends AppExtensionPointId>(
+  apps: AppEntry[],
+  extensionPoint: P,
+): ResolvedContribution<P>[] {
+  const resolved: ResolvedContribution<P>[] = [];
+  for (const app of apps) {
+    const manifest = app.manifest;
+    if (!manifest || !isAppEntrySupported(app)) continue;
+    const entries = [
+      ...manifest.contributions.components,
+      ...manifest.contributions.controls,
+    ];
+    for (const contribution of entries) {
+      if (contribution.extensionPoint !== extensionPoint) continue;
+      resolved.push({
+        key: `${app.id}:${contribution.id}`,
+        appId: app.id,
+        app,
+        manifest,
+        contribution: contribution as ContributionForExtensionPoint<P>,
+      });
+    }
+  }
+  return resolved;
 }
 
 export function getPriorityPreloadApps(

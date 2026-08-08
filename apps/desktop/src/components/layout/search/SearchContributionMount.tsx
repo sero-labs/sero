@@ -1,54 +1,30 @@
 /**
  * SearchContributionMount, loads and mounts an app's federated global-search
- * panel (declared via `sero.app.search`).
+ * panel contributed to `ui.global-search.panel`.
  *
  * Mirrors WidgetMount: wraps the federated component in AppProvider so the
  * panel has full access to useAppState, useAppTools, and the other
  * app-runtime hooks — the search logic itself stays inside the plugin.
  */
 
-import { Suspense, useId } from 'react';
-import { AppProvider } from '@sero-ai/app-runtime';
-import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
-import type { SeroAppManifest } from '@/types/ipc';
-import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
-import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
+import type { ResolvedContribution } from '@/stores/app';
+import { FederatedContributionMount } from '@/components/apps/FederatedContributionMount';
 
-export function SearchContributionMount({ manifest }: { manifest: SeroAppManifest }) {
-  const { contextValue, status } = useAppRuntimeMount(manifest);
-  const surfaceId = useId();
-
-  if (status === 'loading-workspace') {
-    return <SearchPanelLoading />;
-  }
-
-  if (status === 'missing-workspace') {
-    return <SearchPanelFallback message="No workspace selected" />;
-  }
-
-  const LazyComponent = manifest.search
-    ? getFederatedComponent(
-        manifest.id,
-        manifest.search.component,
-        manifest.devPort,
-        manifest.remoteEntryOverride,
-      )
-    : null;
-  if (!LazyComponent) {
-    return <SearchPanelFallback message="Search panel unavailable" />;
-  }
-
+export function SearchContributionMount({
+  resolved,
+}: {
+  resolved: ResolvedContribution<'ui.global-search.panel'>;
+}) {
   return (
-    <AppProvider value={contextValue}>
-      <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
-        <div data-sero-plugin={manifest.id} className="contents">
-          <Suspense fallback={<SearchPanelLoading />}>
-            <LazyComponent />
-          </Suspense>
-        </div>
-      </PluginStyleScope>
-    </AppProvider>
+    <FederatedContributionMount
+      manifest={resolved.manifest}
+      contribution={resolved.contribution}
+      contributionKey={resolved.key}
+      loading={<SearchPanelLoading />}
+      unavailable={<SearchPanelFallback message="Search panel unavailable" />}
+      missingWorkspace={<SearchPanelFallback message="No workspace selected" />}
+    />
   );
 }
 

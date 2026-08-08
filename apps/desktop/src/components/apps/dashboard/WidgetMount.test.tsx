@@ -44,7 +44,8 @@ function createManifest(
     remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...overrides,
   };
 }
@@ -205,6 +206,7 @@ describe('WidgetMount', () => {
           manifest={createManifest('notes', 'global', {
             component: null,
             uiEntry: null,
+            devPort: undefined,
           })}
           widgetMeta={createWidgetMeta()}
         />,

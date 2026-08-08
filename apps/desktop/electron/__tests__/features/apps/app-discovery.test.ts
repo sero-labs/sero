@@ -170,10 +170,14 @@ describe('app discovery devPort handling', () => {
       const { readAppManifestFromPackagePath } = await importAppDiscovery();
 
       const manifest = await readAppManifestFromPackagePath(packageDir);
-      expect(manifest?.search).toEqual({ component: 'SearchPanel', description: 'Search everything' });
+      expect(manifest?.contributions.components).toEqual([expect.objectContaining({
+        extensionPoint: 'ui.global-search.panel',
+        component: 'SearchPanel',
+        description: 'Search everything',
+      })]);
 
       const suppressed = await readAppManifestFromPackagePath(packageDir, { suppressUi: true });
-      expect(suppressed?.search).toBeNull();
+      expect(suppressed?.contributions.components).toEqual([]);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -192,7 +196,7 @@ describe('app discovery devPort handling', () => {
       const { readAppManifestFromPackagePath } = await importAppDiscovery();
       const manifest = await readAppManifestFromPackagePath(packageDir);
 
-      expect(manifest?.search).toBeNull();
+      expect(manifest?.contributions.components).toEqual([]);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

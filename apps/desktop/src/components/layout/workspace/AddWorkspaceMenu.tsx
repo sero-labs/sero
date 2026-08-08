@@ -4,7 +4,7 @@ import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useGitHubAuthStore } from '@/stores/github-auth';
-import { getWorkspaceCreationContributionApps, useAppStore } from '@/stores/app';
+import { getContributions, useAppStore } from '@/stores/app';
 import {
   Popover,
   PopoverContent,
@@ -14,6 +14,7 @@ import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { PickView, CreateView, CloneView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
+import { executeContributionAction } from '@/lib/contribution-actions';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
@@ -58,13 +59,14 @@ export function AddWorkspaceMenu() {
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
-  const workspaceCreationContributions = useAppStore((s) => getWorkspaceCreationContributionApps(s.apps));
-  const workspaceCreationOptions = workspaceCreationContributions.map((app) => ({
-    id: app.id,
-    label: app.manifest!.workspaceCreation!.label,
-    enabled: workspaceCreationSelections[app.id]
-      ?? app.manifest!.workspaceCreation!.defaultEnabled
-      ?? false,
+  const workspaceCreationContributions = useAppStore(
+    (s) => getContributions(s.apps, 'workspace.create.option'),
+  );
+  const workspaceCreationOptions = workspaceCreationContributions.map((resolved) => ({
+    id: resolved.key,
+    label: resolved.contribution.control.label,
+    enabled: workspaceCreationSelections[resolved.key]
+      ?? resolved.contribution.control.defaultValue,
   }));
 
   const reset = () => {
@@ -110,25 +112,22 @@ export function AddWorkspaceMenu() {
     setIsCreating(true);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
-      const enabledContributions = workspaceCreationContributions.filter((app) => (
-        workspaceCreationSelections[app.id]
-          ?? app.manifest!.workspaceCreation!.defaultEnabled
-          ?? false
+      const enabledContributions = workspaceCreationContributions.filter((resolved) => (
+        workspaceCreationSelections[resolved.key]
+          ?? resolved.contribution.control.defaultValue
       ));
-      const results = await Promise.allSettled(enabledContributions.map((app) => {
-        const contribution = app.manifest!.workspaceCreation!;
-        return window.sero.appAgent.invokeTool(app.id, ws.id, contribution.tool, {
-          ...contribution.params,
+      const results = await Promise.all(enabledContributions.map((resolved) => (
+        executeContributionAction(resolved.appId, ws.id, resolved.contribution.action, {
           workspaceId: ws.id,
           workspaceName: ws.name,
           workspacePath: ws.path,
-        });
-      }));
+        })
+      )));
       results.forEach((result, index) => {
-        if (result.status === 'rejected') {
+        if (!result.ok) {
           console.warn(
-            `[workspace] ${enabledContributions[index].label} setup failed:`,
-            result.reason,
+            `[workspace] ${enabledContributions[index].app.label} setup failed:`,
+            result.error,
           );
         }
       });
