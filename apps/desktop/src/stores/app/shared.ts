@@ -1,4 +1,4 @@
-import type { SeroAppManifest } from '@/types/ipc';
+import type { SeroAppManifest, SeroWorkspaceCreationManifest } from '@/types/ipc';
 
 export interface AppEntry {
   id: string;
@@ -8,6 +8,12 @@ export interface AppEntry {
   builtin: boolean;
   /** Manifest for discovered sero apps (null for built-ins). */
   manifest: SeroAppManifest | null;
+}
+
+export interface WorkspaceCreationContributionApp extends AppEntry {
+  manifest: SeroAppManifest & {
+    workspaceCreation: SeroWorkspaceCreationManifest;
+  };
 }
 
 export function isManifestHostSupported(manifest: SeroAppManifest | null): boolean {
@@ -120,8 +126,11 @@ export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
 }
 
 /** Apps that contribute an option to workspace creation, clone, and import forms. */
-export function getWorkspaceCreationContributionApps(apps: AppEntry[]): AppEntry[] {
-  return apps.filter((app) => app.manifest?.workspaceCreation && isAppEntrySupported(app));
+export function getWorkspaceCreationContributionApps(
+  apps: AppEntry[],
+): WorkspaceCreationContributionApp[] {
+  return apps.filter((app): app is WorkspaceCreationContributionApp =>
+    Boolean(app.manifest?.workspaceCreation) && isAppEntrySupported(app));
 }
 
 /** Apps that contribute an Explorer view (`sero.app.explorerView`) and are host-supported. */

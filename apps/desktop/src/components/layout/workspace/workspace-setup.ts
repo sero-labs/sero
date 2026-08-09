@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { AppEntry } from '@/stores/app';
+import type { WorkspaceCreationContributionApp } from '@/stores/app';
 import type { WorkspaceInfo } from '@/types/ipc';
 
 export interface WorkspaceSetupFailure {
@@ -12,17 +12,17 @@ export async function runWorkspaceSetup({
   selections,
   workspace,
 }: {
-  apps: AppEntry[];
+  apps: WorkspaceCreationContributionApp[];
   selections: Record<string, boolean>;
   workspace: WorkspaceInfo;
 }): Promise<string | null> {
   const enabledApps = apps.filter((app) => (
     selections[app.id]
-      ?? app.manifest!.workspaceCreation!.defaultEnabled
+      ?? app.manifest.workspaceCreation.defaultEnabled
       ?? false
   ));
   const results = await Promise.allSettled(enabledApps.map((app) => Promise.resolve().then(() => {
-    const contribution = app.manifest!.workspaceCreation!;
+    const contribution = app.manifest.workspaceCreation;
     return window.sero.appAgent.invokeTool(app.id, workspace.id, contribution.tool, {
       ...contribution.params,
       workspaceId: workspace.id,
@@ -47,7 +47,7 @@ export async function runWorkspaceSetup({
 }
 
 export function useWorkspaceSetup(
-  apps: AppEntry[],
+  apps: WorkspaceCreationContributionApp[],
   selections: Record<string, boolean>,
 ) {
   const [failures, setFailures] = useState<Record<string, WorkspaceSetupFailure>>({});
@@ -55,14 +55,8 @@ export function useWorkspaceSetup(
   const activeFailure = Object.values(failures)[0] ?? null;
 
   const createSetup = (workspace: WorkspaceInfo): (() => void) => {
-    const setupApps = apps;
-    const setupSelections = selections;
     return () => {
-      void runWorkspaceSetup({
-        apps: setupApps,
-        selections: setupSelections,
-        workspace,
-      }).then((message) => {
+      void runWorkspaceSetup({ apps, selections, workspace }).then((message) => {
         if (!message) return;
         console.warn('[workspace] Workspace setup failed:', message);
         setFailures((current) => ({

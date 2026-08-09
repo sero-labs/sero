@@ -101,6 +101,10 @@ export class GraphifyIndexer {
     const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
     const current = (await this.host.readState())?.workspaces ?? {};
     const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
+    // Outside start(), live statuses (queued/building/updating) must survive a
+    // discovery tick; only the boot pass may normalize interrupted work to idle.
+    const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
+      normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
     // Expire only pending entries present in this opening snapshot. An entry
     // created while this sync runs gets one full discovery cycle of its own.
     const expiringPendingIds = new Set<string>();
@@ -108,16 +112,11 @@ export class GraphifyIndexer {
       if (
         entry.pendingHostDiscovery
         && !discoveredIds.has(entry.workspaceId)
-        && !isIndexing(entry.status)
+        && !isIndexing(nextStatus(entry))
       ) {
         expiringPendingIds.add(entry.workspaceId);
       }
     }
-
-    // Outside start(), live statuses (queued/building/updating) must survive a
-    // discovery tick; only the boot pass may normalize interrupted work to idle.
-    const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
-      normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
 
     const unchanged = workspaces.length === Object.keys(current).length
       && workspaces.every((ws) => {
@@ -157,7 +156,13 @@ export class GraphifyIndexer {
         };
       }
       for (const id of Object.keys(next.workspaces)) {
-        const entry = next.workspaces[id];
+        let entry = next.workspaces[id];
+        const status = nextStatus(entry);
+        if (status !== entry.status) {
+          entry = { ...entry, status };
+          delete entry.progress;
+          next.workspaces[id] = entry;
+        }
         if (
           !discoveredIds.has(id)
           && !isIndexing(entry.status)
@@ -168,13 +173,18 @@ export class GraphifyIndexer {
       }
       return next;
     });
+    // The updater can preserve entries against the opening snapshot. Re-read
+    // state so artifact removal uses the authoritative reconciliation result.
     const reconciled = (await this.host.readState())?.workspaces ?? {};
     const removedIds = removalCandidates.filter((id) => !reconciled[id]);
     const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
     // A removed workspace's per-workspace graph is now an orphan — delete it so
     // disk tracks the live workspace list (disable keeps artifacts; removal does not).
     // Removals are independent, so run them together.
-    await Promise.all(removedIds.map((id) => this.host.removeWorkspaceArtifacts(id)));
+    await Promise.all(removedIds.map((id) => {
+      this.host.log(`[graphify] removing undiscovered workspace ${id} and its graph artifacts`);
+      return this.host.removeWorkspaceArtifacts(id);
+    }));
     // A deleted workspace that was part of the profile graph leaves stale
     // nodes behind until the next merge — re-merge promptly.
     if (removedIndexed) await this.merge();

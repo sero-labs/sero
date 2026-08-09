@@ -4,11 +4,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppToolResult } from '@sero-ai/common';
-import type { SeroAppManifest, WorkspaceInfo } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useAppStore } from '@/stores/app';
 import { AddWorkspaceMenu } from './AddWorkspaceMenu';
+import { createdWorkspace, graphifyManifest, secondWorkspace } from './AddWorkspaceMenu.fixtures';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -43,49 +43,6 @@ const promiseRuntime = Promise as PromiseConstructor & {
   withResolvers<T>(): Deferred<T>;
 };
 
-const createdWorkspace: WorkspaceInfo = {
-  id: 'workspace-1',
-  name: 'Workspace 1',
-  path: '/tmp/workspace-1',
-  open: true,
-  runtime: { backend: 'host' },
-  container: false,
-  references: [],
-  mounts: [],
-  roots: [],
-};
-
-const secondWorkspace: WorkspaceInfo = {
-  ...createdWorkspace,
-  id: 'workspace-2',
-  name: 'Workspace 2',
-  path: '/tmp/workspace-2',
-};
-
-const graphifyManifest: SeroAppManifest = {
-  id: 'graphify',
-  name: 'Graphify',
-  description: null,
-  version: '1.0.0',
-  packageName: '@sero-ai/sero-graphify-plugin',
-  icon: 'network',
-  stateFile: '.sero/apps/graphify/state.json',
-  scope: 'global',
-  globalStatePath: '/tmp/graphify-state.json',
-  uiEntry: null,
-  runtimeEntry: null,
-  component: null,
-  devPort: undefined,
-  remoteEntryOverride: null,
-  packagePath: '/tmp/graphify',
-  isPlugin: true,
-  widgets: [],
-  workspaceCreation: {
-    label: 'Enable Graphify indexing',
-    defaultEnabled: true,
-    tool: 'graphify_index',
-  },
-};
 
 function getButton(label: string): HTMLButtonElement {
   const button = [...document.querySelectorAll('button')]
@@ -230,6 +187,19 @@ describe('AddWorkspaceMenu', () => {
     await click(getButton('Create New'));
 
     expect(document.querySelector(switchId)?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('shows workspace creation failures', async () => {
+    useWorkspaceStore.setState({
+      createWorkspace: vi.fn().mockRejectedValue(new Error('Workspace name already exists')),
+    });
+    await renderMenu();
+    await openCreateView();
+    await click(getButton('Create'));
+    await vi.waitFor(() => {
+      expect(document.querySelector('[role="alert"]')?.textContent)
+        .toContain('Workspace name already exists');
+    });
   });
 
   it('waits to run contribution setup until the remote prompt finishes', async () => {

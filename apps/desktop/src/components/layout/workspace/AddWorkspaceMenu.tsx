@@ -21,7 +21,6 @@ import { useWorkspaceSetup } from './workspace-setup';
 
 type AddView = 'pick' | 'create' | 'clone' | 'import';
 
-
 /** Errors that mean "you need GitHub credentials", as opposed to a bad URL. */
 function looksLikeAuthError(message: string): boolean {
   return /authentication|authenticate|permission denied|access denied|403|terminal prompts disabled|could not read username|repository not found/i.test(
@@ -39,6 +38,7 @@ export function AddWorkspaceMenu() {
   const [newName, setNewName] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -83,6 +83,7 @@ export function AddWorkspaceMenu() {
   const reset = () => {
     setView('pick');
     setNewName('');
+    setCreateError(null);
     setParentPath(null);
     setCloneUrl('');
     setCloneName('');
@@ -124,7 +125,6 @@ export function AddWorkspaceMenu() {
     }
   };
 
-
   const completeWorkspaceAddition = async (
     ws: WorkspaceInfo,
     promptForRemote = false,
@@ -145,11 +145,12 @@ export function AddWorkspaceMenu() {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
     setIsCreating(true);
+    setCreateError(null);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
       await completeWorkspaceAddition(ws, true);
     } catch (err) {
-      console.error('Failed to create workspace:', err);
+      setCreateError(err instanceof Error ? err.message : 'Failed to create workspace');
     } finally {
       setIsCreating(false);
     }
@@ -196,7 +197,6 @@ export function AddWorkspaceMenu() {
   const handleOptionChange = (id: string, enabled: boolean): void => {
     setWorkspaceCreationSelections((current) => ({ ...current, [id]: enabled }));
   };
-
 
   const workspaceSetupFailureNotice = activeWorkspaceSetupFailure
     ? (
@@ -260,6 +260,7 @@ export function AddWorkspaceMenu() {
             onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}
+            error={createError}
             options={workspaceCreationOptions}
             onOptionChange={handleOptionChange}
           />

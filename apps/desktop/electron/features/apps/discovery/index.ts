@@ -284,7 +284,7 @@ function buildManifest(
     search: suppressUi ? null : parseSearch(app),
     explorerView: suppressUi ? null : parseExplorerView(app),
     titlebar: suppressUi ? null : parseTitleBar(app),
-    workspaceCreation: parseWorkspaceCreation(app),
+    workspaceCreation: suppressUi ? null : parseWorkspaceCreation(app),
   };
 }
 

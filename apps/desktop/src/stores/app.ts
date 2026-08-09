@@ -7,6 +7,7 @@ export {
   getSidebarApps,
   getTitleBarContributionApps,
   type AppEntry,
+  type WorkspaceCreationContributionApp,
   type Theme,
 } from './app/shared';
 export { loadLayout } from './app/layout-hydration';

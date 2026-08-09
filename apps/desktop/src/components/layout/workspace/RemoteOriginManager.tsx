@@ -39,7 +39,14 @@ interface RemoteOriginManagerProps {
   children?: ReactNode;
 }
 
-type View = 'loading' | 'load-error' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
+type View =
+  | 'loading'
+  | 'load-error'
+  | 'choose'
+  | 'create-github'
+  | 'connect-existing'
+  | 'connect-existing-busy'
+  | 'connected';
 
 // ── Main component ───────────────────────────────────────────
 
@@ -54,6 +61,7 @@ export function RemoteOriginManager({
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
   const [originLoadError, setOriginLoadError] = useState<string | null>(null);
   const [originWarning, setOriginWarning] = useState<string | null>(null);
+  const connectBusy = view === 'connect-existing-busy';
   const prevOpenRef = useRef(false);
 
   const loadOrigin = useCallback(async () => {
@@ -89,11 +97,15 @@ export function RemoteOriginManager({
     setView('connected');
   };
 
-  const handleClose = () => onOpenChange(false);
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (!nextOpen && connectBusy) return;
+    onOpenChange(nextOpen);
+  };
+  const handleClose = (): void => handleOpenChange(false);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md" showCloseButton={!connectBusy}>
         <DialogHeader>
           <DialogTitle>Git Repository</DialogTitle>
           <DialogDescription>
@@ -102,7 +114,6 @@ export function RemoteOriginManager({
               : `Link "${workspace.name}" to a Git repository.`}
           </DialogDescription>
         </DialogHeader>
-
 
         {view === 'loading' && <LoadingView />}
         {view === 'load-error' && originLoadError && (
@@ -127,11 +138,12 @@ export function RemoteOriginManager({
             onCreated={handleOriginSet}
           />
         )}
-        {view === 'connect-existing' && (
+        {(view === 'connect-existing' || view === 'connect-existing-busy') && (
           <ConnectExistingView
             workspace={workspace}
             onBack={() => setView('choose')}
             onConnected={handleOriginSet}
+            onBusyChange={(busy) => setView(busy ? 'connect-existing-busy' : 'connect-existing')}
           />
         )}
         {view === 'connected' && origin && (

@@ -32,6 +32,7 @@ function busyViews(): Array<{ name: string; view: ReactNode }> {
           onBack={noop}
           onCreate={noop}
           isCreating
+          error={null}
           options={options}
           onOptionChange={noop}
         />

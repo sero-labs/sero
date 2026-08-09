@@ -53,6 +53,7 @@ export function CreateView({
   onBack,
   onCreate,
   isCreating,
+  error,
   options,
   onOptionChange,
 }: {
@@ -65,6 +66,7 @@ export function CreateView({
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
+  error: string | null;
   options: WorkspaceCreationOption[];
   onOptionChange: (id: string, enabled: boolean) => void;
 }) {
@@ -85,6 +87,11 @@ export function CreateView({
       </Field>
 
       <LocationField parentPath={parentPath} onPick={onPickLocation} onClear={onClearLocation} />
+      {error && (
+        <div className="rounded-md bg-status-error-muted p-2">
+          <p role="alert" className="text-xs text-status-error">{error}</p>
+        </div>
+      )}
       <WorkspaceCreationOptions
         options={options}
         onOptionChange={onOptionChange}

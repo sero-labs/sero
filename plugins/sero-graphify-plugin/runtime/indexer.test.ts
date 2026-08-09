@@ -295,7 +295,8 @@ describe('GraphifyIndexer', () => {
   });
 
   it('expires a metadata-backed workspace after one missed discovery sync', async () => {
-    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+    const log = vi.fn();
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], log });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await indexer.handleStateChange({
@@ -319,6 +320,7 @@ describe('GraphifyIndexer', () => {
 
     expect(getState().workspaces['ws-deleted']).toBeUndefined();
     expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-deleted');
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('ws-deleted'));
     indexer.dispose();
   });
 
@@ -353,6 +355,26 @@ describe('GraphifyIndexer', () => {
     await indexer.syncWorkspaces();
     expect(getState().workspaces['ws-building']).toBeUndefined();
     expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-building');
+    indexer.dispose();
+  });
+
+  it('removes an interrupted undiscovered workspace during boot normalization', async () => {
+    const { host, getState } = makeHost({ listWorkspaces: async () => [] }, (state) => {
+      state.workspaces['ws-interrupted'] = {
+        workspaceId: 'ws-interrupted',
+        name: 'Interrupted Workspace',
+        path: '/p/interrupted',
+        enabled: false,
+        status: 'building',
+        pendingHostDiscovery: true,
+      };
+    });
+    const indexer = new GraphifyIndexer(host);
+
+    await indexer.start();
+    await indexer.idle();
+    expect(getState().workspaces['ws-interrupted']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-interrupted');
     indexer.dispose();
   });
 
