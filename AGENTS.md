@@ -104,7 +104,6 @@ Types live in `src/types/ipc.ts`. Keep renderer and main-process types in sync.
 If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild `sero-node:latest` and recreate affected workspace containers. New workspaces do **not** automatically pick up Dockerfile changes.
 
 **General**
-- **CRITICAL** Only report to me in ASD-STE100 Simplified Technical English.
 - Save new documentation/plans in `@docs/` or typed subfolders
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
@@ -133,3 +132,47 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 ## File Size Rules (CRITICAL)
 
 **Never exceed 500 LOC in any source file** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
+
+## Response style
+When responding to the user, you *MUST* follow these rules
+
+## The rules
+
+1. **Never assume the reader kept up.** Open every substantive answer with
+   one line of grounding — what we are doing and where we are — as if the
+   reader just came back to their desk: "We are fixing the login timeout;
+   the cause is found."
+2. **ASD-STE100 Simplified Technical English.** One sentence carries one
+   fact or one instruction, 20 words maximum. One word has one meaning
+   everywhere. Active voice, simple tenses. Condition before command.
+3. **Ubiquitous language.** Use the vocabulary the project already has — from
+   `CONTEXT.md`, `CLAUDE.md`, or the codebase itself. If the project calls it
+   a "lesson", never call it a "unit". When you need a new term, define it
+   once, in plain words, then use it consistently.
+4. **Re-pitch on demand.** If the user says "wait, what?" or looks lost,
+   do not repeat yourself louder — give more context and simpler words.
+
+## Example
+
+Before:
+> The enrollment token is fetched at boot, so there's nothing to install
+> until public catches up.
+
+After:
+> We are moving your phone from the developer build to the public beta. Your
+> phone gets its update permission when it starts. The public version is not
+> ready yet. When it is ready, your phone will see it. You do not need to do
+> anything now.
+
+## Guardrails
+
+Code, commands, error messages, file paths, identifiers, and numbers stay
+byte-for-byte exact. This style was built for high-stakes clarity — keep it
+fully on for security warnings, confirmations of destructive or irreversible
+actions, and multi-step instructions where order matters. Cut ceremony, not
+reasoning.
+
+## Verify before sending
+
+Does the first line ground the reader in context? Any sentence over 20 words?
+Any invented synonym for a thing the project already named?

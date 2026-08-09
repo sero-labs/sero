@@ -1,0 +1,86 @@
+{
+  "2026-06-22": {
+    "views": 2,
+    "uniqueVisitors": 2,
+    "clones": 10,
+    "uniqueCloners": 7
+  },
+  "2026-06-23": {
+    "views": 1,
+    "uniqueVisitors": 1,
+    "clones": 6,
+    "uniqueCloners": 3
+  },
+  "2026-06-24": {
+    "views": 1,
+    "uniqueVisitors": 1,
+    "clones": 7,
+    "uniqueCloners": 4
+  },
+  "2026-06-25": {
+    "views": 10,
+    "uniqueVisitors": 6,
+    "clones": 5,
+    "uniqueCloners": 2
+  },
+  "2026-06-26": {
+    "views": 1,
+    "uniqueVisitors": 1,
+    "clones": 4,
+    "uniqueCloners": 1
+  },
+  "2026-06-27": {
+    "views": 5,
+    "uniqueVisitors": 2,
+    "clones": 43,
+    "uniqueCloners": 15
+  },
+  "2026-06-28": {
+    "views": 5,
+    "uniqueVisitors": 1,
+    "clones": 76,
+    "uniqueCloners": 16
+  },
+  "2026-06-29": {
+    "views": 1,
+    "uniqueVisitors": 1,
+    "clones": 49,
+    "uniqueCloners": 16
+  },
+  "2026-06-30": {
+    "views": 41,
+    "uniqueVisitors": 1,
+    "clones": 394,
+    "uniqueCloners": 33
+  },
+  "2026-07-01": {
+    "views": 15,
+    "uniqueVisitors": 2,
+    "clones": 29,
+    "uniqueCloners": 14
+  },
+  "2026-07-02": {
+    "views": 2,
+    "uniqueVisitors": 2,
+    "clones": 62,
+    "uniqueCloners": 17
+  },
+  "2026-07-03": {
+    "views": 10,
+    "uniqueVisitors": 1,
+    "clones": 97,
+    "uniqueCloners": 31
+  },
+  "2026-07-04": {
+    "views": 12,
+    "uniqueVisitors": 2,
+    "clones": 26,
+    "uniqueCloners": 10
+  },
+  "2026-07-05": {
+    "views": 10,
+    "uniqueVisitors": 2,
+    "clones": 33,
+    "uniqueCloners": 10
+  }
+}

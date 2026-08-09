@@ -16,6 +16,7 @@ import type {
   AppPanelRect,
   AppRecordingResult,
   AppRecordingStatus,
+  AppRecordingOptions,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
 } from '@/types/ipc';
@@ -129,10 +130,10 @@ export const appControlBridge = {
     ipcRenderer.invoke(IpcChannels.appControl.interact, params),
   getAppRect: (): Promise<AppPanelRect | null> =>
     ipcRenderer.invoke(IpcChannels.appControl.getAppRect),
-  recordStart: (): Promise<boolean> =>
-    ipcRenderer.invoke(IpcChannels.appControl.recordStart),
-  recordStop: (): Promise<AppRecordingResult | null> =>
-    ipcRenderer.invoke(IpcChannels.appControl.recordStop),
+  recordStart: (options?: AppRecordingOptions): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.appControl.recordStart, options),
+  recordStop: (options?: { outputPath?: string }): Promise<AppRecordingResult | null> =>
+    ipcRenderer.invoke(IpcChannels.appControl.recordStop, options),
   recordStatus: (): Promise<AppRecordingStatus> =>
     ipcRenderer.invoke(IpcChannels.appControl.recordStatus),
 };

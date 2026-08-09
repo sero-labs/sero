@@ -86,6 +86,8 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  process.env.SERO_DESKTOP_HOST_PID = String(process.pid);
+
   // Normal app startup. The dynamic import keeps every static-import
   // side effect in `app-main.ts` (and its transitive graph) gated
   // behind this branch, so the doctor short-circuit above never

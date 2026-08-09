@@ -93,6 +93,13 @@ Sero can install plugins through the plugin management bridge. Public plugin
 distribution modes include npm, git repositories, and local paths, depending on
 what the current installer and plugin source support.
 
+### Install from folder
+
+The Installed tab has an **Install from folder** action. It opens a folder
+picker and installs the plugin package you select. Use it for a plugin you built
+locally, or one you cloned yourself. Installation errors stay visible inside the
+App Store dialog.
+
 During beta:
 
 1. Install only from trusted sources.

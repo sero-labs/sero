@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "prompt": "On demand, turn a named Sero feature into a filmable 60-second demo shot list. Take the feature request from the demo-scripts inbox file (docs/marketing/demo-scripts/inbox.md) or ask me for it, investigate how the feature really works in this repository (code, docs, plugin READMEs) so every scene shows real UI, and write the shot list to docs/marketing/demo-scripts/<feature-slug>.md with a hook line, timed scenes summing to about 60 seconds, what must be visible on screen (including any approval points), spoken/caption lines, and honest caveats. Draft only — never post, publish, send, or commit anything.",
+  "title": "Demo script generator",
+  "summary": "One manual run resolves a feature request (inbox file, or a parked question when none is pending), investigates the real feature in the repo, and writes a 60-second demo shot list under docs/marketing/demo-scripts/. The workspace file is the only side effect.",
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "Produce a filmable 60-second demo shot list for one named Sero feature at docs/marketing/demo-scripts/<feature-slug>.md, grounded in the feature's real UI and flows, with hook, timed scenes, on-screen requirements including approval points, spoken/caption lines, and honest caveats.",
+    "steps": [
+      {
+        "id": "resolve-feature-request",
+        "title": "Resolve the feature request",
+        "instructions": "Determine which Sero feature this run should script. Sources, in order: (1) If this step has an answered human-input question from a previously parked run, use that answer as the feature request. (2) Otherwise read docs/marketing/demo-scripts/inbox.md and take the topmost entry under the 'Pending' heading — an entry is a feature name on one line, optionally followed by indented notes on what to show. (3) If neither source yields a feature, DO NOT invent one: record a question in this StepOutcome's questions array with the prompt 'Which Sero feature should this demo script cover? Give the feature name and any notes on what the demo must show.' so the loop parks until the user answers. When a feature request is found: derive featureSlug as the lowercase kebab-case form of the feature name (letters, digits, hyphens only), and record StepOutcome variables featureName, featureSlug, and featureNotes (the request's notes, or an empty string). If the request came from inbox.md, move that entry from 'Pending' to a 'Processed' section with today's date so the next run does not pick it up again.",
+        "expectedOutcome": "featureName, featureSlug, and featureNotes are recorded as variables, or the loop is parked on a question asking the user for the feature.",
+        "produces": [
+          "featureName",
+          "featureSlug",
+          "featureNotes"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED",
+          "tools": [
+            "find",
+            "grep",
+            "current_time"
+          ]
+        }
+      },
+      {
+        "id": "investigate-feature",
+        "title": "Investigate the real feature in the repo",
+        "instructions": "Investigate how the feature named in featureName actually works in this repository, so every scene in the script can show real UI and real flows — never invented ones. Search docs/ (feature docs, architecture docs), the docs site content under apps/docs-site, plugin READMEs and source under plugins/, and desktop app UI code under apps/desktop where relevant. Establish and record as StepOutcome variables: featureFlow (the real user-visible flow, ordered: what the user clicks or types and what appears on screen at each point), surfaces (the exact named UI surfaces involved — panels, tabs, buttons, chat, terminal, browser), approvalPoints (whether the flow involves the agent installing or changing anything — plugins, loops, files, settings — and exactly where the product shows an approval or review moment for it; record 'none' only if genuinely nothing is installed or changed), timingNotes (which parts run in seconds and which take minutes and would need a labelled timelapse on film), and caveats (honest limitations: required setup, connectors or logins needed, beta rough edges). If the feature cannot be located in the repo, fail this step with a summary listing exactly what was searched — do not proceed on guesses.",
+        "expectedOutcome": "featureFlow, surfaces, approvalPoints, timingNotes, and caveats are recorded from real repo evidence.",
+        "dependsOn": [
+          "resolve-feature-request"
+        ],
+        "produces": [
+          "featureFlow",
+          "surfaces",
+          "approvalPoints",
+          "timingNotes",
+          "caveats"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED",
+          "tools": [
+            "find",
+            "grep"
+          ]
+        }
+      },
+      {
+        "id": "write-shot-list",
+        "title": "Write the 60-second shot list",
+        "instructions": "Write docs/marketing/demo-scripts/<featureSlug>.md (create the directory if needed) as a filmable 60-second demo shot list. Follow the structure and quality bar of the proof demos in docs/marketing/sero-growth-strategy.md (section 'Six proof demos'): each of those pairs a one-line hook with a short list of concrete things the viewer must see — do the same here. Required sections: (1) Title — the feature name plus '60-second demo'. (2) Hook — one first-person hook line in the strategy's style (like 'I asked my AI workspace to add a feature to itself.'): one sentence, concrete, surprising, no hype adjectives. (3) Shot list — a scene-by-scene table with columns: Time (rough start–end, e.g. 0:00–0:08), Shot (what the screen shows), Must be visible (the exact real UI from the surfaces variable that must be on screen), Spoken/caption line. Timestamps must sum to roughly 60 seconds. Every scene must map to a step recorded in featureFlow — do not invent UI or flows. Whenever the demo involves the agent installing or changing anything (a plugin, a loop, files, settings), the approval or review moment from approvalPoints MUST get its own visible beat in the shot list — never cut approval out of frame. Keep each spoken/caption line short enough to say aloud within its scene's time. (4) Honest caveats — a bullet list built from caveats and timingNotes: label every timelapse with its real duration (e.g. 'sped up — actually took 4 minutes'), name any required setup or connectors, and state beta rough edges plainly. No overclaiming anywhere in the file. The file in the workspace is the only output: do not commit, post, publish, or send anything.",
+        "expectedOutcome": "docs/marketing/demo-scripts/<featureSlug>.md exists with hook, timed shot list summing to ~60s, on-screen requirements including approval points, spoken/caption lines, and honest caveats.",
+        "dependsOn": [
+          "investigate-feature"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED"
+        }
+      },
+      {
+        "id": "finalize",
+        "title": "Verify the shot list and emit completion",
+        "instructions": "Confirm the objective is met: docs/marketing/demo-scripts/<featureSlug>.md exists and contains the hook line, a scene-by-scene shot list whose timestamps sum to roughly 60 seconds, a 'Must be visible' column that includes the approval moment for any install/change the demo shows, spoken/caption lines, and the honest-caveats section with real durations on any timelapse. Record the file's workspace-relative path as delivery.receipt.ref in this StepOutcome. Then EMIT THE COMPLETION SIGNAL in this StepOutcome with completion.status set to \"complete\". If the shot list could not be produced or fails these checks, emit completion.status \"blocked\" with the reason.",
+        "expectedOutcome": "The run is marked complete with the shot list path as the receipt, or blocked with a clear reason.",
+        "dependsOn": [
+          "write-shot-list"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW",
+          "tools": [
+            "find"
+          ]
+        }
+      }
+    ],
+    "globalInstructions": "This is one run per manual fire. Do not wait, poll, watch folders, schedule, or repeat. Drafts only: the ONLY side effects are files under docs/marketing/demo-scripts/ (the shot list, and moving the processed entry within inbox.md). Never post, publish, send, or commit anything, and never touch anything outside the workspace. Ground every scene in real UI found in this repository. Use British English."
+  },
+  "triggers": [
+    {
+      "type": "manual"
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 2,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 1,
+    "maxWallClockMs": 1800000
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "contextOverrides": {
+    "systemPrompt": "Write like the strategy's proof demos: short, concrete, visual. A person should be able to film the demo from the shot list alone. Never invent UI, never overclaim, and always show the approval moment when the agent installs or changes anything."
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  }
+}

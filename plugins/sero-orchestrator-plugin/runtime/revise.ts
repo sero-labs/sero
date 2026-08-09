@@ -1,9 +1,9 @@
 /**
- * Manual plan revision (the "Refine plan" action). Asks the LLM for a revised
- * plan, validates it, applies it as a revise-plan recovery, and re-derives the
- * schedule when the refinement changed the goal. Pure of persistence: it returns
- * the revised loop (or a failure with the reason to record), and the coordinator
- * persists. Split from coordinator.ts to keep it within the 500-LOC limit.
+ * Manual loop revision (the "Refine plan" action). Asks the LLM for a revised
+ * goal, plan, and optional management limits. It validates and applies the plan,
+ * then re-derives the schedule when the goal changed. Pure of persistence: it
+ * returns the revised loop or failure for the coordinator to persist. Split from
+ * coordinator.ts to keep it within the 500-LOC limit.
  */
 
 import type { Loop, RecoveryDecision } from '../shared/types';
@@ -66,6 +66,16 @@ export async function buildRevisedLoop(
     });
     next = { ...next, prompt: newGoal, triggers: reapplyExtractedTriggers(host, loop.id, next.triggers, extraction) };
     host.log(`Loop ${loop.id} goal updated by refinement`);
+  }
+  if (proposal.limits) {
+    const resumesManagementBlock = loop.status === 'blocked' && loop.runtime.block?.kind === 'management-limit';
+    next = {
+      ...next,
+      status: resumesManagementBlock ? 'active' : next.status,
+      limits: { ...next.limits, ...proposal.limits },
+      runtime: resumesManagementBlock ? { ...next.runtime, block: undefined } : next.runtime,
+      updatedAt: host.now(),
+    };
   }
   return { loop: next };
 }

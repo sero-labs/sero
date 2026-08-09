@@ -42,8 +42,8 @@ jobs:
           fi
           gh release create "$BROWSER_PACK_RELEASE" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Sero Browser Pack 2026-05-16" \
-            --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
+            --title "Internal: Sero Browser Pack 2026-05-16" \
+            --notes "Internal artifact — Sero downloads this automatically; you never need it. Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
             --prerelease
 
   build:

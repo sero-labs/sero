@@ -1,0 +1,14 @@
+{
+  "slug": "release-launch-pack",
+  "name": "Release launch pack",
+  "description": "Turns each new published release into a launch pack of marketing drafts: human release notes, an X thread in the growth-strategy post format, a Hacker News draft with an explicit post/do-not-post verdict, and per-subreddit Reddit variants with genuinely different angles. Everything lands as files under docs/marketing/launch-packs/<tag>/ for the maintainer to review and publish by hand — the loop never posts anywhere and never edits the GitHub release.",
+  "version": 1,
+  "connectors": [
+    "GitHub (gh login)"
+  ],
+  "recommendedTrigger": "every 6 hours (polls for new releases — no github:release event source exists yet); run manually right after tagging for an instant pack",
+  "delivery": "workspace-files",
+  "costBand": "medium",
+  "modelTier": "HIGH",
+  "limitations": "Drafts only — it never posts, sends, or edits the GitHub release; you publish everything by hand. The orchestrator has no release/tag event kind yet, so detection is a scheduled poll and a pack can lag a new tag by up to the poll interval. Needs the gh CLI signed in for read-only release and PR lookups. Already-processed releases are skipped by checking for an existing docs/marketing/launch-packs/<tag>/ directory."
+}

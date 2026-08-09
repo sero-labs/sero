@@ -18,9 +18,21 @@ export async function handleRecord(args: string[], ctx: CliCommandContext) {
   const [sub, ...rest] = args;
   switch (sub) {
     case 'start': {
-      const started = await appControlHostService.recordStart();
+      const { flags } = parseFlags(rest);
+      const fpsRaw = flags.get('fps');
+      const crfRaw = flags.get('crf');
+      const fpsFlag = typeof fpsRaw === 'string' ? Number(fpsRaw) : undefined;
+      const crfFlag = typeof crfRaw === 'string' ? Number(crfRaw) : undefined;
+      const fullWindow = flags.get('full-window') !== undefined;
+      const started = await appControlHostService.recordStart({
+        fps: fpsFlag !== undefined && Number.isFinite(fpsFlag) ? fpsFlag : undefined,
+        crf: crfFlag !== undefined && Number.isFinite(crfFlag) ? crfFlag : undefined,
+        fullWindow,
+      });
+      const fpsLabel = fpsFlag && Number.isFinite(fpsFlag) ? Math.round(fpsFlag) : 2;
+      const scope = fullWindow ? 'whole window' : 'app panel';
       return started
-        ? ok('Recording started (2 FPS frame capture). Use `sero app record stop` to save as MP4.')
+        ? ok(`Recording started (${fpsLabel} FPS, ${scope}). Use \`sero app record stop [--save <path>]\` to save as MP4.`)
         : fail('Already recording or app panel not found.');
     }
 

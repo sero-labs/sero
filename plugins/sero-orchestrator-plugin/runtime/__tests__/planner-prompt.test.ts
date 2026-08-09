@@ -107,6 +107,11 @@ describe('PLANNING_SYSTEM_PROMPT', () => {
   it('forbids the planner from choosing placement or destination', () => {
     expect(PLANNING_SYSTEM_PROMPT).toContain('or where results ship (the delivery destination)');
   });
+  it('lets the planner extend wall-clock limits for long-running work', () => {
+    expect(PLANNING_SYSTEM_PROMPT).toContain('"maxWallClockMs"');
+    expect(PLANNING_SYSTEM_PROMPT).toContain('realistic wall-clock');
+  });
+
 });
 
 describe('buildPlanningTask catalog baseline (spec 14 adaptation)', () => {

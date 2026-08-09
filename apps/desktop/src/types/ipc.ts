@@ -444,6 +444,7 @@ export type {
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
+  AppRecordingOptions,
 } from './app-control';
 
 // ── Environment Doctor ─────────────────────────────────────────

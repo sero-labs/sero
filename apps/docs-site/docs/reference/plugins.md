@@ -88,8 +88,9 @@ hook/API table, see [App Runtime Reference](/reference/app-runtime).
 For the published starter walkthrough, see
 [Plugin Quickstart](/reference/plugin-quickstart).
 
-If you need the smallest example that shows **UI + extension + background
-runtime** together, see
+If you need the smallest example that shows **every** surface — UI, extension,
+CLI bridge, background runtime, prompts, skills, and widgets — see the external
+[Logbook](https://github.com/sero-labs/sero-logbook-plugin) plugin, written up in
 [Plugin End-to-End Example](/reference/plugin-end-to-end-example).
 
 ## See also

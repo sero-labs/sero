@@ -14,6 +14,7 @@
 
 import type {
   Loop,
+  LoopLimits,
   LoopPlan,
   LoopStepDefinition,
   RecoveryDecision,
@@ -227,19 +228,21 @@ export const llmDecider: RecoveryDecider = {
 
 // ── Manual plan revision (the `revise` action) ──────────────
 
-const REVISE_SYSTEM = `You revise an Orchestrator loop based on the user's request. A loop has a GOAL (its plain-English description — including any cadence and stop condition) and a step PLAN. A refinement may change either or both.
+const REVISE_SYSTEM = `You revise an Orchestrator loop based on the user's request. A loop has a GOAL, step PLAN, and management LIMITS. A refinement may change any of them.
 
-Return ONLY a single JSON object with BOTH keys (no prose):
+Return ONLY a single JSON object with these keys (no prose):
 {
-  "goal": <the loop's full goal as plain English, restated to reflect the request — e.g. a changed stop condition ("stop when there are no unassigned issues left") or cadence. Keep it self-contained: the cadence, what the loop does, and the stop condition. If the request changes ONLY the steps and not the goal, return the current goal VERBATIM>,
-  "plan": <a full LoopPlan: { "schemaVersion": 1, "revision": <number>, "objective": string, "steps": [...], "globalInstructions"?: string }>
+  "goal": <the loop's full goal as plain English, restated to reflect the request. If the request does not change the goal, return the current goal VERBATIM>,
+  "plan": <a full LoopPlan: { "schemaVersion": 1, "revision": <number>, "objective": string, "steps": [...], "globalInstructions"?: string }>,
+  "limits"?: <only the changed management limits: { "maxAttemptsPerStep"?: number, "maxAttemptsTotal"?: number, "maxConcurrentSteps"?: number, "maxWallClockMs"?: number, "maxTotalTokens"?: number, "maxCostUsd"?: number }>
 }
-Keep step ids stable where steps are unchanged. The dependency graph must be acyclic.`;
+Omit "limits" when the request does not change them. Keep step ids stable where steps are unchanged. The dependency graph must be acyclic.`;
 
 export interface RevisionProposal {
   /** The loop's goal, restated to reflect the refinement (verbatim if unchanged). */
   goal?: string;
   plan?: LoopPlan;
+  limits?: Partial<LoopLimits>;
   modelResponsePath?: string;
   error?: string;
 }
@@ -247,14 +250,16 @@ export interface RevisionProposal {
 interface RevisionResult {
   goal: string;
   plan: LoopPlan;
+  limits?: Partial<LoopLimits>;
 }
 
 function buildRevisionTask(loop: Loop, prompt?: string): string {
   return [
     `Current goal:\n${loop.prompt}`,
     `\nCurrent plan:\n${JSON.stringify(loop.plan, null, 2)}`,
+    `\nCurrent limits:\n${JSON.stringify(loop.limits, null, 2)}`,
     prompt ? `\nRefinement request:\n${prompt}` : '\nRefinement request: improve the plan so the loop can make progress and eventually emit a completion signal.',
-    `\nReturn the updated { "goal", "plan" } JSON. If the refinement does not change the goal, return the current goal verbatim.`,
+    `\nReturn the updated { "goal", "plan", "limits"? } JSON. Return the current goal verbatim when unchanged. Omit "limits" when unchanged.`,
   ].join('\n');
 }
 
@@ -263,7 +268,7 @@ function buildRevisionRepair(previous: string, errors: string[]): string {
     'Your previous revision was invalid.',
     `\nYour previous reply:\n${previous}`,
     `\nProblems:\n${errors.map((e) => `- ${e}`).join('\n')}`,
-    '\nReturn a corrected { "goal", "plan" } JSON that fixes every problem. Output ONLY the JSON object.',
+    '\nReturn a corrected { "goal", "plan", "limits"? } JSON that fixes every problem. Output ONLY the JSON object.',
   ].join('\n');
 }
 
@@ -278,8 +283,18 @@ function parseRevision(value: unknown): ParseResult<RevisionResult> {
   } else {
     errors.push(...validateLoopPlan(value.plan as unknown as LoopPlan));
   }
+  if (value.limits !== undefined && !isRecord(value.limits)) {
+    errors.push('"limits" must be an object when provided.');
+  }
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, value: { goal: (value.goal as string).trim(), plan: value.plan as unknown as LoopPlan } };
+  return {
+    ok: true,
+    value: {
+      goal: (value.goal as string).trim(),
+      plan: value.plan as unknown as LoopPlan,
+      limits: value.limits as Partial<LoopLimits> | undefined,
+    },
+  };
 }
 
 export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, prompt?: string): Promise<RevisionProposal> {
@@ -293,6 +308,13 @@ export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, pro
   const modelResponsePath = result.responses.length
     ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/revision/${host.newId('rev')}.txt`, joinResponses(result.responses))
     : undefined;
-  if (result.ok) return { goal: result.value!.goal, plan: result.value!.plan, modelResponsePath };
+  if (result.ok) {
+    return {
+      goal: result.value!.goal,
+      plan: result.value!.plan,
+      limits: result.value!.limits,
+      modelResponsePath,
+    };
+  }
   return { error: result.errors[0] ?? 'revision response was invalid', modelResponsePath };
 }

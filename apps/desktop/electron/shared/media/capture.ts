@@ -58,3 +58,14 @@ export async function captureRegion(
 
   return normalized.toPNG().toString('base64');
 }
+
+/**
+ * Capture the entire window content area as a PNG base64 string, at native
+ * resolution (no CSS-px normalisation). Used for full-window demo recording —
+ * the whole Sero UI, not just one app panel.
+ */
+export async function captureFullWindow(win: BrowserWindow): Promise<string | null> {
+  const image = await win.webContents.capturePage();
+  if (image.isEmpty()) return null;
+  return image.toPNG().toString('base64');
+}

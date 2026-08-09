@@ -3,13 +3,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const executeJavaScript = vi.fn();
   const captureRegion = vi.fn();
-  const encodeFramesToMp4 = vi.fn();
+  const captureFullWindow = vi.fn();
+  const createVideoRecording = vi.fn();
+  const appendVideoFrame = vi.fn();
+  const finishVideoRecording = vi.fn();
+  const discardVideoRecording = vi.fn();
+  const videoRecording = {
+    timestamps: [] as number[],
+    append: appendVideoFrame,
+    finish: finishVideoRecording,
+    discard: discardVideoRecording,
+  };
   const capturePage = vi.fn();
 
   return {
     executeJavaScript,
     captureRegion,
-    encodeFramesToMp4,
+    captureFullWindow,
+    createVideoRecording,
+    appendVideoFrame,
+    finishVideoRecording,
+    discardVideoRecording,
+    videoRecording,
     capturePage,
     fakeWindow: {
       webContents: {
@@ -33,16 +48,22 @@ vi.mock('@electron/features/browser/view-manager', () => ({
 
 vi.mock('@electron/shared/media/capture', () => ({
   captureRegion: mocks.captureRegion,
+  captureFullWindow: mocks.captureFullWindow,
 }));
 
 vi.mock('@electron/shared/media/video-encoder', () => ({
-  encodeFramesToMp4: mocks.encodeFramesToMp4,
+  createVideoRecording: mocks.createVideoRecording,
 }));
 
 describe('appControlHostService', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    mocks.videoRecording.timestamps.length = 0;
+    mocks.createVideoRecording.mockResolvedValue(mocks.videoRecording);
+    mocks.appendVideoFrame.mockImplementation(async (_base64: string, timestamp: number) => {
+      mocks.videoRecording.timestamps.push(timestamp);
+    });
   });
 
   afterEach(() => {
@@ -166,7 +187,7 @@ describe('appControlHostService', () => {
       })
       .mockResolvedValueOnce(true);
     mocks.capturePage.mockResolvedValue('browser-base64');
-    mocks.encodeFramesToMp4.mockResolvedValue({
+    mocks.finishVideoRecording.mockResolvedValue({
       path: '/tmp/recording.mp4',
       isVideo: true,
       durationMs: 1000,
@@ -184,12 +205,43 @@ describe('appControlHostService', () => {
 
     expect(mocks.capturePage).toHaveBeenCalledTimes(2);
     expect(mocks.captureRegion).not.toHaveBeenCalled();
-    expect(mocks.encodeFramesToMp4).toHaveBeenCalledWith({
-      frames: [
-        expect.objectContaining({ base64: 'browser-base64' }),
-        expect.objectContaining({ base64: 'browser-base64' }),
-      ],
-      fps: 2,
+    expect(mocks.createVideoRecording).toHaveBeenCalledWith({ fps: 2, crf: 23 });
+    expect(mocks.appendVideoFrame).toHaveBeenCalledTimes(2);
+    expect(mocks.appendVideoFrame).toHaveBeenCalledWith(
+      'browser-base64',
+      expect.any(Number),
+    );
+    expect(mocks.finishVideoRecording).toHaveBeenCalledWith(undefined);
+  });
+
+  it('full-window recording captures the whole window and honours crf + output path', async () => {
+    // recordStart's renderer marker resolves true; no browser tab present.
+    mocks.executeJavaScript.mockResolvedValue(true);
+    mocks.captureFullWindow.mockResolvedValue('window-base64');
+    mocks.finishVideoRecording.mockResolvedValue({
+      path: '/out/demo.mp4',
+      isVideo: true,
+      durationMs: 1000,
+      frameCount: 1,
     });
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(
+      appControlHostService.recordStart({ fps: 15, fullWindow: true, crf: 18 }),
+    ).resolves.toBe(true);
+    await expect(appControlHostService.recordStatus()).resolves.toEqual({
+      recording: true,
+      ready: true,
+      frameCount: 1,
+      startedAt: expect.any(String),
+      durationMs: expect.any(Number),
+    });
+    await appControlHostService.recordStop({ outputPath: '/out/demo.mp4' });
+
+    // Full-window path used, never the app-panel region.
+    expect(mocks.captureFullWindow).toHaveBeenCalled();
+    expect(mocks.captureRegion).not.toHaveBeenCalled();
+    expect(mocks.createVideoRecording).toHaveBeenCalledWith({ fps: 15, crf: 18 });
+    expect(mocks.finishVideoRecording).toHaveBeenCalledWith('/out/demo.mp4');
   });
 });

@@ -1,0 +1,12 @@
+{
+  "slug": "community-digest",
+  "name": "Community digest",
+  "description": "Every Monday, gathers the past week of sero-labs/sero activity — merged PRs, issues, discussions, releases — plus any Discord highlights you pasted into the community inbox, and drafts an honest weekly community update you can publish as a Discord post and GitHub Discussion. Drafts only: it never posts anywhere.",
+  "version": 1,
+  "connectors": ["GitHub (gh login)"],
+  "recommendedTrigger": "Mondays at 9am",
+  "delivery": "workspace-files",
+  "costBand": "low",
+  "modelTier": "MED",
+  "limitations": "GitHub-only sources: Sero has no Discord-reading integration, so Discord highlights come from a manual paste-in file (docs/marketing/community-inbox.md) — keep it updated or the digest covers GitHub only. Quiet weeks produce a short 'quiet week' draft, not filler. Nothing is ever posted; publishing is a manual step."
+}

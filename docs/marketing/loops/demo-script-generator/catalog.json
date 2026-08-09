@@ -1,0 +1,11 @@
+{
+  "slug": "demo-script-generator",
+  "name": "Demo script generator",
+  "description": "Turns a named Sero feature into a filmable 60-second demo shot list: a hook line, timed scenes grounded in the real UI, on-screen approval points, spoken/caption lines, and honest caveats — written into docs/marketing/demo-scripts/.",
+  "version": 1,
+  "recommendedTrigger": "manual — add the feature to docs/marketing/demo-scripts/inbox.md (or answer the loop's question), then run",
+  "delivery": "workspace-files",
+  "costBand": "medium",
+  "modelTier": "MED",
+  "limitations": "Drafts only — the shot list file in the workspace is the only output; nothing is posted, published, or sent. Scenes are grounded in what the repo shows, but film and verify the flow yourself before publishing."
+}

@@ -32,8 +32,8 @@ Start with the smallest example that matches your plugin shape:
 
 | Goal | Start here |
 | --- | --- |
-| UI + extension, fastest path | [Plugin Quickstart](/reference/plugin-quickstart) |
-| UI + extension + background runtime/widgets | [Plugin End-to-End Example](/reference/plugin-end-to-end-example) |
+| UI + extension, fastest path | [Plugin Quickstart](/reference/plugin-quickstart) — the external [Daily Quote](https://github.com/sero-labs/sero-daily-quote-plugin) plugin |
+| Every surface (runtime, prompts, skills, widgets) | [Plugin End-to-End Example](/reference/plugin-end-to-end-example) — the external [Logbook](https://github.com/sero-labs/sero-logbook-plugin) plugin |
 | Existing Pi extension to convert | repo source docs under `docs/plugins/` |
 
 In this checkout, useful in-repo references include:
@@ -93,6 +93,28 @@ Important fields to understand:
 
 Keep manifest requirements specific. Unknown or unavailable host capabilities
 should be treated as unmet.
+
+### Dependencies for external plugins
+
+An external plugin is a standalone npm package that installs on its own, outside
+the Sero repo. Two rules keep it installable:
+
+- **Depend on published versions only. Never use the `workspace:*` protocol.**
+  `workspace:*` resolves only inside the Sero monorepo, so any external install
+  fails on it. Copy the starter's exact version ranges (for example
+  `"@sero-ai/app-runtime": "^0.1.3"` and the pi packages as `peerDependencies`).
+- **Prefer plain React for the UI.** The external examples (Daily Quote,
+  Kanban, Logbook) build their UI with plain React + Tailwind rather than
+  `@sero-ai/ui`, Sero's host design-system library. `@sero-ai/ui` is published
+  and can be used, but it is a large dependency you rarely need — reach for it
+  only if you specifically want Sero's components, and rely on the host's shared
+  React singleton through Module Federation either way.
+
+From the `@sero-ai` family, an external plugin normally needs only
+`@sero-ai/app-runtime` (the renderer bridge). Use `@sero-ai/common` only for
+genuinely neutral shared types. If you copy a built-in plugin from the Sero repo
+as a starting point, replace every `workspace:*` dependency with a published
+version before installing.
 
 ## Shared state and types
 
@@ -185,13 +207,33 @@ export function ExampleApp() {
 The host reads, watches, and writes the state file. Do **not** use
 `localStorage` or `sessionStorage` for plugin app state.
 
-Current docs describe app state as profile/workspace scoped:
+`sero.app.scope` decides where that state file lives:
 
-- global app state: `<SERO_HOME>/apps/<app-id>/state.json`
-- workspace app state: `<workspace>/.sero/apps/<app-id>/state.json`
+- `scope: "global"` → `<SERO_HOME>/apps/<app-id>/state.json`
+- `scope: "workspace"` → `<workspace>/.sero/apps/<app-id>/state.json`
 
-See [State and Folders](/reference/state-and-folders) for the canonical storage
-map.
+`sero.app.stateFile` is a path hint, not an override — the resolved location
+still follows `scope`. See [State and Folders](/reference/state-and-folders) for
+the canonical storage map.
+
+**When the extension and UI share state, they read and write the same JSON
+file.** The UI reaches it through `useAppState`; the extension resolves the path
+itself and must match the scope above. A global-scoped app resolves it from
+`SERO_HOME`; a workspace-scoped app resolves it relative to the session `cwd`:
+
+```ts
+import path from 'node:path';
+
+function resolveStatePath(cwd: string): string {
+  const seroHome = process.env.SERO_HOME; // set by Sero; absent under plain Pi CLI
+  return seroHome
+    ? path.join(seroHome, 'apps', '<app-id>', 'state.json')          // global
+    : path.join(cwd, '.sero', 'apps', '<app-id>', 'state.json');      // workspace
+}
+```
+
+Resolving only from `cwd` for a global-scoped app points the extension at the
+wrong file, so the UI never sees its writes.
 
 ### Calling plugin-owned behavior from UI
 
@@ -225,11 +267,31 @@ the active app area.
 
 Important rules:
 
-- production builds should use `base: './'`
-- expose both named and default component exports when following current examples
+- production builds should use `base: './'` (dev uses `'/'`)
+- the `sero.app.component` name must match the exposed module key — for
+  `component: "MyApp"`, expose `{ './MyApp': './ui/MyApp.tsx' }`
 - import your stylesheet from every exposed UI/widget entry
 - do not depend on host-internal desktop aliases
 - do not treat loader internals as stable public API
+
+Copy the starter's `vite.config.ts` — a few fields are load-bearing and easy to
+miss:
+
+- **share React as a singleton** so your remote uses the host's React, not its
+  own copy:
+  ```ts
+  shared: {
+    react: { singleton: true },
+    'react/': { singleton: true },
+    'react-dom': { singleton: true },
+    'react-dom/': { singleton: true },
+  }
+  ```
+- **exclude `@sero-ai/app-runtime` from dependency optimisation** so Module
+  Federation intercepts the import and the host's singleton is used at runtime:
+  `optimizeDeps: { exclude: ['@sero-ai/app-runtime'] }`
+- **set `server.origin` to your dev server URL** so cross-origin chunk URLs
+  resolve when the host loads your remote.
 
 Published/prebuilt plugins are expected to include their UI build output, such
 as `dist/ui/remoteEntry.js`, when their manifest says they are prebuilt. Source
@@ -273,6 +335,14 @@ Keep widget claims narrow:
 - verify screenshots in the current app before publishing docs
 - use runtime registration only when your plugin actually needs it
 
+## Run your plugin in Sero
+
+Once it builds, load the checkout into a running Sero to see the UI mount:
+**Admin → Plugins → Local Plugin Development**, then point it at your plugin
+folder. Keep the dev server running if you want live UI; otherwise Sero uses the
+built output. See [Plugins](/reference/plugins) for the dev-session states and
+how UI resolution falls back from the dev server to `dist/ui`.
+
 ## Compatibility checklist
 
 Before sharing a plugin publicly:
@@ -284,7 +354,9 @@ Before sharing a plugin publicly:
 - [ ] UI state uses `useAppState`, not browser storage.
 - [ ] UI actions that mutate plugin-owned data call plugin tools through
   `useAppTools`.
+- [ ] No `workspace:*` dependencies; every dependency is a published version.
 - [ ] `vite.config.ts` uses `base: './'` for production.
+- [ ] `typecheck` covers both the UI and the extension `tsconfig`, not just one.
 - [ ] Tool bridging policy is intentional.
 - [ ] Source/plugin install instructions tell users to trust and review the
   source.

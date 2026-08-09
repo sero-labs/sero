@@ -1,4 +1,10 @@
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  chromium,
+  type Browser,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import { execFile } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import path from 'path';
@@ -49,6 +55,49 @@ export interface LaunchOptions {
    * main-process global for in-test assertions.
    */
   mockRelaunch?: boolean;
+  /**
+   * Record the whole Electron window to a video in this directory (Playwright
+   * `recordVideo`). Flushed on `closeSeroApp`; path via `page.video()?.path()`.
+   * Defaults to the SERO_E2E_RECORD_VIDEO env var. Off unless set.
+   */
+  recordVideoDir?: string;
+  /** Slow every Playwright action by this many ms (smoother demo footage). */
+  slowMo?: number;
+}
+
+export function nestedSeroLaunchReason(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string | undefined {
+  const hostPid = env.SERO_DESKTOP_HOST_PID;
+  if (!hostPid) return undefined;
+  return `Refusing to launch a second Sero instance from desktop host ${hostPid}. Connect to the existing host instead.`;
+}
+
+export function seroCdpEndpoint(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const configured = env.SERO_E2E_EXISTING_CDP?.trim();
+  if (!configured) {
+    throw new Error('SERO_E2E_EXISTING_CDP must identify the existing Sero host.');
+  }
+  return /^\d+$/.test(configured) ? `http://127.0.0.1:${configured}` : configured;
+}
+
+export async function connectToRunningSero(
+  options: { endpoint?: string; slowMo?: number } = {},
+): Promise<{ browser: Browser; page: Page }> {
+  const endpoint = options.endpoint ?? seroCdpEndpoint();
+  const browser = await chromium.connectOverCDP(endpoint, {
+    slowMo: options.slowMo,
+    timeout: 30_000,
+  });
+  const pages = browser.contexts().flatMap((context) => context.pages());
+  for (const page of pages) {
+    const isSero = await page.evaluate(() => Boolean(window.sero?.appControl)).catch(() => false);
+    if (isSero) return { browser, page };
+  }
+  await browser.close();
+  throw new Error(`No running Sero renderer was available at ${endpoint}.`);
 }
 
 /**
@@ -62,6 +111,9 @@ export interface LaunchOptions {
 export async function launchSeroApp(
   options: LaunchOptions = {},
 ): Promise<{ app: ElectronApplication; page: Page }> {
+  const nestedLaunchReason = nestedSeroLaunchReason();
+  if (nestedLaunchReason) throw new Error(nestedLaunchReason);
+
   const desktopRoot = path.resolve(__dirname, '../..');
   const mainEntry = path.join(desktopRoot, 'dist/electron/main.mjs');
 
@@ -104,12 +156,21 @@ export async function launchSeroApp(
   delete env.ELECTRON_RUN_AS_NODE;
   restoreWindowsProfileEnv(env);
 
+  // Opt-in demo/video recording: set SERO_E2E_RECORD_VIDEO=<dir> to capture the
+  // whole Electron window to a video (flushed on app.close(); path via
+  // page.video()). Off by default, so normal test runs are unaffected.
+  // SERO_E2E_SLOWMO=<ms> paces every action for smoother footage.
+  const recordVideoDir = options.recordVideoDir ?? process.env.SERO_E2E_RECORD_VIDEO;
+  const slowMo = options.slowMo ?? (process.env.SERO_E2E_SLOWMO ? Number(process.env.SERO_E2E_SLOWMO) : undefined);
+
   let app: ElectronApplication;
   try {
     app = await electron.launch({
       args: [mainEntry],
       cwd: desktopRoot,
       env,
+    ...(slowMo ? { slowMo } : {}),
+    ...(recordVideoDir ? { recordVideo: { dir: recordVideoDir, size: { width: 1600, height: 1000 } } } : {}),
     });
   } catch (error) {
     ownedHome?.cleanup();

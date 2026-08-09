@@ -12,13 +12,14 @@ import { hero, images } from "../content/copy";
 		</div>
 		<div class="brand__tag">
 			<span class="brand__bullet" aria-hidden="true" />
-			your personal agent OS
+			where AI agents come to work
 		</div>
 	</div>
 
 	<h1 class="h1">
-		<span class="h1__line">build the agent</span>
-		<span class="h1__line h1__line--accent">only_you_need</span>
+		{hero.headlineLines.map((line, i) => (
+			<span class:list={["h1__line", { "h1__line--accent": i === hero.headlineLines.length - 1 }]}>{line}</span>
+		))}
 	</h1>
 	<p class="lede">{hero.sub}</p>
 
@@ -26,6 +27,7 @@ import { hero, images } from "../content/copy";
 		<a class="btn btn--primary" href={hero.primary.href}>
 			<span aria-hidden="true">▸</span> {hero.primary.label}
 		</a>
+		{hero.demo.ready && <a class="btn btn--ghost" href={hero.demo.href}>{hero.demo.label}</a>}
 		<a class="btn btn--ghost" href={hero.secondary.href}>{hero.secondary.label}</a>
 	</div>
 

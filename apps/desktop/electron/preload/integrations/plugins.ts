@@ -15,6 +15,9 @@ import type {
 export const pluginsBridge = {
   install: (source: string): Promise<SeroAppManifest> =>
     ipcRenderer.invoke(IpcChannels.plugins.install, source),
+  installFromFolder: (): Promise<SeroAppManifest | null> =>
+    ipcRenderer.invoke(IpcChannels.plugins.installFromFolder),
+
 
   uninstall: (pluginId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.plugins.uninstall, pluginId),

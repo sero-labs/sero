@@ -98,7 +98,7 @@ Limitations:
 
 ## Recording MP4s
 
-Use recording for short visual evidence of UI behavior.
+Use recording for visual evidence of UI behavior, or to capture a demo.
 
 ```bash
 sero app record start
@@ -108,13 +108,30 @@ sero app record stop
 sero app record stop --save ./demo.mp4
 ```
 
-Recording captures at 2 FPS. The default save location is:
+Recording captures the active app panel at 2 FPS by default. The default save
+location is:
 
 ```text
 <workspace>/sero-recordings/
 ```
 
-If MP4 output is not available for a capture, Sero may save a PNG frame folder instead. Recording state is bridge-local and ephemeral; do not expect it to survive renderer reloads or app restarts.
+For demo-quality footage of the whole Sero window:
+
+```bash
+sero app record start --fps 15 --full-window --crf 18
+sero app record stop --save ~/Movies/demo.mp4
+```
+
+- `--fps` accepts up to 30. The real rate is capped by how fast the window
+  captures, so a smaller window records more smoothly.
+- `--crf` sets quality. Lower is better and larger. The default is 23.
+- `--full-window` captures the whole window, including the sidebar and chat.
+
+Frames stream straight into `ffmpeg`, so a long recording does not grow Sero's
+memory. `ffmpeg` must be on `PATH`; without it, recording reports a failure.
+
+Recording state is bridge-local and ephemeral; do not expect it to survive
+renderer reloads or app restarts.
 
 ## Screenshots for support reports
 
