@@ -67,6 +67,7 @@ These values are currently recognized by the host:
 - `appControl.capture`
 - `ui.explorerView`
 - `ui.titlebar`
+- `ui.dashboardBackground`
 
 Unknown capability strings are treated as unmet host requirements, so older
 hosts fail closed instead of partially loading the plugin. Downstream plugins
@@ -110,6 +111,14 @@ the plugin; this capability only captures pixels already on screen.
 
 Declare this when your plugin contributes a title-bar control
 (`sero.app.titlebar`).
+
+### `ui.dashboardBackground`
+
+Declare this when a federated UI sets the host dashboard background. Call
+`window.sero.dashboard.setBackground(imageDataUrl)` with a PNG or JPEG data
+URL. The image must be 2560 × 1600 or smaller and no more than 4 MB. The host
+validates its bytes, stores them without re-encoding, and rejects larger input.
+Call the method with `null` to clear the background.
 
 ### `appRuntime.media`
 

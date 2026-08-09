@@ -40,6 +40,7 @@ export function buildContentSecurityPolicy(
 ): string {
   const isDevelopment = options.isDevelopment ?? process.env.NODE_ENV === 'development';
   const extensionSrc = ['sero-ext:'];
+  const hostMediaSrc = ['sero-media:'];
   const devHttpSrc = isDevelopment ? LOOPBACK_HTTP_SRC : [];
   const devConnectSrc = isDevelopment ? [...LOOPBACK_HTTP_SRC, ...LOOPBACK_WS_SRC] : [];
   const devMonacoConnectSrc = isDevelopment ? ['https://cdn.jsdelivr.net'] : [];
@@ -98,6 +99,7 @@ export function buildContentSecurityPolicy(
     'https:',
     'http:',
     ...extensionSrc,
+    ...hostMediaSrc,
   ];
 
   // -- font-src --

@@ -212,6 +212,14 @@ export const IpcChannels = {
     /** Load UI layout state. */
     load: 'sero:layout:load',
   },
+  dashboard: {
+    /** Persist or clear the host dashboard background image. */
+    setBackground: 'sero:dashboard:set-background',
+    /** Load the persisted host dashboard background image. */
+    getBackground: 'sero:dashboard:get-background',
+    /** Main → renderer push: dashboard background changed. */
+    backgroundChanged: 'sero:dashboard:background-changed',
+  },
   browser: browserIpcChannels,
   themes: {
     /** List all available theme presets (built-in + custom). */

@@ -53,6 +53,10 @@ interface DashboardState {
   widgets: DashboardWidgetInstance[];
   /** react-grid-layout positions (keyed by instanceId). */
   layouts: LayoutItem[];
+  /** Persisted image rendered behind the dashboard grid. */
+  backgroundImage: string | null;
+  /** Replace the background image after host persistence or hydration. */
+  setBackgroundImage: (dataUrl: string | null) => void;
 
   /** Add a widget to the dashboard. */
   addWidget: (widget: AvailableWidget) => void;
@@ -74,6 +78,8 @@ function buildPersistState(widgets: DashboardWidgetInstance[], layouts: LayoutIt
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   widgets: [],
   layouts: [],
+  backgroundImage: null,
+  setBackgroundImage: (backgroundImage) => set({ backgroundImage }),
 
   addWidget: (widget) => {
     const instanceId = generateInstanceId();

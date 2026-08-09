@@ -12,10 +12,32 @@ import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
 
+let unsubscribeDashboardBackground: (() => void) | null = null;
+
 /** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
   try {
-    const state = await window.sero.layout.load();
+    const dashboardApi = window.sero.dashboard;
+    let backgroundChangedDuringLoad = false;
+    unsubscribeDashboardBackground?.();
+    unsubscribeDashboardBackground = dashboardApi?.onBackgroundChanged((backgroundImage) => {
+      backgroundChangedDuringLoad = true;
+      useDashboardStore.getState().setBackgroundImage(backgroundImage);
+    }) ?? null;
+
+    const backgroundPromise = dashboardApi
+      ? dashboardApi.getBackground().catch((err: unknown) => {
+          console.warn('[app-store] Failed to load dashboard background:', err);
+          return null;
+        })
+      : Promise.resolve(null);
+    const [state, backgroundImage] = await Promise.all([
+      window.sero.layout.load(),
+      backgroundPromise,
+    ]);
+    if (!backgroundChangedDuringLoad) {
+      useDashboardStore.getState().setBackgroundImage(backgroundImage);
+    }
     if (state) {
       const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {

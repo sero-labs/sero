@@ -21,7 +21,7 @@ describe('content security policy', () => {
     expect(csp).toContain("frame-src 'self' blob: http://localhost:* http://127.0.0.1:* sero-ext:");
     expect(csp).toContain("child-src 'self' blob: http://localhost:* http://127.0.0.1:* sero-ext:");
     expect(csp).toContain("connect-src 'self' blob:");
-    expect(csp).toContain("img-src 'self' data: blob: https: http: sero-ext:");
+    expect(csp).toContain("img-src 'self' data: blob: https: http: sero-ext: sero-media:");
     expect(csp).toContain("media-src 'self' blob:");
     // Concatenate these terms so source scans do not false-positive on this test.
     for (const blockedSource of ['spot' + 'ify', 's' + 'cdn']) {

@@ -57,6 +57,7 @@ import {
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { workspaceManager } from './features/workspace/manager';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
+import { setupHostMediaProtocol } from './platform/protocols/host-media-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps/apps';
 import { ensureBundledPiDocs, ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
@@ -288,8 +289,9 @@ app.whenReady().then(async () => {
   // Init workspace registry + default workspaces before anything else
   await workspaceManager.init();
 
-  // Set up custom protocol for serving extension UI assets
+  // Set up custom protocols for extension UI assets and profile-owned media.
   setupExtProtocol();
+  setupHostMediaProtocol();
 
   // Ensure built-in app packages and workspace plugins are in settings.json.
   ensureBuiltinPackages();
