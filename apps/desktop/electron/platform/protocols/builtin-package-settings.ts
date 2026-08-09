@@ -27,7 +27,6 @@ export function removeStaleBuiltinPackages(
 
     const resolvedSource = path.resolve(source);
     if (currentSources.has(resolvedSource)) return true;
-    if (!isBundledBuiltinSource(resolvedSource)) return true;
 
     const sourceAppId = readSeroAppId(resolvedSource);
     const shouldRemove = sourceAppId && currentAppIds.has(sourceAppId);
@@ -66,6 +65,3 @@ function readSeroAppId(packagePath: string): string | null {
   }
 }
 
-function isBundledBuiltinSource(source: string): boolean {
-  return source.split(path.sep).join('/').includes('/dist/electron/builtin/');
-}

@@ -51,6 +51,17 @@ describe('built-in package settings cleanup', () => {
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(stale));
   });
 
+  it('removes stale source checkout entries with the same built-in app id', () => {
+    const current = createPackage('workspace/plugins/sero-graphify-plugin', 'graphify');
+    const stale = createPackage('old-workspace/plugins/sero-graphify-plugin', 'graphify');
+
+    const result = removeStaleBuiltinPackages([current, stale], [current]);
+
+    expect(result.packages).toEqual([current]);
+    expect(result.changed).toBe(true);
+    expect(result.removedSources).toEqual([stale]);
+  });
+
   it('keeps unreadable sources', () => {
     const current = createPackage('workspace/plugins/sero-mcp-plugin', 'mcp');
     const unreadable = path.join(tempRoot, 'dist/electron/builtin/plugins/broken-plugin');
