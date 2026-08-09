@@ -14,11 +14,8 @@ import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { CloneView, CreateView, ImportView, PickView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
-import {
-  runWorkspaceSetup,
-  WorkspaceSetupFailureNotice,
-  type WorkspaceSetupFailure,
-} from './workspace-setup';
+import { WorkspaceSetupFailureNotice } from './WorkspaceSetupFailureNotice';
+import { runWorkspaceSetup, type WorkspaceSetupFailure } from './workspace-setup';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
