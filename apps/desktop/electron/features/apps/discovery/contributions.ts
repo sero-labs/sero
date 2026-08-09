@@ -187,7 +187,7 @@ function parseControl(
     !isObject(control)
     || control.type !== 'switch'
     || !label
-    || typeof control.defaultValue !== 'boolean'
+    || (control.defaultValue !== undefined && typeof control.defaultValue !== 'boolean')
     || !isObject(action)
     || action.type !== 'tool'
     || !tool
@@ -204,7 +204,7 @@ function parseControl(
   return {
     id,
     extensionPoint,
-    control: { type: 'switch', label, defaultValue: control.defaultValue },
+    control: { type: 'switch', label, defaultValue: control.defaultValue ?? false },
     action: {
       type: 'tool',
       tool,

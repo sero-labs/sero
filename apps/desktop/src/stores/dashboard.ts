@@ -15,7 +15,7 @@ import type {
   WidgetManifest,
 } from '@/types/dashboard';
 import { persistLayout } from '@/lib/persist-layout';
-import { getContributions, type AppEntry } from '@/stores/app/shared';
+import { getContributions, hasFederatedUi, type AppEntry } from '@/stores/app/shared';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ export function getAvailableWidgets(
   );
 
   for (const resolved of getContributions(apps, 'ui.dashboard.widget')) {
-    if (!resolved.manifest.uiEntry) continue;
+    if (!hasFederatedUi(resolved.manifest)) continue;
     results.set(resolved.key, {
       appId: resolved.appId,
       appName: resolved.manifest.name,

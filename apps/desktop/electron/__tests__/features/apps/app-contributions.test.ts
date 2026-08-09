@@ -40,6 +40,41 @@ describe('app contribution parsing', () => {
     expect(parsed.diagnostics).toEqual([]);
   });
 
+  it('defaults an omitted explicit switch value to false', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        controls: [{
+          id: 'indexing',
+          extensionPoint: 'workspace.create.option',
+          control: { type: 'switch', label: 'Enable indexing' },
+          action: { type: 'tool', tool: 'enable_index' },
+        }],
+      },
+    });
+
+    expect(parsed.contributions.controls).toEqual([expect.objectContaining({
+      id: 'indexing',
+      control: { type: 'switch', label: 'Enable indexing', defaultValue: false },
+    })]);
+    expect(parsed.diagnostics).toEqual([]);
+  });
+
+  it('rejects an explicit switch value that is present but not boolean', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        controls: [{
+          id: 'indexing',
+          extensionPoint: 'workspace.create.option',
+          control: { type: 'switch', label: 'Enable indexing', defaultValue: 'yes' },
+          action: { type: 'tool', tool: 'enable_index' },
+        }],
+      },
+    });
+
+    expect(parsed.contributions.controls).toEqual([]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['invalid-contribution']);
+  });
+
   it('normalises legacy fields and gives explicit entries precedence', () => {
     const parsed = parseAppContributions({
       search: { component: 'LegacySearch' },

@@ -45,6 +45,12 @@ export function resolveExplorerPanelId(
   return legacyMatch ?? panel;
 }
 
+/** Return the contributing app id, or an unchanged host panel id. */
+export function explorerPanelAppId(panel: ExplorerPanel): string {
+  const separatorIndex = panel.indexOf(':');
+  return separatorIndex === -1 ? panel : panel.slice(0, separatorIndex);
+}
+
 /**
  * True for panels that fill the whole Explorer area, leaving no room for the
  * host sidebar: the browser, and every app-contributed view.

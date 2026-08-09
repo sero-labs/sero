@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveExplorerPanelId } from './explorer-panels';
+import { explorerPanelAppId, resolveExplorerPanelId } from './explorer-panels';
 
 describe('resolveExplorerPanelId', () => {
   const contributions = [
@@ -19,5 +19,15 @@ describe('resolveExplorerPanelId', () => {
 
   it('keeps an ambiguous legacy app id unchanged', () => {
     expect(resolveExplorerPanelId('notes', contributions)).toBe('notes');
+  });
+});
+
+describe('explorerPanelAppId', () => {
+  it('keeps a legacy app id unchanged', () => {
+    expect(explorerPanelAppId('git')).toBe('git');
+  });
+
+  it('extracts the app id from a contributed panel key', () => {
+    expect(explorerPanelAppId('git:explorer-view')).toBe('git');
   });
 });

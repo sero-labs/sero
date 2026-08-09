@@ -92,7 +92,7 @@ describe('dashboard store', () => {
     expect(widgets.find((widget) => widget.manifest.id === 'focus')?.source).toBe('runtime');
   });
 
-  it('hides manifest widgets when the effective app manifest has no UI component', () => {
+  it('hides manifest widgets when the effective app manifest has no federated UI', () => {
     const widgets = getAvailableWidgets(createApps([
       createManifest('notes', [
         {
@@ -105,10 +105,33 @@ describe('dashboard store', () => {
       ], {
         component: null,
         uiEntry: null,
+        devPort: undefined,
       }),
     ]));
 
     expect(widgets).toEqual([]);
+  });
+
+  it('includes manifest widgets whose federated UI comes only from a dev remote', () => {
+    const widgets = getAvailableWidgets(createApps([
+      createManifest('notes', [
+        {
+          id: 'pinboard',
+          extensionPoint: 'ui.dashboard.widget',
+          name: 'Pinboard',
+          component: 'NotesWidget',
+          defaultSize: { w: 2, h: 2 },
+        },
+      ], {
+        uiEntry: null,
+        remoteEntryOverride: null,
+        devPort: 4100,
+      }),
+    ]));
+
+    expect(widgets.map((widget) => `${widget.appId}:${widget.manifest.id}`)).toEqual([
+      'notes:pinboard',
+    ]);
   });
 
   it('defaults persisted widgets without a source to manifest widgets during hydrate', () => {

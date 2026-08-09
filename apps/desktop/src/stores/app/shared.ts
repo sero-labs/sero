@@ -14,6 +14,9 @@ export interface AppEntry {
   manifest: SeroAppManifest | null;
 }
 
+export function hasFederatedUi(manifest: SeroAppManifest): boolean {
+  return Boolean(manifest.uiEntry || manifest.remoteEntryOverride || manifest.devPort);
+}
 
 export function isManifestHostSupported(manifest: SeroAppManifest | null): boolean {
   return manifest?.hostCompatibility?.supported !== false;

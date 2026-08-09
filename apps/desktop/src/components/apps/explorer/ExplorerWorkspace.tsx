@@ -25,6 +25,7 @@ import {
 import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
 import { getContributions, useAppStore } from '@/stores/app';
 import {
+  explorerPanelAppId,
   panelOwnsMainArea,
   resolveExplorerPanelId,
   type ExplorerPanel,
@@ -249,7 +250,7 @@ export function ExplorerWorkspace() {
                   ) : panelOwnsMainArea(resolvedActivePanel) ? (
                     contributedView
                       ? <ExplorerViewMount resolved={contributedView} />
-                      : <ExplorerViewMissing panelId={resolvedActivePanel} />
+                      : <ExplorerViewMissing panelId={explorerPanelAppId(resolvedActivePanel)} />
                   ) : (
                     <EditorPanel
                       workspaceId={workspaceId}

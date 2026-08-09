@@ -6,13 +6,11 @@ import type {
   PluginMeta,
 } from '@sero-ai/common';
 
-
 /**
  * Canonical Pi package source shape from settings.json.
  * Supports plain sources plus filtered package objects.
  */
 export type SettingsPackageSource = PackageSource;
-
 
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {

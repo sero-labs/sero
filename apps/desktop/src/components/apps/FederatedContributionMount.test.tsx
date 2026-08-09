@@ -91,6 +91,28 @@ describe('FederatedContributionMount', () => {
     expect(container.textContent).toContain('Search ready');
   });
 
+  it('mounts a contribution whose federated UI comes only from a dev remote', async () => {
+    federationMocks.getFederatedComponent.mockReturnValue(() => <span>Dev contribution</span>);
+
+    await act(async () => {
+      root.render(
+        <FederatedContributionMount
+          manifest={createManifest({ uiEntry: null, remoteEntryOverride: null, devPort: 4100 })}
+          contribution={{
+            id: 'search',
+            extensionPoint: 'ui.global-search.panel',
+            component: 'NotesSearch',
+          }}
+          contributionKey="notes:search"
+          loading={null}
+          unavailable={<span>Unavailable</span>}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Dev contribution');
+  });
+
   it('isolates one failed contribution from a healthy sibling', async () => {
     function Broken() {
       throw new Error('broken contribution');

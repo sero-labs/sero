@@ -265,7 +265,6 @@ export type {
 export type {
   SettingsPackageSource,
   SeroAppManifest,
-
 } from './sero-apps';
 
 // ── Plugins ─────────────────────────────────────────────────

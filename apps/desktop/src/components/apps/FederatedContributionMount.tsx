@@ -5,6 +5,7 @@ import type { ComponentContribution } from '@sero-ai/common';
 import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import type { SeroAppManifest } from '@/types/ipc';
 import { getFederatedComponent } from '@/lib/federation-registry';
+import { hasFederatedUi } from '@/stores/app/shared';
 import { useAppRuntimeMount } from './useAppRuntimeMount';
 
 interface FederatedContributionMountProps {
@@ -65,7 +66,7 @@ export function FederatedContributionMount({
 
   if (status === 'loading-workspace') return loading;
   if (status === 'missing-workspace') return missingWorkspace;
-  if (!manifest.uiEntry && !manifest.remoteEntryOverride && !manifest.devPort) return unavailable;
+  if (!hasFederatedUi(manifest)) return unavailable;
 
   const LazyComponent = getFederatedComponent(
     manifest.id,
