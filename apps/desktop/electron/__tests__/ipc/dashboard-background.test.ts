@@ -180,6 +180,15 @@ describe('dashboard background IPC', () => {
     expect(mocks.resizeImageForApi).not.toHaveBeenCalled();
   });
 
+  it('does not hydrate a corrupted background asset', async () => {
+    await fs.writeFile(
+      path.join(mocks.agentDir, 'dashboard-background.image'),
+      Buffer.from('corrupted image'),
+    );
+
+    expect(await handler(IpcChannels.dashboard.getBackground)(event)).toBeNull();
+  });
+
   it('rejects non-string input with the validation error', async () => {
     await expect(handler(IpcChannels.dashboard.setBackground)(event, undefined)).rejects.toThrow(
       'Dashboard background must be a PNG or JPEG data URL',

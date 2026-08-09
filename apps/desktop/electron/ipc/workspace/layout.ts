@@ -28,6 +28,11 @@ const MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH =
   Math.ceil(MAX_DASHBOARD_BACKGROUND_BYTES * 4 / 3) + 64;
 const MAX_DASHBOARD_BACKGROUND_WIDTH = 2560;
 const MAX_DASHBOARD_BACKGROUND_HEIGHT = 1600;
+const DASHBOARD_BACKGROUND_INPUT_ERROR =
+  'Dashboard background must be a PNG or JPEG data URL under 4 MB';
+const DASHBOARD_BACKGROUND_IMAGE_ERROR = 'Dashboard background image is invalid';
+const DASHBOARD_BACKGROUND_DIMENSIONS_ERROR =
+  'Dashboard background image must be 2560 × 1600 or smaller';
 
 let writeQueue: Promise<void> = Promise.resolve();
 let backgroundWriteQueue: Promise<string | null> = Promise.resolve(null);
@@ -144,6 +149,29 @@ async function saveLayoutFile(state: LayoutState): Promise<void> {
   await fs.rename(tmpFile, LAYOUT_FILE);
 }
 
+function dashboardBackgroundValidationError(encoded: Buffer): string | null {
+  if (encoded.length === 0 || encoded.length > MAX_DASHBOARD_BACKGROUND_BYTES) {
+    return DASHBOARD_BACKGROUND_INPUT_ERROR;
+  }
+
+  const imageInfo = inspectDashboardBackgroundImage(encoded);
+  if (!imageInfo) return DASHBOARD_BACKGROUND_IMAGE_ERROR;
+  if (
+    imageInfo.width > MAX_DASHBOARD_BACKGROUND_WIDTH
+    || imageInfo.height > MAX_DASHBOARD_BACKGROUND_HEIGHT
+  ) {
+    return DASHBOARD_BACKGROUND_DIMENSIONS_ERROR;
+  }
+
+  const decodedImage = nativeImage.createFromBuffer(encoded);
+  const decodedSize = decodedImage.getSize();
+  return decodedImage.isEmpty()
+    || decodedSize.width !== imageInfo.width
+    || decodedSize.height !== imageInfo.height
+    ? DASHBOARD_BACKGROUND_IMAGE_ERROR
+    : null;
+}
+
 async function setDashboardBackground(dataUrl: unknown): Promise<string | null> {
   mkdirSync(SERO_AGENT_DIR, { recursive: true });
   const targetFile = getDashboardBackgroundPath();
@@ -157,36 +185,16 @@ async function setDashboardBackground(dataUrl: unknown): Promise<string | null> 
     typeof dataUrl !== 'string'
     || dataUrl.length > MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH
   ) {
-    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
+    throw new Error(DASHBOARD_BACKGROUND_INPUT_ERROR);
   }
   const match = /^data:image\/(?:png|jpeg);base64,(.+)$/i.exec(dataUrl);
   if (!match) {
-    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
+    throw new Error(DASHBOARD_BACKGROUND_INPUT_ERROR);
   }
 
   const encoded = Buffer.from(match[1]!, 'base64');
-  if (encoded.length === 0 || encoded.length > MAX_DASHBOARD_BACKGROUND_BYTES) {
-    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
-  }
-
-  const imageInfo = inspectDashboardBackgroundImage(encoded);
-  if (!imageInfo) throw new Error('Dashboard background image is invalid');
-  if (
-    imageInfo.width > MAX_DASHBOARD_BACKGROUND_WIDTH
-    || imageInfo.height > MAX_DASHBOARD_BACKGROUND_HEIGHT
-  ) {
-    throw new Error('Dashboard background image must be 2560 × 1600 or smaller');
-  }
-
-  const decodedImage = nativeImage.createFromBuffer(encoded);
-  const decodedSize = decodedImage.getSize();
-  if (
-    decodedImage.isEmpty()
-    || decodedSize.width !== imageInfo.width
-    || decodedSize.height !== imageInfo.height
-  ) {
-    throw new Error('Dashboard background image is invalid');
-  }
+  const validationError = dashboardBackgroundValidationError(encoded);
+  if (validationError) throw new Error(validationError);
 
   const tmpFile = `${targetFile}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmpFile, encoded);
@@ -194,10 +202,10 @@ async function setDashboardBackground(dataUrl: unknown): Promise<string | null> 
   return getDashboardBackgroundUrl(randomUUID());
 }
 
-function getDashboardBackground(): string | null {
-  return existsSync(getDashboardBackgroundPath())
-    ? getDashboardBackgroundUrl(randomUUID())
-    : null;
+async function getDashboardBackground(): Promise<string | null> {
+  const encoded = await fs.readFile(getDashboardBackgroundPath()).catch(() => null);
+  if (!encoded || dashboardBackgroundValidationError(encoded)) return null;
+  return getDashboardBackgroundUrl(randomUUID());
 }
 
 export function registerLayoutHandlers(): void {
