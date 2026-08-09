@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from 'react';
 import type { AppEntry } from '@/stores/app';
 import type { WorkspaceInfo } from '@/types/ipc';
 
@@ -43,5 +44,61 @@ export async function runWorkspaceSetup({
     return [];
   });
   return failures.length > 0 ? failures.join(' ') : null;
+}
+
+export function useWorkspaceSetup(
+  apps: AppEntry[],
+  selections: Record<string, boolean>,
+) {
+  const [failures, setFailures] = useState<Record<string, WorkspaceSetupFailure>>({});
+  const pendingSetupRef = useRef<(() => void) | null>(null);
+  const activeFailure = Object.values(failures)[0] ?? null;
+
+  const createSetup = (workspace: WorkspaceInfo): (() => void) => {
+    const setupApps = apps;
+    const setupSelections = selections;
+    return () => {
+      void runWorkspaceSetup({
+        apps: setupApps,
+        selections: setupSelections,
+        workspace,
+      }).then((message) => {
+        if (!message) return;
+        console.warn('[workspace] Workspace setup failed:', message);
+        setFailures((current) => ({
+          ...current,
+          [workspace.id]: { workspace, message },
+        }));
+      });
+    };
+  };
+
+  const deferSetup = (setup: () => void): void => {
+    pendingSetupRef.current = setup;
+  };
+
+  const completePendingSetup = useCallback((): void => {
+    const setup = pendingSetupRef.current;
+    if (!setup) return;
+    pendingSetupRef.current = null;
+    setup();
+  }, []);
+
+  const dismissActiveFailure = (): void => {
+    if (!activeFailure) return;
+    setFailures((current) => {
+      const next = { ...current };
+      delete next[activeFailure.workspace.id];
+      return next;
+    });
+  };
+
+  return {
+    activeFailure,
+    completePendingSetup,
+    createSetup,
+    deferSetup,
+    dismissActiveFailure,
+  };
 }
 

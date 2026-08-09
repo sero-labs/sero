@@ -35,6 +35,7 @@ interface RemoteOriginManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: WorkspaceInfo;
+  onWorkspaceReady?: () => void;
   children?: ReactNode;
 }
 
@@ -46,6 +47,7 @@ export function RemoteOriginManager({
   open,
   onOpenChange,
   workspace,
+  onWorkspaceReady,
   children,
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
@@ -68,8 +70,9 @@ export function RemoteOriginManager({
     }
 
     setOrigin(result.origin);
+    if (result.origin) onWorkspaceReady?.();
     setView(result.origin ? 'connected' : 'choose');
-  }, [workspace.id]);
+  }, [onWorkspaceReady, workspace.id]);
 
   // Fetch origin when dialog opens (acceptable useEffect: IPC on external state change)
   useEffect(() => {
@@ -82,6 +85,7 @@ export function RemoteOriginManager({
   const handleOriginSet = (url: string, warning?: string) => {
     setOrigin(toOriginInfo(url));
     setOriginWarning(warning ?? null);
+    onWorkspaceReady?.();
     setView('connected');
   };
 

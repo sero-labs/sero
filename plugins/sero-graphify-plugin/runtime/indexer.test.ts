@@ -322,6 +322,40 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
+  it('keeps a pending workspace while its build is active', async () => {
+    let finishBuild: (stats: WorkspaceIndexStats) => void = () => {};
+    const buildGraph = vi.fn(() => new Promise<WorkspaceIndexStats>((resolve) => {
+      finishBuild = resolve;
+    }));
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], buildGraph });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [{
+        id: 1,
+        action: 'enable',
+        workspaceId: 'ws-building',
+        workspaceName: 'Building Workspace',
+        workspacePath: '/p/building',
+        requestedAt: 'now',
+      }],
+    });
+    await vi.waitFor(() => expect(getState().workspaces['ws-building']?.status).toBe('building'));
+
+    await indexer.syncWorkspaces();
+
+    expect(getState().workspaces['ws-building']).toBeDefined();
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws-building');
+
+    finishBuild(STATS);
+    await indexer.idle();
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces['ws-building']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-building');
+    indexer.dispose();
+  });
+
   it('does not create a phantom workspace for a request without metadata', async () => {
     const log = vi.fn();
     const { host, getState } = makeHost({ listWorkspaces: async () => [], log });

@@ -28,6 +28,10 @@ interface Job {
   full: boolean;
 }
 
+function isIndexing(status: WorkspaceIndexStatus): boolean {
+  return status === 'queued' || status === 'building' || status === 'updating';
+}
+
 export class GraphifyIndexer {
   private queue: Job[] = [];
   private current: Promise<void> = Promise.resolve();
@@ -101,7 +105,11 @@ export class GraphifyIndexer {
     // created while this sync runs gets one full discovery cycle of its own.
     const expiringPendingIds = new Set<string>();
     for (const entry of Object.values(current)) {
-      if (entry.pendingHostDiscovery && !discoveredIds.has(entry.workspaceId)) {
+      if (
+        entry.pendingHostDiscovery
+        && !discoveredIds.has(entry.workspaceId)
+        && !isIndexing(entry.status)
+      ) {
         expiringPendingIds.add(entry.workspaceId);
       }
     }
@@ -122,8 +130,7 @@ export class GraphifyIndexer {
       });
     if (unchanged) return;
 
-    const removedIds = Object.keys(current).filter((id) => !discoveredIds.has(id));
-    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
+    const removalCandidates = Object.keys(current).filter((id) => !discoveredIds.has(id));
 
     await this.host.updateState((raw) => {
       const state = raw ?? structuredClone(DEFAULT_STATE);
@@ -153,11 +160,17 @@ export class GraphifyIndexer {
         const entry = next.workspaces[id];
         if (
           !discoveredIds.has(id)
+          && !isIndexing(entry.status)
           && (!entry.pendingHostDiscovery || expiringPendingIds.has(id))
-        ) delete next.workspaces[id];
+        ) {
+          delete next.workspaces[id];
+        }
       }
       return next;
     });
+    const reconciled = (await this.host.readState())?.workspaces ?? {};
+    const removedIds = removalCandidates.filter((id) => !reconciled[id]);
+    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
     // A removed workspace's per-workspace graph is now an orphan — delete it so
     // disk tracks the live workspace list (disable keeps artifacts; removal does not).
     // Removals are independent, so run them together.

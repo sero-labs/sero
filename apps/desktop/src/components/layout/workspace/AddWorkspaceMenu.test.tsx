@@ -24,6 +24,7 @@ const seroBridge = {
   },
   vcs: {
     remotes: vi.fn(),
+    connectRemote: vi.fn(),
   },
   workspace: {
     pickFolder: vi.fn(),
@@ -129,7 +130,6 @@ async function openCreateView(): Promise<void> {
   await setInputValue(input, createdWorkspace.name);
 }
 
-
 async function openWorkspacePicker(): Promise<void> {
   const trigger = document.querySelector('[title="Add workspace"]');
   if (!(trigger instanceof HTMLElement)) throw new Error('Expected add workspace trigger');
@@ -146,6 +146,12 @@ describe('AddWorkspaceMenu', () => {
     });
     seroBridge.appAgent.invokeTool.mockReset();
     seroBridge.vcs.remotes.mockResolvedValue([]);
+    seroBridge.vcs.connectRemote.mockResolvedValue({
+      ok: true,
+      url: 'https://github.com/sero-labs/sero.git',
+      updatedExisting: false,
+      import: { imported: true },
+    });
     seroBridge.workspace.pickFolder.mockReset();
     Object.defineProperty(window, 'sero', {
       configurable: true,
@@ -200,10 +206,16 @@ describe('AddWorkspaceMenu', () => {
     vi.unstubAllGlobals();
   });
 
-  it('restores contribution defaults after leaving the create view', async () => {
+  async function renderMenu(): Promise<void> {
+    const mountedRoot = root;
+    if (!mountedRoot) throw new Error('Expected mounted test root');
     await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
+      mountedRoot.render(<AddWorkspaceMenu />);
     });
+  }
+
+  it('restores contribution defaults after leaving the create view', async () => {
+    await renderMenu();
 
     await openCreateView();
 
@@ -220,17 +232,23 @@ describe('AddWorkspaceMenu', () => {
     expect(document.querySelector(switchId)?.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('opens the remote prompt before contribution setup finishes', async () => {
-    const pendingTool = Promise.race<AppToolResult>([]);
-    vi.spyOn(window.sero.appAgent, 'invokeTool').mockReturnValue(pendingTool);
-
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
+  it('waits to run contribution setup until the remote prompt finishes', async () => {
+    vi.spyOn(window.sero.appAgent, 'invokeTool').mockResolvedValue({
+      text: 'Queued',
+      content: [],
+      details: null,
+      isError: false,
     });
+
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
 
     expect(document.body.textContent).toContain('Git Repository');
+    expect(window.sero.appAgent.invokeTool).not.toHaveBeenCalled();
+
+    await click(getButton('Close'));
+    expect(window.sero.appAgent.invokeTool).toHaveBeenCalledOnce();
   });
 
   it('shows a fulfilled contribution tool error', async () => {
@@ -241,11 +259,10 @@ describe('AddWorkspaceMenu', () => {
       isError: true,
     });
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
+    await click(getButton('Close'));
     await act(async () => {
       await Promise.resolve();
     });
@@ -258,9 +275,7 @@ describe('AddWorkspaceMenu', () => {
     const { promise, resolve } = promiseRuntime.withResolvers<AppToolResult>();
     vi.spyOn(window.sero.appAgent, 'invokeTool').mockReturnValue(promise);
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
     await click(getButton('Close'));
@@ -277,15 +292,14 @@ describe('AddWorkspaceMenu', () => {
     expect(document.body.textContent).toContain('Workspace setup failed');
     expect(document.querySelector('[role="alert"]')?.textContent)
       .toContain('Graphify: State file is read-only');
+    expect(document.querySelector('[role="alert"]')?.classList.contains('fixed')).toBe(true);
   });
 
   it('keeps the remote form open when contribution setup fails', async () => {
     const { promise, resolve } = promiseRuntime.withResolvers<AppToolResult>();
     vi.spyOn(window.sero.appAgent, 'invokeTool').mockReturnValue(promise);
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
     await act(async () => {
@@ -296,7 +310,10 @@ describe('AddWorkspaceMenu', () => {
     await click(getButtonContaining('Connect existing repository'));
     const remoteUrl = document.querySelector('#remote-url');
     if (!(remoteUrl instanceof HTMLInputElement)) throw new Error('Expected remote URL input');
+    expect(window.sero.appAgent.invokeTool).not.toHaveBeenCalled();
     await setInputValue(remoteUrl, 'https://github.com/sero-labs/sero.git');
+    await click(getButton('Connect Repository'));
+    expect(window.sero.appAgent.invokeTool).toHaveBeenCalledOnce();
 
     await act(async () => {
       resolve({
@@ -309,43 +326,36 @@ describe('AddWorkspaceMenu', () => {
     });
 
     expect(document.body.textContent).toContain('Git Repository');
-    expect(document.querySelector<HTMLInputElement>('#remote-url')?.value)
-      .toBe('https://github.com/sero-labs/sero.git');
     expect(document.querySelector('[role="alert"]')?.textContent)
       .toContain('Graphify: State file is read-only');
     const dialog = document.querySelector('[role="dialog"]');
     const alert = document.querySelector('[role="alert"]');
     expect(dialog?.contains(alert)).toBe(true);
+    expect(alert?.classList.contains('fixed')).toBe(false);
     await click(getButton('Dismiss'));
     expect(document.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('shows the current remote prompt while an earlier setup failure remains', async () => {
-    const first = promiseRuntime.withResolvers<AppToolResult>();
-    const second = Promise.race<AppToolResult>([]);
-    vi.spyOn(window.sero.appAgent, 'invokeTool')
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second);
+    vi.spyOn(window.sero.appAgent, 'invokeTool').mockResolvedValue({
+      text: 'First setup failed',
+      content: [],
+      details: null,
+      isError: true,
+    });
     useWorkspaceStore.setState({
       createWorkspace: vi.fn()
         .mockResolvedValueOnce(createdWorkspace)
         .mockResolvedValueOnce(secondWorkspace),
     });
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
     await click(getButton('Close'));
-    await act(async () => {
-      first.resolve({
-        text: 'First setup failed',
-        content: [],
-        details: null,
-        isError: true,
-      });
-      await first.promise;
+    await vi.waitFor(() => {
+      expect(document.querySelector('[role="alert"]')?.textContent)
+        .toContain('Graphify: First setup failed');
     });
 
     await openWorkspacePicker();
@@ -370,9 +380,7 @@ describe('AddWorkspaceMenu', () => {
       isError: false,
     });
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Clone Repository'));
     expect(document.querySelector('#workspace-create-option-graphify')).not.toBeNull();
@@ -405,9 +413,7 @@ describe('AddWorkspaceMenu', () => {
       isError: false,
     });
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Import Existing'));
     expect(document.querySelector('#workspace-create-option-graphify')).not.toBeNull();
@@ -426,6 +432,20 @@ describe('AddWorkspaceMenu', () => {
     );
   });
 
+  it('imports directly without options and shows folder errors', async () => {
+    const addFolder = vi.fn().mockRejectedValue(new Error('Folder is unavailable'));
+    useAppStore.setState({ ...initialAppState, apps: [] }, true);
+    useWorkspaceStore.setState({ addFolder });
+    seroBridge.workspace.pickFolder.mockResolvedValue('/tmp/unavailable');
+
+    await renderMenu();
+    await openWorkspacePicker();
+    await click(getButton('Import Existing'));
+
+    await vi.waitFor(() => expect(addFolder).toHaveBeenCalledWith('/tmp/unavailable'));
+    expect(document.body.textContent).toContain('Folder is unavailable');
+  });
+
   it('keeps setup failures for each workspace until dismissed', async () => {
     const first = promiseRuntime.withResolvers<AppToolResult>();
     const second = promiseRuntime.withResolvers<AppToolResult>();
@@ -438,9 +458,7 @@ describe('AddWorkspaceMenu', () => {
         .mockResolvedValueOnce(secondWorkspace),
     });
 
-    await act(async () => {
-      root?.render(<AddWorkspaceMenu />);
-    });
+    await renderMenu();
     await openCreateView();
     await click(getButton('Create'));
     await click(getButton('Close'));

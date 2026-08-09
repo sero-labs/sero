@@ -15,7 +15,7 @@ import { IconAction } from '@/components/ui/IconAction';
 import { CloneView, CreateView, ImportView, PickView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
 import { WorkspaceSetupFailureNotice } from './WorkspaceSetupFailureNotice';
-import { runWorkspaceSetup, type WorkspaceSetupFailure } from './workspace-setup';
+import { useWorkspaceSetup } from './workspace-setup';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
@@ -40,11 +40,9 @@ export function AddWorkspaceMenu() {
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const [workspaceCreationSelections, setWorkspaceCreationSelections] = useState<Record<string, boolean>>({});
-  const [workspaceSetupFailures, setWorkspaceSetupFailures] = useState<
-    Record<string, WorkspaceSetupFailure>
-  >({});
 
   // Clone view state
   const [cloneUrl, setCloneUrl] = useState('');
@@ -74,7 +72,13 @@ export function AddWorkspaceMenu() {
       ?? app.manifest!.workspaceCreation!.defaultEnabled
       ?? false,
   }));
-  const activeWorkspaceSetupFailure = Object.values(workspaceSetupFailures)[0] ?? null;
+  const {
+    activeFailure: activeWorkspaceSetupFailure,
+    completePendingSetup: completePendingWorkspaceSetup,
+    createSetup: createWorkspaceSetup,
+    deferSetup: deferWorkspaceSetup,
+    dismissActiveFailure: dismissActiveWorkspaceSetupFailure,
+  } = useWorkspaceSetup(workspaceCreationContributions, workspaceCreationSelections);
 
   const reset = () => {
     setView('pick');
@@ -85,12 +89,14 @@ export function AddWorkspaceMenu() {
     cloneNameEditedRef.current = false;
     setCloneError(null);
     setCloneAuthHint(false);
+    setImportError(null);
     setWorkspaceCreationSelections({});
   };
 
   const handleImportExisting = async () => {
     if (isImporting) return;
     setIsImporting(true);
+    setImportError(null);
     pickingFolderRef.current = true;
     try {
       const folderPath = await window.sero.workspace.pickFolder();
@@ -98,7 +104,10 @@ export function AddWorkspaceMenu() {
       const ws = await addFolder(folderPath);
       await completeWorkspaceAddition(ws);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import workspace';
       console.error('Failed to import workspace:', err);
+      setImportError(message);
+      setView('import');
     } finally {
       pickingFolderRef.current = false;
       setIsImporting(false);
@@ -115,30 +124,21 @@ export function AddWorkspaceMenu() {
     }
   };
 
-  const startWorkspaceSetup = (workspace: WorkspaceInfo): void => {
-    void runWorkspaceSetup({
-      apps: workspaceCreationContributions,
-      selections: workspaceCreationSelections,
-      workspace,
-    }).then((message) => {
-      if (!message) return;
-      console.warn('[workspace] Workspace setup failed:', message);
-      setWorkspaceSetupFailures((current) => ({
-        ...current,
-        [workspace.id]: { workspace, message },
-      }));
-    });
-  };
 
   const completeWorkspaceAddition = async (
     ws: WorkspaceInfo,
     promptForRemote = false,
   ): Promise<void> => {
+    const setup = createWorkspaceSetup(ws);
     await loadSessions();
     setOpen(false);
     reset();
-    if (promptForRemote) setNewWorkspace(ws);
-    startWorkspaceSetup(ws);
+    if (promptForRemote) {
+      deferWorkspaceSetup(setup);
+      setNewWorkspace(ws);
+    } else {
+      setup();
+    }
   };
 
   const handleCreate = async () => {
@@ -197,19 +197,12 @@ export function AddWorkspaceMenu() {
     setWorkspaceCreationSelections((current) => ({ ...current, [id]: enabled }));
   };
 
-  const dismissActiveWorkspaceSetupFailure = (): void => {
-    if (!activeWorkspaceSetupFailure) return;
-    setWorkspaceSetupFailures((current) => {
-      const next = { ...current };
-      delete next[activeWorkspaceSetupFailure.workspace.id];
-      return next;
-    });
-  };
 
   const workspaceSetupFailureNotice = activeWorkspaceSetupFailure
     ? (
         <WorkspaceSetupFailureNotice
           failure={activeWorkspaceSetupFailure}
+          embedded={newWorkspace !== null}
           onDismiss={dismissActiveWorkspaceSetupFailure}
         />
       )
@@ -247,7 +240,13 @@ export function AddWorkspaceMenu() {
               setView('clone');
               requestAnimationFrame(() => cloneInputRef.current?.focus());
             }}
-            onImportExisting={() => setView('import')}
+            onImportExisting={() => {
+              if (workspaceCreationOptions.length === 0) {
+                void handleImportExisting();
+                return;
+              }
+              setView('import');
+            }}
           />
         )}
         {view === 'create' && (
@@ -270,6 +269,7 @@ export function AddWorkspaceMenu() {
             onBack={reset}
             onImport={handleImportExisting}
             isImporting={isImporting}
+            error={importError}
             options={workspaceCreationOptions}
             onOptionChange={handleOptionChange}
           />
@@ -300,7 +300,12 @@ export function AddWorkspaceMenu() {
     {newWorkspace && (
       <RemoteOriginManager
         open
-        onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
+        onOpenChange={(o) => {
+          if (o) return;
+          setNewWorkspace(null);
+          completePendingWorkspaceSetup();
+        }}
+        onWorkspaceReady={completePendingWorkspaceSetup}
         workspace={newWorkspace}
       >
         {workspaceSetupFailureNotice}
