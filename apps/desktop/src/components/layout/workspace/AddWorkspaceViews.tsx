@@ -85,23 +85,39 @@ export function CreateView({
       </Field>
 
       <LocationField parentPath={parentPath} onPick={onPickLocation} onClear={onClearLocation} />
-
-      {options.map((option) => (
-        <label
-          key={option.id}
-          htmlFor={`workspace-create-option-${option.id}`}
-          className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]"
-        >
-          {option.label}
-          <Switch
-            id={`workspace-create-option-${option.id}`}
-            checked={option.enabled}
-            onCheckedChange={(enabled) => onOptionChange(option.id, enabled)}
-          />
-        </label>
-      ))}
-
+      <WorkspaceCreationOptions options={options} onOptionChange={onOptionChange} />
       <FormActions onBack={onBack} submitLabel="Create" busy={isCreating} disabled={!name.trim()} />
+    </form>
+  );
+}
+
+/** Import form view: plugin options followed by the native folder picker. */
+export function ImportView({
+  onBack,
+  onImport,
+  isImporting,
+  options,
+  onOptionChange,
+}: {
+  onBack: () => void;
+  onImport: () => void;
+  isImporting: boolean;
+  options: WorkspaceCreationOption[];
+  onOptionChange: (id: string, enabled: boolean) => void;
+}) {
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onImport(); }}
+      className="flex flex-col gap-2.5 p-3"
+    >
+      <WorkspaceCreationOptions options={options} onOptionChange={onOptionChange} />
+      <FormActions
+        onBack={onBack}
+        submitLabel="Choose Folder"
+        busyLabel="Importing…"
+        busy={isImporting}
+        disabled={false}
+      />
     </form>
   );
 }
@@ -121,6 +137,8 @@ export function CloneView({
   isCloning,
   error,
   onSignIn,
+  options,
+  onOptionChange,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   url: string;
@@ -135,6 +153,8 @@ export function CloneView({
   isCloning: boolean;
   error: string | null;
   onSignIn?: () => void;
+  options: WorkspaceCreationOption[];
+  onOptionChange: (id: string, enabled: boolean) => void;
 }) {
   return (
     <form
@@ -165,6 +185,7 @@ export function CloneView({
       </Field>
 
       <LocationField parentPath={parentPath} onPick={onPickLocation} onClear={onClearLocation} disabled={isCloning} />
+      <WorkspaceCreationOptions options={options} onOptionChange={onOptionChange} />
 
       {error && (
         <div className="flex flex-col gap-1.5 rounded-md bg-status-error-muted p-2">
@@ -184,6 +205,29 @@ export function CloneView({
       <FormActions onBack={onBack} submitLabel="Clone" busyLabel="Cloning…" busy={isCloning} disabled={!url.trim()} />
     </form>
   );
+}
+
+function WorkspaceCreationOptions({
+  options,
+  onOptionChange,
+}: {
+  options: WorkspaceCreationOption[];
+  onOptionChange: (id: string, enabled: boolean) => void;
+}) {
+  return options.map((option) => (
+    <label
+      key={option.id}
+      htmlFor={`workspace-create-option-${option.id}`}
+      className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]"
+    >
+      {option.label}
+      <Switch
+        id={`workspace-create-option-${option.id}`}
+        checked={option.enabled}
+        onCheckedChange={(enabled) => onOptionChange(option.id, enabled)}
+      />
+    </label>
+  ));
 }
 
 // ── Shared form pieces ─────────────────────────────────────────

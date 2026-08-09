@@ -119,7 +119,7 @@ export function getSearchContributionApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => app.manifest?.search && isAppEntrySupported(app));
 }
 
-/** Apps that contribute an option to the new-workspace form. */
+/** Apps that contribute an option to workspace creation, clone, and import forms. */
 export function getWorkspaceCreationContributionApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => app.manifest?.workspaceCreation && isAppEntrySupported(app));
 }

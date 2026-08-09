@@ -96,20 +96,31 @@ export class GraphifyIndexer {
     const normalize = options.normalizeStatuses === true;
     const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
     const current = (await this.host.readState())?.workspaces ?? {};
+    const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
+    const pendingEntries = Object.values(current).filter(
+      (entry) => entry.pendingHostDiscovery && !discoveredIds.has(entry.workspaceId),
+    );
 
     // Outside start(), live statuses (queued/building/updating) must survive a
     // discovery tick; only the boot pass may normalize interrupted work to idle.
     const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
       normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
 
-    const unchanged = workspaces.length === Object.keys(current).length
+    const unchanged = workspaces.length + pendingEntries.length === Object.keys(current).length
       && workspaces.every((ws) => {
         const existing = current[ws.id];
-        return existing && existing.name === ws.name && existing.path === ws.path && existing.status === nextStatus(existing);
-      });
+        return existing
+          && !existing.pendingHostDiscovery
+          && existing.name === ws.name
+          && existing.path === ws.path
+          && existing.status === nextStatus(existing);
+      })
+      && pendingEntries.every((entry) => entry.status === nextStatus(entry));
     if (unchanged) return;
 
-    const removedIds = Object.keys(current).filter((id) => !workspaces.some((ws) => ws.id === id));
+    const removedIds = Object.keys(current).filter((id) => (
+      !discoveredIds.has(id) && !current[id]?.pendingHostDiscovery
+    ));
     const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
 
     await this.host.updateState((raw) => {
@@ -117,12 +128,29 @@ export class GraphifyIndexer {
       const next = { ...state, workspaces: { ...state.workspaces } };
       for (const ws of workspaces) {
         const existing = next.workspaces[ws.id];
-        next.workspaces[ws.id] = existing
-          ? { ...existing, name: ws.name, path: ws.path, status: nextStatus(existing) }
-          : { workspaceId: ws.id, name: ws.name, path: ws.path, enabled: false, status: 'idle' };
+        if (!existing) {
+          next.workspaces[ws.id] = {
+            workspaceId: ws.id,
+            name: ws.name,
+            path: ws.path,
+            enabled: false,
+            status: 'idle',
+          };
+          continue;
+        }
+        const observed = { ...existing };
+        delete observed.pendingHostDiscovery;
+        next.workspaces[ws.id] = {
+          ...observed,
+          name: ws.name,
+          path: ws.path,
+          status: nextStatus(existing),
+        };
       }
       for (const id of Object.keys(next.workspaces)) {
-        if (!workspaces.some((ws) => ws.id === id)) delete next.workspaces[id];
+        if (!discoveredIds.has(id) && !next.workspaces[id].pendingHostDiscovery) {
+          delete next.workspaces[id];
+        }
       }
       return next;
     });
@@ -143,7 +171,11 @@ export class GraphifyIndexer {
    * mistaken for orphans.
    */
   private async sweepOrphanArtifacts(): Promise<void> {
+    const state = await this.host.readState();
     const live = new Set((await this.host.listWorkspaces()).map((ws) => ws.id));
+    for (const entry of Object.values(state?.workspaces ?? {})) {
+      if (entry.pendingHostDiscovery) live.add(entry.workspaceId);
+    }
     const orphans = (await this.host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
     await Promise.all(orphans.map((id) => {
       this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
@@ -161,20 +193,7 @@ export class GraphifyIndexer {
         const existing = state.workspaces[workspaceId];
         if (!existing && (!request.workspaceName || !request.workspacePath)) {
           missingMessage = 'Workspace is not available. Sync Graphify and enable indexing again.';
-          return {
-            ...state,
-            workspaces: {
-              ...state.workspaces,
-              [workspaceId]: {
-                workspaceId,
-                name: request.workspaceName ?? workspaceId,
-                path: request.workspacePath ?? '',
-                enabled: false,
-                status: 'error',
-                lastError: missingMessage,
-              },
-            },
-          };
+          return state;
         }
         const entry = existing
           ? {
@@ -188,6 +207,7 @@ export class GraphifyIndexer {
               path: request.workspacePath!,
               enabled: false,
               status: 'idle' as const,
+              pendingHostDiscovery: true,
             };
         shouldEnqueue = true;
         return {

@@ -163,7 +163,12 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
             // A workspace-creation contribution runs immediately after the host
             // creates the workspace. Queue sync first so the following enable
             // request can target its new registry entry.
-            if (params.action === 'enable' && params.workspaceId) {
+            if (
+              params.action === 'enable'
+              && params.workspaceId
+              && params.workspaceName
+              && params.workspacePath
+            ) {
               const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
                 { action: 'sync' },
                 {
@@ -175,7 +180,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
               ]);
               return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
             }
-            return text(`Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
+            return text(`Error: Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
           }
           workspaceId = entry.workspaceId;
         }

@@ -48,7 +48,11 @@ describe('connectRemote', () => {
 
   it('imports into an empty workspace under auto mode', async () => {
     vcsOps.listRemotes.mockResolvedValue([]);
-    listFiles.mockResolvedValue([{ name: '.git' }, { name: '.sero-workspace.json' }]);
+    listFiles.mockResolvedValue([
+      { name: '.git' },
+      { name: '.sero' },
+      { name: '.sero-workspace.json' },
+    ]);
     vcsOps.checkoutRemote.mockResolvedValue({ success: true, message: 'ok' });
 
     const result = await connectRemote(deps, 'ws-1', URL, 'auto');

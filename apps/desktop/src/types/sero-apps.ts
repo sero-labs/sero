@@ -78,6 +78,6 @@ export interface SeroAppManifest {
   explorerView?: ExplorerViewManifest | null;
   /** Title-bar contribution declared in the app manifest. */
   titlebar?: TitleBarManifest | null;
-  /** Option contributed to the new-workspace form. */
+  /** Option contributed to workspace creation, clone, and import forms. */
   workspaceCreation?: WorkspaceCreationManifest | null;
 }

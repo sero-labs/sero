@@ -18,7 +18,12 @@ import type { VcsOps } from '@electron/features/git/core/vcs-ops';
 import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 
 /** Entries every workspace starts with — not "files" for the import policy. */
-const WORKSPACE_SCAFFOLD_ENTRIES = new Set(['.git', '.sero-workspace.json', '.DS_Store']);
+const WORKSPACE_SCAFFOLD_ENTRIES = new Set([
+  '.git',
+  '.sero',
+  '.sero-workspace.json',
+  '.DS_Store',
+]);
 
 export interface RemoteConnectDeps {
   vcsOps: VcsOps;

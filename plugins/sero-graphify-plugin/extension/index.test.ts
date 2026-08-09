@@ -60,6 +60,43 @@ describe('graphify workspace creation indexing', () => {
     }
   });
 
+  it('returns an error when the requested workspace cannot be resolved', async () => {
+    const seroHome = await mkdtemp(path.join(os.tmpdir(), 'graphify-extension-missing-workspace-'));
+    process.env.SERO_HOME = seroHome;
+
+    try {
+      type RegisteredTool = {
+        name: string;
+        execute: (...args: unknown[]) => Promise<unknown>;
+      };
+      const registeredTools: RegisteredTool[] = [];
+      const pi = {
+        registerTool: vi.fn((tool: RegisteredTool) => registeredTools.push(tool)),
+        on: vi.fn(),
+      };
+      const { default: registerGraphify } = await import('./index');
+      registerGraphify(pi as never);
+      const indexTool = registeredTools.find((tool) => tool.name === 'graphify_index');
+
+      const result = await indexTool!.execute(
+        'call-1',
+        { action: 'enable', workspace: 'missing-workspace' },
+        undefined,
+        undefined,
+        { cwd: '/workspace/missing-workspace' },
+      );
+
+      expect(result).toMatchObject({
+        content: [{
+          type: 'text',
+          text: expect.stringMatching(/^Error: Could not resolve workspace/),
+        }],
+      });
+    } finally {
+      await rm(seroHome, { recursive: true, force: true });
+    }
+  });
+
   it('returns the panel fallback when deferred setup cannot write state', async () => {
     const seroHome = await mkdtemp(path.join(os.tmpdir(), 'graphify-extension-read-only-'));
     process.env.SERO_HOME = seroHome;
@@ -81,7 +118,12 @@ describe('graphify workspace creation indexing', () => {
 
       const result = await indexTool!.execute(
         'call-1',
-        { action: 'enable', workspaceId: 'new-workspace' },
+        {
+          action: 'enable',
+          workspaceId: 'new-workspace',
+          workspaceName: 'New Workspace',
+          workspacePath: '/workspace/new-workspace',
+        },
         undefined,
         undefined,
         { cwd: '/workspace/new-workspace' },

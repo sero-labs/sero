@@ -383,9 +383,9 @@ The component is wrapped in `AppProvider` like the main app component, so all
 
 #### `sero.app.workspaceCreation` (optional)
 
-Contribute a switch to the **Create New Workspace** form. When the switch is
-on, the host invokes the declared app-local tool after it creates the
-workspace.
+Contribute a switch to the **Create New**, **Clone Repository**, and **Import
+Existing** forms. When the switch is on, the host invokes the declared
+app-local tool after it adds the workspace.
 
 ```json
 "workspaceCreation": {
@@ -400,12 +400,12 @@ workspace.
 |-------|------|----------|-------------|
 | `label` | string | Yes | Text shown next to the switch. |
 | `defaultEnabled` | boolean | No | Initial switch state. Defaults to `false`. |
-| `tool` | string | Yes | App-local extension tool to invoke after creation. |
+| `tool` | string | Yes | App-local extension tool to invoke after the workspace is added. |
 | `params` | object | No | Static arguments sent to the tool. |
 
 The host adds `workspaceId`, `workspaceName`, and `workspacePath` to the tool
-arguments. Host values take precedence over static `params`. The workspace
-still opens if optional plugin setup fails.
+arguments. Host values take precedence over static `params`. Create, clone,
+and import still finish if optional plugin setup fails.
 
 #### `sero.app.explorerView` (optional)
 

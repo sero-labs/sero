@@ -261,8 +261,9 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
-  it('uses request metadata when discovery has not observed a new workspace', async () => {
-    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+  it('keeps a metadata-backed workspace until host discovery observes it', async () => {
+    const live: Array<{ id: string; name: string; path: string; open: boolean }> = [];
+    const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await indexer.handleStateChange({
@@ -278,12 +279,19 @@ describe('GraphifyIndexer', () => {
     });
     await indexer.idle();
 
+    await indexer.syncWorkspaces();
     expect(getState().workspaces['ws-new']).toMatchObject({
       name: 'New Workspace',
       path: '/p/new',
       enabled: true,
       status: 'idle',
+      pendingHostDiscovery: true,
     });
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws-new');
+
+    live.push({ id: 'ws-new', name: 'New Workspace', path: '/p/new', open: true });
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces['ws-new'].pendingHostDiscovery).toBeUndefined();
     expect(host.buildGraph).toHaveBeenCalledWith(
       { workspaceId: 'ws-new', path: '/p/new' },
       DEFAULT_STATE.settings,
@@ -292,8 +300,9 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
-  it('records an error when an enable request has no workspace metadata', async () => {
-    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+  it('does not create a phantom workspace for a request without metadata', async () => {
+    const log = vi.fn();
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], log });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await indexer.handleStateChange({
@@ -307,11 +316,10 @@ describe('GraphifyIndexer', () => {
     });
     await indexer.idle();
 
-    expect(getState().workspaces['ws-missing']).toMatchObject({
-      enabled: false,
-      status: 'error',
-      lastError: 'Workspace is not available. Sync Graphify and enable indexing again.',
-    });
+    expect(getState().workspaces['ws-missing']).toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(
+      'ws-missing: Workspace is not available.',
+    ));
     expect(host.buildGraph).not.toHaveBeenCalled();
     indexer.dispose();
   });
