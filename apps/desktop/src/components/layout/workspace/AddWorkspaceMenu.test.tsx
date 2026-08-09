@@ -176,8 +176,8 @@ describe('AddWorkspaceMenu', () => {
 
     await openCreateView();
 
-    const switchId = '#workspace-create-option-graphify';
-    const option = document.querySelector(switchId);
+    const switchId = 'workspace-create-option-graphify:workspace-indexing';
+    const option = document.getElementById(switchId);
     if (!(option instanceof HTMLButtonElement)) throw new Error('Expected Graphify option');
     expect(option.getAttribute('aria-checked')).toBe('true');
 
@@ -186,7 +186,7 @@ describe('AddWorkspaceMenu', () => {
     await click(getButton('Back'));
     await click(getButton('Create New'));
 
-    expect(document.querySelector(switchId)?.getAttribute('aria-checked')).toBe('true');
+    expect(document.getElementById(switchId)?.getAttribute('aria-checked')).toBe('true');
   });
 
   it('shows workspace creation failures', async () => {
@@ -353,7 +353,7 @@ describe('AddWorkspaceMenu', () => {
     await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Clone Repository'));
-    expect(document.querySelector('#workspace-create-option-graphify')).not.toBeNull();
+    expect(document.getElementById('workspace-create-option-graphify:workspace-indexing')).not.toBeNull();
     const cloneUrl = document.querySelector('#clone-url');
     if (!(cloneUrl instanceof HTMLInputElement)) throw new Error('Expected clone URL input');
     await setInputValue(cloneUrl, 'https://github.com/sero-labs/sero.git');
@@ -386,7 +386,7 @@ describe('AddWorkspaceMenu', () => {
     await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Import Existing'));
-    expect(document.querySelector('#workspace-create-option-graphify')).not.toBeNull();
+    expect(document.getElementById('workspace-create-option-graphify:workspace-indexing')).not.toBeNull();
     await click(getButton('Choose Folder'));
 
     expect(addFolder).toHaveBeenCalledWith(createdWorkspace.path);

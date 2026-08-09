@@ -15,6 +15,12 @@ Sero widgets are normal React components loaded via Module Federation. This
 skill is about their **presentation**: composing the shared `@sero-ai/ui`
 dashboard components instead of hand-rolling layout, spacing and colours.
 
+A static widget is declared under `sero.app.contributes.components` with
+`extensionPoint: "ui.dashboard.widget"`. This is separate from
+`useWidgetRegistration()`, which registers a runtime widget only for the
+current renderer lifecycle. Use the canonical static contribution syntax for
+new plugin manifests.
+
 The host owns widget chrome — the title bar, open/remove actions, drag handle
 and grid placement. The widget owns its data and what it shows at each size.
 

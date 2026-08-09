@@ -29,9 +29,10 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "CronApp",
       "devPort": 5188,
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "scheduler-status",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Scheduler",
           "component": "CronWidget",
           "description": "Scheduler status, upcoming jobs, and active reminders",
@@ -47,8 +48,8 @@
             "w": 3,
             "h": 3
           }
-        }
-      ]
+        }]
+      }
     },
     "plugin": {
       "category": "productivity",

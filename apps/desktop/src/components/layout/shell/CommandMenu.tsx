@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { getSearchContributionApps, useAppStore } from '@/stores/app';
+import { getContributions, useAppStore } from '@/stores/app';
 import { isChromeShortcutsFull } from '@/stores/app/shared';
 import { useGlobalSearchStore } from '@/stores/global-search';
 import { useThemeStore } from '@/stores/theme';
@@ -47,7 +47,7 @@ export function CommandMenu() {
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
   const openSearch = useGlobalSearchStore((s) => s.openSearch);
-  const searchApps = getSearchContributionApps(apps);
+  const searchContributions = getContributions(apps, 'ui.global-search.panel');
 
   // Listen for ⌘K / Ctrl+K
   useEffect(() => {
@@ -136,7 +136,7 @@ export function CommandMenu() {
               </span>
             </CommandItem>
           </CommandGroup>
-          {searchApps.length > 0 && (
+          {searchContributions.length > 0 && (
             <CommandGroup heading="Search">
               <CommandItem
                 value="Global Search"

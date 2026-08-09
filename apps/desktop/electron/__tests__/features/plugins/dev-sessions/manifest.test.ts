@@ -149,7 +149,8 @@ describe('plugin dev manifest validation', () => {
       packagePath: '/tmp/calc',
       isPlugin: true,
       plugin: null,
-      widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     }, 'http://localhost:5175/mf-manifest.json', '2026-04-20T10:00:00.000Z')).toEqual(expect.objectContaining({
       remoteEntryOverride: 'http://localhost:5175/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
     }));

@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { deriveRepoNameFromGitUrl } from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useGitHubAuthStore } from '@/stores/github-auth';
-import { getWorkspaceCreationContributionApps, useAppStore } from '@/stores/app';
+import { getContributions, useAppStore } from '@/stores/app';
 import {
   Popover,
   PopoverContent,
@@ -64,13 +64,15 @@ export function AddWorkspaceMenu() {
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openGitHubAuthDialog = useGitHubAuthStore((s) => s.openGitHubAuthDialog);
   const apps = useAppStore((s) => s.apps);
-  const workspaceCreationContributions = getWorkspaceCreationContributionApps(apps);
-  const workspaceCreationOptions = workspaceCreationContributions.map((app) => ({
-    id: app.id,
-    label: app.manifest!.workspaceCreation!.label,
-    enabled: workspaceCreationSelections[app.id]
-      ?? app.manifest!.workspaceCreation!.defaultEnabled
-      ?? false,
+  const workspaceCreationContributions = useMemo(
+    () => getContributions(apps, 'workspace.create.option'),
+    [apps],
+  );
+  const workspaceCreationOptions = workspaceCreationContributions.map((resolved) => ({
+    id: resolved.key,
+    label: resolved.contribution.control.label,
+    enabled: workspaceCreationSelections[resolved.key]
+      ?? resolved.contribution.control.defaultValue,
   }));
   const {
     activeFailure: activeWorkspaceSetupFailure,

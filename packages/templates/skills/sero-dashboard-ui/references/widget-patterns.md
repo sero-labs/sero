@@ -3,6 +3,28 @@
 How to make a widget useful across its size range, and the conventions the
 shared components assume.
 
+## Static manifest declaration
+
+Declare a static widget as a federated component contribution:
+
+```json
+{
+  "contributes": {
+    "components": [{
+      "id": "summary",
+      "extensionPoint": "ui.dashboard.widget",
+      "component": "SummaryWidget",
+      "name": "Summary",
+      "defaultSize": { "w": 2, "h": 2 }
+    }]
+  }
+}
+```
+
+Expose `SummaryWidget` in Module Federation. Use
+`useWidgetRegistration()` only when the widget must be registered at runtime.
+The host owns the grid and widget chrome in both cases.
+
 ## Responsive behaviour
 
 Widgets must stay legible at their declared minimum and default sizes. Use normal

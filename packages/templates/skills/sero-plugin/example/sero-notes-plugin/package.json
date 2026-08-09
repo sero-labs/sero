@@ -22,17 +22,18 @@
       "component": "NotesApp",
       "runtime": "./runtime/index.ts",
       "devPort": 5199,
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "notes-summary",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Notes Summary",
           "component": "NotesWidget",
           "description": "Quick overview of open notes",
           "defaultSize": { "w": 2, "h": 2 },
           "minSize": { "w": 1, "h": 1 },
           "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+        }]
+      }
     },
     "plugin": {
       "category": "productivity",

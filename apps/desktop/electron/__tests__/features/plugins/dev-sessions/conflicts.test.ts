@@ -29,7 +29,8 @@ function createManifest(
     packagePath,
     isPlugin: packagePath.includes('/agent/plugins/'),
     plugin: null,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
   };
 }
 

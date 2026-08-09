@@ -15,13 +15,14 @@ ship all of these together:
 - a React UI
 - a Pi extension
 - a plugin-owned background runtime
-- dashboard widget metadata
+- a static dashboard widget component contribution
 - shared state types across surfaces
 
 ## What it demonstrates
 
 The Notes example includes:
-- `package.json` with `pi.extensions`, `sero.app.runtime`, widget metadata, and
+- `package.json` with `pi.extensions`, `sero.app.runtime`, a
+  `ui.dashboard.widget` contribution, and
   `requiredHostCapabilities`
 - `shared/types.ts` as the shared state contract
 - `extension/index.ts` for tools, commands, and CLI-bridged behavior
@@ -54,6 +55,11 @@ See [Plugin Quickstart](/reference/plugin-quickstart).
 - a runtime-enabled example
 - a reference for widgets and background behavior
 
+The Notes widget uses `sero.app.contributes.components`. This static manifest
+path is separate from `useWidgetRegistration()`, which registers a widget only
+for the current renderer lifecycle. See
+[Plugin Extension Points](/reference/plugin-extension-points).
+
 ## Source-material version
 
 For the deeper repo-side writeup, see:
@@ -63,3 +69,4 @@ For the deeper repo-side writeup, see:
 
 - [Plugins](/reference/plugins)
 - [Plugin Quickstart](/reference/plugin-quickstart)
+- [Plugin Extension Points](/reference/plugin-extension-points)

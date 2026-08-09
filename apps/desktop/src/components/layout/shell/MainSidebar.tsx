@@ -5,7 +5,7 @@ import { Input } from '@sero-ai/ui/components/ui/input';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
 import {
   getDiscoveredApps,
-  getSearchContributionApps,
+  getContributions,
   getSidebarApps,
   useAppStore,
   type AppEntry,
@@ -100,7 +100,9 @@ export const MainSidebar = memo(function MainSidebar() {
 function SearchBar() {
   const searchQuery = useSessionStore((s) => s.searchQuery);
   const setSearchQuery = useSessionStore((s) => s.setSearchQuery);
-  const hasGlobalSearch = useAppStore((s) => getSearchContributionApps(s.apps).length > 0);
+  const hasGlobalSearch = useAppStore(
+    (s) => getContributions(s.apps, 'ui.global-search.panel').length > 0,
+  );
   const openSearch = useGlobalSearchStore((s) => s.openSearch);
 
   return (

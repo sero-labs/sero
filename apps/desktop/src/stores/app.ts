@@ -1,13 +1,10 @@
 export { useAppStore, type AppState } from './app/state';
 export {
   getDiscoveredApps,
-  getExplorerViewContributionApps,
-  getSearchContributionApps,
-  getWorkspaceCreationContributionApps,
+  getContributions,
   getSidebarApps,
-  getTitleBarContributionApps,
   type AppEntry,
-  type WorkspaceCreationContributionApp,
+  type ResolvedContribution,
   type Theme,
 } from './app/shared';
 export { loadLayout } from './app/layout-hydration';

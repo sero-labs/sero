@@ -155,7 +155,14 @@ provider-specific auth and model UI without hardcoded app-level logic:
       "stateFile": ".sero/apps/todo/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "TodoApp",
-      "search": { "component": "TodoSearch", "description": "Search todos" },
+      "contributes": {
+        "components": [{
+          "id": "search",
+          "extensionPoint": "ui.global-search.panel",
+          "component": "TodoSearch",
+          "description": "Search todos"
+        }]
+      },
       "devPort": 5174
     },
     "plugin": {
@@ -184,6 +191,28 @@ provider-specific auth and model UI without hardcoded app-level logic:
   }
 }
 ```
+
+### Extension-point registry
+
+Electron is the trust boundary for `sero.app.contributes`. It validates common
+fields, resolves the host-owned extension point, validates point-specific
+fields, rejects duplicate IDs, and returns canonical `contributions` plus
+non-fatal diagnostics on `SeroAppManifest`.
+
+The renderer calls the typed `getContributions(apps, extensionPoint)` query.
+Every result contains the owning app, manifest, contribution, and the stable
+`<app-id>:<contribution-id>` key. Host-incompatible apps are excluded.
+
+All federated contributions use `FederatedContributionMount`. It owns Module
+Federation resolution, app runtime context, style scope, suspense, and an error
+boundary. Each host surface still owns layout and composition. Host controls
+use the shared action executor, which can invoke only an app-local tool and
+always lets host context override static manifest parameters.
+
+Legacy `search`, `explorerView`, `titlebar`, `widgets`, and
+`workspaceCreation` declarations are parsed only in Electron and normalised
+into this registry. Explicit canonical entries take precedence. Renderer code
+does not read the legacy fields.
 
 UI plugins use `@sero-ai/plugin-vite` after Tailwind:
 

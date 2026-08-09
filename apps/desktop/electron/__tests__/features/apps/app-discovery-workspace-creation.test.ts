@@ -46,12 +46,11 @@ describe('workspace creation app contribution discovery', () => {
 
       const manifest = await readAppManifestFromPackagePath(packageDir);
 
-      expect(manifest?.workspaceCreation).toEqual({
-        label: 'Enable indexing',
-        defaultEnabled: true,
-        tool: 'enable_index',
-        params: { mode: 'full' },
-      });
+      expect(manifest?.contributions.controls).toEqual([expect.objectContaining({
+        extensionPoint: 'workspace.create.option',
+        control: { type: 'switch', label: 'Enable indexing', defaultValue: true },
+        action: { type: 'tool', tool: 'enable_index', params: { mode: 'full' } },
+      })]);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -66,7 +65,7 @@ describe('workspace creation app contribution discovery', () => {
       await writeApp(packageDir, { defaultEnabled: true });
       const { readAppManifestFromPackagePath } = await import('@electron/features/apps/discovery');
 
-      expect((await readAppManifestFromPackagePath(packageDir))?.workspaceCreation).toBeNull();
+      expect((await readAppManifestFromPackagePath(packageDir))?.contributions.controls).toEqual([]);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -85,17 +84,18 @@ describe('workspace creation app contribution discovery', () => {
       });
       const { readAppManifestFromPackagePath } = await import('@electron/features/apps/discovery');
 
-      expect((await readAppManifestFromPackagePath(packageDir))?.workspaceCreation).toEqual({
-        label: 'Enable indexing',
-        defaultEnabled: false,
-        tool: 'enable_index',
-        params: undefined,
-      });
+      expect(
+        (await readAppManifestFromPackagePath(packageDir))?.contributions.controls,
+      ).toEqual([expect.objectContaining({
+        extensionPoint: 'workspace.create.option',
+        control: { type: 'switch', label: 'Enable indexing', defaultValue: false },
+        action: { type: 'tool', tool: 'enable_index', params: undefined },
+      })]);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
-  it('suppresses the contribution with the rest of the app UI', async () => {
+  it('retains the host-rendered control when app UI is suppressed', async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-workspace-creation-suppressed-'));
     process.env.SERO_HOME_OVERRIDE = tempRoot;
     const packageDir = path.join(tempRoot, 'plugin');
@@ -109,10 +109,9 @@ describe('workspace creation app contribution discovery', () => {
 
       const manifest = await readAppManifestFromPackagePath(packageDir, { suppressUi: true });
 
-      expect(manifest?.workspaceCreation).toBeNull();
+      expect(manifest?.contributions.controls).toHaveLength(1);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
-
 });

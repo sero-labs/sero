@@ -14,8 +14,8 @@ import type {
   AvailableWidget,
   WidgetManifest,
 } from '@/types/dashboard';
-import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
+import { getContributions, hasFederatedUi, type AppEntry } from '@/stores/app/shared';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -136,24 +136,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
 /** Resolve all available widgets from app manifests and runtime registration. */
 export function getAvailableWidgets(
-  manifests: SeroAppManifest[],
+  apps: AppEntry[],
   runtimeWidgets: RuntimeWidget[] = [],
 ): AvailableWidget[] {
   const results = new Map<string, AvailableWidget>();
-  const manifestsById = new Map(manifests.map((manifest) => [manifest.id, manifest]));
+  const manifestsById = new Map(
+    apps.flatMap((app) => app.manifest ? [[app.id, app.manifest] as const] : []),
+  );
 
-  for (const manifest of manifests) {
-    if (!manifest.component || !manifest.widgets || manifest.widgets.length === 0) continue;
-    for (const widget of manifest.widgets) {
-      results.set(`${manifest.id}:${widget.id}`, {
-        appId: manifest.id,
-        appName: manifest.name,
-        appIcon: manifest.icon,
-        manifest: widget,
-        devPort: manifest.devPort,
-        source: 'manifest',
-      });
-    }
+  for (const resolved of getContributions(apps, 'ui.dashboard.widget')) {
+    if (!hasFederatedUi(resolved.manifest)) continue;
+    results.set(resolved.key, {
+      appId: resolved.appId,
+      appName: resolved.manifest.name,
+      appIcon: resolved.manifest.icon,
+      manifest: resolved.contribution,
+      devPort: resolved.manifest.devPort,
+      source: 'manifest',
+    });
   }
 
   for (const widget of runtimeWidgets) {

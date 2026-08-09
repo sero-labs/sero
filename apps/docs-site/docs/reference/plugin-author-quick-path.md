@@ -86,13 +86,19 @@ Important fields to understand:
 | `sero.app.stateFile` | plugin-owned state file name/path hint |
 | `sero.app.ui` / `component` / `devPort` | UI remote entry, exposed component, and dev server port |
 | `sero.app.runtime` | optional background runtime entry |
-| `sero.app.widgets` | optional static widget metadata |
+| `sero.app.contributes` | optional federated components and host-rendered controls at named extension points |
 | `sero.plugin.minSeroVersion` | minimum host version expectation |
 | `sero.plugin.requiredHostCapabilities` | host seams your plugin needs |
 | `sero.plugin.bridgeTools` | whether extension tools bridge to CLI commands |
 
 Keep manifest requirements specific. Unknown or unavailable host capabilities
 should be treated as unmet.
+
+`sero.app.component` is the main app surface. A static widget, Search panel,
+Explorer view, or title-bar control is a separate component contribution. A
+workspace creation switch is a control contribution. Use the canonical syntax
+in [Plugin Extension Points](/reference/plugin-extension-points); the old
+surface-specific fields are compatibility syntax only.
 
 ## Shared state and types
 

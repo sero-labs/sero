@@ -121,7 +121,8 @@ function createManifest(id: string, packagePath: string): SeroAppManifest {
     isPlugin: true,
     plugin: null,
     hostCompatibility: null,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
   };
 }
 

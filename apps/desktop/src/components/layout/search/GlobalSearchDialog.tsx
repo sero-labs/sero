@@ -1,7 +1,7 @@
 /**
  * GlobalSearchDialog, overlay hosting app-contributed global-search panels.
  *
- * Apps declare a panel via `sero.app.search` in their manifest; this dialog
+ * Apps contribute panels to `ui.global-search.panel`; this dialog
  * mounts the federated component(s). With multiple contributions the panels
  * are switchable via tabs. Opened from the main sidebar and the ⌘K menu.
  */
@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero-ai/ui/components
 import { XIcon } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { SERO_GLOBAL_SEARCH_CLOSE_EVENT } from '@sero-ai/app-runtime';
-import { getSearchContributionApps, useAppStore, type AppEntry } from '@/stores/app';
+import { getContributions, useAppStore, type ResolvedContribution } from '@/stores/app';
 import { useGlobalSearchStore } from '@/stores/global-search';
 import { getAppIcon } from '@/lib/app-icons';
 import { SearchContributionMount } from './SearchContributionMount';
@@ -26,8 +26,8 @@ import { SearchContributionMount } from './SearchContributionMount';
 export function GlobalSearchDialog() {
   const open = useGlobalSearchStore((s) => s.open);
   const setOpen = useGlobalSearchStore((s) => s.setOpen);
-  const activeAppId = useGlobalSearchStore((s) => s.activeAppId);
-  const setActiveAppId = useGlobalSearchStore((s) => s.setActiveAppId);
+  const activeContributionKey = useGlobalSearchStore((s) => s.activeContributionKey);
+  const setActiveContributionKey = useGlobalSearchStore((s) => s.setActiveContributionKey);
   const apps = useAppStore((s) => s.apps);
 
   // Contributed panels ask to dismiss the overlay via this window event (e.g.
@@ -38,12 +38,16 @@ export function GlobalSearchDialog() {
     return () => window.removeEventListener(SERO_GLOBAL_SEARCH_CLOSE_EVENT, close);
   }, [setOpen]);
 
-  const contributions = getSearchContributionApps(apps);
+  const contributions = getContributions(apps, 'ui.global-search.panel');
   if (contributions.length === 0) return null;
+  const contributionCountByApp = contributions.reduce<Map<string, number>>((counts, resolved) => {
+    counts.set(resolved.app.id, (counts.get(resolved.app.id) ?? 0) + 1);
+    return counts;
+  }, new Map());
 
-  const activeId = contributions.some((app) => app.id === activeAppId)
-    ? activeAppId!
-    : contributions[0].id;
+  const activeKey = contributions.some((resolved) => resolved.key === activeContributionKey)
+    ? activeContributionKey!
+    : contributions[0].key;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -63,25 +67,29 @@ export function GlobalSearchDialog() {
           <>
             <SearchHeaderBar />
             <div className="min-h-0 flex-1">
-              <SearchContributionMount manifest={contributions[0].manifest!} />
+              <SearchContributionMount resolved={contributions[0]} />
             </div>
           </>
         ) : (
           <Tabs
-            value={activeId}
-            onValueChange={setActiveAppId}
+            value={activeKey}
+            onValueChange={setActiveContributionKey}
             className="flex min-h-0 flex-1 flex-col gap-0"
           >
             <SearchHeaderBar>
               <TabsList>
-                {contributions.map((app) => (
-                  <SearchTabTrigger key={app.id} app={app} />
+                {contributions.map((resolved) => (
+                  <SearchTabTrigger
+                    key={resolved.key}
+                    resolved={resolved}
+                    showContributionId={(contributionCountByApp.get(resolved.app.id) ?? 0) > 1}
+                  />
                 ))}
               </TabsList>
             </SearchHeaderBar>
-            {contributions.map((app) => (
-              <TabsContent key={app.id} value={app.id} className="min-h-0 flex-1">
-                <SearchContributionMount manifest={app.manifest!} />
+            {contributions.map((resolved) => (
+              <TabsContent key={resolved.key} value={resolved.key} className="min-h-0 flex-1">
+                <SearchContributionMount resolved={resolved} />
               </TabsContent>
             ))}
           </Tabs>
@@ -103,12 +111,19 @@ function SearchHeaderBar({ children }: { children?: ReactNode }) {
   );
 }
 
-function SearchTabTrigger({ app }: { app: AppEntry }) {
-  const Icon = getAppIcon(app.icon);
+function SearchTabTrigger({
+  resolved,
+  showContributionId,
+}: {
+  resolved: ResolvedContribution<'ui.global-search.panel'>;
+  showContributionId: boolean;
+}) {
+  const Icon = getAppIcon(resolved.app.icon);
   return (
-    <TabsTrigger value={app.id}>
+    <TabsTrigger value={resolved.key}>
       <Icon className="size-3.5" />
-      {app.label}
+      {resolved.app.label}
+      {showContributionId ? ` (${resolved.contribution.id})` : null}
     </TabsTrigger>
   );
 }

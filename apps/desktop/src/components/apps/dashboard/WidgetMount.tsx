@@ -6,14 +6,13 @@
  * useAppState, useAgentPrompt, and other app-runtime hooks.
  */
 
-import { memo, Suspense, useId } from 'react';
+import { memo } from 'react';
 import { AppProvider } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import type { AvailableWidget, DashboardWidgetInstance } from '@/types/dashboard';
-import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero-ai/ui/components/ui/spinner';
-import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 import { useAppRuntimeMount } from '@/components/apps/useAppRuntimeMount';
+import { FederatedContributionMount } from '@/components/apps/FederatedContributionMount';
 
 interface WidgetMountProps {
   widget: DashboardWidgetInstance;
@@ -27,56 +26,47 @@ interface WidgetMountProps {
  * the expensive federated widget render tree.
  */
 export const WidgetMount = memo(function WidgetMount({ widget, manifest, widgetMeta }: WidgetMountProps) {
-  const { contextValue, status } = useAppRuntimeMount(manifest);
-  const surfaceId = useId();
-
-  if (status === 'loading-workspace') {
-    return <WidgetLoading />;
-  }
-
-  if (status === 'missing-workspace') {
-    return <WidgetFallback message="No workspace selected" />;
-  }
-
   if (widget.source === 'runtime') {
-    const RuntimeComponent = widgetMeta?.runtimeComponent;
-    if (!RuntimeComponent) {
-      return <WidgetFallback message="Widget unavailable" />;
-    }
-
-    return (
-      <AppProvider value={contextValue}>
-        <RuntimeComponent />
-      </AppProvider>
-    );
-  }
-
-  if (!manifest.component) {
-    return <WidgetFallback message="Widget unavailable" />;
-  }
-
-  const LazyComponent = getFederatedComponent(
-    manifest.id,
-    widget.component,
-    manifest.devPort,
-    manifest.remoteEntryOverride,
-  );
-  if (!LazyComponent) {
-    return <WidgetFallback message="Widget unavailable" />;
+    return <RuntimeWidgetMount manifest={manifest} widgetMeta={widgetMeta} />;
   }
 
   return (
-    <AppProvider value={contextValue}>
-      <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
-        <div data-sero-plugin={manifest.id} className="contents">
-          <Suspense fallback={<WidgetLoading />}>
-            <LazyComponent />
-          </Suspense>
-        </div>
-      </PluginStyleScope>
-    </AppProvider>
+    <FederatedContributionMount
+      manifest={manifest}
+      contribution={{
+        id: widget.widgetId,
+        extensionPoint: 'ui.dashboard.widget',
+        component: widgetMeta?.manifest.component ?? widget.component,
+        name: widgetMeta?.manifest.name ?? widget.widgetId,
+        defaultSize: widgetMeta?.manifest.defaultSize ?? { w: 2, h: 2 },
+      }}
+      contributionKey={`${manifest.id}:${widget.widgetId}`}
+      loading={<WidgetLoading />}
+      unavailable={<WidgetFallback message="Widget unavailable" />}
+      missingWorkspace={<WidgetFallback message="No workspace selected" />}
+    />
   );
 });
+
+function RuntimeWidgetMount({
+  manifest,
+  widgetMeta,
+}: {
+  manifest: SeroAppManifest;
+  widgetMeta: AvailableWidget | null;
+}) {
+  const { contextValue, status } = useAppRuntimeMount(manifest);
+  if (status === 'loading-workspace') return <WidgetLoading />;
+  if (status === 'missing-workspace') return <WidgetFallback message="No workspace selected" />;
+
+  const RuntimeComponent = widgetMeta?.runtimeComponent;
+  if (!RuntimeComponent) return <WidgetFallback message="Widget unavailable" />;
+  return (
+    <AppProvider value={contextValue}>
+      <RuntimeComponent />
+    </AppProvider>
+  );
+}
 
 function WidgetFallback({ message }: { message: string }) {
   return (

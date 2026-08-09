@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-import type { WorkspaceCreationContributionApp } from '@/stores/app';
+import type { ResolvedContribution } from '@/stores/app';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { executeContributionAction } from '@/lib/contribution-actions';
 
 export interface WorkspaceSetupFailure {
   workspace: WorkspaceInfo;
@@ -12,32 +13,28 @@ export async function runWorkspaceSetup({
   selections,
   workspace,
 }: {
-  apps: WorkspaceCreationContributionApp[];
+  apps: ResolvedContribution<'workspace.create.option'>[];
   selections: Record<string, boolean>;
   workspace: WorkspaceInfo;
 }): Promise<string | null> {
-  const enabledApps = apps.filter((app) => (
-    selections[app.id]
-      ?? app.manifest.workspaceCreation.defaultEnabled
-      ?? false
+  const enabledContributions = apps.filter((resolved) => (
+    selections[resolved.key] ?? resolved.contribution.control.defaultValue
   ));
-  const results = await Promise.allSettled(enabledApps.map((app) => Promise.resolve().then(() => {
-    const contribution = app.manifest.workspaceCreation;
-    return window.sero.appAgent.invokeTool(app.id, workspace.id, contribution.tool, {
-      ...contribution.params,
-      workspaceId: workspace.id,
-      workspaceName: workspace.name,
-      workspacePath: workspace.path,
-    });
-  })));
+  const results = await Promise.all(enabledContributions.map((resolved) => (
+    executeContributionAction(
+      resolved.appId,
+      workspace.id,
+      resolved.contribution.action,
+      {
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        workspacePath: workspace.path,
+      },
+    )
+  )));
   const failures = results.flatMap((result, index) => {
-    const label = enabledApps[index].label;
-    if (result.status === 'rejected') {
-      const message = result.reason instanceof Error
-        ? result.reason.message
-        : String(result.reason);
-      return [`${label}: ${message}`];
-    }
+    const label = enabledContributions[index].app.label;
+    if (!result.ok) return [`${label}: ${result.error.message}`];
     if (result.value.isError) {
       return [`${label}: ${result.value.text || 'Setup failed.'}`];
     }
@@ -47,7 +44,7 @@ export async function runWorkspaceSetup({
 }
 
 export function useWorkspaceSetup(
-  apps: WorkspaceCreationContributionApp[],
+  apps: ResolvedContribution<'workspace.create.option'>[],
   selections: Record<string, boolean>,
 ) {
   const [failures, setFailures] = useState<Record<string, WorkspaceSetupFailure>>({});
@@ -95,4 +92,3 @@ export function useWorkspaceSetup(
     dismissActiveFailure,
   };
 }
-

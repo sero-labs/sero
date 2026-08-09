@@ -28,9 +28,10 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "WebApp",
       "devPort": 5195,
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "activity",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Web Activity",
           "component": "WebWidget",
           "description": "Recent web searches and fetches",
@@ -46,8 +47,8 @@
             "w": 4,
             "h": 3
           }
-        }
-      ]
+        }]
+      }
     },
     "plugin": {
       "category": "productivity",

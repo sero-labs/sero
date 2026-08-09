@@ -359,99 +359,85 @@ For the complete feature behavior, recovery model, and terminology, see
 The standard Sero app manifest used by all Sero apps and plugins. For a
 step-by-step guide to building a new app, use the `sero-plugin` skill.
 
-#### `sero.app.search` (optional)
+#### `sero.app.contributes` (optional)
 
-Contribute a global-search panel to the shell. The host mounts the named
-federated component in the global search overlay, reachable from the main
-sidebar and the ⌘K menu; the panel renders its own input and results, so all
-search logic stays inside the plugin.
+The primary `sero.app.component` is the app's own main surface. Additional UI
+uses `contributes.components`. Standard controls rendered by the host use
+`contributes.controls`. A plugin can only use an extension point defined by the
+host.
+
+Every entry needs an `id` that is unique across both arrays in the app. The
+host uses `<app-id>:<contribution-id>` as its stable global identity.
+
+| Extension point | Kind | Point-specific fields | Host surface |
+| --- | --- | --- | --- |
+| `ui.global-search.panel` | Component | `description?` | Global Search panel or tab |
+| `ui.explorer.view` | Component | `label?`, `icon?` | Explorer activity item and main view |
+| `ui.titlebar.control` | Component | None | Inline title-bar control |
+| `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?` | Dashboard grid |
+| `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
+
+Component entries also require `extensionPoint` and `component`. The component
+must be exposed by the plugin's Module Federation bundle. It runs inside the
+standard `AppProvider` and plugin style scope.
 
 ```json
-"search": {
-  "component": "MySearchPanel",
-  "description": "Search my data"
+"contributes": {
+  "components": [
+    {
+      "id": "search",
+      "extensionPoint": "ui.global-search.panel",
+      "component": "MySearchPanel",
+      "description": "Search my data"
+    },
+    {
+      "id": "summary",
+      "extensionPoint": "ui.dashboard.widget",
+      "component": "MySummaryWidget",
+      "name": "Summary",
+      "defaultSize": { "w": 2, "h": 2 }
+    }
+  ]
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `component` | string | Yes | Exported component name from the module federation remote. Expose it in `vite.config.ts` alongside the app component. |
-| `description` | string | No | Short description shown in search entry points. |
-
-The component is wrapped in `AppProvider` like the main app component, so all
-`@sero-ai/app-runtime` hooks (`useAppState`, `useAppTools`, …) work as usual.
-
-#### `sero.app.workspaceCreation` (optional)
-
-Contribute a switch to the **Create New**, **Clone Repository**, and **Import
-Existing** forms. When the switch is on, the host invokes the declared
-app-local tool after it adds the workspace.
+Control contributions contain data only. The host renders the control and can
+execute only an allowlisted app-local tool action.
 
 ```json
-"workspaceCreation": {
-  "label": "Enable indexing",
-  "defaultEnabled": true,
-  "tool": "enable_index",
-  "params": { "mode": "full" }
+"contributes": {
+  "controls": [
+    {
+      "id": "workspace-indexing",
+      "extensionPoint": "workspace.create.option",
+      "control": {
+        "type": "switch",
+        "label": "Enable indexing",
+        "defaultValue": true
+      },
+      "action": {
+        "type": "tool",
+        "tool": "enable_index",
+        "params": { "mode": "full" }
+      }
+    }
+  ]
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `label` | string | Yes | Text shown next to the switch. |
-| `defaultEnabled` | boolean | No | Initial switch state. Defaults to `false`. |
-| `tool` | string | Yes | App-local extension tool to invoke after the workspace is added. |
-| `params` | object | No | Static arguments sent to the tool. |
+The workspace option adds `workspaceId`, `workspaceName`, and `workspacePath`
+to the action arguments. Host values override static `params`. A failed
+optional action does not roll back a workspace that was created successfully.
 
-The host adds `workspaceId`, `workspaceName`, and `workspacePath` to the tool
-arguments. Host values take precedence over static `params`. Create, clone,
-and import still finish if optional plugin setup fails.
+Electron validates contributions. An unknown or malformed optional entry is
+ignored and recorded as a diagnostic. It does not disable other plugin
+features. Use `minSeroVersion` when the plugin cannot work without an extension
+point added by a newer host.
 
-#### `sero.app.explorerView` (optional)
-
-Contribute a view to the Explorer. The host adds an activity-bar entry and
-mounts the named component in the Explorer's main area, where it gets the full
-width — the host's file-tree sidebar is hidden while your view is showing.
-
-```json
-"explorerView": {
-  "component": "MyExplorerView",
-  "label": "Git",
-  "icon": "git-branch"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `component` | string | Yes | Exported component name from the module federation remote. |
-| `label` | string | No | Activity-bar label. Defaults to the app's name. |
-| `icon` | string | No | Lucide icon name. Defaults to the app's icon. |
-
-The view is identified by your app id, and unmounts when the user switches
-away, so keep any state you want to survive that in your own store rather than
-in component state. If your plugin isn't loaded, the host keeps the selection
-and shows a placeholder — the view comes back when the plugin does.
-
-Declare `"requiredHostCapabilities": ["ui.explorerView"]` so older hosts report
-the plugin as unsupported instead of silently dropping the view.
-
-#### `sero.app.titlebar` (optional)
-
-Contribute a control to the right side of the window title bar.
-
-```json
-"titlebar": { "component": "MyTitleBarControl" }
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `component` | string | Yes | Exported component name from the module federation remote. |
-
-Keep it small — a button or two. The title bar is 40px tall and shared with the
-host's own controls. A popover built from `@sero-ai/ui` works here: it portals
-into your plugin's style scope, so it stays correctly themed.
-
-Declare `"requiredHostCapabilities": ["ui.titlebar"]`.
+The old `search`, `explorerView`, `titlebar`, `widgets`, and
+`workspaceCreation` fields remain compatibility syntax for installed external
+plugins. Electron normalises them into the canonical registry. New plugins
+must use `sero.app.contributes`.
 
 ### `sero.plugin` (required for plugins)
 

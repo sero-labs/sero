@@ -25,26 +25,30 @@
       "component": "OrchestratorApp",
       "devPort": 5198,
       "runtime": "./runtime/index.ts",
-      "widgets": [
-        {
-          "id": "loops",
-          "name": "Loops",
-          "component": "LoopsWidget",
-          "description": "Running, blocked and active loops at a glance",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
-        },
-        {
-          "id": "attention",
-          "name": "Needs You",
-          "component": "AttentionWidget",
-          "description": "Questions and suggestions loops are waiting on",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+      "contributes": {
+        "components": [
+          {
+            "id": "loops",
+            "extensionPoint": "ui.dashboard.widget",
+            "name": "Loops",
+            "component": "LoopsWidget",
+            "description": "Running, blocked and active loops at a glance",
+            "defaultSize": { "w": 2, "h": 2 },
+            "minSize": { "w": 2, "h": 2 },
+            "maxSize": { "w": 4, "h": 3 }
+          },
+          {
+            "id": "attention",
+            "extensionPoint": "ui.dashboard.widget",
+            "name": "Needs You",
+            "component": "AttentionWidget",
+            "description": "Questions and suggestions loops are waiting on",
+            "defaultSize": { "w": 2, "h": 2 },
+            "minSize": { "w": 2, "h": 2 },
+            "maxSize": { "w": 4, "h": 3 }
+          }
+        ]
+      }
     },
     "plugin": {
       "category": "developer-tools",

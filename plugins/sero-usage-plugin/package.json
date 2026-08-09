@@ -29,17 +29,18 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "UsageApp",
       "devPort": 5189,
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "usage-summary",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Usage",
           "component": "UsageWidget",
           "description": "AI usage and cost summary",
           "defaultSize": { "w": 2, "h": 2 },
           "minSize": { "w": 1, "h": 1 },
           "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+        }]
+      }
     },
     "plugin": {
       "category": "productivity",

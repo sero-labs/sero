@@ -4,6 +4,7 @@ import { act, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import type { SeroAppManifest } from '@/types/ipc';
+import type { DashboardWidgetContribution } from '@sero-ai/common';
 import { useAppStore } from '@/stores/app';
 import { useDashboardStore } from '@/stores/dashboard';
 
@@ -66,7 +67,7 @@ import { Dashboard } from './Dashboard';
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-function createManifest(id: string, widgets: SeroAppManifest['widgets'] = []): SeroAppManifest {
+function createManifest(id: string, widgets: DashboardWidgetContribution[] = []): SeroAppManifest {
   return {
     id,
     name: id,
@@ -84,7 +85,8 @@ function createManifest(id: string, widgets: SeroAppManifest['widgets'] = []): S
     remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
-    widgets,
+    contributions: { components: widgets, controls: [] },
+    contributionDiagnostics: [],
   };
 }
 
@@ -165,6 +167,7 @@ describe('Dashboard', () => {
           manifest: createManifest('notes', [
             {
               id: 'summary',
+              extensionPoint: 'ui.dashboard.widget',
               name: 'Summary',
               component: 'NotesWidget',
               defaultSize: { w: 2, h: 2 },
@@ -212,6 +215,7 @@ describe('Dashboard', () => {
           manifest: createManifest('notes', [
             {
               id: 'summary',
+              extensionPoint: 'ui.dashboard.widget',
               name: 'Summary',
               component: 'NotesWidget',
               defaultSize: { w: 2, h: 2 },

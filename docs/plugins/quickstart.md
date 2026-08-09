@@ -56,6 +56,8 @@ This is the contract surface for both Pi and Sero.
 It defines:
 - `pi.extensions` — the extension entrypoint
 - `sero.app` — app identity, UI entry, component export, state file, scope
+- `sero.app.contributes` — optional components and host-rendered controls for
+  named extension points
 - `sero.plugin` — category, tags, compatibility metadata
 - scripts such as `dev`, `build`, and `typecheck`
 
@@ -91,6 +93,12 @@ A minimal example shape looks like:
   }
 }
 ```
+
+`component` is the plugin's main app surface. Extra federated components and
+host-rendered controls belong under `sero.app.contributes`. Do not use the old
+`widgets`, `search`, `explorerView`, `titlebar`, or `workspaceCreation` fields
+in a new plugin. See the manifest reference in
+[`guide.md`](./guide.md#seroappcontributes-optional).
 
 ### `extension/index.ts`
 

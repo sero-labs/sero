@@ -9,6 +9,7 @@ A plugin can provide:
 - a Pi extension with tools, commands, and hooks
 - optional runtime/background behavior
 - optional provider metadata for model integration
+- optional components and host-rendered controls contributed to named extension points
 
 Plugins that use Pi SDK types must declare Pi packages as peers with a minimum
 version of `0.83.0`. Use Pi `0.83.0` as the development version. Keep Pi
@@ -84,6 +85,10 @@ For the shortest author-oriented path through manifests, app-runtime hooks,
 file-backed state, host capabilities, and Module Federation, see
 [Plugin Author Quick Path](/reference/plugin-author-quick-path). For the compact
 hook/API table, see [App Runtime Reference](/reference/app-runtime).
+
+For the canonical manifest contract for Search, Explorer, title bar,
+Dashboard, and workspace creation, see
+[Plugin Extension Points](/reference/plugin-extension-points).
 
 For the published starter walkthrough, see
 [Plugin Quickstart](/reference/plugin-quickstart).

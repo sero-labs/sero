@@ -40,6 +40,12 @@ Study these pieces first:
 - `ui/DailyQuote.tsx` — one mounted React component
 - `vite.config.ts` — Module Federation remote config with `base: './'`
 
+`sero.app.component` is the main app surface. If the plugin also adds Search,
+Explorer, title-bar, Dashboard, or workspace-creation UI, declare it with the
+canonical `sero.app.contributes` syntax in
+[Plugin Extension Points](/reference/plugin-extension-points). Do not copy a
+legacy surface-specific field into a new plugin.
+
 ## Minimal author commands
 
 From inside the starter plugin repo:
@@ -65,6 +71,7 @@ A good first plugin has:
 For the full packaging, install, compatibility, and local-development story,
 continue with:
 - [Plugins](/reference/plugins)
+- [Plugin Extension Points](/reference/plugin-extension-points)
 - [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
 - [`docs/plugins/guide.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/guide.md) in the repo source material
 - [`docs/plugins/host-compatibility.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/host-compatibility.md) in the repo source material

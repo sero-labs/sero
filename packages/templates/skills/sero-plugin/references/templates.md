@@ -60,6 +60,17 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
       "stateFile": ".sero/apps/myapp/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "MyApp",
+      "contributes": {
+        "components": [
+          {
+            "id": "summary",
+            "extensionPoint": "ui.dashboard.widget",
+            "component": "MyAppWidget",
+            "name": "Summary",
+            "defaultSize": { "w": 2, "h": 2 }
+          }
+        ]
+      },
       "devPort": 5175
     },
     "plugin": {
@@ -104,10 +115,54 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
 - Treat monorepo `packages/*` folders as shared package sources consumed by external plugins via published package names — do NOT point an external plugin at `../../packages/*` source paths, and do NOT move plugin-specific domain models into `packages/*`
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
+- `component` is the main app surface. Put extra components and standard host
+  controls under `contributes.components` and `contributes.controls`. Use only
+  host-defined extension points. Never generate a legacy contribution field
+  for a new plugin.
 - `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
 - `pi.prompts` and `pi.skills` are optional, but when a plugin ships prompt templates or skills they must be declared there — folders alone are not discovered
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - For built-in release packaging, `sero.plugin.bundleExtensions: true` ships compiled JS `pi.extensions` instead of raw source. Extension dependencies are bundled and pruned from `dist/plugin/package.json` unless listed in `sero.plugin.extensionExternals`.
+
+### Contribution templates
+
+Use only host-defined extension points. Component contributions name a Module
+Federation export. Control contributions contain host-rendered control data and
+an app-local tool action.
+
+```json
+"contributes": {
+  "components": [
+    {
+      "id": "explorer-view",
+      "extensionPoint": "ui.explorer.view",
+      "component": "MyExplorerView",
+      "label": "My view",
+      "icon": "box"
+    }
+  ],
+  "controls": [
+    {
+      "id": "workspace-setup",
+      "extensionPoint": "workspace.create.option",
+      "control": {
+        "type": "switch",
+        "label": "Set up My App",
+        "defaultValue": false
+      },
+      "action": {
+        "type": "tool",
+        "tool": "myapp_setup",
+        "params": { "mode": "default" }
+      }
+    }
+  ]
+}
+```
+
+Supported component points are `ui.global-search.panel`, `ui.explorer.view`,
+`ui.titlebar.control`, and `ui.dashboard.widget`. The supported control point
+is `workspace.create.option`.
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
 - Add `requiredHostCapabilities` only for seams the plugin actually needs:

@@ -64,7 +64,8 @@ function createManifest(id: string): SeroAppManifest {
     remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
   };
 }
 

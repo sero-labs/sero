@@ -152,7 +152,8 @@ function createManifest(
     isPlugin: true,
     plugin: null,
     hostCompatibility: null,
-    widgets: [],
+    contributions: { components: [], controls: [] },
+    contributionDiagnostics: [],
     ...overrides,
   };
 }

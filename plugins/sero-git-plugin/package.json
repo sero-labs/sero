@@ -28,34 +28,42 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GitApp",
       "devPort": 5194,
-      "explorerView": {
-        "component": "ExplorerGitView",
-        "label": "Git",
-        "icon": "git-branch"
-      },
-      "titlebar": {
-        "component": "GitTitleBar"
-      },
-      "widgets": [
-        {
-          "id": "status",
-          "name": "Repo Status",
-          "component": "GitStatusWidget",
-          "description": "Current branch, sync state and working tree changes",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
-        },
-        {
-          "id": "commits",
-          "name": "Recent Commits",
-          "component": "GitCommitsWidget",
-          "description": "Latest commits on the current branch",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+      "contributes": {
+        "components": [
+          {
+            "id": "explorer-view",
+            "extensionPoint": "ui.explorer.view",
+            "component": "ExplorerGitView",
+            "label": "Git",
+            "icon": "git-branch"
+          },
+          {
+            "id": "titlebar-control",
+            "extensionPoint": "ui.titlebar.control",
+            "component": "GitTitleBar"
+          },
+          {
+            "id": "status",
+            "extensionPoint": "ui.dashboard.widget",
+            "name": "Repo Status",
+            "component": "GitStatusWidget",
+            "description": "Current branch, sync state and working tree changes",
+            "defaultSize": { "w": 2, "h": 2 },
+            "minSize": { "w": 2, "h": 2 },
+            "maxSize": { "w": 4, "h": 3 }
+          },
+          {
+            "id": "commits",
+            "extensionPoint": "ui.dashboard.widget",
+            "name": "Recent Commits",
+            "component": "GitCommitsWidget",
+            "description": "Latest commits on the current branch",
+            "defaultSize": { "w": 2, "h": 2 },
+            "minSize": { "w": 2, "h": 2 },
+            "maxSize": { "w": 4, "h": 3 }
+          }
+        ]
+      }
     },
     "plugin": {
       "category": "developer-tools",

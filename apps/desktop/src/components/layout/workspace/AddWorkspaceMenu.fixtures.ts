@@ -36,10 +36,22 @@ export const graphifyManifest: SeroAppManifest = {
   remoteEntryOverride: null,
   packagePath: '/tmp/graphify',
   isPlugin: true,
-  widgets: [],
-  workspaceCreation: {
-    label: 'Enable Graphify indexing',
-    defaultEnabled: true,
-    tool: 'graphify_index',
+  contributions: {
+    components: [],
+    controls: [{
+      id: 'workspace-indexing',
+      extensionPoint: 'workspace.create.option',
+      control: {
+        type: 'switch',
+        label: 'Enable Graphify indexing',
+        defaultValue: true,
+      },
+      action: {
+        type: 'tool',
+        tool: 'graphify_index',
+        params: { action: 'enable' },
+      },
+    }],
   },
+  contributionDiagnostics: [],
 };
