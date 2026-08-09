@@ -229,7 +229,7 @@ export function AddWorkspaceMenu() {
       <PopoverContent
         align="end"
         side="bottom"
-        className="w-64 p-0"
+        className="w-72 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {view === 'pick' && (

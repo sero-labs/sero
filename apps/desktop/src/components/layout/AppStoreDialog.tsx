@@ -219,7 +219,7 @@ export function AppStoreDialog({
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search installed apps..."
                   autoFocus
-                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
+                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)]"
                 />
               </div>
             </div>
@@ -259,7 +259,7 @@ export function AppStoreDialog({
                   value={discoverQuery}
                   onChange={(event) => handleDiscoverQueryChange(event.target.value)}
                   placeholder="Search public plugins..."
-                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
+                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)]"
                 />
               </div>
             </div>
