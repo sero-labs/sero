@@ -25,10 +25,12 @@ export function ConnectExistingView({
   workspace,
   onBack,
   onConnected,
+  onBusyChange,
 }: {
   workspace: WorkspaceInfo;
   onBack: () => void;
   onConnected: (url: string, warning?: string) => void;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'input' });
@@ -41,8 +43,10 @@ export function ConnectExistingView({
     if (!trimmedUrl || busy) return;
     setError(null);
     setPhase({ kind: 'busy', label: importMode === 'force' ? 'Importing…' : 'Connecting…' });
+    onBusyChange(true);
 
     const result = await connectOrigin({ workspaceId: workspace.id, url: trimmedUrl, importMode });
+    onBusyChange(false);
     if (!result.ok) {
       setError(result.message);
       setPhase({ kind: 'input' });

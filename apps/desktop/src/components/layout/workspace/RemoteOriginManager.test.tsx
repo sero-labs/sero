@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConnectRemoteResult } from '@sero-ai/common';
 import type { GitHubAuthStatus, GitHubDeviceFlowEvent } from '@/types/electron-services';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { resetGitHubAuthStore, useGitHubAuthStore } from '@/stores/github-auth';
@@ -407,4 +408,42 @@ describe('RemoteOriginManager', () => {
 
     warn.mockRestore();
   });
+  it('cannot close while an existing repository import is running', async () => {
+    let finishConnect: (result: ConnectRemoteResult) => void = () => {};
+    seroBridge.vcs.connectRemote.mockImplementation(() => new Promise((resolve) => {
+      finishConnect = resolve;
+    }));
+    const onOpenChange = vi.fn();
+    await act(async () => {
+      root?.render(
+        <RemoteOriginManager
+          open
+          onOpenChange={onOpenChange}
+          workspace={workspace}
+        />,
+      );
+    });
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Connect existing repository'));
+    await clickButton('Connect existing repository');
+    await setInputValue('remote-url', 'https://github.com/octocat/workspace-1.git');
+    await clickButton('Connect Repository');
+
+    expect(findButton('Connecting…').disabled).toBe(true);
+    expect(document.querySelector('[data-slot="dialog-close"]')).toBeNull();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishConnect({
+        ok: true,
+        url: 'https://github.com/octocat/workspace-1.git',
+        updatedExisting: false,
+        import: { imported: true },
+      });
+    });
+    await vi.waitFor(() => expect(document.body.textContent).toContain('octocat/workspace-1'));
+  });
+
 });

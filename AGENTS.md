@@ -109,7 +109,9 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
 - Always create pull requests as drafts. Never mark a pull request ready for review unless the user explicitly asks.
+- **CRITICAL** Reviewing a PR, a branch, or a diff — use the `sero-code-review` skill (not the built-in `code-review`). It is the process: verify every finding in the source, sweep the fault class, and keep one comment per PR.
 - Ensure good type safety in source files when conducting PR reviews
+- Always add code reviews as a comment in related Github issue
 - Avoid duplicating types that already exist in Pi SDK libraries. Import the canonical Pi types instead so upstream changes fail at typecheck time rather than becoming runtime mismatches.
 - Do not delete relevant comments
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns
@@ -123,6 +125,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - NEVER add unnecessary clutter to UI components
 - When giving instructions to manually review changes do so in simple unambiguous terms - no jargon or expectation of recent familiarity with the subject
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
+- UX prototypes should be saved in `docs/prototypes`. Always create a prototype when developing a new feature or component. Prototypes should be static unless stated (see existing examples).
 
 ## Styling
  - Don't use specific tailwind font-sizes, use utilities like `text-sm`,`text-base`, etc.

@@ -40,6 +40,8 @@ export interface WorkspaceIndexEntry {
   stats?: WorkspaceIndexStats;
   /** Latest build progress line; only set while building/updating. */
   progress?: string;
+  /** Host-supplied entry removed if the next discovery sync still cannot find it. */
+  pendingHostDiscovery?: boolean;
 }
 
 export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync';
@@ -48,6 +50,8 @@ export interface IndexRequest {
   id: number;
   action: IndexAction;
   workspaceId?: string;
+  workspaceName?: string;
+  workspacePath?: string;
   requestedAt: string;
 }
 
