@@ -55,6 +55,7 @@ export const Dashboard = memo(function Dashboard() {
   const apps = useAppStore((s) => s.apps);
   const widgets = useDashboardStore((s) => s.widgets);
   const layouts = useDashboardStore((s) => s.layouts);
+  const backgroundImage = useDashboardStore((s) => s.backgroundImage);
   const updateLayouts = useDashboardStore((s) => s.updateLayouts);
   const persistLayouts = useDashboardStore((s) => s.persistLayouts);
   const runtimeWidgets = useRuntimeWidgets();
@@ -126,11 +127,22 @@ export const Dashboard = memo(function Dashboard() {
   );
 
   const hasWidgets = widgets.length > 0;
+  const backgroundStyle = useMemo(
+    () => backgroundImage
+      ? {
+          backgroundImage: `linear-gradient(rgba(6, 6, 8, 0.28), rgba(6, 6, 8, 0.28)), url("${backgroundImage}")`,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }
+      : undefined,
+    [backgroundImage],
+  );
 
   return (
     <div
       ref={containerRef}
       className="sero-dashboard glass-canvas flex h-full flex-col overflow-auto"
+      style={backgroundStyle}
     >
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between border-b border-[var(--dash-seam)] px-4 py-2">

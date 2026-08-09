@@ -134,6 +134,21 @@ describe('Dashboard', () => {
     expect(container.textContent).toContain('widgets:0');
   });
 
+  it('renders the persisted dashboard background', async () => {
+    useDashboardStore.setState({
+      ...useDashboardStore.getState(),
+      backgroundImage: 'data:image/png;base64,cGl4ZWxz',
+    }, true);
+
+    await act(async () => {
+      root?.render(<Dashboard />);
+    });
+
+    const dashboard = container.querySelector<HTMLElement>('.sero-dashboard');
+    expect(dashboard?.style.backgroundImage).toContain('data:image/png;base64,cGl4ZWxz');
+    expect(dashboard?.style.backgroundSize).toBe('cover');
+  });
+
   it('renders the widget grid when widgets exist and width is available', async () => {
     useAppStore.setState({
       ...useAppStore.getState(),

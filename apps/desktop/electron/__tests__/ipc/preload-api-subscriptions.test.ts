@@ -17,6 +17,7 @@ import { agentBridge, workspaceBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
 import { lspBridge } from '@electron/preload/editor/debug-lsp';
 import { pluginsBridge } from '@electron/preload/integrations/plugins';
+import { dashboardBridge } from '@electron/preload/platform/host-services';
 
 describe('preload event bridge subscriptions', () => {
   beforeEach(() => {
@@ -178,6 +179,29 @@ describe('preload event bridge subscriptions', () => {
 
     expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
       IpcChannels.plugins.event,
+      handler,
+    );
+  });
+
+  it('sends dashboard backgrounds and forwards change events', async () => {
+    const callback = vi.fn();
+    const unsubscribe = dashboardBridge.onBackgroundChanged(callback);
+    const handler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
+
+    handler?.({}, 'data:image/png;base64,cGl4ZWxz');
+    expect(callback).toHaveBeenCalledWith('data:image/png;base64,cGl4ZWxz');
+
+    await dashboardBridge.setBackground('data:image/png;base64,cGl4ZWxz');
+    await dashboardBridge.getBackground();
+    unsubscribe();
+
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(
+      IpcChannels.dashboard.setBackground,
+      'data:image/png;base64,cGl4ZWxz',
+    );
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.dashboard.getBackground);
+    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
+      IpcChannels.dashboard.backgroundChanged,
       handler,
     );
   });

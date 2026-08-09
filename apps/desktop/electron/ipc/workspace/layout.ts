@@ -5,7 +5,7 @@
  * to prevent corruption from concurrent saves.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, nativeImage } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
@@ -16,6 +16,8 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 export type { LayoutState, LoadedLayoutState };
 
 const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
+const DASHBOARD_BACKGROUND_FILE = path.join(SERO_AGENT_DIR, 'dashboard-background.png');
+const MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH = 64 * 1024 * 1024;
 
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -131,6 +133,39 @@ async function saveLayoutFile(state: LayoutState): Promise<void> {
   await fs.rename(tmpFile, LAYOUT_FILE);
 }
 
+async function setDashboardBackground(dataUrl: string | null): Promise<string | null> {
+  mkdirSync(SERO_AGENT_DIR, { recursive: true });
+
+  if (dataUrl === null) {
+    await fs.rm(DASHBOARD_BACKGROUND_FILE, { force: true });
+    return null;
+  }
+
+  if (
+    dataUrl.length > MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH
+    || !/^data:image\/(?:png|jpeg|webp);base64,/i.test(dataUrl)
+  ) {
+    throw new Error('Dashboard background must be a PNG, JPEG, or WebP data URL under 64 MB');
+  }
+
+  const image = nativeImage.createFromDataURL(dataUrl);
+  if (image.isEmpty()) {
+    throw new Error('Dashboard background image is invalid');
+  }
+
+  const png = image.toPNG();
+  const tmpFile = `${DASHBOARD_BACKGROUND_FILE}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmpFile, png);
+  await fs.rename(tmpFile, DASHBOARD_BACKGROUND_FILE);
+  return `data:image/png;base64,${png.toString('base64')}`;
+}
+
+async function getDashboardBackground(): Promise<string | null> {
+  if (!existsSync(DASHBOARD_BACKGROUND_FILE)) return null;
+  const png = await fs.readFile(DASHBOARD_BACKGROUND_FILE);
+  return `data:image/png;base64,${png.toString('base64')}`;
+}
+
 export function registerLayoutHandlers(): void {
   ipcMain.handle(
     IpcChannels.layout.save,
@@ -154,5 +189,18 @@ export function registerLayoutHandlers(): void {
         return null;
       }
     },
+  );
+
+  ipcMain.handle(
+    IpcChannels.dashboard.setBackground,
+    async (event, dataUrl: string | null) => {
+      const background = await setDashboardBackground(dataUrl);
+      event.sender.send(IpcChannels.dashboard.backgroundChanged, background);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.dashboard.getBackground,
+    () => getDashboardBackground(),
   );
 }
