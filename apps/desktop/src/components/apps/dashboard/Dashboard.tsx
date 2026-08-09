@@ -6,7 +6,7 @@
  * Layout is persisted to layout.json.
  */
 
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, type CSSProperties } from 'react';
 import { GridLayout } from 'react-grid-layout';
 import type { Layout, LayoutItem, GridLayoutProps } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -130,10 +130,8 @@ export const Dashboard = memo(function Dashboard() {
   const backgroundStyle = useMemo(
     () => backgroundImage
       ? {
-          backgroundImage: `linear-gradient(rgba(6, 6, 8, 0.28), rgba(6, 6, 8, 0.28)), url("${backgroundImage}")`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }
+          '--dashboard-background-image': `url("${backgroundImage}")`,
+        } as CSSProperties
       : undefined,
     [backgroundImage],
   );
@@ -142,6 +140,7 @@ export const Dashboard = memo(function Dashboard() {
     <div
       ref={containerRef}
       className="sero-dashboard glass-canvas flex h-full flex-col overflow-auto"
+      data-has-background={backgroundImage ? 'true' : undefined}
       style={backgroundStyle}
     >
       {/* ── Toolbar ── */}

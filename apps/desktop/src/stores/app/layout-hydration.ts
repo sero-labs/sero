@@ -18,8 +18,10 @@ let unsubscribeDashboardBackground: (() => void) | null = null;
 export async function loadLayout(): Promise<void> {
   try {
     const dashboardApi = window.sero.dashboard;
+    let backgroundChangedDuringLoad = false;
     unsubscribeDashboardBackground?.();
     unsubscribeDashboardBackground = dashboardApi?.onBackgroundChanged((backgroundImage) => {
+      backgroundChangedDuringLoad = true;
       useDashboardStore.getState().setBackgroundImage(backgroundImage);
     }) ?? null;
 
@@ -33,7 +35,9 @@ export async function loadLayout(): Promise<void> {
       window.sero.layout.load(),
       backgroundPromise,
     ]);
-    useDashboardStore.getState().setBackgroundImage(backgroundImage);
+    if (!backgroundChangedDuringLoad) {
+      useDashboardStore.getState().setBackgroundImage(backgroundImage);
+    }
     if (state) {
       const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {

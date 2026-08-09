@@ -137,7 +137,7 @@ describe('Dashboard', () => {
   it('renders the persisted dashboard background', async () => {
     useDashboardStore.setState({
       ...useDashboardStore.getState(),
-      backgroundImage: 'data:image/png;base64,cGl4ZWxz',
+      backgroundImage: 'sero-media://dashboard/background.png?v=1',
     }, true);
 
     await act(async () => {
@@ -145,8 +145,11 @@ describe('Dashboard', () => {
     });
 
     const dashboard = container.querySelector<HTMLElement>('.sero-dashboard');
-    expect(dashboard?.style.backgroundImage).toContain('data:image/png;base64,cGl4ZWxz');
-    expect(dashboard?.style.backgroundSize).toBe('cover');
+    expect(dashboard?.dataset.hasBackground).toBe('true');
+    expect(dashboard?.style.getPropertyValue('--dashboard-background-image')).toContain(
+      'sero-media://dashboard/background.png?v=1',
+    );
+    expect(dashboard?.style.backgroundImage).toBe('');
   });
 
   it('renders the widget grid when widgets exist and width is available', async () => {

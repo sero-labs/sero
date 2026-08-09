@@ -115,9 +115,9 @@ Declare this when your plugin contributes a title-bar control
 ### `ui.dashboardBackground`
 
 Declare this when a federated UI sets the host dashboard background. Call
-`window.sero.dashboard.setBackground(imageDataUrl)` with a PNG, JPEG, or WebP
-data URL. Call it with `null` to clear the background. The host converts the
-image to PNG and saves it outside `layout.json`.
+`window.sero.dashboard.setBackground(imageDataUrl)` with a PNG or JPEG data
+URL. Call it with `null` to clear the background. The host limits the saved
+image to 2560 × 1600 and 4 MB, then serves it through a private host-media URL.
 
 ### `appRuntime.media`
 

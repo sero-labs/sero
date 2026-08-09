@@ -20,13 +20,24 @@
   --dash-accent: var(--accent-primary);
   --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 12%, transparent);
   --dash-lift-shadow: 0 16px 40px rgba(15, 17, 23, 0.22);
+  --dash-background-scrim: rgba(255, 255, 255, 0.24);
 }
 
 .dark .sero-dashboard {
   --dash-seam-strong: rgba(255, 255, 255, 0.18);
   --dash-chrome-scrim: rgba(8, 8, 12, 0.6);
   --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  --dash-background-scrim: rgba(6, 6, 8, 0.28);
   --dash-lift-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+}
+
+.sero-dashboard[data-has-background="true"] {
+  background-image:
+    linear-gradient(var(--dash-background-scrim), var(--dash-background-scrim)),
+    var(--dashboard-background-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 /* ── Drag/resize target preview ──────────────────────────────────

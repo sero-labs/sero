@@ -82,8 +82,9 @@ describe('electron/main.ts — safe-mode bootstrap shape', () => {
     expect(source).toMatch(/await\s+import\(['"]\.\/app-main['"]\)/);
   });
 
-  it('registers the extension protocol scheme in the tiny bootstrap', () => {
+  it('registers privileged protocol schemes in the tiny bootstrap', () => {
     expect(source).toContain('protocol.registerSchemesAsPrivileged');
     expect(source).toContain("scheme: 'sero-ext'");
+    expect(source).toContain("scheme: 'sero-media'");
   });
 });
