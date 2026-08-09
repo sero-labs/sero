@@ -34,6 +34,10 @@ things. Each round must move towards a verdict, never away from one.
   the round before it, the earlier round was not done properly — say that
   instead of quietly extending the list.
 - No finding at all is a valid and good result. Say "green, nothing found."
+- The verdict covers the **code**. Merge blockers that are not code defects — the
+  branch is behind its base, CI never ran, `packages/*` changed and needs
+  republishing — go in their own short list under the verdict. Green code with an
+  unmergeable branch is still green code; do not blur the two.
 
 ## 1. Verify before you report
 
@@ -45,6 +49,11 @@ things. Each round must move towards a verdict, never away from one.
   unproven — or it is not reported. Never present an inferred cause as a fact.
 - State what you ran (`pnpm typecheck`, test suites, line counts) and what you
   could not check. Never imply coverage you do not have.
+- Green checks on a **draft** PR prove almost nothing. `.github/workflows/test.yml`
+  skips `Detect changes`, `Fast checks` and `PR Gate` while the PR is a draft, so
+  the rollup can read all-green with no tests run at all. Read the job
+  conclusions (`gh pr view <pr> --json statusCheckRollup`) and treat `SKIPPED` as
+  "not run". Run the touched suites locally and say so.
 
 ## 2. Sweep the fault class
 
@@ -59,18 +68,26 @@ things. Each round must move towards a verdict, never away from one.
 ## 3. One review, one comment
 
 - Post to the PR yourself as part of the job. Do not ask first.
-- Keep **one** comment per PR. Update it with `gh pr comment --edit-last`. Never
+- Keep **one** comment per PR. Update it with
+  `gh pr comment <pr> --edit-last --create-if-none --body-file <file>`. Never
   stack a comment per round — the PR holds one current review, not a pile of
-  rounds and corrections.
+  rounds and corrections. `--edit-last` on its own fails when you have not
+  commented on that PR yet, and it edits *your* last comment only, so a reply
+  from someone else in between does not break it.
 - A delta re-review opens with the status of every previous finding (fixed / not
   fixed / changed), then the new ones.
 - Lead with the verdict, then the blocking findings, then the non-blocking notes.
 
 ## 4. Second pass before posting
 
-Route the review to the configured review model, then reconcile its findings
-with yours **before** the comment goes up. A wrong finding corrected in session
-costs nothing; corrected on the PR it costs a round trip and the reader's trust.
+Route the review to `gpt-5.6-sol` at `high` effort through the `maestro` skill —
+`maestro:pr-review` for a GitHub PR number or URL, `maestro:code-review` for a
+diff, branch, commit range, or set of files. Both flows already default to
+`high` effort; name the model so the pick does not drift.
+
+Reconcile its findings with yours **before** the comment goes up. A wrong
+finding corrected in session costs nothing; corrected on the PR it costs a round
+trip and the reader's trust.
 
 ## 5. Scope
 
