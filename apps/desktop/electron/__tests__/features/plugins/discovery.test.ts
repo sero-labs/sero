@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstalledPlugin } from '@sero-ai/common';
 
+const { githubAuthMock } = vi.hoisted(() => ({
+  githubAuthMock: { getToken: vi.fn() },
+}));
+
+vi.mock('@electron/shared/infra/singletons', () => ({
+  githubAuth: githubAuthMock,
+}));
+
 vi.mock('@electron/features/plugins/manager', () => ({
   listInstalledPlugins: vi.fn(),
 }));
@@ -44,12 +52,28 @@ describe('plugin discovery', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
+    githubAuthMock.getToken.mockReturnValue(null);
     mockListInstalledPlugins.mockResolvedValue([]);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it('searches anonymously when the stored GitHub token is not a valid header value', async () => {
+    githubAuthMock.getToken.mockReturnValue('gh\ufffdtoken');
+    fetchMock.mockImplementation(async (input: string | URL | Request, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      expect(headers.has('Authorization')).toBe(false);
+
+      const url = String(input);
+      return url.includes('api.github.com')
+        ? jsonResponse({ items: [] })
+        : jsonResponse({ objects: [] });
+    });
+
+    await expect(searchPlugins('todo')).resolves.toEqual([]);
   });
 
   it('merges npm packages whose repository uses git+https URLs', async () => {

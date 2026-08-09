@@ -102,6 +102,26 @@ describe('GitHubAuthManager', () => {
     expect(existsSync(tokenFile)).toBe(false);
   });
 
+  it('clears a cached token that cannot be used in an HTTP header', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-invalid-token-'));
+
+    const encrypted = Buffer.from('enc:gh\ufffdtoken').toString('base64');
+    const agentDir = path.join(tmpDir, 'agent');
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(
+      path.join(agentDir, 'github-auth.json'),
+      JSON.stringify({ encrypted, username: 'octocat', scopes: 'repo', createdAt: '2026-01-01T00:00:00.000Z' }),
+      'utf8',
+    );
+
+    const { GitHubAuthManager, tokenFile } = await importManager({ available: true });
+    const manager = new GitHubAuthManager();
+
+    expect(manager.getToken()).toBeNull();
+    expect(manager.getStatus()).toEqual({ authenticated: false });
+    expect(existsSync(tokenFile)).toBe(false);
+  });
+
   it('fails login clearly when secure storage cannot persist the token', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-login-'));
 

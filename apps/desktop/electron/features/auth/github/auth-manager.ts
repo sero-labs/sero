@@ -86,6 +86,10 @@ interface TokenPollResponse {
   statusText: string;
 }
 
+export function isValidGitHubToken(token: string): boolean {
+  return /^[\x21-\x7e]+$/.test(token);
+}
+
 // ── Manager ──────────────────────────────────────────────────
 
 export class GitHubAuthManager {
@@ -346,6 +350,9 @@ export class GitHubAuthManager {
       const raw = readFileSync(tokenFile, 'utf8');
       const stored = JSON.parse(raw) as StoredToken;
       const token = safeStorage.decryptString(Buffer.from(stored.encrypted, 'base64'));
+      if (!isValidGitHubToken(token)) {
+        throw new Error('Decrypted GitHub token contains invalid characters');
+      }
 
       this.cachedToken = token;
       this.cachedUsername = stored.username;
