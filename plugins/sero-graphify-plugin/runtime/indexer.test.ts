@@ -268,26 +268,20 @@ describe('GraphifyIndexer', () => {
     await indexer.start();
     await indexer.handleStateChange({
       ...getState(),
-      requests: [{
-        id: 1,
-        action: 'enable',
-        workspaceId: 'ws-new',
-        workspaceName: 'New Workspace',
-        workspacePath: '/p/new',
-        requestedAt: 'now',
-      }],
+      requests: [
+        { id: 1, action: 'sync', requestedAt: 'now' },
+        {
+          id: 2,
+          action: 'enable',
+          workspaceId: 'ws-new',
+          workspaceName: 'New Workspace',
+          workspacePath: '/p/new',
+          requestedAt: 'now',
+        },
+      ],
     });
     await indexer.idle();
-
-    await indexer.syncWorkspaces();
-    expect(getState().workspaces['ws-new']).toMatchObject({
-      name: 'New Workspace',
-      path: '/p/new',
-      enabled: true,
-      status: 'idle',
-      pendingHostDiscovery: true,
-    });
-    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws-new');
+    expect(getState().workspaces['ws-new']?.pendingHostDiscovery).toBe(true);
 
     live.push({ id: 'ws-new', name: 'New Workspace', path: '/p/new', open: true });
     await indexer.syncWorkspaces();
@@ -297,6 +291,34 @@ describe('GraphifyIndexer', () => {
       DEFAULT_STATE.settings,
       expect.any(Function),
     );
+    indexer.dispose();
+  });
+
+  it('expires a metadata-backed workspace after one missed discovery sync', async () => {
+    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [
+        { id: 1, action: 'sync', requestedAt: 'now' },
+        {
+          id: 2,
+          action: 'enable',
+          workspaceId: 'ws-deleted',
+          workspaceName: 'Deleted Workspace',
+          workspacePath: '/p/deleted',
+          requestedAt: 'now',
+        },
+      ],
+    });
+    await indexer.idle();
+    expect(getState().workspaces['ws-deleted']?.pendingHostDiscovery).toBe(true);
+
+    await indexer.syncWorkspaces();
+
+    expect(getState().workspaces['ws-deleted']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-deleted');
     indexer.dispose();
   });
 

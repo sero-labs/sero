@@ -10,7 +10,7 @@
  * Opened from WorkspaceTree hover actions and after workspace creation.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,7 @@ interface RemoteOriginManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: WorkspaceInfo;
+  children?: ReactNode;
 }
 
 type View = 'loading' | 'load-error' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
@@ -45,6 +46,7 @@ export function RemoteOriginManager({
   open,
   onOpenChange,
   workspace,
+  children,
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
@@ -136,6 +138,7 @@ export function RemoteOriginManager({
             onClose={handleClose}
           />
         )}
+        {children}
       </DialogContent>
     </Dialog>
   );

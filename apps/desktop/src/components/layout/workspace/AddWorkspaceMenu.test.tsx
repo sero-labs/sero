@@ -313,6 +313,11 @@ describe('AddWorkspaceMenu', () => {
       .toBe('https://github.com/sero-labs/sero.git');
     expect(document.querySelector('[role="alert"]')?.textContent)
       .toContain('Graphify: State file is read-only');
+    const dialog = document.querySelector('[role="dialog"]');
+    const alert = document.querySelector('[role="alert"]');
+    expect(dialog?.contains(alert)).toBe(true);
+    await click(getButton('Dismiss'));
+    expect(document.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('shows the current remote prompt while an earlier setup failure remains', async () => {

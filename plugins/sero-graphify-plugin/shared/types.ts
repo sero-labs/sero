@@ -40,7 +40,7 @@ export interface WorkspaceIndexEntry {
   stats?: WorkspaceIndexStats;
   /** Latest build progress line; only set while building/updating. */
   progress?: string;
-  /** Host-supplied entry retained until runtime discovery confirms it. */
+  /** Host-supplied entry removed if the next discovery sync still cannot find it. */
   pendingHostDiscovery?: boolean;
 }
 

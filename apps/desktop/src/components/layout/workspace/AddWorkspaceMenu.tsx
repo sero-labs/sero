@@ -197,6 +197,24 @@ export function AddWorkspaceMenu() {
     setWorkspaceCreationSelections((current) => ({ ...current, [id]: enabled }));
   };
 
+  const dismissActiveWorkspaceSetupFailure = (): void => {
+    if (!activeWorkspaceSetupFailure) return;
+    setWorkspaceSetupFailures((current) => {
+      const next = { ...current };
+      delete next[activeWorkspaceSetupFailure.workspace.id];
+      return next;
+    });
+  };
+
+  const workspaceSetupFailureNotice = activeWorkspaceSetupFailure
+    ? (
+        <WorkspaceSetupFailureNotice
+          failure={activeWorkspaceSetupFailure}
+          onDismiss={dismissActiveWorkspaceSetupFailure}
+        />
+      )
+    : null;
+
   return (
     <>
     <Popover open={open} onOpenChange={(o) => {
@@ -284,21 +302,12 @@ export function AddWorkspaceMenu() {
         open
         onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
         workspace={newWorkspace}
-      />
+      >
+        {workspaceSetupFailureNotice}
+      </RemoteOriginManager>
     )}
 
-    {activeWorkspaceSetupFailure && (
-      <WorkspaceSetupFailureNotice
-        failure={activeWorkspaceSetupFailure}
-        onDismiss={() => {
-          setWorkspaceSetupFailures((current) => {
-            const next = { ...current };
-            delete next[activeWorkspaceSetupFailure.workspace.id];
-            return next;
-          });
-        }}
-      />
-    )}
+    {!newWorkspace && workspaceSetupFailureNotice}
     </>
   );
 }

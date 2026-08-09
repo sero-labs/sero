@@ -97,16 +97,21 @@ export class GraphifyIndexer {
     const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
     const current = (await this.host.readState())?.workspaces ?? {};
     const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
-    const pendingEntries = Object.values(current).filter(
-      (entry) => entry.pendingHostDiscovery && !discoveredIds.has(entry.workspaceId),
-    );
+    // Expire only pending entries present in this opening snapshot. An entry
+    // created while this sync runs gets one full discovery cycle of its own.
+    const expiringPendingIds = new Set<string>();
+    for (const entry of Object.values(current)) {
+      if (entry.pendingHostDiscovery && !discoveredIds.has(entry.workspaceId)) {
+        expiringPendingIds.add(entry.workspaceId);
+      }
+    }
 
     // Outside start(), live statuses (queued/building/updating) must survive a
     // discovery tick; only the boot pass may normalize interrupted work to idle.
     const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
       normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
 
-    const unchanged = workspaces.length + pendingEntries.length === Object.keys(current).length
+    const unchanged = workspaces.length === Object.keys(current).length
       && workspaces.every((ws) => {
         const existing = current[ws.id];
         return existing
@@ -114,13 +119,10 @@ export class GraphifyIndexer {
           && existing.name === ws.name
           && existing.path === ws.path
           && existing.status === nextStatus(existing);
-      })
-      && pendingEntries.every((entry) => entry.status === nextStatus(entry));
+      });
     if (unchanged) return;
 
-    const removedIds = Object.keys(current).filter((id) => (
-      !discoveredIds.has(id) && !current[id]?.pendingHostDiscovery
-    ));
+    const removedIds = Object.keys(current).filter((id) => !discoveredIds.has(id));
     const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
 
     await this.host.updateState((raw) => {
@@ -148,9 +150,11 @@ export class GraphifyIndexer {
         };
       }
       for (const id of Object.keys(next.workspaces)) {
-        if (!discoveredIds.has(id) && !next.workspaces[id].pendingHostDiscovery) {
-          delete next.workspaces[id];
-        }
+        const entry = next.workspaces[id];
+        if (
+          !discoveredIds.has(id)
+          && (!entry.pendingHostDiscovery || expiringPendingIds.has(id))
+        ) delete next.workspaces[id];
       }
       return next;
     });
