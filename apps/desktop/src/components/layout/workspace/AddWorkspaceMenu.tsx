@@ -10,6 +10,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@sero-ai/ui/components/ui/dialog';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { PickView, CreateView, CloneView } from './AddWorkspaceViews';
@@ -18,6 +25,11 @@ import { RemoteOriginManager } from './RemoteOriginManager';
 // ── Add Workspace menu ─────────────────────────────────────────
 
 type AddView = 'pick' | 'create' | 'clone';
+
+interface WorkspaceSetupFailure {
+  workspace: WorkspaceInfo;
+  message: string;
+}
 
 /** Errors that mean "you need GitHub credentials", as opposed to a bad URL. */
 function looksLikeAuthError(message: string): boolean {
@@ -38,10 +50,9 @@ export function AddWorkspaceMenu() {
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const [workspaceCreationSelections, setWorkspaceCreationSelections] = useState<Record<string, boolean>>({});
-  const [workspaceSetupFailure, setWorkspaceSetupFailure] = useState<{
-    workspaceId: string;
-    message: string;
-  } | null>(null);
+  const [workspaceSetupFailures, setWorkspaceSetupFailures] = useState<
+    Record<string, WorkspaceSetupFailure>
+  >({});
 
   // Clone view state
   const [cloneUrl, setCloneUrl] = useState('');
@@ -71,6 +82,7 @@ export function AddWorkspaceMenu() {
       ?? app.manifest!.workspaceCreation!.defaultEnabled
       ?? false,
   }));
+  const activeWorkspaceSetupFailure = Object.values(workspaceSetupFailures)[0] ?? null;
 
   const reset = () => {
     setView('pick');
@@ -82,7 +94,6 @@ export function AddWorkspaceMenu() {
     setCloneError(null);
     setCloneAuthHint(false);
     setWorkspaceCreationSelections({});
-    setWorkspaceSetupFailure(null);
   };
 
   const handleImportExisting = async () => {
@@ -114,7 +125,6 @@ export function AddWorkspaceMenu() {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
     setIsCreating(true);
-    setWorkspaceSetupFailure(null);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
       const enabledContributions = workspaceCreationContributions.filter((app) => (
@@ -151,7 +161,10 @@ export function AddWorkspaceMenu() {
         if (failures.length === 0) return;
         const message = failures.join(' ');
         console.warn('[workspace] Workspace setup failed:', message);
-        setWorkspaceSetupFailure({ workspaceId: ws.id, message });
+        setWorkspaceSetupFailures((current) => ({
+          ...current,
+          [ws.id]: { workspace: ws, message },
+        }));
       });
     } catch (err) {
       console.error('Failed to create workspace:', err);
@@ -272,15 +285,39 @@ export function AddWorkspaceMenu() {
     {/* Prompt to set up remote origin after workspace creation */}
     {newWorkspace && (
       <RemoteOriginManager
-        open={!!newWorkspace}
+        open={!activeWorkspaceSetupFailure}
         onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
         workspace={newWorkspace}
-        setupError={
-          workspaceSetupFailure?.workspaceId === newWorkspace.id
-            ? workspaceSetupFailure.message
-            : null
-        }
       />
+    )}
+
+    {activeWorkspaceSetupFailure && (
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (open) return;
+          setWorkspaceSetupFailures((current) => {
+            const next = { ...current };
+            delete next[activeWorkspaceSetupFailure.workspace.id];
+            return next;
+          });
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Workspace setup failed</DialogTitle>
+            <DialogDescription>
+              Setup did not finish for &quot;{activeWorkspaceSetupFailure.workspace.name}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            role="alert"
+            className="rounded-md border border-status-error-border bg-status-error-faint px-3 py-2 text-sm text-status-error"
+          >
+            {activeWorkspaceSetupFailure.message}
+          </div>
+        </DialogContent>
+      </Dialog>
     )}
     </>
   );

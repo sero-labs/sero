@@ -27,6 +27,18 @@ const seroBridge = {
   },
 };
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+}
+
+// The test runtime supports ES2024 Promise.withResolvers, but the renderer
+// TypeScript library target does not declare it yet.
+const promiseRuntime = Promise as PromiseConstructor & {
+  withResolvers<T>(): Deferred<T>;
+};
+
 const createdWorkspace: WorkspaceInfo = {
   id: 'workspace-1',
   name: 'Workspace 1',
@@ -37,6 +49,13 @@ const createdWorkspace: WorkspaceInfo = {
   references: [],
   mounts: [],
   roots: [],
+};
+
+const secondWorkspace: WorkspaceInfo = {
+  ...createdWorkspace,
+  id: 'workspace-2',
+  name: 'Workspace 2',
+  path: '/tmp/workspace-2',
 };
 
 const graphifyManifest: SeroAppManifest = {
@@ -212,5 +231,80 @@ describe('AddWorkspaceMenu', () => {
 
     expect(document.querySelector('[role="alert"]')?.textContent)
       .toContain('Graphify: State file is read-only');
+  });
+
+  it('shows a contribution failure after the remote prompt closes', async () => {
+    const { promise, resolve } = promiseRuntime.withResolvers<AppToolResult>();
+    vi.spyOn(window.sero.appAgent, 'invokeTool').mockReturnValue(promise);
+
+    await act(async () => {
+      root?.render(<AddWorkspaceMenu />);
+    });
+    await openCreateView();
+    await click(getButton('Create'));
+    await click(getButton('Close'));
+    await act(async () => {
+      resolve({
+        text: 'State file is read-only',
+        content: [],
+        details: null,
+        isError: true,
+      });
+      await promise;
+    });
+
+    expect(document.body.textContent).toContain('Workspace setup failed');
+    expect(document.querySelector('[role="alert"]')?.textContent)
+      .toContain('Graphify: State file is read-only');
+  });
+
+  it('keeps setup failures for each workspace until dismissed', async () => {
+    const first = promiseRuntime.withResolvers<AppToolResult>();
+    const second = promiseRuntime.withResolvers<AppToolResult>();
+    vi.spyOn(window.sero.appAgent, 'invokeTool')
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    useWorkspaceStore.setState({
+      createWorkspace: vi.fn()
+        .mockResolvedValueOnce(createdWorkspace)
+        .mockResolvedValueOnce(secondWorkspace),
+    });
+
+    await act(async () => {
+      root?.render(<AddWorkspaceMenu />);
+    });
+    await openCreateView();
+    await click(getButton('Create'));
+    await click(getButton('Close'));
+    const trigger = document.querySelector('[title="Add workspace"]');
+    if (!(trigger instanceof HTMLElement)) throw new Error('Expected add workspace trigger');
+    await click(trigger);
+    await click(getButton('Create'));
+    await click(getButton('Close'));
+
+    await act(async () => {
+      first.resolve({
+        text: 'First setup failed',
+        content: [],
+        details: null,
+        isError: true,
+      });
+      await first.promise;
+    });
+    await act(async () => {
+      second.resolve({
+        text: 'Second setup failed',
+        content: [],
+        details: null,
+        isError: true,
+      });
+      await second.promise;
+    });
+
+    expect(document.querySelector('[role="alert"]')?.textContent)
+      .toContain('Graphify: First setup failed');
+    await click(getButton('Close'));
+    expect(document.querySelector('[role="alert"]')?.textContent)
+      .toContain('Graphify: Second setup failed');
   });
 });

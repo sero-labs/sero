@@ -48,6 +48,8 @@ export interface IndexRequest {
   id: number;
   action: IndexAction;
   workspaceId?: string;
+  workspaceName?: string;
+  workspacePath?: string;
   requestedAt: string;
 }
 

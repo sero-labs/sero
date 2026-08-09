@@ -34,16 +34,26 @@ describe('graphify workspace creation indexing', () => {
       expect(indexTool).toBeDefined();
       await indexTool!.execute(
         'call-1',
-        { action: 'enable', workspaceId: 'new-workspace' },
+        {
+          action: 'enable',
+          workspaceId: 'new-workspace',
+          workspaceName: 'New Workspace',
+          workspacePath: '/workspace/new-workspace',
+        },
         undefined,
         undefined,
         { cwd: '/workspace/new-workspace' },
       );
 
       const state = await readStateFile(path.join(seroHome, 'apps', 'graphify', 'state.json'));
-      expect(state?.requests.map(({ action, workspaceId }) => ({ action, workspaceId }))).toEqual([
-        { action: 'sync', workspaceId: undefined },
-        { action: 'enable', workspaceId: 'new-workspace' },
+      expect(state?.requests).toMatchObject([
+        { action: 'sync' },
+        {
+          action: 'enable',
+          workspaceId: 'new-workspace',
+          workspaceName: 'New Workspace',
+          workspacePath: '/workspace/new-workspace',
+        },
       ]);
     } finally {
       await rm(seroHome, { recursive: true, force: true });
@@ -80,7 +90,7 @@ describe('graphify workspace creation indexing', () => {
       expect(result).toMatchObject({
         content: [{
           type: 'text',
-          text: expect.stringContaining('Use the Graphify panel instead.'),
+          text: expect.stringMatching(/^Error: .*Use the Graphify panel instead\.$/),
         }],
       });
     } finally {

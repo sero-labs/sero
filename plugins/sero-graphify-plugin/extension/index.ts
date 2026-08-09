@@ -145,6 +145,8 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
+      workspaceName: Type.Optional(Type.String({ description: 'Workspace name supplied by a host contribution' })),
+      workspacePath: Type.Optional(Type.String({ description: 'Workspace path supplied by a host contribution' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
@@ -164,7 +166,12 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
             if (params.action === 'enable' && params.workspaceId) {
               const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
                 { action: 'sync' },
-                { action: 'enable', workspaceId: params.workspaceId },
+                {
+                  action: 'enable',
+                  workspaceId: params.workspaceId,
+                  workspaceName: params.workspaceName,
+                  workspacePath: params.workspacePath,
+                },
               ]);
               return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
             }
@@ -176,7 +183,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
         return text(`Queued ${params.action}${workspaceId ? ` for ${workspaceId}` : ''} (request #${id}). Track with graphify_status.`);
       } catch (error) {
         // Container sessions may have the profile home mounted read-only.
-        return text(`Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
+        return text(`Error: Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
       }
     },
   });

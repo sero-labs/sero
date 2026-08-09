@@ -152,26 +152,72 @@ export class GraphifyIndexer {
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {
-    const enable = async (workspaceId: string, rebuild: boolean) => {
+    const enable = async (request: IndexRequest, rebuild: boolean) => {
+      const workspaceId = request.workspaceId;
+      if (!workspaceId) return;
+      let shouldEnqueue = false;
+      let missingMessage: string | null = null;
       await this.host.updateState((state) => {
-        const entry = state.workspaces[workspaceId];
-        if (!entry) return state;
-        return { ...state, workspaces: { ...state.workspaces, [workspaceId]: { ...entry, enabled: true, status: 'queued', lastError: undefined } } };
+        const existing = state.workspaces[workspaceId];
+        if (!existing && (!request.workspaceName || !request.workspacePath)) {
+          missingMessage = 'Workspace is not available. Sync Graphify and enable indexing again.';
+          return {
+            ...state,
+            workspaces: {
+              ...state.workspaces,
+              [workspaceId]: {
+                workspaceId,
+                name: request.workspaceName ?? workspaceId,
+                path: request.workspacePath ?? '',
+                enabled: false,
+                status: 'error',
+                lastError: missingMessage,
+              },
+            },
+          };
+        }
+        const entry = existing
+          ? {
+              ...existing,
+              name: request.workspaceName ?? existing.name,
+              path: request.workspacePath ?? existing.path,
+            }
+          : {
+              workspaceId,
+              name: request.workspaceName!,
+              path: request.workspacePath!,
+              enabled: false,
+              status: 'idle' as const,
+            };
+        shouldEnqueue = true;
+        return {
+          ...state,
+          workspaces: {
+            ...state.workspaces,
+            [workspaceId]: {
+              ...entry,
+              enabled: true,
+              status: 'queued',
+              lastError: undefined,
+            },
+          },
+        };
       });
-      this.enqueue(workspaceId, rebuild);
+      if (shouldEnqueue) this.enqueue(workspaceId, rebuild);
+      else if (missingMessage) this.host.log(`[graphify] ${workspaceId}: ${missingMessage}`);
     };
 
     switch (request.action) {
       case 'enable':
       case 'rebuild':
-        if (request.workspaceId) await enable(request.workspaceId, true);
+        await enable(request, true);
         break;
       case 'refresh': {
         // Refresh is the push-update path (edit hooks, panel). It must never
         // resurrect a workspace the user disabled.
         if (!request.workspaceId) break;
         const state = await this.host.readState();
-        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request.workspaceId, false);
+        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request, false);
         break;
       }
       case 'sync':
@@ -179,7 +225,9 @@ export class GraphifyIndexer {
         break;
       case 'enable-all': {
         const state = await this.host.readState();
-        for (const id of Object.keys(state?.workspaces ?? {})) await enable(id, true);
+        for (const id of Object.keys(state?.workspaces ?? {})) {
+          await enable({ ...request, workspaceId: id }, true);
+        }
         break;
       }
       case 'disable':

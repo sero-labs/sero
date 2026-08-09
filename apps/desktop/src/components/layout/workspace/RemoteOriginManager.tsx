@@ -35,7 +35,6 @@ interface RemoteOriginManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: WorkspaceInfo;
-  setupError?: string | null;
 }
 
 type View = 'loading' | 'load-error' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
@@ -46,7 +45,6 @@ export function RemoteOriginManager({
   open,
   onOpenChange,
   workspace,
-  setupError,
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
@@ -99,14 +97,6 @@ export function RemoteOriginManager({
           </DialogDescription>
         </DialogHeader>
 
-        {setupError && (
-          <div
-            role="alert"
-            className="rounded-md border border-status-error-border bg-status-error-faint px-3 py-2 text-sm text-status-error"
-          >
-            {setupError}
-          </div>
-        )}
 
         {view === 'loading' && <LoadingView />}
         {view === 'load-error' && originLoadError && (

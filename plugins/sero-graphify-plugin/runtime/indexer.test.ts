@@ -261,6 +261,61 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
+  it('uses request metadata when discovery has not observed a new workspace', async () => {
+    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [{
+        id: 1,
+        action: 'enable',
+        workspaceId: 'ws-new',
+        workspaceName: 'New Workspace',
+        workspacePath: '/p/new',
+        requestedAt: 'now',
+      }],
+    });
+    await indexer.idle();
+
+    expect(getState().workspaces['ws-new']).toMatchObject({
+      name: 'New Workspace',
+      path: '/p/new',
+      enabled: true,
+      status: 'idle',
+    });
+    expect(host.buildGraph).toHaveBeenCalledWith(
+      { workspaceId: 'ws-new', path: '/p/new' },
+      DEFAULT_STATE.settings,
+      expect.any(Function),
+    );
+    indexer.dispose();
+  });
+
+  it('records an error when an enable request has no workspace metadata', async () => {
+    const { host, getState } = makeHost({ listWorkspaces: async () => [] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [{
+        id: 1,
+        action: 'enable',
+        workspaceId: 'ws-missing',
+        requestedAt: 'now',
+      }],
+    });
+    await indexer.idle();
+
+    expect(getState().workspaces['ws-missing']).toMatchObject({
+      enabled: false,
+      status: 'error',
+      lastError: 'Workspace is not available. Sync Graphify and enable indexing again.',
+    });
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
   it('sweeps orphaned artifacts on start but keeps live (incl. disabled) workspaces', async () => {
     // ws1/ws2 are live; 'ws-gone' only has artifacts on disk (deleted workspace).
     const { host } = makeHost({ listArtifactWorkspaceIds: vi.fn().mockResolvedValue(['ws1', 'ws2', 'ws-gone']) });
