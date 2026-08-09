@@ -261,6 +261,147 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
+  it('keeps a metadata-backed workspace until host discovery observes it', async () => {
+    const live: Array<{ id: string; name: string; path: string; open: boolean }> = [];
+    const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [
+        { id: 1, action: 'sync', requestedAt: 'now' },
+        {
+          id: 2,
+          action: 'enable',
+          workspaceId: 'ws-new',
+          workspaceName: 'New Workspace',
+          workspacePath: '/p/new',
+          requestedAt: 'now',
+        },
+      ],
+    });
+    await indexer.idle();
+    expect(getState().workspaces['ws-new']?.pendingHostDiscovery).toBe(true);
+
+    live.push({ id: 'ws-new', name: 'New Workspace', path: '/p/new', open: true });
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces['ws-new'].pendingHostDiscovery).toBeUndefined();
+    expect(host.buildGraph).toHaveBeenCalledWith(
+      { workspaceId: 'ws-new', path: '/p/new' },
+      DEFAULT_STATE.settings,
+      expect.any(Function),
+    );
+    indexer.dispose();
+  });
+
+  it('expires a metadata-backed workspace after one missed discovery sync', async () => {
+    const log = vi.fn();
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], log });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [
+        { id: 1, action: 'sync', requestedAt: 'now' },
+        {
+          id: 2,
+          action: 'enable',
+          workspaceId: 'ws-deleted',
+          workspaceName: 'Deleted Workspace',
+          workspacePath: '/p/deleted',
+          requestedAt: 'now',
+        },
+      ],
+    });
+    await indexer.idle();
+    expect(getState().workspaces['ws-deleted']?.pendingHostDiscovery).toBe(true);
+
+    await indexer.syncWorkspaces();
+
+    expect(getState().workspaces['ws-deleted']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-deleted');
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('ws-deleted'));
+    indexer.dispose();
+  });
+
+  it('keeps a pending workspace while its build is active', async () => {
+    let finishBuild: (stats: WorkspaceIndexStats) => void = () => {};
+    const buildGraph = vi.fn(() => new Promise<WorkspaceIndexStats>((resolve) => {
+      finishBuild = resolve;
+    }));
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], buildGraph });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [{
+        id: 1,
+        action: 'enable',
+        workspaceId: 'ws-building',
+        workspaceName: 'Building Workspace',
+        workspacePath: '/p/building',
+        requestedAt: 'now',
+      }],
+    });
+    await vi.waitFor(() => expect(getState().workspaces['ws-building']?.status).toBe('building'));
+
+    await indexer.syncWorkspaces();
+
+    expect(getState().workspaces['ws-building']).toBeDefined();
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws-building');
+
+    finishBuild(STATS);
+    await indexer.idle();
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces['ws-building']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-building');
+    indexer.dispose();
+  });
+
+  it('removes an interrupted undiscovered workspace during boot normalization', async () => {
+    const { host, getState } = makeHost({ listWorkspaces: async () => [] }, (state) => {
+      state.workspaces['ws-interrupted'] = {
+        workspaceId: 'ws-interrupted',
+        name: 'Interrupted Workspace',
+        path: '/p/interrupted',
+        enabled: false,
+        status: 'building',
+        pendingHostDiscovery: true,
+      };
+    });
+    const indexer = new GraphifyIndexer(host);
+
+    await indexer.start();
+    await indexer.idle();
+    expect(getState().workspaces['ws-interrupted']).toBeUndefined();
+    expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('ws-interrupted');
+    indexer.dispose();
+  });
+
+  it('does not create a phantom workspace for a request without metadata', async () => {
+    const log = vi.fn();
+    const { host, getState } = makeHost({ listWorkspaces: async () => [], log });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({
+      ...getState(),
+      requests: [{
+        id: 1,
+        action: 'enable',
+        workspaceId: 'ws-missing',
+        requestedAt: 'now',
+      }],
+    });
+    await indexer.idle();
+
+    expect(getState().workspaces['ws-missing']).toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(
+      'ws-missing: Workspace is not available.',
+    ));
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
   it('sweeps orphaned artifacts on start but keeps live (incl. disabled) workspaces', async () => {
     // ws1/ws2 are live; 'ws-gone' only has artifacts on disk (deleted workspace).
     const { host } = makeHost({ listArtifactWorkspaceIds: vi.fn().mockResolvedValue(['ws1', 'ws2', 'ws-gone']) });

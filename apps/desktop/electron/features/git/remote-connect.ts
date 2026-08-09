@@ -18,7 +18,12 @@ import type { VcsOps } from '@electron/features/git/core/vcs-ops';
 import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 
 /** Entries every workspace starts with — not "files" for the import policy. */
-const WORKSPACE_SCAFFOLD_ENTRIES = new Set(['.git', '.sero-workspace.json', '.DS_Store']);
+const WORKSPACE_SCAFFOLD_ENTRIES = new Set([
+  '.git',
+  '.sero',
+  '.sero-workspace.json',
+  '.DS_Store',
+]);
 
 export interface RemoteConnectDeps {
   vcsOps: VcsOps;
@@ -63,8 +68,14 @@ async function importRemote(
 ): Promise<RemoteImportOutcome> {
   if (importMode === 'never') return { imported: false, reason: 'link-only' };
 
-  if (importMode === 'auto' && (await hasVisibleWorkspaceFiles(deps, workspaceId))) {
-    return { imported: false, reason: 'workspace-not-empty' };
+  if (importMode === 'auto') {
+    const inspection = await inspectWorkspaceFiles(deps, workspaceId);
+    if (!inspection.ok) {
+      return { imported: false, reason: 'import-failed', message: inspection.message };
+    }
+    if (inspection.hasVisibleFiles) {
+      return { imported: false, reason: 'workspace-not-empty' };
+    }
   }
 
   const checkout = await deps.vcsOps.checkoutRemote(workspaceId, 'origin');
@@ -74,16 +85,23 @@ async function importRemote(
   return { imported: false, reason: 'import-failed', message: checkout.message };
 }
 
-async function hasVisibleWorkspaceFiles(
+type WorkspaceFileInspection =
+  | { ok: true; hasVisibleFiles: boolean }
+  | { ok: false; message: string };
+
+async function inspectWorkspaceFiles(
   deps: RemoteConnectDeps,
   workspaceId: string,
-): Promise<boolean> {
+): Promise<WorkspaceFileInspection> {
   try {
     const runtime = await deps.runtimeManager.getRuntime(workspaceId);
     const entries = await runtime.listFiles({ path: runtime.runtimeWorkspacePath });
-    return entries.some((entry) => !WORKSPACE_SCAFFOLD_ENTRIES.has(entry.name));
-  } catch {
-    return false;
+    return {
+      ok: true,
+      hasVisibleFiles: entries.some((entry) => !WORKSPACE_SCAFFOLD_ENTRIES.has(entry.name)),
+    };
+  } catch (error) {
+    return { ok: false, message: toMessage(error, 'Failed to inspect workspace files') };
   }
 }
 

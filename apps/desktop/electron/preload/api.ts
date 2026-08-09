@@ -3,6 +3,7 @@ import { windowBridge } from './platform/window';
 import {
   clipboardBridge,
   feedbackBridge,
+  dashboardBridge,
   gatewayBridge,
   layoutBridge,
   netBridge,
@@ -80,6 +81,7 @@ export const seroPreloadApi = {
   agentPlugins: agentPluginsBridge,
   terminal: terminalBridge,
   layout: layoutBridge,
+  dashboard: dashboardBridge,
   themes: themesBridge,
   net: netBridge,
   safeStorage: safeStorageBridge,

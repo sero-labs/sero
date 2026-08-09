@@ -25,6 +25,18 @@ export const layoutBridge = {
     ipcRenderer.invoke(IpcChannels.layout.load),
 };
 
+export const dashboardBridge = {
+  setBackground: (dataUrl: string | null): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.dashboard.setBackground, dataUrl),
+  getBackground: (): Promise<string | null> =>
+    ipcRenderer.invoke(IpcChannels.dashboard.getBackground),
+  onBackgroundChanged: (callback: (dataUrl: string | null) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, dataUrl: string | null) => callback(dataUrl);
+    ipcRenderer.on(IpcChannels.dashboard.backgroundChanged, handler);
+    return () => ipcRenderer.removeListener(IpcChannels.dashboard.backgroundChanged, handler);
+  },
+};
+
 export const themesBridge = {
   list: (): Promise<ThemePresetMeta[]> =>
     ipcRenderer.invoke(IpcChannels.themes.list),

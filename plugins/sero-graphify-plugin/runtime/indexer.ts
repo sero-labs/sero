@@ -28,6 +28,10 @@ interface Job {
   full: boolean;
 }
 
+function isIndexing(status: WorkspaceIndexStatus): boolean {
+  return status === 'queued' || status === 'building' || status === 'updating';
+}
+
 export class GraphifyIndexer {
   private queue: Job[] = [];
   private current: Promise<void> = Promise.resolve();
@@ -96,40 +100,91 @@ export class GraphifyIndexer {
     const normalize = options.normalizeStatuses === true;
     const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
     const current = (await this.host.readState())?.workspaces ?? {};
-
+    const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
     // Outside start(), live statuses (queued/building/updating) must survive a
     // discovery tick; only the boot pass may normalize interrupted work to idle.
     const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
       normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
+    // Expire only pending entries present in this opening snapshot. An entry
+    // created while this sync runs gets one full discovery cycle of its own.
+    const expiringPendingIds = new Set<string>();
+    for (const entry of Object.values(current)) {
+      if (
+        entry.pendingHostDiscovery
+        && !discoveredIds.has(entry.workspaceId)
+        && !isIndexing(nextStatus(entry))
+      ) {
+        expiringPendingIds.add(entry.workspaceId);
+      }
+    }
 
     const unchanged = workspaces.length === Object.keys(current).length
       && workspaces.every((ws) => {
         const existing = current[ws.id];
-        return existing && existing.name === ws.name && existing.path === ws.path && existing.status === nextStatus(existing);
+        return existing
+          && !existing.pendingHostDiscovery
+          && existing.name === ws.name
+          && existing.path === ws.path
+          && existing.status === nextStatus(existing);
       });
     if (unchanged) return;
 
-    const removedIds = Object.keys(current).filter((id) => !workspaces.some((ws) => ws.id === id));
-    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
+    const removalCandidates = Object.keys(current).filter((id) => !discoveredIds.has(id));
 
     await this.host.updateState((raw) => {
       const state = raw ?? structuredClone(DEFAULT_STATE);
       const next = { ...state, workspaces: { ...state.workspaces } };
       for (const ws of workspaces) {
         const existing = next.workspaces[ws.id];
-        next.workspaces[ws.id] = existing
-          ? { ...existing, name: ws.name, path: ws.path, status: nextStatus(existing) }
-          : { workspaceId: ws.id, name: ws.name, path: ws.path, enabled: false, status: 'idle' };
+        if (!existing) {
+          next.workspaces[ws.id] = {
+            workspaceId: ws.id,
+            name: ws.name,
+            path: ws.path,
+            enabled: false,
+            status: 'idle',
+          };
+          continue;
+        }
+        const observed = { ...existing };
+        delete observed.pendingHostDiscovery;
+        next.workspaces[ws.id] = {
+          ...observed,
+          name: ws.name,
+          path: ws.path,
+          status: nextStatus(existing),
+        };
       }
       for (const id of Object.keys(next.workspaces)) {
-        if (!workspaces.some((ws) => ws.id === id)) delete next.workspaces[id];
+        let entry = next.workspaces[id];
+        const status = nextStatus(entry);
+        if (status !== entry.status) {
+          entry = { ...entry, status };
+          delete entry.progress;
+          next.workspaces[id] = entry;
+        }
+        if (
+          !discoveredIds.has(id)
+          && !isIndexing(entry.status)
+          && (!entry.pendingHostDiscovery || expiringPendingIds.has(id))
+        ) {
+          delete next.workspaces[id];
+        }
       }
       return next;
     });
+    // The updater can preserve entries against the opening snapshot. Re-read
+    // state so artifact removal uses the authoritative reconciliation result.
+    const reconciled = (await this.host.readState())?.workspaces ?? {};
+    const removedIds = removalCandidates.filter((id) => !reconciled[id]);
+    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
     // A removed workspace's per-workspace graph is now an orphan — delete it so
     // disk tracks the live workspace list (disable keeps artifacts; removal does not).
     // Removals are independent, so run them together.
-    await Promise.all(removedIds.map((id) => this.host.removeWorkspaceArtifacts(id)));
+    await Promise.all(removedIds.map((id) => {
+      this.host.log(`[graphify] removing undiscovered workspace ${id} and its graph artifacts`);
+      return this.host.removeWorkspaceArtifacts(id);
+    }));
     // A deleted workspace that was part of the profile graph leaves stale
     // nodes behind until the next merge — re-merge promptly.
     if (removedIndexed) await this.merge();
@@ -143,7 +198,11 @@ export class GraphifyIndexer {
    * mistaken for orphans.
    */
   private async sweepOrphanArtifacts(): Promise<void> {
+    const state = await this.host.readState();
     const live = new Set((await this.host.listWorkspaces()).map((ws) => ws.id));
+    for (const entry of Object.values(state?.workspaces ?? {})) {
+      if (entry.pendingHostDiscovery) live.add(entry.workspaceId);
+    }
     const orphans = (await this.host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
     await Promise.all(orphans.map((id) => {
       this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
@@ -152,26 +211,60 @@ export class GraphifyIndexer {
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {
-    const enable = async (workspaceId: string, rebuild: boolean) => {
+    const enable = async (request: IndexRequest, rebuild: boolean) => {
+      const workspaceId = request.workspaceId;
+      if (!workspaceId) return;
+      let shouldEnqueue = false;
+      let missingMessage: string | null = null;
       await this.host.updateState((state) => {
-        const entry = state.workspaces[workspaceId];
-        if (!entry) return state;
-        return { ...state, workspaces: { ...state.workspaces, [workspaceId]: { ...entry, enabled: true, status: 'queued', lastError: undefined } } };
+        const existing = state.workspaces[workspaceId];
+        if (!existing && (!request.workspaceName || !request.workspacePath)) {
+          missingMessage = 'Workspace is not available. Sync Graphify and enable indexing again.';
+          return state;
+        }
+        const entry = existing
+          ? {
+              ...existing,
+              name: request.workspaceName ?? existing.name,
+              path: request.workspacePath ?? existing.path,
+            }
+          : {
+              workspaceId,
+              name: request.workspaceName!,
+              path: request.workspacePath!,
+              enabled: false,
+              status: 'idle' as const,
+              pendingHostDiscovery: true,
+            };
+        shouldEnqueue = true;
+        return {
+          ...state,
+          workspaces: {
+            ...state.workspaces,
+            [workspaceId]: {
+              ...entry,
+              enabled: true,
+              status: 'queued',
+              lastError: undefined,
+            },
+          },
+        };
       });
-      this.enqueue(workspaceId, rebuild);
+      if (shouldEnqueue) this.enqueue(workspaceId, rebuild);
+      else if (missingMessage) this.host.log(`[graphify] ${workspaceId}: ${missingMessage}`);
     };
 
     switch (request.action) {
       case 'enable':
       case 'rebuild':
-        if (request.workspaceId) await enable(request.workspaceId, true);
+        await enable(request, true);
         break;
       case 'refresh': {
         // Refresh is the push-update path (edit hooks, panel). It must never
         // resurrect a workspace the user disabled.
         if (!request.workspaceId) break;
         const state = await this.host.readState();
-        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request.workspaceId, false);
+        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request, false);
         break;
       }
       case 'sync':
@@ -179,7 +272,9 @@ export class GraphifyIndexer {
         break;
       case 'enable-all': {
         const state = await this.host.readState();
-        for (const id of Object.keys(state?.workspaces ?? {})) await enable(id, true);
+        for (const id of Object.keys(state?.workspaces ?? {})) {
+          await enable({ ...request, workspaceId: id }, true);
+        }
         break;
       }
       case 'disable':

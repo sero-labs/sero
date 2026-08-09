@@ -12,13 +12,14 @@ import {
 } from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
-import { PickView, CreateView, CloneView } from './AddWorkspaceViews';
+import { CloneView, CreateView, ImportView, PickView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
-import { executeContributionAction } from '@/lib/contribution-actions';
+import { WorkspaceSetupFailureNotice } from './WorkspaceSetupFailureNotice';
+import { useWorkspaceSetup } from './workspace-setup';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
-type AddView = 'pick' | 'create' | 'clone';
+type AddView = 'pick' | 'create' | 'clone' | 'import';
 
 /** Errors that mean "you need GitHub credentials", as opposed to a bad URL. */
 function looksLikeAuthError(message: string): boolean {
@@ -37,6 +38,9 @@ export function AddWorkspaceMenu() {
   const [newName, setNewName] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const [workspaceCreationSelections, setWorkspaceCreationSelections] = useState<Record<string, boolean>>({});
 
@@ -70,31 +74,46 @@ export function AddWorkspaceMenu() {
     enabled: workspaceCreationSelections[resolved.key]
       ?? resolved.contribution.control.defaultValue,
   }));
+  const {
+    activeFailure: activeWorkspaceSetupFailure,
+    completePendingSetup: completePendingWorkspaceSetup,
+    createSetup: createWorkspaceSetup,
+    deferSetup: deferWorkspaceSetup,
+    dismissActiveFailure: dismissActiveWorkspaceSetupFailure,
+  } = useWorkspaceSetup(workspaceCreationContributions, workspaceCreationSelections);
 
   const reset = () => {
     setView('pick');
     setNewName('');
+    setCreateError(null);
     setParentPath(null);
     setCloneUrl('');
     setCloneName('');
     cloneNameEditedRef.current = false;
     setCloneError(null);
     setCloneAuthHint(false);
+    setImportError(null);
     setWorkspaceCreationSelections({});
   };
 
   const handleImportExisting = async () => {
-    setOpen(false);
+    if (isImporting) return;
+    setIsImporting(true);
+    setImportError(null);
     pickingFolderRef.current = true;
     try {
       const folderPath = await window.sero.workspace.pickFolder();
       if (!folderPath) return;
-      await addFolder(folderPath);
-      await loadSessions();
+      const ws = await addFolder(folderPath);
+      await completeWorkspaceAddition(ws);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import workspace';
       console.error('Failed to import workspace:', err);
+      setImportError(message);
+      setView('import');
     } finally {
       pickingFolderRef.current = false;
+      setIsImporting(false);
     }
   };
 
@@ -108,37 +127,32 @@ export function AddWorkspaceMenu() {
     }
   };
 
+  const completeWorkspaceAddition = async (
+    ws: WorkspaceInfo,
+    promptForRemote = false,
+  ): Promise<void> => {
+    const setup = createWorkspaceSetup(ws);
+    await loadSessions();
+    setOpen(false);
+    reset();
+    if (promptForRemote) {
+      deferWorkspaceSetup(setup);
+      setNewWorkspace(ws);
+    } else {
+      setup();
+    }
+  };
+
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
     setIsCreating(true);
+    setCreateError(null);
     try {
       const ws = await createWorkspace(trimmed, parentPath ?? undefined);
-      const enabledContributions = workspaceCreationContributions.filter((resolved) => (
-        workspaceCreationSelections[resolved.key]
-          ?? resolved.contribution.control.defaultValue
-      ));
-      const results = await Promise.all(enabledContributions.map((resolved) => (
-        executeContributionAction(resolved.appId, ws.id, resolved.contribution.action, {
-          workspaceId: ws.id,
-          workspaceName: ws.name,
-          workspacePath: ws.path,
-        })
-      )));
-      results.forEach((result, index) => {
-        if (!result.ok) {
-          console.warn(
-            `[workspace] ${enabledContributions[index].app.label} setup failed:`,
-            result.error,
-          );
-        }
-      });
-      await loadSessions();
-      setOpen(false);
-      // Prompt user to set up remote origin for the new workspace
-      setNewWorkspace(ws);
+      await completeWorkspaceAddition(ws, true);
     } catch (err) {
-      console.error('Failed to create workspace:', err);
+      setCreateError(err instanceof Error ? err.message : 'Failed to create workspace');
     } finally {
       setIsCreating(false);
     }
@@ -157,10 +171,12 @@ export function AddWorkspaceMenu() {
     setCloneError(null);
     setCloneAuthHint(false);
     try {
-      await cloneWorkspace(trimmedUrl, cloneName.trim() || undefined, parentPath ?? undefined);
-      await loadSessions();
-      setOpen(false);
-      reset();
+      const ws = await cloneWorkspace(
+        trimmedUrl,
+        cloneName.trim() || undefined,
+        parentPath ?? undefined,
+      );
+      await completeWorkspaceAddition(ws);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to clone repository';
       setCloneError(message);
@@ -179,6 +195,20 @@ export function AddWorkspaceMenu() {
       authInFlightRef.current = false;
     }
   };
+
+  const handleOptionChange = (id: string, enabled: boolean): void => {
+    setWorkspaceCreationSelections((current) => ({ ...current, [id]: enabled }));
+  };
+
+  const workspaceSetupFailureNotice = activeWorkspaceSetupFailure
+    ? (
+        <WorkspaceSetupFailureNotice
+          failure={activeWorkspaceSetupFailure}
+          embedded={newWorkspace !== null}
+          onDismiss={dismissActiveWorkspaceSetupFailure}
+        />
+      )
+    : null;
 
   return (
     <>
@@ -212,7 +242,13 @@ export function AddWorkspaceMenu() {
               setView('clone');
               requestAnimationFrame(() => cloneInputRef.current?.focus());
             }}
-            onImportExisting={handleImportExisting}
+            onImportExisting={() => {
+              if (workspaceCreationOptions.length === 0) {
+                void handleImportExisting();
+                return;
+              }
+              setView('import');
+            }}
           />
         )}
         {view === 'create' && (
@@ -223,14 +259,22 @@ export function AddWorkspaceMenu() {
             parentPath={parentPath}
             onPickLocation={handlePickLocation}
             onClearLocation={() => setParentPath(null)}
-            onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
+            onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}
+            error={createError}
             options={workspaceCreationOptions}
-            onOptionChange={(id, enabled) => setWorkspaceCreationSelections((current) => ({
-              ...current,
-              [id]: enabled,
-            }))}
+            onOptionChange={handleOptionChange}
+          />
+        )}
+        {view === 'import' && (
+          <ImportView
+            onBack={reset}
+            onImport={handleImportExisting}
+            isImporting={isImporting}
+            error={importError}
+            options={workspaceCreationOptions}
+            onOptionChange={handleOptionChange}
           />
         )}
         {view === 'clone' && (
@@ -248,6 +292,8 @@ export function AddWorkspaceMenu() {
             isCloning={isCloning}
             error={cloneError}
             onSignIn={cloneAuthHint ? handleSignInAndRetry : undefined}
+            options={workspaceCreationOptions}
+            onOptionChange={handleOptionChange}
           />
         )}
       </PopoverContent>
@@ -256,11 +302,20 @@ export function AddWorkspaceMenu() {
     {/* Prompt to set up remote origin after workspace creation */}
     {newWorkspace && (
       <RemoteOriginManager
-        open={!!newWorkspace}
-        onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
+        open
+        onOpenChange={(o) => {
+          if (o) return;
+          setNewWorkspace(null);
+          completePendingWorkspaceSetup();
+        }}
+        onWorkspaceReady={completePendingWorkspaceSetup}
         workspace={newWorkspace}
-      />
+      >
+        {workspaceSetupFailureNotice}
+      </RemoteOriginManager>
     )}
+
+    {!newWorkspace && workspaceSetupFailureNotice}
     </>
   );
 }

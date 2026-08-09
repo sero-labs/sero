@@ -10,7 +10,7 @@
  * Opened from WorkspaceTree hover actions and after workspace creation.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,9 +35,18 @@ interface RemoteOriginManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: WorkspaceInfo;
+  onWorkspaceReady?: () => void;
+  children?: ReactNode;
 }
 
-type View = 'loading' | 'load-error' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
+type View =
+  | 'loading'
+  | 'load-error'
+  | 'choose'
+  | 'create-github'
+  | 'connect-existing'
+  | 'connect-existing-busy'
+  | 'connected';
 
 // ── Main component ───────────────────────────────────────────
 
@@ -45,11 +54,14 @@ export function RemoteOriginManager({
   open,
   onOpenChange,
   workspace,
+  onWorkspaceReady,
+  children,
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
   const [originLoadError, setOriginLoadError] = useState<string | null>(null);
   const [originWarning, setOriginWarning] = useState<string | null>(null);
+  const connectBusy = view === 'connect-existing-busy';
   const prevOpenRef = useRef(false);
 
   const loadOrigin = useCallback(async () => {
@@ -66,8 +78,9 @@ export function RemoteOriginManager({
     }
 
     setOrigin(result.origin);
+    if (result.origin) onWorkspaceReady?.();
     setView(result.origin ? 'connected' : 'choose');
-  }, [workspace.id]);
+  }, [onWorkspaceReady, workspace.id]);
 
   // Fetch origin when dialog opens (acceptable useEffect: IPC on external state change)
   useEffect(() => {
@@ -80,14 +93,19 @@ export function RemoteOriginManager({
   const handleOriginSet = (url: string, warning?: string) => {
     setOrigin(toOriginInfo(url));
     setOriginWarning(warning ?? null);
+    onWorkspaceReady?.();
     setView('connected');
   };
 
-  const handleClose = () => onOpenChange(false);
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (!nextOpen && connectBusy) return;
+    onOpenChange(nextOpen);
+  };
+  const handleClose = (): void => handleOpenChange(false);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md" showCloseButton={!connectBusy}>
         <DialogHeader>
           <DialogTitle>Git Repository</DialogTitle>
           <DialogDescription>
@@ -120,11 +138,12 @@ export function RemoteOriginManager({
             onCreated={handleOriginSet}
           />
         )}
-        {view === 'connect-existing' && (
+        {(view === 'connect-existing' || view === 'connect-existing-busy') && (
           <ConnectExistingView
             workspace={workspace}
             onBack={() => setView('choose')}
             onConnected={handleOriginSet}
+            onBusyChange={(busy) => setView(busy ? 'connect-existing-busy' : 'connect-existing')}
           />
         )}
         {view === 'connected' && origin && (
@@ -135,6 +154,7 @@ export function RemoteOriginManager({
             onClose={handleClose}
           />
         )}
+        {children}
       </DialogContent>
     </Dialog>
   );

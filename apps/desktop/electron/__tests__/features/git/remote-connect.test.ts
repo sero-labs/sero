@@ -48,7 +48,11 @@ describe('connectRemote', () => {
 
   it('imports into an empty workspace under auto mode', async () => {
     vcsOps.listRemotes.mockResolvedValue([]);
-    listFiles.mockResolvedValue([{ name: '.git' }, { name: '.sero-workspace.json' }]);
+    listFiles.mockResolvedValue([
+      { name: '.git' },
+      { name: '.sero' },
+      { name: '.sero-workspace.json' },
+    ]);
     vcsOps.checkoutRemote.mockResolvedValue({ success: true, message: 'ok' });
 
     const result = await connectRemote(deps, 'ws-1', URL, 'auto');
@@ -66,6 +70,19 @@ describe('connectRemote', () => {
     expect(vcsOps.checkoutRemote).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       ok: true, import: { imported: false, reason: 'workspace-not-empty' },
+    });
+  });
+
+  it('does not auto-import when workspace files cannot be listed', async () => {
+    vcsOps.listRemotes.mockResolvedValue([]);
+    listFiles.mockRejectedValue(new Error('workspace unavailable'));
+
+    const result = await connectRemote(deps, 'ws-1', URL, 'auto');
+
+    expect(vcsOps.checkoutRemote).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: true,
+      import: { imported: false, reason: 'import-failed', message: 'workspace unavailable' },
     });
   });
 

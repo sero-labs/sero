@@ -237,6 +237,15 @@ interface SeroLayoutAPI {
   load(): Promise<LoadedLayoutState | null>;
 }
 
+interface SeroDashboardAPI {
+  /** Persist or clear the dashboard background image. */
+  setBackground(dataUrl: string | null): Promise<void>;
+  /** Load the persisted dashboard background image. */
+  getBackground(): Promise<string | null>;
+  /** Subscribe to dashboard background changes. Returns unsubscribe. */
+  onBackgroundChanged(callback: (dataUrl: string | null) => void): () => void;
+}
+
 interface SeroThemesAPI {
   /** List all available theme presets (built-in + custom). */
   list(): Promise<ThemePresetMeta[]>;
@@ -433,6 +442,7 @@ export interface SeroAPI {
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  dashboard: SeroDashboardAPI;
   themes: SeroThemesAPI;
   net: SeroNetAPI;
   safeStorage: SeroSafeStorageAPI;

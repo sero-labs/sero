@@ -67,6 +67,7 @@ These values are currently recognized by the host:
 - `appControl.capture`
 - `ui.explorerView`
 - `ui.titlebar`
+- `ui.dashboardBackground`
 
 Unknown capability strings are treated as unmet host requirements, so older
 hosts fail closed instead of partially loading the plugin. Downstream plugins
@@ -117,6 +118,14 @@ Extension-point contributions are optional by default. If the whole plugin
 requires an extension point introduced by a newer Sero release, set
 `minSeroVersion`. An older host cannot enforce a requirement inside manifest
 syntax that it does not understand.
+
+### `ui.dashboardBackground`
+
+Declare this when a federated UI sets the host dashboard background. Call
+`window.sero.dashboard.setBackground(imageDataUrl)` with a PNG or JPEG data
+URL. The image must be 2560 × 1600 or smaller and no more than 4 MB. The host
+validates its bytes, stores them without re-encoding, and rejects larger input.
+Call the method with `null` to clear the background.
 
 ### `appRuntime.media`
 

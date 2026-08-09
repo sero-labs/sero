@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   SeroAppManifest,
+
   SettingsPackageSource,
 } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
@@ -46,6 +47,7 @@ interface PkgSeroApp extends ContributionManifestSource {
   runtimeExternals?: string[];
   component?: string;
   devPort?: number;
+
 }
 
 interface PkgJson {
@@ -112,6 +114,7 @@ function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): stri
       .filter(Boolean),
   )].sort((a, b) => a.localeCompare(b));
 }
+
 
 function buildManifest(
   pkgJson: PkgJson,

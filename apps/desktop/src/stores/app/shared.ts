@@ -14,6 +14,7 @@ export interface AppEntry {
   manifest: SeroAppManifest | null;
 }
 
+
 export function isManifestHostSupported(manifest: SeroAppManifest | null): boolean {
   return manifest?.hostCompatibility?.supported !== false;
 }

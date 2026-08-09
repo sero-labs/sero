@@ -145,38 +145,50 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
+      workspaceName: Type.Optional(Type.String({ description: 'Workspace name supplied by a host contribution' })),
+      workspacePath: Type.Optional(Type.String({ description: 'Workspace path supplied by a host contribution' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const state = await readStateFile(paths.stateFile);
-      let workspaceId: string | undefined;
-      if (params.action !== 'enable-all' && params.action !== 'sync') {
-        const entries = Object.values(state?.workspaces ?? {});
-        const entry = params.workspaceId
-          ? entries.find((candidate) => candidate.workspaceId === params.workspaceId)
-          : params.workspace
-          ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
-          : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
-        if (!entry) {
-          // A workspace-creation contribution runs immediately after the host
-          // creates the workspace. Queue sync first so the following enable
-          // request can target its new registry entry.
-          if (params.action === 'enable' && params.workspaceId) {
-            const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
-              { action: 'sync' },
-              { action: 'enable', workspaceId: params.workspaceId },
-            ]);
-            return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
-          }
-          return text(`Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
-        }
-        workspaceId = entry.workspaceId;
-      }
       try {
+        const state = await readStateFile(paths.stateFile);
+        let workspaceId: string | undefined;
+        if (params.action !== 'enable-all' && params.action !== 'sync') {
+          const entries = Object.values(state?.workspaces ?? {});
+          const entry = params.workspaceId
+            ? entries.find((candidate) => candidate.workspaceId === params.workspaceId)
+            : params.workspace
+            ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
+            : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+          if (!entry) {
+            // A workspace-creation contribution runs immediately after the host
+            // creates the workspace. Queue sync first so the following enable
+            // request can target its new registry entry.
+            if (
+              params.action === 'enable'
+              && params.workspaceId
+              && params.workspaceName
+              && params.workspacePath
+            ) {
+              const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
+                { action: 'sync' },
+                {
+                  action: 'enable',
+                  workspaceId: params.workspaceId,
+                  workspaceName: params.workspaceName,
+                  workspacePath: params.workspacePath,
+                },
+              ]);
+              return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
+            }
+            return text(`Error: Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
+          }
+          workspaceId = entry.workspaceId;
+        }
         const id = await appendIndexRequest(paths.stateFile, params.action, workspaceId);
         return text(`Queued ${params.action}${workspaceId ? ` for ${workspaceId}` : ''} (request #${id}). Track with graphify_status.`);
       } catch (error) {
         // Container sessions may have the profile home mounted read-only.
-        return text(`Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
+        return text(`Error: Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
       }
     },
   });
