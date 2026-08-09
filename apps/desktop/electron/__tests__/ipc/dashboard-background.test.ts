@@ -8,15 +8,7 @@ const mocks = vi.hoisted(() => ({
   agentDir: `/tmp/sero-dashboard-background-${process.pid}`,
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
   broadcastToWindows: vi.fn(),
-  resizeImageForApi: vi.fn((data: string, mimeType: string) => ({
-    data,
-    mimeType,
-    originalWidth: 100,
-    originalHeight: 100,
-    width: 100,
-    height: 100,
-    wasResized: false,
-  })),
+  resizeImageForApi: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -26,9 +18,9 @@ vi.mock('electron', () => ({
     }),
   },
   nativeImage: {
-    createFromDataURL: vi.fn((dataUrl: string) => ({
+    createFromBuffer: vi.fn(() => ({
+      getSize: () => ({ width: 100, height: 100 }),
       isEmpty: () => false,
-      toPNG: () => Buffer.from(dataUrl.split(',')[1] ?? '', 'base64'),
     })),
   },
 }));
@@ -47,11 +39,31 @@ vi.mock('@electron/shared/media/image-resize', () => ({
 
 import { registerLayoutHandlers } from '@electron/ipc/workspace/layout';
 
-const sender = { send: vi.fn() };
-const event = { sender };
+const event = { sender: { send: vi.fn() } };
 
-function dataUrl(mimeType: 'image/png' | 'image/jpeg', content: string): string {
-  return `data:${mimeType};base64,${Buffer.from(content).toString('base64')}`;
+function pngBytes(marker = 0): Buffer {
+  const buffer = Buffer.alloc(33);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(buffer);
+  buffer.write('IHDR', 12, 'ascii');
+  buffer.writeUInt32BE(100, 16);
+  buffer.writeUInt32BE(100, 20);
+  buffer[24] = 8;
+  buffer[25] = 6;
+  buffer[32] = marker;
+  return buffer;
+}
+
+function jpegBytes(): Buffer {
+  return Buffer.from([
+    0xff, 0xd8,
+    0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0x64,
+    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+    0xff, 0xd9,
+  ]);
+}
+
+function imageDataUrl(declaredMimeType: 'image/png' | 'image/jpeg', bytes: Buffer): string {
+  return `data:${declaredMimeType};base64,${bytes.toString('base64')}`;
 }
 
 function handler(channel: string): (...args: unknown[]) => unknown {
@@ -60,8 +72,8 @@ function handler(channel: string): (...args: unknown[]) => unknown {
   return registered;
 }
 
-async function readSavedBackground(extension: 'png' | 'jpg'): Promise<string> {
-  return fs.readFile(path.join(mocks.agentDir, `dashboard-background.${extension}`), 'utf8');
+async function readSavedBackground(): Promise<Buffer> {
+  return fs.readFile(path.join(mocks.agentDir, 'dashboard-background.image'));
 }
 
 describe('dashboard background IPC', () => {
@@ -72,9 +84,9 @@ describe('dashboard background IPC', () => {
   beforeEach(async () => {
     await fs.rm(mocks.agentDir, { recursive: true, force: true });
     await fs.mkdir(mocks.agentDir, { recursive: true });
-    sender.send.mockReset();
+    event.sender.send.mockReset();
     mocks.broadcastToWindows.mockReset();
-    mocks.resizeImageForApi.mockClear();
+    mocks.resizeImageForApi.mockReset();
   });
 
   it('rejects WebP with the stable supported-format error', async () => {
@@ -84,56 +96,88 @@ describe('dashboard background IPC', () => {
     )).rejects.toThrow('PNG or JPEG');
   });
 
-  it('uses the shared image resizer and returns a protocol URL', async () => {
-    mocks.resizeImageForApi.mockReturnValueOnce({
-      data: Buffer.from('bounded').toString('base64'),
-      mimeType: 'image/jpeg',
-      originalWidth: 4000,
-      originalHeight: 3000,
-      width: 1920,
-      height: 1440,
-      wasResized: true,
-    });
-
-    await handler(IpcChannels.dashboard.setBackground)(event, dataUrl('image/jpeg', 'large-jpeg'));
-
-    expect(mocks.resizeImageForApi).toHaveBeenCalledWith(
-      Buffer.from('large-jpeg').toString('base64'),
-      'image/jpeg',
-      expect.objectContaining({
-        maxBytes: expect.any(Number),
-        maxWidth: expect.any(Number),
-        maxHeight: expect.any(Number),
-      }),
+  it('persists the original bytes without CPU-bound re-encoding', async () => {
+    const bytes = pngBytes();
+    await handler(IpcChannels.dashboard.setBackground)(
+      event,
+      imageDataUrl('image/png', bytes),
     );
-    expect(await readSavedBackground('jpg')).toBe('bounded');
-    await expect(handler(IpcChannels.dashboard.getBackground)(event)).resolves.toMatch(
-      /^sero-media:\/\/dashboard\/background\.jpg\?v=/,
-    );
+
+    expect(mocks.resizeImageForApi).not.toHaveBeenCalled();
+    expect(await readSavedBackground()).toEqual(bytes);
   });
 
-  it('broadcasts background changes to every window', async () => {
-    await handler(IpcChannels.dashboard.setBackground)(event, dataUrl('image/png', 'pixels'));
+  it('preserves transparent PNG bytes', async () => {
+    const transparentPng = pngBytes(42);
+    await handler(IpcChannels.dashboard.setBackground)(
+      event,
+      imageDataUrl('image/png', transparentPng),
+    );
+
+    expect(await readSavedBackground()).toEqual(transparentPng);
+  });
+
+  it('broadcasts a cache-safe media URL to every window', async () => {
+    await handler(IpcChannels.dashboard.setBackground)(
+      event,
+      imageDataUrl('image/png', pngBytes()),
+    );
 
     expect(mocks.broadcastToWindows).toHaveBeenCalledWith(
       IpcChannels.dashboard.backgroundChanged,
-      expect.stringMatching(/^sero-media:\/\/dashboard\/background\.png\?v=/),
+      expect.stringMatching(/^sero-media:\/\/dashboard\/background\?v=/),
     );
-    expect(sender.send).not.toHaveBeenCalled();
+    expect(event.sender.send).not.toHaveBeenCalled();
+
+    const firstUrl = await handler(IpcChannels.dashboard.getBackground)(event);
+    const secondUrl = await handler(IpcChannels.dashboard.getBackground)(event);
+    expect(firstUrl).not.toBe(secondUrl);
   });
 
   it('serializes concurrent background writes', async () => {
-    const now = vi.spyOn(Date, 'now').mockReturnValue(1234);
-    try {
-      await expect(Promise.all([
-        handler(IpcChannels.dashboard.setBackground)(event, dataUrl('image/png', 'first')),
-        handler(IpcChannels.dashboard.setBackground)(event, dataUrl('image/png', 'second')),
-      ])).resolves.toEqual([undefined, undefined]);
-    } finally {
-      now.mockRestore();
-    }
+    const first = pngBytes(1);
+    const second = pngBytes(2);
+    await expect(Promise.all([
+      handler(IpcChannels.dashboard.setBackground)(event, imageDataUrl('image/png', first)),
+      handler(IpcChannels.dashboard.setBackground)(event, imageDataUrl('image/png', second)),
+    ])).resolves.toEqual([undefined, undefined]);
 
-    expect(await readSavedBackground('png')).toBe('second');
+    expect(await readSavedBackground()).toEqual(second);
+  });
+
+  it('does not run a second-file cleanup after a successful write', async () => {
+    const remove = vi.spyOn(fs, 'rm');
+    try {
+      await handler(IpcChannels.dashboard.setBackground)(
+        event,
+        imageDataUrl('image/png', pngBytes()),
+      );
+
+      expect(remove).not.toHaveBeenCalled();
+    } finally {
+      remove.mockRestore();
+    }
+  });
+
+  it('derives the stored image type from bytes instead of the data URL prefix', async () => {
+    const jpeg = jpegBytes();
+    await handler(IpcChannels.dashboard.setBackground)(
+      event,
+      imageDataUrl('image/png', jpeg),
+    );
+
+    expect(await readSavedBackground()).toEqual(jpeg);
+  });
+
+  it('rejects images above the dashboard dimension limit without encoding', async () => {
+    const oversized = pngBytes();
+    oversized.writeUInt32BE(3000, 16);
+
+    await expect(handler(IpcChannels.dashboard.setBackground)(
+      event,
+      imageDataUrl('image/png', oversized),
+    )).rejects.toThrow('2560 × 1600');
+    expect(mocks.resizeImageForApi).not.toHaveBeenCalled();
   });
 
   it('rejects non-string input with the validation error', async () => {

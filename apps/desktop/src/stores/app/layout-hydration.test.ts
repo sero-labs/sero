@@ -45,12 +45,12 @@ describe('layout hydration', () => {
     await vi.waitFor(() => expect(listener.current).not.toBeNull());
     if (!listener.current) throw new Error('Background listener was not registered');
 
-    listener.current('sero-media://dashboard/background.png?v=new');
+    listener.current('sero-media://dashboard/background?v=new');
     backgroundLoad.resolve(null);
     await hydration;
 
     expect(useDashboardStore.getState().backgroundImage).toBe(
-      'sero-media://dashboard/background.png?v=new',
+      'sero-media://dashboard/background?v=new',
     );
   });
 });

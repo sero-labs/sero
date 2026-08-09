@@ -86,5 +86,6 @@ describe('electron/main.ts — safe-mode bootstrap shape', () => {
     expect(source).toContain('protocol.registerSchemesAsPrivileged');
     expect(source).toContain("scheme: 'sero-ext'");
     expect(source).toContain("scheme: 'sero-media'");
+    expect(source).toMatch(/scheme:\s*'sero-media'[\s\S]*?corsEnabled:\s*true/);
   });
 });

@@ -5,7 +5,7 @@
  * to prevent corruption from concurrent saves.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, nativeImage } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
@@ -14,19 +14,18 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { LayoutState, LoadedLayoutState } from '@/types/layout';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
-import { resizeImageForApi } from '@electron/shared/media/image-resize';
 import {
   getDashboardBackgroundPath,
   getDashboardBackgroundUrl,
-  getOtherDashboardBackgroundPath,
-  type DashboardBackgroundMimeType,
 } from '@electron/platform/protocols/host-media-protocol';
+import { inspectDashboardBackgroundImage } from '@electron/shared/media/dashboard-background-image';
 
 export type { LayoutState, LoadedLayoutState };
 
 const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
-const MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH = 64 * 1024 * 1024;
 const MAX_DASHBOARD_BACKGROUND_BYTES = 4 * 1024 * 1024;
+const MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH =
+  Math.ceil(MAX_DASHBOARD_BACKGROUND_BYTES * 4 / 3) + 64;
 const MAX_DASHBOARD_BACKGROUND_WIDTH = 2560;
 const MAX_DASHBOARD_BACKGROUND_HEIGHT = 1600;
 
@@ -147,12 +146,10 @@ async function saveLayoutFile(state: LayoutState): Promise<void> {
 
 async function setDashboardBackground(dataUrl: unknown): Promise<string | null> {
   mkdirSync(SERO_AGENT_DIR, { recursive: true });
+  const targetFile = getDashboardBackgroundPath();
 
   if (dataUrl === null) {
-    await Promise.all([
-      fs.rm(getDashboardBackgroundPath('image/png'), { force: true }),
-      fs.rm(getDashboardBackgroundPath('image/jpeg'), { force: true }),
-    ]);
+    await fs.rm(targetFile, { force: true });
     return null;
   }
 
@@ -160,57 +157,46 @@ async function setDashboardBackground(dataUrl: unknown): Promise<string | null> 
     typeof dataUrl !== 'string'
     || dataUrl.length > MAX_DASHBOARD_BACKGROUND_DATA_URL_LENGTH
   ) {
-    throw new Error('Dashboard background must be a PNG or JPEG data URL under 64 MB');
+    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
   }
-  const match = /^data:(image\/(?:png|jpeg));base64,(.+)$/i.exec(dataUrl);
+  const match = /^data:image\/(?:png|jpeg);base64,(.+)$/i.exec(dataUrl);
   if (!match) {
-    throw new Error('Dashboard background must be a PNG or JPEG data URL under 64 MB');
+    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
   }
 
-  const sourceMimeType = match[1]!.toLowerCase() as DashboardBackgroundMimeType;
-  const resized = resizeImageForApi(match[2]!, sourceMimeType, {
-    maxBytes: MAX_DASHBOARD_BACKGROUND_BYTES,
-    maxWidth: MAX_DASHBOARD_BACKGROUND_WIDTH,
-    maxHeight: MAX_DASHBOARD_BACKGROUND_HEIGHT,
-  });
+  const encoded = Buffer.from(match[1]!, 'base64');
+  if (encoded.length === 0 || encoded.length > MAX_DASHBOARD_BACKGROUND_BYTES) {
+    throw new Error('Dashboard background must be a PNG or JPEG data URL under 4 MB');
+  }
+
+  const imageInfo = inspectDashboardBackgroundImage(encoded);
+  if (!imageInfo) throw new Error('Dashboard background image is invalid');
   if (
-    resized.width <= 0
-    || resized.height <= 0
-    || resized.width > MAX_DASHBOARD_BACKGROUND_WIDTH
-    || resized.height > MAX_DASHBOARD_BACKGROUND_HEIGHT
-    || (resized.mimeType !== 'image/png' && resized.mimeType !== 'image/jpeg')
+    imageInfo.width > MAX_DASHBOARD_BACKGROUND_WIDTH
+    || imageInfo.height > MAX_DASHBOARD_BACKGROUND_HEIGHT
+  ) {
+    throw new Error('Dashboard background image must be 2560 × 1600 or smaller');
+  }
+
+  const decodedImage = nativeImage.createFromBuffer(encoded);
+  const decodedSize = decodedImage.getSize();
+  if (
+    decodedImage.isEmpty()
+    || decodedSize.width !== imageInfo.width
+    || decodedSize.height !== imageInfo.height
   ) {
     throw new Error('Dashboard background image is invalid');
   }
 
-  const encoded = Buffer.from(resized.data, 'base64');
-  if (encoded.length === 0 || encoded.length > MAX_DASHBOARD_BACKGROUND_BYTES) {
-    throw new Error('Dashboard background cannot be reduced below 4 MB');
-  }
-
-  const mimeType = resized.mimeType;
-  const targetFile = getDashboardBackgroundPath(mimeType);
   const tmpFile = `${targetFile}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmpFile, encoded);
   await fs.rename(tmpFile, targetFile);
-  await fs.rm(getOtherDashboardBackgroundPath(mimeType), { force: true });
-
-  const stat = await fs.stat(targetFile);
-  return getDashboardBackgroundUrl(mimeType, `${stat.mtimeMs}-${stat.size}`);
+  return getDashboardBackgroundUrl(randomUUID());
 }
 
-async function getDashboardBackground(): Promise<string | null> {
-  let newest: { mimeType: DashboardBackgroundMimeType; mtimeMs: number; size: number } | null = null;
-  for (const mimeType of ['image/png', 'image/jpeg'] as const) {
-    const filePath = getDashboardBackgroundPath(mimeType);
-    if (!existsSync(filePath)) continue;
-    const stat = await fs.stat(filePath);
-    if (!newest || stat.mtimeMs > newest.mtimeMs) {
-      newest = { mimeType, mtimeMs: stat.mtimeMs, size: stat.size };
-    }
-  }
-  return newest
-    ? getDashboardBackgroundUrl(newest.mimeType, `${newest.mtimeMs}-${newest.size}`)
+function getDashboardBackground(): string | null {
+  return existsSync(getDashboardBackgroundPath())
+    ? getDashboardBackgroundUrl(randomUUID())
     : null;
 }
 

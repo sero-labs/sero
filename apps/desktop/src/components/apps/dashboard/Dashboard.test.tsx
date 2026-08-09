@@ -137,7 +137,7 @@ describe('Dashboard', () => {
   it('renders the persisted dashboard background', async () => {
     useDashboardStore.setState({
       ...useDashboardStore.getState(),
-      backgroundImage: 'sero-media://dashboard/background.png?v=1',
+      backgroundImage: 'sero-media://dashboard/background?v=1',
     }, true);
 
     await act(async () => {
@@ -147,7 +147,7 @@ describe('Dashboard', () => {
     const dashboard = container.querySelector<HTMLElement>('.sero-dashboard');
     expect(dashboard?.dataset.hasBackground).toBe('true');
     expect(dashboard?.style.getPropertyValue('--dashboard-background-image')).toContain(
-      'sero-media://dashboard/background.png?v=1',
+      'sero-media://dashboard/background?v=1',
     );
     expect(dashboard?.style.backgroundImage).toBe('');
   });

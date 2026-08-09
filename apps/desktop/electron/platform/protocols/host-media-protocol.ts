@@ -1,59 +1,45 @@
 import { protocol } from 'electron';
-import { existsSync, promises as fs } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { inspectDashboardBackgroundImage } from '@electron/shared/media/dashboard-background-image';
 
-export type DashboardBackgroundMimeType = 'image/png' | 'image/jpeg';
+const DASHBOARD_BACKGROUND_PATH = path.join(SERO_AGENT_DIR, 'dashboard-background.image');
 
-const DASHBOARD_BACKGROUND_PATHS: Record<DashboardBackgroundMimeType, string> = {
-  'image/png': path.join(SERO_AGENT_DIR, 'dashboard-background.png'),
-  'image/jpeg': path.join(SERO_AGENT_DIR, 'dashboard-background.jpg'),
-};
-
-const DASHBOARD_BACKGROUND_MIME_BY_PATH: Record<string, DashboardBackgroundMimeType> = {
-  '/background.png': 'image/png',
-  '/background.jpg': 'image/jpeg',
-};
-
-export function getDashboardBackgroundPath(mimeType: DashboardBackgroundMimeType): string {
-  return DASHBOARD_BACKGROUND_PATHS[mimeType];
+export function getDashboardBackgroundPath(): string {
+  return DASHBOARD_BACKGROUND_PATH;
 }
 
-export function getOtherDashboardBackgroundPath(mimeType: DashboardBackgroundMimeType): string {
-  return mimeType === 'image/png'
-    ? DASHBOARD_BACKGROUND_PATHS['image/jpeg']
-    : DASHBOARD_BACKGROUND_PATHS['image/png'];
-}
-
-export function getDashboardBackgroundUrl(
-  mimeType: DashboardBackgroundMimeType,
-  version: string,
-): string {
-  const extension = mimeType === 'image/png' ? 'png' : 'jpg';
-  return `sero-media://dashboard/background.${extension}?v=${encodeURIComponent(version)}`;
+export function getDashboardBackgroundUrl(version: string): string {
+  return `sero-media://dashboard/background?v=${encodeURIComponent(version)}`;
 }
 
 export function setupHostMediaProtocol(): void {
   protocol.handle('sero-media', async (request) => {
     const url = new URL(request.url);
-    const mimeType = url.hostname === 'dashboard'
-      ? DASHBOARD_BACKGROUND_MIME_BY_PATH[url.pathname]
-      : undefined;
-    if (!mimeType) {
+    if (url.hostname !== 'dashboard' || url.pathname !== '/background') {
       return new Response('Not found', { status: 404 });
     }
 
-    const filePath = DASHBOARD_BACKGROUND_PATHS[mimeType];
-    if (!existsSync(filePath)) {
-      return new Response('Not found', { status: 404 });
+    let data: Buffer;
+    try {
+      data = await fs.readFile(DASHBOARD_BACKGROUND_PATH);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return new Response('Not found', { status: 404 });
+      }
+      throw error;
     }
-    const data = await fs.readFile(filePath);
+
+    const image = inspectDashboardBackgroundImage(data);
+    if (!image) return new Response('Not found', { status: 404 });
 
     return new Response(new Uint8Array(data), {
       headers: {
-        'cache-control': 'private, max-age=31536000, immutable',
-        'content-type': mimeType,
+        'access-control-allow-origin': '*',
+        'cache-control': 'no-store',
+        'content-type': image.mimeType,
       },
     });
   });
