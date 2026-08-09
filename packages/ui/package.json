@@ -100,7 +100,7 @@
     "lucide-react": "catalog:",
     "media-chrome": "^4.19.2",
     "motion": "catalog:",
-    "nanoid": "^5.1.11",
+    "nanoid": "^5.1.16",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.6.5",
     "react-day-picker": "^9.14.0",
