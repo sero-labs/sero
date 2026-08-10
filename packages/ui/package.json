@@ -104,7 +104,7 @@
     "next-themes": "^0.4.6",
     "radix-ui": "^1.6.5",
     "react-day-picker": "^9.14.0",
-    "react-hook-form": "^7.82.0",
+    "react-hook-form": "^7.84.0",
     "react-jsx-parser": "^2.4.1",
     "react-resizable-panels": "^4.12.2",
     "react-syntax-highlighter": "^16.1.1",
@@ -118,7 +118,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@hookform/resolvers": "^5.4.0",
+    "@hookform/resolvers": "^5.7.1",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/react-syntax-highlighter": "^15.5.13",
