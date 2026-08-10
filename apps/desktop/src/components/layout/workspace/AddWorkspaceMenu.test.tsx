@@ -45,8 +45,12 @@ const promiseRuntime = Promise as PromiseConstructor & {
 
 
 function getButton(label: string): HTMLButtonElement {
+  // Some buttons are icon-only and carry their label on aria-label.
   const button = [...document.querySelectorAll('button')]
-    .find((candidate) => candidate.textContent?.trim() === label);
+    .find((candidate) => (
+      candidate.textContent?.trim() === label
+      || candidate.getAttribute('aria-label') === label
+    ));
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error(`Expected button "${label}"`);
   }
