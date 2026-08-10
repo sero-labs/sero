@@ -86,7 +86,7 @@ would make this important ownership boundary less clear to plugin authors.
 | Extension point | A named location and contract owned by the Sero host. |
 | Component contribution | A plugin-rendered federated React component inserted into a host extension point. |
 | Control contribution | A host-rendered control that invokes a plugin-owned action. |
-| Contribution ID | A stable identifier unique within one app manifest. |
+| Contribution ID | A stable identifier unique within one extension point in one app manifest. |
 | Resolved contribution | A validated contribution combined with its owning app manifest. |
 
 ## Public Manifest Contract
@@ -142,7 +142,7 @@ Every component contribution has these common fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | Yes | Stable ID unique within this app's contributions. |
+| `id` | string | Yes | Stable ID unique within this extension point in this app. |
 | `extensionPoint` | string | Yes | Host extension point that receives the component. |
 | `component` | string | Yes | Exported federated React component name. |
 
@@ -183,7 +183,7 @@ Every control contribution has these common fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | Yes | Stable ID unique within this app's contributions. |
+| `id` | string | Yes | Stable ID unique within this extension point in this app. |
 | `extensionPoint` | string | Yes | Host extension point that receives the control. |
 | `control` | object | Yes | Allowlisted host control description. |
 | `action` | object | Yes | Allowlisted plugin action description. |
@@ -193,15 +193,24 @@ The first supported control is `switch`. The first supported action is
 
 ### Identity
 
-Contribution IDs must be unique across `components` and `controls` within one
-app. The host creates the global identity:
+Contribution IDs must be unique within one extension point in one app. The
+same ID can appear in two different extension points, because the host always
+resolves a contribution inside its own point. For each extension point the host
+creates a consumer key:
 
 ```text
 <app-id>:<contribution-id>
 ```
 
-Stable identity is used for React keys, diagnostics, hot reload and any future
-persisted contribution preferences.
+This key is stable for React keys, diagnostics, hot reload and persisted
+contribution preferences inside one extension point. It is not a global
+identity: two contributions from one app can share it in different points, so
+any collection that holds contributions from more than one point must also key
+on the extension point.
+
+Legacy manifest fields keep host-generated IDs (`global-search`,
+`explorer-view`, `titlebar-control`, `workspace-creation`). Per-point
+uniqueness makes sure that these IDs cannot hide an author-chosen widget ID.
 
 ## Initial Extension-Point Catalogue
 
@@ -267,7 +276,7 @@ Discovery will:
 3. validate the common contribution fields;
 4. find the host definition for the named extension point;
 5. validate point-specific fields;
-6. reject duplicate contribution IDs within the app;
+6. reject duplicate contribution IDs within one extension point;
 7. record diagnostics for malformed or unknown entries;
 8. combine valid entries with legacy normalised contributions; and
 9. return one canonical `AppContributions` object on `SeroAppManifest`.

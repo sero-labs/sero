@@ -14,9 +14,10 @@ These manifest concepts are separate:
 | `sero.app.contributes.components` | Plugin | Extra federated React components mounted in host-defined locations. |
 | `sero.app.contributes.controls` | Host | Standard controls rendered by Sero and backed by a plugin action. |
 
-Every contribution needs an `id` that is unique across both contribution
-arrays in the app. Sero combines it with the app ID as
-`<app-id>:<contribution-id>`.
+Every contribution needs an `id` that is unique inside its extension point.
+The same ID can appear in two different extension points. Sero combines it
+with the app ID as `<app-id>:<contribution-id>`, which identifies the
+contribution inside one extension point only.
 
 ## Supported extension points
 
@@ -114,7 +115,7 @@ Electron validates all contribution data before the renderer receives it:
 
 - `components` and `controls` must be arrays when present
 - required strings must be non-empty
-- IDs must be unique across both arrays in the app
+- IDs must be unique inside one extension point
 - the extension point, control type, and action type must be host-defined
 - only point-specific allowlisted fields are retained
 

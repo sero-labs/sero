@@ -115,15 +115,10 @@ describe('app contribution parsing', () => {
       contributes: {
         components: [
           { id: 'shared', extensionPoint: 'ui.titlebar.control', component: 'Good' },
+          { id: 'shared', extensionPoint: 'ui.titlebar.control', component: 'Duplicate' },
           { id: 'unknown', extensionPoint: 'ui.future.surface', component: 'Future' },
         ],
         controls: [
-          {
-            id: 'shared',
-            extensionPoint: 'workspace.create.option',
-            control: { type: 'switch', label: 'Duplicate', defaultValue: true },
-            action: { type: 'tool', tool: 'duplicate' },
-          },
           {
             id: 'invalid',
             extensionPoint: 'workspace.create.option',
@@ -134,13 +129,83 @@ describe('app contribution parsing', () => {
       },
     });
 
-    expect(parsed.contributions.components).toHaveLength(1);
+    expect(parsed.contributions.components).toEqual([
+      expect.objectContaining({ id: 'shared', component: 'Good' }),
+    ]);
     expect(parsed.contributions.controls).toHaveLength(0);
     expect(parsed.diagnostics.map((entry) => entry.code)).toEqual([
       'unknown-extension-point',
       'invalid-contribution',
       'duplicate-id',
     ]);
+  });
+
+  it('keeps the same id in two different extension points', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [
+          { id: 'shared', extensionPoint: 'ui.titlebar.control', component: 'Control' },
+        ],
+        controls: [
+          {
+            id: 'shared',
+            extensionPoint: 'workspace.create.option',
+            control: { type: 'switch', label: 'Shared', defaultValue: true },
+            action: { type: 'tool', tool: 'shared' },
+          },
+        ],
+      },
+    });
+
+    expect(parsed.contributions.components).toHaveLength(1);
+    expect(parsed.contributions.controls).toHaveLength(1);
+    expect(parsed.diagnostics).toEqual([]);
+  });
+
+  it('keeps every widget whose id matches a host-generated legacy id', () => {
+    const parsed = parseAppContributions({
+      search: { component: 'LegacySearch' },
+      explorerView: { component: 'LegacyExplorer' },
+      titlebar: { component: 'LegacyTitlebar' },
+      workspaceCreation: { label: 'Enable indexing', tool: 'enable_index' },
+      widgets: [
+        { id: 'global-search', name: 'Search stats', component: 'SearchStats' },
+        { id: 'explorer-view', name: 'Explorer stats', component: 'ExplorerStats' },
+        { id: 'titlebar-control', name: 'Titlebar stats', component: 'TitlebarStats' },
+        { id: 'workspace-creation', name: 'Workspace stats', component: 'WorkspaceStats' },
+      ],
+    });
+
+    const widgets = parsed.contributions.components.filter(
+      (entry) => entry.extensionPoint === 'ui.dashboard.widget',
+    );
+    expect(widgets.map((entry) => entry.component)).toEqual([
+      'SearchStats',
+      'ExplorerStats',
+      'TitlebarStats',
+      'WorkspaceStats',
+    ]);
+    expect(parsed.contributions.components.map((entry) => entry.component)).toEqual(
+      expect.arrayContaining(['LegacySearch', 'LegacyExplorer', 'LegacyTitlebar']),
+    );
+    expect(parsed.contributions.controls).toEqual([
+      expect.objectContaining({ id: 'workspace-creation' }),
+    ]);
+    expect(parsed.diagnostics).toEqual([]);
+  });
+
+  it('reports a duplicate legacy widget id inside one extension point', () => {
+    const parsed = parseAppContributions({
+      widgets: [
+        { id: 'stats', name: 'Stats one', component: 'StatsOne' },
+        { id: 'stats', name: 'Stats two', component: 'StatsTwo' },
+      ],
+    });
+
+    expect(parsed.contributions.components).toEqual([
+      expect.objectContaining({ component: 'StatsOne' }),
+    ]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['duplicate-id']);
   });
 
   it('suppresses federated components but retains host controls', () => {

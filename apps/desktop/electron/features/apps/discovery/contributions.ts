@@ -341,13 +341,22 @@ export function parseAppContributions(
 
   const components: ComponentContribution[] = [];
   const controls: ControlContribution[] = [];
-  const seenIds = new Set<string>();
+  // Uniqueness is per extension point: the host resolves a contribution only
+  // inside its own point, so host-generated legacy ids ("global-search",
+  // "explorer-view", and the rest) must not hide an author id in another point.
+  const seenIdsByPoint = new Map<string, Set<string>>();
   const all = [...explicit.components, ...explicit.controls, ...legacy];
   for (const entry of all) {
+    let seenIds = seenIdsByPoint.get(entry.extensionPoint);
+    if (!seenIds) {
+      seenIds = new Set<string>();
+      seenIdsByPoint.set(entry.extensionPoint, seenIds);
+    }
     if (seenIds.has(entry.id)) {
       diagnostics.push({
         code: 'duplicate-id',
-        message: `Duplicate contribution id "${entry.id}" was ignored.`,
+        message: `Duplicate contribution id "${entry.id}" for extension point `
+          + `"${entry.extensionPoint}" was ignored.`,
         contributionId: entry.id,
         extensionPoint: entry.extensionPoint,
       });

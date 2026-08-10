@@ -59,6 +59,26 @@ describe('getContributions', () => {
     ]);
   });
 
+  it('isolates a shared id used in two extension points', () => {
+    const app = createApp(createManifest('notes', [
+      { id: 'global-search', extensionPoint: 'ui.global-search.panel', component: 'SearchPanel' },
+      {
+        id: 'global-search',
+        extensionPoint: 'ui.dashboard.widget',
+        component: 'SearchWidget',
+        name: 'Search stats',
+        defaultSize: { w: 2, h: 2 },
+      },
+    ]));
+
+    const panels = getContributions([app], 'ui.global-search.panel');
+    const widgets = getContributions([app], 'ui.dashboard.widget');
+
+    expect(panels.map((entry) => entry.contribution.component)).toEqual(['SearchPanel']);
+    expect(widgets.map((entry) => entry.contribution.component)).toEqual(['SearchWidget']);
+    expect(panels[0].key).toBe(widgets[0].key);
+  });
+
   it('excludes host-incompatible apps', () => {
     const app = createApp(createManifest('future', [
       { id: 'search', extensionPoint: 'ui.global-search.panel', component: 'Search' },

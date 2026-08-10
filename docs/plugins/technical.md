@@ -196,7 +196,8 @@ provider-specific auth and model UI without hardcoded app-level logic:
 
 Electron is the trust boundary for `sero.app.contributes`. It validates common
 fields, resolves the host-owned extension point, validates point-specific
-fields, rejects duplicate IDs, and returns canonical `contributions` plus
+fields, rejects IDs that repeat inside one extension point, and returns
+canonical `contributions` plus
 non-fatal diagnostics on `SeroAppManifest`.
 
 The renderer calls the typed `getContributions(apps, extensionPoint)` query.
