@@ -366,8 +366,9 @@ uses `contributes.components`. Standard controls rendered by the host use
 `contributes.controls`. A plugin can only use an extension point defined by the
 host.
 
-Every entry needs an `id` that is unique across both arrays in the app. The
-host uses `<app-id>:<contribution-id>` as its stable global identity.
+Every entry needs an `id` that is unique inside its extension point. The same
+ID can appear in two different extension points. The host uses
+`<app-id>:<contribution-id>` as the stable key inside one extension point.
 
 | Extension point | Kind | Point-specific fields | Host surface |
 | --- | --- | --- | --- |

@@ -221,7 +221,7 @@ Widget manifest fields:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Unique within the app |
+| `id` | Yes | Unique among this app's dashboard widgets |
 | `extensionPoint` | Yes | Must be `ui.dashboard.widget` |
 | `name` | Yes | Display name in header and picker |
 | `component` | Yes | Exported component name from MF remote |
@@ -388,7 +388,7 @@ Supported component extension points are `ui.global-search.panel`,
 `ui.explorer.view`, `ui.titlebar.control`, and `ui.dashboard.widget`. The
 supported control extension point is `workspace.create.option`, with a
 `switch` control and app-local `tool` action. Contribution IDs are unique
-across both arrays. Unknown points are ignored by the host, so set
+inside one extension point. Unknown points are ignored by the host, so set
 `minSeroVersion` if the plugin cannot work without a newer point.
 
 The old `search`, `explorerView`, `titlebar`, `widgets`, and
