@@ -26,9 +26,9 @@
   },
   "devDependencies": {
     "@sero-ai/common": "workspace:*",
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.2.18",
     "react": "catalog:",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "catalog:"
   }
 }
