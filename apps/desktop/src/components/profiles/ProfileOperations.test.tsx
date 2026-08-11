@@ -17,6 +17,7 @@ const profileBridge = {
   create: vi.fn(),
   list: vi.fn(),
   switch: vi.fn(),
+  remove: vi.fn(),
   getActive: vi.fn(),
   listAuthSources: vi.fn(),
   pickFolder: vi.fn(),
@@ -61,6 +62,14 @@ function findButton(label: string): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
+function findExactButton(label: string): HTMLButtonElement {
+  const button = Array.from(document.querySelectorAll('button')).find((candidate) =>
+    candidate.textContent?.trim() === label,
+  );
+  if (!button) throw new Error(`Expected button with label "${label}"`);
+  return button as HTMLButtonElement;
+}
+
 function findProfileNameInput(): HTMLInputElement {
   const input = document.querySelector('#profile-name');
   if (!(input instanceof HTMLInputElement)) {
@@ -84,6 +93,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/next',
       createdAt: '2026-04-15T00:00:00.000Z',
       isActive: false,
+      canDeleteFiles: false,
     });
     profileBridge.list.mockResolvedValue([]);
     profileBridge.switch.mockRejectedValue(new Error('Profile switch blocked'));
@@ -91,6 +101,7 @@ describe('profile operation error surfaces', () => {
     profileBridge.listAuthSources.mockResolvedValue([]);
     profileBridge.pickFolder.mockResolvedValue(null);
     profileBridge.hasActive.mockResolvedValue(false);
+    profileBridge.remove.mockResolvedValue(undefined);
 
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -121,6 +132,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/next',
       createdAt: '2026-04-15T00:00:00.000Z',
       isActive: false,
+      canDeleteFiles: false,
     };
     profileBridge.create.mockResolvedValue(createdProfile);
     profileBridge.list.mockResolvedValue([createdProfile]);
@@ -150,6 +162,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/current',
       createdAt: '2026-04-14T00:00:00.000Z',
       isActive: true,
+      canDeleteFiles: false,
     };
     const createdProfile: ProfileInfo = {
       id: 'profile-next',
@@ -157,6 +170,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/next',
       createdAt: '2026-04-15T00:00:00.000Z',
       isActive: false,
+      canDeleteFiles: false,
     };
     profileBridge.getActive.mockResolvedValue(existingProfile);
     profileBridge.listAuthSources.mockResolvedValue([existingProfile]);
@@ -197,6 +211,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/current',
       createdAt: '2026-04-14T00:00:00.000Z',
       isActive: true,
+      canDeleteFiles: false,
     };
     const nextProfile: ProfileInfo = {
       id: 'profile-next',
@@ -204,6 +219,7 @@ describe('profile operation error surfaces', () => {
       path: '/profiles/research',
       createdAt: '2026-04-15T00:00:00.000Z',
       isActive: false,
+      canDeleteFiles: false,
     };
     useProfileStore.setState({
       profiles: [activeProfile, nextProfile],
@@ -232,5 +248,57 @@ describe('profile operation error surfaces', () => {
     });
 
     expect(findButton('Research').disabled).toBe(false);
+  });
+
+  it('defaults inactive profile management to file-retaining removal', async () => {
+    const active: ProfileInfo = {
+      id: 'active', name: 'Current', path: '/profiles/current',
+      createdAt: '2026-04-14T00:00:00.000Z', isActive: true, canDeleteFiles: false,
+    };
+    const custom: ProfileInfo = {
+      id: 'custom', name: 'Custom', path: '/custom/profile',
+      createdAt: '2026-04-15T00:00:00.000Z', isActive: false, canDeleteFiles: false,
+    };
+    useProfileStore.setState({ profiles: [active, custom], activeProfile: active, hasActiveProfile: true });
+    profileBridge.list.mockResolvedValue([active]);
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+    await act(async () => { findButton('Current').click(); });
+    const manage = document.querySelector('button[aria-label=\"Manage Custom\"]');
+    if (!(manage instanceof HTMLButtonElement)) throw new Error('Expected profile management button');
+    await act(async () => { manage.click(); });
+
+    expect(document.body.textContent).toContain('Remove profile');
+    expect(document.body.textContent).toContain('Choose what to do with the files for Custom.');
+    expect(document.body.textContent).not.toContain('Delete files');
+    await act(async () => { findExactButton('Retain files').click(); });
+    await vi.waitFor(() => expect(profileBridge.remove).toHaveBeenCalledWith('custom', 'remove'));
+  });
+
+  it('shows a permanent warning only for a proven Sero-managed profile folder', async () => {
+    const active: ProfileInfo = {
+      id: 'active', name: 'Current', path: '/profiles/current',
+      createdAt: '2026-04-14T00:00:00.000Z', isActive: true, canDeleteFiles: false,
+    };
+    const managed: ProfileInfo = {
+      id: 'managed', name: 'Research', path: '/profiles/research',
+      createdAt: '2026-04-15T00:00:00.000Z', isActive: false, canDeleteFiles: true,
+      folderProvenance: 'sero-managed',
+    };
+    useProfileStore.setState({ profiles: [active, managed], activeProfile: active, hasActiveProfile: true });
+    profileBridge.list.mockResolvedValue([active]);
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+    await act(async () => { findButton('Current').click(); });
+    const manage = document.querySelector('button[aria-label=\"Manage Research\"]');
+    if (!(manage instanceof HTMLButtonElement)) throw new Error('Expected profile management button');
+    await act(async () => { manage.click(); });
+    await act(async () => { findExactButton('Delete files').click(); });
+
+    expect(document.body.textContent).toContain('Are you sure?');
+    expect(document.body.textContent).toContain('You cannot undo this');
+    expect(document.body.textContent).toContain('/profiles/research');
+    await act(async () => { findExactButton('Delete').click(); });
+    await vi.waitFor(() => expect(profileBridge.remove).toHaveBeenCalledWith('managed', 'delete-files'));
   });
 });

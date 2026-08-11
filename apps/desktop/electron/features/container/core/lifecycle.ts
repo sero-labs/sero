@@ -21,6 +21,11 @@ import {
   type ContainerState,
   type ExecResult,
 } from './types';
+import {
+  identitiesMatch,
+  inspectAppleContainerOwnership,
+  seroOwnershipLabels,
+} from './ownership';
 import { getContainerAvailability } from './availability';
 import { prepareWorkspaceLogPortal } from './log-access';
 
@@ -237,6 +242,10 @@ export async function createFreshContainer(
     '--name',
     cid,
     '-d',
+    ...Object.entries(seroOwnershipLabels('apple-container', {
+      workspaceId: config.workspaceId,
+      workspacePath: config.hostPath,
+    })).flatMap(([key, value]) => ['--label', `${key}=${value}`]),
     '--cpus',
     String(config.cpus ?? DEFAULT_CPUS),
     '--memory',
@@ -307,6 +316,13 @@ export async function createFreshContainer(
     // run that wasn't cleaned up), force-remove it (escalating to ghost
     // recovery if needed) and retry once.
     if (errStr.includes('already exists')) {
+      const ownership = await inspectAppleContainerOwnership(cid);
+      if (!ownership.exists || !ownership.identity || !identitiesMatch(ownership.identity, {
+        workspaceId: config.workspaceId,
+        workspacePath: config.hostPath,
+      })) {
+        throw new Error(`Apple Container name collision: ${cid} is not owned by this Sero workspace.`);
+      }
       console.warn(`[container] Stale container ${cid} detected, force-removing and retrying...`);
       await forceRemoveContainer(cid);
       try {
@@ -384,6 +400,7 @@ interface InspectData {
   networks?: Array<{ ipv4Address?: string }>;
 }
 
+
 /** Inspect a container and return its state. */
 export async function inspectContainer(
   workspaceId: string,
@@ -443,8 +460,8 @@ export async function removeContainer(
   const cid = containerMap.get(workspaceId) ?? containerId(workspaceId);
   try {
     await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
-  } catch {
-    /* May already be removed */
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
   }
   containerMap.delete(workspaceId);
 }

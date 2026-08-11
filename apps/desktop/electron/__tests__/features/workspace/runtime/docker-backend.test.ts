@@ -42,6 +42,7 @@ describe('Docker runtime backend core', () => {
       '--label', 'ai.sero.managed=true',
       '--label', 'ai.sero.runtime=docker',
       '--label', 'ai.sero.workspaceId=ws-1',
+      '--label', 'ai.sero.workspacePath=/host/workspace',
       '--label', 'ai.sero.image=ghcr.io/sero-labs/sero-node:test',
       '--workdir', '/workspace',
       '--env', 'TERM=xterm-256color',

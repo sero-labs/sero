@@ -62,6 +62,11 @@ import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps/apps';
 import { ensureBundledPiDocs, ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
+import { profileManager } from './features/profile/manager';
+import {
+  containerCleanupService,
+  reconcileRegisteredProfileContainers,
+} from './features/workspace/runtime/container-cleanup';
 import {
   appRuntimeManager,
   containerManager,
@@ -288,6 +293,9 @@ app.whenReady().then(async () => {
 
   // Init workspace registry + default workspaces before anything else
   await workspaceManager.init();
+  void reconcileRegisteredProfileContainers(profileManager.list()).catch((error) => {
+    console.warn('[sero] Container reconciliation could not complete:', error);
+  });
 
   // Set up custom protocols for extension UI assets and profile-owned media.
   setupExtProtocol();
@@ -419,6 +427,22 @@ async function withShutdownTimeout(
   }
 }
 
+async function destroyWorkspaceRuntimes(): Promise<void> {
+  for (const identity of runtimeManager.listCachedContainerIdentities()) {
+    await containerCleanupService.queueDeletion(
+      { profileId: ACTIVE_PROFILE_ID ?? '', ...identity },
+      [identity.provider],
+    ).catch((error) => {
+      console.warn(`[sero] Could not persist shutdown cleanup for ${identity.workspaceId}:`, error);
+    });
+  }
+  try {
+    await runtimeManager.destroyAll();
+  } finally {
+    await containerCleanupService.retryPending();
+  }
+}
+
 async function performGracefulShutdown(): Promise<void> {
   const startedAt = Date.now();
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
@@ -440,7 +464,7 @@ async function performGracefulShutdown(): Promise<void> {
       },
     ),
     withShutdownTimeout('language servers', () => lspManager.disposeAll()),
-    withShutdownTimeout('runtimes', () => runtimeManager.destroyAll()),
+    withShutdownTimeout('runtimes', destroyWorkspaceRuntimes),
   ]);
 
   console.log(`[sero] Graceful shutdown complete (${Date.now() - startedAt}ms)`);

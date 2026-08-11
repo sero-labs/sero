@@ -12,6 +12,7 @@ import type {
   SeroOrchestratorAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
+import type { ProfileRemovalMode } from './profile';
 import type { SeroBrowserAPI } from './electron-browser';
 import type {
   SeroGatewayAPI,
@@ -388,8 +389,8 @@ interface SeroProfilesAPI {
   switch(id: string): Promise<void>;
   /** Rename a profile's display name. */
   rename(id: string, newName: string): Promise<void>;
-  /** Delete a profile (unregister only — files stay). */
-  delete(id: string): Promise<void>;
+  /** Remove an inactive profile, retaining files unless delete-files is explicitly selected. */
+  remove(id: string, mode: ProfileRemovalMode): Promise<void>;
   /** Open native folder picker for custom profile path. */
   pickFolder(): Promise<string | null>;
   /** Check if onboarding is needed for this profile. */

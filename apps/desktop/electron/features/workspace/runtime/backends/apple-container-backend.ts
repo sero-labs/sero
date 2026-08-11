@@ -138,7 +138,7 @@ export class AppleContainerBackend implements RuntimeBackend {
     }
     // Mirror the Docker backend: destroy fully removes the container rather than just stopping
     // it, so stale Apple Container records do not accumulate across workspace resets.
-    await this.containerManager.remove(this.workspaceId);
+    if (this.session) await this.containerManager.remove(this.workspaceId);
     this.session = null;
     this.sessionIsolated = false;
   }

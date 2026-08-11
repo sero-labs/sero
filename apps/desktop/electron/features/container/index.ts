@@ -27,6 +27,7 @@ import {
   removeContainer,
   listContainers,
 } from './core/lifecycle';
+import { identitiesMatch, inspectAppleContainerOwnership } from './core/ownership';
 import { readContainerFile, writeContainerFile, listContainerFiles } from './filesystem/files';
 import { TerminalManager } from './terminal/terminal';
 import { ensureImage } from './core/image';
@@ -174,6 +175,13 @@ export class ContainerManager {
   private async ensureInternal(config: ContainerConfig): Promise<ContainerState> {
     const cid = containerId(config.workspaceId);
     prepareWorkspaceLogPortal(config.hostPath);
+    const ownership = await inspectAppleContainerOwnership(cid);
+    if (ownership.exists && (!ownership.identity || !identitiesMatch(ownership.identity, {
+      workspaceId: config.workspaceId,
+      workspacePath: config.hostPath,
+    }))) {
+      throw new Error(`Apple Container name collision: ${cid} is not owned by this Sero workspace.`);
+    }
 
     const existingState = await resolveExistingContainer(
       config.workspaceId,

@@ -78,6 +78,14 @@ describe('createFreshContainer', () => {
 
     const runArgs = mocks.execFileMock.mock.calls[0]?.[1] as string[];
     expect(runArgs).toEqual(expect.arrayContaining([
+      '--label',
+      'ai.sero.managed=true',
+      '--label',
+      'ai.sero.runtime=apple-container',
+      '--label',
+      'ai.sero.workspaceId=ws-1',
+      '--label',
+      'ai.sero.workspacePath=/host/workspace',
       '--volume',
       '/host/workspace:/workspace',
       '--volume',

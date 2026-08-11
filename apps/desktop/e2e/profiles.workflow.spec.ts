@@ -55,11 +55,44 @@ test('creates a second profile from the profile switcher and requests restart on
   await expect.poll(relaunchCalls, { timeout: 10_000 }).toEqual(expect.arrayContaining(['relaunch', 'exit']));
 });
 
-test('deletes an inactive profile from the registry without deleting files', async () => {
-  const inactive = await page.evaluate(() => window.sero.profiles.create('Delete Me'));
-  await page.evaluate((id) => window.sero.profiles.delete(id), inactive.id);
+test('removes an inactive profile from the registry without deleting files', async () => {
+  const inactive = await page.evaluate(() => window.sero.profiles.create('Remove Me'));
+  await page.evaluate((id) => window.sero.profiles.remove(id, 'remove'), inactive.id);
   const profiles = await page.evaluate(() => window.sero.profiles.list());
   expect(profiles.some((profile) => profile.id === inactive.id)).toBe(false);
+});
+
+test('shows a clear two-step profile removal dialog', async () => {
+  await page.evaluate(() => window.sero.profiles.create('Research'));
+  await page.reload();
+  await waitForShell(page);
+  await page.getByRole('button', { name: /Primary/ }).click();
+  await page.getByRole('button', { name: 'Manage Research' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Remove profile' })).toBeVisible();
+  const retainFiles = dialog.getByRole('button', { name: 'Retain files' });
+  const deleteFiles = dialog.getByRole('button', { name: 'Delete files' });
+  await expect(retainFiles).toBeVisible();
+  await expect(deleteFiles).toBeVisible();
+
+  const [retainBox, deleteBox] = await Promise.all([
+    retainFiles.boundingBox(),
+    deleteFiles.boundingBox(),
+  ]);
+  expect(retainBox?.y).toBe(deleteBox?.y);
+
+  await deleteFiles.click();
+  await expect(dialog.getByRole('heading', { name: 'Are you sure?' })).toBeVisible();
+  await expect(dialog.getByText(
+    'The profile folder and its workspaces will be deleted. You cannot undo this.',
+  )).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Delete', exact: true })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Remove profile' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close' }).click();
 });
 
 test.skip('custom storage location picker needs a deterministic folder-picker test hook', async () => {

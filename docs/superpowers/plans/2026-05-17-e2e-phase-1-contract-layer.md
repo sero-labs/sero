@@ -300,7 +300,7 @@ test('creates, lists, renames, and deletes an inactive profile', async () => {
 - `profiles.list()` returns an array of objects with `id`, `name`, `path`, and active marker/flag if present.
 - `profiles.create()` creates a profile visible in `profiles.list()`.
 - `profiles.rename()` changes only the target profile.
-- `profiles.delete()` unregisters an inactive profile without asserting filesystem deletion.
+- `profiles.remove(id, 'remove')` unregisters an inactive profile without deleting its files.
 - `profiles.needsOnboarding()` transitions from `true` to `false` after `markOnboardingDone()`.
 - `onboarding.getState()` returns a stable object shape with step/status fields currently exposed by `OnboardingState`.
 

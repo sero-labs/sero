@@ -66,6 +66,7 @@ export class DockerBackend implements RuntimeBackend {
   readonly workspaceAccess = 'live-mount' as const;
   readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('docker');
 
+  private containerEnsured = false;
   private readonly workspaceManager: WorkspaceManager;
   private readonly getGitAuthEnvVars?: () => Record<string, string>;
   private readonly imageRef: string;
@@ -109,7 +110,10 @@ export class DockerBackend implements RuntimeBackend {
         status: 'stopped',
       });
     }
-    await this.run(['rm', '-f', dockerContainerName(this.workspaceId)], { timeoutMs: 30_000 });
+    if (this.containerEnsured) {
+      await removeDockerContainer(dockerContainerName(this.workspaceId), this.run);
+      this.containerEnsured = false;
+    }
   }
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
@@ -393,6 +397,7 @@ export class DockerBackend implements RuntimeBackend {
       state = await ensureDockerContainer({ config, imageRef: this.imageRef, imageId: image.imageId, run: this.run, previewPortPoolSize: poolSize });
       await (await this.portManager(poolSize)).refreshFromInspect();
     }
+    this.containerEnsured = true;
     return {
       backend: this.backend,
       workspaceId: this.workspaceId,
