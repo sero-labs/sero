@@ -6,6 +6,7 @@ export interface WorkspaceContainerIdentity extends SeroContainerIdentity {
 
 export interface ContainerDeletionRequest extends SeroContainerIdentity {
   createdBefore?: string;
+  skipRunning?: boolean;
 }
 
 export interface PendingContainerDeletion extends WorkspaceContainerIdentity {

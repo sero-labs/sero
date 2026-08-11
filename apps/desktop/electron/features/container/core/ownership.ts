@@ -8,8 +8,8 @@ const execFileAsync = promisify(execFile);
 
 interface AppleInspectData {
   status?: string | { state?: string };
+  startedDate?: string | number;
   configuration?: {
-    creationDate?: string | number;
     labels?: Record<string, string>;
     mounts?: Array<{ source?: string; destination?: string }>;
   };
@@ -69,7 +69,7 @@ export interface AppleContainerOwnership {
   installationRoot: string | null;
   workspaceMountSource: string | null;
   running: boolean | null;
-  createdAt: number | null;
+  startedAt: number | null;
 }
 
 export function labelsBelongToCurrentInstallation(
@@ -134,7 +134,7 @@ export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleCo
       ? path.resolve(workspaceMount.source)
       : null,
     running: status ? status === 'running' : null,
-    createdAt: parseContainerCreationTime(info.configuration?.creationDate),
+    startedAt: parseContainerCreationTime(info.startedDate),
   };
 }
 
@@ -153,7 +153,7 @@ export async function inspectAppleContainerOwnership(
         installationRoot: null,
         workspaceMountSource: null,
         running: null,
-        createdAt: null,
+        startedAt: null,
       };
     }
     throw error;

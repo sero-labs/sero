@@ -127,10 +127,6 @@ export class ContainerCleanupService {
     const result = { ...EMPTY_RESULT };
     const remaining: PendingContainerDeletion[] = [];
     for (const pending of state.pending) {
-      if (!pending.createdBefore) {
-        result.preserved += 1;
-        continue;
-      }
       const provider = this.providers.find((candidate) => candidate.provider === pending.provider);
       if (!provider) {
         remaining.push(pending);
@@ -138,7 +134,12 @@ export class ContainerCleanupService {
         continue;
       }
       try {
-        const outcome = await provider.deleteOwned(pending);
+        const outcome = await provider.deleteOwned({
+          workspaceId: pending.workspaceId,
+          workspacePath: pending.workspacePath,
+          createdBefore: pending.createdBefore,
+          skipRunning: pending.cancelWhenRegistered === false,
+        });
         if (outcome === 'deleted') result.deleted += 1;
         if (outcome === 'preserved') {
           result.preserved += 1;
@@ -164,6 +165,7 @@ export class ContainerCleanupService {
       return;
     }
     if (entry.cancelWhenRegistered === false) existing.cancelWhenRegistered = false;
+    // A repeated shutdown request targets the container current at the latest cutoff.
     existing.createdBefore = entry.createdBefore;
   }
 

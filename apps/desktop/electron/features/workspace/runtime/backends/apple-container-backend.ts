@@ -144,6 +144,7 @@ export class AppleContainerBackend implements RuntimeBackend {
       this.sessionIsolated = false;
     }
   }
+
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
     const envPrefix = Object.entries(input.env ?? {})
       .map(([key, value]) => shellEnvAssignment(key, value))

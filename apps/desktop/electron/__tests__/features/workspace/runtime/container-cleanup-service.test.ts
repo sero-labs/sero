@@ -11,6 +11,10 @@ const identity = {
   workspaceId: 'workspace-a',
   workspacePath: '/profiles/a/workspaces/workspace-a',
 };
+const providerIdentity = {
+  workspaceId: identity.workspaceId,
+  workspacePath: identity.workspacePath,
+};
 
 async function statePath(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-container-cleanup-'));
@@ -27,6 +31,7 @@ function provider(
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(temporaryRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
 });
 
@@ -42,8 +47,8 @@ describe('persistent container cleanup', () => {
     const result = await service.requestDeletion(identity);
 
     expect(result.pending).toBe(0);
-    expect(appleDelete).toHaveBeenCalledWith(expect.objectContaining(identity));
-    expect(dockerDelete).toHaveBeenCalledWith(expect.objectContaining(identity));
+    expect(appleDelete).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
+    expect(dockerDelete).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
   });
 
   it('survives provider failure and retries after a new service instance starts', async () => {
@@ -59,18 +64,22 @@ describe('persistent container cleanup', () => {
     const retried = await restarted.retryPending();
 
     expect(retried.pending).toBe(0);
-    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(identity));
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
     const persisted = JSON.parse(await fs.readFile(cleanupStatePath, 'utf8')) as { pending: unknown[] };
     expect(persisted.pending).toEqual([]);
   });
 
-  it('retries shutdown cleanup even while the workspace remains registered', async () => {
+  it('keeps previous-session cleanup pending while its container is running', async () => {
     const cleanupStatePath = await statePath();
     const first = new ContainerCleanupService(cleanupStatePath, []);
     await first.queueRuntimeDeletion(identity, ['docker']);
-    const deleteOwned = vi.fn(async (request: { createdBefore?: string }) => {
+    const deleteOwned = vi.fn(async (request: {
+      createdBefore?: string;
+      skipRunning?: boolean;
+    }) => {
       expect(Date.parse(request.createdBefore ?? '')).not.toBeNaN();
-      return 'deleted' as const;
+      expect(request.skipRunning).toBe(true);
+      return 'preserved' as const;
     });
     const restarted = new ContainerCleanupService(cleanupStatePath, [
       provider('docker', deleteOwned),
@@ -78,8 +87,8 @@ describe('persistent container cleanup', () => {
 
     const result = await restarted.reconcile([identity], true);
 
-    expect(result.pending).toBe(0);
-    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(identity));
+    expect(result.pending).toBe(1);
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
   });
 
   it('reconciles orphans without deleting workspaces from another registered profile', async () => {
@@ -161,7 +170,45 @@ describe('persistent container cleanup', () => {
     const result = await service.retryPending();
 
     expect(result.deleted).toBe(1);
-    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(identity));
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
+  });
+
+  it('retries a valid legacy entry without a creation cutoff', async () => {
+    const cleanupStatePath = await statePath();
+    await fs.writeFile(cleanupStatePath, JSON.stringify({
+      version: 1,
+      pending: [{ provider: 'docker', ...identity, cancelWhenRegistered: false }],
+    }), 'utf8');
+    const deleteOwned = vi.fn(async () => 'deleted' as const);
+    const service = new ContainerCleanupService(cleanupStatePath, [
+      provider('docker', deleteOwned),
+    ]);
+
+    const result = await service.retryPending();
+
+    expect(result.deleted).toBe(1);
+    expect(result.pending).toBe(0);
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining({
+      ...providerIdentity,
+      skipRunning: true,
+    }));
+  });
+
+  it('refreshes the cutoff when shutdown cleanup is queued again', async () => {
+    vi.useFakeTimers();
+    const cleanupStatePath = await statePath();
+    const service = new ContainerCleanupService(cleanupStatePath, []);
+    vi.setSystemTime(new Date('2026-08-11T22:00:00.000Z'));
+    await service.queueRuntimeDeletion(identity, ['docker']);
+    vi.setSystemTime(new Date('2026-08-11T23:00:00.000Z'));
+    await service.queueRuntimeDeletion(identity, ['docker']);
+
+    const state = JSON.parse(await fs.readFile(cleanupStatePath, 'utf8')) as {
+      pending: Array<{ createdBefore?: string }>;
+    };
+
+    expect(state.pending).toHaveLength(1);
+    expect(state.pending[0]?.createdBefore).toBe('2026-08-11T23:00:00.000Z');
   });
 
   it('does not reconcile orphans when any profile registry is unreadable', async () => {

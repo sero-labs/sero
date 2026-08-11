@@ -118,6 +118,29 @@ describe('container cleanup provider ownership', () => {
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
   });
 
+  it('preserves a running Docker container for a previous-session deletion', async () => {
+    const run = dockerRunnerFor({
+      Id: 'container-id',
+      Name: '/sero-workspace-a',
+      Created: '2026-08-11T22:00:00.000Z',
+      State: { Running: true },
+      Config: { Labels: {
+        [SERO_MANAGED_LABEL]: 'true',
+        [SERO_RUNTIME_LABEL]: 'docker',
+        [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+        [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+      } },
+      Mounts: [{ Source: identity.workspacePath, Destination: '/workspace' }],
+    });
+
+    await expect(createDockerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+      skipRunning: true,
+    })).resolves.toBe('preserved');
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
+  });
+
   it('deletes Apple Container records with durable Sero ownership labels', async () => {
     const run = appleRunnerFor({
       configuration: {
@@ -180,11 +203,21 @@ describe('container cleanup provider ownership', () => {
     expect(run).toHaveBeenCalledWith(['inspect', 'sero-workspace-a']);
   });
 
-  it('does not delete an Apple container created after a shutdown entry', async () => {
+  it('does not inspect Apple containers outside the Sero name prefix', async () => {
+    const run = vi.fn(async (args: string[]) => {
+      if (args[0] === 'list') return { stdout: JSON.stringify([{ id: 'unrelated' }]) };
+      throw new Error(`Unexpected inspect: ${args.join(' ')}`);
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).listOwned(['/profiles/work'])).resolves.toEqual([]);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not delete an Apple container started after a shutdown entry', async () => {
     const run = appleRunnerFor({
+      startedDate: '2026-08-12T00:00:00.000Z',
       configuration: {
         id: 'sero-workspace-a',
-        creationDate: '2026-08-12T00:00:00.000Z',
         labels: {
           [SERO_MANAGED_LABEL]: 'true',
           [SERO_RUNTIME_LABEL]: 'apple-container',
@@ -200,6 +233,54 @@ describe('container cleanup provider ownership', () => {
       ...identity,
       createdBefore: '2026-08-11T23:00:00.000Z',
     })).resolves.toBe('superseded');
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
+  });
+
+  it('deletes an owned Apple container when creation time is unavailable', async () => {
+    const run = appleRunnerFor({
+      status: 'stopped',
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {
+          [SERO_MANAGED_LABEL]: 'true',
+          [SERO_RUNTIME_LABEL]: 'apple-container',
+          [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+          [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
+          [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+        },
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+    })).resolves.toBe('deleted');
+    expect(run).toHaveBeenCalledWith(['delete', '--force', 'sero-workspace-a']);
+  });
+
+  it('preserves a running Apple container for a previous-session deletion', async () => {
+    const run = appleRunnerFor({
+      status: 'running',
+      startedDate: '2026-08-11T22:00:00.000Z',
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {
+          [SERO_MANAGED_LABEL]: 'true',
+          [SERO_RUNTIME_LABEL]: 'apple-container',
+          [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+          [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
+          [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+        },
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+      skipRunning: true,
+    })).resolves.toBe('preserved');
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
   });
 });

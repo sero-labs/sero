@@ -26,6 +26,7 @@ interface DockerInspectData {
   Id?: string;
   Name?: string;
   Created?: string;
+  State?: { Running?: boolean; StartedAt?: string };
   Config?: { Labels?: Record<string, string> };
   Mounts?: Array<{ Source?: string; Destination?: string }>;
 }
@@ -120,7 +121,9 @@ export function createDockerCleanupProvider(
       if (!installationRoot && (!workspaceMount?.Source
         || path.resolve(workspaceMount.Source) !== path.resolve(request.workspacePath))) return 'preserved';
       if (request.createdBefore
-        && !wasCreatedBefore(named.Created, request.createdBefore)) return 'superseded';
+        && (isAfterCutoff(named.Created, request.createdBefore)
+          || isAfterCutoff(named.State?.StartedAt, request.createdBefore))) return 'superseded';
+      if (request.skipRunning && named.State?.Running === true) return 'preserved';
       const removed = await run(['rm', '-f', cid], { timeoutMs: 30_000 });
       if (removed.exitCode !== 0) {
         throw new Error(removed.stderr || removed.stdout || `Failed to remove Docker container ${cid}`);
@@ -151,7 +154,7 @@ export function createAppleContainerCleanupProvider(
       if (!value || typeof value !== 'object') return [];
       const inspect = value as AppleInspectData;
       const id = inspect.configuration?.id ?? inspect.id;
-      return id ? [id] : [];
+      return id?.startsWith('sero-') ? [id] : [];
     });
   };
 
@@ -191,7 +194,8 @@ export function createAppleContainerCleanupProvider(
       if (!ownership) return 'absent';
       if (!appleContainerBelongsToWorkspace(ownership, request)) return 'preserved';
       if (request.createdBefore
-        && !wasCreatedBefore(ownership.createdAt, request.createdBefore)) return 'superseded';
+        && isAfterCutoff(ownership.startedAt, request.createdBefore)) return 'superseded';
+      if (request.skipRunning && ownership.running === true) return 'preserved';
       await run(['delete', '--force', cid]);
       return 'deleted';
     },
@@ -223,8 +227,10 @@ function isWithinProfileRoot(workspacePath: string, profileRoots: string[]): boo
   });
 }
 
-function wasCreatedBefore(createdAt: unknown, cutoff: string): boolean {
-  const createdAtMs = typeof createdAt === 'number' ? createdAt : parseContainerCreationTime(createdAt);
+function isAfterCutoff(observedAt: unknown, cutoff: string): boolean {
+  const observedAtMs = typeof observedAt === 'number'
+    ? observedAt
+    : parseContainerCreationTime(observedAt);
   const cutoffMs = Date.parse(cutoff);
-  return createdAtMs !== null && !Number.isNaN(cutoffMs) && createdAtMs <= cutoffMs;
+  return observedAtMs !== null && !Number.isNaN(cutoffMs) && observedAtMs > cutoffMs;
 }
