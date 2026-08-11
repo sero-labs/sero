@@ -95,3 +95,4 @@ trip and the reader's trust.
   mid-flight pass.
 - Check type safety, the 500 LOC file limit, and whether `apps/docs-site` and
   `docs/prototypes` needed an update.
+- Do not let review feedback expand the PR scope beyond the users original goal. Address real shortcomings but avoid scope creep
