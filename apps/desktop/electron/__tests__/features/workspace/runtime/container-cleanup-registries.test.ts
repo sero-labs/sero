@@ -49,7 +49,7 @@ describe('registered workspace identity loading', () => {
     ]);
   });
 
-  it('fails closed when a registered profile has no workspace registry', async () => {
+  it('treats a missing legacy workspace registry as empty', async () => {
     const profilePath = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-profile-missing-registry-'));
     temporaryRoots.push(profilePath);
     await fs.mkdir(path.join(profilePath, 'agent'), { recursive: true });
@@ -58,6 +58,6 @@ describe('registered workspace identity loading', () => {
       { id: 'profile-missing', path: profilePath },
     ]);
 
-    expect(result).toEqual({ workspaces: [], complete: false });
+    expect(result).toEqual({ workspaces: [], complete: true });
   });
 });

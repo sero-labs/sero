@@ -6,6 +6,7 @@ export interface WorkspaceContainerIdentity extends SeroContainerIdentity {
 
 export interface PendingContainerDeletion extends WorkspaceContainerIdentity {
   provider: SeroContainerProvider;
+  cancelWhenRegistered?: boolean;
 }
 
 export interface OwnedWorkspaceContainer extends SeroContainerIdentity {

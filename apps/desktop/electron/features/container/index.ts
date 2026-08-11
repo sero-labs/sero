@@ -27,7 +27,11 @@ import {
   removeContainer,
   listContainers,
 } from './core/lifecycle';
-import { identitiesMatch, inspectAppleContainerOwnership } from './core/ownership';
+import {
+  appleContainerBelongsToWorkspace,
+  appleContainerHasCurrentIdentity,
+  inspectAppleContainerOwnership,
+} from './core/ownership';
 import { readContainerFile, writeContainerFile, listContainerFiles } from './filesystem/files';
 import { TerminalManager } from './terminal/terminal';
 import { ensureImage } from './core/image';
@@ -176,11 +180,13 @@ export class ContainerManager {
     const cid = containerId(config.workspaceId);
     prepareWorkspaceLogPortal(config.hostPath);
     const ownership = await inspectAppleContainerOwnership(cid);
-    if (ownership.exists && (!ownership.identity || !identitiesMatch(ownership.identity, {
-      workspaceId: config.workspaceId,
-      workspacePath: config.hostPath,
-    }))) {
+    const identity = { workspaceId: config.workspaceId, workspacePath: config.hostPath };
+    if (ownership.exists && !appleContainerBelongsToWorkspace(ownership, identity)) {
       throw new Error(`Apple Container name collision: ${cid} is not owned by this Sero workspace.`);
+    }
+    if (ownership.exists && !appleContainerHasCurrentIdentity(ownership, identity)) {
+      console.log(`[container] Recreating legacy container ${cid} with current ownership labels`);
+      await this.remove(config.workspaceId);
     }
 
     const existingState = await resolveExistingContainer(
@@ -301,6 +307,15 @@ export class ContainerManager {
     await this.portScanner.stopScanning(workspaceId);
     this.containerIps.delete(workspaceId);
     return removeContainer(workspaceId, this.containers);
+  }
+
+  async removeOwned(workspaceId: string, workspacePath: string): Promise<void> {
+    const ownership = await inspectAppleContainerOwnership(containerId(workspaceId));
+    const identity = { workspaceId, workspacePath };
+    if (ownership.exists && !appleContainerBelongsToWorkspace(ownership, identity)) {
+      throw new Error(`Apple Container name collision: ${containerId(workspaceId)} is not owned by this Sero workspace.`);
+    }
+    await this.remove(workspaceId);
   }
 
   async list(): Promise<ContainerState[]> {

@@ -64,6 +64,21 @@ describe('persistent container cleanup', () => {
     expect(persisted.pending).toEqual([]);
   });
 
+  it('retries shutdown cleanup even while the workspace remains registered', async () => {
+    const cleanupStatePath = await statePath();
+    const first = new ContainerCleanupService(cleanupStatePath, []);
+    await first.queueRuntimeDeletion(identity, ['docker']);
+    const deleteOwned = vi.fn(async () => 'deleted' as const);
+    const restarted = new ContainerCleanupService(cleanupStatePath, [
+      provider('docker', deleteOwned),
+    ]);
+
+    const result = await restarted.reconcile([identity], true);
+
+    expect(result.pending).toBe(0);
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(identity));
+  });
+
   it('reconciles orphans without deleting workspaces from another registered profile', async () => {
     const dockerDelete = vi.fn(async () => 'deleted' as const);
     const appleDelete = vi.fn(async () => 'deleted' as const);
@@ -108,6 +123,17 @@ describe('persistent container cleanup', () => {
 
     expect(result.pending).toBe(0);
     expect(deleteOwned).not.toHaveBeenCalled();
+  });
+
+  it('repairs a corrupt cleanup state file', async () => {
+    const cleanupStatePath = await statePath();
+    await fs.writeFile(cleanupStatePath, '{broken', 'utf8');
+    const service = new ContainerCleanupService(cleanupStatePath, []);
+
+    const result = await service.retryPending();
+
+    expect(result.pending).toBe(0);
+    await expect(fs.readFile(cleanupStatePath, 'utf8')).resolves.toContain('\"pending\": []');
   });
   it('does not reconcile orphans when any profile registry is unreadable', async () => {
     const deleteOwned = vi.fn(async () => 'deleted' as const);

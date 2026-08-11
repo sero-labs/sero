@@ -21,8 +21,7 @@ export async function readProfileWorkspaceIdentities(
     raw = await fs.readFile(registryPath, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      console.warn(`[container-cleanup] Missing workspace registry ${registryPath}`);
-      return { workspaces: [], complete: false };
+      return { workspaces: [], complete: true };
     }
     console.warn(`[container-cleanup] Could not read workspace registry ${registryPath}:`, error);
     return { workspaces: [], complete: false };

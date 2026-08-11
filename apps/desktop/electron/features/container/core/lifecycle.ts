@@ -22,7 +22,7 @@ import {
   type ExecResult,
 } from './types';
 import {
-  identitiesMatch,
+  appleContainerBelongsToWorkspace,
   inspectAppleContainerOwnership,
   seroOwnershipLabels,
 } from './ownership';
@@ -317,7 +317,7 @@ export async function createFreshContainer(
     // recovery if needed) and retry once.
     if (errStr.includes('already exists')) {
       const ownership = await inspectAppleContainerOwnership(cid);
-      if (!ownership.exists || !ownership.identity || !identitiesMatch(ownership.identity, {
+      if (ownership.exists && !appleContainerBelongsToWorkspace(ownership, {
         workspaceId: config.workspaceId,
         workspacePath: config.hostPath,
       })) {

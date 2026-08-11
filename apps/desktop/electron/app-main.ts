@@ -429,7 +429,7 @@ async function withShutdownTimeout(
 
 async function destroyWorkspaceRuntimes(): Promise<void> {
   for (const identity of runtimeManager.listCachedContainerIdentities()) {
-    await containerCleanupService.queueDeletion(
+    await containerCleanupService.queueRuntimeDeletion(
       { profileId: ACTIVE_PROFILE_ID ?? '', ...identity },
       [identity.provider],
     ).catch((error) => {

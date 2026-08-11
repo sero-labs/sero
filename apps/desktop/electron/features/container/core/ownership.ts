@@ -1,12 +1,16 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { CONTAINER_BIN, errorMessage } from './types';
+import { SERO_FIXED_ROOT } from '@electron/platform/env';
+import { CONTAINER_BIN, errorMessage, WORKSPACE_MOUNT } from './types';
 
 const execFileAsync = promisify(execFile);
 
 interface AppleInspectData {
-  configuration?: { labels?: Record<string, string> };
+  configuration?: {
+    labels?: Record<string, string>;
+    mounts?: Array<{ source?: string; destination?: string }>;
+  };
 }
 
 export type SeroContainerProvider = 'apple-container' | 'docker';
@@ -15,6 +19,8 @@ export const SERO_MANAGED_LABEL = 'ai.sero.managed';
 export const SERO_RUNTIME_LABEL = 'ai.sero.runtime';
 export const SERO_WORKSPACE_ID_LABEL = 'ai.sero.workspaceId';
 export const SERO_WORKSPACE_PATH_LABEL = 'ai.sero.workspacePath';
+export const SERO_INSTALLATION_ROOT_LABEL = 'ai.sero.installationRoot';
+export const SERO_INSTALLATION_ROOT = path.resolve(SERO_FIXED_ROOT);
 
 export interface SeroContainerIdentity {
   workspaceId: string;
@@ -30,6 +36,7 @@ export function seroOwnershipLabels(
     [SERO_RUNTIME_LABEL]: provider,
     [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
     [SERO_WORKSPACE_PATH_LABEL]: path.resolve(identity.workspacePath),
+    [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
   };
 }
 
@@ -54,22 +61,66 @@ export function identitiesMatch(
     && path.resolve(left.workspacePath) === path.resolve(right.workspacePath);
 }
 
+export interface AppleContainerOwnership {
+  exists: boolean;
+  identity: SeroContainerIdentity | null;
+  installationRoot: string | null;
+  workspaceMountSource: string | null;
+}
+
+export function labelsBelongToCurrentInstallation(
+  labels: Record<string, string> | undefined,
+): boolean {
+  return labels?.[SERO_INSTALLATION_ROOT_LABEL] === SERO_INSTALLATION_ROOT;
+}
+
+export function appleContainerBelongsToWorkspace(
+  ownership: AppleContainerOwnership,
+  expected: SeroContainerIdentity,
+): boolean {
+  if (!ownership.exists) return false;
+  if (ownership.installationRoot && ownership.installationRoot !== SERO_INSTALLATION_ROOT) return false;
+  if (ownership.identity) return ownership.identity.workspaceId === expected.workspaceId;
+  return ownership.workspaceMountSource !== null
+    && path.resolve(ownership.workspaceMountSource) === path.resolve(expected.workspacePath);
+}
+
+export function appleContainerHasCurrentIdentity(
+  ownership: AppleContainerOwnership,
+  expected: SeroContainerIdentity,
+): boolean {
+  return ownership.installationRoot === SERO_INSTALLATION_ROOT
+    && ownership.identity !== null
+    && identitiesMatch(ownership.identity, expected);
+}
+
+export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleContainerOwnership {
+  const info = (Array.isArray(raw) ? raw[0] : raw) as AppleInspectData | undefined;
+  if (!info || typeof info !== 'object') throw new Error(`Unexpected inspect output for ${cid}`);
+  const labels = info.configuration?.labels;
+  const workspaceMount = info.configuration?.mounts?.find((mount) => mount.destination === WORKSPACE_MOUNT);
+  return {
+    exists: true,
+    identity: readSeroContainerIdentity('apple-container', labels),
+    installationRoot: labels?.[SERO_INSTALLATION_ROOT_LABEL]
+      ? path.resolve(labels[SERO_INSTALLATION_ROOT_LABEL])
+      : null,
+    workspaceMountSource: workspaceMount?.source && path.isAbsolute(workspaceMount.source)
+      ? path.resolve(workspaceMount.source)
+      : null,
+  };
+}
+
 export async function inspectAppleContainerOwnership(
   cid: string,
-): Promise<{ exists: boolean; identity: SeroContainerIdentity | null }> {
+): Promise<AppleContainerOwnership> {
   try {
     const { stdout } = await execFileAsync(CONTAINER_BIN, ['inspect', cid], { timeout: 10_000 });
-    const raw = JSON.parse(stdout) as unknown;
-    const info = (Array.isArray(raw) ? raw[0] : raw) as AppleInspectData | undefined;
-    if (!info || typeof info !== 'object') throw new Error(`Unexpected inspect output for ${cid}`);
-    return {
-      exists: true,
-      identity: readSeroContainerIdentity('apple-container', info.configuration?.labels),
-    };
+    return parseAppleContainerOwnership(JSON.parse(stdout) as unknown, cid);
   } catch (error) {
     const message = errorMessage(error).toLowerCase();
     if (message.includes('not found') || message.includes('no such container') || message.includes('does not exist')) {
-      return { exists: false, identity: null };
+      return { exists: false, identity: null, installationRoot: null, workspaceMountSource: null };
     }
     throw error;
   }

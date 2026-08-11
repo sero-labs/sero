@@ -6,6 +6,9 @@ import type { ContainerConfig, ContainerState } from '@electron/features/contain
 import { containerId, DEFAULT_CPUS, DEFAULT_IMAGE, DEFAULT_MEMORY_MB } from '@electron/features/container/core/types';
 import {
   SERO_MANAGED_LABEL,
+  SERO_INSTALLATION_ROOT,
+  SERO_INSTALLATION_ROOT_LABEL,
+  labelsBelongToCurrentInstallation,
   SERO_RUNTIME_LABEL,
   SERO_WORKSPACE_ID_LABEL,
   SERO_WORKSPACE_PATH_LABEL,
@@ -62,7 +65,7 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
         }
       }
     }
-    if (!isSeroOwnedDockerContainer(existing, options.config.workspaceId, options.config.hostPath)) {
+    if (!isSeroOwnedDockerContainer(existing, options.config.workspaceId)) {
       throw new Error(`Docker container name collision: ${cid} is not owned by Sero.`);
     }
     await removeDockerContainer(cid, run);
@@ -85,6 +88,7 @@ export function createDockerRunArgs(config: ContainerConfig, imageRef: string = 
     '--label', `${SERO_RUNTIME_LABEL}=docker`,
     '--label', `${SERO_WORKSPACE_ID_LABEL}=${config.workspaceId}`,
     '--label', `${SERO_WORKSPACE_PATH_LABEL}=${config.hostPath}`,
+    '--label', `${SERO_INSTALLATION_ROOT_LABEL}=${SERO_INSTALLATION_ROOT}`,
     '--label', `ai.sero.image=${imageRef}`,
     '--workdir', '/workspace',
     '--cpus', String(config.cpus ?? DEFAULT_CPUS),
@@ -140,16 +144,13 @@ export async function removeDockerContainer(cid: string, run: DockerRunner = che
 export function isSeroOwnedDockerContainer(
   inspect: DockerInspectData,
   workspaceId: string,
-  workspacePath?: string,
 ): boolean {
   const labels = inspect.Config?.Labels ?? {};
   if (labels[SERO_MANAGED_LABEL] !== 'true'
     || labels[SERO_RUNTIME_LABEL] !== 'docker'
     || labels[SERO_WORKSPACE_ID_LABEL] !== workspaceId) return false;
-  if (!workspacePath) return true;
-  const workspaceMount = inspect.Mounts?.find((mount) => mount.Destination === '/workspace');
-  return Boolean(workspaceMount?.Source)
-    && path.resolve(workspaceMount?.Source ?? '') === path.resolve(workspacePath);
+  const installationRoot = labels[SERO_INSTALLATION_ROOT_LABEL];
+  return !installationRoot || path.resolve(installationRoot) === SERO_INSTALLATION_ROOT;
 }
 
 function isDockerNotFound(message: string): boolean {
@@ -175,6 +176,7 @@ function dockerPreviewPublishArgs(poolSize: number): string[] {
 function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig, imageRef: string, imageId?: string): boolean {
   const labels = inspect.Config?.Labels ?? {};
   if (!isSeroOwnedDockerContainer(inspect, config.workspaceId)) return false;
+  if (!labelsBelongToCurrentInstallation(labels)) return false;
   if (labels['ai.sero.image'] !== imageRef) return false;
   if (imageId && inspect.Image !== imageId) return false;
   return mountSignaturesMatch(expectedMountSignature(config), actualMountSignature(inspect));

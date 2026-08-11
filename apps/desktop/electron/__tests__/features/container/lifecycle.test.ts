@@ -86,6 +86,8 @@ describe('createFreshContainer', () => {
       'ai.sero.workspaceId=ws-1',
       '--label',
       'ai.sero.workspacePath=/host/workspace',
+      '--label',
+      'ai.sero.installationRoot=/tmp/sero-fixed',
       '--volume',
       '/host/workspace:/workspace',
       '--volume',
@@ -98,5 +100,39 @@ describe('createFreshContainer', () => {
       '/host/sero-logs:/workspace/.sero/logs/dev:ro',
     ]));
     expect(runArgs).not.toContain('/host/global:/host/global:ro');
+  });
+
+  it('retries creation when an uninspectable ghost reserves the container name', async () => {
+    const execFn = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }));
+    const inspectFn = vi.fn(async () => ({
+      id: 'sero-ws-1',
+      image: 'image',
+      state: 'running' as const,
+      cpus: 2,
+      memoryBytes: 1024,
+    }));
+    let runAttempts = 0;
+    mocks.execFileMock.mockImplementation(async (_file: string, args: string[]) => {
+      if (args[0] === 'run' && runAttempts++ === 0) {
+        throw { stderr: 'container already exists' };
+      }
+      if (args[0] === 'inspect') throw new Error('container not found');
+      return { stdout: '', stderr: '' };
+    });
+
+    await createFreshContainer(
+      { workspaceId: 'ws-1', hostPath: '/host/workspace' },
+      'sero-ws-1',
+      new Map(),
+      execFn,
+      inspectFn,
+    );
+
+    expect(runAttempts).toBe(2);
+    expect(mocks.execFileMock).toHaveBeenCalledWith(
+      '/usr/local/bin/container',
+      ['delete', '--force', 'sero-ws-1'],
+      { timeout: 15_000 },
+    );
   });
 });

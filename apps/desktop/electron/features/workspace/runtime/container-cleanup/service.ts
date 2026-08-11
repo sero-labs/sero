@@ -31,7 +31,22 @@ export class ContainerCleanupService {
   ): Promise<void> {
     return this.exclusive(async () => {
       const state = await this.readState();
-      for (const provider of providers) this.addPending(state, { provider, ...identity });
+      for (const provider of providers) {
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true });
+      }
+      await this.writeState(state);
+    });
+  }
+
+  queueRuntimeDeletion(
+    identity: WorkspaceContainerIdentity,
+    providers: SeroContainerProvider[] = ['apple-container', 'docker'],
+  ): Promise<void> {
+    return this.exclusive(async () => {
+      const state = await this.readState();
+      for (const provider of providers) {
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: false });
+      }
       await this.writeState(state);
     });
   }
@@ -42,7 +57,9 @@ export class ContainerCleanupService {
   ): Promise<ReconciliationResult> {
     return this.exclusive(async () => {
       const state = await this.readState();
-      for (const provider of providers) this.addPending(state, { provider, ...identity });
+      for (const provider of providers) {
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true });
+      }
       await this.writeState(state);
       return this.retryState(state);
     });
@@ -61,7 +78,8 @@ export class ContainerCleanupService {
       if (registryComplete) {
         const pendingBeforeValidation = state.pending.length;
         state.pending = state.pending.filter((pending) =>
-          !validWorkspaces.some((workspace) => identitiesMatch(pending, workspace)));
+          pending.cancelWhenRegistered === false
+          || !validWorkspaces.some((workspace) => identitiesMatch(pending, workspace)));
         if (state.pending.length !== pendingBeforeValidation) await this.writeState(state);
       }
       const result = await this.retryState(state);
@@ -79,6 +97,7 @@ export class ContainerCleanupService {
               profileId: '',
               workspaceId: container.workspaceId,
               workspacePath: container.workspacePath,
+              cancelWhenRegistered: true,
             });
             added = true;
           }
@@ -129,9 +148,13 @@ export class ContainerCleanupService {
   }
 
   private addPending(state: ContainerCleanupState, entry: PendingContainerDeletion): void {
-    const exists = state.pending.some((candidate) =>
+    const existing = state.pending.find((candidate) =>
       candidate.provider === entry.provider && identitiesMatch(candidate, entry));
-    if (!exists) state.pending.push(entry);
+    if (!existing) {
+      state.pending.push(entry);
+      return;
+    }
+    if (entry.cancelWhenRegistered === false) existing.cancelWhenRegistered = false;
   }
 
   private async readState(): Promise<ContainerCleanupState> {
@@ -142,11 +165,14 @@ export class ContainerCleanupService {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { version: 1, pending: [] };
       throw error;
     }
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isCleanupState(parsed)) {
-      throw new Error(`Invalid container cleanup state: ${this.statePath}`);
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (isCleanupState(parsed)) return parsed;
+      console.warn(`[container-cleanup] Invalid cleanup state ${this.statePath}; resetting it`);
+    } catch (error) {
+      console.warn(`[container-cleanup] Could not parse cleanup state ${this.statePath}; resetting it:`, error);
     }
-    return parsed;
+    return { version: 1, pending: [] };
   }
 
   private async writeState(state: ContainerCleanupState): Promise<void> {
@@ -178,5 +204,6 @@ function isPendingDeletion(value: unknown): value is PendingContainerDeletion {
     && typeof entry.profileId === 'string'
     && typeof entry.workspaceId === 'string'
     && typeof entry.workspacePath === 'string'
-    && path.isAbsolute(entry.workspacePath);
+    && path.isAbsolute(entry.workspacePath)
+    && (entry.cancelWhenRegistered === undefined || typeof entry.cancelWhenRegistered === 'boolean');
 }

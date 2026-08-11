@@ -4,6 +4,8 @@ import {
   createDockerCleanupProvider,
 } from '@electron/features/workspace/runtime/container-cleanup/providers';
 import {
+  SERO_INSTALLATION_ROOT,
+  SERO_INSTALLATION_ROOT_LABEL,
   SERO_MANAGED_LABEL,
   SERO_RUNTIME_LABEL,
   SERO_WORKSPACE_ID_LABEL,
@@ -19,7 +21,9 @@ function dockerRunnerFor(inspect: unknown | null): DockerRunner {
       return { stdout: inspect ? 'container-id\n' : '', stderr: '', exitCode: 0 };
     }
     if (args[0] === 'inspect') {
-      return { stdout: JSON.stringify([inspect]), stderr: '', exitCode: 0 };
+      return inspect
+        ? { stdout: JSON.stringify([inspect]), stderr: '', exitCode: 0 }
+        : { stdout: '', stderr: 'No such container', exitCode: 1 };
     }
     return { stdout: '', stderr: '', exitCode: 0 };
   });
@@ -40,6 +44,7 @@ describe('container cleanup provider ownership', () => {
 
     await expect(createDockerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('deleted');
     expect(run).toHaveBeenCalledWith(['rm', '-f', 'sero-workspace-a'], { timeoutMs: 30_000 });
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['ps']), expect.anything());
   });
 
   it('preserves a Docker ownership collision with a different workspace path', async () => {
@@ -58,31 +63,66 @@ describe('container cleanup provider ownership', () => {
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
   });
 
+  it('preserves Docker containers owned by another Sero installation', async () => {
+    const run = dockerRunnerFor({
+      Name: '/sero-workspace-a',
+      Config: { Labels: {
+        [SERO_MANAGED_LABEL]: 'true',
+        [SERO_RUNTIME_LABEL]: 'docker',
+        [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+        [SERO_INSTALLATION_ROOT_LABEL]: '/sero/other',
+      } },
+      Mounts: [{ Source: identity.workspacePath, Destination: '/workspace' }],
+    });
+
+    await expect(createDockerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('preserved');
+    await expect(createDockerCleanupProvider(run).listOwned()).resolves.toEqual([]);
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
+  });
+
   it('deletes Apple Container records with durable Sero ownership labels', async () => {
-    const run = vi.fn(async (args: string[]) => ({
-      stdout: args[0] === 'list' ? JSON.stringify([{
-        configuration: {
-          id: 'sero-workspace-a',
-          labels: {
-            [SERO_MANAGED_LABEL]: 'true',
-            [SERO_RUNTIME_LABEL]: 'apple-container',
-            [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
-            [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
-          },
+    const run = appleRunnerFor({
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {
+          [SERO_MANAGED_LABEL]: 'true',
+          [SERO_RUNTIME_LABEL]: 'apple-container',
+          [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+          [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
+          [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
         },
-      }]) : '',
-    }));
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
 
     await expect(createAppleContainerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('deleted');
     expect(run).toHaveBeenCalledWith(['delete', '--force', 'sero-workspace-a']);
   });
 
-  it('preserves prefix-only Apple Container collisions', async () => {
-    const run = vi.fn(async () => ({
-      stdout: JSON.stringify([{ configuration: { id: 'sero-workspace-a', labels: {} } }]),
-    }));
+  it('deletes a legacy Apple Container only when its deterministic mount agrees', async () => {
+    const matching = appleRunnerFor({
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {},
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
+    const collision = appleRunnerFor({
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {},
+        mounts: [{ source: '/profiles/other/workspace-a', destination: '/workspace' }],
+      },
+    });
 
-    await expect(createAppleContainerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('preserved');
-    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
+    await expect(createAppleContainerCleanupProvider(matching).deleteOwned(identity)).resolves.toBe('deleted');
+    await expect(createAppleContainerCleanupProvider(collision).deleteOwned(identity)).resolves.toBe('preserved');
+    expect(collision).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
   });
 });
+
+function appleRunnerFor(inspect: unknown) {
+  return vi.fn(async (args: string[]) => ({
+    stdout: args[0] === 'delete' ? '' : JSON.stringify([inspect]),
+  }));
+}
