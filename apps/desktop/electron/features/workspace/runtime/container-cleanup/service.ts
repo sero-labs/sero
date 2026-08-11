@@ -31,8 +31,9 @@ export class ContainerCleanupService {
   ): Promise<void> {
     return this.exclusive(async () => {
       const state = await this.readState();
+      const createdBefore = new Date().toISOString();
       for (const provider of providers) {
-        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true });
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true, createdBefore });
       }
       await this.writeState(state);
     });
@@ -44,8 +45,9 @@ export class ContainerCleanupService {
   ): Promise<void> {
     return this.exclusive(async () => {
       const state = await this.readState();
+      const createdBefore = new Date().toISOString();
       for (const provider of providers) {
-        this.addPending(state, { provider, ...identity, cancelWhenRegistered: false });
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: false, createdBefore });
       }
       await this.writeState(state);
     });
@@ -57,8 +59,9 @@ export class ContainerCleanupService {
   ): Promise<ReconciliationResult> {
     return this.exclusive(async () => {
       const state = await this.readState();
+      const createdBefore = new Date().toISOString();
       for (const provider of providers) {
-        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true });
+        this.addPending(state, { provider, ...identity, cancelWhenRegistered: true, createdBefore });
       }
       await this.writeState(state);
       return this.retryState(state);
@@ -72,6 +75,7 @@ export class ContainerCleanupService {
   reconcile(
     validWorkspaces: WorkspaceContainerIdentity[],
     registryComplete: boolean,
+    profileRoots: string[] = [],
   ): Promise<ReconciliationResult> {
     return this.exclusive(async () => {
       const state = await this.readState();
@@ -88,7 +92,7 @@ export class ContainerCleanupService {
       let added = false;
       for (const provider of this.providers) {
         try {
-          const containers = await provider.listOwned();
+          const containers = await provider.listOwned(profileRoots);
           for (const container of containers) {
             const exists = validWorkspaces.some((workspace) => identitiesMatch(container, workspace));
             if (exists) continue;
@@ -98,6 +102,7 @@ export class ContainerCleanupService {
               workspaceId: container.workspaceId,
               workspacePath: container.workspacePath,
               cancelWhenRegistered: true,
+              createdBefore: new Date().toISOString(),
             });
             added = true;
           }
@@ -122,6 +127,10 @@ export class ContainerCleanupService {
     const result = { ...EMPTY_RESULT };
     const remaining: PendingContainerDeletion[] = [];
     for (const pending of state.pending) {
+      if (!pending.createdBefore) {
+        result.preserved += 1;
+        continue;
+      }
       const provider = this.providers.find((candidate) => candidate.provider === pending.provider);
       if (!provider) {
         remaining.push(pending);
@@ -155,6 +164,7 @@ export class ContainerCleanupService {
       return;
     }
     if (entry.cancelWhenRegistered === false) existing.cancelWhenRegistered = false;
+    existing.createdBefore = entry.createdBefore;
   }
 
   private async readState(): Promise<ContainerCleanupState> {
@@ -167,7 +177,13 @@ export class ContainerCleanupService {
     }
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (isCleanupState(parsed)) return parsed;
+      if (hasCleanupStateShape(parsed)) {
+        const pending = parsed.pending.filter(isPendingDeletion);
+        if (pending.length !== parsed.pending.length) {
+          console.warn(`[container-cleanup] Ignored malformed entries in ${this.statePath}`);
+        }
+        return { version: 1, pending };
+      }
       console.warn(`[container-cleanup] Invalid cleanup state ${this.statePath}; resetting it`);
     } catch (error) {
       console.warn(`[container-cleanup] Could not parse cleanup state ${this.statePath}; resetting it:`, error);
@@ -189,12 +205,12 @@ export class ContainerCleanupService {
   }
 }
 
-function isCleanupState(value: unknown): value is ContainerCleanupState {
+function hasCleanupStateShape(
+  value: unknown,
+): value is { version: 1; pending: unknown[] } {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ContainerCleanupState>;
-  return candidate.version === 1
-    && Array.isArray(candidate.pending)
-    && candidate.pending.every((entry) => isPendingDeletion(entry));
+  return candidate.version === 1 && Array.isArray(candidate.pending);
 }
 
 function isPendingDeletion(value: unknown): value is PendingContainerDeletion {
@@ -205,5 +221,7 @@ function isPendingDeletion(value: unknown): value is PendingContainerDeletion {
     && typeof entry.workspaceId === 'string'
     && typeof entry.workspacePath === 'string'
     && path.isAbsolute(entry.workspacePath)
-    && (entry.cancelWhenRegistered === undefined || typeof entry.cancelWhenRegistered === 'boolean');
+    && (entry.cancelWhenRegistered === undefined || typeof entry.cancelWhenRegistered === 'boolean')
+    && (entry.createdBefore === undefined
+      || (typeof entry.createdBefore === 'string' && !Number.isNaN(Date.parse(entry.createdBefore))));
 }

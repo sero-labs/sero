@@ -21,7 +21,17 @@ export async function readProfileWorkspaceIdentities(
     raw = await fs.readFile(registryPath, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { workspaces: [], complete: true };
+      const managedWorkspacesPath = path.join(profile.path, 'workspaces');
+      try {
+        const entries = await fs.readdir(managedWorkspacesPath);
+        return { workspaces: [], complete: entries.length === 0 };
+      } catch (workspaceError) {
+        if ((workspaceError as NodeJS.ErrnoException).code === 'ENOENT') {
+          return { workspaces: [], complete: true };
+        }
+        console.warn(`[container-cleanup] Could not inspect ${managedWorkspacesPath}:`, workspaceError);
+        return { workspaces: [], complete: false };
+      }
     }
     console.warn(`[container-cleanup] Could not read workspace registry ${registryPath}:`, error);
     return { workspaces: [], complete: false };

@@ -26,7 +26,11 @@ export async function reconcileRegisteredProfileContainers(
   profiles: Array<Pick<ProfileInfo, 'id' | 'path'>>,
 ): Promise<void> {
   const registered = await readRegisteredWorkspaceIdentities(profiles);
-  const result = await containerCleanupService.reconcile(registered.workspaces, registered.complete);
+  const result = await containerCleanupService.reconcile(
+    registered.workspaces,
+    registered.complete,
+    profiles.map((profile) => profile.path),
+  );
   if (result.pending > 0 || result.providerFailures > 0 || !result.registryComplete) {
     console.warn('[container-cleanup] Reconciliation remains pending:', result);
   }

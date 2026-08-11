@@ -68,7 +68,10 @@ describe('persistent container cleanup', () => {
     const cleanupStatePath = await statePath();
     const first = new ContainerCleanupService(cleanupStatePath, []);
     await first.queueRuntimeDeletion(identity, ['docker']);
-    const deleteOwned = vi.fn(async () => 'deleted' as const);
+    const deleteOwned = vi.fn(async (request: { createdBefore?: string }) => {
+      expect(Date.parse(request.createdBefore ?? '')).not.toBeNaN();
+      return 'deleted' as const;
+    });
     const restarted = new ContainerCleanupService(cleanupStatePath, [
       provider('docker', deleteOwned),
     ]);
@@ -135,6 +138,32 @@ describe('persistent container cleanup', () => {
     expect(result.pending).toBe(0);
     await expect(fs.readFile(cleanupStatePath, 'utf8')).resolves.toContain('\"pending\": []');
   });
+
+  it('keeps valid pending deletions when one stored entry is malformed', async () => {
+    const cleanupStatePath = await statePath();
+    await fs.writeFile(cleanupStatePath, JSON.stringify({
+      version: 1,
+      pending: [
+        {
+          provider: 'docker',
+          ...identity,
+          cancelWhenRegistered: true,
+          createdBefore: '2026-08-11T23:00:00.000Z',
+        },
+        { provider: 'docker', ...identity, workspaceId: 'broken', workspacePath: 'relative' },
+      ],
+    }), 'utf8');
+    const deleteOwned = vi.fn(async () => 'deleted' as const);
+    const service = new ContainerCleanupService(cleanupStatePath, [
+      provider('docker', deleteOwned),
+    ]);
+
+    const result = await service.retryPending();
+
+    expect(result.deleted).toBe(1);
+    expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(identity));
+  });
+
   it('does not reconcile orphans when any profile registry is unreadable', async () => {
     const deleteOwned = vi.fn(async () => 'deleted' as const);
     const listOwned = vi.fn(async () => [

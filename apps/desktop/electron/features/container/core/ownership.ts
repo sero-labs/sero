@@ -7,7 +7,9 @@ import { CONTAINER_BIN, errorMessage, WORKSPACE_MOUNT } from './types';
 const execFileAsync = promisify(execFile);
 
 interface AppleInspectData {
+  status?: string | { state?: string };
   configuration?: {
+    creationDate?: string | number;
     labels?: Record<string, string>;
     mounts?: Array<{ source?: string; destination?: string }>;
   };
@@ -66,6 +68,8 @@ export interface AppleContainerOwnership {
   identity: SeroContainerIdentity | null;
   installationRoot: string | null;
   workspaceMountSource: string | null;
+  running: boolean | null;
+  createdAt: number | null;
 }
 
 export function labelsBelongToCurrentInstallation(
@@ -94,11 +98,32 @@ export function appleContainerHasCurrentIdentity(
     && identitiesMatch(ownership.identity, expected);
 }
 
+export function shouldRecreateAppleContainer(
+  ownership: AppleContainerOwnership,
+  expected: SeroContainerIdentity,
+): boolean {
+  return appleContainerBelongsToWorkspace(ownership, expected)
+    && !appleContainerHasCurrentIdentity(ownership, expected)
+    && ownership.running === false;
+}
+
+export function parseContainerCreationTime(value: unknown): number | null {
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value > 1_000_000_000_000) return value;
+  if (value >= 1_000_000_000) return value * 1_000;
+  return (value + 978_307_200) * 1_000;
+}
+
 export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleContainerOwnership {
   const info = (Array.isArray(raw) ? raw[0] : raw) as AppleInspectData | undefined;
   if (!info || typeof info !== 'object') throw new Error(`Unexpected inspect output for ${cid}`);
   const labels = info.configuration?.labels;
   const workspaceMount = info.configuration?.mounts?.find((mount) => mount.destination === WORKSPACE_MOUNT);
+  const status = typeof info.status === 'string' ? info.status : info.status?.state;
   return {
     exists: true,
     identity: readSeroContainerIdentity('apple-container', labels),
@@ -108,6 +133,8 @@ export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleCo
     workspaceMountSource: workspaceMount?.source && path.isAbsolute(workspaceMount.source)
       ? path.resolve(workspaceMount.source)
       : null,
+    running: status ? status === 'running' : null,
+    createdAt: parseContainerCreationTime(info.configuration?.creationDate),
   };
 }
 
@@ -120,7 +147,14 @@ export async function inspectAppleContainerOwnership(
   } catch (error) {
     const message = errorMessage(error).toLowerCase();
     if (message.includes('not found') || message.includes('no such container') || message.includes('does not exist')) {
-      return { exists: false, identity: null, installationRoot: null, workspaceMountSource: null };
+      return {
+        exists: false,
+        identity: null,
+        installationRoot: null,
+        workspaceMountSource: null,
+        running: null,
+        createdAt: null,
+      };
     }
     throw error;
   }

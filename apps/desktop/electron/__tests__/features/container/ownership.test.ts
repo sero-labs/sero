@@ -8,6 +8,7 @@ import {
   appleContainerHasCurrentIdentity,
   parseAppleContainerOwnership,
   seroOwnershipLabels,
+  shouldRecreateAppleContainer,
 } from '@electron/features/container/core/ownership';
 
 const identity = { workspaceId: 'workspace-a', workspacePath: '/profiles/a/workspaces/workspace-a' };
@@ -23,6 +24,24 @@ describe('Apple Container ownership', () => {
 
     expect(appleContainerBelongsToWorkspace(ownership, identity)).toBe(true);
     expect(appleContainerHasCurrentIdentity(ownership, identity)).toBe(false);
+  });
+
+  it('does not recreate a running legacy container when labels are unavailable', () => {
+    const running = parseAppleContainerOwnership({
+      status: 'running',
+      configuration: {
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    }, 'sero-workspace-a');
+    const stopped = parseAppleContainerOwnership({
+      status: 'stopped',
+      configuration: {
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    }, 'sero-workspace-a');
+
+    expect(shouldRecreateAppleContainer(running, identity)).toBe(false);
+    expect(shouldRecreateAppleContainer(stopped, identity)).toBe(true);
   });
 
   it('recognizes current labels and rejects another installation', () => {

@@ -29,7 +29,7 @@ import {
 } from './core/lifecycle';
 import {
   appleContainerBelongsToWorkspace,
-  appleContainerHasCurrentIdentity,
+  shouldRecreateAppleContainer,
   inspectAppleContainerOwnership,
 } from './core/ownership';
 import { readContainerFile, writeContainerFile, listContainerFiles } from './filesystem/files';
@@ -184,7 +184,7 @@ export class ContainerManager {
     if (ownership.exists && !appleContainerBelongsToWorkspace(ownership, identity)) {
       throw new Error(`Apple Container name collision: ${cid} is not owned by this Sero workspace.`);
     }
-    if (ownership.exists && !appleContainerHasCurrentIdentity(ownership, identity)) {
+    if (shouldRecreateAppleContainer(ownership, identity)) {
       console.log(`[container] Recreating legacy container ${cid} with current ownership labels`);
       await this.remove(config.workspaceId);
     }

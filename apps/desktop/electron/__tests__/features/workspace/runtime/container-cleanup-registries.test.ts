@@ -60,4 +60,16 @@ describe('registered workspace identity loading', () => {
 
     expect(result).toEqual({ workspaces: [], complete: true });
   });
+
+  it('fails closed when a missing registry has managed workspace files', async () => {
+    const profilePath = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-profile-lost-registry-'));
+    temporaryRoots.push(profilePath);
+    await fs.mkdir(path.join(profilePath, 'workspaces', 'existing'), { recursive: true });
+
+    const result = await readRegisteredWorkspaceIdentities([
+      { id: 'profile-missing', path: profilePath },
+    ]);
+
+    expect(result).toEqual({ workspaces: [], complete: false });
+  });
 });

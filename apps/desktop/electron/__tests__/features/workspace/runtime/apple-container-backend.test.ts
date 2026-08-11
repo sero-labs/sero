@@ -114,6 +114,18 @@ describe('AppleContainerBackend', () => {
     expect(containerManager.removeOwned).toHaveBeenCalledWith('workspace-a', '/Users/daniel/project');
   });
 
+  it('clears a cached session when owned container removal fails', async () => {
+    const containerManager = createContainerManager();
+    containerManager.removeOwned.mockRejectedValueOnce(new Error('runtime unavailable'));
+    const backend = createBackend(containerManager);
+    await backend.ensure();
+
+    await expect(backend.destroy()).rejects.toThrow('runtime unavailable');
+    await backend.ensure();
+
+    expect(containerManager.ensure).toHaveBeenCalledTimes(2);
+  });
+
   it('passes isolated exec requests into the first container config build', async () => {
     const containerManager = createContainerManager();
     const workspaceManager = createWorkspaceManager();

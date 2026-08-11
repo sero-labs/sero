@@ -76,7 +76,45 @@ describe('container cleanup provider ownership', () => {
     });
 
     await expect(createDockerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('preserved');
-    await expect(createDockerCleanupProvider(run).listOwned()).resolves.toEqual([]);
+    await expect(createDockerCleanupProvider(run).listOwned([])).resolves.toEqual([]);
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
+  });
+
+  it('discovers legacy Docker containers inside a registered profile root', async () => {
+    const run = dockerRunnerFor({
+      Id: 'container-id',
+      Name: '/sero-workspace-a',
+      Config: { Labels: {
+        [SERO_MANAGED_LABEL]: 'true',
+        [SERO_RUNTIME_LABEL]: 'docker',
+        [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+      } },
+      Mounts: [{ Source: identity.workspacePath, Destination: '/workspace' }],
+    });
+
+    await expect(createDockerCleanupProvider(run).listOwned(['/profiles/work'])).resolves.toEqual([
+      expect.objectContaining(identity),
+    ]);
+  });
+
+  it('does not delete a Docker container created after a shutdown entry', async () => {
+    const run = dockerRunnerFor({
+      Id: 'new-container',
+      Name: '/sero-workspace-a',
+      Created: '2026-08-12T00:00:00.000Z',
+      Config: { Labels: {
+        [SERO_MANAGED_LABEL]: 'true',
+        [SERO_RUNTIME_LABEL]: 'docker',
+        [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+        [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+      } },
+      Mounts: [{ Source: identity.workspacePath, Destination: '/workspace' }],
+    });
+
+    await expect(createDockerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+    })).resolves.toBe('superseded');
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
   });
 
@@ -118,6 +156,51 @@ describe('container cleanup provider ownership', () => {
     await expect(createAppleContainerCleanupProvider(matching).deleteOwned(identity)).resolves.toBe('deleted');
     await expect(createAppleContainerCleanupProvider(collision).deleteOwned(identity)).resolves.toBe('preserved');
     expect(collision).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
+  });
+
+  it('inspects Apple list summaries before discovering legacy containers', async () => {
+    const run = vi.fn(async (args: string[]) => {
+      if (args[0] === 'list') {
+        return { stdout: JSON.stringify([{ id: 'sero-workspace-a' }]) };
+      }
+      return {
+        stdout: JSON.stringify([{
+          id: 'sero-workspace-a',
+          configuration: {
+            id: 'sero-workspace-a',
+            mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+          },
+        }]),
+      };
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).listOwned(['/profiles/work'])).resolves.toEqual([
+      expect.objectContaining(identity),
+    ]);
+    expect(run).toHaveBeenCalledWith(['inspect', 'sero-workspace-a']);
+  });
+
+  it('does not delete an Apple container created after a shutdown entry', async () => {
+    const run = appleRunnerFor({
+      configuration: {
+        id: 'sero-workspace-a',
+        creationDate: '2026-08-12T00:00:00.000Z',
+        labels: {
+          [SERO_MANAGED_LABEL]: 'true',
+          [SERO_RUNTIME_LABEL]: 'apple-container',
+          [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+          [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
+          [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+        },
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+    })).resolves.toBe('superseded');
+    expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['delete']));
   });
 });
 
