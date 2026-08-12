@@ -14,6 +14,17 @@ import {
 const identity = { workspaceId: 'workspace-a', workspacePath: '/profiles/a/workspaces/workspace-a' };
 
 describe('Apple Container ownership', () => {
+  it('treats an empty inspect result as a missing container', () => {
+    expect(parseAppleContainerOwnership([], 'sero-workspace-a')).toEqual({
+      exists: false,
+      identity: null,
+      installationRoot: null,
+      workspaceMountSource: null,
+      running: null,
+      startedAt: null,
+    });
+  });
+
   it('recognizes a legacy deterministic container by its workspace mount', () => {
     const ownership = parseAppleContainerOwnership({
       configuration: {

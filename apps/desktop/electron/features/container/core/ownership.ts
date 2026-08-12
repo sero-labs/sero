@@ -71,6 +71,15 @@ export interface AppleContainerOwnership {
   running: boolean | null;
   startedAt: number | null;
 }
+const MISSING_APPLE_CONTAINER_OWNERSHIP: AppleContainerOwnership = {
+  exists: false,
+  identity: null,
+  installationRoot: null,
+  workspaceMountSource: null,
+  running: null,
+  startedAt: null,
+};
+
 
 export function labelsBelongToCurrentInstallation(
   labels: Record<string, string> | undefined,
@@ -119,6 +128,7 @@ export function parseContainerTimestamp(value: unknown): number | null {
 }
 
 export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleContainerOwnership {
+  if (Array.isArray(raw) && raw.length === 0) return MISSING_APPLE_CONTAINER_OWNERSHIP;
   const info = (Array.isArray(raw) ? raw[0] : raw) as AppleInspectData | undefined;
   if (!info || typeof info !== 'object') throw new Error(`Unexpected inspect output for ${cid}`);
   const labels = info.configuration?.labels;
@@ -147,14 +157,7 @@ export async function inspectAppleContainerOwnership(
   } catch (error) {
     const message = errorMessage(error).toLowerCase();
     if (message.includes('not found') || message.includes('no such container') || message.includes('does not exist')) {
-      return {
-        exists: false,
-        identity: null,
-        installationRoot: null,
-        workspaceMountSource: null,
-        running: null,
-        startedAt: null,
-      };
+      return MISSING_APPLE_CONTAINER_OWNERSHIP;
     }
     throw error;
   }
