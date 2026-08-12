@@ -13,13 +13,16 @@ updates:
     # Dependabot does not apply this routine-update cooldown to security fixes.
     cooldown:
       default-days: 7
-    # Every workspace update rewrites the shared root lockfile. Routine and
-    # major updates each use one grouped PR instead of competing lockfile PRs.
+    # Every workspace update rewrites the shared root lockfile. Group routine
+    # updates, but handle major-version migrations explicitly outside Dependabot.
     open-pull-requests-limit: 2
     rebase-strategy: auto
     commit-message:
       prefix: "chore(deps)"
     ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
       # Module Federation's generated remoteEntry is a private contract with every
       # plugin bundle, so moving the host alone strands installed plugins (they
       # get a null React and are refused by the ABI guard). Upgrade the host, the
@@ -38,12 +41,6 @@ updates:
         update-types:
           - minor
           - patch
-      major-updates:
-        applies-to: version-updates
-        patterns:
-          - "*"
-        update-types:
-          - major
 
   - package-ecosystem: github-actions
     directory: "/"
