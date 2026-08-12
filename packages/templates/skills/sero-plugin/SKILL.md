@@ -289,6 +289,10 @@ Verify:
 
 ## Related docs
 
+These live in the Sero source repository. Read them only when you are working
+inside that repository; from any other workspace they are out of reach and
+reading them fails.
+
 - `docs/plugins/guide.md` — packaging and distributing installable plugins
 - `docs/plugins/technical.md` — plugin system internals, federation, IPC, security
 - `docs/plugins/host-compatibility.md` — `requiredHostCapabilities`, CLI bridging, hot-reload
