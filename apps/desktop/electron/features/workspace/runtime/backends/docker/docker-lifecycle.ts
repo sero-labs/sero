@@ -1,8 +1,18 @@
 import { execFile } from 'child_process';
 import { mkdirSync } from 'fs';
+import path from 'path';
 import { promisify } from 'util';
 import type { ContainerConfig, ContainerState } from '@electron/features/container/core/types';
 import { containerId, DEFAULT_CPUS, DEFAULT_IMAGE, DEFAULT_MEMORY_MB } from '@electron/features/container/core/types';
+import {
+  SERO_MANAGED_LABEL,
+  SERO_INSTALLATION_ROOT,
+  SERO_INSTALLATION_ROOT_LABEL,
+  labelsBelongToCurrentInstallation,
+  SERO_RUNTIME_LABEL,
+  SERO_WORKSPACE_ID_LABEL,
+  SERO_WORKSPACE_PATH_LABEL,
+} from '@electron/features/container/core/ownership';
 import { prepareWorkspaceLogPortal } from '@electron/features/container/core/log-access';
 import { mountArgs, buildDockerMounts } from './docker-mounts';
 import { checkDocker, type DockerRunner } from './docker-cli';
@@ -55,6 +65,9 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
         }
       }
     }
+    if (!isSeroOwnedDockerContainer(existing, options.config.workspaceId)) {
+      throw new Error(`Docker container name collision: ${cid} is not owned by Sero.`);
+    }
     await removeDockerContainer(cid, run);
   }
 
@@ -71,9 +84,11 @@ export function createDockerRunArgs(config: ContainerConfig, imageRef: string = 
   const cid = dockerContainerName(config.workspaceId);
   const args = [
     'run', '-d', '--name', cid, '--init',
-    '--label', 'ai.sero.managed=true',
-    '--label', 'ai.sero.runtime=docker',
-    '--label', `ai.sero.workspaceId=${config.workspaceId}`,
+    '--label', `${SERO_MANAGED_LABEL}=true`,
+    '--label', `${SERO_RUNTIME_LABEL}=docker`,
+    '--label', `${SERO_WORKSPACE_ID_LABEL}=${config.workspaceId}`,
+    '--label', `${SERO_WORKSPACE_PATH_LABEL}=${config.hostPath}`,
+    '--label', `${SERO_INSTALLATION_ROOT_LABEL}=${SERO_INSTALLATION_ROOT}`,
     '--label', `ai.sero.image=${imageRef}`,
     '--workdir', '/workspace',
     '--cpus', String(config.cpus ?? DEFAULT_CPUS),
@@ -117,7 +132,30 @@ export async function inspectDockerContainer(cid: string, run: DockerRunner = ch
 }
 
 export async function removeDockerContainer(cid: string, run: DockerRunner = checkDocker): Promise<void> {
-  await run(['rm', '-f', cid], { timeoutMs: 30_000 });
+  try {
+    const result = await run(['rm', '-f', cid], { timeoutMs: 30_000 });
+    if (result.exitCode !== 0 && !isDockerNotFound(result.stderr || result.stdout)) {
+      throw new Error(result.stderr || result.stdout || `Failed to remove Docker container ${cid}`);
+    }
+  } catch (error) {
+    if (!isDockerNotFound(error instanceof Error ? error.message : String(error))) throw error;
+  }
+}
+export function isSeroOwnedDockerContainer(
+  inspect: DockerInspectData,
+  workspaceId: string,
+): boolean {
+  const labels = inspect.Config?.Labels ?? {};
+  if (labels[SERO_MANAGED_LABEL] !== 'true'
+    || labels[SERO_RUNTIME_LABEL] !== 'docker'
+    || labels[SERO_WORKSPACE_ID_LABEL] !== workspaceId) return false;
+  const installationRoot = labels[SERO_INSTALLATION_ROOT_LABEL];
+  return !installationRoot || path.resolve(installationRoot) === SERO_INSTALLATION_ROOT;
+}
+
+function isDockerNotFound(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('no such container') || normalized.includes('not found');
 }
 
 export function toContainerState(cid: string, inspect: DockerInspectData, imageRef: string): ContainerState {
@@ -137,9 +175,8 @@ function dockerPreviewPublishArgs(poolSize: number): string[] {
 
 function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig, imageRef: string, imageId?: string): boolean {
   const labels = inspect.Config?.Labels ?? {};
-  if (labels['ai.sero.managed'] !== 'true') return false;
-  if (labels['ai.sero.runtime'] !== 'docker') return false;
-  if (labels['ai.sero.workspaceId'] !== config.workspaceId) return false;
+  if (!isSeroOwnedDockerContainer(inspect, config.workspaceId)) return false;
+  if (!labelsBelongToCurrentInstallation(labels)) return false;
   if (labels['ai.sero.image'] !== imageRef) return false;
   if (imageId && inspect.Image !== imageId) return false;
   return mountSignaturesMatch(expectedMountSignature(config), actualMountSignature(inspect));

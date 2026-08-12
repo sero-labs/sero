@@ -102,6 +102,7 @@ vi.mock('@electron/ipc/lib/window-broadcast', () => ({
 
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_FIXED_ROOT: '/tmp/sero-fixed-root',
 }));
 
 vi.mock('@electron/features/apps/git-app/manager', () => ({

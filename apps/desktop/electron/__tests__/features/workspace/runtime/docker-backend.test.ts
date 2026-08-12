@@ -36,12 +36,13 @@ describe('Docker runtime backend core', () => {
       readOnlyMounts: ['/tmp/sero-agent/skills', '/tmp/sero-agent/prompts'],
       writableMounts: ['/tmp/sero-shared'],
     }, 'ghcr.io/sero-labs/sero-node:test');
-
     expect(args).toEqual(expect.arrayContaining([
       'run', '-d', '--name', 'sero-ws-1', '--init',
       '--label', 'ai.sero.managed=true',
       '--label', 'ai.sero.runtime=docker',
       '--label', 'ai.sero.workspaceId=ws-1',
+      '--label', 'ai.sero.workspacePath=/host/workspace',
+      '--label', 'ai.sero.installationRoot=/tmp/sero-fixed',
       '--label', 'ai.sero.image=ghcr.io/sero-labs/sero-node:test',
       '--workdir', '/workspace',
       '--env', 'TERM=xterm-256color',
@@ -95,7 +96,6 @@ describe('Docker runtime backend core', () => {
     await ensureDockerContainer({ config, imageRef: 'image:test', run });
     expect(calls.map((args) => args[0]).slice(0, 5)).toEqual(['inspect', 'start', 'inspect', 'rm', 'run']);
   });
-
   it('reuses existing Docker containers only when effective bind mounts match', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
     const sharedPath = mkdtempSync(path.join(tmpdir(), 'sero-docker-shared-'));
@@ -471,13 +471,13 @@ describe('Docker runtime backend core', () => {
     ]));
   });
 });
-
 function expectedDockerLabels(imageRef: string): Record<string, string> {
   return {
     'ai.sero.managed': 'true',
     'ai.sero.runtime': 'docker',
     'ai.sero.workspaceId': 'ws-1',
     'ai.sero.image': imageRef,
+    'ai.sero.installationRoot': '/tmp/sero-fixed',
   };
 }
 

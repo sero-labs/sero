@@ -13,8 +13,10 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { User, Check, Plus, Loader2 } from 'lucide-react';
-import { useProfileStore, switchProfile } from '@/stores/profiles';
+import { removeProfile, switchProfile, useProfileStore } from '@/stores/profiles';
+import type { ProfileRemovalMode } from '@/types/profile';
 import { CreateProfileDialog } from './CreateProfileDialog';
+import { ProfileRemovalMenu } from './ProfileRemovalMenu';
 import { useProfileOperationState } from './useProfileOperationState';
 
 export function ProfileSwitcher() {
@@ -29,6 +31,7 @@ export function ProfileSwitcher() {
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   // Don't render if there are no profiles at all
   if (profiles.length === 0) return null;
@@ -49,6 +52,15 @@ export function ProfileSwitcher() {
       () => setSwitching(null),
     );
     // App restarts on success.
+  };
+
+  const handleRemove = async (id: string, mode: ProfileRemovalMode) => {
+    setRemoving(id);
+    await runProfileOperation(
+      () => removeProfile(id, mode),
+      () => setRemoving(null),
+    );
+    setRemoving(null);
   };
 
   return (
@@ -89,29 +101,35 @@ export function ProfileSwitcher() {
             </div>
 
             {profiles.map((profile) => (
-              <button type="button"
-                key={profile.id}
-                onClick={() => handleSwitch(profile.id)}
-                disabled={switching !== null}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
-              >
-                <span className="flex size-4 items-center justify-center">
-                  {switching === profile.id ? (
-                    <Loader2 className="size-3 animate-spin text-[var(--text-muted)]" />
-                  ) : profile.isActive ? (
-                    <Check className="size-3 text-[var(--accent-primary)]" />
-                  ) : null}
-                </span>
-                <span
-                  className={
-                    profile.isActive
-                      ? 'font-medium text-[var(--text-primary)]'
-                      : 'text-[var(--text-secondary)]'
-                  }
+              <div key={profile.id} className="flex items-center rounded-md hover:bg-[var(--bg-elevated)]">
+                <button type="button"
+                  onClick={() => handleSwitch(profile.id)}
+                  disabled={switching !== null || removing !== null}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors disabled:opacity-50"
                 >
-                  {profile.name}
-                </span>
-              </button>
+                  <span className="flex size-4 items-center justify-center">
+                    {switching === profile.id || removing === profile.id ? (
+                      <Loader2 className="size-3 animate-spin text-[var(--text-muted)]" />
+                    ) : profile.isActive ? (
+                      <Check className="size-3 text-[var(--accent-primary)]" />
+                    ) : null}
+                  </span>
+                  <span
+                    className={`truncate ${profile.isActive
+                      ? 'font-medium text-[var(--text-primary)]'
+                      : 'text-[var(--text-secondary)]'}`}
+                  >
+                    {profile.name}
+                  </span>
+                </button>
+                {!profile.isActive && profiles.length > 1 && (
+                  <ProfileRemovalMenu
+                    profile={profile}
+                    disabled={switching !== null || removing !== null}
+                    onRemove={(mode) => { void handleRemove(profile.id, mode); }}
+                  />
+                )}
+              </div>
             ))}
 
             <div className="my-1 h-px bg-[var(--border-default)]" />

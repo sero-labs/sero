@@ -36,6 +36,7 @@ function createContainerManager() {
     }),
     stop: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined),
+    removeOwned: vi.fn().mockResolvedValue(undefined),
     exec: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
     readFile: vi.fn().mockResolvedValue('file content'),
     writeFile: vi.fn().mockResolvedValue(undefined),
@@ -100,8 +101,29 @@ describe('AppleContainerBackend', () => {
     await backend.ensure();
     await backend.destroy();
 
-    expect(containerManager.remove).toHaveBeenCalledWith('workspace-a');
+    expect(containerManager.removeOwned).toHaveBeenCalledWith('workspace-a', '/Users/daniel/project');
     expect(containerManager.stop).not.toHaveBeenCalled();
+  });
+
+  it('destroy removes an owned container even when this backend did not start it', async () => {
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+
+    await backend.destroy();
+
+    expect(containerManager.removeOwned).toHaveBeenCalledWith('workspace-a', '/Users/daniel/project');
+  });
+
+  it('clears a cached session when owned container removal fails', async () => {
+    const containerManager = createContainerManager();
+    containerManager.removeOwned.mockRejectedValueOnce(new Error('runtime unavailable'));
+    const backend = createBackend(containerManager);
+    await backend.ensure();
+
+    await expect(backend.destroy()).rejects.toThrow('runtime unavailable');
+    await backend.ensure();
+
+    expect(containerManager.ensure).toHaveBeenCalledTimes(2);
   });
 
   it('passes isolated exec requests into the first container config build', async () => {
