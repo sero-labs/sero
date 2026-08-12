@@ -7,20 +7,22 @@
  */
 
 import { create } from 'zustand';
-import type { ProfileInfo } from '@/types/ipc';
+import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 
-type ProfileOperation = 'create' | 'switch';
+type ProfileOperation = 'create' | 'switch' | 'remove';
 
 const PROFILE_RESTART_HINT = 'If the action succeeds, Sero restarts automatically.';
 
 function getProfileOperationError(operation: ProfileOperation, err: unknown): string {
   const defaultMessage = operation === 'create'
     ? 'Failed to create profile'
-    : 'Failed to switch profile';
+    : operation === 'switch'
+      ? 'Failed to switch profile'
+      : 'Failed to remove profile';
   const detail = err instanceof Error && err.message.trim().length > 0
     ? err.message.trim()
     : null;
-
+  if (operation === 'remove') return detail ?? defaultMessage;
   return detail
     ? `${detail} ${PROFILE_RESTART_HINT}`
     : `${defaultMessage}. ${PROFILE_RESTART_HINT}`;
@@ -139,6 +141,18 @@ export async function switchProfile(id: string): Promise<void> {
     // App will restart — this line may not execute
   } catch (err) {
     failProfileOperation('switch', err);
+  }
+}
+
+/** Remove an inactive profile and refresh the profile menu. */
+export async function removeProfile(id: string, mode: ProfileRemovalMode = 'remove'): Promise<void> {
+  useProfileStore.setState({ isLoading: true, error: null });
+  try {
+    await window.sero.profiles.remove(id, mode);
+    const profiles = await window.sero.profiles.list();
+    useProfileStore.setState({ profiles, isLoading: false });
+  } catch (err) {
+    failProfileOperation('remove', err);
   }
 }
 

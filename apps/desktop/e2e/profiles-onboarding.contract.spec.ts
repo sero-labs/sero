@@ -81,7 +81,7 @@ test.describe('profiles and onboarding IPC contracts', () => {
     ]));
     expect(afterRename.every((profile) => typeof profile.path === 'string')).toBe(true);
 
-    await page.evaluate((id) => window.sero.profiles.delete(id), inactive.id);
+    await page.evaluate((id) => window.sero.profiles.remove(id, 'remove'), inactive.id);
 
     const afterDelete = await page.evaluate(() => window.sero.profiles.list());
     expect(afterDelete).toHaveLength(1);

@@ -9,6 +9,8 @@
  * and is read before anything else to determine which SERO_HOME to use.
  */
 
+import type { ProfileFolderProvenance } from '@/types/profile';
+
 /** A single profile entry in the registry. */
 export interface ProfileEntry {
   /** Unique identifier (UUID v4). */
@@ -19,6 +21,8 @@ export interface ProfileEntry {
   path: string;
   /** ISO timestamp of when the profile was created. */
   createdAt: string;
+  /** Positive folder origin. Missing means uncertain legacy provenance. */
+  folderProvenance?: ProfileFolderProvenance;
   /** True once onboarding has completed for this profile. */
   onboarded?: boolean;
 }

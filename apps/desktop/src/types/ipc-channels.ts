@@ -455,8 +455,8 @@ export const IpcChannels = {
     switch: 'sero:profiles:switch',
     /** Rename a profile. Args: id, newName. */
     rename: 'sero:profiles:rename',
-    /** Delete a profile (unregister only). Args: id. */
-    delete: 'sero:profiles:delete',
+    /** Remove an inactive profile. Args: id, mode. */
+    remove: 'sero:profiles:remove',
     /** Open native folder picker for custom profile path. */
     pickFolder: 'sero:profiles:pick-folder',
     /** Check if onboarding is needed (no .onboarding-complete marker). */

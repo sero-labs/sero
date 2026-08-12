@@ -72,17 +72,14 @@ The copy flow can include these profile-agent files when they have meaningful co
 
 Only use this option when the new profile should trust the same providers, local endpoints, and credentials.
 
-## Deleting profiles
+## Removing profiles
 
-Deleting a profile unregisters it from `~/.sero-ui/profiles.json`.
+Use the profile menu to manage an inactive profile:
 
-Current behavior:
+- **Retain files** unregisters the profile and deletes its Sero-owned containers. It keeps all profile and workspace files.
+- **Delete files** also permanently deletes the profile folder. Sero shows this option only for a folder that it created under its managed profiles directory.
 
-- Sero will not delete the only profile.
-- Sero will not delete the active profile; switch to another profile first.
-- Profile deletion removes the registry entry only. It does **not** delete the profile files from disk, including Chromium browser data.
-
-If you want to remove the data too, first back up anything important, then delete the profile folder manually from your operating system.
+Sero will not remove the only profile or the active profile. Switch to another profile first. The permanent option is never available for the main `~/.sero-ui` folder, a custom folder, or a legacy profile with uncertain folder ownership.
 
 ## Redaction checklist
 

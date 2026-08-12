@@ -19,7 +19,7 @@ import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-import type { ProfileInfo } from '@/types/profile';
+import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { ProfileEntry, ProfileRegistry } from './types';
 
 function resolveSeroRoot(): string {
@@ -41,6 +41,12 @@ export const PROFILE_REGISTRY_PATH = REGISTRY_PATH;
 const DEFAULT_PROFILE_PATH = SERO_ROOT;
 const MANAGED_PROFILES_ROOT = path.join(SERO_ROOT, 'profiles');
 
+
+export function canDeleteProfileFiles(profile: ProfileEntry): boolean {
+  return profile.folderProvenance === 'sero-managed'
+    && path.resolve(profile.path) !== DEFAULT_PROFILE_PATH
+    && isManagedNestedProfilePath(path.resolve(profile.path));
+}
 // ── Registry I/O ────────────────────────────────────────────
 
 function emptyRegistry(): ProfileRegistry {
@@ -88,6 +94,10 @@ function isProfileEntry(value: unknown): value is ProfileEntry {
     && typeof value.name === 'string'
     && typeof value.path === 'string'
     && typeof value.createdAt === 'string'
+    && (value.folderProvenance === undefined
+      || value.folderProvenance === 'default-root'
+      || value.folderProvenance === 'sero-managed'
+      || value.folderProvenance === 'custom')
     && (value.onboarded === undefined || typeof value.onboarded === 'boolean');
 }
 
@@ -175,7 +185,7 @@ function repairIsolatedRootProfiles(registry: ProfileRegistry): boolean {
     }
 
     const repairedPath = defaultManagedPathForName(profile.name, repairedProfiles);
-    repairedProfiles.push({ ...profile, path: repairedPath });
+    repairedProfiles.push({ ...profile, path: repairedPath, folderProvenance: 'sero-managed' });
     mkdirSync(path.join(repairedPath, 'agent'), { recursive: true });
     changed = true;
   }
@@ -246,6 +256,7 @@ class ProfileManager {
   list(): ProfileInfo[] {
     return this.registry.profiles.map((p) => ({
       ...p,
+      canDeleteFiles: canDeleteProfileFiles(p),
       isActive: p.id === this.registry.activeProfileId,
     }));
   }
@@ -298,12 +309,21 @@ class ProfileManager {
     // Ensure the profile directory exists
     await fs.mkdir(resolvedPath, { recursive: true });
     await fs.mkdir(path.join(resolvedPath, 'agent'), { recursive: true });
+    const workspaceRegistryPath = path.join(resolvedPath, 'agent', 'workspaces.json');
+    if (!existsSync(workspaceRegistryPath)) {
+      await fs.writeFile(workspaceRegistryPath, '{\n  "workspaces": []\n}\n', 'utf8');
+    }
 
     const entry: ProfileEntry = {
       id,
       name: name.trim(),
       path: resolvedPath,
       createdAt: new Date().toISOString(),
+      folderProvenance: profilePath
+        ? 'custom'
+        : resolvedPath === DEFAULT_PROFILE_PATH
+          ? 'default-root'
+          : 'sero-managed',
     };
 
     this.registry.profiles.push(entry);
@@ -343,20 +363,27 @@ class ProfileManager {
   }
 
   /**
-   * Delete a profile from the registry.
-   * Does NOT delete files on disk — just unregisters it.
-   * Cannot delete the last/active profile.
+   * Remove an inactive profile from Sero. Files are retained by default.
+   * Managed profile files are deleted only with positive stored provenance.
    */
-  async delete(id: string): Promise<void> {
+  async remove(id: string, mode: ProfileRemovalMode = 'remove'): Promise<void> {
     if (this.registry.profiles.length <= 1) {
-      throw new Error('Cannot delete the only profile');
+      throw new Error('Cannot remove the only profile');
     }
     if (id === this.registry.activeProfileId) {
-      throw new Error('Cannot delete the active profile. Switch to another profile first.');
+      throw new Error('Cannot remove the active profile. Switch to another profile first.');
+    }
+    const profile = this.findById(id);
+    if (!profile) throw new Error(`Profile not found: ${id}`);
+    if (mode === 'delete-files' && !canDeleteProfileFiles(profile)) {
+      throw new Error('Sero cannot verify that it manages this profile folder.');
     }
 
-    this.registry.profiles = this.registry.profiles.filter((p) => p.id !== id);
+    this.registry.profiles = this.registry.profiles.filter((candidate) => candidate.id !== id);
     await writeRegistryAsync(this.registry);
+    if (mode === 'delete-files') {
+      await fs.rm(profile.path, { recursive: true, force: true });
+    }
   }
 
   // ── Helpers ─────────────────────────────────────────────

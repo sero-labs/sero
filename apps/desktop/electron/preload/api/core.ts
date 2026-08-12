@@ -20,6 +20,7 @@ import type {
   WorkspaceInfo,
   WorkspaceRoot,
 } from '@/types/ipc';
+import type { ProfileRemovalMode } from '@/types/profile';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import type {
   BrowserPackProgressIPC,
@@ -57,7 +58,8 @@ export const profilesBridge = {
   switch: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.profiles.switch, id),
   rename: (id: string, newName: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.profiles.rename, id, newName),
-  delete: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.profiles.delete, id),
+  remove: (id: string, mode: ProfileRemovalMode): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.profiles.remove, id, mode),
   pickFolder: (): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.profiles.pickFolder),
   needsOnboarding: (): Promise<boolean> =>

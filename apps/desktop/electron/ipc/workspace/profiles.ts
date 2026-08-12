@@ -8,6 +8,10 @@
 import { app, dialog, ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { profileManager } from '@electron/features/profile/manager';
+import {
+  containerCleanupService,
+  readProfileWorkspaceIdentities,
+} from '@electron/features/workspace/runtime/container-cleanup';
 import { clearLoadedProfileEnvForRelaunch } from '@electron/platform/env';
 import {
   applyLegacyProviderDefaultsMigration,
@@ -21,7 +25,7 @@ import {
 } from '@electron/shared/settings/settings-helpers';
 import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
 
-import type { ProfileInfo } from '@/types/profile';
+import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
 
 function readSettingsForModelConfig(): Record<string, unknown> {
@@ -54,9 +58,7 @@ export function registerProfileHandlers(): void {
 
   /** Get the currently active profile. */
   ipcMain.handle(IpcChannels.profiles.getActive, (): ProfileInfo | null => {
-    const active = profileManager.getActive();
-    if (!active) return null;
-    return { ...active, isActive: true };
+    return profileManager.list().find((profile) => profile.isActive) ?? null;
   });
 
   /** Check if a valid active profile exists. */
@@ -79,7 +81,9 @@ export function registerProfileHandlers(): void {
         }
       }
 
-      return { ...entry, isActive: entry.id === profileManager.getActiveId() };
+      const created = profileManager.list().find((profile) => profile.id === entry.id);
+      if (!created) throw new Error(`Created profile not found: ${entry.id}`);
+      return created;
     },
   );
 
@@ -110,11 +114,27 @@ export function registerProfileHandlers(): void {
     },
   );
 
-  /** Delete a profile (unregister only — files are not deleted). */
+  /** Remove an inactive profile, with optional safe managed-folder deletion. */
   ipcMain.handle(
-    IpcChannels.profiles.delete,
-    async (_e, id: string): Promise<void> => {
-      await profileManager.delete(id);
+    IpcChannels.profiles.remove,
+    async (_e, id: string, mode: ProfileRemovalMode = 'remove'): Promise<void> => {
+      const profile = profileManager.findById(id);
+      if (!profile) throw new Error(`Profile not found: ${id}`);
+      const profiles = profileManager.list();
+      if (profiles.length <= 1) throw new Error('Cannot remove the only profile');
+      if (profile.id === profileManager.getActiveId()) {
+        throw new Error('Cannot remove the active profile. Switch to another profile first.');
+      }
+      if (mode === 'delete-files' && !profiles.find((candidate) => candidate.id === id)?.canDeleteFiles) {
+        throw new Error('Sero cannot verify that it manages this profile folder.');
+      }
+      const registered = await readProfileWorkspaceIdentities(profile);
+      for (const workspace of registered.workspaces) {
+        await containerCleanupService.requestDeletion(workspace).catch((error) => {
+          console.warn(`[profiles] Could not queue container cleanup for ${workspace.workspaceId}:`, error);
+        });
+      }
+      await profileManager.remove(id, mode);
     },
   );
 

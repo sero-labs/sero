@@ -1,5 +1,6 @@
 import type { ContainerManager } from '@electron/features/container';
 import { containerManager } from '@electron/features/container/core/singleton';
+import type { SeroContainerIdentity, SeroContainerProvider } from '@electron/features/container/core/ownership';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from './backends/apple-container-backend';
@@ -212,6 +213,17 @@ export class RuntimeManager {
       this.backends.delete(key);
     }
     throwFirstRejected(results);
+  }
+
+  listCachedContainerIdentities(): Array<SeroContainerIdentity & { provider: SeroContainerProvider }> {
+    return [...this.backends.values()].flatMap((runtime) => {
+      if (runtime.backend === 'host') return [];
+      return [{
+        provider: runtime.backend,
+        workspaceId: runtime.workspaceId,
+        workspacePath: runtime.hostWorkspacePath,
+      }];
+    });
   }
 
   async destroyAll(): Promise<void> {

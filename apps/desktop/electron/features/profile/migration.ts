@@ -56,6 +56,7 @@ export function migrateExistingInstall(): string | null {
         name: 'Default',
         path: SERO_ROOT,
         createdAt: new Date().toISOString(),
+        folderProvenance: 'default-root',
       },
     ],
   };

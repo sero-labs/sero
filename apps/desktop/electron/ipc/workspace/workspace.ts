@@ -11,6 +11,8 @@ import type { WorkspaceInfo, WorkspaceConfig, WorkspaceCreateOptions, WorkspaceR
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import type { BrowserPackStatusIPC, ToolchainStatusIPC, WorkspaceAccessRootsResult, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { ACTIVE_PROFILE_ID } from '@electron/platform/env';
+import { containerCleanupService } from '@electron/features/workspace/runtime/container-cleanup';
 import { isWorkspaceRuntimeBackend } from '@electron/features/workspace/runtime/config';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
@@ -140,6 +142,15 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.delete,
     async (_event, id: string): Promise<void> => {
+      const workspacePath = workspaceManager.getPath(id);
+      if (!workspacePath) throw new Error(`Workspace not found: ${id}`);
+      await containerCleanupService.queueDeletion({
+        profileId: ACTIVE_PROFILE_ID ?? '',
+        workspaceId: id,
+        workspacePath,
+      }).catch((error) => {
+        console.warn(`[workspace:delete] Could not persist container cleanup for ${id}:`, error);
+      });
       // Release everything holding the workspace directory BEFORE erasing it:
       //  1. terminals + container backend (runtimeManager)
       //  2. plugin app-runtimes (orchestrator, cron, …) — these keep a cwd/state
@@ -153,6 +164,9 @@ export function registerWorkspaceHandlers(): void {
       teardown.catch(() => undefined); // Avoid an unhandled rejection if it settles after the timeout.
       await withTimeout(teardown, RUNTIME_TEARDOWN_TIMEOUT_MS, `runtime teardown for ${id}`).catch((err) => {
         console.error(`[workspace:delete] runtime teardown failed/slow for ${id}:`, err);
+      });
+      await containerCleanupService.retryPending().catch((error) => {
+        console.warn(`[workspace:delete] Container cleanup remains pending for ${id}:`, error);
       });
 
       await workspaceManager.delete(id);
