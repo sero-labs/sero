@@ -444,6 +444,18 @@ more. Discover the full set via `@sero-ai/ui/dashboard-catalog.json` or the
 [`sero-dashboard-ui`](../../sero-dashboard-ui/SKILL.md) skill. Reach for these
 before hand-rolling layout or picking arbitrary font sizes and colours.
 
+**Markdown** — never put markdown text in a `<pre>` or a plain `<div>`. The
+reader then sees the `#`, `**` and backtick characters instead of the document.
+Render it with `MessageResponse`, the same component Sero's chat uses:
+
+```tsx
+import { MessageResponse } from '@sero-ai/ui/ai-elements/message';
+
+<MessageResponse>{report}</MessageResponse>
+```
+
+It renders headings, lists, tables, and code blocks in the host theme.
+
 ### Tailwind semantic colors
 
 | Class | Use for |

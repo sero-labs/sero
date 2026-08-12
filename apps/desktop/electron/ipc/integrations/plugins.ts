@@ -84,8 +84,20 @@ export function registerPluginHandlers(): void {
   ipcMain.handle(
     IpcChannels.plugins.installFromFolder,
     async (): Promise<SeroAppManifest | null> => {
-      const source = await pickPluginInstallSourcePath();
-      return source ? installAndActivatePlugin(source) : null;
+      let source: string | null;
+      try {
+        source = await pickPluginInstallSourcePath();
+      } catch (err) {
+        console.error('[plugins] Folder picker failed:', err);
+        throw err;
+      }
+      if (!source) return null;
+      try {
+        return await installAndActivatePlugin(source);
+      } catch (err) {
+        console.error(`[plugins] Install from folder failed for ${source}:`, err);
+        throw err;
+      }
     },
   );
 

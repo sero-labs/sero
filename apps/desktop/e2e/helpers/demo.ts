@@ -351,12 +351,23 @@ export async function clearCaption(page: Page): Promise<void> {
   await page.evaluate(() => document.getElementById('__demo_caption')?.classList.remove('show'));
 }
 
-/** Start Sero's own recorder at demo quality (full window). */
+/**
+ * Start Sero's own recorder at demo quality (full window).
+ *
+ * A run that stops early can leave the recorder running, and Sero records one
+ * video at a time. The leftover recording is discarded first, or every later
+ * run fails at this step for a reason that has nothing to do with it.
+ */
 export async function startDemoRecording(
   page: Page,
   opts: { fps?: number; crf?: number } = {},
   log?: DemoInteractionLog,
 ): Promise<boolean> {
+  const leftover = await page.evaluate(() => window.sero.appControl.recordStatus());
+  if (leftover?.recording) {
+    await page.evaluate(() => window.sero.appControl.recordStop({})).catch(() => null);
+  }
+
   const started = await page.evaluate(
     (o) => window.sero.appControl.recordStart({ fps: o.fps ?? 15, crf: o.crf ?? 20, fullWindow: true }),
     { fps: opts.fps, crf: opts.crf },

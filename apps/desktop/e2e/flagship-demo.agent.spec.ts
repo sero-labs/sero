@@ -71,6 +71,8 @@ The report must show:
 - Open pull requests.
 - Release-blocking issues.
 
+Show the report in the panel as formatted text, not as raw markdown.
+
 Save the same report as \`release-readiness.md\` in the project folder.
 
 Use the installed plugin-building skill and make the package ready to install from its folder.
@@ -216,10 +218,24 @@ test('records the complete plugin workflow', async () => {
     await installPluginFromFolder(page, { folderPath: pluginPath, plugin, log: interactions });
 
     const generateReport = page.getByRole('button', { name: 'Generate report' });
+    const clickedAt = Date.now();
     await clickForDemo(page, generateReport, interactions, { name: 'Generate report' });
-    const report = page.getByRole('region', { name: 'Release readiness report' });
-    await expect(report).toContainText('Latest release', { timeout: 120_000 });
-    expect(fs.existsSync(path.join(wsDir, REPORT_FILE))).toBe(true);
+
+    // The agent chooses the report's wording and markup, so the check anchors
+    // on the release tag this workspace was given. If the panel shows the tag,
+    // a real report reached the screen.
+    const panel = page.locator(layout.activeAppPanel).first();
+    await expect(panel).toContainText('v1.0.0', { timeout: 120_000 });
+    // A saved report from an earlier run would satisfy the panel check on its
+    // own, so require a file written after the click. That is the only proof
+    // this click generated the report.
+    await expect.poll(() => {
+      const file = path.join(wsDir, REPORT_FILE);
+      return fs.existsSync(file) && fs.statSync(file).mtimeMs >= clickedAt;
+    }, {
+      message: 'Generate report must write a fresh report file',
+      timeout: 120_000,
+    }).toBe(true);
 
     await caption(page, 'The release checklist is ready to use.', 6_000);
     await clearCaption(page);

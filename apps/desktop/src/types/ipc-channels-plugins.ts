@@ -1,6 +1,8 @@
 export const pluginIpcChannels = {
   /** Install a plugin from a source (npm:, git:, or local path). */
   install: 'sero:plugins:install',
+  /** Pick a folder with the native picker, then install the plugin in it. */
+  installFromFolder: 'sero:plugins:install-from-folder',
   /** Uninstall a plugin by ID. */
   uninstall: 'sero:plugins:uninstall',
   /** List all installed plugins. */
