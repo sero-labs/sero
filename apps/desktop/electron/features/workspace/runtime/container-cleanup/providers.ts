@@ -13,7 +13,7 @@ import {
   parseContainerTimestamp,
   type AppleContainerOwnership,
 } from '@electron/features/container/core/ownership';
-import { checkDocker, type DockerRunner } from '../backends/docker/docker-cli';
+import { runDocker, type DockerRunner } from '../backends/docker/docker-cli';
 import type {
   ContainerCleanupProvider,
   ContainerDeletionResult,
@@ -48,7 +48,7 @@ const runAppleContainer: AppleContainerRunner = async (args) => {
 };
 
 export function createDockerCleanupProvider(
-  run: DockerRunner = checkDocker,
+  run: DockerRunner = runDocker,
 ): ContainerCleanupProvider {
   const inspectNamed = async (cid: string): Promise<DockerInspectData | null> => {
     const inspected = await run(['inspect', cid], { timeoutMs: 10_000 });
@@ -142,7 +142,8 @@ export function createAppleContainerCleanupProvider(
   const inspectNamed = async (cid: string): Promise<AppleContainerOwnership | null> => {
     try {
       const result = await run(['inspect', cid]);
-      return parseAppleContainerOwnership(JSON.parse(result.stdout) as unknown, cid);
+      const ownership = parseAppleContainerOwnership(JSON.parse(result.stdout) as unknown, cid);
+      return ownership.exists ? ownership : null;
     } catch (error) {
       if (isNotFound(error instanceof Error ? error.message : String(error))) return null;
       throw error;
@@ -210,6 +211,7 @@ function isNotFound(message: string): boolean {
   const normalized = message.toLowerCase();
   return normalized.includes('not found')
     || normalized.includes('no such container')
+    || normalized.includes('no such object')
     || normalized.includes('does not exist');
 }
 

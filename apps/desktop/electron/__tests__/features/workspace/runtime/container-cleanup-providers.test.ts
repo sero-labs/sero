@@ -1,4 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+const dockerCliMocks = vi.hoisted(() => ({
+  checkDocker: vi.fn(),
+  runDocker: vi.fn(),
+}));
+
+vi.mock(
+  '@electron/features/workspace/runtime/backends/docker/docker-cli',
+  () => dockerCliMocks,
+);
+
 import {
   createAppleContainerCleanupProvider,
   createDockerCleanupProvider,
@@ -30,6 +40,20 @@ function dockerRunnerFor(inspect: unknown | null): DockerRunner {
 }
 
 describe('container cleanup provider ownership', () => {
+  it('reports a missing Docker container as absent through the default runner', async () => {
+    dockerCliMocks.runDocker.mockResolvedValueOnce({
+      stdout: '',
+      stderr: 'Error: No such object: sero-workspace-a',
+      exitCode: 1,
+    });
+
+    await expect(createDockerCleanupProvider().deleteOwned(identity)).resolves.toBe('absent');
+    expect(dockerCliMocks.runDocker).toHaveBeenCalledWith(
+      ['inspect', 'sero-workspace-a'],
+      { timeoutMs: 10_000 },
+    );
+  });
+
   it('deletes a Docker container only when Sero labels and workspace mount agree', async () => {
     const run = dockerRunnerFor({
       Id: 'container-id',
@@ -161,6 +185,12 @@ describe('container cleanup provider ownership', () => {
       skipRunning: true,
     })).resolves.toBe('preserved');
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
+  });
+
+  it('reports a missing Apple container as absent', async () => {
+    const run = vi.fn(async () => ({ stdout: '[]' }));
+
+    await expect(createAppleContainerCleanupProvider(run).deleteOwned(identity)).resolves.toBe('absent');
   });
 
   it('deletes Apple Container records with durable Sero ownership labels', async () => {
