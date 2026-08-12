@@ -10,7 +10,7 @@
 const MUTATING_GIT_SUBCOMMANDS = new Set([
   'add', 'commit', 'push', 'pull', 'checkout', 'switch',
   'merge', 'rebase', 'reset', 'stash', 'clone', 'init',
-  'tag', 'rm', 'mv', 'restore', 'clean', 'cherry-pick',
+  'rm', 'mv', 'restore', 'clean', 'cherry-pick',
   'revert', 'bisect', 'submodule', 'worktree',
 ]);
 
@@ -32,6 +32,13 @@ const BRANCH_LISTING_FLAGS = new Set([
   '--list', '--no-color', '--color', '--column', '--no-column',
 ]);
 const BRANCH_FILTER_FLAGS = new Set(['--contains', '--no-contains', '--merged', '--no-merged', '--points-at']);
+
+const TAG_MUTATING_FLAGS = /(?:^|\s)-[adefFmsu]\b|--delete|--force|--annotate|--message|--file|--sign|--local-user|--edit|--create-reflog|--no-sign/;
+const TAG_LISTING_FLAGS = new Set([
+  '-l', '--list', '-i', '--ignore-case', '--omit-empty',
+  '--column', '--no-column', '--color', '--no-color',
+]);
+const TAG_FILTER_FLAGS = new Set(['--contains', '--no-contains', '--merged', '--no-merged', '--points-at']);
 
 /** Flags that make `git config` mutating regardless of positional count. */
 const CONFIG_MUTATING_FLAGS = /--unset\b|--unset-all\b|--remove-section\b|--rename-section\b|--replace-all\b|--edit\b/;
@@ -64,6 +71,28 @@ function isContextuallyReadOnly(rawSegment: string): boolean {
       if (t.startsWith('--sort=') || t.startsWith('--format=')) continue;
       if (BRANCH_FILTER_FLAGS.has(t)) { expectValue = true; continue; }
       return false; // unrecognised token (likely a branch name)
+    }
+    return true;
+  }
+
+  // git tag — read-only while it only lists. A positional is a new tag name,
+  // unless a listing flag is present, which makes positionals match patterns.
+  const tagMatch = segment.match(/git\s+tag(?:\s+(.*))?$/s);
+  if (tagMatch) {
+    const rest = (tagMatch[1] ?? '').trim();
+    if (!rest) return true;
+    if (TAG_MUTATING_FLAGS.test(rest)) return false;
+    const tokens = rest.split(/\s+/).filter(Boolean);
+    let listing = false;
+    let expectValue = false;
+    for (const t of tokens) {
+      if (expectValue) { expectValue = false; continue; }
+      if (TAG_LISTING_FLAGS.has(t)) { listing = true; continue; }
+      if (/^-n\d*$/.test(t)) continue;
+      if (t.startsWith('--sort=') || t.startsWith('--format=')) continue;
+      if (TAG_FILTER_FLAGS.has(t)) { expectValue = true; continue; }
+      if (listing && !t.startsWith('-')) continue; // a pattern for --list
+      return false; // a tag name, or a flag we do not recognise
     }
     return true;
   }

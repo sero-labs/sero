@@ -62,14 +62,32 @@ export async function deleteWorkspaceSessions(page: Page, workspaceId: string): 
 }
 
 /**
+ * Close the editor tabs an earlier run left open.
+ *
+ * Explorer restores its open tabs per workspace when it mounts. The files
+ * behind them are gone once the workspace is rebuilt, so the recording opens
+ * on a row of stale tabs. Call this before the reload that mounts Explorer.
+ */
+export async function clearWorkspaceEditorTabs(page: Page, workspaceId: string): Promise<void> {
+  await page.evaluate(
+    (id) => window.sero.editor.saveState(id, { openTabs: [], activeTab: null }),
+    workspaceId,
+  );
+}
+
+/**
  * Prove through the visible UI that the stage is clean: Explorer is the active
- * panel and the demo plugin is nowhere on screen.
+ * panel, no editor tab is open, and the demo plugin is nowhere on screen.
  */
 export async function expectCleanDemoStage(page: Page, plugin: DemoPluginIdentity): Promise<void> {
   await expect(
     page.locator('[data-testid="explorer-sidebar-content"]'),
     'Explorer must be open before the prompt',
   ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.locator('[data-tab-path]'),
+    'no editor tab from an earlier run may be open before the prompt',
+  ).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: plugin.name, exact: true }),
     `${plugin.name} must not be on screen before the prompt`,

@@ -232,7 +232,8 @@ export function registerGitTurnUndoCapture(
           '  sero git remote add <n> <u>  Add a remote\n' +
           '  sero git log                 Recent commits\n' +
           '  sero git fetch               Fetch from remote\n' +
-          'Read-only bash git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.',
+          'Read-only bash git commands (status, log, diff, show, blame, remote -v, '
+          + 'branch, tag --list) are still allowed.',
       };
     }
 

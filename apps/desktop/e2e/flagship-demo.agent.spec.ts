@@ -35,6 +35,7 @@ import {
   validateDemoVideo,
 } from './helpers/demo';
 import {
+  clearWorkspaceEditorTabs,
   deleteWorkspaceSessions,
   expectCleanDemoStage,
   installPluginFromFolder,
@@ -129,6 +130,7 @@ async function createVisibleAgentSession(workspacePath: string) {
     { folderPath: workspacePath, name: 'Release Checklist Demo' },
   );
   await deleteWorkspaceSessions(page, workspace.id);
+  await clearWorkspaceEditorTabs(page, workspace.id);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForShell(page);
