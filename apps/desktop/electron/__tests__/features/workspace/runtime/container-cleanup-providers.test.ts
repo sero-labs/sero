@@ -118,11 +118,33 @@ describe('container cleanup provider ownership', () => {
     expect(run).not.toHaveBeenCalledWith(expect.arrayContaining(['rm']), expect.anything());
   });
 
-  it('preserves a running Docker container for a previous-session deletion', async () => {
+  it('deletes a running Docker container from the shutdown that queued it', async () => {
     const run = dockerRunnerFor({
       Id: 'container-id',
       Name: '/sero-workspace-a',
       Created: '2026-08-11T22:00:00.000Z',
+      State: { Running: true, StartedAt: '2026-08-11T22:00:00.000Z' },
+      Config: { Labels: {
+        [SERO_MANAGED_LABEL]: 'true',
+        [SERO_RUNTIME_LABEL]: 'docker',
+        [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+        [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+      } },
+      Mounts: [{ Source: identity.workspacePath, Destination: '/workspace' }],
+    });
+
+    await expect(createDockerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+      skipRunning: true,
+    })).resolves.toBe('deleted');
+    expect(run).toHaveBeenCalledWith(['rm', '-f', 'sero-workspace-a'], { timeoutMs: 30_000 });
+  });
+
+  it('preserves a running Docker container when its start time is unknown', async () => {
+    const run = dockerRunnerFor({
+      Id: 'container-id',
+      Name: '/sero-workspace-a',
       State: { Running: true },
       Config: { Labels: {
         [SERO_MANAGED_LABEL]: 'true',
@@ -259,10 +281,34 @@ describe('container cleanup provider ownership', () => {
     expect(run).toHaveBeenCalledWith(['delete', '--force', 'sero-workspace-a']);
   });
 
-  it('preserves a running Apple container for a previous-session deletion', async () => {
+  it('deletes a running Apple container from the shutdown that queued it', async () => {
     const run = appleRunnerFor({
       status: 'running',
       startedDate: '2026-08-11T22:00:00.000Z',
+      configuration: {
+        id: 'sero-workspace-a',
+        labels: {
+          [SERO_MANAGED_LABEL]: 'true',
+          [SERO_RUNTIME_LABEL]: 'apple-container',
+          [SERO_WORKSPACE_ID_LABEL]: identity.workspaceId,
+          [SERO_WORKSPACE_PATH_LABEL]: identity.workspacePath,
+          [SERO_INSTALLATION_ROOT_LABEL]: SERO_INSTALLATION_ROOT,
+        },
+        mounts: [{ source: identity.workspacePath, destination: '/workspace' }],
+      },
+    });
+
+    await expect(createAppleContainerCleanupProvider(run).deleteOwned({
+      ...identity,
+      createdBefore: '2026-08-11T23:00:00.000Z',
+      skipRunning: true,
+    })).resolves.toBe('deleted');
+    expect(run).toHaveBeenCalledWith(['delete', '--force', 'sero-workspace-a']);
+  });
+
+  it('preserves a running Apple container when its start time is unknown', async () => {
+    const run = appleRunnerFor({
+      status: 'running',
       configuration: {
         id: 'sero-workspace-a',
         labels: {

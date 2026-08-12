@@ -107,7 +107,7 @@ export function shouldRecreateAppleContainer(
     && ownership.running === false;
 }
 
-export function parseContainerCreationTime(value: unknown): number | null {
+export function parseContainerTimestamp(value: unknown): number | null {
   if (typeof value === 'string') {
     const parsed = Date.parse(value);
     return Number.isNaN(parsed) ? null : parsed;
@@ -134,7 +134,7 @@ export function parseAppleContainerOwnership(raw: unknown, cid: string): AppleCo
       ? path.resolve(workspaceMount.source)
       : null,
     running: status ? status === 'running' : null,
-    startedAt: parseContainerCreationTime(info.startedDate),
+    startedAt: parseContainerTimestamp(info.startedDate),
   };
 }
 

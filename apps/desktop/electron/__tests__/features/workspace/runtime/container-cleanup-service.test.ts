@@ -32,6 +32,7 @@ function provider(
 
 afterEach(async () => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   await Promise.all(temporaryRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
 });
 
@@ -89,6 +90,21 @@ describe('persistent container cleanup', () => {
 
     expect(result.pending).toBe(1);
     expect(deleteOwned).toHaveBeenCalledWith(expect.objectContaining(providerIdentity));
+  });
+
+  it('warns when a newer container supersedes a pending deletion', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const deleteOwned = vi.fn(async () => 'superseded' as const);
+    const service = new ContainerCleanupService(await statePath(), [
+      provider('docker', deleteOwned),
+    ]);
+
+    const result = await service.requestDeletion(identity, ['docker']);
+
+    expect(result.pending).toBe(0);
+    expect(warning).toHaveBeenCalledWith(
+      `[container-cleanup] Preserved newer docker container for ${identity.workspaceId}`,
+    );
   });
 
   it('reconciles orphans without deleting workspaces from another registered profile', async () => {

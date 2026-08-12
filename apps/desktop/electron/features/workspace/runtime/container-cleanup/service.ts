@@ -141,6 +141,9 @@ export class ContainerCleanupService {
           skipRunning: pending.cancelWhenRegistered === false,
         });
         if (outcome === 'deleted') result.deleted += 1;
+        if (outcome === 'superseded') {
+          console.warn(`[container-cleanup] Preserved newer ${pending.provider} container for ${pending.workspaceId}`);
+        }
         if (outcome === 'preserved') {
           result.preserved += 1;
           remaining.push(pending);

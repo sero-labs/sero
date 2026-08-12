@@ -10,7 +10,7 @@ import {
   SERO_WORKSPACE_ID_LABEL,
   appleContainerBelongsToWorkspace,
   parseAppleContainerOwnership,
-  parseContainerCreationTime,
+  parseContainerTimestamp,
   type AppleContainerOwnership,
 } from '@electron/features/container/core/ownership';
 import { checkDocker, type DockerRunner } from '../backends/docker/docker-cli';
@@ -120,10 +120,13 @@ export function createDockerCleanupProvider(
       const workspaceMount = named.Mounts?.find((mount) => mount.Destination === '/workspace');
       if (!installationRoot && (!workspaceMount?.Source
         || path.resolve(workspaceMount.Source) !== path.resolve(request.workspacePath))) return 'preserved';
-      if (request.createdBefore
-        && (isAfterCutoff(named.Created, request.createdBefore)
-          || isAfterCutoff(named.State?.StartedAt, request.createdBefore))) return 'superseded';
-      if (request.skipRunning && named.State?.Running === true) return 'preserved';
+      const cutoffMs = parseCutoff(request.createdBefore);
+      const startedAt = parseContainerTimestamp(named.State?.StartedAt);
+      if (cutoffMs !== null
+        && (isAfterCutoff(named.Created, cutoffMs)
+          || isAfterCutoff(startedAt, cutoffMs))) return 'superseded';
+      if (request.skipRunning && named.State?.Running === true
+        && (cutoffMs === null || startedAt === null)) return 'preserved';
       const removed = await run(['rm', '-f', cid], { timeoutMs: 30_000 });
       if (removed.exitCode !== 0) {
         throw new Error(removed.stderr || removed.stdout || `Failed to remove Docker container ${cid}`);
@@ -193,9 +196,10 @@ export function createAppleContainerCleanupProvider(
       const ownership = await inspectNamed(cid);
       if (!ownership) return 'absent';
       if (!appleContainerBelongsToWorkspace(ownership, request)) return 'preserved';
-      if (request.createdBefore
-        && isAfterCutoff(ownership.startedAt, request.createdBefore)) return 'superseded';
-      if (request.skipRunning && ownership.running === true) return 'preserved';
+      const cutoffMs = parseCutoff(request.createdBefore);
+      if (cutoffMs !== null && isAfterCutoff(ownership.startedAt, cutoffMs)) return 'superseded';
+      if (request.skipRunning && ownership.running === true
+        && (cutoffMs === null || ownership.startedAt === null)) return 'preserved';
       await run(['delete', '--force', cid]);
       return 'deleted';
     },
@@ -227,10 +231,15 @@ function isWithinProfileRoot(workspacePath: string, profileRoots: string[]): boo
   });
 }
 
-function isAfterCutoff(observedAt: unknown, cutoff: string): boolean {
+function parseCutoff(cutoff: string | undefined): number | null {
+  if (!cutoff) return null;
+  const cutoffMs = Date.parse(cutoff);
+  return Number.isNaN(cutoffMs) ? null : cutoffMs;
+}
+
+function isAfterCutoff(observedAt: unknown, cutoffMs: number): boolean {
   const observedAtMs = typeof observedAt === 'number'
     ? observedAt
-    : parseContainerCreationTime(observedAt);
-  const cutoffMs = Date.parse(cutoff);
-  return observedAtMs !== null && !Number.isNaN(cutoffMs) && observedAtMs > cutoffMs;
+    : parseContainerTimestamp(observedAt);
+  return observedAtMs !== null && observedAtMs > cutoffMs;
 }
