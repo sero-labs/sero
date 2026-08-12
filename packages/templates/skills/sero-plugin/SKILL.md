@@ -38,6 +38,7 @@ manifest in `package.json`. No manual registry edits.
 | `references/templates.md` | Creating any file (package.json, extension, runtime, UI, Vite, styles). Also contains the Quick do/don't guide and mini examples. |
 | `references/api-and-widgets.md` | Using app-runtime hooks, background runtimes, dashboard widgets, manifest fields |
 | `references/conversion-guide.md` | Converting an existing Pi extension into a plugin |
+| `references/installing.md` | Making the package installable, and what each install failure means |
 
 ## Core rules
 
@@ -275,28 +276,16 @@ Verify:
 | Plugin | Best for |
 |--------|----------|
 | `example/sero-notes-plugin/` (in this skill) | **Canonical minimal plugin.** Every surface (tool + CLI bridge, command, runtime, UI hooks, static + dynamic widgets) in the smallest possible footprint. |
-| `plugins/sero-git-plugin/` | Focused plugin with single tool + substantial UI |
-| `plugins/sero-admin-plugin/` | Multiple panels, settings, dashboard surfaces |
-| `plugins/sero-web-plugin/` | Converting an existing Pi extension |
-| `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
-| `../plugins/sero-kanban-plugin/` | External plugin with background runtime + tool-driven UI + widgets |
+
+The plugins in Sero's own repository (`sero-git-plugin`, `sero-admin-plugin`,
+`sero-cron-plugin`, `sero-web-plugin`) are further examples. They are readable
+only when you are working inside that repository.
 
 ## Related skills
 
 - **`sero-dashboard-ui`** (`../sero-dashboard-ui/SKILL.md`) — building or
   redesigning dashboard widgets and compact plugin views with the shared
   `@sero-ai/ui` dashboard components. Read it whenever a plugin has a widget.
-
-## Related docs
-
-These live in the Sero source repository. Read them only when you are working
-inside that repository; from any other workspace they are out of reach and
-reading them fails.
-
-- `docs/plugins/guide.md` — packaging and distributing installable plugins
-- `docs/plugins/technical.md` — plugin system internals, federation, IPC, security
-- `docs/plugins/host-compatibility.md` — `requiredHostCapabilities`, CLI bridging, hot-reload
-- `docs/architecture.md` — desktop shell layout and host state flow
 
 ## Troubleshooting
 

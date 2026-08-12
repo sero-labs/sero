@@ -9,7 +9,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 > `plugins/sero-<name>-plugin/` and typechecks immediately after `pnpm install`.
 > For **external** plugins that consume published `@sero-ai/*` packages instead, use
 > [`sero-kanban-plugin`](https://github.com/sero-labs/sero-kanban-plugin)
-> as the reference and read `docs/plugins/guide.md` in this repo.
+> as the reference and read `references/installing.md` in this skill.
 
 ## File map
 
