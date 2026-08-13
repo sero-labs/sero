@@ -137,7 +137,9 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 - [ ] Add appRuntime.persistentSessions to SERO_HOST_CAPABILITIES.
 - [ ] Restrict the first release to bundled first-party plugins.
 - [ ] Define host-issued PersistentSessionGrant records.
-- [ ] Scope each grant to plugin, Room, workspace, permitted sessions and approved resources.
+- [ ] Use opaque owner, scope and subject identifier strings in the generic capability.
+- [ ] Keep the capability free from imports or dependencies on Room domain types.
+- [ ] Scope each grant to plugin, opaque owner and scope, workspace, permitted session subjects and approved resources.
 - [ ] Validate session path, working directory, model, tools, skills, permissions and session count in the host.
 - [ ] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
 - [ ] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
@@ -348,7 +350,9 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [ ] Reuse Orchestrator delivery settings and record the invoking chat as origin.
 - [ ] Deliver final result, artifacts, unresolved items, duration and cost to the approved destination.
 - [ ] Label Pi sessions with Room and member identity.
-- [ ] Update Usage scanning and aggregation to group rooms/<roomId>/ sessions under the Room.
+- [ ] Derive Usage grouping from the rooms/<roomId>/ path and Pi session name.
+- [ ] Do not read the Orchestrator store from the Usage plugin.
+- [ ] Allow only optional published label or link enrichment from Room metadata.
 - [ ] Show grouped Room totals and optional per-member usage without changing Pi session format.
 - [ ] Run the completed runtime behind the feature flag without the final Room UI.
 - [ ] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests.
@@ -370,6 +374,8 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [ ] A Room created from chat returns one final result to that chat.
 - [ ] External delivery cannot bypass approval.
 - [ ] Usage groups member sessions under their Room instead of unexplained ordinary sessions.
+- [ ] Usage aggregation still works when no Orchestrator metadata lookup is available.
+- [ ] No direct Usage-to-Orchestrator store dependency exists.
 - [ ] No Room code bypasses the unified Git service.
 - [ ] Runtime soak has no dependency on the final Room UI.
 - [ ] pnpm typecheck and relevant runtime tests pass.
@@ -549,7 +555,7 @@ A failed gate closes this track without blocking Room mode.
 Suggested review boundaries are:
 
 1. Architecture decisions and static prototype.
-2. Gated persistent-session capability, shared foundations and Room storage.
+2. Gated opaque-scope persistent-session capability, shared foundations and Room storage.
 3. Room Planner and adaptive templates.
 4. Persistent Pi member runtime, scheduler and context.
 5. Messaging, waiting and Room revisions.
