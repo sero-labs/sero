@@ -35,11 +35,11 @@ new parallel service needs a new architecture decision.
 | Resource loading | `DefaultResourceLoader` + overrides in `ipc/agent/core/agent-session-open.ts` | Pattern reused with a *filtered* override set — §5. |
 | Tool bridge | `sero-cli` bridge (AD-020) | Room operations are bridged commands. No per-operation tool schema. |
 | Attention | `shared/attention-types.ts`, `ui/components/AttentionQueue.tsx` | Reused. Room approvals join the same inbox. |
-| Delivery | `runtime/delivery/`, `shared/delivery-types.ts` | Reused. A Room records the invoking chat as origin. |
+| Delivery | `runtime/delivery/`, `shared/delivery-types.ts` | Mechanism reused (agent-authored send + `DeliveryReceipt` proof + approval token). **Extension needed:** the seven existing destinations are all external; there is no invoking-chat target. Phase 6 adds a Room origin field and an internal chat-session destination. |
 | Artifacts | `runtime/artifacts.ts`, `host.writeArtifact/readArtifact` | Reused. |
 | Notifications and choices | `host.notify`, `host.requestChoice` | Reused. |
-| Usage analytics | `plugins/sero-usage-plugin/extension/scan.ts` | Reused unchanged — §8. |
-| Agent Board | existing agent presence state | Reused. Rooms add no second fleet view. |
+| Usage analytics | `plugins/sero-usage-plugin/extension/scan.ts` | Scanner reused **unchanged** — it already walks nested `.jsonl` and reads `session_info.name`. **Extension needed:** `extension/aggregate.ts` groups by provider, model and session only; Room grouping is new. Phase 6 — §8. |
+| Agent Board | `apps/desktop/src/stores/agent-board.ts` | Pattern reused (watches an index file per workspace through `window.sero.appState`). **Extension needed:** it watches `ORCHESTRATOR_INDEX_FILE`, the Workflow loop index, not generic agent presence. Phase 7 has it also watch the Room index. Rooms still add no second fleet view. |
 
 ### 1.1 Corrections to the specification's reuse map
 
@@ -49,6 +49,17 @@ new parallel service needs a new architecture decision.
   shared directly, not generalised.
 - There is no `runtime/loop-store.ts` interface both modes can implement
   without change. The Room store copies the *pattern* and keeps its own files.
+- Three seams the specification lists as reuse are **extensions**, not
+  drop-in reuse. Each is now scheduled:
+  - **Usage grouping.** `extension/scan.ts` needs no change, but
+    `extension/aggregate.ts` groups by provider, model and session. It has no
+    concept of a Room. Phase 6 adds path-derived grouping to the aggregator.
+  - **Agent Board.** `stores/agent-board.ts` watches the Workflow loop index
+    (`ORCHESTRATOR_INDEX_FILE`). Phase 7 has it also watch the Room index.
+  - **Invoking-chat delivery.** The seven `DeliveryDestinationId` values are all
+    external destinations, and delivery is agent-authored with a receipt. A
+    result returning to the chat that started the Room is a new origin field and
+    a new internal destination, added in Phase 6.
 
 ## 2. Ownership and boundaries
 
@@ -99,12 +110,69 @@ The rename is tracked debt to be scheduled after legacy engine removal
 
 ## 3. `appRuntime.persistentSessions` — capability design
 
-### 3.1 Grant
+### 3.0 Threat model
 
-The host issues a grant before any session exists, and stores it. The plugin
-holds only its ID.
+State this before the mechanism, because the mechanism is only sound against
+the threats it actually addresses.
+
+A plugin runtime module is loaded by `loadAppRuntimeModule` and executes **in
+the Electron main process**, with full Node authority: filesystem, child
+processes, and every other host module it can import. It is not sandboxed.
+
+Therefore:
+
+- **Bundled runtime code is trusted code**, at the same trust level as the host
+  itself. A *compromised* bundled runtime is not contained by this capability —
+  it could construct sessions, read credentials, or run commands without ever
+  calling the capability. Containing that would need an isolated runtime process
+  with a capability-only facade, which is out of scope for this feature and
+  recorded as a known limit in §4.1.
+- **What the grant does contain is a defective API caller.** A bug in Room code
+  — a wrong path, a stale model, an unclamped loop, a member asking for a tool
+  it was never given — cannot exceed what the user approved. This is a
+  correctness and blast-radius boundary, and every deny path is tested.
+- **What the built-in gate does contain is third-party code.** An installed or
+  side-loaded plugin can never reach the capability at all (§3.6).
+
+`NFR-013` is scoped accordingly: *a defective plugin cannot create or open a
+session beyond its host-issued grant.*
+
+### 3.1 Authority comes from a stored approval, not from the request
+
+The plugin does not decide what a grant contains.
+
+1. The plugin submits a **grant proposal**: the capability set it wants, plus
+   opaque `owner`, `scope` and subject identifiers.
+2. The host **clamps** the proposal to the user's current authority and the
+   workspace's real capability catalogue.
+3. The host **presents the clamped set to the user** and records the approval.
+   In Room mode this is the Start room press: the computed consent summary the
+   user approves and the grant the host stores are projections of the same
+   clamped set, so they cannot disagree.
+4. The host **stores the approved set** as the grant. The plugin receives only
+   `grantId`.
+
+The proposal is an input to an approval, never a source of authority. Widening
+an existing grant is impossible; it requires a new approval, which produces a
+new grant or a recorded amendment. This is what closes the gap where a plugin
+could ask for more than the user was shown.
+
+### 3.2 Grant
 
 ```ts
+/** What one session subject may do. Capabilities are per subject, never grant-wide. */
+interface PersistentSessionSubjectPolicy {
+  /** Absolute working directories this subject may use, already realpath-resolved. */
+  allowedCwds: string[];
+  /** Model IDs resolvable through the host ModelRuntime. */
+  allowedModels: string[];
+  allowedTools: string[];
+  allowedSkills: string[];
+  permissionProfile: PersistentSessionPermissionProfile;
+  /** Max bytes of appended system-prompt text this subject may supply. */
+  maxSystemPromptAdditionBytes: number;
+}
+
 interface PersistentSessionGrant {
   grantId: string;
   /** Plugin app ID this grant was issued to. */
@@ -112,32 +180,46 @@ interface PersistentSessionGrant {
   /** Opaque caller-defined identifiers. The host never parses them. */
   owner: string;
   scope: string;
-  /** Session subjects this grant permits. A request outside the set is denied. */
-  subjects: string[];
   workspaceId: string;
-  /** Absolute directory every session file must resolve inside. */
+  /** Absolute directory every session file must resolve inside, realpath-resolved. */
   sessionDir: string;
-  /** Absolute working directories a session may use (workspace root, worktrees). */
-  allowedCwds: string[];
-  /** Model IDs resolvable through the host ModelRuntime. */
-  allowedModels: string[];
-  allowedTools: string[];
-  allowedSkills: string[];
-  permissionProfile: PersistentSessionPermissionProfile;
+  /** Per-subject policy. A subject absent from this map is denied outright. */
+  subjects: Record<string, PersistentSessionSubjectPolicy>;
   maxLiveSessions: number;
   maxTotalSessions: number;
+  /** Host-owned reference to the approval this grant was issued from. */
+  approvalId: string;
   status: 'active' | 'revoked';
   issuedAt: string;
   revokedAt?: string;
 }
 ```
 
-The plugin **requests** a grant with the authority it wants. The host issues a
-grant that is the intersection of that request, the current user authority, and
-the workspace's real capability catalogue. It never issues more than was asked
-for, and never more than the user holds.
+Per-subject policy is the important change from a flat capability list. With
+flat lists, a read-only reviewer could request the implementer's `gh` tool and
+pass validation, because the union contained it.
 
-### 3.2 Request
+### 3.3 Permission profile
+
+```ts
+interface PersistentSessionPermissionProfile {
+  /** Filesystem reach. Each level is a strict superset of the one above. */
+  filesystem: 'none' | 'read' | 'write';
+  /** Shell and command execution. */
+  commands: 'none' | 'readOnly' | 'all';
+  /** Outbound network. */
+  network: 'none' | 'fetch';
+  /** Version-control reach. Each level is a strict superset of the one above. */
+  vcs: 'none' | 'read' | 'commit' | 'push';
+}
+```
+
+Subset semantics: profile `A` is within profile `B` when, for every field, `A`'s
+value is at or below `B`'s in that field's declared order. The orders are
+total, so the check is a per-field index comparison with no lattice ambiguity.
+A field absent from a request is treated as `none`, never as inherited.
+
+### 3.4 Request
 
 ```ts
 interface PersistentSessionRequest {
@@ -149,78 +231,167 @@ interface PersistentSessionRequest {
   thinking?: string;
   tools: string[];
   skills: string[];
+  /** Appended after the base prompt. Never replaces it. Size-bounded per subject. */
   systemPromptAdditions?: string[];
   sessionName: string;
-  /** create only — relative to the grant's sessionDir. */
+  /** create only — a leaf name, resolved by the host under grant.sessionDir. */
   sessionFile?: string;
-  /** open only — the previously returned path. */
-  sessionPath?: string;
 }
 ```
 
-### 3.3 Validation order
+`open` takes **no path**. The host resolves the subject's session path from its
+own immutable subject registry (§3.5). A caller-supplied path on `open` is
+ignored, so one subject can never open another subject's session file.
+
+### 3.5 Validation order
 
 Each step denies with a distinct reason. No later step runs after a denial.
 
 1. **Grant resolves** from the host store by `grantId`, or deny.
 2. **Grant is live** (`status === 'active'`), or deny.
-3. **Caller matches** `grant.appId`, or deny. The caller identity comes from the
+3. **Caller matches** `grant.appId`, or deny. Caller identity comes from the
    runtime instance the host constructed, never from the request payload.
-4. **Subject is permitted** (`grant.subjects` contains `subject`), or deny.
-5. **Path containment**: the resolved absolute session path is inside
-   `grant.sessionDir` after `path.resolve` and symlink resolution, or deny.
-   `..`, absolute overrides, and symlinks that escape are all denied.
-6. **Working directory** is one of `grant.allowedCwds` or inside one, or deny.
-7. **Model** is in `grant.allowedModels` **and** currently resolvable through
-   the host `ModelRuntime`, or deny.
-8. **Tools and skills** are subsets of the grant, or deny. An unknown name is a
-   denial, not a silent drop.
-9. **Permissions** are within `grant.permissionProfile`, or deny.
-10. **Session count**: live sessions for the grant are below `maxLiveSessions`,
-    and total created sessions are below `maxTotalSessions`, or deny.
+4. **Subject has a policy** — `grant.subjects[subject]` exists, or deny.
+   Everything after this validates against *that subject's* policy.
+5. **Path resolution.**
+   - `create`: `sessionFile` must be a single leaf name with no separators. The
+     host joins it under `grant.sessionDir`, resolves it, and confirms
+     containment after symlink resolution.
+   - `open`: the path comes from the subject registry. A subject with no
+     registered path cannot be opened.
+6. **Working directory**: `realpath(cwd)` equals or is inside a realpath-resolved
+   entry of the subject's `allowedCwds`, or deny. Resolution happens before the
+   comparison, so a symlink cannot escape.
+7. **Model** is in the subject's `allowedModels` **and** currently resolvable
+   through the host `ModelRuntime`, or deny.
+8. **Tools and skills** are subsets of the subject's lists, or deny. An unknown
+   name is a denial, not a silent drop.
+9. **Permissions** are within the subject's `permissionProfile` by the §3.3
+   subset rule, or deny.
+10. **Prompt additions** total at or below the subject's
+    `maxSystemPromptAdditionBytes`, or deny. They are appended after the base
+    prompt and host-required blocks and can never replace them.
+11. **Atomic reservation.** Under one host-held lock for the grant: re-check
+    `status === 'active'`, check live count against `maxLiveSessions` and total
+    created against `maxTotalSessions`, register the subject→path binding on
+    `create`, and increment the counters. The reservation is taken **before**
+    construction and released if construction fails.
 
-Only after all ten does the host construct the resource loader and call
-`SessionManager.create` or `SessionManager.open`.
+Only after all eleven does the host build the resource loader from the grant and
+call `SessionManager.create` or `SessionManager.open`.
 
-### 3.4 Operations
+Step 11 is one critical section, not a check followed by a create. Two
+concurrent creates cannot both pass a count check and then both construct.
+
+### 3.6 Identifying a built-in plugin
+
+`SERO_HOST_CAPABILITIES` is a *compatibility* list. It tells a plugin whether
+this host build supports a capability. It grants nothing.
+
+`isInstalledPluginPackagePath()` is **not sufficient** on its own. It only
+covers `SERO_PLUGINS_DIR` and `<SERO_FIXED_ROOT>/agent/plugins`. An app
+discovered from an arbitrary `settings.packages` entry, or from a plugin dev
+session, returns `false` from it — and the app ID it claims comes from its own
+`package.json`. So "not installed, and claims an allowlisted ID" is a hole.
+
+The gate is **canonical path equality**:
+
+1. The host derives one canonical bundled-plugin root — the packaged resources
+   directory in a release build, the repository `plugins/` directory in a source
+   run. It is host-derived, never manifest-derived.
+2. The allowlist maps each permitted app ID to its **expected directory name**
+   under that root.
+3. `realpath(manifest.packagePath)` must equal
+   `realpath(join(bundledRoot, expectedDirName))` exactly. Not a prefix test.
+4. An app whose manifest came from a **plugin dev session** source is rejected,
+   regardless of path.
+5. An app discovered from `settings.packages` is rejected.
+
+A directory that merely claims `sero.app.id: "orchestrator"` fails step 3.
+
+`SERO_DEV_PLUGINS` does not affect this gate. It only controls whether a
+built-in plugin's UI is served from its dev port
+(`getManifestDevPort`); it changes no package path and grants nothing.
+
+### 3.7 Operations
 
 `create`, `open`, `prompt`, `steer`, `abort`, `subscribe`, `compact`,
 `getContextUsage`, `getSessionUsage`, `dispose`.
 
 Every operation after `create`/`open` takes a host-issued session handle ID.
-The host maps the handle to its live session and re-checks that its grant is
+The host maps the handle to its live session and re-checks that the grant is
 still active. A handle from a revoked grant fails.
 
-`dispose` closes the live `AgentSession`. It does not delete the session file.
+`dispose` closes the live `AgentSession` and decrements the live count. It does
+not delete the session file and does not clear the subject→path binding.
 
-### 3.5 Revocation
+### 3.8 Grant store durability
+
+The grant store is host-owned durable state, not in-memory.
+
+- Grants and subject→path bindings persist through the host's app-state
+  primitives. They survive a restart.
+- `maxTotalSessions` counts **created** sessions, so its counter persists with
+  the grant.
+- `maxLiveSessions` counts **open** sessions. After a restart no session is
+  live, so the live count is rebuilt from the host's own live-session registry
+  and correctly starts at zero. It is never persisted, because a persisted live
+  count would leak on a crash and permanently wedge the grant.
+- **Revocation is write-first.** The host writes `status: 'revoked'` before it
+  aborts and disposes. A crash mid-revocation leaves the grant revoked, which is
+  the safe direction. Revocation is idempotent.
+- On restart the host reattaches grants before any plugin runtime starts, so a
+  runtime cannot race the store into issuing work against an unloaded grant.
+
+### 3.9 Revocation
 
 A grant is revoked when its owning operation stops, is deleted, or loses
 authority. Revocation aborts in-flight turns, disposes live sessions, and marks
-the grant `revoked`. Every later request against it is denied. Revocation is
-idempotent.
+the grant `revoked`. Every later request against it is denied.
 
 ## 4. Security contract
 
 | Threat | Control |
 | --- | --- |
-| External plugin obtains the capability | Provenance check (`!isInstalledPluginPackagePath(packagePath)`) **and** an explicit built-in app-ID allowlist. Both must pass. The manifest declaration grants nothing. |
-| Plugin forges authority in a request | The host never reads authority from the request. It resolves the grant from its own store and intersects. |
-| Plugin escapes the session directory | Resolve and compare against `grant.sessionDir`, after symlink resolution. |
-| Plugin writes outside the workspace | `cwd` must be an approved workspace or worktree from the grant. |
-| Plugin loads an unapproved model | Model must be in the grant **and** resolvable through the one host `ModelRuntime`. |
-| Plugin widens its resource profile | The host builds the resource loader from the grant. The request cannot supply loader overrides. |
-| Plugin exceeds session limits | Live and total session counters are held by the host, per grant. |
-| Revoked grant keeps running | Revocation aborts and disposes; handles re-check grant status per operation. |
+| Third-party plugin obtains the capability | Canonical bundled-path equality plus an app-ID→directory allowlist, with dev-session and `settings.packages` sources rejected outright (§3.6). |
+| Plugin is granted more than the user approved | Authority comes from a host-stored approval, not from the request. The consent summary and the grant are projections of the same clamped set (§3.1). |
+| Plugin forges authority in a request | The host resolves the grant from its own store and validates against it. Caller identity comes from the runtime instance, not the payload. |
+| One subject uses another subject's capabilities | Policy is per subject. Validation runs against `grant.subjects[subject]` only (§3.2). |
+| One subject opens another subject's session | `open` takes no path. The host resolves it from the immutable subject registry (§3.4). |
+| Plugin escapes the session directory | `create` accepts a leaf name only; the host joins, resolves and confirms containment after symlink resolution. |
+| Plugin writes outside the workspace | `realpath(cwd)` compared against realpath-resolved allowed roots (§3.5 step 6). |
+| Plugin loads an unapproved model | Model must be in the subject's list **and** resolvable through the one host `ModelRuntime`. |
+| Plugin widens its resource profile | The host builds the resource loader from the grant. The request supplies no loader overrides. |
+| Plugin overrides the base system prompt | Additions are appended only, after host-required blocks, and are size-bounded per subject. |
+| Concurrent creates exceed the session cap | Count check, subject binding and increment are one atomic reservation before construction (§3.5 step 11). |
+| Revoked grant keeps running | Revocation is write-first, then aborts and disposes; handles re-check status per operation. |
+| Crash leaks the live-session count | The live count is never persisted; it is rebuilt from the live registry at startup (§3.8). |
 | Renderer reaches host authority | No grant, handle, session object, or credential crosses to the renderer. The renderer sees Room state only. |
 | Peer message grants permission | Messages are untrusted member input. Authority changes travel only through a validated configuration revision plus user approval. |
 | Prompt injection expands authority | The Conductor's requests are validated against the envelope in runtime code. Prompt text is never an authority source. |
 | Secrets leak into records | Grants, blueprints, messages, and the audit timeline carry no credentials or raw prompts. |
 
-Required deny tests in Phase 2: external-plugin denial, path escape via `..`,
-path escape via symlink, unavailable model, tool outside grant, skill outside
-grant, `cwd` outside grant, subject outside grant, session-count overflow,
-revoked-grant use, and capability expansion between grant and request.
+### 4.1 Known limit
+
+This capability does **not** contain a compromised bundled runtime. Runtime
+modules execute in Electron main with full Node authority, so a bundled runtime
+that has been tampered with can bypass the capability rather than misuse it.
+Containing that needs an isolated runtime process with a capability-only host
+facade. That is a host-wide change affecting every runtime plugin, not an Agent
+Rooms change, and it is out of scope here. It is recorded so the boundary is not
+mistaken for a sandbox.
+
+### 4.2 Required deny tests (Phase 2)
+
+Third-party-plugin denial; `settings.packages` source denial; plugin-dev-session
+source denial; path-equality denial for a directory claiming an allowlisted app
+ID; session-path escape via a separator in `sessionFile`; session-path escape via
+symlink; `cwd` escape via symlink; subject with no policy; tool outside the
+subject's policy; skill outside the subject's policy; model outside the policy;
+model in the policy but unavailable at runtime; permission profile above the
+policy; oversized prompt additions; `open` with a caller-supplied path for
+another subject; two concurrent creates against a one-session cap; use of a
+revoked grant; restart with a persisted grant and a zeroed live count.
 
 ## 5. Filtered member resource policy
 
@@ -285,6 +456,26 @@ The summary is recomputed after **every** blueprint change, including each
 natural-language adjustment. A planner sentence can never reduce or replace a
 computed field.
 
+### 7.0 The adjustment report is computed, not written
+
+The planner returns a **revised blueprint only**. It does not return a proposal
+summary, and it does not author the changed / preserved / removed report.
+
+That report is computed in application code as a normalized diff of the previous
+and revised validated blueprints. The union tiles alone are not enough: a member
+can gain a tool that another member already holds, which leaves every tile
+identical while the member's own authority grew. The diff therefore covers, at
+member granularity:
+
+- members added, removed and replaced;
+- each member's tools, skills, model and permission profile;
+- each member's workspace mode and worktree need;
+- every operating-envelope field; and
+- the exact delivery destination and its parameters.
+
+A change at member granularity is reported even when it does not move a tile.
+No planner-authored preservation statement is displayed.
+
 ### 7.1 Fixed access-label mapping
 
 Evaluated in order. The highest matching label for each class is shown.
@@ -309,7 +500,12 @@ Phase 3 test failure, not a silent pass.
 
 `plugins/sero-usage-plugin/extension/scan.ts` already walks the session root
 recursively for `.jsonl` files and reads each file's `session_info.name`.
-Nothing in the scanner changes.
+**Nothing in the scanner changes.**
+
+The aggregator does change. `extension/aggregate.ts` currently accumulates by
+period, provider, model and session; it has no Room concept, so Room sessions
+would appear today as ordinary unexplained sessions. Phase 6 adds a grouping
+pass over the already-parsed sessions.
 
 - Grouping input is the **session path** (`rooms/<roomId>/`) and the **Pi
   session name**, which Room session creation sets deterministically as

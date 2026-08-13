@@ -623,15 +623,28 @@ sessions **on behalf of** a plugin runtime, under a **host-issued grant**.
   approved capability. Third-party session-lifecycle hooks are off. The host
   enforces the profile from the grant; the plugin cannot widen it.
 
-**Gating:** The first release is **built-in plugins only**, enforced in the
-host by package provenance, not by manifest declaration.
+**Authority source.** A grant is issued from a **host-stored approval**, never
+from the plugin's request. The plugin submits a proposal; the host clamps it to
+the user's authority and the workspace catalogue, presents the clamped set for
+approval, and stores exactly what was approved. In Room mode the consent summary
+the user approves and the grant the host stores are projections of the same
+clamped set, so they cannot disagree. Widening needs a new approval.
+
+**Gating:** The first release is **built-in plugins only**, enforced by
+canonical path equality, not by manifest declaration and not by a
+not-installed test.
 
 - `SERO_HOST_CAPABILITIES` is a *compatibility* list. It tells a plugin whether
   this host build supports a capability. It grants nothing. Adding
   `appRuntime.persistentSessions` there does **not** authorise anyone.
-- Authorisation is a separate host check: the app's `packagePath` must not be
-  an installed-plugin path (`isInstalledPluginPackagePath`), **and** its app ID
-  must be on an explicit built-in allowlist. Both must pass.
+- `isInstalledPluginPackagePath()` alone is **not** sufficient: an app
+  discovered from an arbitrary `settings.packages` entry or from a plugin dev
+  session returns `false` from it, while claiming any app ID it likes.
+- The real gate: the host derives one canonical bundled-plugin root, an
+  allowlist maps each permitted app ID to its expected directory name under
+  that root, and `realpath(packagePath)` must **equal** that resolved path
+  exactly. Plugin-dev-session and `settings.packages` sources are rejected
+  outright.
 - Installing an external plugin — from npm, git, or a local path — can never
   obtain this capability, whatever its manifest declares.
 
@@ -644,7 +657,18 @@ host by package provenance, not by manifest declaration.
   session root. Sero does not copy, rebuild, or replay their transcripts.
 - The capability adds no second `ModelRuntime`, credential store, or session
   persistence system.
-- A defective or compromised built-in plugin must not be able to exceed its
-  grant. Every deny path is tested.
+- Capabilities are **per session subject**, not grant-wide, so one subject
+  cannot use another's tools, models or permissions.
+- `open` takes no caller-supplied path. The host resolves it from its own
+  immutable subject→path registry.
+- The session-count check, the subject binding and the counter increment are one
+  atomic reservation taken before construction.
+- A **defective** built-in plugin must not be able to exceed its grant. Every
+  deny path is tested.
+- The capability does **not** contain a *compromised* bundled runtime. Runtime
+  modules run in Electron main with full Node authority, so tampered bundled
+  code bypasses the capability rather than misusing it. Containing that needs an
+  isolated runtime process with a capability-only facade — a host-wide change,
+  out of scope here, recorded as a known limit.
 
-**References:** `docs/features/agent-rooms/architecture.md` §3–§5.
+**References:** `docs/features/agent-rooms/architecture.md` §3–§5, including the threat model in §3.0 and the known limit in §4.1.

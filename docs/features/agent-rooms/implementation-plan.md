@@ -1,6 +1,6 @@
 # Agent Rooms implementation plan
 
-Status: Phase 1 complete — awaiting product approval  
+Status: Phase 1 approved — Phase 2 in progress  
 Branch: feat/agent-rooms  
 Parent product: Sero Orchestrator plugin  
 Specification: [spec.md](./spec.md)  
@@ -102,7 +102,7 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 - [x] Show result delivery to an invoking chat and links to the Agent Board.
 - [x] Test the prototype against issue delivery, adversarial analysis and parallel issues.
 - [x] Record accepted prototype decisions in spec.md.
-- [ ] Obtain explicit product approval.
+- [x] Obtain explicit product approval.
 
 ### Deliverables
 
@@ -111,7 +111,7 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 - [x] Security contract for grant validation and built-in-only gating.
 - [x] Verified reuse map, resource policy and session namespace.
 - [x] Deterministic consent-summary mapping.
-- [ ] Approved static prototype.
+- [x] Approved static prototype.
 - [x] Final first-release product scope.
 
 ### Acceptance criteria
@@ -125,7 +125,7 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 - [x] Runtime roster changes and approval boundaries are understandable.
 - [x] Room sessions remain accessible through the Room without appearing as normal chats.
 - [x] The result-to-chat and Agent Board relationships are clear.
-- [ ] The product owner approves the prototype before Phase 2.
+- [x] The product owner approves the prototype before Phase 2.
 
 ## 6. Phase 2: Shared foundations and Room storage
 
@@ -134,16 +134,22 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 ### Persistent-session capability checklist
 
 - [ ] Add appRuntime.persistentSessions to SERO_HOST_CAPABILITIES.
-- [ ] Restrict the first release to bundled first-party plugins.
-- [ ] Define host-issued PersistentSessionGrant records.
+- [ ] Restrict the first release to bundled first-party plugins by canonical path equality against a host-derived bundled root plus an app-ID-to-directory allowlist.
+- [ ] Reject plugin-dev-session and settings-declared package sources outright.
+- [ ] Issue every grant from a host-stored approval, never from the plugin request.
+- [ ] Define host-issued PersistentSessionGrant records with per-subject policies.
+- [ ] Define PersistentSessionPermissionProfile and its total-order subset check.
 - [ ] Use opaque owner, scope and subject identifier strings in the generic capability.
 - [ ] Keep the capability free from imports or dependencies on Room domain types.
-- [ ] Scope each grant to plugin, opaque owner and scope, workspace, permitted session subjects and approved resources.
-- [ ] Validate session path, working directory, model, tools, skills, permissions and session count in the host.
+- [ ] Register an immutable subject-to-path binding on create; resolve open from it and ignore any caller path.
+- [ ] Validate session path and working directory after symlink resolution.
+- [ ] Validate model, tools, skills, permissions and prompt-addition size against the requesting subject's policy.
+- [ ] Take the count check, subject binding and counter increment as one atomic reservation before construction.
 - [ ] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
 - [ ] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
-- [ ] Revoke grants when the Room stops, is deleted or loses authority.
-- [ ] Add tests for external-plugin denial, path escape, unavailable model and capability expansion.
+- [ ] Persist grants and created-session counters; rebuild the live count from the live registry at startup.
+- [ ] Revoke grants write-first when the Room stops, is deleted or loses authority.
+- [ ] Add every deny test listed in architecture.md 4.2.
 - [ ] Add generic temporary-session tests without Room domain dependencies.
 
 ### Shared and storage checklist
@@ -174,7 +180,11 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 
 - [ ] Existing Workflow tests and persisted records remain compatible.
 - [ ] An external plugin cannot obtain the persistent-session capability.
+- [ ] A directory claiming an allowlisted app ID from an arbitrary path is rejected.
 - [ ] A defective built-in plugin cannot create a session outside its host-issued grant.
+- [ ] One subject cannot use another subject's capabilities or open its session.
+- [ ] Two concurrent creates cannot both pass a one-session cap.
+- [ ] A restart preserves grants and created counts and zeroes the live count.
 - [ ] The capability has no dependency on Room domain record types.
 - [ ] A draft Room can be created, read, updated, listed, archived and deleted.
 - [ ] Current Room records are authoritative without event replay.
@@ -200,6 +210,7 @@ Objective: Generate a comprehensive problem-specific Room from a simple user bri
 - [ ] Use a fixed mapping from effective capabilities to plain-English access labels and warnings.
 - [ ] Limit planner-authored proposal fields to prose such as role one-liners, approach and rationale.
 - [ ] Recompute the authority summary after every blueprint adjustment.
+- [ ] Compute the changed / preserved / removed report from a member-granular blueprint diff, never from planner prose.
 - [ ] Support bounded natural-language adjustment while preserving explicit user choices.
 - [ ] Define optional adaptive templates without secrets or runtime state.
 - [ ] Add Software Delivery, Adversarial Analysis and Parallel Issues presets.
@@ -223,6 +234,7 @@ Objective: Generate a comprehensive problem-specific Room from a simple user bri
 - [ ] The computed proposal always matches the blueprint enforced by the runtime.
 - [ ] Capability mapping tests cover read, workspace write, GitHub write and deployment warnings.
 - [ ] Natural-language adjustment preserves unrelated approved values.
+- [ ] A member gaining a capability another member already holds is reported even though no union tile moves.
 - [ ] Presets guide planning without fixing the final roster.
 - [ ] Invalid output is repaired or rejected within the attempt limit.
 - [ ] pnpm typecheck and relevant tests pass.
@@ -353,9 +365,11 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [ ] Preserve uncommitted member work during failure and cancellation.
 - [ ] Add one multi-member approval and attention queue.
 - [ ] Prevent the Conductor from answering user approvals.
-- [ ] Reuse Orchestrator delivery settings and record the invoking chat as origin.
+- [ ] Reuse Orchestrator delivery settings, the agent-authored send and the DeliveryReceipt approval token.
+- [ ] Add a Room origin field and a new internal invoking-chat delivery destination; the seven existing destinations are all external.
 - [ ] Deliver final result, artifacts, unresolved items, duration and cost to the approved destination.
 - [ ] Label Pi sessions with Room and member identity.
+- [ ] Extend the Usage aggregator with path-derived Room grouping; leave the scanner unchanged.
 - [ ] Derive Usage grouping from the rooms/<roomId>/ path and Pi session name.
 - [ ] Do not read the Orchestrator store from the Usage plugin.
 - [ ] Allow only optional published label or link enrichment from Room metadata.
@@ -402,6 +416,7 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 - [ ] Implement direct message, queued broadcast, explicit wake, pause, resume, cancel and intervention.
 - [ ] Implement consolidated approvals, deadlock, failure and recovery states.
 - [ ] Implement completion and invoking-chat delivery state.
+- [ ] Extend the Agent Board store to watch the Room index alongside the Workflow loop index.
 - [ ] Link Room members to the global Agent Board and back to the Room.
 - [ ] Link grouped Usage Room entries to the Room where supported.
 - [ ] Add keyboard, screen-reader, contrast and reduced-motion support.

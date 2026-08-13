@@ -362,7 +362,11 @@ Examples include:
 - Use one agent only for implementation.
 - Make the agents challenge each other's conclusions.
 
-The Room Planner returns a revised blueprint and proposal summary.
+The Room Planner returns a revised blueprint only. It does not author the
+proposal summary or the report of what changed. Application code computes both
+from a normalized diff of the previous and revised validated blueprints, at
+member granularity — so a member gaining a tool that another member already
+holds is still reported, even though no summary tile moves.
 
 ### 9.4 Advanced settings
 
@@ -592,7 +596,7 @@ A later wake reopens the same session file with the current approved member conf
 
 The Pi session mechanics already exist. Room mode adds a narrow plugin-to-host authority path around them.
 
-The capability is named appRuntime.persistentSessions and is added to SERO_HOST_CAPABILITIES. The first release grants it only to bundled first-party plugins. Installing an external plugin cannot grant this capability.
+The capability is named appRuntime.persistentSessions and is added to SERO_HOST_CAPABILITIES. That list is a compatibility declaration and grants nothing. The first release restricts the capability to bundled first-party plugins, enforced by canonical path equality: the host derives one bundled-plugin root, an allowlist maps each permitted app ID to its expected directory under it, and the app's resolved package path must equal that path exactly. Plugin-dev-session and settings-declared package sources are rejected. Installing an external plugin cannot grant this capability.
 
 The Orchestrator sends a session request. It does not construct a session directly. A request includes:
 
@@ -605,11 +609,17 @@ The Orchestrator sends a session request. It does not construct a session direct
 - permission profile; and
 - resource-loading policy.
 
-The host stores or can resolve the approved authority grant. It validates that the request is a subset of the grant and current user authority. It validates workspace and session paths, model availability, capabilities, session count, grant validity and revocation state. It then constructs or opens the Pi session.
+A grant is issued from a host-stored approval, never from the plugin's request. The plugin submits a proposal; the host clamps it to current user authority and the workspace catalogue, presents the clamped set for approval, and stores exactly what was approved. The consent summary the user approves and the grant the host stores are projections of the same clamped set.
+
+Capabilities are held **per session subject**, not grant-wide, so one subject cannot use another subject's tools, models or permissions. `open` takes no caller-supplied path — the host resolves it from its own immutable subject-to-path registry. The session-count check, the subject binding and the counter increment are one atomic reservation taken before construction.
+
+The host validates the request against that subject's policy: session and working-directory paths after symlink resolution, model availability through the one host ModelRuntime, tools, skills, permissions, prompt-addition size, session count, grant validity and revocation state. It then constructs or opens the Pi session.
 
 Owner, scope and subject identifiers are opaque strings at this boundary. Room mode can use its Room and member IDs as values, but the host capability must not import, parse or depend on Room domain types.
 
-The host must reject a request when a defective or compromised plugin asks for more authority than the user approved. The host must not trust an operating envelope supplied only by the plugin request.
+The host must reject a request when a defective plugin asks for more authority than the user approved. The host must not trust an operating envelope supplied only by the plugin request.
+
+This boundary contains a defective API caller, not a compromised bundled runtime. Runtime modules execute in Electron main with full Node authority, so tampered bundled code bypasses the capability rather than misusing it. Containing that would need an isolated runtime process with a capability-only facade — a host-wide change, out of scope for the first release and recorded as a known limit.
 
 A grant is scoped to the plugin, opaque owner and scope identifiers, workspace and permitted session subjects. The calling product decides what those opaque values represent. It is revocable when its owning operation stops, is deleted or loses authority.
 
@@ -1205,7 +1215,7 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | NFR-010 | Full technical configuration is available without appearing in the default flow. |
 | NFR-011 | Automated tests cover planning, persistence, reopen, scheduling, messaging, revisions, compaction, authority, workspace, delivery and recovery. |
 | NFR-012 | A Room does not require any one template, provider, model or collaboration method. |
-| NFR-013 | A defective plugin cannot create or open a session beyond its host-issued grant. |
+| NFR-013 | A defective plugin cannot create or open a session beyond its host-issued grant. This scopes to API misuse; a compromised bundled runtime is out of scope (see 14.4). |
 | NFR-014 | A waiting member starts its resumed turn within two seconds at the 95th percentile when local capacity and limits permit. |
 | NFR-015 | Authority-bearing proposal fields cannot disagree with the runtime blueprint because they are deterministic projections. |
 | NFR-016 | Live observation adds no second transcript store. Streamed output is transient view state and is never written into Room records. |
@@ -1274,6 +1284,25 @@ Architecture decisions AD-028 and AD-029 are recorded in
   live sessions, and fails every later request. It is idempotent.
 - **D-10** The host builds the member resource loader from the grant. The
   request cannot supply loader overrides.
+- **D-36** Authority comes from a host-stored approval, not from the plugin's
+  request. The plugin proposes, the host clamps and gets approval, and the host
+  stores exactly what was approved. The consent summary and the grant are
+  projections of the same clamped set.
+- **D-37** Capabilities are per session subject, not grant-wide.
+- **D-38** `open` takes no caller-supplied path. The host resolves it from an
+  immutable subject-to-path registry created at `create`.
+- **D-39** The count check, subject binding and counter increment are one atomic
+  reservation before construction.
+- **D-40** Built-in gating is canonical path equality against a host-derived
+  bundled root plus an app-ID-to-directory allowlist. Dev-session and
+  `settings.packages` sources are rejected. `isInstalledPluginPackagePath` alone
+  is not sufficient and is not used as the gate.
+- **D-41** The threat model contains a *defective* API caller and all
+  third-party code. It does not contain a *compromised* bundled runtime, which
+  runs in Electron main with full Node authority. Recorded as a known limit.
+- **D-42** The live-session counter is never persisted; it is rebuilt from the
+  host's live registry at startup. The created-session counter persists.
+  Revocation writes `revoked` before it disposes.
 
 ### 34.3 Sessions and usage
 
@@ -1294,9 +1323,13 @@ Architecture decisions AD-028 and AD-029 are recorded in
 - **D-15** The access mapping is fixed and ordered (architecture.md §7.1). An
   unmapped capability falls back to `Other tools` and is always listed in
   advanced settings. An unmappable capability class is a test failure.
-- **D-16** The summary is recomputed after every blueprint change. An adjustment
-  states which values changed, which were preserved, and what was removed, so a
-  broad instruction cannot quietly widen an unrelated value.
+- **D-16** The summary is recomputed after every blueprint change. The
+  changed / preserved / removed report is **computed** in application code from
+  a normalized member-granular diff of the previous and revised blueprints — it
+  is never planner-authored. The diff covers each member's tools, skills, model,
+  permissions and workspace mode, every envelope field, and the exact delivery
+  target, so a member gaining a capability another member already holds is
+  reported even though no union tile moves.
 - **D-17** The access tile is the union across the whole team. Editing one
   member's tools does not change it while another member still holds the
   capability. Advanced settings say this explicitly.
@@ -1362,6 +1395,21 @@ Room mode, not a debugging affordance.
   never removes its history.
 - **D-35** Observation is read-only. It cannot change what a member does, and it
   holds no execution slot.
+
+### 34.5.2 Reuse corrections found at the Phase 1 gate
+
+Three seams the specification listed as reuse are extensions. Each is scheduled
+rather than assumed:
+
+- **Usage grouping** — `extension/scan.ts` needs no change, but
+  `extension/aggregate.ts` groups by provider, model and session and has no Room
+  concept. Phase 6 adds path-derived grouping to the aggregator.
+- **Agent Board** — `stores/agent-board.ts` watches the Workflow loop index, not
+  generic agent presence. Phase 7 has it also watch the Room index.
+- **Invoking-chat delivery** — every existing `DeliveryDestinationId` is
+  external, and delivery is agent-authored with a receipt. Returning a result to
+  the chat that started the Room is a new origin field and a new internal
+  destination, added in Phase 6.
 
 ### 34.6 Scope confirmed for the first release
 
