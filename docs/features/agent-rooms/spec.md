@@ -2,244 +2,593 @@
 
 Status: Draft for Phase 1 validation  
 Branch: feat/agent-rooms  
-Owners: Sero maintainers  
+Product owner: Sero maintainers  
+Parent product: Sero Orchestrator plugin  
 Last updated: 2026-08-13
 
 ## 1. Summary
 
-Agent Rooms let a user create a durable group of agents that work on one goal. Each Room has one Conductor and any number of member agents. Each member has a separate LLM session and can have a separate model, prompt, tool set, skill set, permission set, and workspace.
+Agent Rooms are a new mode in sero-orchestrator-plugin.
 
-The Conductor controls the work inside the limits that the user sets. The Room instructions define how the agents must work. Sero does not hard-code one discussion or delivery method.
+Sero Orchestrator has two product modes:
 
-Agent Rooms replace CollaborationEngine and DebateEngine. Their current behaviours become editable Room templates after Agent Rooms reaches feature parity.
+- Workflow mode is the current Orchestrator function. An LLM creates a step graph and Orchestrator runs it.
+- Room mode creates a persistent team of agents. One Conductor coordinates the Room and can change the team while it works.
 
-## 2. Product decision
+The user normally creates a Room by describing the problem and desired result. A Room Planner generates the Conductor, participants, roles, responsibilities, models, prompts, tools, skills, workspace policy and limits. The user sees a small plain-English summary by default. The complete blueprint remains available under advanced settings.
 
-The initial specification and implementation plan come before the UX prototype. The static prototype is Phase 1 and is the first delivery gate.
+Each Room member uses Pi's standard persistent SessionManager. Room sessions do not use SessionManager.inMemory. Sero does not create a second transcript or session persistence system.
 
-This order gives the prototype clear product limits. Prototype review can still change the UX requirements and the related parts of this specification. Runtime implementation must not start until the Phase 1 prototype is approved.
+Agent Rooms will replace CollaborationEngine and DebateEngine after Room mode is proven. The old engines remain unchanged during initial development.
 
-The prototype is a product artifact, not a second specification. Repository rules require static prototypes in docs/prototypes. The planned path is:
+## 2. Agreed product decisions
+
+### 2.1 Rooms belong to Sero Orchestrator
+
+Room mode is part of sero-orchestrator-plugin. It is not a separate application, plugin or host-owned orchestration runtime.
+
+Workflow mode and Room mode share management infrastructure where it is correct to do so. They keep separate domain records and types where their behaviour is different.
+
+Reuse must not weaken either mode or force a Room into a step graph.
+
+### 2.2 Workflow and Room are separate modes
+
+| Concern | Workflow mode | Room mode |
+| --- | --- | --- |
+| Primary structure | LLM-authored step graph | LLM-authored team blueprint |
+| Agent lifetime | Usually one execution for each step | Persistent member sessions |
+| Coordination | Dependencies, branches and feedback | Messages and Conductor decisions |
+| Runtime change | Plan revision | Room and roster revision |
+| Best use | Repeatable workflows and automation | Adaptive collaborative work |
+| Completion | Planned completion signal | Conductor finalisation against success criteria |
+
+The current internal Loop naming can remain until a separate migration has value. The user-facing terms are Workflow and Room.
+
+### 2.3 Room creation is problem-first
+
+The normal entry point is a plain-language problem description. Static templates are optional seeds, not the only definition of Room behaviour.
+
+A Room Planner creates a problem-specific team. A participant does not need a predefined named agent or a static agent file.
+
+### 2.4 The Conductor can revise the Room
+
+The Conductor can add, update, suspend, retire and replace members within a user-approved operating envelope.
+
+The Conductor cannot increase permissions, cost limits, team-size limits, workspace authority or external delivery authority. It can request those changes from the user.
+
+### 2.5 Pi owns member session persistence
+
+Room members use the standard Pi SessionManager create and open APIs and the normal Pi JSONL session format.
+
+Sero stores only the Room-to-session reference and Room-specific state. It does not copy, rebuild or replay member transcripts.
+
+### 2.6 The default UX is simple
+
+The generated blueprint can be detailed. The default confirmation shows only:
+
+- team size;
+- short plain-English roles;
+- maximum working time;
+- maximum spend;
+- broad access summary; and
+- Start Room and Adjust actions.
+
+Prompts, models, tools, skills, worktrees, detailed limits and cache information are advanced settings.
+
+### 2.7 The UX prototype is the first gate
+
+This specification and the implementation plan come before implementation. Phase 1 creates and approves the static prototype.
+
+The prototype path is:
 
     docs/prototypes/sero-agent-rooms.html
 
-The specification and implementation plan stay in:
+Runtime implementation must not start until Phase 1 is approved and the resulting decisions are recorded.
 
-    docs/features/agent-rooms/
+## 3. Terms
 
-## 3. Problem
+### 3.1 Workflow
 
-Sero supports single chat sessions and subagent fan-out. It also has fixed collaboration and debate engines. These options do not support a durable group of independent agents that can:
+The current Orchestrator execution mode. An LLM creates a structured plan of steps, dependencies, execution targets and completion conditions.
 
-- work for a long time;
-- communicate during the work;
-- wait without using an active execution slot;
-- resume the same LLM session later;
-- use different models, prompts, tools, skills, and permissions;
-- coordinate shared code changes;
-- operate under one budget and safety policy; and
-- adapt their method from instructions that the user supplies.
+### 3.2 Room
 
-The fixed engines also mix orchestration policy with runtime behaviour. This makes new collaboration patterns expensive to add.
+A durable Orchestrator object that contains a goal, success criteria, operating envelope, Conductor, members, messages, assignments, artifacts and runtime state.
 
-## 4. Goals
+### 3.3 Room Planner
 
-Agent Rooms must:
+An isolated Orchestrator planning call that converts the user's problem and constraints into a validated RoomBlueprint.
 
-- let a user add any supported number of agents to one Room;
-- give every member an independent, persistent LLM session;
-- let every member have its own model route, thinking level, prompt, tools, skills, permissions, and workspace;
-- give one Conductor responsibility for Room choreography;
-- let members send durable directed and broadcast messages;
-- let an agent wait and resume without losing its session;
-- keep local agent presence separate from remote prompt-cache retention;
-- support provider-neutral prompt-cache leases where they are useful;
-- apply limits for time, cost, tokens, turns, messages, concurrency, retries, and failures;
-- support safe parallel repository work;
-- persist enough state to recover after an application restart;
-- expose live state, decisions, costs, claims, and artifacts to the user;
-- support user pause, resume, interrupt, and message actions; and
-- replace CollaborationEngine and DebateEngine with Room templates.
+The Room Planner is not a Room member. It runs before activation and uses the existing Orchestrator structured planning and repair approach.
 
-## 5. Non-goals
+### 3.4 RoomBlueprint
+
+The complete proposed definition of a Room. It contains the Conductor, members, generated mandates, collaboration strategy, capabilities, workspace choices, initial assignments and suggested limits.
+
+### 3.5 Conductor
+
+The one Room member that controls Room choreography within the operating envelope. The Conductor has a normal persistent member session plus Room management authority.
+
+### 3.6 Member
+
+An agent with its own persistent Pi session, model selection, mandate, tools, skills, permissions, workspace and usage totals.
+
+### 3.7 Operating envelope
+
+The user-approved hard boundary for team size, concurrency, time, cost, models, tools, skills, permissions, workspace access and delivery.
+
+### 3.8 Member mandate
+
+The current role, responsibilities, task, priorities and working instructions for a member. A mandate can change without rewriting the member's stable session identity.
+
+### 3.9 RoomRevision
+
+A validated change to the Room definition or runtime roster. Each revision records its actor, reason, previous values, new values and approval result.
+
+### 3.10 Room brief
+
+A compact, current summary of the goal, important decisions, active work, blockers and artifacts. New members and compacted sessions receive a relevant Room brief instead of the complete Room transcript.
+
+## 4. Problem
+
+Sero supports single chats, transient subagent fan-out and two fixed collaboration engines.
+
+These options do not provide a durable team that can:
+
+- maintain separate long-running sessions;
+- communicate while work continues;
+- wait without holding an execution slot;
+- resume after idle time or an application restart;
+- use problem-specific roles instead of a fixed registry;
+- change team composition when the problem changes;
+- coordinate parallel repository work;
+- operate under one visible budget and permission envelope; and
+- deliver one result through an accountable Conductor.
+
+Building Rooms as a separate runtime would duplicate much of Sero Orchestrator. The Orchestrator already owns budgets, scheduling, recovery, worktrees, artifacts, delivery and a multi-agent UI.
+
+## 5. Goals
+
+Room mode must:
+
+- live inside sero-orchestrator-plugin;
+- reuse existing Orchestrator and host services where their contracts fit;
+- keep Workflow and Room domain models separate;
+- create a problem-specific Room from a plain-language brief;
+- support an optional template or preset as planning input;
+- use one Conductor and any supported number of members;
+- use standard persistent Pi sessions for every member;
+- let each member have its own model, thinking level, mandate, tools, skills, permissions and workspace;
+- let the Conductor change the Room within approved limits;
+- let members communicate through durable Room messages;
+- let waiting members release execution capacity;
+- recover Room and member sessions after restart;
+- manage member context growth and compaction;
+- support safe parallel work with worktrees and simple advisory path claims;
+- apply limits for time, cost, tokens, turns, concurrency, retries, failures and roster changes;
+- provide a consolidated approval and attention inbox;
+- deliver the final result to the Room origin or another approved destination;
+- remain accessible to non-technical users; and
+- replace CollaborationEngine and DebateEngine after Room mode is proven.
+
+## 6. Non-goals
 
 The first production release does not:
 
-- provide a general distributed compute system across unrelated Sero hosts;
-- make advisory file claims a substitute for Git worktrees or merge conflict handling;
-- allow peer messages to grant permissions or approve protected actions;
-- require an upstream Pi change or a private Pi fork;
-- guarantee that every provider supports remote prompt-cache refresh;
-- keep a cache warm when the expected saving is lower than the refresh cost;
-- let members create unbounded nested subagents;
-- hard-code consensus, debate, review, or issue-delivery workflows in the runtime; or
-- automatically publish a pull request without the permissions that normal Sero work requires.
+- encode a Room as a dynamic Workflow graph;
+- force Workflow and Room records into one domain schema;
+- provide distributed execution across unrelated Sero hosts;
+- require users to select from a fixed registry of agents or roles;
+- expose the complete generated blueprint in the default create flow;
+- implement custom member transcript persistence;
+- show Room member sessions as normal chats by default;
+- let the Conductor expand its own authority;
+- let peer messages grant permissions or approve protected work;
+- support unbounded member creation or nested subagents;
+- make advisory path claims a substitute for worktrees or Git conflict handling;
+- require an upstream Pi change, Pi fork or Pi patch;
+- make active prompt-cache keep-warm a release blocker;
+- require cron or event-triggered Rooms in the first release; or
+- automatically publish externally without the normal Sero permission and approval path.
 
-## 6. Principles
+## 7. Architecture
 
-### 6.1 Instructions define the method
-
-The Room goal, operating instructions, success criteria, and member prompts define how the group works. Templates provide editable starting values only.
-
-The runtime enforces protocol and safety. It does not decide whether agents must seek consensus, compete, review each other, or divide work by issue.
-
-### 6.2 The Conductor is an agent with added authority
-
-The Conductor has a normal persistent member session. It also has Room management tools and reserved scheduler capacity.
-
-The Conductor can assign work, request revisions, resolve scheduling conflicts, select final artifacts, and finish the Room. It cannot exceed user permissions or Room limits.
-
-### 6.3 Durable state is the source of truth
-
-Chat transcripts alone are not enough. Sero stores Room events, messages, work items, resource claims, artifacts, budget use, and member cursors.
-
-The Room event log is append-only. Read models can be rebuilt from it.
-
-### 6.4 Waiting is not working
-
-An agent that waits for another member ends its current LLM turn and releases its execution slot. A matching message or an explicit wake action starts a new turn in the same persistent session.
-
-### 6.5 Cache health and process health are different
-
-A local heartbeat reports that an agent runtime is alive. It does not keep a provider prompt cache warm.
-
-A prompt-cache lease can send a small provider request before a known cache expires. The request must use the same effective model route and stable prompt prefix. Sero tracks its cost and verifies whether the provider read or rewrote the cache.
-
-### 6.6 Coordination does not weaken authority
-
-Room messages are untrusted peer input. They do not become system instructions. They cannot grant tool access, change model configuration, approve a protected operation, or expand a member workspace.
-
-## 7. Primary use cases
-
-### 7.1 Issue delivery
-
-A Room receives a complex GitHub issue. A Conductor, planner, implementers, and reviewer create a plan, edit in separate worktrees, review changes, run checks, and prepare a final pull request. The Room instructions ask for consensus and constructive review.
-
-### 7.2 Adversarial council
-
-Several members independently solve or challenge a problem. They compare evidence and attack weak assumptions. The Conductor acts as judge and selects or synthesises the final answer.
-
-### 7.3 Parallel issues
-
-Members handle separate issues in parallel. They publish file and path claims, communicate dependencies, and use separate worktrees. The Conductor controls integration and resolves overlap.
-
-## 8. Concept model
-
-### 8.1 RoomDefinition
-
-A RoomDefinition contains:
-
-- Room ID, name, description, and creation time;
-- goal, instructions, success criteria, and optional template source;
-- workspace and repository configuration;
-- one Conductor member ID;
-- zero or more additional RoomMember definitions;
-- execution, budget, messaging, cache, and retention policies;
-- initial artifacts or linked external items; and
-- user permissions and approval policy.
-
-A Room can be saved as a reusable template after secrets and run-specific values are removed.
-
-### 8.2 RoomMember
-
-A RoomMember contains:
-
-- member ID, display name, and role;
-- persistent Sero session ID;
-- provider, model, API, gateway, and account route;
-- thinking level and custom prompt;
-- enabled and disabled tools;
-- enabled and disabled skills;
-- permissions and approval policy;
-- working directory or worktree;
-- resource claims;
-- status, current work item, and last activity;
-- message inbox cursor;
-- token, cost, turn, retry, and failure totals; and
-- local heartbeat and prompt-cache lease state.
-
-The model route is the complete effective route. Provider and model name alone are not enough because an API, gateway, account, or configuration can change cache behaviour.
-
-### 8.3 RoomEvent
-
-RoomEvent is the durable audit record. Each event has:
-
-- event ID and Room ID;
-- monotonic Room sequence;
-- type, time, and actor;
-- correlation and causation IDs;
-- structured payload;
-- visibility scope; and
-- optional cost, token, session, work item, and artifact references.
-
-Examples include member_started, message_sent, work_claimed, resource_claimed, turn_completed, cache_refresh_requested, cache_hit, cache_miss, budget_warning, room_paused, artifact_published, and room_finished.
-
-### 8.4 RoomMessage
-
-RoomMessage supports:
-
-- directed message;
-- broadcast;
-- question;
-- reply;
-- cancellation;
-- acknowledgement; and
-- system notice.
-
-Each message has an ID, sender, recipients, type, body, correlation ID, delivery state, and creation time. A reply references the question that it answers.
-
-Messages are durable before delivery. Sero deduplicates delivery by message ID.
-
-### 8.5 WorkItem
-
-A WorkItem contains a title, description, owner, status, dependencies, expected outputs, and related resource claims. Members can create and claim work if policy permits it. The Conductor can change ownership and priority.
-
-Work item states are proposed, ready, active, blocked, review, completed, failed, and cancelled.
-
-### 8.6 ResourceClaim
-
-A ResourceClaim is an advisory lease on a repository path or logical resource. It contains the member, scope, reason, creation time, expiry time, and renewal state.
-
-A claim warns or blocks another Room member according to policy. It does not change file-system permissions. Separate worktrees remain the default safety boundary for editing agents.
-
-### 8.7 RoomArtifact
-
-A RoomArtifact is a durable output such as a plan, decision, patch, branch, commit, test result, review, pull request, report, or final answer. It includes its producer, type, location, metadata, and related work item.
-
-## 9. Architecture
-
-Agent Rooms use a host-owned runtime and a first-party Rooms UI.
+Room mode extends the Orchestrator plugin and consumes host-owned services.
 
 ~~~mermaid
 flowchart TD
-    UI[Rooms UI] --> API[Room host API]
-    API --> CORE[Room runtime]
-    CORE --> STORE[Event store]
-    CORE --> EXEC[Session scheduler]
-    CORE --> BUS[Message bus]
-    CORE --> CACHE[Cache lease manager]
-    EXEC --> PI[Pi session runtime]
-    EXEC --> WORK[Workspace manager]
+    UI[Orchestrator UI] --> ORCH[Orchestrator runtime]
+    ORCH --> PLAN[Room Planner]
+    ORCH --> COORD[Room coordinator]
+    COORD --> SESS[Persistent session host]
+    COORD --> GIT[Unified Git service]
+    SESS --> PI[Pi SessionManager]
+    COORD --> STORE[Room state and audit]
 ~~~
 
-The desktop host owns:
+### 7.1 Plugin ownership
 
-- Room creation and lifecycle;
-- durable storage and recovery;
-- member session creation and resume;
-- scheduling and concurrency;
-- the message bus;
-- Room tools and authority checks;
-- budgets and stop conditions;
-- worktree and resource-claim coordination;
-- cache leases and telemetry; and
-- renderer-safe IPC or capability contracts.
+sero-orchestrator-plugin owns:
 
-Shared types live in @sero-ai/common. The first-party UI uses the host contract and does not own execution state.
+- Workflow and Room navigation;
+- Room creation and blueprint review;
+- Room records and runtime state;
+- the Room coordinator;
+- Room scheduling;
+- Room messages and revisions;
+- Room limits and usage aggregation;
+- Room artifacts and delivery state;
+- the Room user interface; and
+- Room templates and presets.
 
-The first implementation can expose the UI as a bundled first-party plugin if the plugin framework supports the required live host capability. The host runtime remains the authority in all cases. Phase 1 must confirm the final UI container before implementation.
+### 7.2 Host ownership
 
-## 10. Room lifecycle
+The desktop host continues to own:
+
+- the one Pi ModelRuntime;
+- credentials and provider registration;
+- generic persistent agent-session construction;
+- workspace runtimes and tools;
+- the unified Git and GitHub service;
+- worktree operations;
+- approval enforcement;
+- app-state storage primitives; and
+- cross-Sero agent presence.
+
+The Orchestrator plugin receives narrow capabilities. It does not receive a second model runtime or credential store.
+
+### 7.3 Separate domain records
+
+Workflow records remain based on plans, steps, activations and attempts.
+
+Room records are based on blueprints, members, messages, mandates and revisions.
+
+Shared managers can use small common interfaces for:
+
+- identity and lifecycle;
+- limits and usage;
+- workspace placement;
+- artifacts;
+- attention;
+- delivery; and
+- recovery.
+
+A shared interface must not require one mode to store fields that only the other mode uses.
+
+## 8. Required reuse map
+
+Implementation must inspect and reuse or generalise these seams. A new parallel service requires a recorded architecture decision.
+
+| Room need | Existing seam |
+| --- | --- |
+| Orchestrator ownership | plugins/sero-orchestrator-plugin |
+| Limits and concurrency | runtime/limits.ts, runtime/coordinator.ts and shared LoopLimits patterns |
+| Abort and coordination locks | runtime/coordinator.ts and runtime/locks.ts |
+| Restart recovery | runtime/reconcile.ts |
+| Durable split records | runtime/loop-store.ts and host.appState |
+| LLM-authored structured planning | runtime/planner.ts, planning-flow.ts and schema repair patterns |
+| Runtime plan revision pattern | runtime/revise.ts and recovery decision handling |
+| Worktree lifecycle | runtime/workspace.ts and runtime/worktree-cleanup.ts |
+| Unified Git authority | apps/desktop/electron/features/git under AD-024 |
+| Persistent Pi session creation | SessionManager.create and the normal Sero session factory |
+| Persistent Pi session reopen | SessionManager.open and agent-session-open.ts patterns |
+| Session prompt, steer and turn events | normal AgentSession APIs, active-session executor and turn-completion bridges |
+| Session context usage and compaction | existing getContextUsage and session.compact paths |
+| Model route resolution | the host-owned ModelRuntime under AD-026 |
+| Cost and usage | Orchestrator usage summaries and host cost tracking |
+| Plugin tools | the AD-020 sero-cli bridge |
+| Isolated planning calls | existing Orchestrator planning and isolated-completion services |
+| Global agent visibility | the current Agent Board and agent presence state |
+| Result delivery | current Orchestrator delivery settings and receipts |
+
+The implementation plan must identify the exact owner before it creates a new abstraction.
+
+## 9. Room creation
+
+### 9.1 Default flow
+
+The default flow is:
+
+1. The user selects Room mode.
+2. The user answers: What would you like the team to accomplish?
+3. The user can optionally set a maximum spend, maximum time or broad access choice.
+4. The Room Planner creates a RoomBlueprint.
+5. Sero validates the blueprint and repairs invalid model output through a bounded pass.
+6. Sero shows a compact Room proposal.
+7. The user starts the Room or adjusts it.
+8. Orchestrator creates persistent member sessions and activates the Conductor.
+
+The user does not need to understand agents, prompts, models, tools, skills, tokens, worktrees or provider routes.
+
+### 9.2 Compact proposal
+
+The default proposal shows:
+
+- a short Room title;
+- a one-sentence approach;
+- number of members;
+- each role name and one-line responsibility;
+- maximum time;
+- maximum spend;
+- broad access such as This workspace and GitHub;
+- important warning, only when one exists;
+- Start Room; and
+- Adjust.
+
+The proposal can show Why this team? as optional supporting information.
+
+### 9.3 Adjustment
+
+Adjust opens a natural-language input first.
+
+Examples include:
+
+- Use fewer agents.
+- Add a security reviewer.
+- Keep the cost below $2.
+- Do not allow deployment tools.
+- Use one agent only for implementation.
+- Make the agents challenge each other's conclusions.
+
+The Room Planner returns a revised blueprint and proposal summary.
+
+### 9.4 Advanced settings
+
+Advanced settings can expose:
+
+- full member prompts and mandates;
+- model and thinking selections;
+- tools and skills;
+- permission details;
+- workspace and worktree placement;
+- communication policy;
+- concurrency and retry limits;
+- detailed cost and token limits;
+- context management; and
+- cache policy.
+
+Advanced settings do not replace the simple default flow.
+
+## 10. RoomBlueprint
+
+A RoomBlueprint contains:
+
+- schema version;
+- title and summary;
+- objective and success criteria;
+- Room instructions;
+- proposed Conductor;
+- proposed members;
+- rationale for team size and composition;
+- collaboration and communication strategy;
+- initial mandates and assignments;
+- workspace strategy;
+- operating envelope;
+- estimated time and cost range;
+- artifact and delivery expectations;
+- optional template source; and
+- warnings or unresolved assumptions.
+
+Each proposed member contains:
+
+- generated display name and role;
+- one-line user-facing responsibility;
+- detailed mandate;
+- model tier or permitted route;
+- thinking level;
+- custom prompt additions;
+- enabled tools and skills;
+- permission profile;
+- workspace or worktree need; and
+- reason for inclusion.
+
+The planner can reference an existing saved agent, but it can also create an inline member definition. It must select only models, tools and skills that exist in the current Sero catalogue.
+
+## 11. Templates and presets
+
+Templates are optional planning seeds.
+
+A template can contain:
+
+- a planning strategy;
+- preferred constraints;
+- example roles;
+- collaboration instructions;
+- workspace defaults;
+- limits; and
+- output expectations.
+
+Built-in presets can include:
+
+- Software Delivery;
+- Adversarial Analysis; and
+- Parallel Issues.
+
+A preset does not hard-code the final roster. The Room Planner adapts it to the current problem.
+
+A user can save a generated Room as a template. Reuse defaults to adapting it to the new problem. An advanced option can reuse the exact saved roster.
+
+Templates contain no secrets, run-specific session IDs or transient runtime state.
+
+## 12. Authority and operating envelope
+
+### 12.1 Ownership
+
+| Owner | Authority |
+| --- | --- |
+| User | Goal, success criteria, budget ceiling, maximum members, permission ceiling, capability pool, workspace policy and delivery |
+| Conductor | Roster within limits, mandates, assignments, coordination method and allowed member configuration |
+| Orchestrator | Validation, IDs, persistence, scheduling, usage accounting, approvals, cancellation and audit |
+| Member | Its assigned work, messages, artifacts and requests for help or change |
+
+### 12.2 Envelope fields
+
+The operating envelope can limit:
+
+- maximum total members;
+- maximum active member turns;
+- maximum roster revisions;
+- maximum member replacements;
+- maximum wall time;
+- total and per-member cost;
+- total and per-member tokens;
+- total and per-member turns;
+- retries and consecutive failures;
+- allowed model tiers and routes;
+- allowed tools and skills;
+- permission ceiling;
+- nested subagent use;
+- workspace and worktree policy;
+- external delivery; and
+- approval requirements.
+
+The Room Planner and Conductor cannot increase these values.
+
+### 12.3 User-owned intent
+
+The Conductor cannot silently change:
+
+- the user goal;
+- success criteria;
+- budget ceilings;
+- permission ceiling;
+- external delivery target; or
+- the definition of a protected operation.
+
+It can propose a change and explain why it is needed. The Room pauses affected work until the user responds.
+
+## 13. Dynamic Room revisions
+
+### 13.1 Supported changes
+
+The Conductor can request:
+
+- add member;
+- update member mandate;
+- change an assignment;
+- change coordination strategy;
+- change a member model within the allowed pool;
+- change a member tool or skill subset within the allowed pool;
+- suspend member;
+- resume member;
+- retire member;
+- replace member;
+- change a soft Room limit below the approved ceiling; and
+- request user approval for an expansion.
+
+### 13.2 Validation and application
+
+The Room coordinator:
+
+1. validates the request;
+2. checks the operating envelope;
+3. checks current Room and member state;
+4. decides whether user approval is required;
+5. waits for a safe turn boundary when required;
+6. applies the change;
+7. records a RoomRevision; and
+8. informs affected members.
+
+The Conductor does not edit persisted records directly.
+
+### 13.3 Member identity and mandate
+
+A member session has a stable base identity and authority.
+
+The mutable mandate contains its current role, responsibilities, task, priorities and working instructions. Mandate changes apply as authoritative Room context on the next turn.
+
+A fundamental identity or base-prompt change creates a replacement member session. The old member produces or receives a handover summary and becomes retired. History is retained.
+
+### 13.4 Conductor failure
+
+The first release has no automatic fallback Conductor.
+
+If the Conductor fails and bounded retry cannot recover it, the Room pauses and asks the user to retry, replace the Conductor or stop the Room.
+
+The Conductor cannot replace itself without user approval.
+
+## 14. Standard Pi member sessions
+
+### 14.1 Persistence decision
+
+Every member uses Pi's default persistent SessionManager API.
+
+Member sessions use SessionManager.create for creation and SessionManager.open for resume. They use the normal Pi JSONL format, message history, branching and compaction behaviour.
+
+SessionManager.inMemory is not allowed for active Room members.
+
+### 14.2 Session namespace
+
+Room sessions are stored in a Room-specific namespace under the normal Sero session root, for example:
+
+    <SERO_SESSION_DIR>/rooms/<roomId>/
+
+This keeps Room members out of the normal chat history by default while retaining standard Pi storage and tooling.
+
+The Room member record stores:
+
+- session ID;
+- session file path;
+- session directory;
+- workspace ID;
+- current configuration revision; and
+- last open and close times.
+
+It does not duplicate the transcript.
+
+### 14.3 Live session pool
+
+The Orchestrator runtime keeps open AgentSession objects only for members that need them.
+
+It can dispose a live session when:
+
+- the member is suspended;
+- the Room is paused for a long period;
+- resource pressure requires it;
+- the application exits; or
+- the Room reaches a terminal state.
+
+Disposal does not delete the persisted session.
+
+A later wake reopens the same session file with the current approved member configuration.
+
+### 14.4 Generic host boundary
+
+Room mode uses the host-owned model runtime and normal session construction path. If the plugin needs a new capability, it must be a generic persistent-session host, not a Room-specific transcript implementation.
+
+The boundary can expose:
+
+- create;
+- open;
+- prompt;
+- steer;
+- abort;
+- subscribe;
+- compact;
+- get context usage;
+- get session usage; and
+- dispose.
+
+## 15. Context management
+
+Long-running member sessions must not fail because their context fills.
+
+The Room runtime must:
+
+- read context usage through the existing session API;
+- warn before a configured threshold;
+- compact only at a safe turn boundary;
+- persist a member checkpoint summary before compaction;
+- include the current Room brief, mandate, open questions and artifacts after compaction;
+- record compaction in Room diagnostics;
+- reset any cache assumption that depends on the previous prompt prefix; and
+- allow the user to inspect compaction history.
+
+A new or replacement member receives a curated Room brief and relevant artifacts. It does not receive all Room messages or every member transcript.
+
+Resume the same session means preserving the Pi session history and compaction lineage. It does not mean keeping every original token in the active context window.
+
+## 16. Scheduling and lifecycle
 
 Room states are:
 
@@ -261,356 +610,494 @@ Member states are:
 - waiting;
 - blocked;
 - suspended;
+- retiring;
+- retired;
 - completed;
 - failed; and
 - offline.
 
-A Room starts only after validation confirms that:
+The shared Orchestrator coordinator infrastructure enforces:
 
-- it has one Conductor;
-- all model routes are available;
-- member configuration is valid;
-- required tools and skills exist;
-- workspace rules are valid;
-- permissions do not exceed user authority; and
-- budget limits are complete.
-
-Pause stops new turns and cache refreshes. Active tools reach a safe interrupt point. Resume restores member sessions, inbox cursors, work state, claims, and scheduler state.
-
-After an application restart, Sero rebuilds the Room state from durable records. It marks uncertain external tool activity for review. It does not silently repeat a non-idempotent tool call.
-
-## 11. Scheduling and execution
-
-Each member has a separate LLM session. The session keeps its own transcript, system prompt, tool configuration, skill configuration, and model route.
-
-The Room scheduler enforces:
-
-- a maximum number of active turns for the Room;
-- an optional maximum for each provider route;
+- maximum active turns;
+- provider-route concurrency where required;
 - reserved capacity for the Conductor;
 - fair selection among ready members;
-- wake priority for awaited replies and user interventions;
-- budget and stop checks before each turn; and
+- wake priority for direct replies and user intervention;
+- budget checks before every turn;
+- bounded retries;
+- roster revision limits; and
 - cancellation propagation.
 
-A member can be idle without occupying a scheduler slot. A waiting member also releases its slot.
+Idle and waiting members do not occupy an active execution slot.
+
+## 17. Communication and waiting
+
+### 17.1 Durable messages
+
+Room messages support:
+
+- direct message;
+- broadcast;
+- question;
+- reply;
+- cancellation;
+- acknowledgement; and
+- system notice.
+
+Messages are persisted before delivery. The Room store keeps a monotonic Room message sequence and each member's read cursor.
+
+This is a single-host message system. It does not need a distributed broker or a full event-sourcing model.
+
+### 17.2 Delivery rules
+
+- A direct message to an idle recipient can wake it when the sender requests a response.
+- A direct message to a busy recipient queues for the next safe delivery point unless steering is explicitly allowed.
+- A broadcast queues for each recipient by default.
+- A broadcast wakes recipients only when the caller explicitly requests it and policy permits it.
+- Message and inbox size limits apply.
+- Duplicate command IDs do not create duplicate logical messages.
+- Peer messages are untrusted member input, not system authority.
+
+### 17.3 Wait and wake
 
 The normal wait flow is:
 
-1. A member sends a question.
-2. The member calls room.wait with the question or correlation ID.
-3. The current turn ends.
-4. The scheduler marks the member as waiting.
-5. A reply arrives in the durable inbox.
-6. The scheduler wakes the member.
-7. Sero starts a new turn in the same session with the reply context.
+1. A member asks a question.
+2. The member waits on the question ID.
+3. Its current turn ends.
+4. The scheduler releases its slot.
+5. A reply arrives in its durable inbox.
+6. The scheduler reopens the member session if needed.
+7. A new turn starts in the same session with the reply and current Room context.
 
-Sero must prevent a deadlock where all capacity is held by members that wait for work from the Conductor. The Conductor reserve and slot release rule provide the minimum protection. A wait-cycle detector can also notify the Conductor.
+Wait-cycle detection is required. It notifies the Conductor when members form a dependency cycle or when no member can make progress. Continued deadlock pauses the Room for the user.
 
-Nested subagents are disabled by default. If enabled, their use counts against the parent member and Room budgets.
+## 18. Room commands and AD-020
 
-## 12. Communication protocol
+Room operations follow AD-020.
 
-The host mediates all Room communication. Members do not share a raw file mailbox.
+The Orchestrator plugin registers commands and tool handlers normally. Sero bridges them through the single sero-cli tool. Room members do not receive a separate schema for every Room operation on every turn.
 
-Minimum member tools are:
+Logical operations include:
 
-- room.roster;
-- room.send;
-- room.broadcast;
-- room.ask;
-- room.reply;
-- room.wait;
-- room.create_work;
-- room.claim_work;
-- room.complete_work;
-- room.claim_resources;
-- room.release_resources;
-- room.publish_artifact;
-- room.report_status; and
-- room.request_attention.
+- show roster;
+- send direct message;
+- broadcast;
+- ask;
+- reply;
+- wait;
+- show or update mandate;
+- create or update work;
+- claim or release paths;
+- publish artifact;
+- report status;
+- request attention;
+- propose Room revision; and
+- finish Room.
 
-Conductor-only or policy-controlled tools are:
+Conductor-only operations are enforced by runtime authority checks, not by trusting the prompt.
 
-- room.assign_work;
-- room.reassign_work;
-- room.wake_member;
-- room.suspend_member;
-- room.update_limits;
-- room.request_user_input;
-- room.pause;
-- room.fail; and
-- room.finish.
+## 19. Work, artifacts and path claims
 
-Delivery rules are:
+### 19.1 Minimal work records
 
-- Persist before delivery.
-- Acknowledge receipt separately from processing.
-- Deliver immediately to an idle member when policy permits.
-- Add the message as steering context for a busy member only when policy permits.
-- Otherwise queue the message for the next turn.
-- Apply per-sender and per-Room rate limits.
-- Apply inbox and broadcast size limits.
-- Reject invalid recipients and expired Room IDs.
-- Preserve sender identity and message type.
-- Never treat message content as higher authority than the recipient prompt.
+The first release uses a small WorkItem record:
 
-## 13. Workspace and source control
+- ID;
+- title;
+- owner;
+- free-form status;
+- short notes;
+- dependencies; and
+- related artifacts.
 
-Room workspace modes are:
+The runtime does not impose a review methodology or a large fixed work-state machine.
+
+### 19.2 Artifacts
+
+Room artifacts can include:
+
+- plan;
+- decision;
+- branch;
+- commit;
+- patch;
+- test result;
+- review;
+- report;
+- pull request; and
+- final answer.
+
+Artifacts identify their producer and related work.
+
+### 19.3 Simple advisory path claims
+
+The first release supports simple advisory claims because parallel issue work is a primary use case.
+
+A claim contains:
+
+- member;
+- file path, directory or glob;
+- reason;
+- creation time; and
+- active or released status.
+
+The runtime detects overlap and can warn or block according to Room policy. It releases claims when the member retires or the Room ends.
+
+The first release does not need a complex renewable lease service. Claims remain advisory. Worktrees and Git conflict handling are the safety boundary.
+
+## 20. Workspace and Git
+
+Room mode consumes the unified Git service required by AD-024.
+
+Workspace modes are:
 
 1. Read-only shared workspace.
-2. One worktree for each editing member.
-3. Shared working tree with advisory claims.
+2. Separate managed worktree for each editing member.
+3. Shared working tree with explicit user approval.
 
-The default for code delivery is one worktree for each editing member. The Conductor owns integration or assigns it explicitly.
+The default for code work is a separate worktree for each editing member.
 
-Resource claims:
+The Conductor assigns integration work. It can collect commits, detect conflicts, request revisions, run checks and publish the final branch or pull request artifact.
 
-- can cover files, directories, generated outputs, migrations, ports, or logical resources;
-- have an expiry and renewal policy;
-- are visible to all members;
-- detect overlapping scopes;
-- can warn or block according to Room policy; and
-- are released on completion, cancellation, or lease expiry.
+Room code must not create a second Git runner, worktree helper, GitHub client or repository-state cache.
 
-The Conductor collects commits or patches, resolves merge conflicts, runs integration checks, and publishes the final branch or pull request artifact.
+## 21. Limits and no-progress handling
 
-## 14. Prompt-cache leases
+Room mode reuses Orchestrator limit and usage primitives.
 
-### 14.1 Purpose
+Limits include:
 
-Some providers expire prompt caches after a short idle period. An idle, high-context member can then pay to process its full stable history when it wakes. A small remote refresh request can be cheaper than a later cache miss.
+- wall-clock duration;
+- total and per-member cost;
+- total and per-member tokens;
+- member turns;
+- concurrent turns;
+- provider-route concurrency;
+- retries and failures;
+- messages and inbox backlog;
+- tool stall time;
+- roster revisions;
+- member additions and replacements;
+- nested subagent use; and
+- idle duration.
 
-Anthropic is the worst-case validation target, not the architecture boundary. The design must also support providers with longer retention, no controllable cache, gateway-specific behaviour, or session-affinity rules.
+A hard limit stops new member turns and puts the Room in the configured paused or failed state.
 
-### 14.2 Pi boundary
+No-progress detection uses structural progress such as:
 
-The current Pi model information exposes cache-retention categories and cache read and write usage, but it does not provide an exact cache expiry for every effective model route.
+- completed work;
+- new artifact;
+- commit;
+- test result;
+- resolved decision;
+- changed blocker;
+- accepted Room revision; or
+- final delivery.
 
-Sero will not depend on an upstream Pi change. It will not patch, fork, or monkey-patch Pi for this feature.
+Message volume alone is not progress.
 
-Sero uses a narrow internal adapter:
+The system first notifies the Conductor. Continued no-progress pauses the Room for the user.
+
+## 22. Permissions and approvals
+
+- A Room cannot grant authority that the user or workspace does not have.
+- The Room Planner selects only from the available capability catalogue.
+- The Conductor can assign only capabilities inside the approved envelope.
+- A capability or permission expansion requires user approval.
+- Peer messages cannot approve operations.
+- External writes use the normal Sero approval path.
+- Secrets do not appear in Room messages, blueprints or audit payloads.
+- Restored Rooms do not repeat uncertain non-idempotent actions without review.
+
+The Orchestrator UI provides one approval and attention inbox for all Room members. It groups requests by Room and member and shows:
+
+- requested operation;
+- requesting member;
+- reason;
+- affected workspace or external service;
+- permission consequence;
+- estimated cost when relevant; and
+- approve, reject or adjust actions.
+
+The Conductor can request user input. It cannot answer an approval on the user's behalf.
+
+## 23. Delivery and invoking chat
+
+A Room stores an optional origin and a delivery policy.
+
+If a Room starts from a chat, it records the originating session target. When the Conductor finishes, Orchestrator sends the final artifact and a compact Room summary back through the existing delivery mechanism.
+
+The originating chat receives:
+
+- final result;
+- completion state;
+- key artifacts;
+- unresolved items;
+- Room link; and
+- cost and duration summary.
+
+If a Room starts from the Orchestrator UI, its result remains in the Room. The user can send it to a selected session or approved external destination.
+
+External delivery requires the same approval policy as Workflow mode.
+
+## 24. Presence and prompt-cache policy
+
+### 24.1 Local presence
+
+A local heartbeat reports whether a live member session is available and responsive. It does not make a provider request and does not keep a remote prompt cache warm.
+
+### 24.2 Core cache boundary
+
+The first Room release keeps a narrow provider-neutral boundary:
 
 ~~~ts
 interface PromptCacheAdapter {
   resolveProfile(modelRoute: ModelRoute): PromptCacheProfile | null;
-  refresh(snapshot: CacheSnapshot): Promise<CacheRefreshResult>;
 }
 ~~~
 
-The first release uses the public Pi model and session runtime to make an isolated minimal-output request. The request must use the same effective session identity, model route, stable prompt prefix, tools, messages, and thinking configuration. Sero discards the output and does not add the refresh to the member transcript.
-
-A provider-native zero-output request can be a later adapter optimisation.
-
-### 14.3 Policy
-
-PromptCachePolicy modes are:
+Core Room mode supports:
 
 - off;
 - provider-default;
-- long-retention;
-- keep-warm; and
-- auto.
+- route-specific profile lookup;
+- cache read and write usage capture when Pi reports it;
+- context-compaction invalidation; and
+- cost attribution for normal member turns.
 
-Policy can be set at the application default, model-route profile, Room, and member levels. The most specific permitted value wins.
+The full model route includes provider, model, API, gateway, account route and effective configuration.
 
-A model-route profile can define:
+Pi does not expose an exact expiry for every route. Sero does not depend on an upstream Pi change and does not patch, fork or monkey-patch Pi.
 
-- support type: none, automatic, explicit, or session-affinity;
-- expected time to live;
-- available retention options;
-- cache write multiplier;
-- minimum cacheable token count;
-- refresh strategy;
-- stable session identity requirements;
-- safety margin; and
-- verification rules.
+### 24.3 Deferred experimental keep-warm
 
-The scheduler measures time from the start of the last real provider request. It schedules a refresh before the expected expiry and cancels it when a real member request starts.
+Active remote cache refresh is not part of the first production release.
 
-### 14.4 Cost and verification
+A later measured experiment can add:
 
-Every refresh counts against Room token and cost limits.
+- opt-in keep-warm;
+- minimal-output refresh;
+- verification telemetry;
+- a strict cache-refresh budget;
+- route-specific timing; and
+- cost-based stop rules.
 
-Sero records cache-read and cache-write usage when the provider reports it. A cache read confirms a useful refresh. An unexpected cache write indicates a miss, route mismatch, or expired lease. Sero must not repeat failed refreshes without a backoff and policy decision.
+The experiment must pass a measured go or no-go gate. Auto prediction is not implemented until evidence shows that it can save cost reliably.
 
-Auto mode compares expected refresh cost with expected future cache-miss cost. It can stop warming when:
+## 25. User experience
 
-- the Room is paused or finished;
-- the member is complete or suspended;
-- the maximum idle warm time is reached;
-- the cache lease budget is reached;
-- the stable prefix is below the provider threshold;
-- recent refreshes miss;
-- route identity cannot be preserved; or
-- the probability of another useful turn is too low.
+### 25.1 Orchestrator navigation
 
-The UI shows the local heartbeat and remote cache lease as separate states. It also shows refresh cost, last verified hit or miss, and the next planned refresh.
+The Orchestrator product shows two modes:
 
-## 15. Limits and guardrails
+- Workflows;
+- Rooms.
 
-A Room can set hard and warning limits for:
+Rooms are not a separate Sero application.
 
-- wall-clock duration;
-- total and per-member cost;
-- total and per-member input and output tokens;
-- member turns;
-- concurrent active turns;
-- provider-route concurrency;
-- messages and queued inbox size;
-- tool calls and tool stall time;
-- retries and consecutive failures;
-- Conductor revision rounds;
-- nested subagent use;
-- cache refresh cost and duration; and
-- idle duration.
+### 25.2 Required prototype states
 
-A hard limit pauses or fails the Room according to policy. A warning creates an event and tells the Conductor.
+The static prototype must show:
 
-The no-progress detector uses structural progress. Examples are completed work, a published artifact, a commit, a test result, a resolved decision, or a changed blocking condition. Message volume alone is not progress.
+1. Orchestrator mode navigation.
+2. Room creation from one plain-language brief.
+3. Room preparation state.
+4. Compact Room proposal with Start and Adjust.
+5. Natural-language adjustment.
+6. Optional Why this team? content.
+7. Advanced blueprint settings.
+8. Live Room with compact roster and current activity.
+9. Member inspector with transcript, mandate, context and worktree.
+10. Conductor-added or replaced member.
+11. Multi-member approval and attention inbox.
+12. Waiting, blocked, paused and failed states.
+13. Path-claim conflict.
+14. Result delivery to an invoking chat.
+15. Completion with artifacts, duration and cost.
 
-When no progress continues, Sero first notifies the Conductor. It then pauses the Room and requests user attention if the configured threshold is reached.
+### 25.3 Accessibility and progressive disclosure
 
-## 16. Permissions and security
+The default UI uses plain product language:
 
-- A Room cannot grant authority that the user or workspace does not have.
-- Every member receives the minimum configured tool and skill set.
-- Conductor authority is limited to Room management.
-- Peer messages are data, not system instructions.
-- Sensitive values do not appear in Room messages or durable event payloads.
-- External writes use the existing Sero approval path.
-- Tools validate Room ID, member ID, actor authority, and current Room state.
-- Audit events identify the member and effective permission decision.
-- Restored Rooms do not repeat uncertain non-idempotent actions without review.
-- Retention and deletion apply to transcripts, events, artifacts, and cache metadata.
+- Team size, not roster cardinality.
+- Maximum spend, not token budget.
+- Working time, not wall-clock limit.
+- Access, not capability allowlist.
+- Team member, not execution target.
 
-## 17. User experience requirements
+Technical details remain available for users who want them.
 
-The static prototype must show these states:
+Warnings appear only when they require a decision. The UI must not show a large generated configuration form after every Room brief.
 
-1. Rooms home with empty, active, paused, completed, and failed Rooms.
-2. Create Room flow with goal, template, Conductor, arbitrary members, models, thinking, prompts, tools, skills, permissions, workspace, limits, and cache policy.
-3. Live Room with roster, member status, assignments, public timeline, work items, resource claims, branches, commits, artifacts, cost, tokens, and cache state.
-4. Agent inspector with transcript, current work, tool activity, inbox, questions, worktree, claims, local heartbeat, and prompt-cache lease.
-5. Attention states for failure, stall, resource conflict, cache miss, expensive refresh, budget warning, and Conductor request.
-6. Completion state with final summary, consensus or dissent, artifacts, commits, checks, pull request, and unresolved items.
+## 26. Persistence and recovery
 
-The user must be able to:
+The current Room record is the source of truth.
 
-- create and validate a Room;
-- add, remove, and configure members before start;
-- save or load a Room template;
-- start, pause, resume, and cancel a Room;
-- interrupt or message one member;
-- send a message to the whole Room;
-- inspect a member without changing its transcript;
-- view current and historical cost;
-- change limits within allowed bounds;
-- respond to a Conductor request;
-- open Room artifacts; and
-- understand why a Room is waiting, blocked, paused, failed, or complete.
+The store uses the existing Orchestrator split-record and host.appState patterns. An append-only audit timeline explains transitions and supports the UI and diagnostics. State is not rebuilt by replaying all audit events.
 
-## 18. Templates and migration
+Durable Room data includes:
 
-The first bundled templates are:
+- current definition and blueprint revision;
+- operating envelope;
+- member records and session references;
+- member status and mandate;
+- messages and read cursors;
+- work and path claims;
+- artifacts;
+- usage and limits;
+- approvals;
+- delivery state;
+- recovery state; and
+- audit timeline.
 
-- Issue Delivery;
-- Adversarial Council; and
-- Parallel Issues.
+After restart, Orchestrator:
 
-A template contains editable Room instructions, suggested roles, member defaults, workspace policy, limits, and finish criteria. It does not contain a hard-coded state machine.
+1. loads the current Room state;
+2. reconciles active and uncertain work;
+3. reopens member sessions only when needed;
+4. restores message cursors and limits;
+5. reconnects valid worktrees;
+6. marks uncertain external operations for review; and
+7. resumes only when Room state and policy permit it.
 
-Migration rules are:
+## 27. Agent Board relationship
 
-- CollaborationEngine behaviour becomes a collaboration template.
-- DebateEngine behaviour becomes an adversarial template.
-- Existing entry points can route to preconfigured Rooms during a compatibility period.
-- Telemetry compares success, cost, and cancellation between old and new paths.
-- The old engines are removed only after their acceptance and migration checks pass.
-- New Room records do not depend on old engine storage formats.
+The existing Agent Board remains the global operational view of agents across Sero.
 
-## 19. Observability
+Active Room members appear on it with:
 
-The Room UI and diagnostic logs must expose:
+- Room label;
+- role;
+- status;
+- cost;
+- branch or worktree when relevant; and
+- link to the Room.
 
-- state transitions;
-- active, idle, waiting, and blocked members;
+The Room view contains the authoritative Room timeline, roster controls, messages, assignments and revisions. It must not create a second global fleet dashboard.
+
+## 28. Legacy engine replacement
+
+CollaborationEngine and DebateEngine remain available while Room mode is behind a feature flag.
+
+Room mode is proven through real Room scenarios. Sero does not build a large dual-runtime parity or compatibility framework.
+
+After the acceptance gate:
+
+- existing collaboration entry points move to Room creation;
+- optional presets can preserve useful collaboration or adversarial intent;
+- release notes explain the change;
+- old engine code, IPC, stores and UI are removed; and
+- new Room records have no dependency on old engine types.
+
+A Room created from chat returns its final result to that chat, which preserves the important user-facing contract of the old engines.
+
+## 29. Observability
+
+Room diagnostics expose:
+
+- Room and member state;
 - scheduler queue and reason;
-- message delivery and acknowledgement;
-- work and resource claims;
-- tool activity and failures;
-- cost and tokens by Room, member, model route, and cache refresh;
-- local heartbeat age;
-- cache lease state and verification;
-- budget warnings and stop reasons;
-- recovery actions; and
-- artifacts and final outcome.
+- live, idle, waiting and blocked members;
+- session open, close, reopen and compact actions;
+- context usage;
+- messages and delivery result;
+- Room revisions and approvals;
+- worktrees, claims and artifacts;
+- cost and tokens by Room and member;
+- limit warnings and stop reasons;
+- recovery decisions;
+- delivery result; and
+- final outcome.
 
-Logs must use stable Room, member, event, message, work, and correlation IDs. Logs must not contain secrets or full sensitive prompts.
+Logs use stable Room, member, session, message, revision, artifact and correlation IDs. Logs do not include secrets or complete sensitive prompts.
 
-## 20. Requirements
+## 30. Failure handling
+
+- A member turn failure increments bounded failure counters.
+- Retry uses bounded backoff and an idempotency check.
+- One member can fail without failing the Room when the Conductor can recover.
+- Conductor failure pauses for the user after bounded retry.
+- Message failure remains visible and queued when safe.
+- Storage failure stops new side effects.
+- Worktree failure blocks affected work.
+- Context-compaction failure pauses the member before context exhaustion.
+- A hard budget stops new turns.
+- Restart does not repeat an uncertain external write.
+- Cache telemetry failure does not fail the Room.
+
+## 31. Functional requirements
 
 | ID | Requirement |
 | --- | --- |
-| FR-001 | A user can create a Room with one Conductor and any supported number of members. |
-| FR-002 | Each member has an independent persistent LLM session and configuration. |
-| FR-003 | Room instructions and member prompts define the collaboration method. |
-| FR-004 | Members can send durable directed, broadcast, question, reply, cancel, and acknowledgement messages. |
-| FR-005 | Waiting ends the current turn and releases the execution slot. |
-| FR-006 | A matching reply can wake the same persistent member session. |
-| FR-007 | The scheduler enforces Room concurrency and reserves Conductor capacity. |
-| FR-008 | The event log, inbox cursors, work, claims, artifacts, budgets, and lifecycle survive restart. |
-| FR-009 | The user can pause, resume, cancel, inspect, interrupt, and message the Room. |
-| FR-010 | The Conductor can manage work and finish the Room within user limits. |
-| FR-011 | Editing members can use separate worktrees and advisory resource claims. |
-| FR-012 | Limits cover time, cost, tokens, turns, concurrency, messages, retries, failures, and cache refreshes. |
-| FR-013 | Local heartbeats and remote prompt-cache leases are separate mechanisms. |
-| FR-014 | Cache behaviour is resolved by full model route and does not depend on exact Pi TTL metadata. |
-| FR-015 | Cache refreshes use public Pi runtime boundaries, have no transcript effect, and count against budgets. |
-| FR-016 | Cache telemetry verifies reads and detects unexpected writes when usage data is available. |
-| FR-017 | The UI shows Room, member, message, work, claim, artifact, budget, and cache state. |
-| FR-018 | CollaborationEngine and DebateEngine behaviours are available as editable Room templates. |
-| FR-019 | Peer messages cannot grant authority or change protected configuration. |
-| FR-020 | The system can recover a running or paused Room without repeating uncertain external actions. |
+| FR-001 | Agent Rooms are a mode inside sero-orchestrator-plugin. |
+| FR-002 | The Orchestrator UI labels the current mode Workflow and the new mode Room. |
+| FR-003 | Workflow and Room modes share management infrastructure without sharing forced domain records. |
+| FR-004 | A user can create a Room from one plain-language problem description. |
+| FR-005 | A Room Planner generates a problem-specific Conductor and roster. |
+| FR-006 | A generated participant does not require a predefined named agent. |
+| FR-007 | The default proposal shows only team, time, spend, access and primary actions. |
+| FR-008 | The user can adjust the proposed Room with natural language. |
+| FR-009 | Full blueprint configuration remains available under advanced settings. |
+| FR-010 | Every member uses a standard persistent Pi SessionManager. |
+| FR-011 | Room members do not use SessionManager.inMemory. |
+| FR-012 | Room sessions are hidden from normal chat history by default. |
+| FR-013 | A member can reopen the same Pi session after idle time or restart. |
+| FR-014 | The Conductor can revise the Room within the approved operating envelope. |
+| FR-015 | Authority expansion requires user approval. |
+| FR-016 | Mandate changes apply without rewriting stable member identity. |
+| FR-017 | Fundamental member identity changes create a replacement session and handover. |
+| FR-018 | Members can send durable direct, broadcast, question and reply messages. |
+| FR-019 | Waiting ends the current turn and releases its slot. |
+| FR-020 | Wait-cycle detection informs the Conductor and can pause the Room. |
+| FR-021 | Broadcast messages queue by default and wake only when explicit. |
+| FR-022 | The runtime manages member context usage and safe compaction. |
+| FR-023 | Editing members can use separate worktrees through the unified Git service. |
+| FR-024 | Members can use simple advisory path claims. |
+| FR-025 | Limits cover time, cost, tokens, turns, concurrency, retries, failures and roster changes. |
+| FR-026 | The UI provides one approval and attention inbox for all members. |
+| FR-027 | Room operations use the AD-020 sero-cli bridge. |
+| FR-028 | Member models resolve through the host ModelRuntime required by AD-026. |
+| FR-029 | A Room can return its result to the chat that invoked it. |
+| FR-030 | Current-state records are authoritative and audit events are not used for full replay. |
+| FR-031 | Templates are optional adaptive planning seeds. |
+| FR-032 | CollaborationEngine and DebateEngine are removed after Room mode is proven. |
+| FR-033 | Local presence and remote provider cache behaviour are separate. |
+| FR-034 | Active cache keep-warm is not a first-release dependency. |
 
-| ID | Quality requirement |
+## 32. Quality requirements
+
+| ID | Requirement |
 | --- | --- |
-| NFR-001 | A Room event is durable before an action reports success. |
-| NFR-002 | Duplicate message delivery does not duplicate its logical effect. |
-| NFR-003 | Renderer code cannot access host-only sessions, credentials, or file-system authority directly. |
-| NFR-004 | A waiting member uses no active LLM execution slot. |
-| NFR-005 | Budgets and cancellation remain effective during restart and recovery. |
-| NFR-006 | A provider without cache refresh support can run normally with the cache policy off. |
-| NFR-007 | New provider cache behaviour can be added through a Sero adapter or profile without changing Room orchestration. |
-| NFR-008 | Room state and decisions are inspectable through events and diagnostics. |
-| NFR-009 | The core runtime has no dependency on one bundled Room template. |
-| NFR-010 | Automated tests cover lifecycle, scheduling, messaging, recovery, authority, limits, worktree coordination, and cache leases. |
+| NFR-001 | Accepted Room state and messages survive application restart. |
+| NFR-002 | Sero does not duplicate Pi member transcripts in Room storage. |
+| NFR-003 | Duplicate command IDs do not duplicate their logical effects. |
+| NFR-004 | Waiting and closed members use no active LLM execution slot. |
+| NFR-005 | Renderer code cannot access credentials, raw model runtime or file authority. |
+| NFR-006 | Budgets and cancellation hold during concurrent completion and restart. |
+| NFR-007 | New Room worktree operations use the unified Git layer. |
+| NFR-008 | A provider with no cache metadata can run normally. |
+| NFR-009 | Room prompts and controls remain accessible to non-technical users. |
+| NFR-010 | Full technical configuration is available without appearing in the default flow. |
+| NFR-011 | Automated tests cover planning, persistence, reopen, scheduling, messaging, revisions, compaction, authority, workspace, delivery and recovery. |
+| NFR-012 | A Room does not require any one template, provider, model or collaboration method. |
 
-## 21. Failure handling
+## 33. Phase 1 design checks
 
-- A member turn failure increments the member and Room failure counters.
-- Retry uses bounded exponential backoff and an idempotency check.
-- A member can fail without failing the Room if policy and remaining roles allow recovery.
-- A Conductor failure wakes a configured fallback or pauses for the user.
-- A message delivery failure keeps the message queued and visible.
-- A storage failure stops new side effects and puts the Room in a recoverable error state.
-- A worktree failure blocks the affected work item.
-- A cache refresh failure disables or delays that lease. It does not fail the member task.
-- A budget hard limit stops new turns and refreshes.
-- An application exit persists a shutdown checkpoint and resumes through normal recovery.
+Phase 1 must confirm:
 
-## 22. Open design checks for Phase 1
+- Workflows and Rooms navigation inside the Orchestrator UI;
+- the one-question Room create flow;
+- the compact proposal content;
+- natural-language adjustment;
+- advanced configuration placement;
+- how generated rationale is shown;
+- how a Conductor revision appears without interrupting normal work;
+- how authority expansion reaches the approval inbox;
+- how member sessions are inspected without entering normal chat history;
+- how context compaction is explained;
+- how a Room result returns to an invoking chat;
+- how global Agent Board cards link to a Room; and
+- how failure, pause and recovery remain understandable.
 
-Phase 1 must close these checks before runtime implementation:
-
-- Confirm whether the first-party Rooms UI is a bundled plugin surface or a native desktop surface.
-- Confirm the create flow and the amount of configuration shown by default.
-- Confirm how public Room messages differ visually from private member messages.
-- Confirm how the user sees and changes member permissions.
-- Confirm how cost, cache savings, and cache uncertainty are explained.
-- Confirm the pause, cancel, and failure recovery flows.
-- Confirm the default worktree and resource-claim experience.
-- Confirm the completion and pull request handoff.
-
-These are UX and integration choices. They do not reopen the core decisions about durable sessions, one Conductor, host authority, provider-neutral cache leases, or replacement of the two old engines.
+These checks can refine presentation and interaction. They do not reopen the agreed decisions about Orchestrator ownership, standard Pi session persistence, problem-first generation, controlled runtime revision or progressive disclosure.
