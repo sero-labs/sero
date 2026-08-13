@@ -35,7 +35,7 @@ new parallel service needs a new architecture decision.
 | Resource loading | `DefaultResourceLoader` + overrides in `ipc/agent/core/agent-session-open.ts` | Pattern reused with a *filtered* override set — §5. |
 | Tool bridge | `sero-cli` bridge (AD-020) | Room operations are bridged commands. No per-operation tool schema. |
 | Attention | `shared/attention-types.ts`, `ui/components/AttentionQueue.tsx` | Reused. Room approvals join the same inbox. |
-| Delivery | `runtime/delivery/`, `shared/delivery-types.ts` | Mechanism reused (agent-authored send + `DeliveryReceipt` proof + approval token). **Extension needed:** the seven existing destinations are all external; there is no invoking-chat target. Phase 6 adds a Room origin field and an internal chat-session destination. |
+| Delivery | `runtime/delivery/`, `shared/delivery-types.ts` | Mechanism reused (agent-authored send + `DeliveryReceipt` proof + the `external` flag that decides whether an approval token is required). **Extension needed:** no destination returns a result to the invoking Sero chat session — `chat-post` is an external chat service. Phase 6 adds a Room origin field and an `external: false` invoking-chat destination. |
 | Artifacts | `runtime/artifacts.ts`, `host.writeArtifact/readArtifact` | Reused. |
 | Notifications and choices | `host.notify`, `host.requestChoice` | Reused. |
 | Usage analytics | `plugins/sero-usage-plugin/extension/scan.ts` | Scanner reused **unchanged** — it already walks nested `.jsonl` and reads `session_info.name`. **Extension needed:** `extension/aggregate.ts` groups by provider, model and session only; Room grouping is new. Phase 6 — §8. |
@@ -56,10 +56,14 @@ new parallel service needs a new architecture decision.
     concept of a Room. Phase 6 adds path-derived grouping to the aggregator.
   - **Agent Board.** `stores/agent-board.ts` watches the Workflow loop index
     (`ORCHESTRATOR_INDEX_FILE`). Phase 7 has it also watch the Room index.
-  - **Invoking-chat delivery.** The seven `DeliveryDestinationId` values are all
-    external destinations, and delivery is agent-authored with a receipt. A
-    result returning to the chat that started the Room is a new origin field and
-    a new internal destination, added in Phase 6.
+  - **Invoking-chat delivery.** Four of the seven `DeliveryDestinationId` values
+    are internal (`pr`, `workspace-files`, `saved-artifact`, `email-draft`) and
+    three are external (`email-send`, `chat-post`, `webhook-post`). The
+    `external` flag decides whether the receipt must carry an approval token, so
+    the distinction is load-bearing. What is missing is a destination that
+    returns a result to the invoking **Sero chat session**; `chat-post` is an
+    external chat service, not that. The new destination is `external: false`
+    and needs no approval token. Added with a Room origin field in Phase 6.
 
 ## 2. Ownership and boundaries
 
@@ -168,6 +172,9 @@ interface PersistentSessionSubjectPolicy {
   allowedModels: string[];
   allowedTools: string[];
   allowedSkills: string[];
+  /** Thinking levels this subject may run at — caller-selectable and cost-bearing. */
+  allowedThinkingLevels: string[];
+  /** Applied verbatim. A request carries no profile of its own. */
   permissionProfile: PersistentSessionPermissionProfile;
   /** Max bytes of appended system-prompt text this subject may supply. */
   maxSystemPromptAdditionBytes: number;
@@ -228,9 +235,12 @@ interface PersistentSessionRequest {
   operation: 'create' | 'open';
   cwd: string;
   model: string;
+  /** Must be in the subject's allowedThinkingLevels. */
   thinking?: string;
   tools: string[];
   skills: string[];
+  // No permissionProfile field: the subject policy's profile is applied
+  // verbatim, so there is nothing here for a caller to inflate.
   /** Appended after the base prompt. Never replaces it. Size-bounded per subject. */
   systemPromptAdditions?: string[];
   sessionName: string;
@@ -264,24 +274,53 @@ Each step denies with a distinct reason. No later step runs after a denial.
    comparison, so a symlink cannot escape.
 7. **Model** is in the subject's `allowedModels` **and** currently resolvable
    through the host `ModelRuntime`, or deny.
-8. **Tools and skills** are subsets of the subject's lists, or deny. An unknown
+8. **Thinking level**, when supplied, is in the subject's
+   `allowedThinkingLevels`, or deny. It is caller-selectable and moves cost, so
+   it is policed like any other capability.
+9. **Tools and skills** are subsets of the subject's lists, or deny. An unknown
    name is a denial, not a silent drop.
-9. **Permissions** are within the subject's `permissionProfile` by the §3.3
-   subset rule, or deny.
 10. **Prompt additions** total at or below the subject's
     `maxSystemPromptAdditionBytes`, or deny. They are appended after the base
     prompt and host-required blocks and can never replace them.
-11. **Atomic reservation.** Under one host-held lock for the grant: re-check
-    `status === 'active'`, check live count against `maxLiveSessions` and total
-    created against `maxTotalSessions`, register the subject→path binding on
-    `create`, and increment the counters. The reservation is taken **before**
-    construction and released if construction fails.
+11. **Atomic two-phase reservation** — §3.5.1.
 
-Only after all eleven does the host build the resource loader from the grant and
-call `SessionManager.create` or `SessionManager.open`.
+Permissions are not a validation step. A request carries no permission profile;
+the subject policy's profile is applied verbatim when the host builds the
+session, so there is no subset negotiation at request time. The §3.3 ordering
+still governs how the host clamps a *proposal* at approval time.
 
-Step 11 is one critical section, not a check followed by a create. Two
-concurrent creates cannot both pass a count check and then both construct.
+Only after all of these does the host build the resource loader from the grant
+and call `SessionManager.create` or `SessionManager.open`.
+
+### 3.5.1 The reservation is two-phase and crash-safe
+
+A count check followed by a create is a race, and a durable write followed by a
+crash is a leak. Both are handled by the same critical section.
+
+Under one lock held for the grant:
+
+1. re-check `status === 'active'`;
+2. check `live + pending` against `maxLiveSessions`, and
+   `createdSessions + pending` against `maxTotalSessions` — pending reservations
+   count, so concurrent creates cannot collectively overshoot either cap;
+3. bind subject→path if the subject has no binding yet (first binding wins and
+   is never rewritten, which is what makes a pathless `open` safe);
+4. write a **pending** reservation and persist.
+
+Then construction runs outside the lock. On success the reservation is
+committed and `createdSessions` increments; on failure it is released, and the
+binding it created is removed.
+
+At startup, every pending reservation is reconciled against the filesystem —
+the session file is the proof. Present means construction completed and the
+crash landed before the commit, so it commits. Absent means the session was
+never created, so the binding and the reserved count are released. Without this,
+a crash between persist and construct would leave a subject bound to a
+nonexistent session and permanently shrink the lifetime cap.
+
+The **live** count is never persisted. After a restart nothing is live, so it is
+rebuilt from the host's in-memory live registry and correctly starts at zero. A
+persisted live count would leak on a crash and wedge the grant forever.
 
 ### 3.6 Identifying a built-in plugin
 
@@ -303,11 +342,19 @@ The gate is **canonical path equality**:
    under that root.
 3. `realpath(manifest.packagePath)` must equal
    `realpath(join(bundledRoot, expectedDirName))` exactly. Not a prefix test.
-4. An app whose manifest came from a **plugin dev session** source is rejected,
-   regardless of path.
-5. An app discovered from `settings.packages` is rejected.
+4. The path must also be one the host itself enumerated as a bundled plugin
+   (`discoverBuiltinPluginPaths()`, which additionally applies
+   `isBuiltinPackageDir`).
 
-A directory that merely claims `sero.app.id: "orchestrator"` fails step 3.
+A directory that merely claims `sero.app.id: "orchestrator"` fails step 3,
+whichever discovery source produced its manifest — `settings.packages`, a
+registered path, or a plugin dev session. Path equality is the whole gate
+because the path is what decides which runtime code loads, so no per-source
+carve-out is needed and legitimate development of a bundled plugin still works.
+
+This matters because `discoverApps()` de-duplicates by app id with **last write
+wins**: a later source can override an earlier one for the same id. Gating on
+the final manifest's resolved path is what makes that ordering irrelevant.
 
 `SERO_DEV_PLUGINS` does not affect this gate. It only controls whether a
 built-in plugin's UI is served from its dev port
@@ -363,7 +410,10 @@ the grant `revoked`. Every later request against it is denied.
 | Plugin loads an unapproved model | Model must be in the subject's list **and** resolvable through the one host `ModelRuntime`. |
 | Plugin widens its resource profile | The host builds the resource loader from the grant. The request supplies no loader overrides. |
 | Plugin overrides the base system prompt | Additions are appended only, after host-required blocks, and are size-bounded per subject. |
-| Concurrent creates exceed the session cap | Count check, subject binding and increment are one atomic reservation before construction (§3.5 step 11). |
+| Concurrent creates exceed the session cap | Count check, subject binding and pending reservation are one atomic critical section; pending reservations count toward both caps (§3.5.1). |
+| Crash leaks a lifetime-count slot or binds a nonexistent session | Reservations are two-phase and reconciled against the filesystem at startup (§3.5.1). |
+| Caller inflates the thinking level to raise cost | `allowedThinkingLevels` is part of the per-subject policy and validated (§3.5 step 8). |
+| Caller inflates permissions | A request carries no permission profile; the subject policy's is applied verbatim. |
 | Revoked grant keeps running | Revocation is write-first, then aborts and disposes; handles re-check status per operation. |
 | Crash leaks the live-session count | The live count is never persisted; it is rebuilt from the live registry at startup (§3.8). |
 | Renderer reaches host authority | No grant, handle, session object, or credential crosses to the renderer. The renderer sees Room state only. |
@@ -389,9 +439,12 @@ ID; session-path escape via a separator in `sessionFile`; session-path escape vi
 symlink; `cwd` escape via symlink; subject with no policy; tool outside the
 subject's policy; skill outside the subject's policy; model outside the policy;
 model in the policy but unavailable at runtime; permission profile above the
-policy; oversized prompt additions; `open` with a caller-supplied path for
-another subject; two concurrent creates against a one-session cap; use of a
-revoked grant; restart with a persisted grant and a zeroed live count.
+policy; oversized prompt additions; thinking level outside the policy; `open` with a
+caller-supplied path for another subject; two concurrent creates against a
+one-session cap; use of a revoked grant; restart with a persisted grant and a
+zeroed live count; restart with a pending reservation whose session file exists
+(commits); restart with a pending reservation whose session file is absent
+(rolls back the binding and the count).
 
 ## 5. Filtered member resource policy
 

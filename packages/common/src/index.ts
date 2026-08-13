@@ -133,6 +133,22 @@ export type {
 } from './app-runtime-background';
 
 export type {
+  PersistentSessionPermissionProfile,
+  PersistentSessionSubjectPolicy,
+  PersistentSessionGrantProposal,
+  PersistentSessionGrantHandle,
+  PersistentSessionOperation,
+  PersistentSessionRequest,
+  PersistentSessionHandle,
+  PersistentSessionContextUsage,
+  PersistentSessionUsage,
+  PersistentSessionEvent,
+  PersistentSessionHistoryPage,
+  PersistentSessionHistoryEntry,
+  PersistentSessionsApi,
+} from './app-runtime-persistent-sessions';
+
+export type {
   AppRuntimeNotificationType,
   AppRuntimeNotificationOptions,
   AppRuntimeNotificationChoice,

@@ -1272,9 +1272,12 @@ Architecture decisions AD-028 and AD-029 are recorded in
 ### 34.2 Persistent-session capability
 
 - **D-06** `SERO_HOST_CAPABILITIES` is a compatibility list only. It grants no
-  authority. Built-in-only gating is a separate host check: package provenance
-  (`!isInstalledPluginPackagePath`) **and** an explicit app-ID allowlist. Both
-  must pass.
+  authority. Built-in-only gating is canonical path equality — see **D-40**,
+  which supersedes the provenance test this decision originally proposed.
+  `isInstalledPluginPackagePath` is **not** the gate: an app discovered from a
+  `settings.json` `packages` entry or a plugin dev session is not under the
+  installed-plugins directory, so that test returns false for it while the app
+  id it claims comes from its own package.json.
 - **D-07** The host issues and stores grants. A request carries only a
   `grantId`. The host never reads authority from the request payload, and the
   caller identity comes from the runtime instance, not the payload.
@@ -1288,7 +1291,10 @@ Architecture decisions AD-028 and AD-029 are recorded in
   request. The plugin proposes, the host clamps and gets approval, and the host
   stores exactly what was approved. The consent summary and the grant are
   projections of the same clamped set.
-- **D-37** Capabilities are per session subject, not grant-wide.
+- **D-37** Capabilities are per session subject, not grant-wide. The per-subject
+  policy covers working directories, models, **thinking levels**, tools, skills,
+  the permission profile and the prompt-addition size cap. Every
+  caller-selectable setting that moves cost or reach is in the policy.
 - **D-38** `open` takes no caller-supplied path. The host resolves it from an
   immutable subject-to-path registry created at `create`.
 - **D-39** The count check, subject binding and counter increment are one atomic
@@ -1303,6 +1309,14 @@ Architecture decisions AD-028 and AD-029 are recorded in
 - **D-42** The live-session counter is never persisted; it is rebuilt from the
   host's live registry at startup. The created-session counter persists.
   Revocation writes `revoked` before it disposes.
+- **D-43** A request carries no permission profile. The subject policy's profile
+  is applied verbatim, so there is no subset negotiation at request time and
+  nothing for a caller to inflate.
+- **D-44** The reservation is two-phase and crash-safe. A `pending` reservation
+  is written before construction and committed after it. At startup a pending
+  reservation is committed when its session file exists and rolled back when it
+  does not, so a crash can leak neither a bound-but-nonexistent session nor a
+  lifetime-count slot.
 
 ### 34.3 Sessions and usage
 
@@ -1406,10 +1420,16 @@ rather than assumed:
   concept. Phase 6 adds path-derived grouping to the aggregator.
 - **Agent Board** — `stores/agent-board.ts` watches the Workflow loop index, not
   generic agent presence. Phase 7 has it also watch the Room index.
-- **Invoking-chat delivery** — every existing `DeliveryDestinationId` is
-  external, and delivery is agent-authored with a receipt. Returning a result to
-  the chat that started the Room is a new origin field and a new internal
-  destination, added in Phase 6.
+- **Invoking-chat delivery** — delivery is agent-authored with a
+  `DeliveryReceipt`, and destinations carry an `external` flag that decides
+  whether an approval token is required. Four of the seven existing
+  destinations are internal (`pr`, `workspace-files`, `saved-artifact`,
+  `email-draft`) and three are external (`email-send`, `chat-post`,
+  `webhook-post`). What is missing is specifically a destination that returns a
+  result to the invoking **Sero chat session** — `chat-post` is an external chat
+  service, not that. The new destination is `external: false`, so it needs no
+  approval token, which is the correct behaviour. Added with a Room origin field
+  in Phase 6.
 
 ### 34.6 Scope confirmed for the first release
 

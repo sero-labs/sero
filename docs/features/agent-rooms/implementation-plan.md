@@ -143,8 +143,10 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 - [ ] Keep the capability free from imports or dependencies on Room domain types.
 - [ ] Register an immutable subject-to-path binding on create; resolve open from it and ignore any caller path.
 - [ ] Validate session path and working directory after symlink resolution.
-- [ ] Validate model, tools, skills, permissions and prompt-addition size against the requesting subject's policy.
-- [ ] Take the count check, subject binding and counter increment as one atomic reservation before construction.
+- [ ] Validate model, thinking level, tools, skills and prompt-addition size against the requesting subject's policy.
+- [ ] Apply the subject policy's permission profile verbatim; accept no caller-supplied profile.
+- [ ] Take the count check, subject binding and pending reservation as one atomic critical section, counting pending against both caps.
+- [ ] Commit or release the reservation after construction, and reconcile pending reservations against the filesystem at startup.
 - [ ] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
 - [ ] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
 - [ ] Persist grants and created-session counters; rebuild the live count from the live registry at startup.
@@ -185,6 +187,7 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 - [ ] One subject cannot use another subject's capabilities or open its session.
 - [ ] Two concurrent creates cannot both pass a one-session cap.
 - [ ] A restart preserves grants and created counts and zeroes the live count.
+- [ ] A crash between reservation and construction leaks no count and binds no nonexistent session.
 - [ ] The capability has no dependency on Room domain record types.
 - [ ] A draft Room can be created, read, updated, listed, archived and deleted.
 - [ ] Current Room records are authoritative without event replay.
