@@ -9,7 +9,7 @@
  * by the grant store, because a check followed by a create is a race.
  */
 
-import { lstatSync, realpathSync } from 'fs';
+import { realpathSync } from 'fs';
 import path from 'path';
 
 import type {
@@ -24,10 +24,9 @@ export type DenyReason =
   | 'grant-revoked'
   | 'caller-mismatch'
   | 'subject-not-granted'
-  | 'session-file-not-a-leaf'
   | 'session-path-escape'
-  | 'session-path-exists'
   | 'session-path-unregistered'
+  | 'subject-already-bound'
   | 'cwd-not-allowed'
   | 'model-not-allowed'
   | 'model-unavailable'
@@ -39,8 +38,11 @@ export type DenyReason =
 export interface ValidationOk {
   ok: true;
   policy: PersistentSessionSubjectPolicy;
-  /** Absolute session file path the host will create or open. */
-  sessionPath: string;
+  /**
+   * The file to open. Null for `create` — Pi names the file, and the host binds
+   * the returned path once construction succeeds.
+   */
+  sessionPath: string | null;
   /** Absolute working directory, already symlink-resolved. */
   cwd: string;
   /** The level the caller must apply — the one that was actually validated. */
@@ -79,16 +81,6 @@ export function isWithinPermissionProfile(
       // An unrecognised value is not silently accepted.
       return requestedIndex >= 0 && allowedIndex >= 0 && requestedIndex <= allowedIndex;
     });
-}
-
-/** True when anything exists at this path, INCLUDING a dangling symlink. */
-function lstatSafe(target: string): boolean {
-  try {
-    lstatSync(target);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** realpath, falling back to a lexical resolve for a path that does not exist yet. */
@@ -150,27 +142,18 @@ export function validatePersistentSessionRequest(input: ValidateInput): Validati
   }
 
   // 5. path resolution
-  let sessionPath: string;
+  let sessionPath: string | null;
   if (request.operation === 'create') {
-    const leaf = request.sessionFile ?? '';
-    // A leaf name only. This is what stops `../` and absolute overrides before
-    // they ever reach a join.
-    if (!leaf || leaf !== path.basename(leaf) || leaf === '.' || leaf === '..') {
-      return deny('session-file-not-a-leaf', `sessionFile must be a single leaf name, got "${leaf}".`);
+    // A subject's binding is immutable: once it has a session it must `open`.
+    // Re-creating would orphan the first session and leave the subject owning
+    // two.
+    if (registeredSessionPath) {
+      return deny('subject-already-bound', `Subject ${request.subject} already has a session; use open.`);
     }
-    const joined = path.join(grant.sessionDir, leaf);
-    // Resolve the PARENT: the file itself does not exist yet, so realpath on it
-    // would fail and a symlinked session dir would slip through.
-    if (!isInside(canonical(path.dirname(joined)), canonical(grant.sessionDir))) {
-      return deny('session-path-escape', `Resolved session path escapes ${grant.sessionDir}.`);
-    }
-    // The leaf must not already exist. A pre-planted SYMLINK at the leaf passes
-    // the parent check above and would redirect every session write outside the
-    // grant's directory. lstat, not stat — stat follows the link and hides it.
-    if (lstatSafe(joined)) {
-      return deny('session-path-exists', `${joined} already exists; use open, not create.`);
-    }
-    sessionPath = joined;
+    // No path is computed. Pi creates the file inside the grant's session
+    // directory and the host binds whatever it returns, after confirming
+    // containment. The caller never names a path, so it cannot aim one.
+    sessionPath = null;
   } else {
     // `open` takes NO caller path — one subject can never open another's file.
     if (!registeredSessionPath) {

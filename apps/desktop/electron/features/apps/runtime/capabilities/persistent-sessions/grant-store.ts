@@ -15,18 +15,20 @@
  * `pending`, construction runs, and only then is it committed.
  *
  * At startup every pending reservation is ROLLED BACK, never committed. File
- * existence is not proof that this reservation completed — construction can
- * create the file and then fail — so committing on it would register a session
- * that was never usable. Rolling back is the only safe direction: the reserved
- * count is released, the binding is dropped, and the partial file is removed so
- * the next `create` for that subject starts clean.
+ * existence is not proof that a reservation completed — construction can create
+ * the file and then fail — so committing on it would register a session that was
+ * never usable. Because the subject binding is written only at COMMIT, rollback
+ * is simply dropping the reservation. A startup sweep then removes any file in
+ * the grant's session directory that no subject is bound to, which is exactly
+ * what a failed construction leaves behind.
  *
  * **Live vs created counts.** `createdSessions` persists — it is a lifetime cap.
  * The live count never persists: after a restart nothing is live, and a
  * persisted live count would leak on a crash and wedge the grant forever.
  */
 
-import { existsSync, rmSync } from 'fs';
+import { existsSync, readdirSync, rmSync } from 'fs';
+import { join } from 'path';
 
 import type {
   PersistentSessionGrantProposal,
@@ -58,7 +60,7 @@ export interface StoredGrant {
    * is recorded so a rollback knows exactly which binding it created — without
    * it, reconciliation has to guess by matching paths.
    */
-  pending: Record<string, { subject: string; sessionPath: string; startedAt: string }>;
+  pending: Record<string, { subject: string; startedAt: string }>;
 }
 
 export interface GrantStatePersistence {
@@ -75,8 +77,7 @@ export type ReserveResult =
         | 'grant-revoked'
         | 'live-limit'
         | 'total-limit'
-        | 'subject-already-bound'
-        | 'path-already-bound';
+        | 'subject-already-bound';
     };
 
 /**
@@ -92,8 +93,10 @@ export interface GrantStoreDeps {
   newId(prefix: string): string;
   /** Injected so restart reconciliation is testable without a real filesystem. */
   sessionFileExists?(sessionPath: string): boolean;
-  /** Removes a partial session file left by a reservation that never committed. */
+  /** Removes an orphaned session file left by a construction that never committed. */
   removeSessionFile?(sessionPath: string): void;
+  /** Session files currently in a grant's directory. Injected for tests. */
+  listSessionFiles?(sessionDir: string): string[];
 }
 
 export class GrantStore {
@@ -116,6 +119,14 @@ export class GrantStore {
     return (this.deps.sessionFileExists ?? existsSync)(sessionPath);
   }
 
+  private listSessionFiles(sessionDir: string): string[] {
+    if (this.deps.listSessionFiles) return this.deps.listSessionFiles(sessionDir);
+    if (!existsSync(sessionDir)) return [];
+    return readdirSync(sessionDir)
+      .filter((entry) => entry.endsWith('.jsonl'))
+      .map((entry) => join(sessionDir, entry));
+  }
+
   private removeFile(sessionPath: string): void {
     (this.deps.removeSessionFile ?? ((target: string) => rmSync(target, { force: true })))(sessionPath);
   }
@@ -130,23 +141,18 @@ export class GrantStore {
 
     let changed = false;
     for (const grant of Object.values(this.grants)) {
-      for (const [reservationId, reservation] of Object.entries(grant.pending ?? {})) {
-        // ALWAYS roll back. A commit deletes its reservation, so a surviving
-        // pending record means construction did not complete — and file
-        // existence cannot distinguish "constructed then crashed" from
-        // "construction created the file and then failed", so it is not proof.
-        // Releasing is the only safe direction.
-        if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
-          delete grant.sessionPaths[reservation.subject];
-        }
-        // Remove the partial file so the next create for this subject is clean.
-        // Safe because a path is bound to exactly one subject, so this file can
-        // only have come from this reservation.
-        if (this.fileExists(reservation.sessionPath)) {
-          this.removeFile(reservation.sessionPath);
-        }
+      // ALWAYS roll back. A commit deletes its own reservation, so a surviving
+      // pending record means construction did not complete. Since the binding is
+      // written only at commit, rollback is just dropping the reservation.
+      for (const reservationId of Object.keys(grant.pending ?? {})) {
         delete grant.pending[reservationId];
         changed = true;
+      }
+      // Sweep orphans: every file in the grant's session dir must be bound to a
+      // subject. An unbound one is what a failed construction leaves behind.
+      const bound = new Set(Object.values(grant.sessionPaths));
+      for (const orphan of this.listSessionFiles(grant.sessionDir).filter((file) => !bound.has(file))) {
+        this.removeFile(orphan);
       }
     }
     if (changed) await this.deps.persistence.write(this.grants);
@@ -193,10 +199,15 @@ export class GrantStore {
   }
 
   /**
-   * Phase one: re-check status and both caps, bind the subject, and write a
-   * pending reservation — all under the serialized lock, before construction.
+   * Phase one: re-check status and both caps and write a pending reservation —
+   * all under the serialized lock, before construction.
+   *
+   * No path is taken here. Pi names the session file, so the binding is written
+   * at COMMIT with the path construction actually produced. A reservation
+   * therefore records only the subject, and rollback is a plain "this subject
+   * has no session".
    */
-  async reserve(grantId: string, subject: string, sessionPath: string): Promise<ReserveResult> {
+  async reserve(grantId: string, subject: string): Promise<ReserveResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       if (!grant) return { ok: false as const, reason: 'grant-not-found' as const };
@@ -213,27 +224,19 @@ export class GrantStore {
         return { ok: false as const, reason: 'total-limit' as const };
       }
 
-      // A subject's binding is IMMUTABLE. Re-creating under a different path
-      // would leave the old session orphaned and let one subject own two
-      // sessions — so a bound subject must use `open`, not `create`.
-      const existingBinding = grant.sessionPaths[subject];
-      if (existingBinding && existingBinding !== sessionPath) {
+      // A subject's binding is IMMUTABLE. A bound subject must `open`, never
+      // `create` — otherwise it would orphan its first session and own two.
+      if (grant.sessionPaths[subject]) {
         return { ok: false as const, reason: 'subject-already-bound' as const };
       }
-      // A path belongs to exactly ONE subject. Without this two subjects could
-      // reserve the same file and alias each other's session — and the rollback
-      // that deletes a partial file could then destroy the other's work.
-      const pathOwner = Object.entries(grant.sessionPaths)
-        .find(([boundSubject, boundPath]) => boundPath === sessionPath && boundSubject !== subject);
-      const pathPending = Object.values(grant.pending)
-        .some((reservation) => reservation.sessionPath === sessionPath && reservation.subject !== subject);
-      if (pathOwner || pathPending) {
-        return { ok: false as const, reason: 'path-already-bound' as const };
+      // One create in flight per subject, so two concurrent creates cannot both
+      // construct a session and race to bind the same subject.
+      if (Object.values(grant.pending).some((reservation) => reservation.subject === subject)) {
+        return { ok: false as const, reason: 'subject-already-bound' as const };
       }
 
       const reservationId = this.deps.newId('resv');
-      grant.pending[reservationId] = { subject, sessionPath, startedAt: this.deps.now() };
-      grant.sessionPaths[subject] = sessionPath;
+      grant.pending[reservationId] = { subject, startedAt: this.deps.now() };
       await this.deps.persistence.write(this.grants);
       return { ok: true as const, reservationId };
     });
@@ -245,7 +248,12 @@ export class GrantStore {
    * and this one did not exist yet. Committing blindly would register a live
    * session on a revoked grant.
    */
-  async commitReservation(grantId: string, reservationId: string, handleId: string): Promise<CommitResult> {
+  async commitReservation(
+    grantId: string,
+    reservationId: string,
+    handleId: string,
+    sessionPath: string,
+  ): Promise<CommitResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       const reservation = grant?.pending[reservationId];
@@ -253,14 +261,14 @@ export class GrantStore {
 
       if (grant.status !== 'active') {
         delete grant.pending[reservationId];
-        if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
-          delete grant.sessionPaths[reservation.subject];
-        }
         await this.deps.persistence.write(this.grants);
         return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
       }
 
       delete grant.pending[reservationId];
+      // The binding is written HERE, with the path construction produced — so a
+      // crash before this point leaves no binding to be wrong about.
+      grant.sessionPaths[reservation.subject] = sessionPath;
       grant.createdSessions += 1;
       this.trackLive(grantId, handleId);
       await this.deps.persistence.write(this.grants);
@@ -276,15 +284,10 @@ export class GrantStore {
   async releaseReservation(grantId: string, reservationId: string): Promise<void> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
-      const reservation = grant?.pending[reservationId];
-      if (!grant || !reservation) return;
+      if (!grant?.pending[reservationId]) return;
+      // Nothing to unbind — the binding is only written on commit. Any file Pi
+      // created before failing is unreferenced, and startup sweeps it (§3.8).
       delete grant.pending[reservationId];
-      if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
-        delete grant.sessionPaths[reservation.subject];
-      }
-      if (this.fileExists(reservation.sessionPath)) {
-        this.removeFile(reservation.sessionPath);
-      }
       await this.deps.persistence.write(this.grants);
     });
   }

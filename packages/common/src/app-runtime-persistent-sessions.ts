@@ -101,13 +101,11 @@ export interface PersistentSessionRequest {
   systemPromptAdditions?: string[];
   /** Deterministic Pi session name. Also the Usage plugin's grouping input. */
   sessionName: string;
-  /**
-   * `create` only: a single leaf name, no path separators. The host joins it
-   * under the grant's session directory. `open` takes NO path — the host
-   * resolves it from its own immutable subject-to-path registry, so one subject
-   * can never open another subject's session file.
-   */
-  sessionFile?: string;
+  // No path field, for either operation. `create` lets Pi name the file inside
+  // the grant's session directory; `open` resolves it from the host's own
+  // immutable subject-to-path registry. A caller that cannot name a path cannot
+  // aim one — this removes path traversal and leaf-symlink attacks by
+  // construction rather than by validation.
 }
 
 export interface PersistentSessionHandle {
