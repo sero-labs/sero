@@ -11,11 +11,7 @@
  */
 
 import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
-import type {
-  LoadExtensionsResult,
-  SettingsManager,
-  Skill,
-} from '@earendil-works/pi-coding-agent';
+import type { LoadExtensionsResult, SettingsManager } from '@earendil-works/pi-coding-agent';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
@@ -63,7 +59,7 @@ export function createMemberResourceLoader(input: MemberResourceProfileInput): D
     // Project context files stay ON: a member that cannot read AGENTS.md would
     // ignore the repository's own rules.
     noContextFiles: false,
-    skillsOverride: (base: { skills: Skill[]; diagnostics: DiagnosticList }) => ({
+    skillsOverride: (base) => ({
       ...base,
       skills: base.skills.filter((skill) => allowedSkills.has(skill.name)),
     }),

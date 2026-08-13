@@ -1,6 +1,8 @@
 /**
  * Deny tests for persistent-session request validation (architecture.md §3.5,
- * §4.2).
+ * §4.2), written against the simplified contract: a request carries no path at
+ * all. `create` returns a null path — Pi names the file — and `open` resolves
+ * the path from the host's own subject registry.
  *
  * Every case asserts the exact reason code, because a test that only asserts
  * "denied" passes for the wrong reason as soon as an earlier step starts
@@ -32,6 +34,8 @@ const MODEL = 'anthropic/claude-opus-5';
 
 let sessionDir = '';
 let sessionDirLink = '';
+let registeredSession = '';
+let registeredSessionViaLink = '';
 let escapingSessionFile = '';
 let outsideSessionFile = '';
 let repo = '';
@@ -40,7 +44,7 @@ let repoLink = '';
 let repoSubLink = '';
 let siblingRepo = '';
 let outsideRepo = '';
-let outsideRepoLink = '';
+let repoEscapeLink = '';
 
 beforeAll(async () => {
   const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'sero-session-validate-')));
@@ -48,6 +52,8 @@ beforeAll(async () => {
   sessionDir = path.join(tmp, 'sessions', 'rooms', 'room-1');
   repo = path.join(tmp, 'repo');
   repoSub = path.join(repo, 'src');
+  // Shares a name prefix with `repo`, so a string-prefix containment test would
+  // wrongly accept it.
   siblingRepo = path.join(tmp, 'repo-evil');
   outsideRepo = path.join(tmp, 'outside-repo');
   await mkdir(sessionDir, { recursive: true });
@@ -55,21 +61,27 @@ beforeAll(async () => {
   await mkdir(siblingRepo, { recursive: true });
   await mkdir(outsideRepo, { recursive: true });
 
-  // A session file inside the grant directory that is really a link out of it.
+  registeredSession = path.join(sessionDir, 'implementer.jsonl');
+  await writeFile(registeredSession, '');
+
+  // A file that sits inside the grant directory by name but is really a link
+  // out of it — only leaf resolution catches this.
   outsideSessionFile = path.join(tmp, 'stolen.jsonl');
   escapingSessionFile = path.join(sessionDir, 'escaping.jsonl');
   await writeFile(outsideSessionFile, '');
   await symlink(outsideSessionFile, escapingSessionFile);
-  await writeFile(path.join(sessionDir, 'existing.jsonl'), '');
 
   sessionDirLink = path.join(tmp, 'sessions-link');
   repoLink = path.join(tmp, 'repo-link');
   repoSubLink = path.join(tmp, 'src-link');
-  outsideRepoLink = path.join(tmp, 'escape-link');
+  // Sits INSIDE the allowed root and points out of it, so only resolution
+  // before comparison can catch it.
+  repoEscapeLink = path.join(repo, 'escape-link');
   await symlink(sessionDir, sessionDirLink);
   await symlink(repo, repoLink);
   await symlink(repoSub, repoSubLink);
-  await symlink(outsideRepo, outsideRepoLink);
+  await symlink(outsideRepo, repoEscapeLink);
+  registeredSessionViaLink = path.join(sessionDirLink, 'implementer.jsonl');
 });
 
 function policy(overrides: Partial<PersistentSessionSubjectPolicy> = {}): PersistentSessionSubjectPolicy {
@@ -121,7 +133,6 @@ function request(overrides: Partial<PersistentSessionRequest> = {}): PersistentS
     tools: ['read'],
     skills: [],
     sessionName: 'Room Test — Implementer',
-    sessionFile: 'implementer.jsonl',
     ...overrides,
   };
 }
@@ -149,12 +160,21 @@ function expectAllowed(result: ValidationResult): ValidationOk {
 }
 
 describe('validatePersistentSessionRequest — grant and caller', () => {
-  it('allows a well-formed create', () => {
+  it('allows a well-formed create and names no path', () => {
     const result = expectAllowed(run());
-    expect(result.sessionPath).toBe(path.join(sessionDir, 'implementer.jsonl'));
+    // Null by contract: Pi names the file and the host binds what it returns.
+    expect(result.sessionPath).toBeNull();
     expect(result.cwd).toBe(repo);
     expect(result.thinking).toBe('low');
     expect(result.policy.permissionProfile.commands).toBe('readOnly');
+  });
+
+  it('allows an open and returns the registered path', () => {
+    const result = expectAllowed(
+      run({ request: request({ operation: 'open' }), registeredSessionPath: registeredSession }),
+    );
+    expect(result.sessionPath).toBe(registeredSession);
+    expect(result.cwd).toBe(repo);
   });
 
   it('denies an unknown grant', () => {
@@ -181,75 +201,53 @@ describe('validatePersistentSessionRequest — grant and caller', () => {
 });
 
 describe('validatePersistentSessionRequest — session paths', () => {
-  it('denies a sessionFile containing a separator or a traversal', () => {
-    for (const sessionFile of ['members/implementer.jsonl', '../implementer.jsonl', '/etc/passwd', '.', '..', '']) {
-      expect(outcome(run({ request: request({ sessionFile }) }))).toBe('session-file-not-a-leaf');
-    }
-  });
-
-  it('denies a create with no sessionFile at all', () => {
-    expect(outcome(run({ request: request({ sessionFile: undefined }) }))).toBe('session-file-not-a-leaf');
-  });
-
-  it('keeps containment when the grant session directory is itself a symlink', () => {
-    const result = expectAllowed(run({ grant: grant({ sessionDir: sessionDirLink }) }));
-    expect(result.sessionPath).toBe(path.join(sessionDirLink, 'implementer.jsonl'));
-  });
-
-  it('denies a create whose leaf is a symlink planted in the session directory', () => {
-    // The parent-containment check alone cannot see this: the parent IS the
-    // session directory. Writing through the link would land outside it.
-    expect(outcome(run({ request: request({ sessionFile: 'escaping.jsonl' }) })))
-      .toBe('session-path-exists');
-  });
-
-  it('denies a create over an existing session file', () => {
-    expect(outcome(run({ request: request({ sessionFile: 'existing.jsonl' }) })))
-      .toBe('session-path-exists');
-  });
-
-  it('denies an open whose registered path escapes the session directory by symlink', () => {
-    const result = run({
-      request: request({ operation: 'open', sessionFile: undefined }),
-      registeredSessionPath: escapingSessionFile,
-    });
-    expect(outcome(result)).toBe('session-path-escape');
-  });
-
-  it('denies an open whose registered path is outside the session directory', () => {
-    const result = run({
-      request: request({ operation: 'open', sessionFile: undefined }),
-      registeredSessionPath: outsideSessionFile,
-    });
-    expect(outcome(result)).toBe('session-path-escape');
+  it('denies a create for a subject that is already bound', () => {
+    // The binding is immutable: a second create would orphan the first session
+    // and leave the subject owning two.
+    expect(outcome(run({ registeredSessionPath: registeredSession }))).toBe('subject-already-bound');
   });
 
   it('denies an open for a subject that has never created a session', () => {
-    // The caller supplies another subject's real path; it must not be used.
     const result = run({
-      request: request({
-        subject: 'reviewer',
-        operation: 'open',
-        sessionFile: path.join(sessionDir, 'implementer.jsonl'),
-      }),
+      request: request({ subject: 'reviewer', operation: 'open' }),
       registeredSessionPath: null,
     });
     expect(outcome(result)).toBe('session-path-unregistered');
   });
 
-  it('ignores a caller-supplied path on open and uses the registry', () => {
-    const registered = path.join(sessionDir, 'reviewer.jsonl');
-    const result = expectAllowed(
+  it('denies an open whose registered path escapes the session directory by symlink', () => {
+    // Lexically the path is inside the grant directory, so only leaf resolution
+    // sees the escape.
+    expect(escapingSessionFile.startsWith(`${sessionDir}${path.sep}`)).toBe(true);
+    const result = run({
+      request: request({ operation: 'open' }),
+      registeredSessionPath: escapingSessionFile,
+    });
+    expect(outcome(result)).toBe('session-path-escape');
+  });
+
+  it('denies an open whose registered path is plainly outside the session directory', () => {
+    const result = run({
+      request: request({ operation: 'open' }),
+      registeredSessionPath: outsideSessionFile,
+    });
+    expect(outcome(result)).toBe('session-path-escape');
+  });
+
+  it('keeps containment when either side of the comparison is a symlink', () => {
+    const viaDirLink = expectAllowed(
       run({
-        request: request({
-          subject: 'reviewer',
-          operation: 'open',
-          sessionFile: path.join(sessionDir, 'implementer.jsonl'),
-        }),
-        registeredSessionPath: registered,
+        request: request({ operation: 'open' }),
+        grant: grant({ sessionDir: sessionDirLink }),
+        registeredSessionPath: registeredSession,
       }),
     );
-    expect(result.sessionPath).toBe(registered);
+    expect(viaDirLink.sessionPath).toBe(registeredSession);
+
+    const viaPathLink = expectAllowed(
+      run({ request: request({ operation: 'open' }), registeredSessionPath: registeredSessionViaLink }),
+    );
+    expect(viaPathLink.sessionPath).toBe(registeredSessionViaLink);
   });
 });
 
@@ -263,15 +261,19 @@ describe('validatePersistentSessionRequest — working directory', () => {
       request: request({ cwd: repoSubLink }),
       grant: grant({ subjects: { implementer: policy({ allowedCwds: [repoLink] }) } }),
     });
-    expect(outcome(viaLink)).toBe('allowed');
     expect(expectAllowed(viaLink).cwd).toBe(repoSub);
   });
 
   it('denies a cwd that escapes an allowed root through a symlink', () => {
-    expect(outcome(run({ request: request({ cwd: outsideRepoLink }) }))).toBe('cwd-not-allowed');
+    // The link is lexically inside the allowed root, so an unresolved compare
+    // would accept it.
+    expect(repoEscapeLink.startsWith(`${repo}${path.sep}`)).toBe(true);
+    expect(outcome(run({ request: request({ cwd: repoEscapeLink }) }))).toBe('cwd-not-allowed');
   });
 
   it('denies a sibling directory that merely shares a name prefix', () => {
+    // Containment is segment-wise: a string-prefix compare would accept this.
+    expect(siblingRepo.startsWith(repo)).toBe(true);
     expect(outcome(run({ request: request({ cwd: siblingRepo }) }))).toBe('cwd-not-allowed');
   });
 
@@ -309,12 +311,9 @@ describe('validatePersistentSessionRequest — capabilities', () => {
 
   it('validates the host default when the request omits the thinking level', () => {
     // Omitting the field must not be a way to reach an unapproved default.
-    expect(outcome(run({ request: request({ thinking: undefined }), defaultThinking: 'ultra' })))
-      .toBe('thinking-not-allowed');
-    const allowedByDefault = expectAllowed(
-      run({ request: request({ thinking: undefined }), defaultThinking: 'medium' }),
-    );
-    expect(allowedByDefault.thinking).toBe('medium');
+    expect(outcome(run({ defaultThinking: 'ultra' }))).toBe('thinking-not-allowed');
+    // And the level the host must apply is the one that was checked.
+    expect(expectAllowed(run({ defaultThinking: 'medium' })).thinking).toBe('medium');
   });
 
   it('denies a tool outside the subject policy', () => {
@@ -338,6 +337,7 @@ describe('validatePersistentSessionRequest — capabilities', () => {
     // 51 two-byte characters: over the 100-byte cap while under it by length,
     // so a character count would wrongly pass this.
     const multiByte = 'é'.repeat(51);
+    expect(multiByte.length).toBe(51);
     expect(Buffer.byteLength(multiByte, 'utf8')).toBe(102);
     expect(outcome(run({ request: request({ systemPromptAdditions: [multiByte] }) })))
       .toBe('prompt-additions-too-large');
@@ -365,13 +365,15 @@ describe('isWithinPermissionProfile', () => {
     expect(isWithinPermissionProfile({ filesystem: 'none', vcs: 'read' }, allowed)).toBe(true);
   });
 
-  it('treats an omitted field as none, never as inherited', () => {
+  it('treats an omitted field as the lowest level, never as inherited', () => {
     expect(isWithinPermissionProfile({}, allowed)).toBe(true);
+    // Against an all-`none` profile an omitted field still passes, which it
+    // could not do if omission meant anything above the lowest level.
     expect(isWithinPermissionProfile({}, { filesystem: 'none', commands: 'none', network: 'none', vcs: 'none' }))
       .toBe(true);
   });
 
-  it('denies a profile above the allowed one in any single field', () => {
+  it('denies a profile one level above the allowed one in any single field', () => {
     expect(isWithinPermissionProfile({ filesystem: 'write' }, allowed)).toBe(false);
     expect(isWithinPermissionProfile({ commands: 'all' }, allowed)).toBe(false);
     expect(isWithinPermissionProfile({ network: 'fetch' }, allowed)).toBe(false);
