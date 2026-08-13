@@ -2,129 +2,29 @@
  * Reservation, cap and restart tests for the grant store (architecture.md
  * §3.5.1, §3.8, §4.2).
  *
- * Persistence is a fake that clones on read and write, so the store never keeps
- * a live reference into "disk" — that is what makes the restart cases real
- * restarts rather than the same object under a new name. The session directory
- * is a fake listing for the same reason: reconciliation must be provable
- * without timing a real crash.
+ * No path is ever passed to `reserve`. Pi names the session file, so the subject
+ * binding is written at COMMIT with the path construction produced — which is
+ * why a rollback is just dropping the reservation.
  *
- * No path is ever passed to `reserve`. Pi names the session file, so the
- * subject binding is written at COMMIT with the path construction produced.
+ * Fakes and builders live in ./grant-store.fixtures.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import type {
-  PersistentSessionGrantProposal,
-  PersistentSessionSubjectPolicy,
-} from '@sero-ai/common';
 import {
-  GrantStore,
-  type GrantStatePersistence,
-  type StoredGrant,
-} from '@electron/features/apps/runtime/capabilities/persistent-sessions/grant-store';
-
-const SESSION_DIR = '/sessions/rooms/room-1';
-const IMPLEMENTER_FILE = `${SESSION_DIR}/session-implementer.jsonl`;
-const REVIEWER_FILE = `${SESSION_DIR}/session-reviewer.jsonl`;
-const ORPHAN_FILE = `${SESSION_DIR}/session-orphan.jsonl`;
-
-interface FakePersistence {
-  persistence: GrantStatePersistence;
-  /** What survives a restart. */
-  stored(): Record<string, StoredGrant> | null;
-  writes(): number;
-}
-
-function createPersistence(): FakePersistence {
-  let snapshot: Record<string, StoredGrant> | null = null;
-  let writes = 0;
-  const clone = (grants: Record<string, StoredGrant>): Record<string, StoredGrant> =>
-    JSON.parse(JSON.stringify(grants)) as Record<string, StoredGrant>;
-
-  return {
-    persistence: {
-      read: async () => (snapshot === null ? null : clone(snapshot)),
-      write: async (grants) => {
-        snapshot = clone(grants);
-        writes += 1;
-      },
-    },
-    stored: () => snapshot,
-    writes: () => writes,
-  };
-}
-
-interface FakeFiles {
-  exists(sessionPath: string): boolean;
-  list(sessionDir: string): string[];
-  remove(sessionPath: string): void;
-  removed: string[];
-}
-
-/** A fake session directory. Every entry is treated as living in SESSION_DIR. */
-function createFiles(present: string[] = []): FakeFiles {
-  const files = new Set(present);
-  const removed: string[] = [];
-  return {
-    exists: (sessionPath) => files.has(sessionPath),
-    list: (sessionDir) => [...files].filter((file) => file.startsWith(`${sessionDir}/`)),
-    remove: (sessionPath) => {
-      files.delete(sessionPath);
-      removed.push(sessionPath);
-    },
-    removed,
-  };
-}
-
-function createStore(persistence: GrantStatePersistence, files: FakeFiles = createFiles()): GrantStore {
-  let counter = 0;
-  return new GrantStore({
-    persistence,
-    now: () => '2026-08-14T00:00:00.000Z',
-    newId: (prefix) => `${prefix}-${(counter += 1)}`,
-    sessionFileExists: files.exists,
-    listSessionFiles: files.list,
-    removeSessionFile: files.remove,
-  });
-}
-
-function policy(): PersistentSessionSubjectPolicy {
-  return {
-    allowedCwds: ['/repo'],
-    allowedModels: ['anthropic/claude-opus-5'],
-    allowedTools: ['read'],
-    allowedSkills: [],
-    allowedThinkingLevels: ['low'],
-    permissionProfile: { filesystem: 'read', commands: 'none', network: 'none', vcs: 'read' },
-    maxSystemPromptAdditionBytes: 100,
-  };
-}
-
-function proposal(overrides: Partial<PersistentSessionGrantProposal> = {}): PersistentSessionGrantProposal {
-  return {
-    owner: 'room-1',
-    scope: 'members',
-    workspaceId: 'ws-1',
-    subjects: { implementer: policy(), reviewer: policy() },
-    maxLiveSessions: 2,
-    maxTotalSessions: 4,
-    reason: 'Run a Room team',
-    ...overrides,
-  };
-}
-
-function storedGrant(fake: FakePersistence, grantId: string): StoredGrant {
-  const grant = fake.stored()?.[grantId];
-  if (!grant) throw new Error(`grant ${grantId} was never persisted`);
-  return grant;
-}
-
-async function reserved(store: GrantStore, grantId: string, subject: string): Promise<string> {
-  const result = await store.reserve(grantId, subject);
-  if (!result.ok) throw new Error(`expected a reservation, got ${result.reason}`);
-  return result.reservationId;
-}
+  createFiles,
+  createPersistence,
+  createStore,
+  IMPLEMENTER_FILE,
+  issueWithSession,
+  NOW,
+  ORPHAN_FILE,
+  proposal,
+  reserved,
+  REVIEWER_FILE,
+  SESSION_DIR,
+  storedGrant,
+} from './grant-store.fixtures';
 
 describe('GrantStore — issue', () => {
   it('persists the grant and returns the approved subject policies', async () => {
@@ -198,14 +98,10 @@ describe('GrantStore — reserve', () => {
 
   it('counts a live handle against the live cap', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
-      'approval-1',
-      proposal({ maxLiveSessions: 1, maxTotalSessions: 4 }),
-    );
-    const reservationId = await reserved(store, grant.grantId, 'implementer');
-    await store.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(store, 'implementer', IMPLEMENTER_FILE, 'handle-1', {
+      maxLiveSessions: 1,
+      maxTotalSessions: 4,
+    });
 
     expect(await store.reserve(grant.grantId, 'reviewer'))
       .toEqual({ ok: false, reason: 'live-limit' });
@@ -227,14 +123,10 @@ describe('GrantStore — reserve', () => {
 
   it('keeps the lifetime cap spent after a session is disposed', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
-      'approval-1',
-      proposal({ maxLiveSessions: 2, maxTotalSessions: 1 }),
-    );
-    const reservationId = await reserved(store, grant.grantId, 'implementer');
-    await store.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(store, 'implementer', IMPLEMENTER_FILE, 'handle-1', {
+      maxLiveSessions: 2,
+      maxTotalSessions: 1,
+    });
     store.releaseLive(grant.grantId, 'handle-1');
 
     expect(await store.reserve(grant.grantId, 'reviewer'))
@@ -243,9 +135,7 @@ describe('GrantStore — reserve', () => {
 
   it('denies a subject that already holds a binding', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
-    const reservationId = await reserved(store, grant.grantId, 'implementer');
-    await store.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(store, 'implementer', IMPLEMENTER_FILE, 'handle-1');
 
     // A bound subject must reopen, never re-create: an immutable binding is what
     // makes a pathless `open` safe.
@@ -387,16 +277,14 @@ describe('GrantStore — revocation', () => {
   it('persists the revoked status before anything is torn down, and is idempotent', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
-    const reservationId = await reserved(store, grant.grantId, 'implementer');
-    await store.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(store, 'implementer', IMPLEMENTER_FILE, 'handle-1');
 
     await store.markRevoked(grant.grantId);
 
     // Write-first: the status is durable while the live session is still there
     // for the caller to dispose. A crash here leaves the grant revoked.
     expect(storedGrant(fake, grant.grantId).status).toBe('revoked');
-    expect(storedGrant(fake, grant.grantId).revokedAt).toBe('2026-08-14T00:00:00.000Z');
+    expect(storedGrant(fake, grant.grantId).revokedAt).toBe(NOW);
     expect(store.liveHandles(grant.grantId)).toEqual(['handle-1']);
 
     const writesAfterRevoke = fake.writes();
@@ -432,8 +320,7 @@ describe('GrantStore — restart reconciliation', () => {
       const grant = await first.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
       await reserved(first, grant.grantId, 'implementer');
 
-      const files = createFiles(present ? [IMPLEMENTER_FILE] : []);
-      const restarted = createStore(fake.persistence, files);
+      const restarted = createStore(fake.persistence, createFiles(present ? [IMPLEMENTER_FILE] : []));
       await restarted.initialize();
 
       expect(restarted.get(grant.grantId)?.pending).toEqual({});
@@ -450,9 +337,7 @@ describe('GrantStore — restart reconciliation', () => {
   it('sweeps an unbound session file and leaves every bound one alone', async () => {
     const fake = createPersistence();
     const first = createStore(fake.persistence);
-    const grant = await first.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
-    const implementer = await reserved(first, grant.grantId, 'implementer');
-    await first.commitReservation(grant.grantId, implementer, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(first, 'implementer', IMPLEMENTER_FILE, 'handle-1');
     const reviewer = await reserved(first, grant.grantId, 'reviewer');
     await first.commitReservation(grant.grantId, reviewer, 'handle-2', REVIEWER_FILE);
 
@@ -469,14 +354,10 @@ describe('GrantStore — restart reconciliation', () => {
   it('reloads a grant with a zeroed live count and an intact lifetime count', async () => {
     const fake = createPersistence();
     const first = createStore(fake.persistence);
-    const grant = await first.issue(
-      'orchestrator',
-      SESSION_DIR,
-      'approval-1',
-      proposal({ maxLiveSessions: 1, maxTotalSessions: 4 }),
-    );
-    const reservationId = await reserved(first, grant.grantId, 'implementer');
-    await first.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE);
+    const grant = await issueWithSession(first, 'implementer', IMPLEMENTER_FILE, 'handle-1', {
+      maxLiveSessions: 1,
+      maxTotalSessions: 4,
+    });
     expect(first.liveHandles(grant.grantId)).toEqual(['handle-1']);
 
     const restarted = createStore(fake.persistence, createFiles([IMPLEMENTER_FILE]));

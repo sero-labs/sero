@@ -133,69 +133,69 @@ Objective: Implement the secure generic session capability, reuse Orchestrator m
 
 ### Persistent-session capability checklist
 
-- [ ] Add appRuntime.persistentSessions to SERO_HOST_CAPABILITIES.
-- [ ] Restrict the first release to bundled first-party plugins by canonical path equality against a host-derived bundled root plus an app-ID-to-directory allowlist.
-- [ ] Reject plugin-dev-session and settings-declared package sources outright.
-- [ ] Issue every grant from a host-stored approval, never from the plugin request.
-- [ ] Define host-issued PersistentSessionGrant records with per-subject policies.
-- [ ] Define PersistentSessionPermissionProfile and its total-order subset check.
-- [ ] Use opaque owner, scope and subject identifier strings in the generic capability.
-- [ ] Keep the capability free from imports or dependencies on Room domain types.
-- [ ] Register an immutable subject-to-path binding on create; resolve open from it and ignore any caller path.
-- [ ] Validate session path and working directory after symlink resolution.
-- [ ] Validate model, thinking level, tools, skills and prompt-addition size against the requesting subject's policy.
-- [ ] Apply the subject policy's permission profile verbatim; accept no caller-supplied profile.
-- [ ] Take the count check, subject binding and pending reservation as one atomic critical section, counting pending against both caps.
-- [ ] Commit or release the reservation after construction, and reconcile pending reservations against the filesystem at startup.
-- [ ] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
-- [ ] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
-- [ ] Persist grants and created-session counters; rebuild the live count from the live registry at startup.
-- [ ] Revoke grants write-first when the Room stops, is deleted or loses authority.
-- [ ] Add every deny test listed in architecture.md 4.2.
-- [ ] Add generic temporary-session tests without Room domain dependencies.
+- [x] Add appRuntime.persistentSessions to SERO_HOST_CAPABILITIES.
+- [x] Restrict the first release to bundled first-party plugins by canonical path equality against a host-derived bundled root plus an app-ID-to-directory allowlist.
+- [x] Reject plugin-dev-session and settings-declared package sources outright.
+- [x] Issue every grant from a host-stored approval, never from the plugin request.
+- [x] Define host-issued PersistentSessionGrant records with per-subject policies.
+- [x] Define PersistentSessionPermissionProfile and its total-order subset check.
+- [x] Use opaque owner, scope and subject identifier strings in the generic capability.
+- [x] Keep the capability free from imports or dependencies on Room domain types.
+- [x] Register an immutable subject-to-path binding on create; resolve open from it and ignore any caller path.
+- [x] Validate session path and working directory after symlink resolution.
+- [x] Validate model, thinking level, tools, skills and prompt-addition size against the requesting subject's policy.
+- [x] Apply the subject policy's permission profile verbatim; accept no caller-supplied profile.
+- [x] Take the count check, subject binding and pending reservation as one atomic critical section, counting pending against both caps.
+- [x] Commit or release the reservation after construction, and reconcile pending reservations against the filesystem at startup.
+- [x] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
+- [x] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
+- [x] Persist grants and created-session counters; rebuild the live count from the live registry at startup.
+- [x] Revoke grants write-first when the Room stops, is deleted or loses authority.
+- [x] Add every deny test listed in architecture.md 4.2.
+- [x] Add generic temporary-session tests without Room domain dependencies.
 
 ### Shared and storage checklist
 
-- [ ] Generalise only the lifecycle, limits, usage, workspace, artifact, attention and delivery contracts that truly match both modes.
-- [ ] Keep existing Workflow records and behaviour compatible.
-- [ ] Define RoomDefinition, RoomBlueprint, OperatingEnvelope, RoomMember and MemberMandate.
-- [ ] Define RoomRuntimeState, RoomRevision, RoomMessage, WorkItem, RoomArtifact and PathClaim.
-- [ ] Define Room and member lifecycle states.
-- [ ] Add strict validation for Room records and commands.
-- [ ] Reuse the Orchestrator split-store and index pattern for current Room state.
-- [ ] Add an append-only audit timeline for UI and diagnostics, not state replay.
-- [ ] Add message cursors and command idempotency keys.
-- [ ] Add schema migrations, archive, retention and delete operations.
-- [ ] Add storage, restart, concurrent-write and migration tests.
-- [ ] Document every new shared abstraction and its owner.
+- [x] Generalise only the lifecycle, limits, usage, workspace, artifact, attention and delivery contracts that truly match both modes.
+- [x] Keep existing Workflow records and behaviour compatible.
+- [x] Define RoomDefinition, RoomBlueprint, OperatingEnvelope, RoomMember and MemberMandate.
+- [x] Define RoomRuntimeState, RoomRevision, RoomMessage, WorkItem, RoomArtifact and PathClaim.
+- [x] Define Room and member lifecycle states.
+- [x] Add strict validation for Room records and commands.
+- [x] Reuse the Orchestrator split-store and index pattern for current Room state.
+- [x] Add an append-only audit timeline for UI and diagnostics, not state replay.
+- [x] Add message cursors and command idempotency keys.
+- [x] Add schema migrations, archive, retention and delete operations.
+- [x] Add storage, restart, concurrent-write and migration tests.
+- [x] Document every new shared abstraction and its owner.
 
 ### Deliverables
 
-- [ ] Gated appRuntime.persistentSessions host capability.
-- [ ] Host-issued grant and validation implementation.
-- [ ] Small shared Orchestrator management interfaces.
-- [ ] Separate Room domain contracts.
-- [ ] Room split store, index and audit timeline.
-- [ ] Capability, storage and migration tests.
+- [x] Gated appRuntime.persistentSessions host capability.
+- [x] Host-issued grant and validation implementation.
+- [x] Small shared Orchestrator management interfaces.
+- [x] Separate Room domain contracts.
+- [x] Room split store, index and audit timeline.
+- [x] Capability, storage and migration tests.
 
 ### Acceptance criteria
 
-- [ ] Existing Workflow tests and persisted records remain compatible.
-- [ ] An external plugin cannot obtain the persistent-session capability.
-- [ ] A directory claiming an allowlisted app ID from an arbitrary path is rejected.
-- [ ] A defective built-in plugin cannot create a session outside its host-issued grant.
-- [ ] One subject cannot use another subject's capabilities or open its session.
-- [ ] Two concurrent creates cannot both pass a one-session cap.
-- [ ] A restart preserves grants and created counts and zeroes the live count.
-- [ ] A crash between reservation and construction leaks no count and binds no nonexistent session.
-- [ ] The capability has no dependency on Room domain record types.
-- [ ] A draft Room can be created, read, updated, listed, archived and deleted.
-- [ ] Current Room records are authoritative without event replay.
-- [ ] Duplicate command IDs do not duplicate logical changes.
-- [ ] Invalid envelope, member and authority data is rejected.
-- [ ] Shared interfaces contain no placeholder fields for the other mode.
-- [ ] Renderer contracts expose no credentials or host file authority.
-- [ ] pnpm typecheck and relevant tests pass.
+- [x] Existing Workflow tests and persisted records remain compatible.
+- [x] An external plugin cannot obtain the persistent-session capability.
+- [x] A directory claiming an allowlisted app ID from an arbitrary path is rejected.
+- [x] A defective built-in plugin cannot create a session outside its host-issued grant.
+- [x] One subject cannot use another subject's capabilities or open its session.
+- [x] Two concurrent creates cannot both pass a one-session cap.
+- [x] A restart preserves grants and created counts and zeroes the live count.
+- [x] A crash between reservation and construction leaks no count and binds no nonexistent session.
+- [x] The capability has no dependency on Room domain record types.
+- [x] A draft Room can be created, read, updated, listed, archived and deleted.
+- [x] Current Room records are authoritative without event replay.
+- [x] Duplicate command IDs do not duplicate logical changes.
+- [x] Invalid envelope, member and authority data is rejected.
+- [x] Shared interfaces contain no placeholder fields for the other mode.
+- [x] Renderer contracts expose no credentials or host file authority.
+- [x] pnpm typecheck and relevant tests pass.
 
 ## 7. Phase 3: Room Planner and adaptive templates
 
