@@ -597,7 +597,7 @@ The capability is named appRuntime.persistentSessions and is added to SERO_HOST_
 The Orchestrator sends a session request. It does not construct a session directly. A request includes:
 
 - a host-issued authority grant ID;
-- Room and member identity;
+- opaque owner, scope and subject identifier strings;
 - session operation;
 - approved workspace or worktree;
 - model selection;
@@ -605,11 +605,13 @@ The Orchestrator sends a session request. It does not construct a session direct
 - permission profile; and
 - resource-loading policy.
 
-The host stores or can resolve the approved authority grant. It validates that the request is a subset of the grant and current user authority. It validates workspace and session paths, model availability, capabilities, session count and Room state. It then constructs or opens the Pi session.
+The host stores or can resolve the approved authority grant. It validates that the request is a subset of the grant and current user authority. It validates workspace and session paths, model availability, capabilities, session count, grant validity and revocation state. It then constructs or opens the Pi session.
+
+Owner, scope and subject identifiers are opaque strings at this boundary. Room mode can use its Room and member IDs as values, but the host capability must not import, parse or depend on Room domain types.
 
 The host must reject a request when a defective or compromised plugin asks for more authority than the user approved. The host must not trust an operating envelope supplied only by the plugin request.
 
-A grant is scoped to the plugin, Room, workspace and permitted sessions. It is revocable when the Room stops, is deleted or loses authority.
+A grant is scoped to the plugin, opaque owner and scope identifiers, workspace and permitted session subjects. The calling product decides what those opaque values represent. It is revocable when its owning operation stops, is deleted or loses authority.
 
 The generic boundary can expose:
 
@@ -1075,7 +1077,9 @@ The Room view contains the authoritative Room timeline, roster controls, message
 
 The Usage plugin already scans nested Pi session files. Room sessions therefore remain part of total profile usage.
 
-Room session creation sets a Pi session name that identifies the Room and member. The Usage scanner also recognises the rooms/<roomId>/ session namespace and joins it to the Room index.
+Room session creation sets a Pi session name that identifies the Room and member. The Usage scanner recognises the rooms/<roomId>/ session namespace.
+
+The session path and Pi session name are the primary and sufficient grouping inputs. The Usage plugin does not read the Orchestrator store. An optional published lookup can enrich a group with a current Room label or link, but aggregation and attribution must continue to work without that lookup.
 
 Usage presents:
 
@@ -1084,7 +1088,7 @@ Usage presents:
 - Room title and member role labels; and
 - a link or stable Room ID for attribution.
 
-Room member cost must not appear as an unexplained ordinary chat. Usage grouping is derived from the session path and current Room metadata. It does not change the Pi session file format or duplicate usage data.
+Room member cost must not appear as an unexplained ordinary chat. Usage grouping is derived from the session path and Pi session name. Optional Room metadata can enrich labels and links only. It does not change the Pi session file format, duplicate usage data or create a direct cross-plugin store dependency.
 
 ## 28. Legacy engine replacement
 
@@ -1175,11 +1179,11 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | FR-033 | Local presence and remote provider cache behaviour are separate. |
 | FR-034 | Active cache keep-warm is not a first-release dependency. |
 | FR-035 | appRuntime.persistentSessions is a named, initially built-in-only host capability. |
-| FR-036 | The host validates every persistent-session request against a host-resolved user-approved grant. |
+| FR-036 | The host validates every persistent-session request against a host-resolved user-approved grant using only opaque owner, scope and subject identifiers. |
 | FR-037 | Member sessions load project context and approved resources through the filtered member resource policy. |
 | FR-038 | The Room coordinator automatically owns and updates the authoritative Room brief. |
 | FR-039 | Reply delivery wakes members through the event path and does not wait for the periodic tick. |
-| FR-040 | Usage analytics groups nested Room sessions by Room and member. |
+| FR-040 | Usage analytics groups nested Room sessions by Room and member from the session path and name without reading the Orchestrator store. |
 | FR-041 | Mandate updates change instructions only; capability changes require validated configuration revisions. |
 
 ## 32. Quality requirements
@@ -1211,7 +1215,7 @@ Phase 1 must confirm:
 - the computed consent-summary projection and fixed access-label mapping;
 - the filtered member-session resource and lifecycle policy;
 - the automatic Room brief projection and Conductor note;
-- the Usage grouping and Room/member labelling;
+- the path-and-name-derived Usage grouping, with any Room lookup limited to optional label or link enrichment;
 - the decision to keep internal Loop naming for Workflow records and the visible rename debt;
 - Workflows and Rooms navigation inside the Orchestrator UI;
 - the one-question Room create flow;
