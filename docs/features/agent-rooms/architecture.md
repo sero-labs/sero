@@ -265,8 +265,10 @@ Each step denies with a distinct reason. No later step runs after a denial.
    Everything after this validates against *that subject's* policy.
 5. **Path resolution.**
    - `create`: `sessionFile` must be a single leaf name with no separators. The
-     host joins it under `grant.sessionDir`, resolves it, and confirms
-     containment after symlink resolution.
+     host joins it under `grant.sessionDir`, resolves the **parent** (the file
+     does not exist yet), and confirms containment. It then denies when anything
+     already exists at the leaf, checked with `lstat` — a symlink planted there
+     passes a parent-only check and would redirect every write out of the grant.
    - `open`: the path comes from the subject registry. A subject with no
      registered path cannot be opened.
 6. **Working directory**: `realpath(cwd)` equals or is inside a realpath-resolved
@@ -274,9 +276,10 @@ Each step denies with a distinct reason. No later step runs after a denial.
    comparison, so a symlink cannot escape.
 7. **Model** is in the subject's `allowedModels` **and** currently resolvable
    through the host `ModelRuntime`, or deny.
-8. **Thinking level**, when supplied, is in the subject's
-   `allowedThinkingLevels`, or deny. It is caller-selectable and moves cost, so
-   it is policed like any other capability.
+8. **Thinking level** — the EFFECTIVE level (the request's, or the host default
+   when omitted) is in the subject's `allowedThinkingLevels`, or deny. Omitting
+   the field must not be a way to reach an unapproved default, so validation
+   returns the level it checked and the host applies exactly that.
 9. **Tools and skills** are subsets of the subject's lists, or deny. An unknown
    name is a denial, not a silent drop.
 10. **Prompt additions** total at or below the subject's
@@ -311,12 +314,28 @@ Then construction runs outside the lock. On success the reservation is
 committed and `createdSessions` increments; on failure it is released, and the
 binding it created is removed.
 
-At startup, every pending reservation is reconciled against the filesystem —
-the session file is the proof. Present means construction completed and the
-crash landed before the commit, so it commits. Absent means the session was
-never created, so the binding and the reserved count are released. Without this,
-a crash between persist and construct would leave a subject bound to a
-nonexistent session and permanently shrink the lifetime cap.
+At startup, every pending reservation is **rolled back** — never committed. A
+commit deletes its own reservation, so a surviving pending record means
+construction did not complete. File existence is not proof of completion:
+construction can create the file and then fail, and committing on that would
+register a session that was never usable. Rollback releases the reserved count,
+drops the binding, and removes the partial file so the next `create` for that
+subject starts clean. Without the reservation, a crash between persist and
+construct would leave a subject bound to a nonexistent session and permanently
+shrink the lifetime cap.
+
+Two invariants make the rollback safe to delete a file:
+
+- a subject's binding is **immutable** — a bound subject must `open`, not
+  `create`, so re-creating cannot orphan an earlier session; and
+- a path belongs to **exactly one subject** — two subjects can never reserve the
+  same file, so a deleted partial file can only be the one this reservation
+  made.
+
+A commit can also lose a race with revocation: revoke disposes the handles it
+can see, and a session still under construction is not one of them. So the
+commit re-checks status, and on a revoked grant it releases instead and tells
+the caller to dispose the session it just built.
 
 The **live** count is never persisted. After a restart nothing is live, so it is
 rebuilt from the host's in-memory live registry and correctly starts at zero. A
@@ -411,7 +430,11 @@ the grant `revoked`. Every later request against it is denied.
 | Plugin widens its resource profile | The host builds the resource loader from the grant. The request supplies no loader overrides. |
 | Plugin overrides the base system prompt | Additions are appended only, after host-required blocks, and are size-bounded per subject. |
 | Concurrent creates exceed the session cap | Count check, subject binding and pending reservation are one atomic critical section; pending reservations count toward both caps (§3.5.1). |
-| Crash leaks a lifetime-count slot or binds a nonexistent session | Reservations are two-phase and reconciled against the filesystem at startup (§3.5.1). |
+| Crash leaks a lifetime-count slot or binds a nonexistent session | Reservations are two-phase and always rolled back at startup (§3.5.1). |
+| Two subjects alias one session file | A path is bound to exactly one subject; a bound subject cannot re-create under a different path (§3.5.1). |
+| Symlink planted at the session leaf redirects writes | `create` denies when anything already exists at the leaf, checked with `lstat` so a symlink is not followed. |
+| Revocation races construction and a session survives its grant | Commit re-checks status and requires the caller to dispose on a revoked grant (§3.5.1). |
+| Omitted `thinking` reaches an unapproved host default | The **effective** level is validated, and the validated value is what the host applies (§3.5 step 8). |
 | Caller inflates the thinking level to raise cost | `allowedThinkingLevels` is part of the per-subject policy and validated (§3.5 step 8). |
 | Caller inflates permissions | A request carries no permission profile; the subject policy's is applied verbatim. |
 | Revoked grant keeps running | Revocation is write-first, then aborts and disposes; handles re-check status per operation. |
@@ -439,12 +462,15 @@ ID; session-path escape via a separator in `sessionFile`; session-path escape vi
 symlink; `cwd` escape via symlink; subject with no policy; tool outside the
 subject's policy; skill outside the subject's policy; model outside the policy;
 model in the policy but unavailable at runtime; permission profile above the
-policy; oversized prompt additions; thinking level outside the policy; `open` with a
-caller-supplied path for another subject; two concurrent creates against a
-one-session cap; use of a revoked grant; restart with a persisted grant and a
-zeroed live count; restart with a pending reservation whose session file exists
-(commits); restart with a pending reservation whose session file is absent
-(rolls back the binding and the count).
+policy; oversized prompt additions; explicit thinking level outside the policy; OMITTED
+thinking level whose host default is outside the policy; symlink planted at the
+session leaf; `create` onto an existing leaf; `open` with a caller-supplied path
+for another subject; a second subject reserving a path already bound; a bound
+subject re-creating under a different path; two concurrent creates against a
+one-session cap; use of a revoked grant; a commit that lands after revocation
+(must refuse and demand disposal); restart with a persisted grant and a zeroed
+live count; restart with a pending reservation (always rolls back the binding,
+the count and the partial file, whether or not the file exists).
 
 ## 5. Filtered member resource policy
 

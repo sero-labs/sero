@@ -9,7 +9,7 @@
  * by the grant store, because a check followed by a create is a race.
  */
 
-import { realpathSync } from 'fs';
+import { lstatSync, realpathSync } from 'fs';
 import path from 'path';
 
 import type {
@@ -26,6 +26,7 @@ export type DenyReason =
   | 'subject-not-granted'
   | 'session-file-not-a-leaf'
   | 'session-path-escape'
+  | 'session-path-exists'
   | 'session-path-unregistered'
   | 'cwd-not-allowed'
   | 'model-not-allowed'
@@ -42,6 +43,8 @@ export interface ValidationOk {
   sessionPath: string;
   /** Absolute working directory, already symlink-resolved. */
   cwd: string;
+  /** The level the caller must apply — the one that was actually validated. */
+  thinking: string;
 }
 
 export interface ValidationDenied {
@@ -78,6 +81,16 @@ export function isWithinPermissionProfile(
     });
 }
 
+/** True when anything exists at this path, INCLUDING a dangling symlink. */
+function lstatSafe(target: string): boolean {
+  try {
+    lstatSync(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** realpath, falling back to a lexical resolve for a path that does not exist yet. */
 function canonical(target: string): string {
   try {
@@ -110,10 +123,16 @@ export interface ValidateInput {
   registeredSessionPath: string | null;
   /** Model ids currently resolvable through the one host ModelRuntime. */
   availableModelIds: ReadonlySet<string>;
+  /**
+   * The level the host applies when the request omits `thinking`. Validated
+   * like an explicit one — otherwise omitting the field would select an
+   * unchecked default that the subject was never approved for.
+   */
+  defaultThinking: string;
 }
 
 export function validatePersistentSessionRequest(input: ValidateInput): ValidationResult {
-  const { request, grant, callerAppId, registeredSessionPath, availableModelIds } = input;
+  const { request, grant, callerAppId, registeredSessionPath, availableModelIds, defaultThinking } = input;
 
   // 1–2. grant resolves and is live
   if (!grant) return deny('grant-not-found', `No grant ${request.grantId}.`);
@@ -145,12 +164,20 @@ export function validatePersistentSessionRequest(input: ValidateInput): Validati
     if (!isInside(canonical(path.dirname(joined)), canonical(grant.sessionDir))) {
       return deny('session-path-escape', `Resolved session path escapes ${grant.sessionDir}.`);
     }
+    // The leaf must not already exist. A pre-planted SYMLINK at the leaf passes
+    // the parent check above and would redirect every session write outside the
+    // grant's directory. lstat, not stat — stat follows the link and hides it.
+    if (lstatSafe(joined)) {
+      return deny('session-path-exists', `${joined} already exists; use open, not create.`);
+    }
     sessionPath = joined;
   } else {
     // `open` takes NO caller path — one subject can never open another's file.
     if (!registeredSessionPath) {
       return deny('session-path-unregistered', `Subject ${request.subject} has no created session.`);
     }
+    // Re-resolve on every open: the file exists now, so realpath resolves the
+    // leaf itself and catches a symlink swapped in after the binding was made.
     if (!isInside(canonical(registeredSessionPath), canonical(grant.sessionDir))) {
       return deny('session-path-escape', `Registered path escapes ${grant.sessionDir}.`);
     }
@@ -172,9 +199,12 @@ export function validatePersistentSessionRequest(input: ValidateInput): Validati
     return deny('model-unavailable', `Model ${request.model} is not available on this machine.`);
   }
 
-  // 8. thinking level — caller-selectable and cost-bearing, so it is policed
-  if (request.thinking !== undefined && !policy.allowedThinkingLevels.includes(request.thinking)) {
-    return deny('thinking-not-allowed', `Thinking level ${request.thinking} is not in this subject's policy.`);
+  // 8. thinking level — caller-selectable and cost-bearing, so it is policed.
+  // Validate the EFFECTIVE level: omitting the field must not be a way to reach
+  // a host default the subject was never approved for.
+  const effectiveThinking = request.thinking ?? defaultThinking;
+  if (!policy.allowedThinkingLevels.includes(effectiveThinking)) {
+    return deny('thinking-not-allowed', `Thinking level ${effectiveThinking} is not in this subject's policy.`);
   }
 
   // 9. tools and skills — an unknown name is a denial, not a silent drop
@@ -201,5 +231,5 @@ export function validatePersistentSessionRequest(input: ValidateInput): Validati
     );
   }
 
-  return { ok: true, policy, sessionPath, cwd: resolvedCwd };
+  return { ok: true, policy, sessionPath, cwd: resolvedCwd, thinking: effectiveThinking };
 }

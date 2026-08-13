@@ -10,17 +10,23 @@
  *
  * **Crash safety.** The reservation is two-phase. Persisting the subject binding
  * and incrementing the created count *before* construction, and crashing before
- * the file exists, would leave a subject bound to a nonexistent session and a
+ * the session exists, would leave a subject bound to a nonexistent session and a
  * leaked count that permanently shrinks the cap. So a reservation is written as
- * `pending`, construction runs, and only then is it committed. On startup any
- * pending reservation whose session file is absent is rolled back.
+ * `pending`, construction runs, and only then is it committed.
+ *
+ * At startup every pending reservation is ROLLED BACK, never committed. File
+ * existence is not proof that this reservation completed — construction can
+ * create the file and then fail — so committing on it would register a session
+ * that was never usable. Rolling back is the only safe direction: the reserved
+ * count is released, the binding is dropped, and the partial file is removed so
+ * the next `create` for that subject starts clean.
  *
  * **Live vs created counts.** `createdSessions` persists — it is a lifetime cap.
  * The live count never persists: after a restart nothing is live, and a
  * persisted live count would leak on a crash and wedge the grant forever.
  */
 
-import { existsSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 
 import type {
   PersistentSessionGrantProposal,
@@ -47,8 +53,12 @@ export interface StoredGrant {
   sessionPaths: Record<string, string>;
   /** Lifetime count of successfully created sessions. Persists. */
   createdSessions: number;
-  /** Reservations written before construction and cleared after it. */
-  pending: Record<string, { sessionPath: string; startedAt: string }>;
+  /**
+   * Reservations written before construction and cleared after it. The subject
+   * is recorded so a rollback knows exactly which binding it created — without
+   * it, reconciliation has to guess by matching paths.
+   */
+  pending: Record<string, { subject: string; sessionPath: string; startedAt: string }>;
 }
 
 export interface GrantStatePersistence {
@@ -58,7 +68,23 @@ export interface GrantStatePersistence {
 
 export type ReserveResult =
   | { ok: true; reservationId: string }
-  | { ok: false; reason: 'grant-not-found' | 'grant-revoked' | 'live-limit' | 'total-limit' };
+  | {
+      ok: false;
+      reason:
+        | 'grant-not-found'
+        | 'grant-revoked'
+        | 'live-limit'
+        | 'total-limit'
+        | 'subject-already-bound'
+        | 'path-already-bound';
+    };
+
+/**
+ * A commit can lose a race with revocation. When it does the session was
+ * already constructed, so the caller MUST dispose it — the store cannot, and a
+ * silently kept session would outlive the grant that authorised it.
+ */
+export type CommitResult = { ok: true } | { ok: false; reason: 'grant-revoked'; disposeRequired: true };
 
 export interface GrantStoreDeps {
   persistence: GrantStatePersistence;
@@ -66,6 +92,8 @@ export interface GrantStoreDeps {
   newId(prefix: string): string;
   /** Injected so restart reconciliation is testable without a real filesystem. */
   sessionFileExists?(sessionPath: string): boolean;
+  /** Removes a partial session file left by a reservation that never committed. */
+  removeSessionFile?(sessionPath: string): void;
 }
 
 export class GrantStore {
@@ -88,6 +116,10 @@ export class GrantStore {
     return (this.deps.sessionFileExists ?? existsSync)(sessionPath);
   }
 
+  private removeFile(sessionPath: string): void {
+    (this.deps.removeSessionFile ?? ((target: string) => rmSync(target, { force: true })))(sessionPath);
+  }
+
   /**
    * Loads grants and rolls back reservations that never completed. MUST run
    * before any plugin runtime starts, so a runtime cannot race the store.
@@ -99,15 +131,19 @@ export class GrantStore {
     let changed = false;
     for (const grant of Object.values(this.grants)) {
       for (const [reservationId, reservation] of Object.entries(grant.pending ?? {})) {
-        // The session file is the proof. Present ⇒ construction completed and
-        // the crash happened before the commit, so commit it now. Absent ⇒ the
-        // session was never created, so release the count and the binding.
+        // ALWAYS roll back. A commit deletes its reservation, so a surviving
+        // pending record means construction did not complete — and file
+        // existence cannot distinguish "constructed then crashed" from
+        // "construction created the file and then failed", so it is not proof.
+        // Releasing is the only safe direction.
+        if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
+          delete grant.sessionPaths[reservation.subject];
+        }
+        // Remove the partial file so the next create for this subject is clean.
+        // Safe because a path is bound to exactly one subject, so this file can
+        // only have come from this reservation.
         if (this.fileExists(reservation.sessionPath)) {
-          grant.createdSessions += 1;
-        } else {
-          for (const [subject, boundPath] of Object.entries(grant.sessionPaths)) {
-            if (boundPath === reservation.sessionPath) delete grant.sessionPaths[subject];
-          }
+          this.removeFile(reservation.sessionPath);
         }
         delete grant.pending[reservationId];
         changed = true;
@@ -177,37 +213,77 @@ export class GrantStore {
         return { ok: false as const, reason: 'total-limit' as const };
       }
 
+      // A subject's binding is IMMUTABLE. Re-creating under a different path
+      // would leave the old session orphaned and let one subject own two
+      // sessions — so a bound subject must use `open`, not `create`.
+      const existingBinding = grant.sessionPaths[subject];
+      if (existingBinding && existingBinding !== sessionPath) {
+        return { ok: false as const, reason: 'subject-already-bound' as const };
+      }
+      // A path belongs to exactly ONE subject. Without this two subjects could
+      // reserve the same file and alias each other's session — and the rollback
+      // that deletes a partial file could then destroy the other's work.
+      const pathOwner = Object.entries(grant.sessionPaths)
+        .find(([boundSubject, boundPath]) => boundPath === sessionPath && boundSubject !== subject);
+      const pathPending = Object.values(grant.pending)
+        .some((reservation) => reservation.sessionPath === sessionPath && reservation.subject !== subject);
+      if (pathOwner || pathPending) {
+        return { ok: false as const, reason: 'path-already-bound' as const };
+      }
+
       const reservationId = this.deps.newId('resv');
-      grant.pending[reservationId] = { sessionPath, startedAt: this.deps.now() };
-      // First binding wins and is never rewritten — a subject's session path is
-      // immutable, which is what makes `open` safe without a caller path.
-      grant.sessionPaths[subject] ??= sessionPath;
+      grant.pending[reservationId] = { subject, sessionPath, startedAt: this.deps.now() };
+      grant.sessionPaths[subject] = sessionPath;
       await this.deps.persistence.write(this.grants);
       return { ok: true as const, reservationId };
     });
   }
 
-  /** Phase two: construction succeeded. */
-  async commitReservation(grantId: string, reservationId: string, handleId: string): Promise<void> {
+  /**
+   * Phase two: construction succeeded. Re-checks revocation, because revoke can
+   * run while construction is in flight — it disposes the handles it can see,
+   * and this one did not exist yet. Committing blindly would register a live
+   * session on a revoked grant.
+   */
+  async commitReservation(grantId: string, reservationId: string, handleId: string): Promise<CommitResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
-      if (!grant?.pending[reservationId]) return;
+      const reservation = grant?.pending[reservationId];
+      if (!grant || !reservation) return { ok: true as const };
+
+      if (grant.status !== 'active') {
+        delete grant.pending[reservationId];
+        if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
+          delete grant.sessionPaths[reservation.subject];
+        }
+        await this.deps.persistence.write(this.grants);
+        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+      }
+
       delete grant.pending[reservationId];
       grant.createdSessions += 1;
       this.trackLive(grantId, handleId);
       await this.deps.persistence.write(this.grants);
+      return { ok: true as const };
     });
   }
 
-  /** Phase two: construction failed. Releases the count and any binding it made. */
-  async releaseReservation(grantId: string, reservationId: string, subject: string): Promise<void> {
+  /**
+   * Phase two: construction failed. Releases the binding this reservation made
+   * and removes any partial file, so the next create for the subject is clean.
+   * The subject comes from the reservation, never from the caller.
+   */
+  async releaseReservation(grantId: string, reservationId: string): Promise<void> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       const reservation = grant?.pending[reservationId];
       if (!grant || !reservation) return;
       delete grant.pending[reservationId];
-      if (grant.sessionPaths[subject] === reservation.sessionPath && !this.fileExists(reservation.sessionPath)) {
-        delete grant.sessionPaths[subject];
+      if (grant.sessionPaths[reservation.subject] === reservation.sessionPath) {
+        delete grant.sessionPaths[reservation.subject];
+      }
+      if (this.fileExists(reservation.sessionPath)) {
+        this.removeFile(reservation.sessionPath);
       }
       await this.deps.persistence.write(this.grants);
     });
