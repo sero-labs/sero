@@ -1,50 +1,34 @@
 # Sero Monorepo
-
-When the user asks about pi itself (its SDK, extensions, themes, skills, TUI, or other internals), use the `pi-docs` skill — it maps every topic to the bundled pi documentation and examples.
+You are my helpful AI assistant working on Sero an agentic desktop OS.
+Sero is special because it provides a self-improving, plugin based architecture that helps us build complex AI driven applications inside the host.
+We are building the application together and I like to aim for the simplest solution and to reduce complexity wherever possible.
+Below is some useful information and some of my coding preferences.
 
 ## Structure
 
 ```
 sero/
 ├── apps/
-│   ├── desktop/          # Electron + React shell
-│   ├── docs-site/        # Astro docs
-│   ├── homepage/         # Sero Landing Page
-│   └── web-remote/       # Web app served via Tailscale
+│   ├── desktop/            # Electron + React shell
+│   ├── docs-site/          # Astro docs
+│   ├── homepage/           # Sero Landing Page
+│   └── web-remote/         # Web app served via Tailscale
 ├── packages/
-│   ├── app-runtime/      # @sero-ai/app-runtime — shared hooks/context
-│   ├── common/           # Shared types and utilities
-│   ├── templates/        # Skills/themes/agents/user profile for new profiles
-│   └── ui/               # Shared UI components, AI elements, and design tokens
+│   ├── app-runtime/        # shared hooks for Sero plugins
+│   ├── common/             # shared types & utilities (no Electron/Node-only dependencies)
+│   ├── extension-runtime/  # shared Node/runtime helpers for isolated background agent work in Sero plugins
+│   ├── templates/          # Skills/themes/agents/user profile for new profiles
+│   └── ui/                 # Shared UI components, AI elements, and design tokens
 ├── plugins/
-│   ├── sero-cron-plugin/     # Built-in plugin + background jobs
-│   ├── sero-admin-plugin/    # Built-in admin/config tooling
+│   ├── sero-cron-plugin/   # Built-in plugin + background jobs
+│   ├── sero-admin-plugin/  # Built-in admin/config tooling
 │   └── other built-in Sero plugins...
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── package.json          # Root — workspace scripts
 ```
 
-## Quick Start & Commands
-
-**Monorepo (root):**
-```bash
-pnpm install
-pnpm build
-pnpm dev
-pnpm typecheck
-pnpm test
-pkill -f "vite"; pkill -f "electron"
-```
-
 **Typecheck (CRITICAL)**: Run `pnpm typecheck` from the monorepo root **before every commit**. All packages (renderer + electron main process via `tsconfig.electron.json`) must pass with zero errors. Never commit with `@ts-ignore`, `@ts-expect-error`, or `any` casts unless unavoidable (leave explanatory comment).
-
-## Shared Packages & Plugins
-
-- **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` for federated plugin modules
-- **`@sero-ai/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
-- **`@sero-ai/extension-runtime`** — shared Node/runtime helpers for isolated background agent work (e.g. `runIsolatedCompletion`), used by both plugin **extensions** and the desktop **host** (e.g. adhoc PR-draft generation). Runs completions in a session with no extensions/skills/context/`APPEND_SYSTEM.md`, so background jobs can't be contaminated by a project's prompt files or trigger session-lifecycle hooks. The bundler (plugins and electron) inlines it and keeps the Pi SDK peers external. Use this (not `@sero-ai/common`) for code that needs the Pi coding-agent runtime.
-- **`@sero-ai/ui`** - shared ui components 
 
 **Tool installs are machine-shared, NEVER per-profile.** When a plugin or
 feature provisions a heavyweight dependency (a Python environment, a CLI
@@ -61,24 +45,9 @@ steps for the user.
 
 Built-in plugins live in `plugins/sero-*-plugin/`. Most complete in-repo examples:
 - `sero-git-plugin` — app + tool integration with a substantial UI
-- `sero-cron-plugin` — background jobs & reminders
+- `sero-orchestrator-plugin` — orchestrate dynamic AI workflows via a DAG
 - `sero-admin-plugin` — config editor, log viewer, session browser
-- `sero-memory-plugin` — persistent memory system & daily logs
-
-External plugin examples live alongside this repo under `../plugins/`, notably
-`sero-google-plugin` and `sero-kanban-plugin`.
-
-## Documentation
-
-- [docs/sero.md](docs/sero.md) — vision, platform constraints, Pi SDK philosophy
-- [docs/architecture.md](docs/architecture.md) — shell layout, component hierarchy
-- [docs/decisions.md](docs/decisions.md) — numbered architecture decisions (see AD-018, AD-020)
-- [docs/features/memory.md](docs/features/memory.md) — memory system, tools, context injection
-- [docs/reference/state-and-folders.md](docs/reference/state-and-folders.md) — config/state locations
-- [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty rebuild guide (MUST READ if terminals fail)
-- [docs/themes/README.md](docs/themes/README.md) — theming & style guide
-- [docs/plugins/guide.md](docs/plugins/guide.md) — creating, distributing, installing plugins
-- [docs/plugins/technical.md](docs/plugins/technical.md) — plugin system internals
+- `sero-cron-plugin` — background jobs & reminders
 
 Logs: source-dev logs live in `~/.sero-ui/logs/` (or `$SERO_LOG_DIR`) with compatibility symlinks at `/tmp/sero-*.log`. Inside container workspaces, start at `/workspace/.sero/logs/README.md`; useful files include `dev/sero-electron.log`, `dev/sero-vite.log`, and `dev/sero-remote-<app-id>.log`.
 
@@ -88,7 +57,7 @@ Logs: source-dev logs live in `~/.sero-ui/logs/` (or `$SERO_LOG_DIR`) with compa
 Sero uses **`~/.sero-ui/agent/`** (set via `PI_CODING_AGENT_DIR` in `apps/desktop/electron/platform/env/index.ts`). Never use `~/.pi/agent/`. Single source of truth: that file exports `SERO_HOME` and `SERO_AGENT_DIR`.
 
 **Creating a Sero Plugin (IMPORTANT)**  
-Follow the `sero-plugin` skill process exactly (package structure, shared types, Pi extension, web UI, module federation, dev workflow). Registration is automatic for any `plugins/sero-*-plugin/` containing `sero.app` in its `package.json`. Built-in plugins do not appear in Plugin Manager.
+Follow the `sero-plugin` skill process exactly (package structure, shared types, Pi extension, web UI, module federation, dev workflow). Registration is automatic for any `plugins/sero-*-plugin/` containing `sero.app` in its `package.json`
 
 **IPC Data Flow (IMPORTANT)**  
 All cross-process data must update **four layers together**:
@@ -105,27 +74,27 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 
 **General**
 - **CRITICAL** Only report to me in ASD-STE100 Simplified Technical English.
+- Tests are good. Endless smoke tests or "regression tests" for feature deletions, etc. much less good. Tests should be functional, not just for the sake of it.
+- When reviewing a PR, a branch, or a diff — use the `sero-code-review` skill (not the built-in `code-review`)
 - Save new documentation/plans in `@docs/` or typed subfolders
-- Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
-- Always create pull requests as drafts. Never mark a pull request ready for review unless the user explicitly asks.
-- **CRITICAL** Reviewing a PR, a branch, or a diff — use the `sero-code-review` skill (not the built-in `code-review`). It is the process: verify every finding in the source, sweep the fault class, and keep one comment per PR.
-- Ensure good type safety in source files when conducting PR reviews
+- Always create pull requests as drafts. Never mark a pull request ready for review unless the user explicitly asks
 - Always add code reviews as a comment in related Github issue
-- Avoid duplicating types that already exist in Pi SDK libraries. Import the canonical Pi types instead so upstream changes fail at typecheck time rather than becoming runtime mismatches.
-- Do not delete relevant comments
+- Code should be self-explanatory, but include concise comments where the purpose cannot be inferred easily
+- Avoid duplicating types that already exist in Pi SDK libraries. Import the canonical Pi types instead so upstream changes fail at compile time
+- When using Typescript, take advantage of it's type system. Trust it. Don't check for things it guarantees.
+- Don't write one-line wrappers and casting functions in Typescript, you are not a Python dev. TS should be written like TS not Python.
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns
-- Keep code as simple and idiomatic as possible. Never use try-catch for file existence or normal flow control. Refactor any bureaucratic/over-defensive code to the minimal readable solution.
+- Keep code as simple and idiomatic as possible. Never use try-catch for file existence or normal flow control. Refactor any bureaucratic/over-defensive code to the minimal readable solution. Channel 'YAGNI' principles.
 - Always use top-level imports (no inline `import('...')` type expressions)
-- When creating UI components, try to make them self-explanatorys and avoid duplicating descriptive text in multiple places
 - Before creating a PR check and update the `@apps/docs-site` documentation and update as required
 - When writing text/copy for Sero codebase or end-user documentation keep it simple, without convoluted long blocks of text
-- Do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
+- NEVER add unnecessary clutter to UI components. For instance do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
 - Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
-- NEVER add unnecessary clutter to UI components
-- When giving instructions to manually review changes do so in simple unambiguous terms - no jargon or expectation of recent familiarity with the subject
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
 - UX prototypes should be saved in `docs/prototypes`. Always create a prototype when developing a new feature or component. Prototypes should be static unless stated (see existing examples).
+- When the user asks about pi itself (its SDK, extensions, themes, skills, TUI, or other internals), use the `pi-docs` skill — it maps every topic to the bundled pi documentation and examples.
+- If your 
 
 ## Styling
  - Don't use specific tailwind font-sizes, use utilities like `text-sm`,`text-base`, etc.
