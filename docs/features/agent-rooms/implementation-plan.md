@@ -12,9 +12,8 @@ Deliver Room mode through gated phases. Do not begin a runtime phase until the p
 
 Phase 1 is the product and architecture gate. Runtime implementation starts only after the static prototype is approved and its decisions are recorded in spec.md.
 
-Prototype path:
-
-    docs/prototypes/sero-agent-rooms.html
+Prototype path: docs/prototypes/sero-agent-rooms.html
+Existing prototype example: docs/prototypes/sero-design-library-plugin.html
 
 ## 2. Target outcome
 
