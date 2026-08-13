@@ -1005,13 +1005,14 @@ The static prototype must show:
 6. Optional Why this team? content.
 7. Advanced blueprint settings.
 8. Live Room with compact roster and current activity.
-9. Member inspector with transcript, mandate, context and worktree.
-10. Conductor-added or replaced member.
-11. Multi-member approval and attention inbox.
-12. Waiting, blocked, paused and failed states.
-13. Path-claim conflict.
-14. Result delivery to an invoking chat.
-15. Completion with artifacts, duration and cost.
+9. Live view of every member's current work at once.
+10. Member session inspector with live turn, complete history, mandate, context and worktree.
+11. Conductor-added or replaced member.
+12. Multi-member approval and attention inbox.
+13. Waiting, blocked, paused and failed states.
+14. Path-claim conflict.
+15. Result delivery to an invoking chat.
+16. Completion with artifacts, duration and cost.
 
 ### 25.3 Accessibility and progressive disclosure
 
@@ -1185,6 +1186,8 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | FR-039 | Reply delivery wakes members through the event path and does not wait for the periodic tick. |
 | FR-040 | Usage analytics groups nested Room sessions by Room and member from the session path and name without reading the Orchestrator store. |
 | FR-041 | Mandate updates change instructions only; capability changes require validated configuration revisions. |
+| FR-042 | A user can observe every member's current activity live, without opening each member in turn. |
+| FR-043 | A user can read a member's complete session history at any time, including before a compaction and after the member retires. |
 
 ## 32. Quality requirements
 
@@ -1205,6 +1208,8 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | NFR-013 | A defective plugin cannot create or open a session beyond its host-issued grant. |
 | NFR-014 | A waiting member starts its resumed turn within two seconds at the 95th percentile when local capacity and limits permit. |
 | NFR-015 | Authority-bearing proposal fields cannot disagree with the runtime blueprint because they are deterministic projections. |
+| NFR-016 | Live observation adds no second transcript store. Streamed output is transient view state and is never written into Room records. |
+| NFR-017 | Observing a member cannot change what it does. Observation is read-only and holds no execution slot. |
 
 ## 33. Phase 1 design checks
 
@@ -1331,6 +1336,32 @@ Architecture decisions AD-028 and AD-029 are recorded in
   view keeps per-member cost and each artifact's producer.
 - **D-29** Failure, deadlock, block and pause states each state what happened,
   what it costs while in that state, and the next action.
+
+### 34.5.1 Live observation
+
+Added after the Phase 1 product review. Observation is a first-class part of
+Room mode, not a debugging affordance.
+
+- **D-30** A Room has two views of its members: **Timeline**, which records what
+  has happened, and **Watch**, which shows what every member is doing right now.
+  Both are reachable from the Room bar.
+- **D-31** The Watch view streams each member's current turn live — the assistant
+  text as it arrives and the tool call in flight with its elapsed time. A member
+  that is waiting, idle, finished or queued states that instead of showing a
+  stale last line, and says whether it holds a turn.
+- **D-32** A member session view follows the live turn by default. Turning
+  **Follow** off leaves the scroll where the user put it. The in-flight tool call
+  is also shown in the side rail, so it stays visible when the user has scrolled
+  away.
+- **D-33** A turn strip above the transcript is the whole session at a glance —
+  one mark per turn, with compaction points and Room messages marked — so the
+  user can jump anywhere in the history, including before a compaction. Early
+  turns collapse to a summary row that expands on demand.
+- **D-34** A member's complete history stays readable for the Room's lifetime,
+  including after it retires, is replaced, or fails. Disposing a live session
+  never removes its history.
+- **D-35** Observation is read-only. It cannot change what a member does, and it
+  holds no execution slot.
 
 ### 34.6 Scope confirmed for the first release
 

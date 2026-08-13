@@ -254,6 +254,9 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [ ] Project only member-relevant Room brief content into each session.
 - [ ] Monitor context usage and compact only at safe turn boundaries.
 - [ ] Preserve a member checkpoint, Room brief, mandate, questions and artifacts through compaction.
+- [ ] Implement subscribe as a bounded per-member live output buffer that is never persisted.
+- [ ] Implement paged member-history reads through the host capability, derived on read.
+- [ ] Keep observation read-only, holding no execution slot and changing no member behaviour.
 - [ ] Add local presence plus passive cache read and write usage capture.
 - [ ] Add real temporary-session, fake-clock, concurrency, compaction and restart tests.
 
@@ -262,6 +265,7 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [ ] Standard Pi persistent member-session host.
 - [ ] Bounded live session pool and Room scheduler integration.
 - [ ] Restart reconciliation.
+- [ ] Live member observation and paged history reads.
 - [ ] Context management, compaction and passive cache telemetry.
 - [ ] Deterministic runtime tests.
 
@@ -275,6 +279,9 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [ ] Pause, cancellation and hard limits stop new turns correctly.
 - [ ] Concurrency stays within limits and the Conductor reserve remains available.
 - [ ] Context compaction preserves current responsibilities and active work.
+- [ ] A member's live turn output and complete history are both readable through the runtime.
+- [ ] A retired, replaced or failed member's history stays readable.
+- [ ] Observation writes nothing into Room records.
 - [ ] A provider with no cache metadata runs normally.
 - [ ] Member sessions contain approved project context but do not load every installed extension.
 - [ ] The authoritative Room brief is available without reading the full Room transcript.
@@ -389,7 +396,9 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 - [ ] Implement Rooms home and the approved simple creation flow.
 - [ ] Implement compact computed proposal, natural-language adjustment and advanced settings.
 - [ ] Implement live roster, activity, work, claims, artifacts and Room revisions.
-- [ ] Implement member transcript, mandate, context, worktree and cost inspection.
+- [ ] Implement the Watch view showing every member's current activity live.
+- [ ] Implement the member session view with a live turn, follow toggle, turn strip and collapsed early history.
+- [ ] Implement member mandate, context, worktree and cost inspection.
 - [ ] Implement direct message, queued broadcast, explicit wake, pause, resume, cancel and intervention.
 - [ ] Implement consolidated approvals, deadlock, failure and recovery states.
 - [ ] Implement completion and invoking-chat delivery state.
@@ -404,7 +413,9 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 - [ ] Workflows and Rooms navigation.
 - [ ] Simple create, preparation and computed proposal flow.
 - [ ] Natural-language adjustment and advanced configuration.
-- [ ] Live Room, member inspector, approvals, recovery and completion UI.
+- [ ] Live Room timeline and Watch views.
+- [ ] Live member session viewer with full history navigation.
+- [ ] Approvals, recovery and completion UI.
 - [ ] Agent Board and Usage linking.
 - [ ] Accessible component and end-to-end tests.
 
@@ -417,6 +428,8 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 - [ ] Reload and restart restore the same visible Room state.
 - [ ] Every member and Room state has a clear explanation and next action.
 - [ ] Approval requests identify the responsible member and authority change.
+- [ ] A user can see what every member is doing right now without opening each one.
+- [ ] A user can read any member's complete history, including before a compaction and after it retires.
 - [ ] Room members are inspectable without appearing as normal chats.
 - [ ] Agent Board and Usage links do not duplicate Room controls.
 - [ ] Result-to-chat passes end-to-end tests.
@@ -585,6 +598,7 @@ Each pull request must state:
 - [ ] appRuntime.persistentSessions is host-gated and enforces approved grants.
 - [ ] Every member uses a standard persistent Pi session with the filtered resource policy.
 - [ ] Members dispose, reopen, compact and recover without transcript duplication.
+- [ ] A user can watch every member live and read any member's complete history.
 - [ ] The Conductor revises the Room only inside the approved envelope.
 - [ ] Authority expansion requires user approval.
 - [ ] Members communicate, wait and wake without holding idle capacity.

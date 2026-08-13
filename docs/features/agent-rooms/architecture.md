@@ -361,3 +361,56 @@ recovery and reconciliation. It is not the normal wake path.
 Target: a waiting member's resumed turn starts within two seconds at the 95th
 percentile when local capacity and limits permit. Provider response time is
 outside the target.
+
+## 12. Live observation contract
+
+Added after the Phase 1 product review (spec.md §34.5.1). Two questions need
+different plumbing: *what has happened* is Room state, and *what is happening
+right now* is a live stream.
+
+### 12.1 Live stream
+
+The capability's `subscribe` operation is the seam. It already exists in the
+AD-029 operation set — no new host surface is needed.
+
+    Pi AgentSession events
+      → host persistent-session capability (subscribe)
+        → Orchestrator runtime (per-member live buffer, bounded)
+          → Room live event
+            → renderer
+
+Rules:
+
+- The renderer never holds a session handle. It receives live events only.
+- The live buffer is **transient view state**. It is bounded per member (last
+  turn only) and is never written into Room records, so it cannot become a
+  second transcript store (NFR-002, NFR-016).
+- Subscribing is read-only and holds no execution slot (NFR-017). A member that
+  nobody is watching behaves identically.
+- When no client is watching, the runtime still needs turn-completion events for
+  scheduling, but it does not need to retain streamed text. Retention follows
+  demand, in the same way `attachDemandSync` already gates event-source
+  adapters in `runtime/index.ts`.
+
+### 12.2 History
+
+History is the Pi session file. It is not copied into Room state.
+
+- The renderer requests a page of a member's history through an Orchestrator
+  plugin action. The plugin reads the session file through the host capability.
+  The renderer never opens a session file itself (NFR-005).
+- Reads are paged from the tail, so opening a long session does not load the
+  whole file.
+- The turn index — turn boundaries, compaction points, Room messages, tool-call
+  counts — is derived on read from the same file. It is not a stored structure
+  that could drift from the transcript.
+- History survives member disposal, retirement, replacement and failure, for the
+  Room's lifetime. Disposing a live session closes the `AgentSession`; it does
+  not touch the file (AD-029, §3.4).
+
+### 12.3 Phase placement
+
+- **Phase 4** implements `subscribe` and the bounded per-member live buffer, and
+  the paged history read.
+- **Phase 7** implements the Watch view, the follow toggle, the turn strip and
+  the collapsed-history row.
