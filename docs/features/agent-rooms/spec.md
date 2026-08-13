@@ -1,6 +1,6 @@
 # Agent Rooms feature specification
 
-Status: Draft for Phase 1 validation  
+Status: Ready for Phase 1  
 Branch: feat/agent-rooms  
 Product owner: Sero maintainers  
 Parent product: Sero Orchestrator plugin  
@@ -85,6 +85,29 @@ The prototype path is:
 
 Runtime implementation must not start until Phase 1 is approved and the resulting decisions are recorded.
 
+### 2.8 The consent summary is a deterministic projection
+
+The Room Planner generates and revises the complete RoomBlueprint. Application code computes every authority-bearing field in the compact proposal from the validated blueprint that the runtime will enforce.
+
+Code computes:
+
+- team size from the validated member list;
+- maximum working time from the operating envelope;
+- maximum spend from the operating envelope; and
+- access from the union of approved tools, skills, permissions, workspace modes and delivery capabilities.
+
+The LLM can write role one-liners, the approach summary and Why this team? rationale. It cannot write or override the authority summary that the user approves.
+
+Sero validates a revised blueprint and recomputes the proposal after every natural-language adjustment.
+
+### 2.9 Existing Pi machinery, new host authority boundary
+
+Pi already provides session creation, persistence, reopen, history and compaction. Room mode reuses those APIs.
+
+The new part is a plugin-to-host capability that lets the built-in Orchestrator request managed persistent sessions. The host, not the plugin, validates every request against a user-approved authority grant before it creates or opens a session.
+
+Phase 1 must design and record this trust boundary. The initial capability is available only to bundled first-party plugins.
+
 ## 3. Terms
 
 ### 3.1 Workflow
@@ -127,7 +150,11 @@ A validated change to the Room definition or runtime roster. Each revision recor
 
 ### 3.10 Room brief
 
-A compact, current summary of the goal, important decisions, active work, blockers and artifacts. New members and compacted sessions receive a relevant Room brief instead of the complete Room transcript.
+A compact, current summary of the goal, important decisions, active work, blockers and artifacts.
+
+The Room coordinator owns and automatically updates the authoritative brief from current Room state after structural progress. The Conductor can add a short situation note, but it cannot change authority-bearing fields through the note.
+
+New members and compacted sessions receive a member-relevant projection of the Room brief instead of the complete Room transcript.
 
 ## 4. Problem
 
@@ -270,8 +297,9 @@ Implementation must inspect and reuse or generalise these seams. A new parallel 
 | Runtime plan revision pattern | runtime/revise.ts and recovery decision handling |
 | Worktree lifecycle | runtime/workspace.ts and runtime/worktree-cleanup.ts |
 | Unified Git authority | apps/desktop/electron/features/git under AD-024 |
-| Persistent Pi session creation | SessionManager.create and the normal Sero session factory |
-| Persistent Pi session reopen | SessionManager.open and agent-session-open.ts patterns |
+| Persistent Pi session mechanics | SessionManager.create, SessionManager.open and the normal Sero session factory |
+| Plugin capability gating | SERO_HOST_CAPABILITIES and the existing appRuntime.background pattern |
+| Host authority enforcement | Existing approval and permission boundaries, extended with a host-issued persistent-session grant |
 | Session prompt, steer and turn events | normal AgentSession APIs, active-session executor and turn-completion bridges |
 | Session context usage and compaction | existing getContextUsage and session.compact paths |
 | Model route resolution | the host-owned ModelRuntime under AD-026 |
@@ -316,6 +344,10 @@ The default proposal shows:
 - Adjust.
 
 The proposal can show Why this team? as optional supporting information.
+
+The proposal is a deterministic projection of the validated blueprint. Application code computes team size, maximum time, maximum spend and access. Access uses a fixed mapping from effective capabilities to user-facing labels and warnings. Examples include Read this workspace, Edit this workspace, GitHub write access and deployment access.
+
+The Room Planner supplies prose only. A planner-authored sentence cannot reduce or replace the computed access summary.
 
 ### 9.3 Adjustment
 
@@ -497,6 +529,10 @@ A member session has a stable base identity and authority.
 
 The mutable mandate contains its current role, responsibilities, task, priorities and working instructions. Mandate changes apply as authoritative Room context on the next turn.
 
+A mandate changes instructions only. It cannot add a model, tool, skill, permission, workspace or delivery capability.
+
+Capability changes travel only through a validated Room configuration revision and the host authority boundary.
+
 A fundamental identity or base-prompt change creates a replacement member session. The old member produces or receives a handover summary and becomes retired. History is retained.
 
 ### 13.4 Conductor failure
@@ -552,11 +588,30 @@ Disposal does not delete the persisted session.
 
 A later wake reopens the same session file with the current approved member configuration.
 
-### 14.4 Generic host boundary
+### 14.4 Generic host capability
 
-Room mode uses the host-owned model runtime and normal session construction path. If the plugin needs a new capability, it must be a generic persistent-session host, not a Room-specific transcript implementation.
+The Pi session mechanics already exist. Room mode adds a narrow plugin-to-host authority path around them.
 
-The boundary can expose:
+The capability is named appRuntime.persistentSessions and is added to SERO_HOST_CAPABILITIES. The first release grants it only to bundled first-party plugins. Installing an external plugin cannot grant this capability.
+
+The Orchestrator sends a session request. It does not construct a session directly. A request includes:
+
+- a host-issued authority grant ID;
+- Room and member identity;
+- session operation;
+- approved workspace or worktree;
+- model selection;
+- tool and skill selection;
+- permission profile; and
+- resource-loading policy.
+
+The host stores or can resolve the approved authority grant. It validates that the request is a subset of the grant and current user authority. It validates workspace and session paths, model availability, capabilities, session count and Room state. It then constructs or opens the Pi session.
+
+The host must reject a request when a defective or compromised plugin asks for more authority than the user approved. The host must not trust an operating envelope supplied only by the plugin request.
+
+A grant is scoped to the plugin, Room, workspace and permitted sessions. It is revocable when the Room stops, is deleted or loses authority.
+
+The generic boundary can expose:
 
 - create;
 - open;
@@ -569,7 +624,41 @@ The boundary can expose:
 - get session usage; and
 - dispose.
 
+The capability and grant model require their own architecture decision in Phase 1 and must land before Room runtime uses them.
+
+### 14.5 Member resource-loading policy
+
+Room members use a filtered persistent-session profile between a full interactive chat and an isolated completion.
+
+A member session loads:
+
+- project context files such as AGENTS.md;
+- the approved member prompt and current mandate;
+- blueprint-selected skills;
+- approved platform tools;
+- the AD-020 sero-cli bridge;
+- Room protocol context; and
+- only the plugin extensions that provide an approved selected capability.
+
+A member session does not automatically load every installed extension, prompt template, theme, agent definition or UI resource.
+
+Third-party session-lifecycle hooks are off by default. Only host-required lifecycle behaviour and hooks from explicitly approved loaded extensions run. Persistence remains the responsibility of Pi SessionManager and does not depend on plugin lifecycle hooks.
+
+The host enforces this resource profile from the approved grant. The plugin cannot widen it by changing its resource loader request.
+
 ## 15. Context management
+
+### 15.1 Room brief ownership
+
+The Room coordinator produces the authoritative Room brief automatically from current Room records. It updates the brief after structural progress such as an accepted revision, completed work, a decision, a blocker change or a new artifact.
+
+Computed brief fields include the objective, success criteria, current roster, member mandate, active work, decisions, blockers, open questions and artifact references.
+
+The Conductor can publish a short situation note. This note is clearly identified as Conductor-authored and cannot replace computed authority, permission, limit or assignment fields.
+
+Each member receives only the relevant projection for its work. The full Room transcript is never required to construct the brief.
+
+### 15.2 Compaction policy
 
 Long-running member sessions must not fail because their context fills.
 
@@ -630,6 +719,10 @@ The shared Orchestrator coordinator infrastructure enforces:
 
 Idle and waiting members do not occupy an active execution slot.
 
+Reply delivery and other targeted wake signals use the coordinator event path immediately. They must not wait for the periodic 60-second scheduler tick.
+
+On a healthy local host, a waiting member becomes ready immediately. When capacity and limits permit, its resumed turn starts within two seconds at the 95th percentile. Provider response time is outside this target. The periodic tick is recovery and reconciliation only.
+
 ## 17. Communication and waiting
 
 ### 17.1 Durable messages
@@ -669,6 +762,8 @@ The normal wait flow is:
 5. A reply arrives in its durable inbox.
 6. The scheduler reopens the member session if needed.
 7. A new turn starts in the same session with the reply and current Room context.
+
+Reply persistence emits an immediate coordinator event. The normal wait and wake path does not poll for the next scheduler tick.
 
 Wait-cycle detection is required. It notifies the Conductor when members form a dependency cycle or when no member can make progress. Continued deadlock pauses the Room for the user.
 
@@ -976,6 +1071,21 @@ Active Room members appear on it with:
 
 The Room view contains the authoritative Room timeline, roster controls, messages, assignments and revisions. It must not create a second global fleet dashboard.
 
+### 27.1 Usage analytics
+
+The Usage plugin already scans nested Pi session files. Room sessions therefore remain part of total profile usage.
+
+Room session creation sets a Pi session name that identifies the Room and member. The Usage scanner also recognises the rooms/<roomId>/ session namespace and joins it to the Room index.
+
+Usage presents:
+
+- one grouped Room total;
+- optional per-member rows;
+- Room title and member role labels; and
+- a link or stable Room ID for attribution.
+
+Room member cost must not appear as an unexplained ordinary chat. Usage grouping is derived from the session path and current Room metadata. It does not change the Pi session file format or duplicate usage data.
+
 ## 28. Legacy engine replacement
 
 CollaborationEngine and DebateEngine remain available while Room mode is behind a feature flag.
@@ -1036,7 +1146,7 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | FR-004 | A user can create a Room from one plain-language problem description. |
 | FR-005 | A Room Planner generates a problem-specific Conductor and roster. |
 | FR-006 | A generated participant does not require a predefined named agent. |
-| FR-007 | The default proposal shows only team, time, spend, access and primary actions. |
+| FR-007 | Application code computes team, time, spend and access in the default proposal from the validated blueprint. |
 | FR-008 | The user can adjust the proposed Room with natural language. |
 | FR-009 | Full blueprint configuration remains available under advanced settings. |
 | FR-010 | Every member uses a standard persistent Pi SessionManager. |
@@ -1064,6 +1174,13 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | FR-032 | CollaborationEngine and DebateEngine are removed after Room mode is proven. |
 | FR-033 | Local presence and remote provider cache behaviour are separate. |
 | FR-034 | Active cache keep-warm is not a first-release dependency. |
+| FR-035 | appRuntime.persistentSessions is a named, initially built-in-only host capability. |
+| FR-036 | The host validates every persistent-session request against a host-resolved user-approved grant. |
+| FR-037 | Member sessions load project context and approved resources through the filtered member resource policy. |
+| FR-038 | The Room coordinator automatically owns and updates the authoritative Room brief. |
+| FR-039 | Reply delivery wakes members through the event path and does not wait for the periodic tick. |
+| FR-040 | Usage analytics groups nested Room sessions by Room and member. |
+| FR-041 | Mandate updates change instructions only; capability changes require validated configuration revisions. |
 
 ## 32. Quality requirements
 
@@ -1081,11 +1198,21 @@ Logs use stable Room, member, session, message, revision, artifact and correlati
 | NFR-010 | Full technical configuration is available without appearing in the default flow. |
 | NFR-011 | Automated tests cover planning, persistence, reopen, scheduling, messaging, revisions, compaction, authority, workspace, delivery and recovery. |
 | NFR-012 | A Room does not require any one template, provider, model or collaboration method. |
+| NFR-013 | A defective plugin cannot create or open a session beyond its host-issued grant. |
+| NFR-014 | A waiting member starts its resumed turn within two seconds at the 95th percentile when local capacity and limits permit. |
+| NFR-015 | Authority-bearing proposal fields cannot disagree with the runtime blueprint because they are deterministic projections. |
 
 ## 33. Phase 1 design checks
 
 Phase 1 must confirm:
 
+- the appRuntime.persistentSessions request, grant, validation, revocation and built-in-only capability design;
+- the numbered architecture decision for this new plugin-to-host authority boundary;
+- the computed consent-summary projection and fixed access-label mapping;
+- the filtered member-session resource and lifecycle policy;
+- the automatic Room brief projection and Conductor note;
+- the Usage grouping and Room/member labelling;
+- the decision to keep internal Loop naming for Workflow records and the visible rename debt;
 - Workflows and Rooms navigation inside the Orchestrator UI;
 - the one-question Room create flow;
 - the compact proposal content;
