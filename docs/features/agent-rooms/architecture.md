@@ -244,14 +244,22 @@ interface PersistentSessionRequest {
   /** Appended after the base prompt. Never replaces it. Size-bounded per subject. */
   systemPromptAdditions?: string[];
   sessionName: string;
-  /** create only — a leaf name, resolved by the host under grant.sessionDir. */
-  sessionFile?: string;
+  // No path field, for either operation.
 }
 ```
 
-`open` takes **no path**. The host resolves the subject's session path from its
-own immutable subject registry (§3.5). A caller-supplied path on `open` is
-ignored, so one subject can never open another subject's session file.
+**Neither operation takes a path.**
+
+- `create` passes the grant's session directory to
+  `SessionManager.create(cwd, sessionDir)` and lets Pi name the file. The host
+  binds whatever path Pi returns.
+- `open` resolves the path from the host's own immutable subject registry.
+
+A caller that cannot name a path cannot aim one. This removes path traversal and
+the leaf-symlink class **by construction** rather than by validation, which is
+strictly stronger than checking a caller-supplied name — the earlier design
+validated a leaf, and a symlink planted at that leaf still passed a
+parent-directory containment check.
 
 ### 3.5 Validation order
 
@@ -264,13 +272,12 @@ Each step denies with a distinct reason. No later step runs after a denial.
 4. **Subject has a policy** — `grant.subjects[subject]` exists, or deny.
    Everything after this validates against *that subject's* policy.
 5. **Path resolution.**
-   - `create`: `sessionFile` must be a single leaf name with no separators. The
-     host joins it under `grant.sessionDir`, resolves the **parent** (the file
-     does not exist yet), and confirms containment. It then denies when anything
-     already exists at the leaf, checked with `lstat` — a symlink planted there
-     passes a parent-only check and would redirect every write out of the grant.
-   - `open`: the path comes from the subject registry. A subject with no
-     registered path cannot be opened.
+   - `create`: no path is computed. The request carries none, and Pi names the
+     file inside `grant.sessionDir`. A subject that already has a binding is
+     denied — it must `open`, or it would orphan its first session.
+   - `open`: the path comes from the subject registry, and its containment in
+     `grant.sessionDir` is re-checked after symlink resolution on every open, so
+     a link swapped in after the binding was made is caught.
 6. **Working directory**: `realpath(cwd)` equals or is inside a realpath-resolved
    entry of the subject's `allowedCwds`, or deny. Resolution happens before the
    comparison, so a symlink cannot escape.
@@ -424,7 +431,7 @@ the grant `revoked`. Every later request against it is denied.
 | Plugin forges authority in a request | The host resolves the grant from its own store and validates against it. Caller identity comes from the runtime instance, not the payload. |
 | One subject uses another subject's capabilities | Policy is per subject. Validation runs against `grant.subjects[subject]` only (§3.2). |
 | One subject opens another subject's session | `open` takes no path. The host resolves it from the immutable subject registry (§3.4). |
-| Plugin escapes the session directory | `create` accepts a leaf name only; the host joins, resolves and confirms containment after symlink resolution. |
+| Plugin escapes the session directory | Neither operation accepts a path. Pi names the file inside the grant's directory on `create`; `open` re-checks the registered path's containment after symlink resolution. |
 | Plugin writes outside the workspace | `realpath(cwd)` compared against realpath-resolved allowed roots (§3.5 step 6). |
 | Plugin loads an unapproved model | Model must be in the subject's list **and** resolvable through the one host `ModelRuntime`. |
 | Plugin widens its resource profile | The host builds the resource loader from the grant. The request supplies no loader overrides. |
@@ -432,7 +439,7 @@ the grant `revoked`. Every later request against it is denied.
 | Concurrent creates exceed the session cap | Count check, subject binding and pending reservation are one atomic critical section; pending reservations count toward both caps (§3.5.1). |
 | Crash leaks a lifetime-count slot or binds a nonexistent session | Reservations are two-phase and always rolled back at startup (§3.5.1). |
 | Two subjects alias one session file | A path is bound to exactly one subject; a bound subject cannot re-create under a different path (§3.5.1). |
-| Symlink planted at the session leaf redirects writes | `create` denies when anything already exists at the leaf, checked with `lstat` so a symlink is not followed. |
+| Symlink planted at a chosen session leaf | Not reachable: the caller never chooses a leaf. |
 | Revocation races construction and a session survives its grant | Commit re-checks status and requires the caller to dispose on a revoked grant (§3.5.1). |
 | Omitted `thinking` reaches an unapproved host default | The **effective** level is validated, and the validated value is what the host applies (§3.5 step 8). |
 | Caller inflates the thinking level to raise cost | `allowedThinkingLevels` is part of the per-subject policy and validated (§3.5 step 8). |
@@ -456,21 +463,26 @@ mistaken for a sandbox.
 
 ### 4.2 Required deny tests (Phase 2)
 
-Third-party-plugin denial; `settings.packages` source denial; plugin-dev-session
-source denial; path-equality denial for a directory claiming an allowlisted app
-ID; session-path escape via a separator in `sessionFile`; session-path escape via
-symlink; `cwd` escape via symlink; subject with no policy; tool outside the
-subject's policy; skill outside the subject's policy; model outside the policy;
-model in the policy but unavailable at runtime; permission profile above the
-policy; oversized prompt additions; explicit thinking level outside the policy; OMITTED
-thinking level whose host default is outside the policy; symlink planted at the
-session leaf; `create` onto an existing leaf; `open` with a caller-supplied path
-for another subject; a second subject reserving a path already bound; a bound
-subject re-creating under a different path; two concurrent creates against a
-one-session cap; use of a revoked grant; a commit that lands after revocation
-(must refuse and demand disposal); restart with a persisted grant and a zeroed
-live count; restart with a pending reservation (always rolls back the binding,
-the count and the partial file, whether or not the file exists).
+**Gate.** Third-party-plugin denial; `settings.packages` source denial;
+plugin-dev-session source denial; path-equality denial for a directory claiming
+an allowlisted app id.
+
+**Validation.** Subject with no policy; a registered session path that resolves
+out of the grant directory via symlink; `cwd` escape via symlink; a `cwd`
+sibling that shares a string prefix with an allowed root (proves containment is
+segment-wise); model outside the policy; model in the policy but unavailable at
+runtime; explicit thinking level outside the policy; **omitted** thinking level
+whose host default is outside the policy; tool outside the policy; skill outside
+the policy; prompt additions over the cap measured in UTF-8 bytes;
+`create` for a subject that is already bound; `open` for a subject with no
+registered session.
+
+**Reservation and lifecycle.** Two concurrent creates against a one-session cap
+(exactly one succeeds); use of a revoked grant; a commit that lands after
+revocation (must refuse and demand the caller dispose); restart with a persisted
+grant and a zeroed live count; restart with a pending reservation, which always
+rolls back whether or not a session file exists; the startup sweep removing an
+unbound session file while leaving every bound one.
 
 ## 5. Filtered member resource policy
 
