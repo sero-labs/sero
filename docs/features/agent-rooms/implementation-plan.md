@@ -30,10 +30,11 @@ Room mode will generate a team from the user's problem, use normal persistent Pi
 | Milestone | Phases | Outcome |
 | --- | --- | --- |
 | Product agreement | 0 to 1 | Approved architecture and static UX |
-| Runtime foundation | 2 to 4 | Room records, generated blueprints and persistent sessions |
-| Usable Room | 5 to 6 | Coordination, workspace safety, approvals, delivery and UI |
-| Replacement | 7 | CollaborationEngine and DebateEngine removed |
-| Production | 8 | Security, recovery, documentation and rollout complete |
+| Runtime foundation | 2 to 4 | Secure session capability, Room records, generated blueprints and persistent sessions |
+| Coordinated runtime | 5 to 6 | Messaging, revisions, workspace safety, approvals and delivery |
+| Usable Room | 7 | Approved first-party Room UI |
+| Replacement | 8 | CollaborationEngine and DebateEngine removed |
+| Production | 9 | Security, recovery, documentation and rollout complete |
 | Optional optimisation | Cache track | Measured prompt-cache keep-warm experiment |
 
 ## 4. Phase 0: Revised product contract
@@ -59,6 +60,12 @@ Objective: Replace the initial standalone-Room design with the agreed Orchestrat
 - [x] Define result delivery to an invoking chat.
 - [x] Replace the old parity plan with keep, prove and delete.
 - [x] Replace spec.md and implementation-plan.md.
+- [x] Incorporate the second review findings.
+- [x] Make authority-bearing proposal fields deterministic projections.
+- [x] Define the filtered member-session resource policy.
+- [x] Assign the Room coordinator as Room brief owner.
+- [x] Require event-driven member wake.
+- [x] Split runtime and UI delivery gates.
 
 ### Acceptance criteria
 
@@ -75,11 +82,18 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 
 ### Work checklist
 
-- [ ] Add a numbered architecture decision for Room mode, Pi session persistence, Room storage and AD-020 command bridging.
+- [ ] Design and record the appRuntime.persistentSessions capability as a Phase 1 blocker.
+- [ ] Define the host-issued grant, request validation, revocation and built-in-only gating.
+- [ ] Record reuse of Pi SessionManager mechanics and the new plugin-to-host authority boundary.
+- [ ] Record Room mode ownership, current-state storage and AD-020 command bridging.
+- [ ] Record the decision to keep internal Loop naming for Workflow records and track the rename debt.
 - [ ] Verify the reuse map in spec.md against current code.
 - [ ] Identify the small shared Orchestrator interfaces and the Room-specific records.
-- [ ] Confirm the generic host capability for persistent Pi session creation and reopen.
 - [ ] Confirm the Room session namespace and retention policy.
+- [ ] Define the deterministic consent-summary projection and fixed access-label mapping.
+- [ ] Define the filtered member resource and lifecycle policy.
+- [ ] Define automatic Room brief ownership and Conductor-authored notes.
+- [ ] Define Room and member grouping in Usage analytics.
 - [ ] Create docs/prototypes/sero-agent-rooms.html using current Sero design patterns.
 - [ ] Show Workflows and Rooms navigation inside Orchestrator.
 - [ ] Show one-question creation, preparation, compact proposal, Start and natural-language Adjust.
@@ -94,7 +108,10 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 ### Deliverables
 
 - [ ] Agent Rooms architecture decision.
-- [ ] Verified reuse map and session-host boundary.
+- [ ] Persistent-session host capability architecture decision.
+- [ ] Security contract for grant validation and built-in-only gating.
+- [ ] Verified reuse map, resource policy and session namespace.
+- [ ] Deterministic consent-summary mapping.
 - [ ] Approved static prototype.
 - [ ] Final first-release product scope.
 
@@ -102,6 +119,8 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 
 - [ ] A non-technical user can create and start a Room without advanced settings.
 - [ ] The compact proposal shows only team, roles, time, spend, access and important warnings.
+- [ ] Team size, time, spend and access are computed from the validated blueprint.
+- [ ] A planner-authored sentence cannot understate effective authority.
 - [ ] Natural-language adjustment is the first edit path.
 - [ ] Advanced users can inspect the complete blueprint.
 - [ ] Runtime roster changes and approval boundaries are understandable.
@@ -111,9 +130,22 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 
 ## 6. Phase 2: Shared foundations and Room storage
 
-Objective: Reuse Orchestrator management primitives and add separate Room records without running members.
+Objective: Implement the secure generic session capability, reuse Orchestrator management primitives and add separate Room records without running a Room.
 
-### Work checklist
+### Persistent-session capability checklist
+
+- [ ] Add appRuntime.persistentSessions to SERO_HOST_CAPABILITIES.
+- [ ] Restrict the first release to bundled first-party plugins.
+- [ ] Define host-issued PersistentSessionGrant records.
+- [ ] Scope each grant to plugin, Room, workspace, permitted sessions and approved resources.
+- [ ] Validate session path, working directory, model, tools, skills, permissions and session count in the host.
+- [ ] Reject plugin-supplied authority that the host cannot resolve to an approved grant.
+- [ ] Add create, open, prompt, steer, abort, subscribe, compact, usage and dispose operations.
+- [ ] Revoke grants when the Room stops, is deleted or loses authority.
+- [ ] Add tests for external-plugin denial, path escape, unavailable model and capability expansion.
+- [ ] Add generic temporary-session tests without Room domain dependencies.
+
+### Shared and storage checklist
 
 - [ ] Generalise only the lifecycle, limits, usage, workspace, artifact, attention and delivery contracts that truly match both modes.
 - [ ] Keep existing Workflow records and behaviour compatible.
@@ -130,14 +162,19 @@ Objective: Reuse Orchestrator management primitives and add separate Room record
 
 ### Deliverables
 
+- [ ] Gated appRuntime.persistentSessions host capability.
+- [ ] Host-issued grant and validation implementation.
 - [ ] Small shared Orchestrator management interfaces.
 - [ ] Separate Room domain contracts.
 - [ ] Room split store, index and audit timeline.
-- [ ] Storage and migration tests.
+- [ ] Capability, storage and migration tests.
 
 ### Acceptance criteria
 
 - [ ] Existing Workflow tests and persisted records remain compatible.
+- [ ] An external plugin cannot obtain the persistent-session capability.
+- [ ] A defective built-in plugin cannot create a session outside its host-issued grant.
+- [ ] The capability has no dependency on Room domain record types.
 - [ ] A draft Room can be created, read, updated, listed, archived and deleted.
 - [ ] Current Room records are authoritative without event replay.
 - [ ] Duplicate command IDs do not duplicate logical changes.
@@ -158,7 +195,10 @@ Objective: Generate a comprehensive problem-specific Room from a simple user bri
 - [ ] Require one Conductor, bounded team size and a rationale for every member.
 - [ ] Support inline generated members that do not require saved agent files.
 - [ ] Clamp suggestions to user constraints and application defaults.
-- [ ] Derive the simple proposal summary from the complete blueprint.
+- [ ] Compute team size, maximum time, maximum spend and access from validated blueprint fields in deterministic application code.
+- [ ] Use a fixed mapping from effective capabilities to plain-English access labels and warnings.
+- [ ] Limit planner-authored proposal fields to prose such as role one-liners, approach and rationale.
+- [ ] Recompute the authority summary after every blueprint adjustment.
 - [ ] Support bounded natural-language adjustment while preserving explicit user choices.
 - [ ] Define optional adaptive templates without secrets or runtime state.
 - [ ] Add Software Delivery, Adversarial Analysis and Parallel Issues presets.
@@ -179,6 +219,8 @@ Objective: Generate a comprehensive problem-specific Room from a simple user bri
 - [ ] The planner selects only available capabilities.
 - [ ] User time, spend, access and team limits override suggestions.
 - [ ] The default proposal contains no raw prompts, provider routes, schemas or paths.
+- [ ] The computed proposal always matches the blueprint enforced by the runtime.
+- [ ] Capability mapping tests cover read, workspace write, GitHub write and deployment warnings.
 - [ ] Natural-language adjustment preserves unrelated approved values.
 - [ ] Presets guide planning without fixing the final roster.
 - [ ] Invalid output is repaired or rejected within the attempt limit.
@@ -190,17 +232,25 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 
 ### Work checklist
 
-- [ ] Confirm or extract a generic host-owned persistent-session factory.
-- [ ] Use SessionManager.create for new members and SessionManager.open for resumed members.
+- [ ] Consume appRuntime.persistentSessions rather than constructing sessions in plugin code.
+- [ ] Use SessionManager.create for new members and SessionManager.open for resumed members behind the host capability.
 - [ ] Store standard Pi session files in the approved Room-specific directory.
 - [ ] Store only session references and configuration revisions in Room state.
-- [ ] Build each member resource loader from its approved blueprint.
+- [ ] Set deterministic Pi session names that identify Room and member.
+- [ ] Load project context files such as AGENTS.md.
+- [ ] Load the approved member prompt, mandate, selected skills, platform tools and sero-cli Room commands.
+- [ ] Load only plugin extensions that provide an approved selected capability.
+- [ ] Keep unrelated extensions, prompts, themes, agent definitions and third-party lifecycle hooks off by default.
+- [ ] Enforce the filtered resource policy in the host from the approved grant.
 - [ ] Resolve models through the host ModelRuntime and apply approved tools, skills and permissions.
 - [ ] Add a bounded live AgentSession pool that can dispose and reopen members.
 - [ ] Integrate Room lifecycle with existing Orchestrator scheduling, limits, abort and recovery.
 - [ ] Reserve execution capacity for the Conductor and release capacity for idle members.
 - [ ] Track cost, tokens, turns, retries and failures by member and Room.
 - [ ] Reconcile active and uncertain turns after restart.
+- [ ] Build the authoritative Room brief automatically from current Room state after structural progress.
+- [ ] Allow a clearly labelled Conductor situation note without overriding computed fields.
+- [ ] Project only member-relevant Room brief content into each session.
 - [ ] Monitor context usage and compact only at safe turn boundaries.
 - [ ] Preserve a member checkpoint, Room brief, mandate, questions and artifacts through compaction.
 - [ ] Add local presence plus passive cache read and write usage capture.
@@ -225,6 +275,8 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [ ] Concurrency stays within limits and the Conductor reserve remains available.
 - [ ] Context compaction preserves current responsibilities and active work.
 - [ ] A provider with no cache metadata runs normally.
+- [ ] Member sessions contain approved project context but do not load every installed extension.
+- [ ] The authoritative Room brief is available without reading the full Room transcript.
 - [ ] No second ModelRuntime, credential store or transcript store exists.
 - [ ] pnpm typecheck and relevant tests pass.
 
@@ -239,9 +291,14 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 - [ ] Add message size, backlog, rate and idempotency limits.
 - [ ] Queue broadcasts by default and require an explicit policy-approved wake option.
 - [ ] End a waiting member's turn, release its slot and reopen the same session for a matching reply.
+- [ ] Emit an immediate coordinator event when a reply or targeted wake signal is persisted.
+- [ ] Keep the periodic scheduler tick as recovery only, not the normal wake path.
+- [ ] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit.
 - [ ] Add required wait-cycle detection, Conductor notification and user pause.
 - [ ] Implement add, mandate update, assign, suspend, resume, retire and replace revisions.
 - [ ] Validate every revision against the operating envelope.
+- [ ] Apply mandate changes as instructions only.
+- [ ] Route every model, tool, skill, permission, workspace and delivery change through a validated configuration revision.
 - [ ] Apply configuration changes at safe turn boundaries.
 - [ ] Require user approval for any authority expansion.
 - [ ] Create handover summaries and retain retired session history.
@@ -261,6 +318,8 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 ### Acceptance criteria
 
 - [ ] A member can ask another member and later resume the same Pi session with the answer.
+- [ ] Reply delivery uses the event path and does not wait for the periodic tick.
+- [ ] Event-to-resumed-turn latency meets the two-second target when capacity is available.
 - [ ] Waiting consumes no active execution slot.
 - [ ] A normal broadcast does not wake idle recipients.
 - [ ] Peer messages cannot grant permission or approve protected work.
@@ -271,11 +330,11 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 - [ ] Room commands do not add many tool schemas to each turn.
 - [ ] pnpm typecheck and relevant tests pass.
 
-## 10. Phase 6: Workspace safety, approvals, delivery and first-party UI
+## 10. Phase 6: Workspace safety, approvals and delivery runtime
 
-Objective: Make Room mode usable for real work inside the Orchestrator plugin.
+Objective: Complete the Room runtime and let it soak behind the feature flag before the UI gate.
 
-### Runtime checklist
+### Work checklist
 
 - [ ] Reuse the unified Git service and existing Orchestrator workspace placement.
 - [ ] Support read-only shared work and a managed worktree for each editing member.
@@ -285,51 +344,82 @@ Objective: Make Room mode usable for real work inside the Orchestrator plugin.
 - [ ] Persist artifacts and support Conductor commit collection and conflict reporting.
 - [ ] Preserve uncommitted member work during failure and cancellation.
 - [ ] Add one multi-member approval and attention queue.
+- [ ] Prevent the Conductor from answering user approvals.
 - [ ] Reuse Orchestrator delivery settings and record the invoking chat as origin.
 - [ ] Deliver final result, artifacts, unresolved items, duration and cost to the approved destination.
-- [ ] Add temporary-repository, approval and delivery tests.
-
-### UI checklist
-
-- [ ] Add Workflows and Rooms navigation without changing Workflow behaviour.
-- [ ] Implement Rooms home and the approved simple creation flow.
-- [ ] Implement compact proposal, natural-language adjustment and advanced settings.
-- [ ] Implement live roster, activity, work, claims, artifacts and Room revisions.
-- [ ] Implement member transcript, mandate, context, worktree and cost inspection.
-- [ ] Implement direct message, broadcast, pause, resume, cancel and user intervention.
-- [ ] Implement consolidated approvals, deadlock, failure and recovery states.
-- [ ] Implement completion and invoking-chat delivery state.
-- [ ] Link Room members to the global Agent Board and back to the Room.
-- [ ] Add keyboard, screen-reader, contrast and reduced-motion support.
-- [ ] Add component and critical-flow end-to-end tests.
-- [ ] Complete final design review against the prototype.
+- [ ] Label Pi sessions with Room and member identity.
+- [ ] Update Usage scanning and aggregation to group rooms/<roomId>/ sessions under the Room.
+- [ ] Show grouped Room totals and optional per-member usage without changing Pi session format.
+- [ ] Run the completed runtime behind the feature flag without the final Room UI.
+- [ ] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests.
 
 ### Deliverables
 
 - [ ] Per-member worktrees, minimal work records, simple claims and artifacts.
-- [ ] Consolidated approval inbox and result delivery.
-- [ ] Complete Room UI inside sero-orchestrator-plugin.
-- [ ] Agent Board linking.
-- [ ] Accessible component and end-to-end tests.
+- [ ] Consolidated approval and attention runtime.
+- [ ] Invoking-chat and external delivery.
+- [ ] Room-labelled Usage analytics.
+- [ ] Runtime soak report behind the feature flag.
 
 ### Acceptance criteria
 
-- [ ] A non-technical user can create and start a Room from one brief.
-- [ ] The default proposal shows only the approved compact information.
-- [ ] Advanced users can inspect every blueprint field.
 - [ ] Two editing members can work in separate worktrees.
 - [ ] Claims remain clearly advisory.
 - [ ] Cancellation does not silently delete uncommitted work.
 - [ ] Approval requests identify the member and authority consequence.
 - [ ] A Room created from chat returns one final result to that chat.
+- [ ] External delivery cannot bypass approval.
+- [ ] Usage groups member sessions under their Room instead of unexplained ordinary sessions.
+- [ ] No Room code bypasses the unified Git service.
+- [ ] Runtime soak has no dependency on the final Room UI.
+- [ ] pnpm typecheck and relevant runtime tests pass.
+
+## 11. Phase 7: First-party Room UI
+
+Objective: Implement and approve the Room experience inside sero-orchestrator-plugin on top of the proven runtime.
+
+### Work checklist
+
+- [ ] Add Workflows and Rooms navigation without changing Workflow behaviour.
+- [ ] Implement Rooms home and the approved simple creation flow.
+- [ ] Implement compact computed proposal, natural-language adjustment and advanced settings.
+- [ ] Implement live roster, activity, work, claims, artifacts and Room revisions.
+- [ ] Implement member transcript, mandate, context, worktree and cost inspection.
+- [ ] Implement direct message, queued broadcast, explicit wake, pause, resume, cancel and intervention.
+- [ ] Implement consolidated approvals, deadlock, failure and recovery states.
+- [ ] Implement completion and invoking-chat delivery state.
+- [ ] Link Room members to the global Agent Board and back to the Room.
+- [ ] Link grouped Usage Room entries to the Room where supported.
+- [ ] Add keyboard, screen-reader, contrast and reduced-motion support.
+- [ ] Add component and critical-flow end-to-end tests.
+- [ ] Complete final design review against the approved prototype.
+
+### Deliverables
+
+- [ ] Workflows and Rooms navigation.
+- [ ] Simple create, preparation and computed proposal flow.
+- [ ] Natural-language adjustment and advanced configuration.
+- [ ] Live Room, member inspector, approvals, recovery and completion UI.
+- [ ] Agent Board and Usage linking.
+- [ ] Accessible component and end-to-end tests.
+
+### Acceptance criteria
+
+- [ ] A non-technical user can create and start a Room from one brief.
+- [ ] The default proposal shows only computed team, time, spend, access and approved prose.
+- [ ] Advanced users can inspect every blueprint field.
+- [ ] The UI never becomes the source of truth for Room execution.
 - [ ] Reload and restart restore the same visible Room state.
-- [ ] The UI explains every member and Room state.
-- [ ] The global Agent Board is not duplicated inside the Room.
-- [ ] Final design review, pnpm typecheck and critical tests pass.
+- [ ] Every member and Room state has a clear explanation and next action.
+- [ ] Approval requests identify the responsible member and authority change.
+- [ ] Room members are inspectable without appearing as normal chats.
+- [ ] Agent Board and Usage links do not duplicate Room controls.
+- [ ] Result-to-chat passes end-to-end tests.
+- [ ] Final design review, pnpm typecheck and critical UI tests pass.
 
-At the end of Phase 6, Room mode is usable behind a feature flag. The old collaboration engines remain available.
+At the end of Phase 7, Room mode is usable behind a feature flag. The old collaboration engines remain available.
 
-## 11. Phase 7: Prove Room mode and remove legacy engines
+## 12. Phase 8: Prove Room mode and remove legacy engines
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.
 
@@ -365,7 +455,7 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 - [ ] No orphaned legacy state remains.
 - [ ] pnpm typecheck and the full relevant test suite pass.
 
-## 12. Phase 8: Hardening and production rollout
+## 13. Phase 9: Hardening and production rollout
 
 Objective: Make Room mode safe and reliable for general use.
 
@@ -407,7 +497,7 @@ Objective: Make Room mode safe and reliable for general use.
 - [ ] Production reliability and cost targets are approved.
 - [ ] pnpm typecheck and the full test suite pass.
 
-## 13. Deferred prompt-cache keep-warm track
+## 14. Deferred prompt-cache keep-warm track
 
 Status: Optional post-MVP experiment. It does not block Room release.
 
@@ -433,10 +523,11 @@ Status: Optional post-MVP experiment. It does not block Room release.
 
 A failed gate closes this track without blocking Room mode.
 
-## 14. Cross-phase engineering rules
+## 15. Cross-phase engineering rules
 
 - [ ] Keep Workflow and Room domain records separate.
 - [ ] Share only behaviour with the same contract.
+- [ ] Keep every source file under the repository 500-line limit.
 - [ ] Do not implement a second scheduler, limit engine, Git layer, model runtime or transcript store.
 - [ ] Use standard persistent Pi SessionManager APIs for Room members.
 - [ ] Do not copy Pi transcripts into Room state.
@@ -453,16 +544,16 @@ A failed gate closes this track without blocking Room mode.
 - [ ] Run relevant tests during work and the full relevant suite at phase gates.
 - [ ] Update spec.md when an approved decision changes behaviour.
 
-## 15. Suggested pull request boundaries
+## 16. Suggested pull request boundaries
 
 Suggested review boundaries are:
 
-1. Architecture decision and static prototype.
-2. Shared foundations and Room storage.
+1. Architecture decisions and static prototype.
+2. Gated persistent-session capability, shared foundations and Room storage.
 3. Room Planner and adaptive templates.
-4. Persistent Pi session runtime, scheduler and context.
+4. Persistent Pi member runtime, scheduler and context.
 5. Messaging, waiting and Room revisions.
-6. Workspace safety, approvals and delivery.
+6. Workspace safety, approvals, delivery and Usage grouping.
 7. First-party Room UI.
 8. Legacy engine removal.
 9. Hardening and rollout.
@@ -479,23 +570,26 @@ Each pull request must state:
 - known limitations; and
 - rollback behaviour.
 
-## 16. First-release definition of done
+## 17. First-release definition of done
 
 - [ ] Workflows and Rooms are clear modes inside Sero Orchestrator.
 - [ ] A user can create a Room from one plain-language problem.
 - [ ] Sero generates a problem-specific Conductor and team.
-- [ ] The default proposal shows only team, time, spend and access.
+- [ ] The default proposal computes team, time, spend and access from the validated blueprint.
 - [ ] Natural-language adjustment and advanced configuration both work.
-- [ ] Every member uses a standard persistent Pi session.
+- [ ] appRuntime.persistentSessions is host-gated and enforces approved grants.
+- [ ] Every member uses a standard persistent Pi session with the filtered resource policy.
 - [ ] Members dispose, reopen, compact and recover without transcript duplication.
 - [ ] The Conductor revises the Room only inside the approved envelope.
 - [ ] Authority expansion requires user approval.
 - [ ] Members communicate, wait and wake without holding idle capacity.
+- [ ] Reply wake is event-driven and meets the latency target when capacity permits.
 - [ ] Deadlock detection can pause for the user.
 - [ ] Worktrees and simple claims support parallel work.
 - [ ] Limits and no-progress rules stop runaway work.
 - [ ] One approval inbox covers all members.
 - [ ] A Room result returns to the invoking chat.
+- [ ] Usage analytics groups costs by Room and member.
 - [ ] Agent Board links do not duplicate Room controls.
 - [ ] CollaborationEngine and DebateEngine are removed after proof.
 - [ ] Security, accessibility, recovery and cost gates pass.
