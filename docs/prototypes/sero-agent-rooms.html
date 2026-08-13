@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sero Agent Rooms — prototype</title>
+<style>
+:root{
+  --bg:#09090b;--surface:#111113;--raised:#18181b;--overlay:#202024;--muted:#28282d;
+  --line:#26262b;--line-strong:#393940;
+  --text:#f4f4f5;--text-2:#b7b7c0;--text-3:#74747f;--text-4:#5a5a64;
+  --emerald:#34d399;--emerald-2:#10b981;--emerald-wash:rgba(52,211,153,.1);
+  --blue:#60a5fa;--blue-wash:rgba(96,165,250,.1);
+  --amber:#fbbf24;--amber-wash:rgba(251,191,36,.08);
+  --red:#fb7185;--red-wash:rgba(251,113,133,.08);
+  --violet:#a78bfa;--violet-wash:rgba(167,139,250,.09);
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 0 120px;background:#050506;color:var(--text);font-family:var(--sans)}
+button,input,textarea{font:inherit}
+h1,h2,h3,p{margin:0}
+.doc{width:1400px;margin:0 auto}
+.intro{width:820px;margin-bottom:52px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b,.note b{color:var(--text);font-weight:560}
+.rule-list{margin:18px 0 0;padding:0;list-style:none;display:grid;gap:7px}
+.rule-list li{padding-left:16px;position:relative;color:var(--text-3);font-size:13px;line-height:1.55}
+.rule-list li:before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--emerald)}
+.rule-list b{color:var(--text-2);font-weight:550}
+.state{margin-top:64px}
+.state:first-of-type{margin-top:0}
+h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+.note{width:900px;margin:9px 0 18px;color:var(--text-3);font-size:13px;line-height:1.55}
+
+/* ── app frame ─────────────────────────────────────────── */
+.app{width:1400px;height:820px;overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.46);display:flex;flex-direction:column;position:relative}
+.app.tall{height:880px}
+.top{height:56px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:9px;width:186px;font-size:13px;font-weight:650}
+.brand-mark{width:20px;height:20px;border:1px solid #515159;border-radius:5px;position:relative;background:linear-gradient(145deg,#222228,#101012)}
+.brand-mark:before,.brand-mark:after{content:"";position:absolute;width:4px;height:4px;border:1px solid var(--emerald);transform:rotate(45deg)}
+.brand-mark:before{left:4px;top:7px}.brand-mark:after{right:4px;top:7px}
+.tabs{display:flex;align-items:center;align-self:stretch;gap:4px}
+.tab{position:relative;display:flex;align-items:center;gap:7px;height:100%;padding:0 16px;color:var(--text-3);font-size:13px}
+.tab.active{color:var(--text)}
+.tab.active:after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;background:var(--emerald)}
+.badge{display:inline-flex;min-width:17px;height:17px;align-items:center;justify-content:center;padding:0 5px;border-radius:10px;background:var(--muted);color:var(--text-2);font:10px/1 var(--mono)}
+.tab.active .badge{background:var(--emerald-wash);color:var(--emerald)}
+.badge.alert{background:rgba(251,191,36,.16);color:var(--amber)}
+.top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{height:32px;padding:0 12px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;white-space:nowrap}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--text-3)}
+.btn.primary{border-color:#2dd49a;background:var(--emerald-2);color:#04130d;font-weight:650}
+.btn.danger{border-color:rgba(251,113,133,.35);background:rgba(251,113,133,.08);color:#f0a3ae}
+.btn.big{height:38px;padding:0 18px;font-size:13px}
+.btn.icon{width:32px;padding:0}
+.avatar{width:27px;height:27px;border-radius:50%;background:linear-gradient(140deg,#3f3f46,#18181b);border:1px solid #4a4a51}
+.shell{display:flex;flex:1;min-height:0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.content{flex:1;min-height:0;padding:20px 24px;overflow:hidden}
+.scroll-fade{position:relative}
+.scroll-fade:after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,var(--bg));pointer-events:none}
+
+/* ── generic bits ─────────────────────────────────────── */
+.eyebrow{font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.eyebrow.em{color:var(--emerald)}
+.eyebrow.vi{color:var(--violet)}
+.eyebrow.am{color:var(--amber)}
+.pill{height:21px;padding:0 8px;border-radius:11px;display:inline-flex;align-items:center;gap:6px;font-size:10px;border:1px solid var(--line);background:var(--raised);color:var(--text-3)}
+.pill.em{border-color:rgba(52,211,153,.3);background:var(--emerald-wash);color:#8ce7c5}
+.pill.am{border-color:rgba(251,191,36,.3);background:var(--amber-wash);color:#d9b565}
+.pill.re{border-color:rgba(251,113,133,.3);background:var(--red-wash);color:#e79aa6}
+.pill.bl{border-color:rgba(96,165,250,.3);background:var(--blue-wash);color:#9cc6f6}
+.pill.vi{border-color:rgba(167,139,250,.3);background:var(--violet-wash);color:#bda8f5}
+.dot{width:7px;height:7px;border-radius:50%;background:#4b4b53;flex:0 0 auto}
+.dot.work{background:var(--emerald);box-shadow:0 0 0 3px rgba(52,211,153,.13)}
+.dot.wait{background:var(--amber)}
+.dot.idle{background:#4b4b53}
+.dot.block{background:var(--red)}
+.dot.done{background:var(--blue)}
+.dot.susp{background:var(--violet)}
+.mono{font-family:var(--mono)}
+.hr{height:1px;background:var(--line);margin:14px 0}
+.card{border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.stack{display:grid}
+
+/* ── home ─────────────────────────────────────────────── */
+.home-head{display:flex;align-items:end;margin-bottom:18px}
+.home-head h3{font-size:22px;letter-spacing:-.035em;font-weight:620}
+.home-head p{margin-top:6px;color:var(--text-3);font-size:12px}
+.home-head .btn{margin-left:auto}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.mode{padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);position:relative;overflow:hidden}
+.mode.on{border-color:rgba(52,211,153,.34);background:linear-gradient(160deg,rgba(16,185,129,.055),var(--surface))}
+.mode h4{margin:0;font-size:15px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+.mode p{margin-top:8px;color:var(--text-3);font-size:12px;line-height:1.55;max-width:440px}
+.mode .mode-meta{display:flex;gap:7px;margin-top:14px}
+.mode .glyph{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:13px;background:var(--muted);color:var(--text-2)}
+.mode.on .glyph{background:var(--emerald-wash);color:var(--emerald)}
+.needs{padding:14px 16px;border:1px solid rgba(251,191,36,.2);border-radius:9px;background:var(--amber-wash);margin-bottom:18px}
+.needs-head{display:flex;align-items:center;gap:9px;font-size:12px;color:#e2c47c;font-weight:560}
+.needs-head .count{margin-left:auto;font:10px var(--mono);color:#a58a4c}
+.needs-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(251,191,36,.14);font-size:12px;color:var(--text-2)}
+.needs-row .src{color:var(--text-3);font-size:11px}
+.needs-row .btn{margin-left:auto;height:26px;font-size:11px}
+.list-head{display:flex;align-items:center;height:28px;margin:0 0 8px;color:var(--text-3);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.list-head .line{flex:1;height:1px;margin:0 12px;background:var(--line)}
+.list-head span{font:10px var(--mono);letter-spacing:0;text-transform:none}
+.row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin-bottom:7px}
+.row .rname{font-size:13px;color:var(--text);min-width:230px}
+.row .rsub{color:var(--text-3);font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .rmeta{color:var(--text-3);font:10px var(--mono);white-space:nowrap}
+.faces{display:flex;padding-left:5px}
+.face{width:22px;height:22px;margin-left:-5px;border-radius:50%;border:2px solid var(--surface);background:linear-gradient(140deg,#43434c,#1d1d21);font:9px/18px var(--sans);text-align:center;color:#c9c9d2}
+.face.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#a7f3d8}
+
+/* ── create ───────────────────────────────────────────── */
+.create-wrap{width:760px;margin:26px auto 0}
+.q-eyebrow{color:var(--emerald);font:10px var(--mono);letter-spacing:.13em;text-transform:uppercase}
+.q{margin-top:14px;font-size:27px;line-height:1.2;letter-spacing:-.04em;font-weight:600}
+.q-sub{margin-top:10px;color:var(--text-3);font-size:13px;line-height:1.6}
+.brief{margin-top:20px;min-height:132px;padding:15px 16px;border:1px solid var(--line-strong);border-radius:10px;background:#0c0c0f;color:var(--text-2);font-size:14px;line-height:1.6}
+.brief .cursor{display:inline-block;width:1.5px;height:16px;background:var(--emerald);vertical-align:-3px;margin-left:1px}
+.brief.empty{color:var(--text-4)}
+.opt-row{display:flex;align-items:center;gap:9px;margin-top:16px}
+.opt{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text-3);display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.opt b{color:var(--text-2);font-weight:500}
+.opt .caret{color:var(--text-4);font-size:9px}
+.opt.set{border-color:rgba(52,211,153,.3);background:var(--emerald-wash);color:#9ae9c9}
+.create-foot{display:flex;align-items:center;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
+.create-foot .hint{color:var(--text-4);font-size:11px;max-width:420px;line-height:1.5}
+.create-foot .btn{margin-left:auto}
+.presets{margin-top:26px}
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:9px}
+.preset{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.preset b{display:block;font-size:12px;font-weight:550;color:var(--text-2)}
+.preset span{display:block;margin-top:6px;color:var(--text-4);font-size:10px;line-height:1.5}
+
+/* ── preparing ────────────────────────────────────────── */
+.prep{width:600px;margin:120px auto 0;text-align:center}
+.prep h3{font-size:20px;letter-spacing:-.03em;font-weight:600}
+.prep p{margin-top:9px;color:var(--text-3);font-size:13px;line-height:1.6}
+.prep-steps{margin-top:34px;text-align:left;display:grid;gap:2px}
+.prep-step{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:8px;font-size:12px;color:var(--text-4)}
+.prep-step.done{color:var(--text-3)}
+.prep-step.now{background:var(--surface);border:1px solid var(--line);color:var(--text-2)}
+.prep-step .mark{width:16px;height:16px;border-radius:50%;border:1px solid var(--line-strong);display:grid;place-items:center;font-size:9px;color:var(--text-4);flex:0 0 auto}
+.prep-step.done .mark{border-color:rgba(52,211,153,.4);background:var(--emerald-wash);color:var(--emerald)}
+.prep-step.now .mark{border-color:var(--emerald);color:var(--emerald)}
+.prep-bar{height:2px;margin-top:26px;background:var(--muted);border-radius:2px;overflow:hidden}
+.prep-bar i{display:block;height:100%;width:62%;background:var(--emerald)}
+.prep-foot{margin-top:14px;color:var(--text-4);font-size:11px}
+
+/* ── proposal ─────────────────────────────────────────── */
+.prop{width:800px;margin:20px auto 0}
+.prop-head h3{font-size:24px;letter-spacing:-.04em;font-weight:620}
+.prop-head .approach{margin-top:10px;color:var(--text-2);font-size:14px;line-height:1.6}
+.roster{margin-top:22px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.roster-head{display:flex;align-items:center;padding:11px 15px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text-2);font-weight:560}
+.roster-head span{margin-left:auto;color:var(--text-3);font:10px var(--mono);font-weight:400}
+.member-row{display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--line)}
+.member-row:last-child{border-bottom:0}
+.mface{width:30px;height:30px;border-radius:8px;background:linear-gradient(140deg,#3b3b44,#1c1c21);display:grid;place-items:center;font-size:11px;color:#cfcfd8;flex:0 0 auto}
+.mface.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#b6f5de}
+.mface.new{background:linear-gradient(140deg,#4b3a7a,#241d3c);color:#cbb6ff}
+.mname{font-size:13px;color:var(--text);width:190px;flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.mrole{color:var(--text-3);font-size:12px;line-height:1.5;flex:1;min-width:0}
+.authority{margin-top:16px;border:1px solid rgba(52,211,153,.24);border-radius:10px;background:linear-gradient(160deg,rgba(16,185,129,.05),transparent)}
+.authority-head{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid rgba(52,211,153,.15);font-size:11px;color:#8ce7c5;font-weight:560}
+.authority-head .why{margin-left:auto;color:var(--text-4);font-size:10px;font-weight:400}
+.auth-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+.auth{padding:13px 15px;border-right:1px solid rgba(52,211,153,.12)}
+.auth:last-child{border-right:0}
+.auth small{display:block;color:var(--text-4);font:9px var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.auth b{display:block;margin-top:7px;font-size:15px;font-weight:560;letter-spacing:-.02em}
+.auth span{display:block;margin-top:4px;color:var(--text-4);font-size:10px}
+.warn{display:flex;align-items:start;gap:10px;margin-top:12px;padding:12px 14px;border:1px solid rgba(251,191,36,.24);border-radius:9px;background:var(--amber-wash);color:#dcbc74;font-size:12px;line-height:1.55}
+.warn .wicon{width:17px;height:17px;border-radius:50%;background:rgba(251,191,36,.16);display:grid;place-items:center;font-size:10px;color:var(--amber);flex:0 0 auto;margin-top:1px}
+.warn b{color:#f0d69b;font-weight:600}
+.prop-foot{display:flex;align-items:center;gap:10px;margin-top:22px}
+.prop-foot .disclose{margin-left:auto;display:flex;gap:16px}
+.disclose a{color:var(--text-3);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--line-strong);padding-bottom:1px}
+
+/* ── adjust ───────────────────────────────────────────── */
+.adjust-panel{margin-top:16px;border:1px solid rgba(96,165,250,.28);border-radius:10px;background:linear-gradient(160deg,rgba(96,165,250,.05),transparent);overflow:hidden}
+.adjust-head{display:flex;align-items:center;gap:8px;padding:11px 15px;font-size:11px;color:#9cc6f6;font-weight:560;border-bottom:1px solid rgba(96,165,250,.14)}
+.adjust-body{padding:14px 15px}
+.adjust-input{min-height:56px;padding:12px 13px;border:1px solid var(--line-strong);border-radius:8px;background:#0c0c0f;color:var(--text-2);font-size:13px;line-height:1.55}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.chip{height:26px;padding:0 10px;border-radius:13px;border:1px solid var(--line);background:var(--raised);color:var(--text-3);display:inline-flex;align-items:center;font-size:11px}
+.recompute{margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.recompute-head{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-2);font-weight:560;margin-bottom:11px}
+.recompute-head .tick{color:var(--emerald)}
+.diff{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.diff-cell small{display:block;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.diff-cell b{display:block;margin-top:6px;font-size:14px;font-weight:560}
+.diff-cell .was{display:block;margin-top:4px;color:var(--text-4);font-size:10px;text-decoration:line-through}
+.diff-cell.changed b{color:var(--emerald)}
+.kept{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);color:var(--text-4);font-size:11px;line-height:1.55}
+.kept b{color:var(--text-3);font-weight:500}
+
+/* ── why this team ────────────────────────────────────── */
+.why-panel{margin-top:16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.why-head{display:flex;align-items:center;gap:8px;padding:12px 15px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text-2);font-weight:560}
+.why-head .tag{margin-left:auto}
+.why-body{padding:15px}
+.why-body>p{color:var(--text-3);font-size:12px;line-height:1.65}
+.why-list{margin-top:14px;display:grid;gap:9px}
+.why-item{display:flex;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#0e0e11}
+.why-item b{display:block;font-size:11px;color:var(--text-2);font-weight:560}
+.why-item span{display:block;margin-top:5px;color:var(--text-4);font-size:11px;line-height:1.55}
+.planner-note{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-left:2px solid var(--violet);border-radius:0 7px 7px 0;background:var(--violet-wash);color:#a99ad0;font-size:11px;line-height:1.55}
+
+/* ── advanced ─────────────────────────────────────────── */
+.adv{display:grid;grid-template-columns:210px minmax(0,1fr) 300px;flex:1;min-height:0}
+.adv-nav{border-right:1px solid var(--line);padding:15px 10px}
+.adv-nav .side-title{height:26px;padding:0 8px;display:flex;align-items:center;color:var(--text-4);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.adv-row{height:31px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:9px;color:var(--text-3);font-size:12px}
+.adv-row.on{background:var(--raised);color:var(--text)}
+.adv-row .n{margin-left:auto;color:var(--text-4);font:9px var(--mono)}
+.adv-main{padding:16px 20px;overflow:hidden;min-width:0}
+.adv-title{display:flex;align-items:center;gap:10px}
+.adv-title h4{margin:0;font-size:15px;font-weight:600;letter-spacing:-.02em}
+.adv-title .btn{margin-left:auto;height:28px;font-size:11px}
+.field{margin-top:14px}
+.flabel{display:flex;align-items:center;color:var(--text-3);font-size:11px;font-weight:560;margin-bottom:7px}
+.flabel .hint{margin-left:auto;color:var(--text-4);font-size:10px;font-weight:400}
+.finput{padding:10px 11px;border:1px solid var(--line-strong);border-radius:7px;background:#0c0c0f;color:var(--text-2);font-size:11px;line-height:1.55}
+.finput.tall{min-height:90px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fselect{height:33px;padding:0 10px;border:1px solid var(--line-strong);border-radius:7px;background:#0c0c0f;color:var(--text-2);font-size:11px;display:flex;align-items:center}
+.fselect span{margin-left:auto;color:var(--text-4);font-size:9px}
+.toks{display:flex;flex-wrap:wrap;gap:5px}
+.tok{height:24px;padding:0 9px;border-radius:6px;border:1px solid var(--line);background:#141418;color:var(--text-3);display:inline-flex;align-items:center;gap:6px;font-size:10px}
+.tok.on{border-color:rgba(52,211,153,.34);background:var(--emerald-wash);color:#93e8c6}
+.tok .x{color:var(--text-4);font-size:11px}
+.adv-side{border-left:1px solid var(--line);background:#0e0e10;padding:15px 14px;overflow:hidden}
+.computed{padding:12px;border:1px solid rgba(52,211,153,.2);border-radius:8px;background:rgba(16,185,129,.04)}
+.computed .eyebrow{color:var(--emerald)}
+.computed p{margin-top:8px;color:var(--text-4);font-size:10px;line-height:1.55}
+.computed .cline{display:flex;align-items:center;padding:7px 0;border-top:1px solid rgba(52,211,153,.11);font-size:11px;color:var(--text-2)}
+.computed .cline small{color:var(--text-4);font-size:10px;margin-right:auto}
+.locked{margin-top:12px;padding:10px 11px;border:1px solid var(--line);border-radius:8px;color:var(--text-4);font-size:10px;line-height:1.55}
+.locked b{color:var(--text-3)}
+
+/* ── live room ────────────────────────────────────────── */
+.room-bar{height:50px;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.room-bar h3{font-size:14px;font-weight:600;letter-spacing:-.02em}
+.room-bar .sep{width:1px;height:18px;background:var(--line)}
+.meter{display:flex;align-items:center;gap:8px;color:var(--text-3);font:10px var(--mono)}
+.meter .track{width:64px;height:3px;border-radius:2px;background:var(--muted);overflow:hidden}
+.meter .track i{display:block;height:100%;background:var(--emerald)}
+.meter .track i.am{background:var(--amber)}
+.room-bar .acts{margin-left:auto;display:flex;gap:7px}
+.room-body{display:grid;grid-template-columns:264px minmax(0,1fr) 320px;flex:1;min-height:0}
+.roster-rail{border-right:1px solid var(--line);padding:13px 10px;overflow:hidden}
+.rail-title{height:26px;padding:0 8px;display:flex;align-items:center;color:var(--text-4);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.rail-title span{margin-left:auto;letter-spacing:0}
+.mrow{display:flex;align-items:center;gap:9px;padding:9px;border-radius:7px;margin-bottom:2px;border:1px solid transparent}
+.mrow.on{background:var(--raised);border-color:var(--line)}
+.mrow .mf{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,#3b3b44,#1c1c21);display:grid;place-items:center;font-size:10px;color:#cfcfd8;flex:0 0 auto;position:relative}
+.mrow .mf.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#b6f5de}
+.mrow .mf.new{background:linear-gradient(140deg,#4b3a7a,#241d3c);color:#cbb6ff}
+.mrow .mf .st{position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;border:2px solid var(--bg)}
+.mrow.on .mf .st{border-color:var(--raised)}
+.st.work{background:var(--emerald)}.st.wait{background:var(--amber)}.st.idle{background:#4b4b53}.st.block{background:var(--red)}.st.done{background:var(--blue)}.st.susp{background:var(--violet)}
+.mrow .mi{min-width:0;flex:1}
+.mrow .mi b{display:block;font-size:12px;font-weight:500;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow.on .mi b{color:var(--text)}
+.mrow .mi span{display:block;margin-top:3px;color:var(--text-4);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .cost{color:var(--text-4);font:9px var(--mono);flex:0 0 auto}
+.rail-foot{margin-top:11px;padding:10px 9px;border-top:1px solid var(--line);color:var(--text-4);font-size:10px;line-height:1.55}
+.rail-foot a{color:var(--text-3);text-decoration:none;border-bottom:1px dotted var(--line-strong)}
+
+.timeline{padding:15px 18px;overflow:hidden;min-width:0}
+.tl-head{display:flex;align-items:center;margin-bottom:12px}
+.tl-head b{font-size:12px;color:var(--text-2);font-weight:560}
+.tl-head .filters{margin-left:auto;display:flex;gap:5px}
+.ev{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.ev .when{width:44px;flex:0 0 auto;color:var(--text-4);font:9px var(--mono);padding-top:2px}
+.ev .who{width:22px;height:22px;border-radius:6px;flex:0 0 auto;display:grid;place-items:center;font-size:9px;background:linear-gradient(140deg,#3b3b44,#1c1c21);color:#c8c8d1}
+.ev .who.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#b6f5de}
+.ev .who.sys{background:var(--muted);color:var(--text-3)}
+.ev .who.new{background:linear-gradient(140deg,#4b3a7a,#241d3c);color:#cbb6ff}
+.ev .body{min-width:0;flex:1}
+.ev .body p{color:var(--text-3);font-size:12px;line-height:1.55}
+.ev .body p b{color:var(--text-2);font-weight:550}
+.ev .body .sub{margin-top:5px;color:var(--text-4);font-size:11px;line-height:1.5}
+.ev-card{margin-top:8px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.ev-card.rev{border-color:rgba(167,139,250,.26);background:var(--violet-wash)}
+.ev-card.ok{border-color:rgba(52,211,153,.24);background:rgba(16,185,129,.045)}
+.ev-card.warn-c{border-color:rgba(251,191,36,.24);background:var(--amber-wash)}
+.ev-card.bad{border-color:rgba(251,113,133,.24);background:var(--red-wash)}
+.ev-card h5{margin:0;font-size:11px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:8px}
+.ev-card h5 .pill{margin-left:auto}
+.ev-card p{margin-top:7px;color:var(--text-4);font-size:11px;line-height:1.55}
+.ev-card .acts{display:flex;gap:7px;margin-top:10px}
+.ev-card .btn{height:26px;font-size:11px}
+
+.room-side{border-left:1px solid var(--line);background:#0e0e10;display:flex;flex-direction:column;overflow:hidden}
+.side-tabs{display:flex;height:36px;padding:0 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.side-tab{flex:1;display:grid;place-items:center;color:var(--text-4);font-size:11px}
+.side-tab.on{color:var(--text-2);box-shadow:inset 0 -1px 0 var(--emerald)}
+.side-body{padding:14px;overflow:hidden}
+.brief-block{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.brief-block .eyebrow{margin-bottom:8px}
+.brief-block p{color:var(--text-3);font-size:11px;line-height:1.6}
+.bfield{padding:9px 0;border-top:1px solid var(--line)}
+.bfield small{display:block;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.bfield p{margin-top:5px;color:var(--text-3);font-size:11px;line-height:1.55}
+.cnote{margin-top:11px;padding:10px 11px;border:1px solid var(--line);border-left:2px solid var(--emerald);border-radius:0 7px 7px 0;background:rgba(16,185,129,.04)}
+.cnote .eyebrow{color:var(--emerald)}
+.cnote p{margin-top:6px;color:var(--text-3);font-size:11px;line-height:1.55}
+.work-item{display:flex;gap:9px;padding:10px 0;border-bottom:1px solid var(--line)}
+.work-item .wdot{width:6px;height:6px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+.work-item b{display:block;font-size:11px;color:var(--text-2);font-weight:500}
+.work-item span{display:block;margin-top:4px;color:var(--text-4);font-size:10px;line-height:1.5}
+
+/* ── member inspector ─────────────────────────────────── */
+.insp{display:grid;grid-template-columns:264px minmax(0,1fr);flex:1;min-height:0}
+.insp-main{display:flex;flex-direction:column;min-width:0}
+.insp-head{padding:15px 18px 0;flex:0 0 auto}
+.insp-id{display:flex;align-items:center;gap:12px}
+.insp-id .mface{width:36px;height:36px;border-radius:9px;font-size:13px}
+.insp-id h3{font-size:16px;font-weight:600;letter-spacing:-.02em}
+.insp-id .sub{margin-top:4px;color:var(--text-4);font-size:11px}
+.insp-id .acts{margin-left:auto;display:flex;gap:7px}
+.insp-tabs{display:flex;gap:3px;margin-top:14px;border-bottom:1px solid var(--line)}
+.itab{height:32px;padding:0 13px;color:var(--text-4);font-size:12px;display:flex;align-items:center}
+.itab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--emerald)}
+.insp-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px}
+.transcript{padding:15px 18px;overflow:hidden;min-width:0}
+.turn{margin-bottom:14px}
+.turn-head{display:flex;align-items:center;gap:8px;color:var(--text-4);font:9px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.turn-head .line{flex:1;height:1px;background:var(--line)}
+.bub{margin-top:8px;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text-3);font-size:12px;line-height:1.6}
+.bub.room{border-color:rgba(52,211,153,.22);background:rgba(16,185,129,.04);color:#96cbb6}
+.bub.tool{font-family:var(--mono);font-size:10px;color:var(--text-4);background:#0c0c0f}
+.bub b{color:var(--text-2);font-weight:550}
+.compact-mark{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--violet);font-size:11px}
+.compact-mark .line{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.35),transparent)}
+.insp-side{border-left:1px solid var(--line);background:#0e0e10;padding:14px;overflow:hidden}
+.ctx-meter{margin-top:9px}
+.ctx-track{height:6px;border-radius:3px;background:var(--muted);overflow:hidden;display:flex}
+.ctx-track i{display:block;height:100%}
+.ctx-track i.used{background:var(--emerald)}
+.ctx-track i.warnzone{background:rgba(251,191,36,.5)}
+.ctx-legend{display:flex;margin-top:7px;color:var(--text-4);font:9px var(--mono)}
+.ctx-legend span:last-child{margin-left:auto}
+.kv{display:flex;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:11px}
+.kv small{color:var(--text-4);margin-right:auto}
+.kv b{color:var(--text-2);font-weight:500;font-size:11px}
+.kv .mono{font-size:10px;color:var(--text-3)}
+.notice{margin-top:12px;padding:10px 11px;border:1px solid rgba(96,165,250,.22);border-radius:8px;background:var(--blue-wash);color:#9cc6f6;font-size:10px;line-height:1.55}
+.notice b{color:#bcd9fb}
+
+/* ── approvals ────────────────────────────────────────── */
+.inbox{width:900px;margin:14px auto 0}
+.inbox-head{display:flex;align-items:end;margin-bottom:16px}
+.inbox-head h3{font-size:20px;letter-spacing:-.03em;font-weight:620}
+.inbox-head p{margin-top:6px;color:var(--text-3);font-size:12px}
+.inbox-head .pill{margin-left:auto}
+.appr{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:11px;overflow:hidden}
+.appr.hot{border-color:rgba(251,191,36,.3)}
+.appr-head{display:flex;align-items:center;gap:11px;padding:13px 15px;border-bottom:1px solid var(--line)}
+.appr-head .mface{width:28px;height:28px;border-radius:8px;font-size:10px}
+.appr-head .t b{display:block;font-size:13px;font-weight:560}
+.appr-head .t span{display:block;margin-top:4px;color:var(--text-4);font-size:11px}
+.appr-head .pill{margin-left:auto}
+.appr-body{padding:13px 15px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.appr-cell small{display:block;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.appr-cell p{margin-top:6px;color:var(--text-3);font-size:11px;line-height:1.55}
+.appr-cell p.em{color:#8ce7c5}
+.appr-cell p.am{color:#dcbc74}
+.consequence{margin:0 15px 13px;padding:11px 12px;border:1px solid rgba(251,113,133,.2);border-radius:8px;background:var(--red-wash);color:#e2a2ac;font-size:11px;line-height:1.55}
+.consequence b{color:#f6c2c9}
+.appr-foot{display:flex;align-items:center;gap:8px;padding:11px 15px;border-top:1px solid var(--line);background:#0d0d0f}
+.appr-foot .note{margin-left:auto;color:var(--text-4);font-size:10px}
+.conductor-note{margin-top:16px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;color:var(--text-4);font-size:11px;line-height:1.6;display:flex;gap:10px}
+.conductor-note b{color:var(--text-3)}
+
+/* ── state gallery ────────────────────────────────────── */
+.gal{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:4px}
+.gal-card{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.gal-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.gal-head b{font-size:12px;font-weight:560}
+.gal-head .pill{margin-left:auto}
+.gal-body{padding:13px 14px}
+.gal-body>p{color:var(--text-3);font-size:12px;line-height:1.6}
+.gal-body .expl{margin-top:9px;padding:10px 11px;border-radius:7px;background:#0d0d10;border:1px solid var(--line);color:var(--text-4);font-size:11px;line-height:1.55}
+.gal-body .expl b{color:var(--text-3)}
+.gal-acts{display:flex;gap:7px;margin-top:11px}
+.gal-acts .btn{height:27px;font-size:11px}
+.slot-note{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--text-4);font:10px var(--mono)}
+
+/* ── claims ───────────────────────────────────────────── */
+.claim-wrap{width:920px;margin:10px auto 0}
+.claim-tbl{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.claim-r{display:grid;grid-template-columns:190px minmax(0,1fr) 120px 130px;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:11px}
+.claim-r:last-child{border-bottom:0}
+.claim-r.h{background:#0d0d0f;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.claim-r .who{display:flex;align-items:center;gap:9px;color:var(--text-2);font-size:12px}
+.claim-r .path{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+.claim-r.clash{background:rgba(251,191,36,.05)}
+.claim-r.clash .path{color:#dcbc74}
+.policy{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:14px}
+.policy-card{padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.policy-card.on{border-color:rgba(52,211,153,.3);background:rgba(16,185,129,.04)}
+.policy-card b{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:560}
+.policy-card p{margin-top:8px;color:var(--text-4);font-size:11px;line-height:1.55}
+
+/* ── delivery / chat ──────────────────────────────────── */
+.split{display:grid;grid-template-columns:minmax(0,1fr) 430px;flex:1;min-height:0}
+.chat{border-left:1px solid var(--line);background:#0c0c0e;display:flex;flex-direction:column}
+.chat-head{height:44px;display:flex;align-items:center;gap:9px;padding:0 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text-2);flex:0 0 auto}
+.chat-head .pill{margin-left:auto}
+.chat-body{flex:1;padding:14px;overflow:hidden}
+.msg{margin-bottom:13px}
+.msg .role{color:var(--text-4);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.msg .txt{margin-top:7px;color:var(--text-3);font-size:12px;line-height:1.6}
+.result-card{margin-top:8px;border:1px solid rgba(52,211,153,.26);border-radius:10px;background:linear-gradient(160deg,rgba(16,185,129,.06),transparent);overflow:hidden}
+.result-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid rgba(52,211,153,.14)}
+.result-head b{font-size:12px;font-weight:600;color:#a7ecd0}
+.result-head .pill{margin-left:auto}
+.result-body{padding:12px 13px}
+.result-body>p{color:var(--text-3);font-size:11px;line-height:1.6}
+.res-sec{margin-top:11px;padding-top:10px;border-top:1px solid rgba(52,211,153,.11)}
+.res-sec small{display:block;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.art{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:11px;color:var(--text-3)}
+.art .ic{width:18px;height:18px;border-radius:5px;background:var(--muted);display:grid;place-items:center;font-size:9px;color:var(--text-3);flex:0 0 auto}
+.art .by{margin-left:auto;color:var(--text-4);font:9px var(--mono)}
+.res-foot{display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid rgba(52,211,153,.14);background:rgba(16,185,129,.03)}
+.res-foot .mono{color:var(--text-4);font-size:10px}
+.res-foot .btn{margin-left:auto;height:27px;font-size:11px}
+.chat-input{height:56px;margin:0 14px 14px;padding:0 13px;border:1px solid var(--line-strong);border-radius:9px;background:#0e0e11;display:flex;align-items:center;color:var(--text-4);font-size:12px;flex:0 0 auto}
+
+/* ── completion ───────────────────────────────────────── */
+.done-wrap{width:960px;margin:12px auto 0}
+.done-hero{display:flex;align-items:start;gap:14px;padding:18px;border:1px solid rgba(52,211,153,.26);border-radius:11px;background:linear-gradient(160deg,rgba(16,185,129,.06),transparent)}
+.done-hero .tickbox{width:34px;height:34px;border-radius:10px;background:var(--emerald-wash);display:grid;place-items:center;color:var(--emerald);font-size:15px;flex:0 0 auto}
+.done-hero h3{font-size:18px;font-weight:620;letter-spacing:-.03em}
+.done-hero p{margin-top:7px;color:var(--text-3);font-size:12px;line-height:1.6;max-width:620px}
+.done-hero .acts{margin-left:auto;display:flex;flex-direction:column;gap:7px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:14px}
+.stat{padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.stat small{display:block;color:var(--text-4);font:9px var(--mono);text-transform:uppercase;letter-spacing:.07em}
+.stat b{display:block;margin-top:7px;font-size:19px;font-weight:560;letter-spacing:-.03em}
+.stat span{display:block;margin-top:4px;color:var(--text-4);font-size:10px}
+.done-grid{display:grid;grid-template-columns:1fr 340px;gap:12px;margin-top:12px}
+.panel{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.panel-head{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text-2);font-weight:560}
+.panel-head span{margin-left:auto;color:var(--text-4);font:10px var(--mono);font-weight:400}
+.panel-body{padding:12px 14px}
+.cost-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11px}
+.cost-row:last-child{border-bottom:0}
+.cost-row .mf{width:22px;height:22px;border-radius:6px;background:linear-gradient(140deg,#3b3b44,#1c1c21);display:grid;place-items:center;font-size:9px;color:#c8c8d1;flex:0 0 auto}
+.cost-row .mf.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#b6f5de}
+.cost-row .nm{color:var(--text-3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cost-row .bar{width:70px;height:3px;border-radius:2px;background:var(--muted);overflow:hidden;flex:0 0 auto}
+.cost-row .bar i{display:block;height:100%;background:var(--emerald)}
+.cost-row .amt{width:52px;text-align:right;color:var(--text-2);font:10px var(--mono)}
+.unres{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.unres:last-child{border-bottom:0}
+.unres .wdot{width:6px;height:6px;border-radius:50%;background:var(--amber);margin-top:5px;flex:0 0 auto}
+.unres b{display:block;font-size:11px;color:var(--text-2);font-weight:500}
+.unres span{display:block;margin-top:4px;color:var(--text-4);font-size:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="intro">
+    <h1>Agent Rooms — prototype</h1>
+    <p class="lede">Sero Orchestrator gets a second mode. <b>Workflow</b> runs an LLM-authored step graph. <b>Room</b> creates a persistent Conductor-led team from one plain-language problem, and adapts that team while it works.</p>
+    <p class="lede">The generated blueprint is detailed. The confirmation the user approves is not. Everything that carries authority — team size, time, spend, access — is computed by application code from the validated blueprint the runtime will enforce. The planner writes prose only.</p>
+    <ul class="rule-list">
+      <li><b>One question starts a Room.</b> Spend, time and access are optional, and pre-filled from safe defaults.</li>
+      <li><b>Adjust is natural language first.</b> Forms live behind Advanced settings, never in the default path.</li>
+      <li><b>Members are real persistent Pi sessions.</b> They are inspectable through the Room, and never appear as ordinary chats.</li>
+      <li><b>The Conductor adapts the team, never its own authority.</b> Anything that widens access, spend or team size stops for the user.</li>
+    </ul>
+  </div>
+
+  <!-- ═══ 1 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>1 · Orchestrator — Workflows and Rooms</h2>
+    <p class="note">Rooms are a mode of the existing product, not a new app. The home surface keeps the cross-mode “Needs you” inbox, then presents the two ways to start work. Nothing about Workflow behaviour changes.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab active">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">⌘K</button><button type="button" class="btn primary">＋ New</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="home-head">
+          <div><h3>Orchestrator</h3><p>sero · 3 active · $4.12 spent today</p></div>
+        </div>
+        <div class="needs">
+          <div class="needs-head">⚠ Needs you <span class="count">3 items</span></div>
+          <div class="needs-row"><span class="dot block"></span>Push branch <b class="mono" style="color:var(--text-2)">room/auth-hardening/impl-2</b> to origin <span class="src">· Room · Auth hardening · Implementer 2</span><button type="button" class="btn">Review</button></div>
+          <div class="needs-row"><span class="dot wait"></span>Raise the spend limit from $6.00 to $9.00 <span class="src">· Room · Auth hardening · Conductor</span><button type="button" class="btn">Review</button></div>
+          <div class="needs-row"><span class="dot wait"></span>Answer planner question about the target branch <span class="src">· Workflow · Nightly dependency sweep</span><button type="button" class="btn">Answer</button></div>
+        </div>
+        <div class="mode-grid">
+          <div class="mode">
+            <h4><span class="glyph">⟳</span>Workflow</h4>
+            <p>Describe a repeatable job. Sero plans the steps, their order and their completion checks, then runs it — once, on a schedule, or on an event.</p>
+            <div class="mode-meta"><span class="pill">7 workflows</span><span class="pill">2 running</span><span class="pill">Step graph</span></div>
+          </div>
+          <div class="mode on">
+            <h4><span class="glyph">◎</span>Room <span class="pill em" style="height:19px;font-size:9px">New</span></h4>
+            <p>Describe a problem. Sero builds a team for it — a Conductor plus the specialists the problem needs — and they work, talk and adapt until it is done.</p>
+            <div class="mode-meta"><span class="pill">2 rooms</span><span class="pill em">1 running</span><span class="pill">Persistent team</span></div>
+          </div>
+        </div>
+        <div class="list-head">Rooms<span class="line"></span><span>2</span></div>
+        <div class="row">
+          <span class="dot work"></span>
+          <span class="rname">Auth hardening</span>
+          <span class="rsub">Find and fix the session-fixation risk before the release cut</span>
+          <div class="faces"><span class="face c">C</span><span class="face">R</span><span class="face">I</span><span class="face">I</span><span class="face">T</span></div>
+          <span class="rmeta">5 members · 41m · $3.18 / $6.00</span>
+        </div>
+        <div class="row">
+          <span class="dot done"></span>
+          <span class="rname">Pricing page rewrite</span>
+          <span class="rsub">Completed · delivered to chat “Marketing site refresh”</span>
+          <div class="faces"><span class="face c">C</span><span class="face">W</span><span class="face">D</span></div>
+          <span class="rmeta">3 members · 22m · $0.94</span>
+        </div>
+        <div class="list-head" style="margin-top:16px">Workflows<span class="line"></span><span>7</span></div>
+        <div class="row">
+          <span class="dot work"></span><span class="rname">Nightly dependency sweep</span>
+          <span class="rsub">Step 3 of 6 · running verification</span><span class="rmeta">daily 02:00 · $0.31</span>
+        </div>
+        <div class="row">
+          <span class="dot idle"></span><span class="rname">Issue triage</span>
+          <span class="rsub">Waiting for a GitHub issue event</span><span class="rmeta">event · armed</span>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 2 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>2 · Create a Room — one question</h2>
+    <p class="note">The whole required path is one text field. Spend, time and access are optional chips carrying safe defaults, so a non-technical user can press Design the team without opening any of them. Presets are seeds for the planner, not fixed rosters — they sit below the fold of the primary action.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">Cancel</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="create-wrap">
+          <div class="q-eyebrow">New room</div>
+          <h3 class="q">What would you like the team to accomplish?</h3>
+          <p class="q-sub">Describe the problem and what a good result looks like. Sero designs the team from your description — you do not need to pick agents, models or tools.</p>
+          <div class="brief">Our login flow probably has a session-fixation problem. Find out whether it does, fix it properly, and give me a pull request with a test that fails on the old code.<span class="cursor"></span></div>
+          <div class="opt-row">
+            <span class="opt">Maximum spend <b>$6.00</b><span class="caret">▾</span></span>
+            <span class="opt">Maximum time <b>2 hours</b><span class="caret">▾</span></span>
+            <span class="opt">Access <b>This workspace</b><span class="caret">▾</span></span>
+            <span class="opt">Deliver to <b>This chat</b><span class="caret">▾</span></span>
+          </div>
+          <div class="create-foot">
+            <p class="hint">Sero will propose a team before anything runs. Nothing starts and nothing is spent until you press Start room.</p>
+            <button type="button" class="btn primary big">Design the team →</button>
+          </div>
+          <div class="presets">
+            <div class="list-head">Start from a preset <span style="margin-left:8px;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text-4)">optional</span><span class="line"></span></div>
+            <div class="preset-grid">
+              <div class="preset"><b>Software delivery</b><span>Plan, build, review and verify a change end to end.</span></div>
+              <div class="preset"><b>Adversarial analysis</b><span>Make the team argue both sides before it concludes.</span></div>
+              <div class="preset"><b>Parallel issues</b><span>Work several independent issues at once in separate worktrees.</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 3 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>3 · Preparing the team</h2>
+    <p class="note">The planner runs as an isolated call, not as a Room member. The wait is explained in the user’s own terms and stays cancellable. No session is created and nothing is spent in this state.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="prep">
+          <h3>Designing your team</h3>
+          <p>Sero is choosing who this problem needs, what each of them will do, and the limits they will work inside.</p>
+          <div class="prep-steps">
+            <div class="prep-step done"><span class="mark">✓</span>Read the problem and your limits</div>
+            <div class="prep-step done"><span class="mark">✓</span>Check what this workspace can do</div>
+            <div class="prep-step now"><span class="mark">◐</span>Choose the roles and how they will work together</div>
+            <div class="prep-step"><span class="mark"></span>Check the plan against your limits</div>
+            <div class="prep-step"><span class="mark"></span>Work out the access this team needs</div>
+          </div>
+          <div class="prep-bar"><i></i></div>
+          <p class="prep-foot">About 15 seconds left · <a href="#" style="color:var(--text-3)">Cancel</a></p>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 4 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>4 · The proposal — computed, not written</h2>
+    <p class="note">The four authority tiles are the consent surface. Application code computes each one from the validated blueprint: team size from the member list, time and spend from the operating envelope, access from the union of approved tools, skills, permissions, workspace modes and delivery. The planner supplies the title, the one-sentence approach and the role one-liners — nothing that carries authority. The warning appears because a member has GitHub write; it is a fixed mapping, not planner prose.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">Discard</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="prop">
+          <div class="prop-head">
+            <div class="eyebrow em">Proposed room</div>
+            <h3 style="margin-top:9px">Session-fixation fix for the login flow</h3>
+            <p class="approach">A reviewer confirms whether the risk is real, two implementers fix it in separate branches, and a tester proves the fix with a failing-then-passing test before the pull request goes up.</p>
+          </div>
+          <div class="roster">
+            <div class="roster-head">The team <span>5 members</span></div>
+            <div class="member-row"><span class="mface c">◎</span><span class="mname">Conductor <span class="pill em" style="height:18px;font-size:9px">Leads</span></span><span class="mrole">Keeps the work moving, decides what happens next, and reports back when it is done.</span></div>
+            <div class="member-row"><span class="mface">R</span><span class="mname">Security reviewer</span><span class="mrole">Confirms whether the session-fixation risk is real and says exactly where it is.</span></div>
+            <div class="member-row"><span class="mface">1</span><span class="mname">Implementer 1</span><span class="mrole">Fixes the session handling in the login path.</span></div>
+            <div class="member-row"><span class="mface">2</span><span class="mname">Implementer 2</span><span class="mrole">Updates everything that depends on the old session behaviour.</span></div>
+            <div class="member-row"><span class="mface">T</span><span class="mname">Tester</span><span class="mrole">Writes a test that fails on the old code and passes on the fix.</span></div>
+          </div>
+          <div class="authority">
+            <div class="authority-head">✓ What you are approving <span class="why">computed from the plan the team will run under</span></div>
+            <div class="auth-grid">
+              <div class="auth"><small>Team</small><b>5 members</b><span>1 leads, 4 work</span></div>
+              <div class="auth"><small>Working time</small><b>Up to 2 hours</b><span>then it pauses for you</span></div>
+              <div class="auth"><small>Spend</small><b>Up to $6.00</b><span>hard stop</span></div>
+              <div class="auth"><small>Access</small><b>This workspace<br>and GitHub</b><span>read, edit, push</span></div>
+            </div>
+          </div>
+          <div class="warn"><span class="wicon">!</span><span><b>This team can push branches and open pull requests.</b> It cannot merge them, deploy, or reach anything outside this repository.</span></div>
+          <div class="prop-foot">
+            <button type="button" class="btn primary big">Start room</button>
+            <button type="button" class="btn big">Adjust</button>
+            <span class="disclose"><a href="#">Why this team?</a><a href="#">Advanced settings</a></span>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 5 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>5 · Adjust — natural language first</h2>
+    <p class="note">Adjust never opens a form. The user writes what they want changed, the planner returns a revised blueprint, and the authority tiles are recomputed from it. Changed values are shown against what they replaced. Everything the user already decided explicitly — here the 2-hour limit and the delivery target — is stated as preserved, so a broad instruction cannot quietly widen something unrelated.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">Discard</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="prop">
+          <div class="prop-head">
+            <div class="eyebrow em">Proposed room · revised</div>
+            <h3 style="margin-top:9px">Session-fixation fix for the login flow</h3>
+          </div>
+          <div class="adjust-panel">
+            <div class="adjust-head">✎ Tell Sero what to change</div>
+            <div class="adjust-body">
+              <div class="adjust-input">Use one implementer instead of two, keep the cost under $2, and don’t let anything push to GitHub.<span class="cursor"></span></div>
+              <div class="chips"><span class="chip">Use fewer agents</span><span class="chip">Add a security reviewer</span><span class="chip">Keep the cost below $2</span><span class="chip">No deployment tools</span><span class="chip">Make them challenge each other</span></div>
+            </div>
+          </div>
+          <div class="recompute">
+            <div class="recompute-head"><span class="tick">✓</span>Recomputed from the revised plan</div>
+            <div class="diff">
+              <div class="diff-cell changed"><small>Team</small><b>4 members</b><span class="was">5 members</span></div>
+              <div class="diff-cell"><small>Working time</small><b>Up to 2 hours</b></div>
+              <div class="diff-cell changed"><small>Spend</small><b>Up to $2.00</b><span class="was">$6.00</span></div>
+              <div class="diff-cell changed"><small>Access</small><b>This workspace</b><span class="was">and GitHub</span></div>
+            </div>
+            <p class="kept"><b>Kept as you set them:</b> the 2-hour limit, delivery back to this chat, and the read-and-edit access you approved. <b>Removed:</b> Implementer 2, and GitHub push for every member — the team will hand you a branch instead of a pull request.</p>
+          </div>
+          <div class="prop-foot">
+            <button type="button" class="btn primary big">Start room</button>
+            <button type="button" class="btn big">Adjust again</button>
+            <span class="disclose"><a href="#">Why this team?</a><a href="#">Advanced settings</a></span>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 6 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>6 · Why this team? — optional supporting detail</h2>
+    <p class="note">Rationale is disclosure, never the default. It is explicitly labelled as the planner’s reasoning so it is never confused with the computed authority summary above it. This is where the planner’s prose lives, and it is the only place it can appear at full length.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="prop">
+          <div class="why-panel">
+            <div class="why-head">Why this team? <span class="pill vi tag">Planner reasoning</span></div>
+            <div class="why-body">
+              <p>Session fixation is cheap to misdiagnose and expensive to get wrong, so the first job is confirming it exists rather than assuming it. The fix itself touches two separate concerns — the login path and everything downstream that reads the old session — which is why the work splits across two implementers in separate branches instead of one agent making a wide change. A dedicated tester keeps the proof honest: the test has to fail on the current code before it is allowed to pass on the fix.</p>
+              <div class="why-list">
+                <div class="why-item"><span class="mface c" style="width:26px;height:26px;font-size:10px">◎</span><div><b>Conductor</b><span>Someone has to decide when the reviewer’s finding is solid enough to act on, and when the fix is finished. That decision cannot sit with the agent doing the work.</span></div></div>
+                <div class="why-item"><span class="mface" style="width:26px;height:26px;font-size:10px">R</span><div><b>Security reviewer</b><span>Confirms the risk is real before anyone changes code. If it is not real, the Room can stop early instead of spending the budget.</span></div></div>
+                <div class="why-item"><span class="mface" style="width:26px;height:26px;font-size:10px">1</span><div><b>Implementer 1</b><span>The login path change is small but delicate. It gets its own branch so it can be reviewed on its own.</span></div></div>
+                <div class="why-item"><span class="mface" style="width:26px;height:26px;font-size:10px">2</span><div><b>Implementer 2</b><span>The downstream updates are wide and mechanical. Splitting them off keeps the delicate change readable.</span></div></div>
+                <div class="why-item"><span class="mface" style="width:26px;height:26px;font-size:10px">T</span><div><b>Tester</b><span>You asked for a test that fails on the old code. Writing it separately from the fix stops it being shaped to match the fix.</span></div></div>
+              </div>
+              <div class="planner-note">This is the planner explaining its choices. It does not change what the team is allowed to do — the access, spend, time and team size you approve are computed from the plan itself, and this text cannot alter them.</div>
+            </div>
+          </div>
+          <div class="prop-foot">
+            <button type="button" class="btn primary big">Start room</button>
+            <button type="button" class="btn big">Adjust</button>
+            <span class="disclose"><a href="#">Hide reasoning</a><a href="#">Advanced settings</a></span>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 7 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>7 · Advanced settings — the complete blueprint</h2>
+    <p class="note">Everything the planner generated is editable here: prompts, mandates, models, thinking, tools, skills, permissions, workspace placement, communication policy, limits and context management. The right rail shows what the compact proposal will compute from these values — so an advanced edit visibly moves the consent summary, and the summary can never drift from the blueprint the runtime enforces.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">← Back to proposal</button><button type="button" class="btn primary">Start room</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="adv">
+        <aside class="adv-nav">
+          <div class="side-title">Room</div>
+          <div class="adv-row">Objective &amp; success</div>
+          <div class="adv-row">Operating envelope <span class="n">14</span></div>
+          <div class="adv-row">Communication</div>
+          <div class="adv-row">Workspace &amp; Git</div>
+          <div class="adv-row">Context &amp; compaction</div>
+          <div class="adv-row">Delivery</div>
+          <div class="side-title" style="margin-top:12px">Members</div>
+          <div class="adv-row"><span class="dot" style="background:var(--emerald)"></span>Conductor</div>
+          <div class="adv-row on"><span class="dot idle"></span>Security reviewer</div>
+          <div class="adv-row"><span class="dot idle"></span>Implementer 1</div>
+          <div class="adv-row"><span class="dot idle"></span>Implementer 2</div>
+          <div class="adv-row"><span class="dot idle"></span>Tester</div>
+          <div class="adv-row" style="color:var(--text-4)">＋ Add member</div>
+        </aside>
+        <div class="adv-main">
+          <div class="adv-title"><h4>Security reviewer</h4><span class="pill">Generated · no saved agent file</span><button type="button" class="btn">Reset to generated</button></div>
+          <div class="field">
+            <div class="flabel">Mandate <span class="hint">changes instructions only — never capabilities</span></div>
+            <div class="finput tall">Confirm whether the login flow is vulnerable to session fixation. Read the session lifecycle end to end before concluding. State the exact file and line where the session identifier survives authentication, or state clearly that it does not. Do not propose or write a fix — hand your finding to the Conductor and stop.</div>
+          </div>
+          <div class="fgrid" style="margin-top:14px">
+            <div><div class="flabel">Model</div><div class="fselect">Claude Opus 5 <span>▾</span></div></div>
+            <div><div class="flabel">Thinking</div><div class="fselect">High <span>▾</span></div></div>
+          </div>
+          <div class="field">
+            <div class="flabel">Tools <span class="hint">from this workspace’s real catalogue</span></div>
+            <div class="toks"><span class="tok on">read <span class="x">×</span></span><span class="tok on">grep <span class="x">×</span></span><span class="tok on">bash <span class="x">×</span></span><span class="tok on">sero-cli <span class="x">×</span></span><span class="tok">write</span><span class="tok">edit</span><span class="tok">gh</span><span class="tok">browser</span></div>
+          </div>
+          <div class="field">
+            <div class="flabel">Skills</div>
+            <div class="toks"><span class="tok on">security-review <span class="x">×</span></span><span class="tok">pi-docs</span><span class="tok">react-doctor</span></div>
+          </div>
+          <div class="fgrid" style="margin-top:14px">
+            <div><div class="flabel">Workspace</div><div class="fselect">Read-only shared <span>▾</span></div></div>
+            <div><div class="flabel">Permissions</div><div class="fselect">Read only <span>▾</span></div></div>
+          </div>
+          <div class="field">
+            <div class="flabel">Extra prompt <span class="hint">appended after the mandate</span></div>
+            <div class="finput">Prefer reading the code over reasoning about it. If you cannot find the vulnerability in the code itself, say so — do not infer it from the framework’s reputation.</div>
+          </div>
+          <div class="fgrid" style="margin-top:14px">
+            <div><div class="flabel">May be woken by</div><div class="fselect">Direct messages and questions <span>▾</span></div></div>
+            <div><div class="flabel">Turn limit</div><div class="fselect">12 turns <span>▾</span></div></div>
+          </div>
+          <div class="fgrid" style="margin-top:14px">
+            <div><div class="flabel">Cost limit</div><div class="fselect">$1.50 <span>▾</span></div></div>
+            <div><div class="flabel">Compact at</div><div class="fselect">80% of context <span>▾</span></div></div>
+          </div>
+        </div>
+        <aside class="adv-side">
+          <div class="computed">
+            <div class="eyebrow">Computed proposal</div>
+            <p>These are derived from the blueprint on the left. They cannot be edited directly, and the planner cannot write them.</p>
+            <div class="cline"><small>Team</small>5 members</div>
+            <div class="cline"><small>Working time</small>Up to 2 hours</div>
+            <div class="cline"><small>Spend</small>Up to $6.00</div>
+            <div class="cline"><small>Access</small>Workspace + GitHub</div>
+          </div>
+          <div class="locked">
+            <b>Access is the union of every member.</b> Removing <span class="mono" style="color:var(--text-3)">gh</span> from this member does not change the summary, because Implementer 1 still holds it. The tile follows the whole team, not the member you are editing.
+          </div>
+          <div class="locked" style="margin-top:9px">
+            <b>Ceilings you set stay ceilings.</b> The envelope’s spend, time, team size and permission limits are the hard boundary. Neither the planner nor the Conductor can raise them at runtime — they can only ask you.
+          </div>
+        </aside>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 8 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>8 · The live Room</h2>
+    <p class="note">Three regions: who is on the team and what state each one is in, what has actually happened, and the current Room brief. The brief is built by the coordinator from Room records after structural progress — it is not a transcript summary, and no member ever reads the whole Room history. The Conductor may add a short situation note, which is labelled as its own and cannot change any computed field.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">Agent Board ↗</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main">
+        <div class="room-bar">
+          <span class="dot work"></span><h3>Auth hardening</h3>
+          <span class="pill em">Running</span>
+          <span class="sep"></span>
+          <span class="meter">41m<span class="track"><i style="width:34%"></i></span>of 2h</span>
+          <span class="meter">$3.18<span class="track"><i style="width:53%"></i></span>of $6.00</span>
+          <span class="meter">3 of 4 turns active</span>
+          <div class="acts"><button type="button" class="btn">Message the team</button><button type="button" class="btn">Pause</button><button type="button" class="btn danger">Stop</button></div>
+        </div>
+        <div class="room-body">
+          <aside class="roster-rail">
+            <div class="rail-title">Team <span>5</span></div>
+            <div class="mrow"><span class="mf c">◎<span class="st work"></span></span><span class="mi"><b>Conductor</b><span>Deciding what happens next</span></span><span class="cost">$0.71</span></div>
+            <div class="mrow"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished · risk confirmed</span></span><span class="cost">$0.94</span></div>
+            <div class="mrow on"><span class="mf">1<span class="st work"></span></span><span class="mi"><b>Implementer 1</b><span>Editing session handling</span></span><span class="cost">$0.83</span></div>
+            <div class="mrow"><span class="mf">2<span class="st wait"></span></span><span class="mi"><b>Implementer 2</b><span>Waiting on a reply</span></span><span class="cost">$0.44</span></div>
+            <div class="mrow"><span class="mf">T<span class="st idle"></span></span><span class="mi"><b>Tester</b><span>Idle · nothing to test yet</span></span><span class="cost">$0.26</span></div>
+            <p class="rail-foot">Waiting and idle members are not using a turn. Implementer 2 released its slot when it asked its question and will pick up again the moment a reply lands.<br><br><a href="#">Open this team on the Agent Board ↗</a></p>
+          </aside>
+          <div class="timeline scroll-fade">
+            <div class="tl-head"><b>Activity</b><div class="filters"><span class="pill">All</span><span class="pill">Decisions</span><span class="pill">Messages</span><span class="pill">Work</span></div></div>
+            <div class="ev"><span class="when">14:02</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> asked the Security reviewer to confirm the risk before any code changes.</p></div></div>
+            <div class="ev"><span class="when">14:11</span><span class="who">R</span><div class="body"><p><b>Security reviewer</b> confirmed the risk and named the location.</p>
+              <div class="ev-card ok"><h5>Finding · session fixation is real <span class="pill em">Artifact</span></h5><p>The session identifier issued before authentication survives the privilege change in <span class="mono" style="color:var(--text-3)">src/auth/session.ts:118</span>. An attacker who fixes the identifier before login keeps a valid authenticated session.</p></div></div></div>
+            <div class="ev"><span class="when">14:14</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> split the fix across two branches and started both implementers.</p><p class="sub">Implementer 1 → <span class="mono">room/auth-hardening/impl-1</span> · Implementer 2 → <span class="mono">room/auth-hardening/impl-2</span></p></div></div>
+            <div class="ev"><span class="when">14:29</span><span class="who">2</span><div class="body"><p><b>Implementer 2</b> asked Implementer 1 a question and is waiting.</p>
+              <div class="ev-card"><h5>Question → Implementer 1 <span class="pill am">Waiting 3m</span></h5><p>“Are you rotating the identifier on login, or issuing a new session object entirely? The downstream cache keys off the object identity, so it changes what I have to update.”</p></div></div></div>
+            <div class="ev"><span class="when">14:31</span><span class="who sys">◷</span><div class="body"><p><b>Sero</b> compacted the Security reviewer’s session at a safe turn boundary.</p><p class="sub">Its checkpoint, mandate, the Room brief and its finding were carried through. Its session history is unchanged and still open.</p></div></div>
+            <div class="ev"><span class="when">14:33</span><span class="who">1</span><div class="body"><p><b>Implementer 1</b> published a checkpoint commit.</p><p class="sub"><span class="mono">a41f0c2</span> · rotate the session identifier after a successful authentication</p></div></div>
+          </div>
+          <aside class="room-side">
+            <div class="side-tabs"><span class="side-tab on">Brief</span><span class="side-tab">Work</span><span class="side-tab">Claims</span><span class="side-tab">Artifacts</span></div>
+            <div class="side-body">
+              <div class="brief-block">
+                <div class="eyebrow em">Room brief · updated 14:33</div>
+                <p>Confirm and fix session fixation in the login flow, and prove the fix with a test that fails on the old code.</p>
+                <div class="bfield"><small>Decided</small><p>The risk is real and sits at <span class="mono" style="color:var(--text-3)">src/auth/session.ts:118</span>. The fix rotates the identifier rather than replacing the session object.</p></div>
+                <div class="bfield"><small>Active work</small><p>Implementer 1 — login-path rotation.<br>Implementer 2 — downstream readers, blocked on a reply.</p></div>
+                <div class="bfield"><small>Blocked</small><p>One open question between the two implementers.</p></div>
+                <div class="bfield"><small>Artifacts</small><p>1 finding · 1 checkpoint commit</p></div>
+              </div>
+              <div class="cnote">
+                <div class="eyebrow">Conductor’s note</div>
+                <p>Keeping the tester idle until Implementer 1’s branch settles — writing the test against a moving target wastes turns.</p>
+              </div>
+              <p style="margin-top:11px;color:var(--text-4);font-size:10px;line-height:1.55">The brief is built from Room records, not from the transcript. Each member is given only the part that concerns its own work.</p>
+            </div>
+          </aside>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 9 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>9 · Member inspector — a real session, reached through the Room</h2>
+    <p class="note">Each member is a standard persistent Pi session. It is fully inspectable — transcript, mandate, context, worktree, cost — but it is stored in the Room’s namespace and never appears in normal chat history. Compaction is shown as a marker in the transcript with what was carried across, so a user who scrolls past it understands why the history above it is shorter than it was.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="insp">
+        <aside class="roster-rail">
+          <div class="rail-title">Auth hardening <span>5</span></div>
+          <div class="mrow"><span class="mf c">◎<span class="st work"></span></span><span class="mi"><b>Conductor</b><span>Deciding what happens next</span></span></div>
+          <div class="mrow"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished</span></span></div>
+          <div class="mrow on"><span class="mf">1<span class="st work"></span></span><span class="mi"><b>Implementer 1</b><span>Editing session handling</span></span></div>
+          <div class="mrow"><span class="mf">2<span class="st wait"></span></span><span class="mi"><b>Implementer 2</b><span>Waiting on a reply</span></span></div>
+          <div class="mrow"><span class="mf">T<span class="st idle"></span></span><span class="mi"><b>Tester</b><span>Idle</span></span></div>
+        </aside>
+        <div class="insp-main">
+          <div class="insp-head">
+            <div class="insp-id">
+              <span class="mface">1</span>
+              <div><h3>Implementer 1</h3><p class="sub">Working · started 14:14 · 9 turns · Claude Opus 5</p></div>
+              <div class="acts"><button type="button" class="btn">Send a message</button><button type="button" class="btn">Change mandate</button><button type="button" class="btn">Suspend</button></div>
+            </div>
+            <div class="insp-tabs"><span class="itab on">Transcript</span><span class="itab">Mandate</span><span class="itab">Context</span><span class="itab">Worktree</span><span class="itab">Cost</span></div>
+          </div>
+          <div class="insp-body">
+            <div class="transcript scroll-fade">
+              <div class="turn"><div class="turn-head">Turn 6 · 14:26<span class="line"></span></div>
+                <div class="bub room"><b>Room</b> — Brief updated. The reviewer confirmed the risk at <span class="mono">src/auth/session.ts:118</span>. Your mandate is unchanged: rotate the identifier on the login path only.</div></div>
+              <div class="compact-mark"><span class="line"></span>Context compacted · checkpoint, mandate, brief and artifacts carried across<span class="line"></span></div>
+              <div class="turn"><div class="turn-head">Turn 7 · 14:29<span class="line"></span></div>
+                <div class="bub">I have the rotation in place. Before I commit I want to be sure the downstream cache is not keyed on the session object itself — if it is, rotating the identifier is not enough on its own.</div>
+                <div class="bub tool">sero-cli room ask --to implementer-2 "Does the downstream cache key on the session object or the identifier?"</div></div>
+              <div class="turn"><div class="turn-head">Turn 8 · 14:31<span class="line"></span></div>
+                <div class="bub room"><b>Room</b> — Reply from Implementer 2: it keys on the identifier, not the object. Rotating is sufficient.</div>
+                <div class="bub">Good. Committing the rotation and handing the branch to the tester.</div>
+                <div class="bub tool">git commit -m "rotate the session identifier after a successful authentication"</div></div>
+            </div>
+            <aside class="insp-side">
+              <div class="eyebrow">Context</div>
+              <div class="ctx-meter">
+                <div class="ctx-track"><i class="used" style="width:47%"></i><i class="warnzone" style="width:0"></i></div>
+                <div class="ctx-legend"><span>94k of 200k used</span><span>compacts at 80%</span></div>
+              </div>
+              <div class="kv" style="margin-top:11px"><small>Compactions</small><b>1</b></div>
+              <div class="kv"><small>Last compaction</small><span class="mono">14:31</span></div>
+              <div class="kv"><small>Session file</small><span class="mono">rooms/auth-hardening/impl-1.jsonl</span></div>
+              <div class="kv"><small>Worktree</small><span class="mono">room/auth-hardening/impl-1</span></div>
+              <div class="kv"><small>Turns</small><b>9</b></div>
+              <div class="kv"><small>Cost</small><b>$0.83</b></div>
+              <div class="notice"><b>This is a real session, not a chat.</b> It lives in this Room’s session folder, so it does not appear in your chat history and does not clutter your recent sessions. Its usage is still counted, grouped under this Room.</div>
+              <div class="locked" style="margin-top:10px"><b>A mandate change is instructions only.</b> Giving this member a new tool, model, skill or permission is a configuration change — it is validated against the envelope, applied at a safe turn boundary, and needs your approval when it widens access.</div>
+            </aside>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 10 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>10 · The Conductor changes the team</h2>
+    <p class="note">Two revisions, deliberately different. Adding a member inside the approved envelope is applied and recorded — it does not interrupt anyone, and the user can inspect or undo it. Replacing a member with one that needs access nobody currently has is <i>not</i> applied; it becomes an approval request. The boundary is the operating envelope, and it is enforced in runtime code, not by asking the Conductor to behave.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main">
+        <div class="room-bar">
+          <span class="dot work"></span><h3>Auth hardening</h3><span class="pill em">Running</span>
+          <span class="sep"></span>
+          <span class="meter">52m<span class="track"><i style="width:43%"></i></span>of 2h</span>
+          <span class="meter">$3.94<span class="track"><i style="width:66%"></i></span>of $6.00</span>
+          <span class="meter">2 roster changes of 4 allowed</span>
+          <div class="acts"><button type="button" class="btn">Pause</button><button type="button" class="btn danger">Stop</button></div>
+        </div>
+        <div class="room-body">
+          <aside class="roster-rail">
+            <div class="rail-title">Team <span>6</span></div>
+            <div class="mrow"><span class="mf c">◎<span class="st work"></span></span><span class="mi"><b>Conductor</b><span>Deciding what happens next</span></span></div>
+            <div class="mrow"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished</span></span></div>
+            <div class="mrow"><span class="mf">1<span class="st work"></span></span><span class="mi"><b>Implementer 1</b><span>Editing session handling</span></span></div>
+            <div class="mrow"><span class="mf">2<span class="st work"></span></span><span class="mi"><b>Implementer 2</b><span>Updating cache readers</span></span></div>
+            <div class="mrow"><span class="mf">T<span class="st work"></span></span><span class="mi"><b>Tester</b><span>Writing the failing test</span></span></div>
+            <div class="mrow on"><span class="mf new">M<span class="st work"></span></span><span class="mi"><b>Migration checker</b><span>Added 14:47 · reading migrations</span></span></div>
+          </aside>
+          <div class="timeline scroll-fade">
+            <div class="tl-head"><b>Activity</b><div class="filters"><span class="pill em">Decisions</span><span class="pill">Messages</span><span class="pill">Work</span></div></div>
+            <div class="ev"><span class="when">14:47</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> added a member.</p>
+              <div class="ev-card rev"><h5>Room revision · member added <span class="pill vi">Applied</span></h5>
+                <p><b style="color:var(--text-2)">Migration checker</b> — the session table has a stored identifier column, so the fix needs a migration nobody was checking. Read-only, same models and limits as the rest of the team.</p>
+                <p style="margin-top:8px;color:var(--text-4)">Inside your limits: team 6 of 8 · read-only access you already approved · no change to spend or time. Applied without stopping anyone.</p>
+                <div class="acts"><button type="button" class="btn">Inspect the change</button><button type="button" class="btn">Undo</button></div>
+              </div></div></div>
+            <div class="ev"><span class="when">14:51</span><span class="who">M</span><div class="body"><p><b>Migration checker</b> found a stored identifier that the fix does not cover.</p><p class="sub">Two rows in <span class="mono">sessions</span> keep a pre-authentication identifier. A migration is needed, not just a code change.</p></div></div>
+            <div class="ev"><span class="when">14:56</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> asked to replace the Migration checker with a member that can run the migration.</p>
+              <div class="ev-card warn-c"><h5>Room revision · replace member <span class="pill am">Waiting for you</span></h5>
+                <p>The replacement needs database write access, which no member currently has and the envelope does not allow.</p>
+                <p style="margin-top:8px;color:var(--text-4)">This is outside the access you approved, so the Room did not apply it. The Migration checker keeps working read-only in the meantime.</p>
+                <div class="acts"><button type="button" class="btn primary">Review the request</button><button type="button" class="btn">Not now</button></div>
+              </div></div></div>
+            <div class="ev"><span class="when">14:57</span><span class="who sys">◷</span><div class="body"><p><b>Sero</b> recorded both revisions in the Room’s history.</p><p class="sub">Each one keeps who asked, why, what changed, and whether you approved it.</p></div></div>
+          </div>
+          <aside class="room-side">
+            <div class="side-tabs"><span class="side-tab">Brief</span><span class="side-tab on">Revisions</span><span class="side-tab">Work</span><span class="side-tab">Artifacts</span></div>
+            <div class="side-body">
+              <div class="brief-block">
+                <div class="eyebrow">Roster changes</div>
+                <p style="color:var(--text-4)">2 used of 4 allowed. Replacements count separately: 0 of 2.</p>
+                <div class="bfield"><small>14:47 · Applied</small><p>Added Migration checker — read-only, inside the envelope.</p></div>
+                <div class="bfield"><small>14:56 · Waiting for you</small><p>Replace Migration checker with one that can write to the database.</p></div>
+              </div>
+              <div class="locked" style="margin-top:12px"><b>What the Conductor can do on its own:</b> add, retire, suspend and resume members, change a mandate, reassign work, and pick a different model from the pool you approved.</div>
+              <div class="locked" style="margin-top:9px"><b>What always comes to you:</b> more access, more spend, more time, a bigger team than you allowed, delivery to somewhere new — and replacing itself.</div>
+            </div>
+          </aside>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 11 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>11 · One approval inbox for the whole Room</h2>
+    <p class="note">Every member’s request lands in one queue, whichever Room it came from. Each entry names the member, what it wants to do, why, and what approving it changes about the team’s authority. The consequence line is computed from the same mapping as the proposal’s access tile — it is not written by the requesting member.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home <span class="badge alert">3</span></div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content scroll-fade">
+        <div class="inbox">
+          <div class="inbox-head">
+            <div><h3>Needs you</h3><p>Work continues around these. Only the affected member is waiting.</p></div>
+            <span class="pill am">3 waiting</span>
+          </div>
+          <div class="appr hot">
+            <div class="appr-head"><span class="mface c">◎</span><div class="t"><b>Give the team database write access</b><span>Conductor · Auth hardening · asked 14:56</span></div><span class="pill am">Authority change</span></div>
+            <div class="appr-body">
+              <div class="appr-cell"><small>What it wants</small><p>Replace the Migration checker with a member that can run the migration itself.</p></div>
+              <div class="appr-cell"><small>Why</small><p>Two rows keep a pre-authentication identifier. Code alone does not fix them.</p></div>
+              <div class="appr-cell"><small>Affects</small><p class="am">This workspace’s database</p></div>
+            </div>
+            <div class="consequence"><b>If you approve:</b> one member gains write access to the database for the rest of this Room. Every other member keeps the access it has now. This does not change the spend or time limits.</div>
+            <div class="appr-foot"><button type="button" class="btn primary">Approve</button><button type="button" class="btn">Reject</button><button type="button" class="btn">Adjust</button><span class="note">The Conductor cannot answer this for you.</span></div>
+          </div>
+          <div class="appr">
+            <div class="appr-head"><span class="mface">2</span><div class="t"><b>Push a branch to origin</b><span>Implementer 2 · Auth hardening · asked 14:44</span></div><span class="pill bl">Already allowed</span></div>
+            <div class="appr-body">
+              <div class="appr-cell"><small>What it wants</small><p>Push <span class="mono" style="color:var(--text-3)">room/auth-hardening/impl-2</span> to origin.</p></div>
+              <div class="appr-cell"><small>Why</small><p>The cache reader updates are complete and ready for the Conductor to collect.</p></div>
+              <div class="appr-cell"><small>Estimated cost</small><p>None</p></div>
+            </div>
+            <div class="appr-foot"><button type="button" class="btn primary">Approve</button><button type="button" class="btn">Reject</button><span class="note">Inside the access you approved — Sero asks because pushing leaves this machine.</span></div>
+          </div>
+          <div class="appr">
+            <div class="appr-head"><span class="mface c">◎</span><div class="t"><b>Raise the spend limit from $6.00 to $9.00</b><span>Conductor · Auth hardening · asked 14:58</span></div><span class="pill am">Limit change</span></div>
+            <div class="appr-body">
+              <div class="appr-cell"><small>What it wants</small><p>$3.00 more, to finish the migration work and re-run the tests.</p></div>
+              <div class="appr-cell"><small>Spent so far</small><p class="em">$3.94 of $6.00</p></div>
+              <div class="appr-cell"><small>If you say no</small><p>The Room finishes what it can and reports what is left undone.</p></div>
+            </div>
+            <div class="appr-foot"><button type="button" class="btn primary">Approve</button><button type="button" class="btn">Reject</button><button type="button" class="btn">Set a different amount</button></div>
+          </div>
+          <div class="conductor-note"><span style="color:var(--text-4)">ⓘ</span><span>The Conductor can ask for any of these and explain why it needs them. It can never answer one. Approvals are enforced in the runtime — a member cannot approve its own request, and a message from another member is never treated as permission.</span></div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 12 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>12 · Waiting, blocked, paused and failed</h2>
+    <p class="note">Every state says what happened, what it costs, and what happens next. Waiting is the important one to get right — it must read as normal and free, not as a stall, because it is how the Room stays inside its concurrency limit.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="gal">
+          <div class="gal-card">
+            <div class="gal-head"><span class="dot wait"></span><b>Implementer 2 · waiting</b><span class="pill am">Waiting 3m</span></div>
+            <div class="gal-body">
+              <p>Asked Implementer 1 whether the cache keys on the session object or the identifier, and stopped its turn.</p>
+              <div class="expl"><b>This costs nothing.</b> Its turn ended and its slot went back to the team. The moment a reply lands it starts again in the same session, with everything it already knew.</div>
+              <div class="slot-note"><span class="dot idle"></span>0 turns held · reply wakes it in under 2 seconds</div>
+              <div class="gal-acts"><button type="button" class="btn">Answer for it</button><button type="button" class="btn">Cancel the question</button></div>
+            </div>
+          </div>
+          <div class="gal-card">
+            <div class="gal-head"><span class="dot block"></span><b>Tester · blocked</b><span class="pill re">Needs a branch</span></div>
+            <div class="gal-body">
+              <p>Cannot write the failing test until Implementer 1’s branch has the rotation in it.</p>
+              <div class="expl"><b>Nothing is wrong.</b> The Conductor knows, and will start the Tester as soon as the branch is ready. If it stays blocked for 15 minutes the Room tells you.</div>
+              <div class="slot-note"><span class="dot idle"></span>0 turns held · waiting on work, not on a reply</div>
+              <div class="gal-acts"><button type="button" class="btn">Start it anyway</button><button type="button" class="btn">Change its mandate</button></div>
+            </div>
+          </div>
+          <div class="gal-card">
+            <div class="gal-head"><span class="dot wait"></span><b>Room paused · nobody can move</b><span class="pill am">Paused for you</span></div>
+            <div class="gal-body">
+              <p>Implementer 1 is waiting on Implementer 2, and Implementer 2 is waiting on Implementer 1. Neither can answer the other.</p>
+              <div class="expl"><b>Sero told the Conductor first.</b> It tried once to break the deadlock and could not, so the Room paused rather than spending your budget going in circles.</div>
+              <div class="slot-note"><span class="dot idle"></span>Nothing is running · $3.94 spent · nothing more will be spent while paused</div>
+              <div class="gal-acts"><button type="button" class="btn primary">Answer both</button><button type="button" class="btn">Let the Conductor decide</button><button type="button" class="btn danger">Stop the Room</button></div>
+            </div>
+          </div>
+          <div class="gal-card">
+            <div class="gal-head"><span class="dot block"></span><b>Migration checker · failed</b><span class="pill re">3 attempts</span></div>
+            <div class="gal-body">
+              <p>Its model provider refused three times in a row. The Room kept going without it.</p>
+              <div class="expl"><b>One member failing does not fail the Room.</b> Its work went back to the Conductor, which reassigned the migration check to the Security reviewer. Nothing it had already finished was lost.</div>
+              <div class="slot-note"><span class="dot idle"></span>Session kept · retry available · its history is still readable</div>
+              <div class="gal-acts"><button type="button" class="btn">Retry</button><button type="button" class="btn">Replace it</button><button type="button" class="btn">Read what it did</button></div>
+            </div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 13 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>13 · Overlapping path claims</h2>
+    <p class="note">Claims are advisory and stay that way. They are a coordination hint between members, not a lock — worktrees and Git are the real safety boundary, and the copy says so plainly so nobody treats a claim as protection it does not provide.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content">
+        <div class="claim-wrap">
+          <div class="inbox-head" style="margin-bottom:14px">
+            <div><h3>Who is working where</h3><p>Auth hardening · 4 active claims · 1 overlap</p></div>
+            <span class="pill am">1 overlap</span>
+          </div>
+          <div class="warn" style="margin:0 0 13px"><span class="wicon">!</span><span><b>Implementer 1 and Implementer 2 have both claimed <span class="mono">src/auth/session.ts</span>.</b> They are working in separate branches, so neither can overwrite the other — but they will both change the same file, and one of them will have to merge.</span></div>
+          <div class="claim-tbl">
+            <div class="claim-r h"><span>Member</span><span>Path</span><span>Since</span><span>Branch</span></div>
+            <div class="claim-r clash"><span class="who"><span class="mface" style="width:22px;height:22px;border-radius:6px;font-size:9px">1</span>Implementer 1</span><span class="path">src/auth/session.ts</span><span class="mono" style="color:var(--text-4);font-size:10px">14:14</span><span class="mono" style="color:var(--text-4);font-size:10px">impl-1</span></div>
+            <div class="claim-r clash"><span class="who"><span class="mface" style="width:22px;height:22px;border-radius:6px;font-size:9px">2</span>Implementer 2</span><span class="path">src/auth/session.ts</span><span class="mono" style="color:var(--text-4);font-size:10px">14:41</span><span class="mono" style="color:var(--text-4);font-size:10px">impl-2</span></div>
+            <div class="claim-r"><span class="who"><span class="mface" style="width:22px;height:22px;border-radius:6px;font-size:9px">2</span>Implementer 2</span><span class="path">src/cache/**</span><span class="mono" style="color:var(--text-4);font-size:10px">14:41</span><span class="mono" style="color:var(--text-4);font-size:10px">impl-2</span></div>
+            <div class="claim-r"><span class="who"><span class="mface" style="width:22px;height:22px;border-radius:6px;font-size:9px">T</span>Tester</span><span class="path">tests/auth/**</span><span class="mono" style="color:var(--text-4);font-size:10px">14:52</span><span class="mono" style="color:var(--text-4);font-size:10px">tester</span></div>
+          </div>
+          <div class="policy">
+            <div class="policy-card on"><b><span class="dot work"></span>Warn and keep going <span class="pill em" style="margin-left:auto">Current</span></b><p>Both members are told about the overlap and carry on. The Conductor collects the two branches and resolves the merge. This is the default because separate worktrees already stop them destroying each other’s work.</p></div>
+            <div class="policy-card"><b><span class="dot block"></span>Block the second claim</b><p>The second member is refused and has to ask the Conductor for the work instead. Safer for large mechanical edits, slower for everything else.</p></div>
+          </div>
+          <p style="margin-top:14px;color:var(--text-4);font-size:11px;line-height:1.6">Claims are released automatically when a member retires or the Room ends. They are advice between members — they are not a lock, and they never replace Git.</p>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 14 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>14 · The result comes back to the chat that asked for it</h2>
+    <p class="note">A Room started from a chat records that chat as its origin. When the Conductor finishes, the existing delivery path returns one result card: outcome, artifacts, what is unresolved, cost, duration, and a link back into the Room. This is the contract the old collaboration engines had, and it is preserved exactly.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Sero</div>
+        <nav class="tabs"><div class="tab">Explorer</div><div class="tab active">Orchestrator</div><div class="tab">Git</div><div class="tab">Usage</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="split">
+        <div class="main">
+          <div class="room-bar">
+            <span class="dot done"></span><h3>Auth hardening</h3><span class="pill bl">Completed</span>
+            <span class="sep"></span>
+            <span class="meter">1h 12m total</span><span class="meter">$4.86 of $6.00</span><span class="meter">6 members</span>
+            <div class="acts"><button type="button" class="btn">Save as a template</button><button type="button" class="btn">Archive</button></div>
+          </div>
+          <div class="timeline scroll-fade">
+            <div class="tl-head"><b>Finishing</b></div>
+            <div class="ev"><span class="when">15:08</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> collected both branches and resolved the overlap in <span class="mono">src/auth/session.ts</span>.</p></div></div>
+            <div class="ev"><span class="when">15:11</span><span class="who">T</span><div class="body"><p><b>Tester</b> confirmed the test fails on the old code and passes on the fix.</p><p class="sub">2 runs · <span class="mono">auth/session-fixation.test.ts</span></p></div></div>
+            <div class="ev"><span class="when">15:13</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> opened the pull request and finished the Room.</p>
+              <div class="ev-card ok"><h5>Pull request #418 <span class="pill em">Artifact</span></h5><p>Rotate the session identifier after authentication, update the cache readers, and add the regression test.</p></div></div></div>
+            <div class="ev"><span class="when">15:13</span><span class="who sys">◷</span><div class="body"><p><b>Sero</b> sent the result to the chat that started this Room.</p></div></div>
+          </div>
+        </div>
+        <aside class="chat">
+          <div class="chat-head">◈ Auth work <span class="pill">Chat</span></div>
+          <div class="chat-body">
+            <div class="msg"><div class="role">You · 14:00</div><div class="txt">Our login flow probably has a session-fixation problem. Get a team on it — find out whether it does, fix it properly, and give me a PR with a test that fails on the old code.</div></div>
+            <div class="msg"><div class="role">Sero · 14:01</div><div class="txt">Started a Room with 5 members. I will report back here when it finishes.</div></div>
+            <div class="msg"><div class="role">Sero · 15:13</div>
+              <div class="result-card">
+                <div class="result-head"><span style="color:var(--emerald)">✓</span><b>Auth hardening · finished</b><span class="pill em">Room</span></div>
+                <div class="result-body">
+                  <p>The risk was real. The session identifier issued before login survived authentication in <span class="mono" style="color:var(--text-3)">src/auth/session.ts</span>. It now rotates on every successful login, the cache readers were updated to match, and a regression test proves it — the test fails on the old code and passes on the fix.</p>
+                  <div class="res-sec"><small>What you have</small>
+                    <div class="art"><span class="ic">↗</span>Pull request #418<span class="by">Conductor</span></div>
+                    <div class="art"><span class="ic">✎</span>Security finding · session.ts:118<span class="by">Reviewer</span></div>
+                    <div class="art"><span class="ic">✓</span>auth/session-fixation.test.ts<span class="by">Tester</span></div>
+                  </div>
+                  <div class="res-sec"><small>Still open</small>
+                    <div class="unres" style="border:0;padding-top:0"><span class="wdot"></span><div><b>Two rows keep a pre-authentication identifier</b><span>A migration is needed. The team could not write to the database, so this was left for you.</span></div></div>
+                  </div>
+                </div>
+                <div class="res-foot"><span class="mono">1h 12m · $4.86 · 6 members</span><button type="button" class="btn">Open the Room ↗</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input">Reply to Sero…</div>
+        </aside>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 15 ═══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>15 · Completion inside the Room</h2>
+    <p class="note">The Room’s own completion view keeps the detail the chat card summarises: per-member cost, every artifact with its producer, and what was left undone and why. Cost is grouped the same way the Usage app groups it, so the two never disagree. “Save as a template” captures the shape of this team as an adaptive seed, not a fixed roster.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">2</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="main"><div class="content scroll-fade">
+        <div class="done-wrap">
+          <div class="done-hero">
+            <span class="tickbox">✓</span>
+            <div>
+              <h3>Auth hardening finished</h3>
+              <p>The session-fixation risk was confirmed, fixed and proven. Pull request #418 is open with the fix and a regression test. One database migration was left for you because the team did not have write access.</p>
+            </div>
+            <div class="acts"><button type="button" class="btn primary">Open pull request ↗</button><button type="button" class="btn">Save as a template</button></div>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><small>Duration</small><b>1h 12m</b><span>of 2h allowed</span></div>
+            <div class="stat"><small>Spend</small><b>$4.86</b><span>of $6.00 allowed</span></div>
+            <div class="stat"><small>Team</small><b>6 members</b><span>5 planned, 1 added</span></div>
+            <div class="stat"><small>Artifacts</small><b>7</b><span>1 PR · 4 commits · 2 reports</span></div>
+          </div>
+          <div class="done-grid">
+            <div class="panel">
+              <div class="panel-head">Artifacts <span>7</span></div>
+              <div class="panel-body">
+                <div class="art"><span class="ic">↗</span>Pull request #418 — rotate the session identifier<span class="by">Conductor</span></div>
+                <div class="art"><span class="ic">✎</span>Security finding — session.ts:118<span class="by">Reviewer</span></div>
+                <div class="art"><span class="ic">◈</span>a41f0c2 — rotate on successful authentication<span class="by">Implementer 1</span></div>
+                <div class="art"><span class="ic">◈</span>7b2e910 — update cache readers<span class="by">Implementer 2</span></div>
+                <div class="art"><span class="ic">✓</span>auth/session-fixation.test.ts<span class="by">Tester</span></div>
+                <div class="art"><span class="ic">✎</span>Migration report — 2 affected rows<span class="by">Migration checker</span></div>
+                <div class="art"><span class="ic">✎</span>Final summary<span class="by">Conductor</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">Cost by member <span>$4.86</span></div>
+              <div class="panel-body">
+                <div class="cost-row"><span class="mf c">◎</span><span class="nm">Conductor</span><span class="bar"><i style="width:26%"></i></span><span class="amt">$1.24</span></div>
+                <div class="cost-row"><span class="mf">1</span><span class="nm">Implementer 1</span><span class="bar"><i style="width:24%"></i></span><span class="amt">$1.17</span></div>
+                <div class="cost-row"><span class="mf">R</span><span class="nm">Security reviewer</span><span class="bar"><i style="width:19%"></i></span><span class="amt">$0.94</span></div>
+                <div class="cost-row"><span class="mf">2</span><span class="nm">Implementer 2</span><span class="bar"><i style="width:16%"></i></span><span class="amt">$0.78</span></div>
+                <div class="cost-row"><span class="mf">T</span><span class="nm">Tester</span><span class="bar"><i style="width:10%"></i></span><span class="amt">$0.48</span></div>
+                <div class="cost-row"><span class="mf">M</span><span class="nm">Migration checker</span><span class="bar"><i style="width:5%"></i></span><span class="amt">$0.25</span></div>
+                <p style="margin-top:11px;color:var(--text-4);font-size:10px;line-height:1.55">Usage shows the same six rows grouped under this Room, so none of them appears as an unexplained chat.</p>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:12px">
+            <div class="panel-head">Left undone <span>1</span></div>
+            <div class="panel-body">
+              <div class="unres"><span class="wdot"></span><div><b>Two session rows keep a pre-authentication identifier</b><span>The Conductor asked for database write access at 14:56 and it was not approved, so the migration was not run. The migration report lists the affected rows and the statement it would have used.</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

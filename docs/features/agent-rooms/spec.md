@@ -1232,3 +1232,130 @@ Phase 1 must confirm:
 - how failure, pause and recovery remain understandable.
 
 These checks can refine presentation and interaction. They do not reopen the agreed decisions about Orchestrator ownership, standard Pi session persistence, problem-first generation, controlled runtime revision or progressive disclosure.
+
+## 34. Phase 1 recorded decisions
+
+Source: [architecture.md](./architecture.md) and
+[docs/prototypes/sero-agent-rooms.html](../../prototypes/sero-agent-rooms.html).
+Architecture decisions AD-028 and AD-029 are recorded in
+[docs/decisions.md](../../decisions.md).
+
+### 34.1 Architecture
+
+- **D-01** Room mode lives under `runtime/rooms/` and `shared/room-*`.
+  `runtime/coordinator.ts` is already at the 500-line limit, so Room scheduling
+  gets its own coordinator module rather than extending it.
+- **D-02** `LoopLocks` has no Loop dependency. It is shared directly as a
+  generic keyed try-lock and renamed `RunLocks`.
+- **D-03** The Room store copies the Workflow split-store *pattern* into its own
+  files. The two modes do not share one store interface.
+- **D-04** `OrchestratorHost` gains a `persistentSessions` member. No second
+  host object is created.
+- **D-05** Workflow records keep the internal `Loop` name. The rename is tracked
+  debt, scheduled after Phase 8.
+
+### 34.2 Persistent-session capability
+
+- **D-06** `SERO_HOST_CAPABILITIES` is a compatibility list only. It grants no
+  authority. Built-in-only gating is a separate host check: package provenance
+  (`!isInstalledPluginPackagePath`) **and** an explicit app-ID allowlist. Both
+  must pass.
+- **D-07** The host issues and stores grants. A request carries only a
+  `grantId`. The host never reads authority from the request payload, and the
+  caller identity comes from the runtime instance, not the payload.
+- **D-08** Validation runs in a fixed ten-step order with a distinct denial
+  reason at each step (architecture.md §3.3).
+- **D-09** Grants are revocable. Revocation aborts in-flight turns, disposes
+  live sessions, and fails every later request. It is idempotent.
+- **D-10** The host builds the member resource loader from the grant. The
+  request cannot supply loader overrides.
+
+### 34.3 Sessions and usage
+
+- **D-11** Room sessions live at
+  `<SERO_SESSION_DIR>/rooms/<roomId>/<memberId>.jsonl`.
+- **D-12** Archiving keeps session files. Deleting a Room revokes the grant,
+  then removes both the session and state directories. A retired member keeps
+  its session file for the Room's lifetime.
+- **D-13** Usage grouping is derived from the session path and the deterministic
+  Pi session name `Room <roomTitle> — <memberRole>`. The Usage plugin's scanner
+  is unchanged and never reads the Orchestrator store.
+
+### 34.4 Consent summary
+
+- **D-14** Team size, maximum time, maximum spend, access and warnings are
+  computed in application code from the validated blueprint. The planner writes
+  only the title, the one-sentence approach, role one-liners and the rationale.
+- **D-15** The access mapping is fixed and ordered (architecture.md §7.1). An
+  unmapped capability falls back to `Other tools` and is always listed in
+  advanced settings. An unmappable capability class is a test failure.
+- **D-16** The summary is recomputed after every blueprint change. An adjustment
+  states which values changed, which were preserved, and what was removed, so a
+  broad instruction cannot quietly widen an unrelated value.
+- **D-17** The access tile is the union across the whole team. Editing one
+  member's tools does not change it while another member still holds the
+  capability. Advanced settings say this explicitly.
+
+### 34.5 User experience
+
+- **D-18** Creation is one required question. Spend, time, access and delivery
+  are optional chips carrying safe defaults. Presets sit below the primary
+  action and never fix the final roster.
+- **D-19** Adjust opens natural language, never a form. Forms exist only under
+  advanced settings.
+- **D-20** Rationale is disclosure, labelled `Planner reasoning`, and visually
+  separated from the computed authority summary.
+- **D-21** The live Room has three regions: roster with member state, activity,
+  and the coordinator-owned Room brief. The Conductor's situation note is
+  rendered as Conductor-authored and separate from computed brief fields.
+- **D-22** Waiting and idle members show `0 turns held`. The copy presents
+  waiting as normal and free, because releasing the slot is how the Room stays
+  inside its concurrency limit.
+- **D-23** A member is inspected through the Room — transcript, mandate,
+  context, worktree, cost. The inspector states plainly that the session is real
+  but not a chat, and that its usage is grouped under the Room.
+- **D-24** Compaction appears as an in-transcript marker naming what was carried
+  across, so shortened history above it is explained.
+- **D-25** A revision inside the envelope is applied and recorded with inspect
+  and undo. A revision needing authority the envelope does not hold is not
+  applied; it becomes an approval request. The Room states which category each
+  one is in.
+- **D-26** One approval inbox covers every member and every Room. Each entry
+  names the member, the request, the reason, and a computed consequence line.
+  Every entry states that the Conductor cannot answer it.
+- **D-27** Path claims are presented as advisory throughout. The overlap banner
+  says worktrees are the real protection, and the two policies (warn, block) are
+  shown as a Room setting with warn as default.
+- **D-28** A chat-origin Room returns one result card: outcome, artifacts,
+  unresolved items, cost, duration and a Room link. The Room's own completion
+  view keeps per-member cost and each artifact's producer.
+- **D-29** Failure, deadlock, block and pause states each state what happened,
+  what it costs while in that state, and the next action.
+
+### 34.6 Scope confirmed for the first release
+
+In scope: everything in §31 FR-001 to FR-041.
+
+Out of scope for the first release, unchanged from §6: cron or event-triggered
+Rooms, nested subagents inside members, distributed execution, active
+prompt-cache keep-warm, and a renewable path-claim lease service.
+
+### 34.7 Prototype scenario check
+
+The prototype is drawn with the issue-delivery scenario. The other two primary
+scenarios were checked against the same states.
+
+| Scenario | Fits the drawn states? | What changes |
+| --- | --- | --- |
+| Issue delivery | Yes — drawn end to end | — |
+| Adversarial analysis | Yes | The roster is two opposed analysts plus a judge. The activity feed carries claim and rebuttal messages instead of commits. Access computes to `Read this workspace` only, so state 4 shows no warning and state 13 (path claims) does not appear. Completion delivers a report artifact, not a pull request. |
+| Parallel issues | Yes | The roster is one implementer for each issue. State 13 is the common case rather than the exception, and the Conductor's integration work in state 14 collects several branches. The roster rail needs to stay readable past 8 members — Phase 7 must paginate it rather than scroll it. |
+
+Two gaps found and folded into later phases:
+
+- **Roster size.** The rail is drawn for 5 to 6 members. Parallel issues can
+  reach the envelope's team cap. Phase 7 paginates the rail under the standard
+  Sero list rule rather than making it scroll.
+- **No-warning proposal.** A read-only Room produces a proposal with no warning
+  row. State 4 must not leave a gap where the warning was — the warning is
+  conditional, and the layout closes up without it.

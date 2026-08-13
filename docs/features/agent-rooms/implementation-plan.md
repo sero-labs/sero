@@ -1,6 +1,6 @@
 # Agent Rooms implementation plan
 
-Status: Ready for Phase 1  
+Status: Phase 1 complete — awaiting product approval  
 Branch: feat/agent-rooms  
 Parent product: Sero Orchestrator plugin  
 Specification: [spec.md](./spec.md)  
@@ -81,50 +81,50 @@ Objective: Approve the boundaries and complete user flow before runtime implemen
 
 ### Work checklist
 
-- [ ] Design and record the appRuntime.persistentSessions capability as a Phase 1 blocker.
-- [ ] Define the host-issued grant, request validation, revocation and built-in-only gating.
-- [ ] Record reuse of Pi SessionManager mechanics and the new plugin-to-host authority boundary.
-- [ ] Record Room mode ownership, current-state storage and AD-020 command bridging.
-- [ ] Record the decision to keep internal Loop naming for Workflow records and track the rename debt.
-- [ ] Verify the reuse map in spec.md against current code.
-- [ ] Identify the small shared Orchestrator interfaces and the Room-specific records.
-- [ ] Confirm the Room session namespace and retention policy.
-- [ ] Define the deterministic consent-summary projection and fixed access-label mapping.
-- [ ] Define the filtered member resource and lifecycle policy.
-- [ ] Define automatic Room brief ownership and Conductor-authored notes.
-- [ ] Define Room and member grouping in Usage analytics.
-- [ ] Create docs/prototypes/sero-agent-rooms.html using current Sero design patterns.
-- [ ] Show Workflows and Rooms navigation inside Orchestrator.
-- [ ] Show one-question creation, preparation, compact proposal, Start and natural-language Adjust.
-- [ ] Show optional rationale and advanced blueprint settings.
-- [ ] Show the live Room, member inspector, Room revisions and context compaction.
-- [ ] Show the consolidated approval inbox, waiting, deadlock, failure and path conflict.
-- [ ] Show result delivery to an invoking chat and links to the Agent Board.
-- [ ] Test the prototype against issue delivery, adversarial analysis and parallel issues.
-- [ ] Record accepted prototype decisions in spec.md.
+- [x] Design and record the appRuntime.persistentSessions capability as a Phase 1 blocker.
+- [x] Define the host-issued grant, request validation, revocation and built-in-only gating.
+- [x] Record reuse of Pi SessionManager mechanics and the new plugin-to-host authority boundary.
+- [x] Record Room mode ownership, current-state storage and AD-020 command bridging.
+- [x] Record the decision to keep internal Loop naming for Workflow records and track the rename debt.
+- [x] Verify the reuse map in spec.md against current code.
+- [x] Identify the small shared Orchestrator interfaces and the Room-specific records.
+- [x] Confirm the Room session namespace and retention policy.
+- [x] Define the deterministic consent-summary projection and fixed access-label mapping.
+- [x] Define the filtered member resource and lifecycle policy.
+- [x] Define automatic Room brief ownership and Conductor-authored notes.
+- [x] Define Room and member grouping in Usage analytics.
+- [x] Create docs/prototypes/sero-agent-rooms.html using current Sero design patterns.
+- [x] Show Workflows and Rooms navigation inside Orchestrator.
+- [x] Show one-question creation, preparation, compact proposal, Start and natural-language Adjust.
+- [x] Show optional rationale and advanced blueprint settings.
+- [x] Show the live Room, member inspector, Room revisions and context compaction.
+- [x] Show the consolidated approval inbox, waiting, deadlock, failure and path conflict.
+- [x] Show result delivery to an invoking chat and links to the Agent Board.
+- [x] Test the prototype against issue delivery, adversarial analysis and parallel issues.
+- [x] Record accepted prototype decisions in spec.md.
 - [ ] Obtain explicit product approval.
 
 ### Deliverables
 
-- [ ] Agent Rooms architecture decision.
-- [ ] Persistent-session host capability architecture decision.
-- [ ] Security contract for grant validation and built-in-only gating.
-- [ ] Verified reuse map, resource policy and session namespace.
-- [ ] Deterministic consent-summary mapping.
+- [x] Agent Rooms architecture decision.
+- [x] Persistent-session host capability architecture decision.
+- [x] Security contract for grant validation and built-in-only gating.
+- [x] Verified reuse map, resource policy and session namespace.
+- [x] Deterministic consent-summary mapping.
 - [ ] Approved static prototype.
-- [ ] Final first-release product scope.
+- [x] Final first-release product scope.
 
 ### Acceptance criteria
 
-- [ ] A non-technical user can create and start a Room without advanced settings.
-- [ ] The compact proposal shows only team, roles, time, spend, access and important warnings.
-- [ ] Team size, time, spend and access are computed from the validated blueprint.
-- [ ] A planner-authored sentence cannot understate effective authority.
-- [ ] Natural-language adjustment is the first edit path.
-- [ ] Advanced users can inspect the complete blueprint.
-- [ ] Runtime roster changes and approval boundaries are understandable.
-- [ ] Room sessions remain accessible through the Room without appearing as normal chats.
-- [ ] The result-to-chat and Agent Board relationships are clear.
+- [x] A non-technical user can create and start a Room without advanced settings.
+- [x] The compact proposal shows only team, roles, time, spend, access and important warnings.
+- [x] Team size, time, spend and access are computed from the validated blueprint.
+- [x] A planner-authored sentence cannot understate effective authority.
+- [x] Natural-language adjustment is the first edit path.
+- [x] Advanced users can inspect the complete blueprint.
+- [x] Runtime roster changes and approval boundaries are understandable.
+- [x] Room sessions remain accessible through the Room without appearing as normal chats.
+- [x] The result-to-chat and Agent Board relationships are clear.
 - [ ] The product owner approves the prototype before Phase 2.
 
 ## 6. Phase 2: Shared foundations and Room storage
