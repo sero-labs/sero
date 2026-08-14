@@ -14,6 +14,11 @@
  *    could repeat an external write (§30).
  *  - **Interrupted delivery is never repeated automatically.** A Room caught
  *    mid-`completing` stops for the user instead of guessing.
+ *
+ * Messages are the one thing that IS repeated. A batch leased to a turn that
+ * never accepted its prompt left the read cursor where it was, so the member is
+ * woken and handed the same batch again — arriving twice is recoverable, being
+ * dropped is not (§17.1).
  */
 
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
@@ -28,7 +33,18 @@ export interface RoomReconcileResult {
   record: RoomRecord;
   /** True when the Room may keep running and its Conductor should be woken. */
   resume: boolean;
+  /**
+   * Members holding a message batch no turn ever accepted. They are woken with
+   * the Room so the batch is delivered again. Empty unless the Room resumes: a
+   * paused Room delivers it on the member's next turn instead.
+   */
+  replayMemberIds: string[];
   events: RoomTimelineEvent[];
+}
+
+/** Members whose leased batch is still outstanding (§17.1). */
+function leasedMemberIds(record: RoomRecord): string[] {
+  return record.readCursors.filter((cursor) => cursor.lease).map((cursor) => cursor.memberId);
 }
 
 /**
@@ -45,7 +61,7 @@ export function reconcileRoomRecord(host: OrchestratorHost, record: RoomRecord):
     // Nothing survives a restart, so the pause this Room was waiting to finish
     // has finished.
     events.push(timelineEvent(host, roomId, 'room-status', null, 'Paused: the restart ended every turn in flight.'));
-    return { record: withRoomStatus(record, 'paused', now), resume: false, events };
+    return { record: withRoomStatus(record, 'paused', now), resume: false, replayMemberIds: [], events };
   }
 
   if (record.runtime.status === 'completing') {
@@ -59,30 +75,49 @@ export function reconcileRoomRecord(host: OrchestratorHost, record: RoomRecord):
         at: now,
       }),
       resume: false,
+      replayMemberIds: [],
       events,
     };
   }
 
-  if (record.runtime.status !== 'running' || record.archivedAt) return { record, resume: false, events };
+  if (record.runtime.status !== 'running' || record.archivedAt) {
+    return { record, resume: false, replayMemberIds: [], events };
+  }
 
   const limit = checkRoomLimits(record, Date.parse(now));
   if (!limit.ok) {
     const detail = limit.reason ?? 'A Room limit was reached.';
     events.push(timelineEvent(host, roomId, 'limit', null, detail));
-    return { record: withRoomStatus(record, 'paused', now, { kind: 'limit-reached', detail, at: now }), resume: false, events };
+    return {
+      record: withRoomStatus(record, 'paused', now, { kind: 'limit-reached', detail, at: now }),
+      resume: false,
+      replayMemberIds: [],
+      events,
+    };
   }
 
   events.push(timelineEvent(host, roomId, 'recovery', null, 'Sero restarted. The Room resumed from its current records.'));
-  return { record: withRoomStatus(record, 'running', now, null), resume: true, events };
+  const replayMemberIds = leasedMemberIds(record);
+  if (replayMemberIds.length > 0) {
+    const summary = `${replayMemberIds.length} message batch(es) were never taken up. They are delivered again.`;
+    events.push(timelineEvent(host, roomId, 'recovery', null, summary));
+  }
+  return { record: withRoomStatus(record, 'running', now, null), resume: true, replayMemberIds, events };
+}
+
+/** A Room that may resume, and who it owes a wake to. */
+export interface RoomResumption {
+  roomId: string;
+  replayMemberIds: string[];
 }
 
 /**
  * Reconciles every Room, then returns the ones that may resume — reconciliation
  * itself starts nothing, so the caller decides who to wake.
  */
-export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<string[]> {
+export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<RoomResumption[]> {
   const state = await deps.store.readState();
-  const resumable: string[] = [];
+  const resumable: RoomResumption[] = [];
   for (const room of state.rooms) {
     const roomId = room.definition.id;
     await reconcileMemberSessions(deps, roomId);
@@ -91,7 +126,7 @@ export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<string
     const result = reconcileRoomRecord(deps.host, current);
     if (result.record !== current) await deps.store.updateRoom(roomId, () => result.record);
     if (result.events.length > 0) await deps.store.appendTimeline(roomId, result.events);
-    if (result.resume) resumable.push(roomId);
+    if (result.resume) resumable.push({ roomId, replayMemberIds: result.replayMemberIds });
   }
   return resumable;
 }

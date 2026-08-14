@@ -93,6 +93,13 @@ function RoomApprovalCard({
       <span className="text-base font-medium">{room.title}</span>
       <p className="text-base">{approval.title}</p>
       <p className="text-base text-muted-foreground">{approval.consequence}</p>
+      {/* The send is bound to this exact text, so approving without seeing it
+          would be approving something else. */}
+      {approval.payload && (
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs">
+          {approval.payload}
+        </pre>
+      )}
       <p className="text-xs text-muted-foreground">
         {approval.memberName} asked: {approval.reason}
       </p>

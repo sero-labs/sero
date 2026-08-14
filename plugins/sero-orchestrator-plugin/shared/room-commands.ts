@@ -25,6 +25,8 @@ export type RoomCommandId =
   | 'request-attention'
   | 'publish-note'
   | 'propose-revision'
+  | 'collect-commits'
+  | 'request-delivery-approval'
   | 'finish-room';
 
 export interface RoomCommandSpec {
@@ -55,6 +57,12 @@ export const ROOM_COMMANDS: readonly RoomCommandSpec[] = [
   { id: 'request-attention', label: 'Request attention', conductorOnly: false },
   { id: 'publish-note', label: 'Publish situation note', conductorOnly: true },
   { id: 'propose-revision', label: 'Propose Room revision', conductorOnly: true },
+  { id: 'collect-commits', label: 'Collect member commits and report overlapping edits', conductorOnly: true },
+  {
+    id: 'request-delivery-approval',
+    label: 'Ask the user to approve sending the result out of Sero',
+    conductorOnly: true,
+  },
   { id: 'finish-room', label: 'Finish Room', conductorOnly: true },
 ];
 

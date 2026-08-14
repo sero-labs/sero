@@ -33,11 +33,16 @@ import type { RoomArtifactKind } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import type { RoomClaims } from './room-claims';
+import {
+  collectRoomCommits,
+  finishRoomWithDelivery,
+  requestDeliverySend,
+  type RoomDeliveryCommandDeps,
+} from './room-command-delivery';
 import { renderArtifact, renderClaims, renderMandate, renderRoster } from './room-command-text';
-import type { RoomActionResult } from './room-lifecycle';
 import type { MailboxResult, RoomMailbox } from './room-mailbox';
 import { timelineEvent, withMember, withMemberStatus, withRoomStatus } from './room-actions';
-import type { RoomRevisionProposal } from './room-revision-plan';
+import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { RevisionResult } from './room-revisions';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
@@ -76,6 +81,10 @@ export interface RoomCommandInput {
   paths?: string[];
   reason?: string;
   artifactKind?: RoomArtifactKind;
+  /** request-delivery-approval only: the exact payload the send will carry. */
+  content?: string;
+  /** finish-room only: the approval that authorised an external send. */
+  approvalId?: string;
   ref?: string;
   relatedWorkId?: string;
   task?: string;
@@ -93,8 +102,7 @@ export interface RoomCommandOutcome {
 }
 
 /** Everything the router routes TO. Each one already exists; none is built here. */
-export interface RoomCommandDeps {
-  host: OrchestratorHost;
+export interface RoomCommandDeps extends RoomDeliveryCommandDeps {
   store: RoomStore;
   mailbox: RoomMailbox;
   claims: RoomClaims;
@@ -108,7 +116,6 @@ export interface RoomCommandDeps {
     commandId: string;
   }): Promise<RevisionResult>;
   /** The coordinator's own operations. Nothing else may drive a Room. */
-  completeRoom(roomId: string, summary: string): Promise<RoomActionResult>;
   publishConductorNote(roomId: string, note: string): Promise<void>;
   noteStructuralProgress(roomId: string, summary: string): Promise<void>;
 }
@@ -179,19 +186,22 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
   }
 
   /**
-   * NFR-003 for the two record writes. The mailbox and the revision engine claim
-   * their own command id inside the store's serialized write; `room-work` takes
-   * no key, so a caller that supplied one gets its retry safety here.
+   * NFR-003, audited across ROOM_COMMANDS. Every command is in one of three
+   * groups, and nothing is left over:
    *
-   * The key is recorded only AFTER the write succeeds. Claiming first would burn
-   * the key on a write that never happened, and the member's real retry would be
-   * answered "already applied" while its work was silently lost. A member takes
-   * one tool call at a time, so a retry is sequential and this is enough.
+   *  - **Read-only** — show-roster, show-mandate. No key, nothing to repeat.
+   *  - **Keyed** — send-message, broadcast, ask, reply, update-work,
+   *    publish-artifact, update-mandate, propose-revision,
+   *    request-delivery-approval. Each of these can create a SECOND record on a
+   *    retry, so each one hands its key to the module that owns the write, and
+   *    that module persists the record and the key in a single store write.
+   *  - **Idempotent by construction** — wait, claim-paths, release-paths,
+   *    report-status, request-attention, publish-note, collect-commits,
+   *    finish-room. Each writes a value rather than appending one (a status, a
+   *    block, a note, a claim keyed by its own pattern, a checkpoint of what is
+   *    uncommitted, a terminal Room status), so running it twice leaves the Room
+   *    exactly as running it once did. A key would buy nothing.
    */
-  async function alreadyDone(roomId: string, commandId: string, explicit: boolean): Promise<boolean> {
-    return explicit ? store.hasAppliedCommand(roomId, commandId) : false;
-  }
-
   async function run(
     caller: RoomCaller,
     record: RoomRecord,
@@ -200,7 +210,6 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
     commandId: string,
   ): Promise<RoomCommandOutcome> {
     const { roomId, member } = caller;
-    const keyed = Boolean(input.commandId?.trim());
     const body = input.body?.trim() ?? '';
     const to = input.to ?? [];
 
@@ -258,17 +267,24 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
       }
 
       case 'update-work': {
-        if (await alreadyDone(roomId, commandId, keyed)) return ok('That work update was already applied.', { duplicate: true });
-        const result = await deps.work.update(roomId, member.id, {
-          workId: input.workId,
-          title: input.title,
-          ownerMemberId: input.memberId,
-          status: input.status,
-          notes: input.notes,
-          dependsOnWorkIds: input.dependsOn,
-        });
-        if (!result.ok) return no(result.message, { code: result.code });
-        if (keyed) await store.recordAppliedCommand(roomId, commandId);
+        const result = await deps.work.update(
+          roomId,
+          member.id,
+          {
+            workId: input.workId,
+            title: input.title,
+            ownerMemberId: input.memberId,
+            status: input.status,
+            notes: input.notes,
+            dependsOnWorkIds: input.dependsOn,
+          },
+          commandId,
+        );
+        if (!result.ok) {
+          return result.code === 'duplicate'
+            ? ok(result.message, { duplicate: true })
+            : no(result.message, { code: result.code });
+        }
         // Work moving IS structural progress (§21), and it is the coordinator
         // that decides what progress means for the brief and the idle ladder.
         await deps.noteStructuralProgress(roomId, `${member.displayName}: ${result.item.title} (${result.item.status}).`);
@@ -280,16 +296,23 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
 
       case 'publish-artifact': {
         if (!input.artifactKind) return no('Say what kind of artifact this is (plan, decision, commit, review, report, …).');
-        if (await alreadyDone(roomId, commandId, keyed)) return ok('That artifact was already published.', { duplicate: true });
-        const result = await deps.work.publishArtifact(roomId, member.id, {
-          kind: input.artifactKind,
-          title: input.title ?? '',
-          content: input.body || undefined,
-          ref: input.ref,
-          relatedWorkId: input.relatedWorkId,
-        });
-        if (!result.ok) return no(result.message, { code: result.code });
-        if (keyed) await store.recordAppliedCommand(roomId, commandId);
+        const result = await deps.work.publishArtifact(
+          roomId,
+          member.id,
+          {
+            kind: input.artifactKind,
+            title: input.title ?? '',
+            content: input.body || undefined,
+            ref: input.ref,
+            relatedWorkId: input.relatedWorkId,
+          },
+          commandId,
+        );
+        if (!result.ok) {
+          return result.code === 'duplicate'
+            ? ok(result.message, { duplicate: true })
+            : no(result.message, { code: result.code });
+        }
         await deps.noteStructuralProgress(roomId, `${member.displayName} published ${result.artifact.kind}: ${result.artifact.title}.`);
         return ok(renderArtifact(result.artifact), { artifactId: result.artifact.id, ref: result.artifact.ref });
       }
@@ -365,14 +388,19 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
           await deps.applyRevision({ roomId, proposal: input.proposal, actorMemberId: member.id, reason: input.reason ?? body, commandId }),
         );
 
+      case 'collect-commits':
+        return collectRoomCommits(deps, roomId, member.id);
+
+      case 'request-delivery-approval':
+        return requestDeliverySend(deps, roomId, member.id, input, commandId);
+
       case 'finish-room': {
         const summary = input.summary?.trim() || body;
         if (!summary) return no('A Room finishes with its final answer. Say what it is.');
         // Completing closes every session, including the Conductor's own. The
         // Room is over, so losing this answer's delivery back into a dead
         // session costs nothing — the result is already persisted and delivered.
-        const result = await deps.completeRoom(roomId, summary);
-        return result.ok ? ok('The Room is finished and its result was delivered.') : no(result.error ?? 'The Room could not be finished.');
+        return finishRoomWithDelivery(deps, record, input, summary);
       }
     }
   }

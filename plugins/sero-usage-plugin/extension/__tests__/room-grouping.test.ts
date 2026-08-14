@@ -191,6 +191,26 @@ describe('ordinary chats', () => {
     expect(rows[0]!.label).toBe('My notes');
   });
 
+  it('groups a Windows session path, where the separator is a backslash', () => {
+    const result = aggregate(
+      [
+        {
+          sessionId: 'win-impl',
+          path: 'C:\\Users\\dev\\.sero\\sessions\\rooms\\room-w\\impl.jsonl',
+          cwd: 'C:\\workspaces\\api',
+          name: 'Room: Ship the API — Implementer',
+          messages: [msg({ cost: 2 })],
+        },
+      ],
+      NOW,
+    );
+
+    // Without separator normalisation this member reads as an unexplained
+    // ordinary chat, which is the whole reason a user cannot account for it.
+    const row = result.periods.allTime.topSessions[0]!;
+    expect(row.room?.roomId).toBe('room-w');
+  });
+
   it('leaves period totals counting real sessions, not Room rows', () => {
     const result = aggregate(
       [

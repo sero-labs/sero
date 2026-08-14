@@ -26,19 +26,22 @@ import { toRoomAttention } from './room-delivery';
 /** Bumped whenever the persisted Room shape changes. See room-migrations.ts. */
 export const ROOM_SCHEMA_VERSION = 1;
 
-/**
- * Applied command ids kept per Room for idempotency (NFR-003). Bounded so a
- * long-running Room cannot grow its runtime record without limit; a replay
- * older than this window is far outside any retry horizon.
- */
-export const MAX_APPLIED_COMMAND_IDS = 200;
-
 /** How much per-Room history survives retention. */
 export interface RoomRetention {
   /** Message pages kept on disk (MESSAGE_PAGE_SIZE messages each). */
   maxMessagePages: number;
   /** Accepted revisions kept in revisions.json. */
   maxRevisions: number;
+  /**
+   * Applied command ids kept per Room for idempotency (NFR-003).
+   *
+   * This is a RETENTION number, not a scratch window: a key dropped while the
+   * effect it guards is still on the Room lets a retry duplicate that effect.
+   * So it is sized above every keyed record a Room can hold at once — 200
+   * revisions, 200 work items and 200 artifacts — plus two full message pages,
+   * which is far beyond any retry horizon a member can reach.
+   */
+  maxAppliedCommandIds: number;
   /** Bytes the active timeline file may reach before it rotates. */
   maxTimelineBytes: number;
   /** Rotated timeline files kept beside the active one. */
@@ -48,6 +51,7 @@ export interface RoomRetention {
 export const DEFAULT_ROOM_RETENTION: RoomRetention = {
   maxMessagePages: 20,
   maxRevisions: 200,
+  maxAppliedCommandIds: 1000,
   maxTimelineBytes: 1_000_000,
   maxTimelineFiles: 2,
 };
@@ -123,12 +127,20 @@ export function reassembleRoom(
     readCursors: persisted.readCursors,
     // `?? []` rather than a migration step: these lists were added to a shape
     // that was already on disk, and an absent list means "none", not damage.
-    approvals: persisted.approvals ?? [],
+    // An approval stored before delivery bindings existed carries none, and no
+    // binding is the safe reading: it authorises no send.
+    approvals: (persisted.approvals ?? []).map((approval) => ({
+      ...approval,
+      delivery: approval.delivery ?? null,
+      consumedAt: approval.consumedAt ?? null,
+    })),
     work: persisted.work ?? [],
     artifacts: persisted.artifacts ?? [],
     claims: persisted.claims ?? [],
     members,
-    revisions,
+    // Same reason: a revision written before the proposal was persisted has
+    // none to recover, which is a missing value rather than damage.
+    revisions: revisions.map((revision) => ({ ...revision, proposal: revision.proposal ?? null })),
   };
 }
 
@@ -224,11 +236,11 @@ export function withMemberCursors(record: RoomRecord): RoomRecord {
 }
 
 /** Records an applied command id, keeping the list bounded and duplicate-free. */
-export function withAppliedCommand(record: RoomRecord, commandId: string): RoomRecord {
+export function withAppliedCommand(record: RoomRecord, commandId: string, retained: number): RoomRecord {
   const applied = record.runtime.appliedCommandIds.filter((id) => id !== commandId);
   applied.push(commandId);
   return {
     ...record,
-    runtime: { ...record.runtime, appliedCommandIds: applied.slice(-MAX_APPLIED_COMMAND_IDS) },
+    runtime: { ...record.runtime, appliedCommandIds: applied.slice(-retained) },
   };
 }

@@ -28,8 +28,10 @@ import {
   assignSequences,
   createMessageLog,
   messagePageOf,
+  withAcknowledgedLease,
   withAdvancedCursor,
   withAppendedMessages,
+  withLease,
   type RoomMessageDraft,
 } from './room-messages';
 import { createRoomPaths } from './room-paths';
@@ -51,6 +53,22 @@ import {
 } from './room-state';
 import { createRoomTimeline } from './room-timeline';
 
+/** What a `transact` decision produced: the record to persist, and its answer. */
+export interface RoomTransaction<T> {
+  /** The record to write, or null when the decision was to change nothing. */
+  record: RoomRecord | null;
+  result: T;
+}
+
+export type RoomTransactionOutcome<T> = { duplicate: true } | { duplicate: false; result: T };
+
+/** A batch of messages held for one turn, and the cursor position it commits. */
+export interface LeasedMessages {
+  messages: RoomMessage[];
+  /** Hand this back to `acknowledgeMessages` once the turn has taken the batch. */
+  throughSequence: number;
+}
+
 export interface RoomStore {
   /** Absolute path of the watched index — the only file the UI subscribes to. */
   readonly indexFile: string;
@@ -63,14 +81,52 @@ export interface RoomStore {
   updateMember(roomId: string, memberId: string, updater: (member: RoomMember) => RoomMember): Promise<void>;
   /** Persists messages, assigns their sequences, and raises recipient pending counts. */
   appendMessages(roomId: string, drafts: RoomMessageDraft[]): Promise<RoomMessage[]>;
+  /**
+   * `appendMessages` plus the command key, claimed in the SAME state write.
+   * Null when the key was already applied. Two writes would let a crash burn a
+   * key whose messages were never persisted, and the retry would be answered
+   * "already sent" with nothing in the log.
+   */
+  appendMessagesOnce(
+    roomId: string,
+    commandId: string,
+    drafts: RoomMessageDraft[],
+  ): Promise<RoomMessage[] | null>;
   /** Paged read for the UI, forward from `afterSequence` (exclusive). */
   readMessages(roomId: string, afterSequence: number, limit: number): Promise<RoomMessage[]>;
-  /** Reads a member's undelivered messages and advances its cursor in one write. */
-  takeMessagesFor(roomId: string, memberId: string, limit: number): Promise<RoomMessage[]>;
+  /**
+   * Hands a member its undelivered messages WITHOUT advancing its cursor. The
+   * batch is recorded as a lease instead, and only `acknowledgeMessages` moves
+   * the cursor onto it. An open lease is handed over again on the next call, so
+   * a turn that never took its prompt costs a repeat rather than the messages.
+   */
+  leaseMessagesFor(roomId: string, memberId: string, limit: number): Promise<LeasedMessages>;
+  /**
+   * Commits the lease taken at `throughSequence`. A lease at any other position
+   * belongs to a different turn and is left alone — committing it would move
+   * the cursor past messages that turn is still holding.
+   */
+  acknowledgeMessages(roomId: string, memberId: string, throughSequence: number): Promise<void>;
   hasAppliedCommand(roomId: string, commandId: string): Promise<boolean>;
-  recordAppliedCommand(roomId: string, commandId: string): Promise<void>;
   /** Applies a command once: returns false when `commandId` was already applied. */
   applyCommand(roomId: string, commandId: string, updater: (record: RoomRecord) => RoomRecord): Promise<boolean>;
+  /**
+   * Decides AND writes inside one serialized turn.
+   *
+   * `decide` sees the record no other writer can move underneath it, and
+   * whatever it returns is persisted before the next writer runs — so a
+   * decision can never be made against a state that no longer holds by the time
+   * it lands. That is the difference between "validate, then apply" and
+   * "validate, then apply to something else".
+   *
+   * The command key is claimed in the same write, and only when `decide`
+   * actually wrote something: a refusal must not burn the caller's retry.
+   */
+  transact<T>(
+    roomId: string,
+    commandId: string | null,
+    decide: (record: RoomRecord) => RoomTransaction<T>,
+  ): Promise<RoomTransactionOutcome<T>>;
   appendTimeline(roomId: string, events: RoomTimelineEvent[]): Promise<void>;
   readTimeline(roomId: string, limit: number): Promise<RoomTimelineEvent[]>;
   /** Marks the Room archived and reclaims its retained history. Session files are kept (D-12). */
@@ -198,6 +254,59 @@ export function createRoomStore(
     });
   }
 
+  function transact<T>(
+    roomId: string,
+    commandId: string | null,
+    decide: (record: RoomRecord) => RoomTransaction<T>,
+  ): Promise<RoomTransactionOutcome<T>> {
+    return serialize<RoomTransactionOutcome<T>>(async () => {
+      const prev = await ensureLoaded();
+      const record = requireRoom(prev, roomId);
+      if (commandId && record.runtime.appliedCommandIds.includes(commandId)) return { duplicate: true };
+      const decision = decide(record);
+      if (decision.record) {
+        const written = commandId
+          ? withAppliedCommand(decision.record, commandId, retention.maxAppliedCommandIds)
+          : decision.record;
+        await commit(prev, mapRoom(prev, roomId, () => written));
+      }
+      return { duplicate: false, result: decision.result };
+    });
+  }
+
+  /** Pages first, then ONE state write carrying the sequence bump and the key. */
+  function writeMessages(
+    roomId: string,
+    commandId: string | null,
+    drafts: RoomMessageDraft[],
+  ): Promise<RoomMessage[] | null> {
+    return serialize<RoomMessage[] | null>(async () => {
+      const prev = await ensureLoaded();
+      const record = requireRoom(prev, roomId);
+      if (commandId && record.runtime.appliedCommandIds.includes(commandId)) return null;
+      const base = record.runtime.messageSequence;
+      const written = assignSequences(roomId, drafts, base);
+      if (written.length === 0) return written;
+      // Pages first: a crash must never leave the Room's sequence pointing at
+      // a message that was never persisted.
+      await messages.write(roomId, written);
+      const latest = written[written.length - 1].sequence;
+      await commit(
+        prev,
+        mapRoom(prev, roomId, (room) => {
+          const appended = withAppendedMessages(room, written);
+          return commandId
+            ? withAppliedCommand(appended, commandId, retention.maxAppliedCommandIds)
+            : appended;
+        }),
+      );
+      if (messagePageOf(latest) > messagePageOf(base)) {
+        await messages.prune(roomId, latest, retention.maxMessagePages);
+      }
+      return written;
+    });
+  }
+
   async function applyRetention(roomId: string): Promise<void> {
     await serialize(async () => {
       const prev = await ensureLoaded();
@@ -241,64 +350,74 @@ export function createRoomStore(
         members: record.members.map((member) => (member.id === memberId ? updater(member) : member)),
       })),
 
-    appendMessages: (roomId, drafts) =>
-      serialize(async () => {
-        const prev = await ensureLoaded();
-        const record = requireRoom(prev, roomId);
-        const base = record.runtime.messageSequence;
-        const written = assignSequences(roomId, drafts, base);
-        if (written.length === 0) return written;
-        // Pages first: a crash must never leave the Room's sequence pointing at
-        // a message that was never persisted.
-        await messages.write(roomId, written);
-        const latest = written[written.length - 1].sequence;
-        await commit(prev, mapRoom(prev, roomId, (room) => withAppendedMessages(room, written)));
-        if (messagePageOf(latest) > messagePageOf(base)) {
-          await messages.prune(roomId, latest, retention.maxMessagePages);
-        }
-        return written;
-      }),
+    appendMessages: async (roomId, drafts) => (await writeMessages(roomId, null, drafts)) ?? [],
+
+    appendMessagesOnce: (roomId, commandId, drafts) => writeMessages(roomId, commandId, drafts),
 
     readMessages: async (roomId, afterSequence, limit) => {
       const record = requireRoom(await ensureLoaded(), roomId);
       return messages.read(roomId, afterSequence, record.runtime.messageSequence, limit);
     },
 
-    takeMessagesFor: (roomId, memberId, limit) =>
-      serialize(async () => {
+    leaseMessagesFor: (roomId, memberId, limit) =>
+      serialize<LeasedMessages>(async () => {
         const prev = await ensureLoaded();
         const record = requireRoom(prev, roomId);
         const cursor = record.readCursors.find((candidate) => candidate.memberId === memberId);
         // A zero limit reads nothing, so the cursor must not move — without this
         // the "drained" test below would treat an empty read as a full scan.
-        if (!cursor || limit <= 0) return [];
+        if (!cursor || limit <= 0) return { messages: [], throughSequence: cursor?.lastReadSequence ?? 0 };
+        const reaches = (message: RoomMessage): boolean => addressesMember(message, memberId);
+
+        const open = cursor.lease;
+        if (open) {
+          // A batch nobody acknowledged. The cursor never moved, so reading the
+          // same window returns the same messages — this is the replay.
+          const held = await messages.read(roomId, cursor.lastReadSequence, open.throughSequence, limit, reaches);
+          return { messages: held, throughSequence: open.throughSequence };
+        }
+
         const latest = record.runtime.messageSequence;
-        const taken = await messages.read(roomId, cursor.lastReadSequence, latest, limit, (message) =>
-          addressesMember(message, memberId),
-        );
+        const taken = await messages.read(roomId, cursor.lastReadSequence, latest, limit, reaches);
         // Short of the limit means everything up to `latest` was scanned, so the
         // cursor jumps past the messages this member was never addressed in.
         const drained = taken.length < limit;
-        const lastRead = drained ? latest : taken[taken.length - 1].sequence;
-        const pending = drained ? 0 : Math.max(0, cursor.pendingCount - taken.length);
-        await commit(prev, mapRoom(prev, roomId, (room) => withAdvancedCursor(room, memberId, lastRead, pending)));
-        return taken;
+        const throughSequence = drained ? latest : taken[taken.length - 1].sequence;
+        const pendingCount = drained ? 0 : Math.max(0, cursor.pendingCount - taken.length);
+        await commit(
+          prev,
+          mapRoom(prev, roomId, (room) =>
+            // Nothing was handed over, so there is nothing to lose and nothing to
+            // replay: skipping past unaddressed messages commits immediately.
+            taken.length === 0
+              ? withAdvancedCursor(room, memberId, throughSequence, pendingCount)
+              : withLease(room, memberId, { throughSequence, pendingCount }),
+          ),
+        );
+        return { messages: taken, throughSequence };
+      }),
+
+    acknowledgeMessages: (roomId, memberId, throughSequence) =>
+      serialize(async () => {
+        const prev = await ensureLoaded();
+        const record = requireRoom(prev, roomId);
+        const cursor = record.readCursors.find((candidate) => candidate.memberId === memberId);
+        if (cursor?.lease?.throughSequence !== throughSequence) return;
+        await commit(prev, mapRoom(prev, roomId, (room) => withAcknowledgedLease(room, memberId)));
       }),
 
     hasAppliedCommand: async (roomId, commandId) =>
       requireRoom(await ensureLoaded(), roomId).runtime.appliedCommandIds.includes(commandId),
 
-    recordAppliedCommand: (roomId, commandId) =>
-      updateRoom(roomId, (record) => withAppliedCommand(record, commandId)),
+    applyCommand: async (roomId, commandId, updater) => {
+      const outcome = await transact(roomId, commandId, (record) => ({
+        record: updater(record),
+        result: true,
+      }));
+      return !outcome.duplicate;
+    },
 
-    applyCommand: (roomId, commandId, updater) =>
-      serialize(async () => {
-        const prev = await ensureLoaded();
-        const record = requireRoom(prev, roomId);
-        if (record.runtime.appliedCommandIds.includes(commandId)) return false;
-        await commit(prev, mapRoom(prev, roomId, (room) => withAppliedCommand(updater(room), commandId)));
-        return true;
-      }),
+    transact,
 
     // Serialized like every other write: the timeline shares the state
     // directory, and an unserialized append can interleave with a room write

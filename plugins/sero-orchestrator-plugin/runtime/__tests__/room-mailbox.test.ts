@@ -25,11 +25,14 @@ let dir: string;
 let host: FakeHost;
 let store: RoomStore;
 let coordinator: RoomCoordinator;
+/** Fault injection for the crash-safety test below. No fault by default. */
+let failWrite: (file: string) => boolean;
 
 function makeCtx(): AppRuntimeContext {
   const appState = {
     read: async (file: string) => (existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null),
     update: async (file: string, updater: (current: unknown) => unknown) => {
+      if (failWrite(file)) throw new Error(`the disk went away: ${file}`);
       const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(updater(current)), 'utf8');
@@ -146,6 +149,7 @@ const cursorOf = async (roomId: string, memberId: string) => {
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'room-mailbox-'));
   host = createFakeHost();
+  failWrite = () => false;
   store = createRoomStore(makeCtx());
 });
 
@@ -211,6 +215,31 @@ describe('durable delivery', () => {
     expect((await send('cmd-2', 'one')).ok).toBe(true);
     expect((await send('cmd-3', 'two')).ok).toBe(true);
     expect(await send('cmd-4', 'three')).toMatchObject({ ok: false, code: 'rate-limited' });
+  });
+
+  it('never records a command key without the messages it guards', async () => {
+    const roomId = await startRoom();
+    const request = { commandId: 'cmd-1', fromMemberId: 'lead', toMemberIds: ['impl'], body: 'take the parser' };
+    // The message page cannot be written, and nothing after it lands either —
+    // what a crash leaves behind, with no chance to undo a key already claimed.
+    let broken = false;
+    failWrite = (file) => {
+      if (broken) return true;
+      broken = file.includes(`${path.sep}messages${path.sep}`);
+      return broken;
+    };
+    await expect(coordinator.mailbox.send(roomId, request)).rejects.toThrow();
+
+    failWrite = () => false;
+    // A restarted runtime reads the Room back from disk. A key it finds there
+    // means the messages are in the log; finding one without them would answer
+    // the member's real retry with "already sent".
+    const restarted = createRoomStore(makeCtx());
+    expect(await restarted.hasAppliedCommand(roomId, 'cmd-1')).toBe(false);
+
+    const retried = await coordinator.mailbox.send(roomId, request);
+    expect(retried).toMatchObject({ ok: true, duplicate: false });
+    expect(await store.readMessages(roomId, 0, 10)).toHaveLength(1);
   });
 
   it('turns senders away from an inbox that is already full', async () => {

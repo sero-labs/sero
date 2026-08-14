@@ -30,7 +30,7 @@ import type {
   RoomCommandOutcome,
   RoomCommandRouter,
 } from '../runtime/rooms/room-command-router';
-import type { RoomRevisionProposal } from '../runtime/rooms/room-revision-plan';
+import type { RoomRevisionProposal } from '../shared/room-revision-types';
 import { resolveRoomRouterForCaller } from '../runtime/registry';
 
 const ROOM_COMMAND_IDS = ROOM_COMMANDS.map((command) => command.id);
@@ -61,7 +61,9 @@ export const RoomToolParams = Type.Object({
   paths: Type.Optional(Type.String({ description: 'For claim-paths/release-paths: paths, directories or globs, comma-separated' })),
   reason: Type.Optional(Type.String({ description: 'Why — for a claim, a mandate change or a revision' })),
   artifactKind: Type.Optional(StringEnum(ARTIFACT_KINDS, { description: 'For publish-artifact: what kind of artifact it is' })),
-  ref: Type.Optional(Type.String({ description: 'For publish-artifact: an external reference (URL, branch, commit) instead of body content' })),
+  content: Type.Optional(Type.String({ description: 'For request-delivery-approval: the EXACT text the send will carry. The user approves that text, and only that text may be delivered' })),
+  approvalId: Type.Optional(Type.String({ description: 'For finish-room: the approval id from request-delivery-approval, when the result was sent outside Sero' })),
+  ref: Type.Optional(Type.String({ description: 'For publish-artifact: an external reference (URL, branch, commit) instead of body content; for finish-room: where the delivered result landed' })),
   relatedWorkId: Type.Optional(Type.String({ description: 'For publish-artifact: the work item it came from' })),
   task: Type.Optional(Type.String({ description: 'For update-mandate: the member\'s new current task' })),
   priorities: Type.Optional(Type.String({ description: 'For update-mandate: priorities, comma-separated' })),
@@ -87,6 +89,8 @@ export interface RoomToolParamsShape {
   paths?: string;
   reason?: string;
   artifactKind?: RoomArtifactKind;
+  content?: string;
+  approvalId?: string;
   ref?: string;
   relatedWorkId?: string;
   task?: string;
@@ -150,6 +154,8 @@ export function buildRoomCommandInput(
     paths: list(params.paths),
     reason: params.reason,
     artifactKind: params.artifactKind,
+    content: params.content,
+    approvalId: params.approvalId,
     ref: params.ref,
     relatedWorkId: params.relatedWorkId,
     task: params.task,

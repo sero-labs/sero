@@ -2,19 +2,23 @@
  * How an ACCEPTED revision changes the Room record (spec §13, FR-014/015).
  *
  * `room-revision-plan.ts` decides, `room-revisions.ts` records, and this applies.
- * It is the `mutate` hook `applyRoomRevision` calls, and it is reached ONLY for
- * a proposal the plan returned `apply` for — so every rule the plan enforces
- * (grant-bound changes, safe turn boundaries, self-replacement, envelope fit) is
- * already true here and is deliberately not re-checked.
+ * It is the `mutate` hook the revision engine calls, and it is reached ONLY for
+ * a proposal the plan just returned `apply` or `approval` for — the second case
+ * being an approval the user has answered yes to, re-planned against the Room as
+ * it is now. So every rule the plan enforces (grant-bound changes, safe turn
+ * boundaries, self-replacement, envelope fit) is already true here and is
+ * deliberately not re-checked.
  *
  * The rule the file keeps: a mandate change is INSTRUCTIONS ONLY (FR-041).
  * Nothing here may reach `configuration` from a mandate patch, because that is
  * the field the host grant is built from.
  */
 
+import type { BlueprintMember } from '../../shared/room-blueprint-types';
+import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
 import { toMemberRecord } from './member-grant';
-import type { RoomRevisionProposal } from './room-revision-plan';
+import { widenEnvelopeForMember } from './room-revision-plan';
 
 /** Handover text a replacement starts on. Long enough to matter, bounded on purpose. */
 const MAX_HANDOVER_CHARS = 2000;
@@ -49,6 +53,7 @@ export function applyRevisionToRoom(room: Room, proposal: RoomRevisionProposal, 
       const member = toMemberRecord(proposal.member, room.definition.id, now, workspaceIdOf(room));
       return {
         ...room,
+        definition: withMemberAdmitted(room, proposal.member, now),
         members: [...room.members, { ...member, status: 'offline', statusDetail: 'Waiting for the Room to start.' }],
       };
     }
@@ -125,6 +130,7 @@ export function applyRevisionToRoom(room: Room, proposal: RoomRevisionProposal, 
       const retired = retire(room, proposal.memberId, replacement.id, now, 'Replaced.');
       return {
         ...retired,
+        definition: withMemberAdmitted(retired, proposal.replacement, now),
         members: [
           ...retired.members,
           {
@@ -154,11 +160,35 @@ export function applyRevisionToRoom(room: Room, proposal: RoomRevisionProposal, 
       };
 
     case 'request-expansion':
-      // Unreachable: an expansion always needs the user, so the plan returns
-      // `approval` and `mutate` is never called. Changing nothing is the only
-      // safe answer if that ever stops being true.
-      return room;
+      // Reached only after the user approved it. Approving an expansion means
+      // exactly one thing: the named limit moves to the value they were shown.
+      // Nothing else widens — not the capability lists, not the workspace mode,
+      // and not the blueprint's record of what was approved at Start.
+      return {
+        ...room,
+        definition: {
+          ...room.definition,
+          envelope: { ...room.definition.envelope, [proposal.field]: proposal.value },
+          updatedAt: now,
+        },
+      };
   }
+}
+
+/**
+ * The definition after a member joins. When the user approved a member the
+ * envelope did not admit, the envelope has to move with it — otherwise the Room
+ * would hold a member whose own model or tools its ceiling forbids. Only that
+ * member's capability lists are unioned in; every numeric limit and the
+ * workspace policy stay exactly as approved, and a member that already fits
+ * leaves the envelope untouched.
+ */
+function withMemberAdmitted(room: Room, member: BlueprintMember, now: string): Room['definition'] {
+  return {
+    ...room.definition,
+    envelope: widenEnvelopeForMember(room.definition.envelope, member),
+    updatedAt: now,
+  };
 }
 
 function retire(

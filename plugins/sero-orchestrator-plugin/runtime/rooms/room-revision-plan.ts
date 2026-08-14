@@ -39,48 +39,15 @@ import type {
   OperatingEnvelope,
   RoomBlueprint,
 } from '../../shared/room-blueprint-types';
-import { NUMERIC_ENVELOPE_FIELDS } from '../../shared/room-clamp';
 import type { RoomApprovalRequest, RoomRevisionKind } from '../../shared/room-message-types';
+import type {
+  ConfigurationPatch,
+  MandatePatch,
+  RoomRevisionProposal,
+  SoftLimitField,
+} from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
 import { checkRosterGrowth } from './room-limits';
-
-/** Numeric envelope fields a revision may lower, or ask the user to raise. */
-export type SoftLimitField = (typeof NUMERIC_ENVELOPE_FIELDS)[number];
-
-export function isSoftLimitField(value: string): value is SoftLimitField {
-  return (NUMERIC_ENVELOPE_FIELDS as readonly string[]).includes(value);
-}
-
-/** Instruction-only changes. None of these can add a capability (FR-041). */
-export interface MandatePatch {
-  responsibilities?: string;
-  currentTask?: string;
-  priorities?: string[];
-  workingInstructions?: string;
-}
-
-/** Capability changes. Every field here crosses the host authority boundary. */
-export interface ConfigurationPatch {
-  model?: string;
-  thinking?: string;
-  tools?: string[];
-  skills?: string[];
-  permissions?: MemberPermissionLevel;
-  needsWorktree?: boolean;
-}
-
-export type RoomRevisionProposal =
-  | { kind: 'add-member'; member: BlueprintMember }
-  | { kind: 'update-mandate'; memberId: string; mandate: MandatePatch }
-  | { kind: 'assign-work'; memberId: string; task: string; priorities?: string[] }
-  | { kind: 'change-strategy'; strategy: string }
-  | { kind: 'change-configuration'; memberId: string; configuration: ConfigurationPatch }
-  | { kind: 'suspend-member'; memberId: string }
-  | { kind: 'resume-member'; memberId: string }
-  | { kind: 'retire-member'; memberId: string }
-  | { kind: 'replace-member'; memberId: string; replacement: BlueprintMember; handover: string }
-  | { kind: 'lower-soft-limit'; field: SoftLimitField; value: number }
-  | { kind: 'request-expansion'; field: SoftLimitField; value: number };
 
 /** What the user would be asked. Every field is computed from Room records. */
 export interface PlannedApproval {

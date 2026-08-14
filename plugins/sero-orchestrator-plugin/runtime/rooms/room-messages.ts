@@ -12,7 +12,7 @@
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import type { AppRuntimeStateApi } from '@sero-ai/common';
-import type { RoomMessage } from '../../shared/room-message-types';
+import type { MessageLease, RoomMessage } from '../../shared/room-message-types';
 import type { RoomPaths } from './room-paths';
 import type { RoomRecord } from './room-state';
 
@@ -73,6 +73,31 @@ export function withAdvancedCursor(
   }
   const readCursors = record.readCursors.map((cursor) =>
     cursor.memberId === memberId ? { ...cursor, lastReadSequence, pendingCount } : cursor,
+  );
+  return { ...record, readCursors };
+}
+
+/**
+ * Records a batch as leased. The cursor itself stays where it is: until the
+ * turn accepts the prompt, those messages are still undelivered.
+ */
+export function withLease(record: RoomRecord, memberId: string, lease: MessageLease): RoomRecord {
+  return {
+    ...record,
+    readCursors: record.readCursors.map((cursor) =>
+      cursor.memberId === memberId ? { ...cursor, lease } : cursor,
+    ),
+  };
+}
+
+/** Commits the lease: the cursor jumps to it, and nothing is left outstanding. */
+export function withAcknowledgedLease(record: RoomRecord, memberId: string): RoomRecord {
+  const lease = record.readCursors.find((cursor) => cursor.memberId === memberId)?.lease;
+  if (!lease) return record;
+  const readCursors = record.readCursors.map((cursor) =>
+    cursor.memberId === memberId
+      ? { ...cursor, lastReadSequence: lease.throughSequence, pendingCount: lease.pendingCount, lease: null }
+      : cursor,
   );
   return { ...record, readCursors };
 }

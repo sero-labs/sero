@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import { createRoomStore } from '../rooms/room-store';
-import type { RoomRecord } from '../rooms/room-state';
+import { DEFAULT_ROOM_RETENTION, type RoomRecord } from '../rooms/room-state';
 import type { RoomMember } from '../../shared/room-types';
 import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../../shared/room-blueprint-types';
 
@@ -137,30 +137,83 @@ describe('room store', () => {
     const room = await store.readRoom('room-a');
     expect(room?.runtime.messageSequence).toBe(2);
     expect(room?.readCursors.find((c) => c.memberId === 'm2')?.pendingCount).toBe(2);
-    const taken = await store.takeMessagesFor('room-a', 'm2', 10);
-    expect(taken.map((m) => m.body)).toEqual(['one', 'all']);
+    const taken = await store.leaseMessagesFor('room-a', 'm2', 10);
+    expect(taken.messages.map((m) => m.body)).toEqual(['one', 'all']);
+    await store.acknowledgeMessages('room-a', 'm2', taken.throughSequence);
     const after = await store.readRoom('room-a');
     expect(after?.readCursors.find((c) => c.memberId === 'm2')?.pendingCount).toBe(0);
-    expect(await store.takeMessagesFor('room-a', 'm2', 10)).toEqual([]);
+    expect((await store.leaseMessagesFor('room-a', 'm2', 10)).messages).toEqual([]);
     // the sender is not a recipient of its own broadcast
-    expect(await store.takeMessagesFor('room-a', 'm1', 10)).toEqual([]);
+    expect((await store.leaseMessagesFor('room-a', 'm1', 10)).messages).toEqual([]);
   });
 
-  it('applies a command once and bounds the applied list', async () => {
+  it('replays a leased batch after a restart, and never after it was acknowledged', async () => {
     const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'one', 'c1'), draft('m1', ['m2'], 'two', 'c2')]);
+
+    const leased = await store.leaseMessagesFor('room-a', 'm2', 10);
+    expect(leased.messages.map((m) => m.body)).toEqual(['one', 'two']);
+    // The turn never accepted the prompt. The cursor must not claim it did.
+    expect((await store.readRoom('room-a'))?.readCursors.find((c) => c.memberId === 'm2')?.lastReadSequence).toBe(0);
+
+    const restarted = createRoomStore(makeCtx());
+    const replayed = await restarted.leaseMessagesFor('room-a', 'm2', 10);
+    expect(replayed.messages.map((m) => m.body)).toEqual(['one', 'two']);
+
+    await restarted.acknowledgeMessages('room-a', 'm2', replayed.throughSequence);
+    const settled = createRoomStore(makeCtx());
+    expect((await settled.leaseMessagesFor('room-a', 'm2', 10)).messages).toEqual([]);
+    expect((await settled.readRoom('room-a'))?.readCursors.find((c) => c.memberId === 'm2')?.lease).toBeNull();
+  });
+
+  it('ignores an acknowledgement for a position the member is not holding', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'one', 'c1')]);
+    await store.leaseMessagesFor('room-a', 'm2', 10);
+
+    await store.acknowledgeMessages('room-a', 'm2', 99);
+    expect((await store.leaseMessagesFor('room-a', 'm2', 10)).messages.map((m) => m.body)).toEqual(['one']);
+  });
+
+  it('applies a command once and bounds the applied list by retention', async () => {
+    const store = createRoomStore(makeCtx(), { ...DEFAULT_ROOM_RETENTION, maxAppliedCommandIds: 8 });
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
     expect(await store.applyCommand('room-a', 'cmd-1', (r) => ({ ...r, archivedAt: null }))).toBe(true);
     expect(await store.applyCommand('room-a', 'cmd-1', (r) => r)).toBe(false);
     expect(await store.hasAppliedCommand('room-a', 'cmd-1')).toBe(true);
-    for (let i = 0; i < 250; i += 1) await store.recordAppliedCommand('room-a', `bulk-${i}`);
+    for (let i = 0; i < 10; i += 1) await store.applyCommand('room-a', `bulk-${i}`, (r) => r);
     const room = await store.readRoom('room-a');
-    expect(room?.runtime.appliedCommandIds).toHaveLength(200);
+    expect(room?.runtime.appliedCommandIds).toHaveLength(8);
     expect(await store.hasAppliedCommand('room-a', 'cmd-1')).toBe(false);
+  });
+
+  it('keeps a key for the default retention, well past the records it guards', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    await store.applyCommand('room-a', 'cmd-1', (r) => r);
+    // 200 revisions, 200 work items and 200 artifacts is everything one Room can
+    // hold at once; the key must still be there after that many commands.
+    for (let i = 0; i < 600; i += 1) await store.applyCommand('room-a', `bulk-${i}`, (r) => r);
+    expect(await store.hasAppliedCommand('room-a', 'cmd-1')).toBe(true);
+  });
+
+  it('writes messages and their command key in one turn, and refuses the retry', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    const first = await store.appendMessagesOnce('room-a', 'cmd-9', [draft('m1', ['m2'], 'one', 'cmd-9')]);
+    expect(first).toHaveLength(1);
+    // The key is only ever recorded with the messages, so seeing it means the
+    // log has them.
+    expect(await store.hasAppliedCommand('room-a', 'cmd-9')).toBe(true);
+    expect(await store.appendMessagesOnce('room-a', 'cmd-9', [draft('m1', ['m2'], 'again', 'cmd-9')])).toBeNull();
+    expect(await store.readMessages('room-a', 0, 10)).toHaveLength(1);
   });
 
   it('appends a bounded jsonl timeline and reads it newest first', async () => {
     const store = createRoomStore(makeCtx(), {
-      maxMessagePages: 2, maxRevisions: 10, maxTimelineBytes: 400, maxTimelineFiles: 2,
+      ...DEFAULT_ROOM_RETENTION, maxMessagePages: 2, maxRevisions: 10, maxTimelineBytes: 400,
     });
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
     for (let i = 0; i < 12; i += 1) {
@@ -186,7 +239,7 @@ describe('room store', () => {
 
   it('archives, keeps the room listed, and prunes old message pages', async () => {
     const store = createRoomStore(makeCtx(), {
-      maxMessagePages: 1, maxRevisions: 10, maxTimelineBytes: 1000, maxTimelineFiles: 2,
+      ...DEFAULT_ROOM_RETENTION, maxMessagePages: 1, maxRevisions: 10, maxTimelineBytes: 1000,
     });
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
     for (let i = 0; i < 205; i += 1) {

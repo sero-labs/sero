@@ -8,7 +8,9 @@
  * Split from room-types.ts to keep each file within the 500-line limit.
  */
 
+import type { DeliveryDestinationId } from './delivery-types';
 import type { MemberPermissionLevel } from './room-blueprint-types';
+import type { RoomRevisionProposal } from './room-revision-types';
 
 export type RoomMessageKind =
   | 'direct'
@@ -44,12 +46,29 @@ export interface RoomMessage {
   createdAt: string;
 }
 
+/**
+ * A batch handed to a turn that has not accepted it yet. It holds where the
+ * cursor lands once the turn does accept it, so an interrupted delivery is
+ * replayed from the unmoved cursor rather than silently marked as read.
+ */
+export interface MessageLease {
+  /** The cursor position acknowledgement commits. */
+  throughSequence: number;
+  /** The pending count that goes with that position. */
+  pendingCount: number;
+}
+
 /** Per-member read position. A member reads forward from here on its next turn. */
 export interface MemberReadCursor {
   memberId: string;
   lastReadSequence: number;
   /** Messages persisted but not yet delivered into a turn. */
   pendingCount: number;
+  /**
+   * Set while a batch is out with a turn. Absent means nothing is outstanding
+   * and the cursor alone is the truth.
+   */
+  lease?: MessageLease | null;
 }
 
 /** Deliberately small (§19.1). The runtime imposes no review methodology. */
@@ -127,7 +146,18 @@ export type RoomRevisionKind =
   | 'lower-soft-limit'
   | 'request-expansion';
 
-export type RevisionOutcome = 'applied' | 'awaiting-approval' | 'rejected' | 'withdrawn';
+/**
+ * `rejected` is the USER's answer; `refused` is the Room's. They are kept apart
+ * because "you said no" and "you said yes and it no longer held" are different
+ * events, and recording the second as the first would blame the user for a
+ * change the Room could not honour.
+ */
+export type RevisionOutcome =
+  | 'applied'
+  | 'awaiting-approval'
+  | 'rejected'
+  | 'refused'
+  | 'withdrawn';
 
 /**
  * A validated change to the Room. The Conductor never edits persisted records
@@ -145,6 +175,12 @@ export interface RoomRevision {
   summary: string;
   previousValue: unknown;
   newValue: unknown;
+  /**
+   * The validated change itself, kept so a revision held for approval can be
+   * re-planned and APPLIED when the user answers. Null on a revision written
+   * before this was recorded, and on one whose proposal is no longer needed.
+   */
+  proposal: RoomRevisionProposal | null;
   outcome: RevisionOutcome;
   /** Set when the revision needed the user because it widened authority. */
   requiresApproval: boolean;
@@ -172,8 +208,34 @@ export interface RoomApprovalRequest {
   kind: 'authority-expansion' | 'limit-change' | 'external-write' | 'shared-tree-write';
   permissionsAfter: MemberPermissionLevel | null;
   status: 'pending' | 'approved' | 'rejected';
+  /**
+   * What an `external-write` approval is bound to. Null on every other kind,
+   * which changes the Room rather than sending anything out of it.
+   */
+  delivery: RoomDeliveryBinding | null;
+  /**
+   * Set when a delivery used this approval. One approval authorises ONE send,
+   * so a consumed approval can never cover a later one.
+   */
+  consumedAt: string | null;
   createdAt: string;
   resolvedAt: string | null;
+}
+
+/**
+ * What the user approved when they allowed a send out of Sero: the payload and
+ * the destination it goes to, frozen together at the moment they were asked.
+ *
+ * The hash is what binds them. Approving an id alone would let an approved
+ * message be swapped for another one before the send, or the same message be
+ * redirected somewhere the user never saw.
+ */
+export interface RoomDeliveryBinding {
+  destination: DeliveryDestinationId;
+  /** SHA-256 over the destination, its params and the payload, as one value. */
+  contentHash: string;
+  /** The payload itself, so the user approves the text and not a description of it. */
+  content: string;
 }
 
 /**

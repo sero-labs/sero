@@ -25,7 +25,7 @@ import type { OrchestratorHost } from '../host';
 import type { BriefSources } from './room-brief';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
-import type { RoomStore } from './room-store';
+import type { RoomStore, RoomTransaction } from './room-store';
 
 /** Bounds that keep room.json small. A Room past either of these is not tracking, it is logging. */
 export const MAX_WORK_ITEMS = 200;
@@ -59,6 +59,11 @@ export interface ArtifactInput {
   relatedWorkId?: string | null;
 }
 
+/**
+ * `duplicate` is not a failure: it says this exact command already ran and its
+ * record stands. It sits with the deny codes because the answer to the caller
+ * is the same — nothing new happened here.
+ */
 export type WorkDenyCode =
   | 'unknown-room'
   | 'room-finished'
@@ -67,7 +72,8 @@ export type WorkDenyCode =
   | 'no-title'
   | 'too-many-work-items'
   | 'unknown-dependency'
-  | 'not-conductor';
+  | 'not-conductor'
+  | 'duplicate';
 
 export type ArtifactDenyCode =
   | 'unknown-room'
@@ -77,7 +83,8 @@ export type ArtifactDenyCode =
   | 'no-content'
   | 'too-large'
   | 'too-many-artifacts'
-  | 'unknown-work';
+  | 'unknown-work'
+  | 'duplicate';
 
 export interface WorkAccepted {
   ok: true;
@@ -105,10 +112,19 @@ export interface RoomWorkContext {
 }
 
 export interface RoomWork {
-  /** Creates a work item, or updates the one `input.workId` names. */
-  update(roomId: string, memberId: string, input: WorkInput): Promise<WorkResult>;
+  /**
+   * Creates a work item, or updates the one `input.workId` names. `commandId`
+   * makes it exactly-once: the item and the key land in one store write, so a
+   * retry can neither add a second item nor lose the first.
+   */
+  update(roomId: string, memberId: string, input: WorkInput, commandId?: string): Promise<WorkResult>;
   list(roomId: string): Promise<WorkItem[]>;
-  publishArtifact(roomId: string, memberId: string, input: ArtifactInput): Promise<ArtifactResult>;
+  publishArtifact(
+    roomId: string,
+    memberId: string,
+    input: ArtifactInput,
+    commandId?: string,
+  ): Promise<ArtifactResult>;
   listArtifacts(roomId: string): Promise<RoomArtifact[]>;
   /** What the coordinator rebuilds the Room brief from. */
   briefSources(roomId: string): Promise<BriefSources>;
@@ -171,63 +187,85 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
   }
 
   return {
-    async update(roomId, memberId, input) {
-      const check = checkCaller(await store.readRoom(roomId), memberId);
-      if (!check.ok) return denied<WorkDenyCode>(check.code, check.message);
-      const record = check.record;
-
-      const existing = input.workId ? record.work.find((item) => item.id === input.workId) : undefined;
-      if (input.workId && !existing) return denied<WorkDenyCode>('unknown-work', `There is no work item ${input.workId}.`);
-      if (!existing && !input.title?.trim()) {
-        return denied<WorkDenyCode>('no-title', 'New work needs a title.');
-      }
-      if (!existing && record.work.length >= MAX_WORK_ITEMS) {
-        return denied<WorkDenyCode>('too-many-work-items', `This Room already tracks ${MAX_WORK_ITEMS} work items.`);
-      }
-      // Assigning someone else is a coordination decision, so it is the
-      // Conductor's. Taking work yourself, or leaving it unassigned, is not.
-      const assignee = input.ownerMemberId;
-      if (assignee !== undefined && assignee !== null && assignee !== memberId) {
-        const caller = record.members.find((candidate) => candidate.id === memberId);
-        if (!caller?.isConductor) {
-          return denied<WorkDenyCode>('not-conductor', 'Only the Conductor can put work on another member.');
-        }
-        if (!record.members.some((candidate) => candidate.id === assignee)) {
-          return denied<WorkDenyCode>('not-a-member', `${assignee} is not a member of this Room.`);
-        }
-      }
-      const unknown = (input.dependsOnWorkIds ?? []).find((id) => !record.work.some((item) => item.id === id));
-      if (unknown) return denied<WorkDenyCode>('unknown-dependency', `There is no work item ${unknown} to depend on.`);
-
+    /**
+     * Every check runs against the record the write lands on, inside one
+     * serialized turn: a work item validated against a roster that has moved by
+     * the time it is written is the same class of bug as a revision planned
+     * against a stale envelope.
+     */
+    async update(roomId, memberId, input, commandId) {
       const now = host.now();
-      const item = existing ? mergeItem(existing, input, now) : buildItem(record, memberId, input, now);
-      await store.updateRoom(roomId, (current) => ({
-        ...current,
-        work: existing
-          ? current.work.map((entry) => (entry.id === item.id ? item : entry))
-          : [...current.work, item],
-      }));
+      const outcome = await store.transact<WorkResult>(roomId, commandId ?? null, (record) => {
+        const nothing = (result: WorkResult): RoomTransaction<WorkResult> => ({ record: null, result });
+        const check = checkCaller(record, memberId);
+        if (!check.ok) return nothing(denied<WorkDenyCode>(check.code, check.message));
+
+        const existing = input.workId ? record.work.find((item) => item.id === input.workId) : undefined;
+        if (input.workId && !existing) {
+          return nothing(denied<WorkDenyCode>('unknown-work', `There is no work item ${input.workId}.`));
+        }
+        if (!existing && !input.title?.trim()) {
+          return nothing(denied<WorkDenyCode>('no-title', 'New work needs a title.'));
+        }
+        if (!existing && record.work.length >= MAX_WORK_ITEMS) {
+          return nothing(
+            denied<WorkDenyCode>('too-many-work-items', `This Room already tracks ${MAX_WORK_ITEMS} work items.`),
+          );
+        }
+        // Assigning someone else is a coordination decision, so it is the
+        // Conductor's. Taking work yourself, or leaving it unassigned, is not.
+        const assignee = input.ownerMemberId;
+        if (assignee !== undefined && assignee !== null && assignee !== memberId) {
+          const caller = record.members.find((candidate) => candidate.id === memberId);
+          if (!caller?.isConductor) {
+            return nothing(denied<WorkDenyCode>('not-conductor', 'Only the Conductor can put work on another member.'));
+          }
+          if (!record.members.some((candidate) => candidate.id === assignee)) {
+            return nothing(denied<WorkDenyCode>('not-a-member', `${assignee} is not a member of this Room.`));
+          }
+        }
+        const unknown = (input.dependsOnWorkIds ?? []).find((id) => !record.work.some((item) => item.id === id));
+        if (unknown) {
+          return nothing(denied<WorkDenyCode>('unknown-dependency', `There is no work item ${unknown} to depend on.`));
+        }
+
+        const item = existing ? mergeItem(existing, input, now) : buildItem(record, memberId, input, now);
+        return {
+          record: {
+            ...record,
+            work: existing
+              ? record.work.map((entry) => (entry.id === item.id ? item : entry))
+              : [...record.work, item],
+          },
+          result: { ok: true, item, created: !existing },
+        };
+      });
+      if (outcome.duplicate) {
+        return denied<WorkDenyCode>('duplicate', 'That work update was already applied.');
+      }
+      const result = outcome.result;
+      if (!result.ok) return result;
       await store.appendTimeline(roomId, [
         timelineEvent(
           host,
           roomId,
           'work',
           memberId,
-          existing ? `Work updated: ${item.title} (${item.status}).` : `Work added: ${item.title}.`,
-          { workId: item.id, status: item.status, owner: item.ownerMemberId ?? 'unassigned' },
+          result.created ? `Work added: ${result.item.title}.` : `Work updated: ${result.item.title} (${result.item.status}).`,
+          { workId: result.item.id, status: result.item.status, owner: result.item.ownerMemberId ?? 'unassigned' },
         ),
       ]);
-      return { ok: true, item, created: !existing };
+      return result;
     },
 
     async list(roomId) {
       return (await store.readRoom(roomId))?.work ?? [];
     },
 
-    async publishArtifact(roomId, memberId, input) {
-      const check = checkCaller(await store.readRoom(roomId), memberId);
-      if (!check.ok) return denied<ArtifactDenyCode>(check.code, check.message);
-      const record = check.record;
+    async publishArtifact(roomId, memberId, input, commandId) {
+      // The checks that need no record run first, because the content file is
+      // written before the transaction and a rejected request should not have
+      // produced one. A retry stops here too, so it cannot orphan a second file.
       if (!input.title.trim()) return denied<ArtifactDenyCode>('no-title', 'An artifact needs a title.');
       if (input.content === undefined && !input.ref?.trim()) {
         return denied<ArtifactDenyCode>('no-content', 'An artifact needs either content or a reference.');
@@ -235,11 +273,8 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
       if (input.content !== undefined && Buffer.byteLength(input.content, 'utf8') > MAX_ARTIFACT_BYTES) {
         return denied<ArtifactDenyCode>('too-large', `An artifact can hold ${MAX_ARTIFACT_BYTES} bytes at most.`);
       }
-      if (record.artifacts.length >= MAX_ARTIFACTS) {
-        return denied<ArtifactDenyCode>('too-many-artifacts', `This Room already holds ${MAX_ARTIFACTS} artifacts.`);
-      }
-      if (input.relatedWorkId && !record.work.some((item) => item.id === input.relatedWorkId)) {
-        return denied<ArtifactDenyCode>('unknown-work', `There is no work item ${input.relatedWorkId}.`);
+      if (commandId && (await store.hasAppliedCommand(roomId, commandId))) {
+        return denied<ArtifactDenyCode>('duplicate', 'That artifact was already published.');
       }
 
       const id = host.newId('artifact');
@@ -260,15 +295,36 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
         relatedWorkId: input.relatedWorkId ?? null,
         createdAt: host.now(),
       };
-      await store.updateRoom(roomId, (current) => ({
-        ...current,
-        artifacts: [...current.artifacts, artifact],
-        // A related work item carries the reference too, so a member reading its
-        // own work sees what it produced without scanning the Room.
-        work: current.work.map((item) =>
-          item.id === artifact.relatedWorkId ? { ...item, artifactRefs: [...item.artifactRefs, ref] } : item,
-        ),
-      }));
+
+      const outcome = await store.transact<ArtifactResult>(roomId, commandId ?? null, (record) => {
+        const nothing = (result: ArtifactResult): RoomTransaction<ArtifactResult> => ({ record: null, result });
+        const check = checkCaller(record, memberId);
+        if (!check.ok) return nothing(denied<ArtifactDenyCode>(check.code, check.message));
+        if (record.artifacts.length >= MAX_ARTIFACTS) {
+          return nothing(
+            denied<ArtifactDenyCode>('too-many-artifacts', `This Room already holds ${MAX_ARTIFACTS} artifacts.`),
+          );
+        }
+        if (artifact.relatedWorkId && !record.work.some((item) => item.id === artifact.relatedWorkId)) {
+          return nothing(denied<ArtifactDenyCode>('unknown-work', `There is no work item ${artifact.relatedWorkId}.`));
+        }
+        return {
+          record: {
+            ...record,
+            artifacts: [...record.artifacts, artifact],
+            // A related work item carries the reference too, so a member reading
+            // its own work sees what it produced without scanning the Room.
+            work: record.work.map((item) =>
+              item.id === artifact.relatedWorkId ? { ...item, artifactRefs: [...item.artifactRefs, ref] } : item,
+            ),
+          },
+          result: { ok: true, artifact },
+        };
+      });
+      if (outcome.duplicate) {
+        return denied<ArtifactDenyCode>('duplicate', 'That artifact was already published.');
+      }
+      if (!outcome.result.ok) return outcome.result;
       await store.appendTimeline(roomId, [
         timelineEvent(host, roomId, 'artifact', memberId, `Published ${artifact.kind}: ${artifact.title}.`, {
           artifactId: artifact.id,
@@ -276,7 +332,7 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
           ref: artifact.ref,
         }),
       ]);
-      return { ok: true, artifact };
+      return outcome.result;
     },
 
     async listArtifacts(roomId) {

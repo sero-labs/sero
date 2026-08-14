@@ -6,19 +6,37 @@
  * and the mailbox. Mixing them is how "validate, then apply anyway" bugs get
  * written.
  *
- * The rule the whole file exists to enforce: a revision that would WIDEN
- * authority is never applied and then approved. It becomes an approval request
- * and nothing changes until the user answers. Applying first and asking later
- * would mean the user's approval decided whether to keep authority the Room had
- * already been using.
+ * Two rules the whole file exists to enforce:
+ *
+ *  - **One record decides and is written.** Planning, the authority check and
+ *    the mutation all run inside a single `store.transact`, so a revision can
+ *    never be planned against a Room that another revision has already moved.
+ *    Deciding on a snapshot and writing to a later record is how a lowered
+ *    limit gets silently restored by a change that predates the lowering.
+ *
+ *  - **A revision that would WIDEN authority is never applied and then
+ *    approved.** It becomes an approval request and nothing changes until the
+ *    user answers. Applying first and asking later would mean the user's
+ *    approval decided whether to keep authority the Room had already been
+ *    using.
  */
 
-import type { RoomApprovalRequest, RoomRevision, RoomRevisionKind } from '../../shared/room-message-types';
+import type { RoomApprovalRequest, RoomRevision } from '../../shared/room-message-types';
+import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
-import type { RoomStore } from './room-store';
-import type { PlannedApproval, RoomRevisionProposal } from './room-revision-plan';
+import type { RoomStore, RoomTransaction } from './room-store';
 import { planRoomRevision } from './room-revision-plan';
+import {
+  affectedMembers,
+  buildApproval,
+  buildRevision,
+  withApprovalResolved,
+  withRevisionApplied,
+  withRevisionClosed,
+  type RevisionDraft,
+} from './room-revision-record';
+import type { RoomRecord } from './room-state';
 
 export type RevisionResult =
   | { outcome: 'applied'; revision: RoomRevision }
@@ -45,23 +63,70 @@ export interface RevisionDeps {
   notify?(roomId: string, memberIds: string[], summary: string): Promise<void>;
 }
 
-const KIND_BY_PROPOSAL: Record<RoomRevisionProposal['kind'], RoomRevisionKind> = {
-  'add-member': 'add-member',
-  'update-mandate': 'update-mandate',
-  'assign-work': 'assign-work',
-  'change-strategy': 'change-strategy',
-  'change-configuration': 'change-configuration',
-  'suspend-member': 'suspend-member',
-  'resume-member': 'resume-member',
-  'retire-member': 'retire-member',
-  'replace-member': 'replace-member',
-  'lower-soft-limit': 'lower-soft-limit',
-  'request-expansion': 'request-expansion',
-};
+const refused = (reason: string): RoomTransaction<RevisionResult> => ({
+  record: null,
+  result: { outcome: 'refused', reason },
+});
 
-/** Members the change is about, so only they are told. */
-function affectedMembers(proposal: RoomRevisionProposal): string[] {
-  return 'memberId' in proposal && typeof proposal.memberId === 'string' ? [proposal.memberId] : [];
+/**
+ * The whole decision, against ONE record. Pure apart from the id and clock
+ * helpers on `deps.host`, and never called outside the store's serialized turn.
+ */
+function decideRevision(
+  deps: RevisionDeps,
+  input: ApplyRevisionInput,
+  record: RoomRecord,
+  now: string,
+): RoomTransaction<RevisionResult> {
+  const actor = record.members.find((member) => member.id === input.actorMemberId);
+  if (!actor) return refused('The requesting member is not in this Room.');
+
+  // Authority is decided from the ROSTER, not from anything the caller said
+  // about itself. A member that claims to be the Conductor in prose is still
+  // whatever the roster says it is.
+  if (!actor.isConductor) return refused('Only the Conductor can change the Room.');
+
+  const plan = planRoomRevision(record, input.proposal, input.actorMemberId);
+  if (plan.verdict === 'refuse') return refused(plan.reason);
+
+  const draft: RevisionDraft = {
+    roomId: input.roomId,
+    proposal: input.proposal,
+    actorMemberId: input.actorMemberId,
+    reason: input.reason,
+    summary: plan.summary,
+    commandId: input.commandId,
+    id: deps.host.newId('rev'),
+    now,
+  };
+
+  if (plan.verdict === 'approval') {
+    const approval = buildApproval(draft, plan.approval, deps.host.newId('appr'));
+    const revision = buildRevision(draft, {
+      outcome: 'awaiting-approval',
+      requiresApproval: true,
+      approvalId: approval.id,
+    });
+    // Recorded, NOT applied. The Room keeps running under the authority it
+    // already had while the user decides.
+    return {
+      record: {
+        ...record,
+        revisions: [...record.revisions, revision],
+        approvals: [...record.approvals, approval],
+      },
+      result: { outcome: 'awaiting-approval', revision, approval },
+    };
+  }
+
+  const revision = buildRevision(draft, { outcome: 'applied', requiresApproval: false, approvalId: null });
+  // `mutate` works on the Room half; the record's own fields (revisions,
+  // cursors, approvals) are carried across by withRevisionApplied.
+  const mutated = deps.mutate(record, input.proposal, now);
+  return {
+    record: withRevisionApplied(record, mutated, revision, now),
+    result: { outcome: 'applied', revision },
+  };
 }
 
 export async function applyRoomRevision(
@@ -71,152 +136,146 @@ export async function applyRoomRevision(
   const record = await deps.store.readRoom(input.roomId);
   if (!record) return { outcome: 'refused', reason: `unknown room: ${input.roomId}` };
 
-  const actor = record.members.find((member) => member.id === input.actorMemberId);
-  if (!actor) return { outcome: 'refused', reason: 'The requesting member is not in this Room.' };
-
-  // Authority is decided from the ROSTER, not from anything the caller said
-  // about itself. A member that claims to be the Conductor in prose is still
-  // whatever the roster says it is.
-  if (!actor.isConductor) {
-    return { outcome: 'refused', reason: 'Only the Conductor can change the Room.' };
-  }
-
-  const plan = planRoomRevision(record, input.proposal, input.actorMemberId);
-  if (plan.verdict === 'refuse') return { outcome: 'refused', reason: plan.reason };
-
   const now = deps.host.now();
-  const kind = KIND_BY_PROPOSAL[input.proposal.kind];
+  const outcome = await deps.store.transact(input.roomId, input.commandId, (current) =>
+    decideRevision(deps, input, current, now));
+  if (outcome.duplicate) return { outcome: 'duplicate' };
+  const result = outcome.result;
 
-  if (plan.verdict === 'approval') {
-    const approval = buildApproval(deps, input, plan.approval, now);
-    const revision = buildRevision(deps, input, kind, plan.summary, now, {
-      outcome: 'awaiting-approval',
-      requiresApproval: true,
-      approvalId: approval.id,
-    });
-
-    // Recorded, NOT applied. The Room keeps running under the authority it
-    // already had while the user decides.
-    const wrote = await deps.store.applyCommand(input.roomId, input.commandId, (current) => ({
-      ...current,
-      revisions: [...current.revisions, revision],
-      approvals: [...current.approvals, approval],
-    }));
-    if (!wrote) return { outcome: 'duplicate' };
-
+  if (result.outcome === 'awaiting-approval') {
     await deps.store.appendTimeline(input.roomId, [{
       id: deps.host.newId('tl'),
       roomId: input.roomId,
       at: now,
       kind: 'approval',
       memberId: input.actorMemberId,
-      summary: approval.title,
-      details: { kind: approval.kind },
+      summary: result.approval.title,
+      details: { kind: result.approval.kind },
     }]);
-
-    return { outcome: 'awaiting-approval', revision, approval };
   }
 
-  const revision = buildRevision(deps, input, kind, plan.summary, now, {
-    outcome: 'applied',
-    requiresApproval: false,
-    approvalId: null,
-  });
+  if (result.outcome === 'applied') {
+    await announce(deps, input.roomId, input.actorMemberId, input.proposal, result.revision, now);
+  }
+  return result;
+}
 
-  const wrote = await deps.store.applyCommand(input.roomId, input.commandId, (current) => {
-    // `mutate` works on the Room half; the record's own fields (revisions,
-    // cursors, approvals) are carried across here rather than handed to it.
-    const mutated = { ...current, ...deps.mutate(current, input.proposal, now) };
-    return {
-      ...mutated,
-      revisions: [...mutated.revisions, revision],
-      runtime: {
-        ...mutated.runtime,
-        usage: {
-          ...mutated.runtime.usage,
-          rosterRevisions: mutated.runtime.usage.rosterRevisions + (isRosterChange(kind) ? 1 : 0),
-          memberReplacements:
-            mutated.runtime.usage.memberReplacements + (kind === 'replace-member' ? 1 : 0),
-        },
-        // A revision IS structural progress — it is the Conductor adapting the
-        // team, which is exactly what no-progress detection should not punish.
-        lastProgressAt: now,
-      },
-    };
-  });
-  if (!wrote) return { outcome: 'duplicate' };
-
-  await deps.store.appendTimeline(input.roomId, [{
+/** The audit line and the system message an applied revision produces. */
+async function announce(
+  deps: RevisionDeps,
+  roomId: string,
+  actorMemberId: string | null,
+  proposal: RoomRevisionProposal,
+  revision: RoomRevision,
+  now: string,
+): Promise<void> {
+  await deps.store.appendTimeline(roomId, [{
     id: deps.host.newId('tl'),
-    roomId: input.roomId,
+    roomId,
     at: now,
     kind: 'revision',
-    memberId: input.actorMemberId,
-    summary: plan.summary,
-    details: { kind },
+    memberId: actorMemberId,
+    summary: revision.summary,
+    details: { kind: revision.kind },
   }]);
-
-  const affected = affectedMembers(input.proposal);
-  if (affected.length > 0) await deps.notify?.(input.roomId, affected, plan.summary);
-
-  return { outcome: 'applied', revision };
+  const affected = affectedMembers(proposal);
+  if (affected.length > 0) await deps.notify?.(roomId, affected, revision.summary);
 }
 
-function isRosterChange(kind: RoomRevisionKind): boolean {
-  return kind === 'add-member' || kind === 'retire-member' || kind === 'replace-member';
+/** What resolving an approval did. `ok` is false when nothing was applied. */
+export interface ApprovalOutcome {
+  ok: boolean;
+  reason?: string;
 }
 
-function buildRevision(
+interface ApprovalDecision {
+  outcome: ApprovalOutcome;
+  /** The audit line, so the timeline says what happened rather than what was asked. */
+  summary: string;
+  /** Who asked for it, for the audit line. */
+  requestedByMemberId: string | null;
+  /** Set when the change actually landed, so affected members are told. */
+  applied: { proposal: RoomRevisionProposal; revision: RoomRevision } | null;
+}
+
+function decideApproval(
   deps: RevisionDeps,
-  input: ApplyRevisionInput,
-  kind: RoomRevisionKind,
-  summary: string,
+  record: RoomRecord,
+  approvalId: string,
+  decision: 'approved' | 'rejected',
   now: string,
-  state: Pick<RoomRevision, 'outcome' | 'requiresApproval' | 'approvalId'>,
-): RoomRevision {
-  return {
-    id: deps.host.newId('rev'),
-    roomId: input.roomId,
-    kind,
-    actorMemberId: input.actorMemberId,
-    reason: input.reason,
-    // Computed by planRoomRevision from the change itself — never the actor's
-    // own account of what it is doing.
-    summary,
-    previousValue: null,
-    newValue: null,
-    outcome: state.outcome,
-    requiresApproval: state.requiresApproval,
-    approvalId: state.approvalId,
-    rejectionReason: null,
-    commandId: input.commandId,
-    createdAt: now,
-    resolvedAt: state.outcome === 'applied' ? now : null,
-  };
-}
+): RoomTransaction<ApprovalDecision> {
+  const approval = record.approvals.find((entry) => entry.id === approvalId);
+  const nothing = (reason: string): RoomTransaction<ApprovalDecision> => ({
+    record: null,
+    result: { outcome: { ok: false, reason }, summary: reason, requestedByMemberId: null, applied: null },
+  });
+  if (!approval) return nothing('unknown approval');
+  // Answering twice is the natural retry here, and the second answer is refused
+  // rather than re-applied — which is what makes this need no command key.
+  if (approval.status !== 'pending') return nothing('already resolved');
 
-function buildApproval(
-  deps: RevisionDeps,
-  input: ApplyRevisionInput,
-  planned: PlannedApproval,
-  now: string,
-): RoomApprovalRequest {
+  const answered = withApprovalResolved(record, approvalId, decision, now);
+  const revision = record.revisions.find((entry) => entry.approvalId === approvalId);
+
+  if (decision === 'rejected') {
+    return {
+      record: revision
+        ? withRevisionClosed(answered, revision, 'rejected', 'The user did not approve it.', now)
+        : answered,
+      result: { outcome: { ok: true }, summary: `${approval.title} — rejected`, requestedByMemberId: approval.requestedByMemberId, applied: null },
+    };
+  }
+
+  // A delivery approval carries no revision: approving it records the answer,
+  // and the send itself is the delivery path's own step.
+  if (!revision) {
+    return {
+      record: answered,
+      result: { outcome: { ok: true }, summary: `${approval.title} — approved`, requestedByMemberId: approval.requestedByMemberId, applied: null },
+    };
+  }
+
+  const proposal = revision.proposal;
+  if (!proposal) {
+    const reason = 'The change this request carried was not recorded, so nothing could be applied.';
+    return {
+      record: withRevisionClosed(answered, revision, 'refused', reason, now),
+      result: {
+        outcome: { ok: false, reason },
+        summary: `${approval.title} — ${reason}`,
+        requestedByMemberId: approval.requestedByMemberId,
+        applied: null,
+      },
+    };
+  }
+
+  // Re-planned against the Room as it is NOW. The user was deciding while the
+  // Room kept running, so an approval must never force through a change that
+  // stopped being valid while they read it. A verdict of `approval` here means
+  // the change still needs the user — and the user has just said yes.
+  const plan = planRoomRevision(answered, proposal, revision.actorMemberId ?? '');
+  if (plan.verdict === 'refuse') {
+    return {
+      record: withRevisionClosed(answered, revision, 'refused', plan.reason, now),
+      result: {
+        outcome: { ok: false, reason: plan.reason },
+        summary: `${approval.title} — approved, but ${plan.reason}`,
+        requestedByMemberId: approval.requestedByMemberId,
+        applied: null,
+      },
+    };
+  }
+
+  const applied: RoomRevision = { ...revision, summary: plan.summary };
   return {
-    id: deps.host.newId('appr'),
-    roomId: input.roomId,
-    requestedByMemberId: input.actorMemberId,
-    title: planned.title,
-    reason: input.reason,
-    // From the same access mapping as the proposal tiles, so what the user is
-    // told here and what they were told at Start cannot disagree.
-    consequence: planned.consequence,
-    affects: planned.affects,
-    estimatedCostUsd: planned.estimatedCostUsd,
-    kind: planned.kind,
-    permissionsAfter: planned.permissionsAfter,
-    status: 'pending',
-    createdAt: now,
-    resolvedAt: null,
+    record: withRevisionApplied(answered, deps.mutate(answered, proposal, now), applied, now),
+    result: {
+      outcome: { ok: true },
+      summary: `${approval.title} — approved`,
+      requestedByMemberId: approval.requestedByMemberId,
+      applied: { proposal, revision: { ...applied, outcome: 'applied', resolvedAt: now } },
+    },
   };
 }
 
@@ -224,45 +283,39 @@ function buildApproval(
  * Resolves a pending approval. The USER is the only caller: a member answering
  * its own request, or the Conductor answering for the user, would make the
  * approval a formality.
+ *
+ * Approving APPLIES the change, in the same serialized write that records the
+ * answer. Marking a revision "applied" without applying it is the one outcome
+ * this function must never produce.
  */
 export async function resolveRoomApproval(
   deps: RevisionDeps,
   roomId: string,
   approvalId: string,
   decision: 'approved' | 'rejected',
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<ApprovalOutcome> {
   const record = await deps.store.readRoom(roomId);
-  const approval = record?.approvals?.find((entry) => entry.id === approvalId);
-  if (!record || !approval) return { ok: false, reason: 'unknown approval' };
-  if (approval.status !== 'pending') return { ok: false, reason: 'already resolved' };
+  if (!record) return { ok: false, reason: 'unknown approval' };
 
   const now = deps.host.now();
-  await deps.store.updateRoom(roomId, (current) => ({
-    ...current,
-    approvals: current.approvals.map((entry) =>
-      entry.id === approvalId ? { ...entry, status: decision, resolvedAt: now } : entry),
-    revisions: current.revisions.map((revision) =>
-      revision.approvalId === approvalId
-        ? {
-            ...revision,
-            outcome: decision === 'approved' ? 'applied' : 'rejected',
-            rejectionReason: decision === 'rejected' ? 'The user did not approve it.' : null,
-            resolvedAt: now,
-          }
-        : revision),
-  }));
+  const outcome = await deps.store.transact(roomId, null, (current) =>
+    decideApproval(deps, current, approvalId, decision, now));
+  if (outcome.duplicate) return { ok: false, reason: 'already resolved' };
+  const { outcome: answer, summary, requestedByMemberId, applied } = outcome.result;
 
   await deps.store.appendTimeline(roomId, [{
     id: deps.host.newId('tl'),
     roomId,
     at: now,
     kind: 'approval',
-    memberId: approval.requestedByMemberId,
-    summary: `${approval.title} — ${decision}`,
+    memberId: requestedByMemberId,
+    summary,
     details: { decision },
   }]);
-
-  return { ok: true };
+  if (applied) {
+    await announce(deps, roomId, applied.revision.actorMemberId, applied.proposal, applied.revision, now);
+  }
+  return answer;
 }
 
 /** Members that must be told about a change, for the caller's notify hook. */

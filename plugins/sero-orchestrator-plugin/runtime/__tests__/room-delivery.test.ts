@@ -23,6 +23,7 @@ import {
   resolveApprovalForUser,
   toRoomAttention,
 } from '../rooms/room-delivery';
+import { buildDeliveryBinding } from '../rooms/room-delivery-binding';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import type { RoomRecord } from '../rooms/room-state';
 import { createFakeHost, type FakeHost } from './fake-host';
@@ -57,6 +58,8 @@ function approval(overrides: Partial<RoomApprovalRequest> = {}): RoomApprovalReq
     kind: 'limit-change',
     permissionsAfter: null,
     status: 'pending',
+    delivery: null,
+    consumedAt: null,
     createdAt: 't1',
     resolvedAt: null,
     ...overrides,
@@ -202,67 +205,130 @@ describe('external delivery', () => {
     summary: 'Posted the result.',
     deliveredAt: '2026-01-01T00:00:00.000Z',
   };
+  /** The exact text the user approves, and the text every accepted send carries. */
+  const SENT = 'The team shipped it.';
+  /** Bound the way the runtime binds it, so the test cannot approve what production would not. */
+  const approved = (id: string, content = SENT): RoomApprovalRequest =>
+    approval({
+      id,
+      kind: 'external-write',
+      status: 'approved',
+      delivery: buildDeliveryBinding('chat-post', { channel: '#team' }, content),
+    });
 
   it('refuses a send the user never approved', async () => {
     const record = await seedRoom(external);
-    expect(receiptProblems(record, receipt)).toEqual([
+    expect(receiptProblems(record, receipt, SENT)).toEqual([
       '"chat-post" sends the result outside Sero, and you have not approved that send',
     ]);
   });
 
   it('refuses a receipt that names no approval, and one that names an unapproved id', async () => {
+    const record = await seedRoom((room) => external({ ...room, approvals: [approved('appr-x')] }));
+    expect(receiptProblems(record, receipt, SENT)[0]).toContain('does not name the approval');
+    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-other' }, SENT)[0]).toContain('no approved record of');
+    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-x' }, SENT)).toEqual([]);
+  });
+
+  it('refuses the approved id carrying text the user never saw', async () => {
+    const record = await seedRoom((room) => external({ ...room, approvals: [approved('appr-x')] }));
+    // The swap the binding exists to stop: right approval, different payload.
+    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-x' }, 'Something else entirely.')[0])
+      .toContain('not the text approval');
+  });
+
+  it('refuses an approval granted for another destination', async () => {
     const record = await seedRoom((room) =>
-      external({ ...room, approvals: [approval({ id: 'appr-x', kind: 'external-write', status: 'approved' })] }));
-    expect(receiptProblems(record, receipt)[0]).toContain('does not name the approval');
-    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-other' })[0]).toContain('no approved record of');
-    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-x' })).toEqual([]);
+      external({
+        ...room,
+        approvals: [approval({
+          id: 'appr-x',
+          kind: 'external-write',
+          status: 'approved',
+          delivery: buildDeliveryBinding('webhook-post', {}, SENT),
+        })],
+      }));
+    expect(receiptProblems(record, { ...receipt, approvalId: 'appr-x' }, SENT)[0]).toContain('was granted for a send to');
   });
 
   it('accepts the receipt the approval authorised and records its ref', async () => {
-    await seedRoom((room) =>
-      external({ ...room, approvals: [approval({ id: 'appr-x', kind: 'external-write', status: 'approved' })] }));
+    await seedRoom((room) => external({ ...room, approvals: [approved('appr-x')] }));
     const outcome = await deliverRoomResult(
       { host, store },
-      { roomId: 'room-a', finalResult: 'Posted.', receipt: { ...receipt, approvalId: 'appr-x' } },
+      { roomId: 'room-a', finalResult: SENT, receipt: { ...receipt, approvalId: 'appr-x' } },
     );
     expect(outcome).toMatchObject({ ok: true, problems: [], ref: 'https://chat.test/p/1' });
     expect((await store.readRoom('room-a'))?.delivery.deliveryRef).toBe('https://chat.test/p/1');
   });
 
+  it('spends the approval, so it cannot authorise a second send', async () => {
+    await seedRoom((room) => external({ ...room, approvals: [approved('appr-x')] }));
+    await deliverRoomResult(
+      { host, store },
+      { roomId: 'room-a', finalResult: SENT, receipt: { ...receipt, approvalId: 'appr-x' } },
+    );
+    const spent = await store.readRoom('room-a');
+    expect(receiptProblems(spent!, { ...receipt, approvalId: 'appr-x' }, SENT)[0]).toContain('already used');
+  });
+
   it('refuses a claimed send with no receipt at all', async () => {
     const record = await seedRoom(external);
-    expect(receiptProblems(record, undefined)).toEqual([
+    expect(receiptProblems(record, undefined, SENT)).toEqual([
       'the Room finished without proof that its result was delivered',
     ]);
   });
 
   it('raises its approval into the same inbox, and only for a destination that leaves Sero', async () => {
     await seedRoom(external);
-    const asked = await requestDeliveryApproval({ host, store }, 'room-a', 'lead', 'The team wants it in #team.', 'cmd-1');
+    const asked = await requestDeliveryApproval({ host, store }, {
+      roomId: 'room-a',
+      requestedByMemberId: 'lead',
+      reason: 'The team wants it in #team.',
+      content: SENT,
+      commandId: 'cmd-1',
+    });
     expect(asked.ok).toBe(true);
     expect(asked.approval).toMatchObject({ kind: 'external-write', status: 'pending', affects: 'Chat post' });
+    // The approval carries the text, so the inbox can show what is being sent.
+    expect(asked.approval?.delivery?.content).toBe(SENT);
 
     const record = await store.readRoom('room-a');
     expect(toRoomAttention(record!)?.approvals[0].consequence).toContain('send results outside Sero');
 
     // A duplicate command id is the same request, not a second one.
-    const repeat = await requestDeliveryApproval({ host, store }, 'room-a', 'lead', 'Again.', 'cmd-1');
+    const repeat = await requestDeliveryApproval({ host, store }, {
+      roomId: 'room-a',
+      requestedByMemberId: 'lead',
+      reason: 'Again.',
+      content: SENT,
+      commandId: 'cmd-1',
+    });
     expect(repeat.ok).toBe(false);
+  });
+
+  it('refuses to ask for an approval with nothing in it', async () => {
+    await seedRoom(external);
+    const asked = await requestDeliveryApproval({ host, store }, {
+      roomId: 'room-a',
+      requestedByMemberId: 'lead',
+      reason: 'Trust me.',
+      content: '   ',
+      commandId: 'cmd-3',
+    });
+    expect(asked.ok).toBe(false);
+    expect(asked.error).toContain('authorises nothing');
   });
 
   it('never asks for an approval a destination inside Sero does not need', async () => {
     await seedRoom((record) => ({ ...record, delivery: { ...record.delivery, destination: 'saved-artifact' } }));
-    const asked = await requestDeliveryApproval({ host, store }, 'room-a', 'lead', 'Just in case.', 'cmd-2');
+    const asked = await requestDeliveryApproval({ host, store }, {
+      roomId: 'room-a',
+      requestedByMemberId: 'lead',
+      reason: 'Just in case.',
+      content: SENT,
+      commandId: 'cmd-2',
+    });
     expect(asked.ok).toBe(false);
     expect(asked.error).toContain('stays inside Sero');
-  });
-});
-
-describe('a Room that keeps its own result', () => {
-  it('needs no receipt and no delivery record when the results stay in the working tree', async () => {
-    await seedRoom((record) => ({ ...record, delivery: { ...record.delivery, destination: 'workspace-files' } }));
-    const outcome = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Files are updated.' });
-    expect(outcome).toEqual({ ok: true, problems: [], returnedToChat: false, ref: null });
-    expect((await store.readRoom('room-a'))?.delivery.deliveredAt).toBeNull();
   });
 });

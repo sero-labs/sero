@@ -1,6 +1,6 @@
 /**
- * Room coordinator: lifecycle, the scheduling pass, the event wake path and
- * restart recovery.
+ * Room coordinator: lifecycle, the scheduling pass and the event wake path.
+ * Restart recovery has its own suite in room-recovery.test.ts.
  *
  * Every test runs on a real store in a temp dir and the fake persistent-session
  * capability, so the properties under test are the real ones — one writer, one
@@ -9,151 +9,34 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import type { AppRuntimeContext } from '@sero-ai/common';
-import type {
-  BlueprintMember,
-  OperatingEnvelope,
-  RoomBlueprint,
-} from '../../shared/room-blueprint-types';
-import { computeProposalSummary } from '../../shared/room-proposal';
-import { createMemberSessionPool } from '../rooms/member-session';
-import { RoomCoordinator } from '../rooms/room-coordinator';
-import { createRoomStore, type RoomStore } from '../rooms/room-store';
-import { createFakeHost, type FakeHost } from './fake-host';
+import type { BlueprintMember, OperatingEnvelope } from '../../shared/room-blueprint-types';
+import type { RoomCoordinator } from '../rooms/room-coordinator';
+import type { RoomStore } from '../rooms/room-store';
+import type { FakeHost } from './fake-host';
+import {
+  MEMBERS,
+  createRoomHarness,
+  disposeHarness,
+  draftRoomIn,
+  envelopeWith,
+  memberIn,
+  waitFor,
+} from './room-harness';
 
 let dir: string;
 let host: FakeHost;
 let store: RoomStore;
 let coordinator: RoomCoordinator;
 
-function makeCtx(): AppRuntimeContext {
-  const appState = {
-    read: async (file: string) => (existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null),
-    update: async (file: string, updater: (current: unknown) => unknown) => {
-      const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
-      await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, JSON.stringify(updater(current)), 'utf8');
-    },
-  };
-  return { stateFilePath: path.join(dir, 'state.json'), host: { appState } } as unknown as AppRuntimeContext;
-}
-
-function envelopeWith(overrides: Partial<OperatingEnvelope> = {}): OperatingEnvelope {
-  return {
-    maxMembers: 4,
-    maxActiveTurns: 2,
-    maxRosterRevisions: 5,
-    maxMemberReplacements: 2,
-    maxWallClockMs: 3_600_000,
-    maxCostUsd: 20,
-    maxCostUsdPerMember: 10,
-    maxTokens: 1_000_000,
-    maxTokensPerMember: 500_000,
-    maxTurnsPerMember: 20,
-    maxRetriesPerMember: 3,
-    maxConsecutiveFailures: 2,
-    allowedModels: ['sonnet'],
-    allowedThinkingLevels: ['medium'],
-    allowedTools: ['read', 'write'],
-    allowedSkills: [],
-    workspacePolicy: { mode: 'read-only-shared', sharedTreeApproved: false, claimPolicy: 'warn' },
-    allowedDeliveryDestinations: ['saved-artifact'],
-    allowNestedSubagents: false,
-    maxIdleMs: 600_000,
-    ...overrides,
-  };
-}
-
-function member(overrides: Partial<BlueprintMember> = {}): BlueprintMember {
-  return {
-    key: 'lead',
-    displayName: 'Lead',
-    role: 'Conductor',
-    responsibility: 'Coordinates the Room.',
-    mandate: 'Keep the team moving.',
-    isConductor: true,
-    model: 'sonnet',
-    thinking: 'medium',
-    promptAdditions: [],
-    tools: ['read'],
-    skills: [],
-    permissions: 'read-only',
-    needsWorktree: false,
-    reasonForInclusion: 'Someone has to decide.',
-    ...overrides,
-  };
-}
-
-const MEMBERS: BlueprintMember[] = [
-  member(),
-  member({ key: 'impl', displayName: 'Implementer', role: 'Implementer', isConductor: false }),
-  member({ key: 'scout', displayName: 'Scout', role: 'Researcher', isConductor: false }),
-];
-
-function blueprintWith(envelope: OperatingEnvelope, members: BlueprintMember[]): RoomBlueprint {
-  return {
-    schemaVersion: 1,
-    title: 'Ship the fix',
-    approach: 'Split the work.',
-    objective: 'Fix the crash on start',
-    successCriteria: ['the app starts'],
-    roomInstructions: 'Use sero-cli to talk to the Room.',
-    members,
-    teamRationale: 'One decides, two work.',
-    collaborationStrategy: 'direct',
-    workspacePolicy: envelope.workspacePolicy,
-    envelope,
-    estimatedDurationMs: 60_000,
-    estimatedCostUsd: 1,
-    deliveryDestination: 'saved-artifact',
-    openAssumptions: [],
-  };
-}
-
-async function draftRoom(envelope = envelopeWith(), members = MEMBERS): Promise<string> {
-  const blueprint = blueprintWith(envelope, members);
-  const result = await coordinator.createRoom({
-    problemStatement: 'the app crashes',
-    blueprint,
-    proposal: computeProposalSummary(blueprint),
-    workspaceId: 'ws-1',
-  });
-  if (!result.room) throw new Error(result.error ?? 'no room');
-  return result.room.definition.id;
-}
-
-/** Turns are launched outside the Room lock, so tests wait on the store, not on a call. */
-async function waitFor(predicate: () => boolean | Promise<boolean>, label = 'condition'): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    if (await predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(`timed out waiting for ${label}`);
-}
-
-const memberOf = async (roomId: string, memberId: string) => {
-  const found = await store.readMember(roomId, memberId);
-  if (!found) throw new Error(`no member ${memberId}`);
-  return found;
-};
+const draftRoom = (envelope: OperatingEnvelope = envelopeWith(), members: BlueprintMember[] = MEMBERS) =>
+  draftRoomIn(coordinator, envelope, members);
+const memberOf = (roomId: string, memberId: string) => memberIn(store, roomId, memberId);
 
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), 'room-coordinator-'));
-  host = createFakeHost();
-  store = createRoomStore(makeCtx());
-  coordinator = new RoomCoordinator(host, { store, sessions: createMemberSessionPool({ host, store }) });
+  ({ dir, host, store, coordinator } = await createRoomHarness());
 });
 
-afterEach(async () => {
-  // Turns run outside the Room lock, so a test can finish while one last write
-  // is in flight. Let the queue drain before the directory goes.
-  await new Promise((resolve) => setTimeout(resolve, 25));
-  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
-});
+afterEach(() => disposeHarness(dir));
 
 describe('starting a Room', () => {
   it('takes one grant with a subject per member, then gives the Conductor the first turn', async () => {
@@ -418,67 +301,5 @@ describe('limits and the no-progress ladder', () => {
     const afterProgress = await store.readRoom(roomId);
     expect(afterProgress?.runtime.lastProgressAt).not.toBeNull();
     expect(afterProgress?.brief.updatedAt).not.toBe(afterTurn?.brief.updatedAt);
-  });
-});
-
-describe('restart recovery', () => {
-  it('frees an interrupted turn, keeps the session file, and wakes only the Conductor', async () => {
-    const roomId = await draftRoom();
-    const api = host.persistentSessions;
-    api.mode = 'manual';
-    await coordinator.startRoom(roomId);
-    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
-    api.endTurn('lead');
-    await waitFor(async () => (await memberOf(roomId, 'lead')).status === 'idle', 'the Conductor to finish');
-    // Stand in for a dead process: the Implementer was mid-turn and its handle
-    // is now a stale pointer.
-    await store.updateRoom(roomId, (record) => ({
-      ...record,
-      members: record.members.map((entry) =>
-        entry.id === 'impl'
-          ? {
-              ...entry,
-              status: 'working',
-              statusDetail: 'Working.',
-              session: { ...entry.session, sessionId: 'session-impl', liveHandleId: 'handle-9' },
-            }
-          : entry,
-      ),
-      runtime: { ...record.runtime, activeMemberIds: ['impl'] },
-    }));
-
-    const restarted = new RoomCoordinator(host, { store, sessions: createMemberSessionPool({ host, store }) });
-    await restarted.reconcileRooms();
-
-    const impl = await memberOf(roomId, 'impl');
-    // Idle, not failed: the turn may already have done its work, so it is not
-    // re-prompted — the Conductor decides what still needs doing.
-    expect(impl.status).toBe('idle');
-    expect(impl.session.liveHandleId).toBeNull();
-    expect(impl.session.sessionId).toBe('session-impl');
-    const record = await store.readRoom(roomId);
-    expect(record?.runtime.status).toBe('running');
-    // Only the Conductor was resumed: the interrupted member's session was
-    // never reopened, so its uncertain turn is not repeated.
-    expect(record?.runtime.activeMemberIds).toEqual(['lead']);
-    expect(api.requests.filter((request) => request.subject === 'impl')).toEqual([]);
-    // Recovery reads current records only. Nothing replays a transcript: the
-    // Room is rebuilt from state, never from what the members said (§26).
-    expect(api.historyReads).toEqual([]);
-    expect(api.prompts.filter((entry) => entry.handleId === 'handle-9')).toEqual([]);
-  });
-
-  it('does not repeat an interrupted delivery', async () => {
-    const roomId = await draftRoom();
-    await coordinator.startRoom(roomId);
-    await store.updateRoom(roomId, (record) => ({
-      ...record,
-      runtime: { ...record.runtime, status: 'completing' },
-    }));
-
-    await new RoomCoordinator(host, { store, sessions: createMemberSessionPool({ host, store }) }).reconcileRooms();
-    const record = await store.readRoom(roomId);
-    expect(record?.runtime.status).toBe('completing');
-    expect(record?.runtime.stopReason?.kind).toBe('awaiting-approval');
   });
 });

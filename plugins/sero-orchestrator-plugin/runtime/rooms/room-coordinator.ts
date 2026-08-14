@@ -23,12 +23,12 @@ import type { OrchestratorHost } from '../host';
 import { LoopLocks } from '../locks';
 import { resolveApprovalForUser, type ApprovalResolution } from './room-delivery';
 import { requirePersistentSessions } from './member-grant';
+import { promptMemberTurn } from './member-prompt';
 import type { MemberSessionPool, MemberTurnResult } from './member-session';
 import {
   EMPTY_BRIEF_SOURCES,
   clearLadderReason,
   markTurnsStarted,
-  renderTurnRequest,
   timelineEvent,
   withMember,
   withMemberStatus,
@@ -60,9 +60,6 @@ import type { RoomStore } from './room-store';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 
 export type { RoomActionResult, RoomCoordinatorEvent } from './room-lifecycle';
-
-/** Messages handed to one member at the start of its turn. */
-const MAX_MESSAGES_PER_TURN = 20;
 
 /** Wake reasons that end a member's wait. Assigned work does not answer a question. */
 const WAIT_ENDING_REASONS: readonly WakeReason[] = ['reply-received', 'user-intervention', 'direct-message'];
@@ -311,34 +308,24 @@ export class RoomCoordinator {
   }
 
   /**
-   * Runs one member's turn. The pool opens or reuses its session, and records
-   * the turn's status, usage and released slot in one write — this method adds
-   * only what the turn should SAY.
+   * Runs one member's turn. The pool opens or reuses its session and records the
+   * turn's status, usage and released slot; `member-prompt.ts` owns what the
+   * turn should SAY and the message lease it commits.
    */
   private async promptMember(roomId: string, memberId: string): Promise<MemberTurnResult> {
     const record = await this.deps.store.readRoom(roomId);
     const member = record?.members.find((candidate) => candidate.id === memberId);
     if (!record || !member) return { turnId: null, status: 'error', detail: 'the member is gone', usage: null };
-
-    // Persisted before delivery, and the cursor advances in the same write, so a
-    // crash here re-delivers nothing and loses nothing (§17.1).
-    const messages = await this.deps.store.takeMessagesFor(roomId, memberId, MAX_MESSAGES_PER_TURN);
-    const sources = await this.briefSources(roomId);
     const key = turnKey(roomId, memberId);
     const reprime = this.reprimes.get(key);
     this.reprimes.delete(key);
-    const prompt = reprime
-      ? `${reprime}\n\n${renderTurnRequest(record, member, messages)}`
-      : renderTurnRequest(record, member, messages);
-
-    return this.deps.sessions
-      .runTurn(record, member, { prompt, work: sources.work, signal: this.turns.get(key)?.signal })
-      .catch((error: unknown) => ({
-        turnId: null,
-        status: 'error' as const,
-        detail: error instanceof Error ? error.message : String(error),
-        usage: null,
-      }));
+    const sources = await this.briefSources(roomId);
+    return promptMemberTurn(
+      { host: this.host, store: this.deps.store, sessions: this.deps.sessions },
+      record,
+      member,
+      { reprime, work: sources.work, signal: this.turns.get(key)?.signal },
+    );
   }
 
   /**
@@ -417,14 +404,19 @@ export class RoomCoordinator {
    * only the Conductor is woken, because an interrupted member's turn may
    * already have done its work and re-prompting it would repeat an external
    * write (spec §26, §30).
+   *
+   * A member still holding a leased message batch is the exception. Its cursor
+   * never moved, so waking it hands over the same messages rather than a repeat
+   * of the work (§17.1).
    */
   async reconcileRooms(options: { resume?: boolean } = {}): Promise<void> {
     const resumable = await reconcileAllRooms({ host: this.host, store: this.deps.store });
     if (options.resume === false) return;
-    for (const roomId of resumable) {
+    for (const { roomId, replayMemberIds } of resumable) {
       const record = await this.deps.store.readRoom(roomId);
       const conductor = record?.members.find((member) => member.isConductor && member.status !== 'retired');
       if (conductor) await this.wake(roomId, conductor.id, 'user-intervention');
+      for (const memberId of replayMemberIds) await this.wake(roomId, memberId, 'direct-message');
     }
   }
 

@@ -228,6 +228,15 @@ export function aggregate(
 /** `<sessions>/rooms/<roomId>/<member>.jsonl` — the authoritative Room id. */
 const ROOM_PATH_SEGMENT = /(?:^|\/)rooms\/([^/]+)\//;
 /**
+ * Session paths are matched POSIX-style. A Windows scan writes `\` separators,
+ * and a separator-blind pattern would miss every Room member session there —
+ * reporting each one as an unexplained ordinary chat, which is the exact failure
+ * Room grouping exists to prevent.
+ */
+function posix(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+/**
  * The deterministic Pi session name Room member creation writes. The first
  * group is greedy so the split falls on the LAST separator: the role is the
  * final field, and a Room title may itself contain an em dash.
@@ -253,7 +262,8 @@ interface RoomBucket {
  * own row when the other is missing or malformed.
  */
 function roomOrigin(session: ParsedSession): RoomOrigin | null {
-  const roomId = ROOM_PATH_SEGMENT.exec(session.path)?.[1] ?? null;
+  const sessionPath = posix(session.path);
+  const roomId = ROOM_PATH_SEGMENT.exec(sessionPath)?.[1] ?? null;
   const named = session.name ? ROOM_SESSION_NAME.exec(session.name) : null;
   const title = (named?.[1] ?? '').trim();
   const role = (named?.[2] ?? '').trim();
@@ -261,7 +271,7 @@ function roomOrigin(session: ParsedSession): RoomOrigin | null {
   return {
     // Without a path id the title is all we have, so the Room's own session
     // directory still keeps two same-titled Rooms apart.
-    key: roomId ?? `${path.dirname(session.path)}::${title}`,
+    key: roomId ?? `${path.posix.dirname(sessionPath)}::${title}`,
     roomId,
     title: title || null,
     role: role || null,

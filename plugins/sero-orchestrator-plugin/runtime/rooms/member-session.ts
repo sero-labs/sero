@@ -64,6 +64,12 @@ export interface MemberTurnRequest {
   /** Current work items, for the member's own brief projection. */
   work?: WorkItem[];
   signal?: AbortSignal;
+  /**
+   * Called once the session has taken the prompt onto its own transcript.
+   * Whatever the prompt carried is delivered at that point and not before, so
+   * this is the only safe place to commit against it.
+   */
+  onAccepted?(turnId: string): Promise<void>;
 }
 
 export interface MemberTurnResult {
@@ -152,6 +158,7 @@ export async function runMemberTurn(
   let outcome: TurnOutcome;
   try {
     const { turnId } = await api.prompt(handleId, content);
+    await request.onAccepted?.(turnId);
     outcome = await watch.settle(turnId, request.signal);
   } catch (error) {
     // A denied, revoked or failed turn is a real outcome, not a crash: it spends

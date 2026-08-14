@@ -13,6 +13,7 @@
 import type { PathClaim, RoomArtifact, WorkItem } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
 import type { RoomRecord } from './room-state';
+import type { CommitCollection } from './room-workspace';
 
 /** Lists are for reading, not for paging. A member that needs more asks. */
 const MAX_LISTED = 20;
@@ -91,4 +92,34 @@ export function renderClaims(record: RoomRecord, claims: PathClaim[]): string {
 
 export function renderArtifact(artifact: RoomArtifact): string {
   return `Published ${artifact.kind} "${artifact.title}" [${artifact.id}] at ${artifact.ref}.`;
+}
+
+/**
+ * What the Conductor gets back from collecting commits: one line per branch,
+ * then the files more than one member changed. The conflicts are listed with
+ * their owners because integrating them is the Conductor's next decision, and
+ * a count alone would send it back to Git to find out who.
+ */
+export function renderCollection(collection: CommitCollection): string {
+  const lines = [collection.summary];
+  if (collection.branches.length > 0) {
+    lines.push(
+      '',
+      'Branches:',
+      ...collection.branches.map((branch) => {
+        const state = branch.error ?? `${branch.changedFiles.length} changed file(s)`;
+        return `- ${branch.displayName} [${branch.memberId}] — ${branch.branch ?? 'no branch'}: ${state}`;
+      }),
+    );
+  }
+  if (collection.conflicts.length > 0) {
+    lines.push(
+      '',
+      'Changed by more than one member:',
+      ...collection.conflicts
+        .slice(0, MAX_LISTED)
+        .map((conflict) => `- ${conflict.path} — ${conflict.memberIds.join(', ')}`),
+    );
+  }
+  return lines.join('\n');
 }

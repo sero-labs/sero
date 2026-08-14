@@ -24,10 +24,12 @@ import { createMemberSessionPool } from '../rooms/member-session';
 import { createRoomClaims } from '../rooms/room-claims';
 import { createRoomCommandRouter, type RoomCommandRouter } from '../rooms/room-command-router';
 import { RoomCoordinator } from '../rooms/room-coordinator';
+import { requestDeliveryApproval } from '../rooms/room-delivery';
 import { applyRevisionToRoom } from '../rooms/room-revision-mutate';
 import { applyRoomRevision } from '../rooms/room-revisions';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import { createRoomWork } from '../rooms/room-work';
+import { createRoomWorkspaces } from '../rooms/room-workspace';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { envelopeWith, MEMBERS } from './room-member-fixtures';
 
@@ -42,10 +44,14 @@ let roomId: string;
 const sessionOf = (memberId: string): string => `/sessions/rooms/${memberId}.jsonl`;
 const WORKTREE = '/workspaces/ws-1/.sero/worktrees/impl';
 
+/** Fault injection for the crash-safety test below. No fault by default. */
+let failWrite: (file: string) => boolean;
+
 function makeCtx(): AppRuntimeContext {
   const appState = {
     read: async (file: string) => (existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null),
     update: async (file: string, updater: (current: unknown) => unknown) => {
+      if (failWrite(file)) throw new Error(`the disk went away: ${file}`);
       const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(updater(current)), 'utf8');
@@ -116,7 +122,9 @@ async function makeRoom(): Promise<void> {
     work,
     applyRevision: (input) =>
       applyRoomRevision({ host, store, mutate: applyRevisionToRoom }, input),
-    completeRoom: (id, summary) => coordinator.completeRoom(id, summary),
+    workspaces: createRoomWorkspaces({ host, store }),
+    requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
+    completeRoom: (id, summary, receipt) => coordinator.completeRoom(id, summary, receipt),
     publishConductorNote: (id, note) => coordinator.publishConductorNote(id, note),
     noteStructuralProgress: (id, summary) => coordinator.noteStructuralProgress(id, summary),
   });
@@ -128,6 +136,7 @@ const asImpl = { sessionPath: sessionOf('impl'), cwd: WORKTREE };
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'room-commands-'));
   host = createFakeHost();
+  failWrite = () => false;
   store = createRoomStore(makeCtx());
   await makeRoom();
 });
@@ -354,6 +363,41 @@ describe('idempotency', () => {
     await router.execute(asImpl, { command: 'update-work', title: 'One' });
     await router.execute(asImpl, { command: 'update-work', title: 'Two' });
     expect((await store.readRoom(roomId))?.work).toHaveLength(2);
+  });
+
+  it('publishes an artifact once for a repeated key', async () => {
+    const publish = () =>
+      router.execute(asImpl, {
+        command: 'publish-artifact',
+        commandId: 'cmd-8',
+        artifactKind: 'report',
+        title: 'What broke',
+        body: 'The tokenizer drops the last token.',
+      });
+    expect((await publish()).ok).toBe(true);
+    expect((await publish()).details.duplicate).toBe(true);
+    expect((await store.readRoom(roomId))?.artifacts).toHaveLength(1);
+  });
+
+  it('never records a command key without the work item it guards', async () => {
+    const add = () =>
+      router.execute(asImpl, { command: 'update-work', commandId: 'cmd-9', title: 'Rewrite the tokenizer' });
+
+    // The Room record is written once and then the disk goes away, which is what
+    // a crash looks like to the next start: a second write never happens.
+    let writes = 0;
+    failWrite = (file) => file.endsWith('room.json') && (writes += 1) > 1;
+    await add().catch(() => undefined);
+    failWrite = () => false;
+
+    // Whatever landed, the key and the work item landed together — so the retry
+    // either finds the item and adds nothing, or finds neither and adds one.
+    const restarted = createRoomStore(makeCtx());
+    const stored = await restarted.readRoom(roomId);
+    expect(await restarted.hasAppliedCommand(roomId, 'cmd-9')).toBe(stored?.work.length === 1);
+
+    await add();
+    expect((await createRoomStore(makeCtx()).readRoom(roomId))?.work).toHaveLength(1);
   });
 });
 

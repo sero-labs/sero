@@ -65,6 +65,12 @@ export interface RoomAttentionApproval {
   kind: RoomApprovalRequest['kind'];
   /** Present only where an estimate is meaningful (a spend expansion). */
   estimatedCostUsd: number | null;
+  /**
+   * The exact text an external send would carry, whole and untruncated: the
+   * approval is bound to it, so approving a shortened version of it would mean
+   * approving something the user never read. Absent on every other kind.
+   */
+  payload?: string;
   createdAt: string;
 }
 

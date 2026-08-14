@@ -19,6 +19,7 @@ import { RoomCoordinator } from './room-coordinator';
 import { createRoomObservation } from './room-observation';
 import { createRoomStore } from './room-store';
 import { createRoomCommandRouter, type RoomCommandRouter } from './room-command-router';
+import { requestDeliveryApproval } from './room-delivery';
 import { applyRevisionToRoom } from './room-revision-mutate';
 import { applyRoomRevision } from './room-revisions';
 import { createRoomWork, type RoomWork } from './room-work';
@@ -106,7 +107,12 @@ export function createRoomRuntime(
         },
         input,
       ),
-    completeRoom: (roomId, summary) => coordinator.completeRoom(roomId, summary),
+    // The Conductor's delivery flow: ask the user, then finish with the proof.
+    // Both ends run against the SAME store the approval was written to, so the
+    // binding checked at delivery is the one the user answered.
+    workspaces,
+    requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
+    completeRoom: (roomId, summary, receipt) => coordinator.completeRoom(roomId, summary, receipt),
     publishConductorNote: (roomId, note) => coordinator.publishConductorNote(roomId, note),
     noteStructuralProgress: (roomId, summary) => coordinator.noteStructuralProgress(roomId, summary),
   });

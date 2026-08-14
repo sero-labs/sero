@@ -16,7 +16,9 @@
  *     The runtime composes it from the Room's own computed records and sends it
  *     through the existing session seam. An external destination stays under
  *     the Workflow rule: the send is the agent's, and the runtime accepts it
- *     only with a `DeliveryReceipt` naming an APPROVED external-write approval.
+ *     only with a `DeliveryReceipt` naming an APPROVED external-write approval
+ *     that is BOUND to this payload and this destination, and is spent by the
+ *     delivery that used it (`room-delivery-binding.ts`).
  *
  * Nothing here writes a Room record directly: every write goes through the
  * store, which is the single writer.
@@ -32,10 +34,15 @@ import type { RoomAttention, RoomAttentionApproval } from '../../shared/attentio
 import { ROOM_ACCESS_LABEL_TEXT } from '../../shared/room-access-map';
 import type { RoomApprovalRequest } from '../../shared/room-message-types';
 import type { OrchestratorHost } from '../host';
+import {
+  buildDeliveryBinding,
+  externalTokenProblems,
+  withApprovalConsumed,
+} from './room-delivery-binding';
 import { applyRevisionToRoom } from './room-revision-mutate';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
-import { resolveRoomApproval } from './room-revisions';
+import { resolveRoomApproval, type ApprovalOutcome } from './room-revisions';
 
 /** The destination whose delivery the runtime performs itself (never an agent). */
 export const INVOKING_CHAT_DESTINATION = 'invoking-chat';
@@ -77,6 +84,9 @@ function toApprovalEntry(record: RoomRecord, approval: RoomApprovalRequest): Roo
     affects: approval.affects,
     kind: approval.kind,
     estimatedCostUsd: approval.estimatedCostUsd,
+    // The bound payload, so the user answers on the text itself rather than on
+    // a member's description of it.
+    ...(approval.delivery ? { payload: approval.delivery.content } : {}),
     createdAt: approval.createdAt,
   };
 }
@@ -88,10 +98,7 @@ function toApprovalEntry(record: RoomRecord, approval: RoomApprovalRequest): Roo
  */
 export type ApprovalResponder = { kind: 'user' } | { kind: 'member'; memberId: string };
 
-export interface ApprovalResolution {
-  ok: boolean;
-  reason?: string;
-}
+export type ApprovalResolution = ApprovalOutcome;
 
 /**
  * Resolves a pending Room approval. The ONLY door to `resolveRoomApproval`:
@@ -100,6 +107,9 @@ export interface ApprovalResolution {
  *
  * A member cannot reach this through the AD-020 bridge either — there is no
  * Room command for it — so this is the second layer, not the only one.
+ *
+ * `ok: false` with a reason is also how an approved change that no longer holds
+ * comes back — the user said yes, and the Room has to say what stopped it.
  */
 export async function resolveApprovalForUser(
   deps: RoomDeliveryDeps,
@@ -114,10 +124,20 @@ export async function resolveApprovalForUser(
       reason: `${responder.memberId} cannot approve this. Only you can, and the request stays open until you answer it.`,
     };
   }
-  // The real mutation hook, not a stub: resolving does not apply anything today,
-  // but a stubbed hook would silently drop the change on the day it does.
+  // The real mutation hook: approving a revision applies it, so a stub here
+  // would be the hollow success this path exists to avoid.
   const deciding = { host: deps.host, store: deps.store, mutate: applyRevisionToRoom };
   return resolveRoomApproval(deciding, roomId, approvalId, decision);
+}
+
+/** What the Conductor has to show the user before anything leaves Sero. */
+export interface DeliveryApprovalRequest {
+  roomId: string;
+  requestedByMemberId: string;
+  reason: string;
+  /** The exact payload the send will carry. The user approves THIS, and only this. */
+  content: string;
+  commandId: string;
 }
 
 /**
@@ -126,16 +146,17 @@ export async function resolveApprovalForUser(
  * shared access mapping, so what the user reads here and what the Room's access
  * tiles said at Start cannot disagree.
  *
- * The Room delivers ONCE (`delivery.deliveredAt` is the guard below), which is
- * what makes the approval single-use without a consumption flag on the record.
+ * The payload is frozen into the approval as a binding: the user is answering a
+ * question about one text going to one destination, and `receiptProblems`
+ * refuses any send that does not match it.
  */
 export async function requestDeliveryApproval(
   deps: RoomDeliveryDeps,
-  roomId: string,
-  requestedByMemberId: string,
-  reason: string,
-  commandId: string,
+  request: DeliveryApprovalRequest,
 ): Promise<{ ok: boolean; approval?: RoomApprovalRequest; error?: string }> {
+  const { roomId, requestedByMemberId, reason, commandId } = request;
+  const content = request.content.trim();
+  if (!content) return { ok: false, error: 'Show the exact text you want to send — an approval with nothing in it authorises nothing.' };
   const record = await deps.store.readRoom(roomId);
   if (!record) return { ok: false, error: `Room not found: ${roomId}` };
   const destination = record.delivery.destination;
@@ -160,6 +181,8 @@ export async function requestDeliveryApproval(
     kind: 'external-write',
     permissionsAfter: null,
     status: 'pending',
+    delivery: buildDeliveryBinding(destination, record.delivery.params, content),
+    consumedAt: null,
     createdAt: now,
     resolvedAt: null,
   };
@@ -225,13 +248,16 @@ export async function deliverRoomResult(
 ): Promise<RoomDeliveryOutcome> {
   const record = await deps.store.readRoom(request.roomId);
   if (!record) return { ok: false, problems: [`Room not found: ${request.roomId}`], returnedToChat: false, ref: null };
-  // One Room, one delivery. This is also what makes an external approval
-  // single-use: the token cannot cover a second send that can never happen.
+  // One Room, one delivery. The approval is spent below as well, so a send is
+  // single-use by its own record and not only by this guard.
   if (record.delivery.deliveredAt) {
     return { ok: true, problems: [], returnedToChat: false, ref: record.delivery.deliveryRef };
   }
 
-  const problems = receiptProblems(record, request.receipt);
+  // The result IS the payload: what the destination receives and what the
+  // approval was bound to are the same text, so a swapped payload is a
+  // different final answer and fails the binding.
+  const problems = receiptProblems(record, request.receipt, request.finalResult);
   const sessionId = record.delivery.originSessionId;
   const returnedToChat = sessionId
     ? await returnToInvokingChat(deps, record, sessionId, request.finalResult, problems)
@@ -246,8 +272,12 @@ export async function deliverRoomResult(
   if (ref === null) return { ok: problems.length === 0, problems, returnedToChat, ref: null };
 
   const now = deps.host.now();
+  // The approval is spent in the SAME write that records the delivery: two
+  // writes would leave a window where an accepted send has an approval that
+  // still authorises another one.
   await deps.store.updateRoom(request.roomId, (current) => ({
     ...current,
+    approvals: accepted ? withApprovalConsumed(current.approvals, request.receipt?.approvalId, now) : current.approvals,
     delivery: { ...current.delivery, deliveredAt: now, deliveryRef: ref },
   }));
   await deps.store.appendTimeline(request.roomId, [{
@@ -269,9 +299,14 @@ export async function deliverRoomResult(
  * send itself a few lines below, so a receipt would be the runtime attesting to
  * its own work. Every other destination follows the Workflow rule — no receipt,
  * no accepted delivery — and an EXTERNAL one additionally needs the user's
- * approval token, which no member can grant itself (§22).
+ * approval token, bound to `deliveredContent`, which no member can grant itself
+ * (§22).
  */
-export function receiptProblems(record: RoomRecord, receipt: DeliveryReceipt | undefined): string[] {
+export function receiptProblems(
+  record: RoomRecord,
+  receipt: DeliveryReceipt | undefined,
+  deliveredContent: string,
+): string[] {
   const destination = record.delivery.destination;
   if (destination === INVOKING_CHAT_DESTINATION) {
     return record.delivery.originSessionId
@@ -293,25 +328,10 @@ export function receiptProblems(record: RoomRecord, receipt: DeliveryReceipt | u
   if (Number.isNaN(Date.parse(receipt.deliveredAt))) {
     problems.push(`the receipt "deliveredAt" ("${receipt.deliveredAt}") is not a valid timestamp`);
   }
-  if (isExternalDestination(destination)) problems.push(...externalTokenProblems(record, receipt));
+  if (isExternalDestination(destination)) {
+    problems.push(...externalTokenProblems(record, receipt, deliveredContent));
+  }
   return problems;
-}
-
-/** The approved external-write approval an external send must name. */
-function externalTokenProblems(record: RoomRecord, receipt: DeliveryReceipt): string[] {
-  const approved = record.approvals.filter(
-    (approval) => approval.kind === 'external-write' && approval.status === 'approved',
-  );
-  if (approved.length === 0) {
-    return [`"${record.delivery.destination}" sends the result outside Sero, and you have not approved that send`];
-  }
-  if (!receipt.approvalId?.trim()) {
-    return ['the receipt does not name the approval that authorised the send'];
-  }
-  if (!approved.some((approval) => approval.id === receipt.approvalId)) {
-    return [`the receipt names approval "${receipt.approvalId}", which this Room has no approved record of`];
-  }
-  return [];
 }
 
 /**

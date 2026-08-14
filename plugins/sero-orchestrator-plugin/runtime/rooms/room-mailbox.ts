@@ -7,8 +7,8 @@
  *  - **Persist, then deliver.** A message is written to the durable log before
  *    anything is woken. A crash between the two loses no message; the recipient
  *    reads it from its inbox on its next turn. Read cursors are NOT touched
- *    here — a cursor advances only when a member's turn actually consumes the
- *    messages (`store.takeMessagesFor`).
+ *    here — a cursor advances only when a member's turn has actually taken the
+ *    messages (`store.leaseMessagesFor`, then `store.acknowledgeMessages`).
  *
  *  - **Waking is the coordinator's event path, never a second scheduler.** This
  *    file calls `ctx.wake`, the same seam a user action uses, so a reply resumes
@@ -146,35 +146,19 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
     };
   }
 
-  /** Removes a claim whose message never reached the log, so a real retry works. */
-  function releaseClaim(roomId: string, commandId: string): Promise<void> {
-    return store.updateRoom(roomId, (record) => ({
-      ...record,
-      runtime: {
-        ...record.runtime,
-        appliedCommandIds: record.runtime.appliedCommandIds.filter((id) => id !== commandId),
-      },
-    }));
-  }
-
   /**
-   * Claims the command id, then persists. Claiming first is what makes a
-   * duplicate impossible; releasing the claim when the write fails is what stops
-   * that costing a lost message while the process is still alive.
+   * The messages and their command key reach the record in ONE write, so there
+   * is no window where the key is claimed and the message is not in the log —
+   * the window a crash would turn into a silently swallowed retry.
    *
    * Returns null when the id was already applied.
    */
-  async function commit(
+  function commit(
     roomId: string,
     commandId: string,
     drafts: RoomMessageDraft[],
   ): Promise<RoomMessage[] | null> {
-    const claimed = await store.applyCommand(roomId, commandId, (record) => record);
-    if (!claimed) return null;
-    return store.appendMessages(roomId, drafts).catch(async (error: unknown) => {
-      await releaseClaim(roomId, commandId);
-      throw error;
-    });
+    return store.appendMessagesOnce(roomId, commandId, drafts);
   }
 
   /**
