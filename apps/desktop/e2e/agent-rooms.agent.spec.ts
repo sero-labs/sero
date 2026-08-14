@@ -410,7 +410,11 @@ test.describe('the Room evaluation gate', () => {
     await allowAgentSessions('chat', 300_000);
     await asked;
 
-    const roomId = (roomIndex()?.rooms ?? []).find((room) => !before.has(room.id))?.id;
+    // The Room the chat STARTED, not the first one it drafted: a chat may draft
+    // more than one before it starts the one it wants, and an abandoned draft
+    // never settles.
+    const fresh = (roomIndex()?.rooms ?? []).filter((room) => !before.has(room.id));
+    const roomId = (fresh.find((room) => room.status !== 'draft') ?? fresh.at(-1))?.id;
     expect(roomId, 'the chat never created a Room').toBeTruthy();
     if (!roomId) return;
 
