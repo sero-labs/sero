@@ -44,6 +44,13 @@ describe('the user Room surface', () => {
     expect(outcome.error).toContain('what the Room is for');
   });
 
+  it('refuses a preset it does not have rather than planning without one', async () => {
+    const outcome = await app.prepare({ problem: 'ship the fix', presetId: 'not-a-preset' });
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok || outcome.needsInput) throw new Error('expected a refusal');
+    expect(outcome.error).toContain('not-a-preset');
+  });
+
   it('refuses to re-plan a Room that has already started', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

@@ -18,9 +18,11 @@ import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
 import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { RoomStatus } from '../../shared/room-types';
+import { findRoomTemplate, type RoomTemplate } from '../../shared/room-templates';
 import type { OrchestratorHost } from '../host';
 import { adjustRoom } from './adjust';
 import { planRoom, type RoomUserLimits } from './planner';
+import type { RoomPresetSeed } from './planner-prompt';
 import { buildRoomRecord } from './room-actions';
 import type { RoomCoordinator } from './room-coordinator';
 import type { RoomStore } from './room-store';
@@ -38,6 +40,8 @@ export interface RoomAppActionsContext {
 export interface PrepareRoomInput {
   /** The user's own words, kept verbatim. */
   problem: string;
+  /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
+  presetId?: string;
   limits?: RoomUserLimits;
   /** Answers to the planner's earlier questions, folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
@@ -81,6 +85,25 @@ export interface RoomAppActions {
   wake(roomId: string, memberId: string): Promise<SimpleOutcome>;
 }
 
+/**
+ * A preset as the planner sees it: a label, how this kind of problem is usually
+ * staffed, and the roles it tends to use.
+ *
+ * Deliberately prose ONLY. A template also carries preferred limits, a
+ * permission ceiling and a delivery destination, and none of those are read
+ * here: authority comes from the user's own choices, so picking a preset can
+ * never widen what the team may do.
+ */
+function presetSeed(template: RoomTemplate): RoomPresetSeed {
+  return {
+    label: template.name,
+    guidance: [template.planningStrategy, template.collaborationInstructions, template.outputExpectations]
+      .filter(Boolean)
+      .join('\n\n'),
+    exampleRoles: template.exampleRoles.map((role) => `${role.role} — ${role.responsibility}`),
+  };
+}
+
 export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions {
   const { host, store, coordinator, workspaceId } = ctx;
 
@@ -103,11 +126,15 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       const problem = input.problem.trim();
       if (!problem) return { ok: false, error: 'Say what the Room is for.' };
 
+      const template = input.presetId ? findRoomTemplate(input.presetId) : null;
+      if (input.presetId && !template) return { ok: false, error: `There is no preset ${input.presetId}.` };
+
       const plan = await planRoom(host, {
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
         limits: input.limits,
         clarifications: input.clarifications,
+        preset: template ? presetSeed(template) : undefined,
       });
       if (!plan.ok) {
         return plan.needsInput

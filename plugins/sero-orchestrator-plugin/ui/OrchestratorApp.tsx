@@ -6,6 +6,7 @@ import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { RoomsOverview } from './components/RoomsOverview';
+import { RoomCreateFlow } from './components/RoomCreateFlow';
 import type { RoomApprovalDecision } from './components/AttentionQueue';
 import { useRoomIndex } from './lib/use-room-index';
 import { LoopDetail } from './components/LoopDetail';
@@ -23,7 +24,8 @@ type View =
   | { mode: 'detail'; loopId: string | null }
   | { mode: 'create' }
   | { mode: 'library' }
-  | { mode: 'rooms'; roomId: string | null };
+  | { mode: 'rooms'; roomId: string | null }
+  | { mode: 'room-create' };
 
 /** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
 interface OrchestratorLaunchParams extends Record<string, unknown> {
@@ -136,6 +138,7 @@ export function OrchestratorApp() {
   );
 
   const openRoom = useCallback((roomId: string) => setView({ mode: 'rooms', roomId }), []);
+  const openRoomCreate = useCallback(() => setView({ mode: 'room-create' }), []);
 
   // The Catalog tab drives itself through tool calls; it only needs the details.
   const detailsDispatch = useCallback(
@@ -262,14 +265,27 @@ export function OrchestratorApp() {
         )}
         {view.mode === 'rooms' && (
           <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
-            <div>
-              <h2 className="text-base font-semibold">Rooms</h2>
-              <p className="text-xs text-muted-foreground">
-                A team per problem. Sero staffs it, and it adapts as the work changes.
-              </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold">Rooms</h2>
+                <p className="text-xs text-muted-foreground">
+                  A team per problem. Sero staffs it, and it adapts as the work changes.
+                </p>
+              </div>
+              <Button size="sm" onClick={openRoomCreate}>
+                <Plus className="mr-1 h-4 w-4" /> New room
+              </Button>
             </div>
-            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={openRoom} onNew={openCreate} />
+            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={openRoom} onNew={openRoomCreate} />
           </div>
+        )}
+        {view.mode === 'room-create' && (
+          <RoomCreateFlow
+            busy={busy}
+            dispatch={roomDispatch}
+            onStarted={openRoom}
+            onCancel={() => setView({ mode: 'rooms', roomId: null })}
+          />
         )}
         {view.mode === 'library' && (
           <LibraryView

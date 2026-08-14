@@ -19,6 +19,7 @@ import { resolveRoomAppByCwd, resolveRoomRouterForCaller } from '../runtime/regi
 import type { RoomAppActions, PrepareRoomOutcome } from '../runtime/rooms/room-app-actions';
 import type { RoomCallerSignals } from '../runtime/rooms/room-command-router';
 import { MEMBER_PERMISSION_LEVELS, type MemberPermissionLevel } from '../shared/room-blueprint-types';
+import { BUILT_IN_ROOM_TEMPLATES } from '../shared/room-templates';
 import { DELIVERY_DESTINATION_IDS, type DeliveryDestinationId } from '../shared/delivery-types';
 
 export const ROOM_APP_ACTIONS = [
@@ -36,6 +37,8 @@ export const ROOM_APP_ACTIONS = [
 
 const APPROVAL_DECISIONS = ['approved', 'rejected'] as const;
 
+const ROOM_PRESET_IDS = BUILT_IN_ROOM_TEMPLATES.map((template) => template.id);
+
 export const RoomAppToolParams = Type.Object({
   action: StringEnum(ROOM_APP_ACTIONS, { description: 'What to do with a Room' }),
   roomId: Type.Optional(Type.String({ description: 'The Room to act on. Not needed for prepare' })),
@@ -52,6 +55,7 @@ export const RoomAppToolParams = Type.Object({
   maxMembers: Type.Optional(Type.Number({ description: 'For prepare: the largest team allowed' })),
   access: Type.Optional(StringEnum(MEMBER_PERMISSION_LEVELS, { description: 'For prepare: the highest access any member may hold' })),
   deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For prepare: where the result goes. invoking-chat returns it to the chat that asked' })),
+  presetId: Type.Optional(StringEnum(ROOM_PRESET_IDS, { description: 'For prepare: a preset to start from. It guides the planner and never widens what the team may do' })),
   clarificationsJson: Type.Optional(Type.String({ description: 'For prepare: answers to the planner\'s questions, as JSON [{"prompt":"...","answer":"..."}]' })),
 });
 
@@ -71,6 +75,7 @@ export interface RoomAppToolParamsShape {
   maxMembers?: number;
   access?: MemberPermissionLevel;
   deliveryDestination?: DeliveryDestinationId;
+  presetId?: string;
   clarificationsJson?: string;
 }
 
@@ -141,6 +146,7 @@ async function run(app: RoomAppActions, params: RoomAppToolParamsShape): Promise
     return plannedResult(
       await app.prepare({
         problem: params.problem ?? '',
+        presetId: params.presetId,
         clarifications,
         limits: {
           maxCostUsd: params.maxCostUsd,
