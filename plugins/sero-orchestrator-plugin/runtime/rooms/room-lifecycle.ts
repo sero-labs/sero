@@ -310,7 +310,10 @@ export async function completeRoom(
   // refused destination is reported to the user rather than reopening the Room.
   const delivered = await deliverRoomResult({ host: ctx.host, store: ctx.store }, { roomId, finalResult: summary, receipt });
   if (!delivered.ok && delivered.problems.length > 0) {
-    ctx.host.notify(`The Room finished, but its result was not delivered: ${delivered.problems.join('; ')}`, 'warning');
+    ctx.host.notify('The Room finished, but its result was not delivered.', 'warning', {
+      subtitle: record.definition.title,
+      openApp: true,
+    });
   }
 
   // Same reason as cancellation, and a likelier case: finishing is the NORMAL

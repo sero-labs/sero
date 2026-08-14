@@ -72,7 +72,7 @@ export interface FakeHost extends OrchestratorHost {
   cleanWorktrees: Set<string>;
   /** `git diff --name-status` output per worktree path (empty string by default). */
   diffSummaries: Map<string, string>;
-  notifications: { message: string; type?: string }[];
+  notifications: { message: string; type?: string; subtitle?: string; openApp?: boolean }[];
   choiceRequests: ChoiceRequest[];
   stashes: string[];
   /** Open PRs returned by listPullRequests (empty by default). */
@@ -227,8 +227,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.commands.push(command);
       return this.commandResults.shift() ?? { stdout: '', stderr: '', exitCode: 0 };
     },
-    notify(message, type) {
-      this.notifications.push({ message, type });
+    notify(message, type, options) {
+      this.notifications.push({ message, type, subtitle: options?.subtitle, openApp: options?.openApp });
     },
     async requestChoice(request) {
       this.choiceRequests.push(request);

@@ -48,7 +48,7 @@ export async function handleStall(
     const now = ctx.host.now();
     await ctx.store.appendTimeline(roomId, [timelineEvent(ctx.host, roomId, 'limit', null, decision.blocked.reason)]);
     await settlePause(ctx, record, { kind: 'limit-reached', detail: decision.blocked.reason, at: now }, now);
-    ctx.host.notify(decision.blocked.reason, 'warning');
+    ctx.host.notify(decision.blocked.reason, 'warning', { subtitle: record.definition.title, openApp: true });
     return;
   }
   // Work in flight is not a stall: whoever is running may free everyone else.
@@ -226,7 +226,7 @@ export async function escalate(
   const now = ctx.host.now();
   if (record.runtime.stopReason?.kind === kind) {
     await settlePause(ctx, record, { kind, detail, at: now }, now);
-    ctx.host.notify(detail, 'warning');
+    ctx.host.notify(detail, 'warning', { subtitle: record.definition.title, openApp: true });
     return;
   }
   await ctx.store.updateRoom(roomId, (current) =>

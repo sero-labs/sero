@@ -43,7 +43,7 @@ const MEMBER_STATUS_LABEL: Record<MemberStatus, string> = {
   idle: 'idle',
   working: 'working',
   waiting: 'waiting',
-  blocked: 'blocked',
+  blocked: 'needs you',
   suspended: 'suspended',
   retiring: 'retiring',
   retired: 'retired',

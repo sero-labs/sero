@@ -47,6 +47,8 @@ interface RoomMemberPanelProps {
   onAnswer: (body: string) => void;
   /** Releases it from a question that is never going to be answered. */
   onRelease: () => void;
+  /** Answers a member that stopped to ask the user for something (§22). */
+  onTell: (body: string) => void;
   onClose: () => void;
 }
 
@@ -61,6 +63,7 @@ export function RoomMemberPanel({
   onMessage,
   onAnswer,
   onRelease,
+  onTell,
   onClose,
 }: RoomMemberPanelProps) {
   const [tab, setTab] = useState<MemberTab>('session');
@@ -123,6 +126,10 @@ export function RoomMemberPanel({
 
       {member.status === 'waiting' && (
         <WaitingStrip busy={busy} detail={member.statusDetail} onAnswer={onAnswer} onRelease={onRelease} />
+      )}
+
+      {member.status === 'blocked' && (
+        <AttentionStrip busy={busy} detail={member.statusDetail} onTell={onTell} />
       )}
 
       {tab !== 'session' ? (
@@ -246,6 +253,51 @@ function WaitingStrip({
           </Button>
         )}
         <Button size="sm" variant="ghost" disabled={busy} onClick={onRelease}>Cancel the question</Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A member that stopped to ask the USER something (`request-attention`, §22).
+ *
+ * Nobody else can answer it — a peer message cannot speak for the user — so the
+ * panel has to say what it needs and take the answer here. Without this the
+ * Room shows "needs you" and offers no way to be the user.
+ */
+function AttentionStrip({
+  busy,
+  detail,
+  onTell,
+}: {
+  busy: boolean;
+  detail: string;
+  onTell: (body: string) => void;
+}) {
+  const [body, setBody] = useState('');
+
+  return (
+    <div className="flex flex-col gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2">
+      <p className="text-sm font-medium">This member needs you</p>
+      <p className="whitespace-pre-wrap text-sm text-muted-foreground">{detail}</p>
+      <Textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        rows={2}
+        autoFocus
+        placeholder="Tell it what it needs to know…"
+      />
+      <div>
+        <Button
+          size="sm"
+          disabled={busy || body.trim().length === 0}
+          onClick={() => {
+            onTell(body.trim());
+            setBody('');
+          }}
+        >
+          Send and continue
+        </Button>
       </div>
     </div>
   );

@@ -372,7 +372,12 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
         await store.appendTimeline(roomId, [
           timelineEvent(host, roomId, 'approval', member.id, `${member.displayName} needs the user: ${body.slice(0, 300)}`),
         ]);
-        host.notify(`${record.definition.title}: ${member.displayName} needs you — ${body.slice(0, 200)}`, 'warning');
+        // Short on purpose: the desktop cuts a long notification off, and the
+        // question itself is waiting in the Room, where it can be answered.
+        host.notify(`${member.displayName} needs you.`, 'warning', {
+          subtitle: record.definition.title,
+          openApp: true,
+        });
         return ok('The user was asked. You are stopped until they answer.');
       }
 

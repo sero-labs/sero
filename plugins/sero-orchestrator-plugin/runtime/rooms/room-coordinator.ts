@@ -385,7 +385,10 @@ export class RoomCoordinator {
       return;
     }
     if (member?.status === 'failed') {
-      this.host.notify(`${member.displayName} stopped after repeated failures.`, 'warning');
+      this.host.notify(`${member.displayName} stopped after repeated failures.`, 'warning', {
+        subtitle: record.definition.title,
+        openApp: true,
+      });
     }
     if (record.runtime.status === 'pausing' && !this.hasTurnsInFlight(roomId)) {
       const stopReason = record.runtime.stopReason ?? { kind: 'user-paused' as const, detail: 'Paused.', at: now };

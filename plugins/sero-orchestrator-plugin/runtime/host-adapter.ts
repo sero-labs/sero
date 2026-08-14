@@ -104,7 +104,13 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),
     runCommand: (command, timeoutMs) => ctx.host.workspace.runCommand(ctx.workspaceId, ctx.workspacePath, command, timeoutMs),
 
-    notify: (message, type) => ctx.host.notifications.notify({ message, type }),
+    notify: (message, type, options) =>
+      ctx.host.notifications.notify({
+        message,
+        type,
+        subtitle: options?.subtitle,
+        openTarget: options?.openApp ? { appId: ctx.appId } : undefined,
+      }),
     requestChoice: (request) => ctx.host.notifications.requestChoice(request),
 
     session: ctx.host.session,

@@ -351,6 +351,13 @@ describe('routing', () => {
     const record = await store.readRoom(roomId);
     expect(record?.members.find((member) => member.id === 'impl')?.status).toBe('blocked');
     expect(record?.runtime.activeMemberIds).not.toContain('impl');
+    // The desktop cuts a long notification off, and a click that goes nowhere
+    // leaves the user with a member that needs them and no way to reach it.
+    const notification = host.notifications.at(-1);
+    expect(notification?.message.length).toBeLessThan(80);
+    expect(notification?.message).toContain('Implementer');
+    expect(notification?.subtitle).toBe('Ship the fix');
+    expect(notification?.openApp).toBe(true);
   });
 
   it('publishes the Conductor note apart from every computed brief field', async () => {

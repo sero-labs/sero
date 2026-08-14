@@ -253,7 +253,18 @@ export interface OrchestratorHost {
   runCommand(command: string, timeoutMs?: number): Promise<AppRuntimeCommandResult>;
 
   // ── Notifications ─────────────────────────────────────────
-  notify(message: string, type?: 'info' | 'warning' | 'error'): void;
+  /**
+   * A desktop notification. Keep `message` short — the desktop cuts long text
+   * off, so the detail belongs in the app, not in the notification.
+   *
+   * `openApp` makes a click open this plugin's app. Use it whenever the
+   * notification asks the user to do something, so they can reach it.
+   */
+  notify(
+    message: string,
+    type?: 'info' | 'warning' | 'error',
+    options?: { subtitle?: string; openApp?: boolean },
+  ): void;
   /** Visible choice notification with timeout fallback. */
   requestChoice(request: ChoiceRequest): Promise<ChoiceResult>;
 

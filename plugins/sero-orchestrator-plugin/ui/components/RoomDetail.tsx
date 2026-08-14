@@ -84,6 +84,13 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
 
   const selected = selectedId ? members.get(selectedId) ?? null : null;
   const approvals = summary?.attention?.approvals ?? [];
+  // A member that used request-attention: it stopped, and only the user can
+  // start it again.
+  const needsUser = (room?.memberIds ?? [])
+    .flatMap((memberId) => {
+      const member = members.get(memberId);
+      return member?.status === 'blocked' ? [member] : [];
+    });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -116,6 +123,20 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           onResume={() => send('resume')}
           onStop={() => send('cancel')}
         />
+      )}
+
+      {/* A member that stopped to ask the user is invisible from the Room view
+          otherwise: the Room is still running, so there is no stop banner, and
+          the request is not an approval. It has to be findable from here. */}
+      {needsUser.length > 0 && !selectedId && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2">
+          <span className="text-sm">
+            {needsUser.map((member) => member.displayName).join(', ')} stopped to ask you something.
+          </span>
+          <Button size="sm" className="ml-auto" onClick={() => setSelectedId(needsUser[0].id)}>
+            Read it
+          </Button>
+        </div>
       )}
 
       {approvals.length > 0 && summary && (
@@ -155,6 +176,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             onMessage={() => setComposing({ memberIds: [selected.id] })}
             onAnswer={(body) => send('answer', { memberId: selected.id, body })}
             onRelease={() => send('release', { memberId: selected.id })}
+            onTell={(body) => send('intervene', { body, memberIds: selected.id, deliver: 'now' })}
             onClose={() => setSelectedId(null)}
           />
         ) : shownView === 'result' ? (
