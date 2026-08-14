@@ -11,6 +11,12 @@
  * The same reasoning removes the limits, the workspace approval and the
  * delivery destination from the model's JSON: a field the model cannot express
  * is a field it cannot inflate.
+ *
+ * That is why the shape below is NARROWER than `ROOM_BLUEPRINT_JSON_SHAPE` in
+ * adjust-prompt.ts, which the adjustment path uses. Adjustment edits a
+ * blueprint the user already approved, so it hands the whole object back and
+ * forth; creation has nothing approved yet, so the planner is asked only for
+ * the half it owns and `planner-parse.ts` supplies the rest.
  */
 
 import type { ContextSkillInfo, ContextToolInfo } from '@sero-ai/common';
@@ -98,8 +104,8 @@ Return ONLY a single JSON object, no prose before or after. Shape:
   "roomInstructions": string,          // rules every member follows
   "collaborationStrategy": string,     // how work and messages flow between members
   "teamRationale": string,             // why THIS team — shown to the user as "Why this team?"
-  "workspaceMode": "read-only-shared" | "worktree-per-member",
-  "estimatedDurationMinutes": number,  // your honest estimate — NOT a limit
+  "workspacePolicy": { "mode": "read-only-shared" | "worktree-per-member" },
+  "estimatedDurationMs": number,       // your honest estimate in milliseconds — NOT a limit
   "estimatedCostUsd": number,          // your honest estimate — NOT a limit
   "openAssumptions": string[],         // anything you had to assume; shown, never dropped
   "members": [
@@ -123,9 +129,10 @@ Return ONLY a single JSON object, no prose before or after. Shape:
 }
 
 Rules:
-- "workspaceMode": use "read-only-shared" when NO member changes a file (analysis, review, research), and "worktree-per-member" when any member does. Choosing the read-only mode for a read-only team is what lets the user see that the Room cannot change their files.
+- "workspacePolicy.mode": use "read-only-shared" when NO member changes a file (analysis, review, research), and "worktree-per-member" when any member does. Choosing the read-only mode for a read-only team is what lets the user see that the Room cannot change their files.
 - Member keys are unique, kebab-case, and describe the role ("conductor", "implementer", "security-reviewer").
 - The estimates are estimates. They set no limit, and the user's ceilings apply whatever you write.
+- There is no limit, budget, envelope or delivery field in the shape above. Those belong to the user, and Sero fills them in.
 - Prose fields are plain language for someone who does not know what an agent, a token or a worktree is.`;
 
 /** The models, thinking levels, tools and skills this Room may draw from. */

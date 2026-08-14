@@ -14,7 +14,55 @@
 
 import type { RoomUserLocks } from '../../shared/room-locks';
 import type { RoomBlueprint } from '../../shared/room-blueprint-types';
-import { ROOM_BLUEPRINT_JSON_SHAPE } from './blueprint-schema';
+
+/**
+ * The shape asked for, written to match `parseRoomBlueprint` exactly: a field
+ * described here but not read there is silently dropped, and the reverse is a
+ * guaranteed repair pass. Every string field must be non-empty.
+ */
+export const ROOM_BLUEPRINT_JSON_SHAPE = `{
+  "title": string,                       // short Room title (prose)
+  "approach": string,                    // ONE sentence describing how the team will work (prose)
+  "objective": string,                   // what the Room must achieve
+  "successCriteria": string[],           // at least one, each checkable
+  "roomInstructions": string,            // rules that apply to every member
+  "members": [
+    {
+      "key": string,                     // stable identity — keep a kept member's key EXACTLY
+      "displayName": string,
+      "role": string,
+      "responsibility": string,          // ONE user-facing line (prose)
+      "mandate": string,                 // the member's full working instructions (prose)
+      "reasonForInclusion": string,      // why this member exists (prose)
+      "isConductor": boolean,            // exactly one member is true
+      "model": string,                   // from the AVAILABLE MODELS list
+      "thinking": string,                // from the AVAILABLE THINKING LEVELS list
+      "promptAdditions": string[],       // appended after the base prompt; [] is normal
+      "tools": string[],                 // from the AVAILABLE TOOLS list
+      "skills": string[],                // from the AVAILABLE SKILLS list
+      "permissions": "read-only" | "edit-workspace" | "edit-and-push",
+      "needsWorktree": boolean           // true for a member that edits files
+    }
+  ],
+  "teamRationale": string,               // why this team as a whole (prose)
+  "collaborationStrategy": string,       // how members work together
+  "workspacePolicy": { "mode": "read-only-shared" | "worktree-per-member" | "shared-working-tree", "sharedTreeApproved": boolean, "claimPolicy": "warn" | "block" },
+  "envelope": {
+    "maxMembers": number, "maxActiveTurns": number, "maxRosterRevisions": number, "maxMemberReplacements": number,
+    "maxWallClockMs": number, "maxCostUsd": number, "maxCostUsdPerMember": number,
+    "maxTokens": number, "maxTokensPerMember": number, "maxTurnsPerMember": number,
+    "maxRetriesPerMember": number, "maxConsecutiveFailures": number, "maxIdleMs": number,
+    "allowedModels": string[], "allowedThinkingLevels": string[], "allowedTools": string[],
+    "allowedSkills": string[], "allowedDeliveryDestinations": string[],
+    "allowNestedSubagents": boolean,
+    "workspacePolicy": { "mode": …, "sharedTreeApproved": boolean, "claimPolicy": … }
+  },
+  "estimatedDurationMs": number,
+  "estimatedCostUsd": number,
+  "deliveryDestination": string,         // keep the current value
+  "templateSource": string?,             // keep the current value; omit when there is none
+  "openAssumptions": string[]            // anything you had to assume; [] when none
+}`;
 
 export const ROOM_ADJUST_SYSTEM_PROMPT = `You are the ROOM PLANNER for Sero. A user has an approved team blueprint and has asked for one change to it. Your only job is to return the SAME blueprint with that change applied.
 
@@ -49,7 +97,7 @@ function lockLines(locks: RoomUserLocks): string[] {
 export function buildLocksBlock(locks: RoomUserLocks): string {
   const lines = lockLines(locks);
   if (lines.length === 0) return '';
-  return `THE USER SET THESE THEMSELVES. They are fixed, they are checked again after you reply, and a change to one is put back:
+  return `THESE ARE FIXED — each one is either set by the user or already approved by them. They are checked again after you reply, and a change to one is put back:
 ${lines.join('\n')}
 
 `;

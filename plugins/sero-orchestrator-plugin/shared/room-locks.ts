@@ -84,6 +84,24 @@ export function envelopeUnderLocks(current: OperatingEnvelope, locks: RoomUserLo
 }
 
 /**
+ * The highest permission the approved roster already holds.
+ *
+ * This is the ceiling an adjustment inherits when the user set none. The
+ * blueprint the user approved is exactly the reach they consented to, so a
+ * revision may move that reach between members but never exceed it (spec §12.2,
+ * §12.3). Without it, a revision asked for on wording alone could hand a member
+ * push rights the user never granted.
+ */
+export function approvedPermissionCeiling(blueprint: RoomBlueprint): MemberPermissionLevel {
+  return blueprint.members.reduce<MemberPermissionLevel>(
+    (highest, member) => (
+      PERMISSION_LEVELS.indexOf(member.permissions) > PERMISSION_LEVELS.indexOf(highest) ? member.permissions : highest
+    ),
+    'read-only',
+  );
+}
+
+/**
  * The permission ceiling has no envelope field of its own — reach is expressed
  * through the workspace mode and the capability pool — so the one lock the
  * standard clamp cannot carry is applied here.
@@ -97,7 +115,9 @@ function applyPermissionCeiling(blueprint: RoomBlueprint, ceiling: MemberPermiss
       clamps.push({
         kind: 'permissions-lowered',
         memberKey: member.key,
-        detail: `${member.displayName} lowered from ${member.permissions} to ${ceiling} — the permission you set.`,
+        // The ceiling is either the one the user set or the one their approved
+        // roster already carried, so the reason must read true for both.
+        detail: `${member.displayName} lowered from ${member.permissions} to ${ceiling} — the Room's permission ceiling.`,
       });
       return { ...member, permissions: ceiling };
     }),

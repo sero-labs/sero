@@ -203,44 +203,44 @@ Objective: Generate a comprehensive problem-specific Room from a simple user bri
 
 ### Work checklist
 
-- [ ] Define strict RoomBlueprint and compact RoomProposalSummary schemas.
-- [ ] Reuse Orchestrator structured planning and bounded repair.
-- [ ] Give the planner the available model, tool, skill and workspace catalogue.
-- [ ] Require one Conductor, bounded team size and a rationale for every member.
-- [ ] Support inline generated members that do not require saved agent files.
-- [ ] Clamp suggestions to user constraints and application defaults.
-- [ ] Compute team size, maximum time, maximum spend and access from validated blueprint fields in deterministic application code.
-- [ ] Use a fixed mapping from effective capabilities to plain-English access labels and warnings.
-- [ ] Limit planner-authored proposal fields to prose such as role one-liners, approach and rationale.
-- [ ] Recompute the authority summary after every blueprint adjustment.
-- [ ] Compute the changed / preserved / removed report from a member-granular blueprint diff, never from planner prose.
-- [ ] Support bounded natural-language adjustment while preserving explicit user choices.
-- [ ] Define optional adaptive templates without secrets or runtime state.
-- [ ] Add Software Delivery, Adversarial Analysis and Parallel Issues presets.
-- [ ] Allow a generated Room to be saved and later adapted or reused exactly.
-- [ ] Add planner repair, unavailable-capability and redundant-team tests.
+- [x] Define strict RoomBlueprint and compact RoomProposalSummary schemas.
+- [x] Reuse Orchestrator structured planning and bounded repair.
+- [x] Give the planner the available model, tool, skill and workspace catalogue.
+- [x] Require one Conductor, bounded team size and a rationale for every member.
+- [x] Support inline generated members that do not require saved agent files.
+- [x] Clamp suggestions to user constraints and application defaults.
+- [x] Compute team size, maximum time, maximum spend and access from validated blueprint fields in deterministic application code.
+- [x] Use a fixed mapping from effective capabilities to plain-English access labels and warnings.
+- [x] Limit planner-authored proposal fields to prose such as role one-liners, approach and rationale.
+- [x] Recompute the authority summary after every blueprint adjustment.
+- [x] Compute the changed / preserved / removed report from a member-granular blueprint diff, never from planner prose.
+- [x] Support bounded natural-language adjustment while preserving explicit user choices.
+- [x] Define optional adaptive templates without secrets or runtime state.
+- [x] Add Software Delivery, Adversarial Analysis and Parallel Issues presets.
+- [x] Allow a generated Room to be saved and later adapted or reused exactly.
+- [x] Add planner repair, unavailable-capability and redundant-team tests.
 
 ### Deliverables
 
-- [ ] Room Planner and validated blueprint.
-- [ ] Compact proposal and natural-language adjustment.
-- [ ] Adaptive template format and three built-in presets.
-- [ ] Planner and template test suite.
+- [x] Room Planner and validated blueprint.
+- [x] Compact proposal and natural-language adjustment.
+- [x] Adaptive template format and three built-in presets.
+- [x] Planner and template test suite.
 
 ### Acceptance criteria
 
-- [ ] One problem description produces a valid Room with one Conductor and a bounded team.
-- [ ] Generated members do not require predefined agent files.
-- [ ] The planner selects only available capabilities.
-- [ ] User time, spend, access and team limits override suggestions.
-- [ ] The default proposal contains no raw prompts, provider routes, schemas or paths.
-- [ ] The computed proposal always matches the blueprint enforced by the runtime.
-- [ ] Capability mapping tests cover read, workspace write, GitHub write and deployment warnings.
-- [ ] Natural-language adjustment preserves unrelated approved values.
-- [ ] A member gaining a capability another member already holds is reported even though no union tile moves.
-- [ ] Presets guide planning without fixing the final roster.
-- [ ] Invalid output is repaired or rejected within the attempt limit.
-- [ ] pnpm typecheck and relevant tests pass.
+- [x] One problem description produces a valid Room with one Conductor and a bounded team.
+- [x] Generated members do not require predefined agent files.
+- [x] The planner selects only available capabilities.
+- [x] User time, spend, access and team limits override suggestions.
+- [x] The default proposal contains no raw prompts, provider routes, schemas or paths.
+- [x] The computed proposal always matches the blueprint enforced by the runtime.
+- [x] Capability mapping tests cover read, workspace write, GitHub write and deployment warnings.
+- [x] Natural-language adjustment preserves unrelated approved values.
+- [x] A member gaining a capability another member already holds is reported even though no union tile moves.
+- [x] Presets guide planning without fixing the final roster.
+- [x] Invalid output is repaired or rejected within the attempt limit.
+- [x] pnpm typecheck and relevant tests pass.
 
 ## 8. Phase 4: Persistent Pi sessions, scheduling and context
 

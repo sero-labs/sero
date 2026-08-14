@@ -174,6 +174,60 @@ describe('adjustRoom', () => {
     expect(host.modelCalls[0].task).toContain('Maximum team size: 2');
   });
 
+  it('puts back a raised member permission even when the user set no ceiling', async () => {
+    const previous = blueprint();
+    // The instruction is about wording. The model quietly promotes the
+    // Implementer to edit-and-push, which is reach the user never approved.
+    const escalated = blueprint({
+      approach: 'Same team, clearer wording.',
+      members: [member(), { ...implementer, permissions: 'edit-and-push' }],
+    });
+    const host = createFakeHost();
+    host.modelResponses = [reply(escalated)];
+
+    const result = await adjustRoom(host, {
+      blueprint: previous,
+      instruction: 'Say the approach more simply.',
+      userLocks: {},
+      parentSessionId: 'sess-1',
+      catalogue,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.blueprint.members[1].permissions).toBe('edit-workspace');
+    expect(result.clamps.map((clamp) => clamp.kind)).toContain('permissions-lowered');
+
+    // The access tiles and warnings are the consent summary. A raise the user
+    // never asked for must not be able to move either of them.
+    expect(result.proposal.access).toEqual(computeProposalSummary(previous).access);
+    expect(result.proposal.warnings).toEqual([]);
+  });
+
+  it('accepts a reply in exactly the shape the prompt asks for', async () => {
+    const previous = blueprint();
+    // The prompt describes no schemaVersion, so a model that follows it exactly
+    // omits one. The version is Sero's field, not the model's, and must not cost
+    // the adjustment its single repair pass.
+    const { schemaVersion: _version, ...asPrompted } = blueprint({ approach: 'Same team, plainer words.' });
+    const host = createFakeHost();
+    host.modelResponses = [reply(asPrompted)];
+
+    const result = await adjustRoom(host, {
+      blueprint: previous,
+      instruction: 'Say the approach more simply.',
+      userLocks: {},
+      parentSessionId: 'sess-1',
+      catalogue,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(host.modelCalls).toHaveLength(1);
+    expect(result.blueprint.schemaVersion).toBe(previous.schemaVersion);
+    expect(result.proposal.approach).toBe('Same team, plainer words.');
+  });
+
   it('refuses a reply that authors the consent summary, and repairs once', async () => {
     const previous = blueprint();
     const withSummary = {

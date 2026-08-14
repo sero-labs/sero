@@ -50,8 +50,12 @@ import {
   type RoomPresetSeed,
 } from './planner-prompt';
 
-/** The one broad access question the user is asked at create time (spec §9.1). */
-export type RoomAccessChoice = 'read-only' | 'edit-workspace' | 'edit-and-push';
+/**
+ * The one broad access question the user is asked at create time (spec §9.1).
+ * It is the same scale as a member's permission level, because that is exactly
+ * what it sets: the highest permission any member of this Room may hold.
+ */
+export type RoomAccessChoice = MemberPermissionLevel;
 
 /** Everything the user may set before planning. Every field is optional. */
 export interface RoomUserLimits {
@@ -245,12 +249,6 @@ function promptCatalogue(catalogue: RoomCatalogue, envelope: OperatingEnvelope):
   };
 }
 
-const PERMISSION_CEILING: Record<RoomAccessChoice, MemberPermissionLevel> = {
-  'read-only': 'read-only',
-  'edit-workspace': 'edit-workspace',
-  'edit-and-push': 'edit-and-push',
-};
-
 // ── Planning ────────────────────────────────────────────────
 
 export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest): Promise<RoomPlanOutcome> {
@@ -277,7 +275,7 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
       envelope,
       catalogue: capabilityNames(catalogue),
       deliveryDestination: destination,
-      permissionCeiling: PERMISSION_CEILING[accessChoice(limits)],
+      permissionCeiling: accessChoice(limits),
     }),
     buildRepair: (previous, errors) => buildRoomRepairTask(request.problem, previous, errors),
     parentSessionId: request.parentSessionId,

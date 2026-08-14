@@ -23,7 +23,7 @@ import type {
 import type { BlueprintClamp, ClampResult } from '../../shared/room-clamp';
 import type { RoomUserLocks } from '../../shared/room-locks';
 import type { RoomCapabilityCatalogue } from '../../shared/room-validation';
-import { clampBlueprintToLocks, envelopeUnderLocks } from '../../shared/room-locks';
+import { approvedPermissionCeiling, clampBlueprintToLocks, envelopeUnderLocks } from '../../shared/room-locks';
 import {
   computeProposalSummary,
   diffBlueprints,
@@ -31,7 +31,7 @@ import {
 } from '../../shared/room-validation';
 import type { OrchestratorHost } from '../host';
 import type { ParseResult } from '../structured-call';
-import { runStructuredJson } from '../structured-call';
+import { isRecord, runStructuredJson } from '../structured-call';
 import { parseRoomBlueprint } from './blueprint-schema';
 import type { AdjustCapabilityBlock } from './adjust-prompt';
 import {
@@ -40,7 +40,7 @@ import {
   buildAdjustTask,
 } from './adjust-prompt';
 
-export interface RoomAdjustRequest {
+export interface AdjustRoomRequest {
   /** The blueprint the user approved. */
   blueprint: RoomBlueprint;
   /** The user's own words. */
@@ -61,7 +61,7 @@ export interface RoomAdjustRequest {
   signal?: AbortSignal;
 }
 
-export type RoomAdjustOutcome =
+export type AdjustRoomOutcome =
   | {
       ok: true;
       blueprint: RoomBlueprint;
@@ -79,11 +79,11 @@ function intersect(allowed: string[], available: string[]): string[] {
   return allowed.filter((name) => available.includes(name));
 }
 
-function approvedEnvelope(request: RoomAdjustRequest): OperatingEnvelope {
+function approvedEnvelope(request: AdjustRoomRequest): OperatingEnvelope {
   return request.envelope ?? request.blueprint.envelope;
 }
 
-function resolveCatalogue(request: RoomAdjustRequest): RoomCapabilityCatalogue {
+function resolveCatalogue(request: AdjustRoomRequest): RoomCapabilityCatalogue {
   const envelope = approvedEnvelope(request);
   return request.catalogue ?? {
     models: envelope.allowedModels,
@@ -93,18 +93,31 @@ function resolveCatalogue(request: RoomAdjustRequest): RoomCapabilityCatalogue {
 }
 
 /**
- * The user's own locks, plus the one an adjustment always carries: the delivery
- * destination it started with. Where results go is a user setting, so an
- * adjustment can never move it — only the delivery setting itself can.
+ * The user's own locks, plus the two an adjustment always carries.
+ *
+ * The delivery destination it started with: where results go is a user setting,
+ * so an adjustment can never move it — only the delivery setting itself can.
+ *
+ * The permission ceiling the approved roster already holds: the envelope has no
+ * permission field, and the standard clamp only lowers permissions inside a
+ * read-only workspace, so without this a revision could raise a member to
+ * edit-and-push and put GitHub write access in the consent summary on the
+ * model's word alone (spec §12.2, §12.3). A caller that means to widen the
+ * ceiling passes a higher one explicitly — that is a user decision, not a
+ * planner one.
  */
-function effectiveLocks(request: RoomAdjustRequest): RoomUserLocks {
+function effectiveLocks(request: AdjustRoomRequest): RoomUserLocks {
   const locks = request.userLocks ?? {};
-  return { ...locks, deliveryDestination: locks.deliveryDestination ?? request.blueprint.deliveryDestination };
+  return {
+    ...locks,
+    deliveryDestination: locks.deliveryDestination ?? request.blueprint.deliveryDestination,
+    permissionCeiling: locks.permissionCeiling ?? approvedPermissionCeiling(request.blueprint),
+  };
 }
 
 /** Only the names that are both inside the ceiling and resolvable right now. */
 function availableCapabilities(
-  request: RoomAdjustRequest,
+  request: AdjustRoomRequest,
   catalogue: RoomCapabilityCatalogue,
   locks: RoomUserLocks,
 ): AdjustCapabilityBlock {
@@ -121,17 +134,50 @@ function availableCapabilities(
 }
 
 /**
+ * Fields the model must never author. `parseRoomBlueprint` already drops them by
+ * building the blueprint field by field, so nothing invented can reach the
+ * store. They are REFUSED here as well, and refused first: a reply that writes
+ * its own team size or its own report of what changed has misunderstood the
+ * split the whole feature rests on, and the repair pass is where that gets said.
+ */
+const AUTHORED_SUMMARY_KEYS: readonly string[] = [
+  'proposal', 'proposalSummary', 'summary', 'access', 'accessSummary', 'warnings',
+  'teamSize', 'maxCostUsd', 'maxWallClockMs',
+  'changes', 'changed', 'changeReport', 'diff', 'preserved', 'removed',
+];
+
+function authoredSummaryKeys(value: unknown): string[] {
+  return isRecord(value) ? AUTHORED_SUMMARY_KEYS.filter((key) => key in value) : [];
+}
+
+/**
  * Shape, then authority, then meaning. Runs inside the structured call so a
  * genuine validation failure is fed back to the model verbatim on the one
  * repair pass, exactly as the Workflow planner does.
  */
 function settleReply(
   value: unknown,
-  request: RoomAdjustRequest,
+  request: AdjustRoomRequest,
   catalogue: RoomCapabilityCatalogue,
   locks: RoomUserLocks,
 ): ParseResult<ClampResult> {
-  const parsed = parseRoomBlueprint(value);
+  const authored = authoredSummaryKeys(value);
+  if (authored.length > 0) {
+    return {
+      ok: false,
+      errors: [
+        `remove ${authored.join(', ')}: team size, time, spend, access and the report of what changed are computed `
+        + 'from the blueprint, never written by you. Return the blueprint fields only.',
+      ],
+    };
+  }
+
+  // The schema version is Sero's, not the model's: the prompt never asks for one
+  // and an adjustment cannot change it. Carrying it across keeps a reply that
+  // followed the prompt exactly from spending the single repair pass.
+  const parsed = parseRoomBlueprint(
+    isRecord(value) ? { ...value, schemaVersion: request.blueprint.schemaVersion } : value,
+  );
   if (!parsed.ok) return parsed;
 
   const clamped = clampBlueprintToLocks(parsed.value, approvedEnvelope(request), locks);
@@ -142,13 +188,17 @@ function settleReply(
   return { ok: true, value: clamped };
 }
 
-export async function adjustRoom(host: OrchestratorHost, request: RoomAdjustRequest): Promise<RoomAdjustOutcome> {
+export async function adjustRoom(host: OrchestratorHost, request: AdjustRoomRequest): Promise<AdjustRoomOutcome> {
   if (!request.instruction.trim()) {
     return { ok: false, errors: ['Say what you would like to change about the Room.'], modelResponses: [] };
   }
 
   const catalogue = resolveCatalogue(request);
   const locks = effectiveLocks(request);
+  // Why each reply was turned down. Kept here because a repair attempt that
+  // fails at the transport level replaces the reasons with its own error, and
+  // "the model call failed" does not tell the user what was wrong with the Room.
+  const rejections: string[] = [];
   const result = await runStructuredJson<ClampResult>(host, {
     systemPrompt: ROOM_ADJUST_SYSTEM_PROMPT,
     task: buildAdjustTask({
@@ -157,7 +207,11 @@ export async function adjustRoom(host: OrchestratorHost, request: RoomAdjustRequ
       locks,
       available: availableCapabilities(request, catalogue, locks),
     }),
-    parse: (value) => settleReply(value, request, catalogue, locks),
+    parse: (value) => {
+      const settled = settleReply(value, request, catalogue, locks);
+      if (!settled.ok) rejections.push(...settled.errors);
+      return settled;
+    },
     buildRepair: (previous, errors) => buildAdjustRepairTask(request.instruction, previous, errors),
     parentSessionId: request.parentSessionId,
     model: request.model,
@@ -167,8 +221,9 @@ export async function adjustRoom(host: OrchestratorHost, request: RoomAdjustRequ
   });
 
   if (!result.ok || !result.value) {
-    host.log(`Room adjustment failed: ${result.errors.join('; ')}`);
-    return { ok: false, errors: result.errors, modelResponses: result.responses };
+    const errors = [...new Set([...result.errors, ...rejections])];
+    host.log(`Room adjustment failed: ${errors.join('; ')}`);
+    return { ok: false, errors, modelResponses: result.responses };
   }
 
   const revised = result.value.blueprint;
