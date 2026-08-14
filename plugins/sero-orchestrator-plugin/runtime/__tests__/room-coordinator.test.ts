@@ -99,6 +99,30 @@ describe('starting a Room', () => {
     await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 2, 'the lead deciding');
   });
 
+  it('chases the answer when the member that owes it has gone idle', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // The lead asked and stopped to wait. The implementer read the question,
+    // did the work and finished its turn without replying — so no reply event
+    // is ever coming, and only the implementer can end the lead's wait.
+    await coordinator.mailbox.ask(roomId, {
+      fromMemberId: 'lead',
+      toMemberIds: ['impl'],
+      body: 'Which file holds the parser?',
+      commandId: 'cmd-ask-1',
+    });
+    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the implementer turn');
+    await waitFor(async () => (await memberOf(roomId, 'lead')).status === 'waiting', 'the lead waiting');
+
+    await coordinator.noteStructuralProgress(roomId, 'Implementer finished the parser.');
+    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 2, 'the implementer chased');
+    expect((await memberOf(roomId, 'lead')).status).toBe('waiting');
+    const prompt = String(host.persistentSessions.prompts.at(-1)?.content);
+    expect(prompt).toContain('Which file holds the parser?');
+  });
+
   it('does not wake the lead twice for the same silence', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

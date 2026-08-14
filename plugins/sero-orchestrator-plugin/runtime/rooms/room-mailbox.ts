@@ -411,6 +411,18 @@ function unknownRecipient(record: RoomRecord, ref: string): string {
 
     detectDeadlock: (roomId) => waits.detect(roomId),
 
+    async openQuestions(roomId) {
+      const record = await store.readRoom(roomId);
+      if (!record) return [];
+      const found: RoomMessage[] = [];
+      for (const member of record.members) {
+        if (member.status !== 'waiting' || !member.waitingOnQuestionId) continue;
+        const question = await waits.find(record, member.waitingOnQuestionId);
+        if (question) found.push(question);
+      }
+      return found;
+    },
+
     forget(roomId) {
       waits.forget(roomId);
       rate.forget(roomId);

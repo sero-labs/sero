@@ -108,5 +108,10 @@ export interface RoomMailbox {
   wait(roomId: string, memberId: string, questionId: string): Promise<MailboxResult>;
   /** Wait cycles among the members currently blocked (FR-020). */
   detectDeadlock(roomId: string): Promise<string[][]>;
+  /**
+   * The questions members are blocked on right now, from the durable log. It is
+   * how a quiet Room finds out that somebody owes an answer nobody will send.
+   */
+  openQuestions(roomId: string): Promise<RoomMessage[]>;
   forget(roomId: string): void;
 }

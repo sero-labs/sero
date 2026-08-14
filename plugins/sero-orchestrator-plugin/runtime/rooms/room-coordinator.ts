@@ -125,6 +125,7 @@ export class RoomCoordinator {
       },
       wake: (roomId, memberId, reason) => this.wake(roomId, memberId, reason),
       detectDeadlock: (roomId) => this.mailbox.detectDeadlock(roomId),
+      openQuestions: (roomId) => this.mailbox.openQuestions(roomId),
       signals: this.signals,
     };
   }
