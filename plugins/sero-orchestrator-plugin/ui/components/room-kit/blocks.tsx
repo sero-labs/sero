@@ -135,9 +135,10 @@ export interface ModeCardProps extends Omit<ComponentProps<'button'>, 'title'> {
 }
 
 /** The Workflow/Room chooser card on Home. */
-export function ModeCard({ glyph, title, badge, meta, on, className, children, ...props }: ModeCardProps) {
+export function ModeCard({ glyph, title, badge, meta, on = false, className, children, ...props }: ModeCardProps) {
   return (
     <button
+      {...props}
       type="button"
       aria-pressed={on}
       className={cn(
@@ -147,7 +148,6 @@ export function ModeCard({ glyph, title, badge, meta, on, className, children, .
           : 'border-room-line bg-room-surface',
         className,
       )}
-      {...props}
     >
       <span className="flex items-center gap-[9px] text-[15px] font-semibold tracking-[-0.02em] text-room-text">
         <span
