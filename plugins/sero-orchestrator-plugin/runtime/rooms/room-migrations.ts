@@ -9,7 +9,11 @@ type RoomMigration = (record: RoomRecord) => RoomRecord;
  * ROOM_SCHEMA_VERSION — an older Room is then repaired on load and rewritten,
  * so the rest of the runtime only ever sees the current shape.
  */
-const MIGRATIONS: RoomMigration[] = [];
+const MIGRATIONS: RoomMigration[] = [
+  // v1 -> v2: `timelineSequence` tells a watcher that the timeline moved. An
+  // existing Room restarts the count; the panel only compares it with itself.
+  (record) => ({ ...record, runtime: { ...record.runtime, timelineSequence: 0 } }),
+];
 
 /** Applies backward-compatible upgrades when a persisted Room is loaded. */
 export function migrateRoomRecord(record: RoomRecord, fromVersion: number): RoomRecord {

@@ -61,8 +61,11 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
 
   if (!room) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center text-sm text-muted-foreground">
         Reading this Room…
+        {/* A Room lives in one workspace. Opened from Usage or the Agent Board,
+            the id can belong to a workspace that is not the open one. */}
+        <p className="max-w-sm">If nothing appears, this Room belongs to another workspace. Open that workspace to see it.</p>
         <Button size="sm" variant="ghost" onClick={onBack}>Back to Rooms</Button>
       </div>
     );
@@ -131,6 +134,9 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
 
         {selected ? (
           <RoomMemberPanel
+            // Each member gets its own panel state: a half-typed answer or an
+            // opened fold must not follow the user to the next member.
+            key={selected.id}
             roomId={roomId}
             member={selected}
             live={live.get(selected.id) ?? null}
@@ -165,17 +171,22 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         )}
       </div>
 
-      <RoomMessageDialog
-        open={composing !== null}
-        busy={busy}
-        addressed={composing?.memberIds ?? []}
-        members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
-        onSend={(body, memberIds, now) => {
-          send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
-          setComposing(null);
-        }}
-        onClose={() => setComposing(null)}
-      />
+      {/* Mounted only while open, and keyed by who it addresses: a cancelled
+          draft must not reappear the next time, addressed to somebody else. */}
+      {composing && (
+        <RoomMessageDialog
+          key={composing.memberIds.join(',') || 'everyone'}
+          open
+          busy={busy}
+          addressed={composing.memberIds}
+          members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+          onSend={(body, memberIds, now) => {
+            send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
+            setComposing(null);
+          }}
+          onClose={() => setComposing(null)}
+        />
+      )}
     </div>
   );
 }

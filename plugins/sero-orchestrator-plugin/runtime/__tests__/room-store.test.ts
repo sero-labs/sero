@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import { createRoomStore } from '../rooms/room-store';
 import { MESSAGE_PAGE_SIZE } from '../rooms/room-messages';
-import { DEFAULT_ROOM_RETENTION, type RoomRecord } from '../rooms/room-state';
+import { DEFAULT_ROOM_RETENTION, ROOM_SCHEMA_VERSION, type RoomRecord } from '../rooms/room-state';
 import type { RoomMember } from '../../shared/room-types';
 import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../../shared/room-blueprint-types';
 
@@ -63,7 +63,7 @@ function roomFixture(id: string): RoomRecord {
     runtime: {
       status: 'running', startedAt: 't', endedAt: null, activeMemberIds: [],
       usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, rosterRevisions: 0, memberReplacements: 0 },
-      stopReason: null, messageSequence: 0, appliedCommandIds: [], lastProgressAt: null,
+      stopReason: null, messageSequence: 0, timelineSequence: 0, appliedCommandIds: [], lastProgressAt: null,
     },
     members: [member('m1'), member('m2')],
     brief: { objective: 'o', successCriteria: [], decisions: [], activeWork: [], blockers: [], openQuestions: [], artifactRefs: [], updatedAt: 't', conductorNote: null, conductorNoteAt: null },
@@ -101,7 +101,7 @@ describe('room store', () => {
     expect(room.readCursors.map((c: { memberId: string }) => c.memberId)).toEqual(['m1', 'm2']);
     expect(existsSync(path.join(dir, 'rooms/room-a/members/m1.json'))).toBe(true);
     const index = JSON.parse(await readFile(path.join(dir, 'rooms/index.json'), 'utf8'));
-    expect(index.schemaVersion).toBe(1);
+    expect(index.schemaVersion).toBe(ROOM_SCHEMA_VERSION);
     expect(index.rooms[0].memberCount).toBe(2);
   });
 
@@ -249,6 +249,25 @@ describe('room store', () => {
     expect(existsSync(path.join(dir, 'rooms/room-a/timeline.1.jsonl'))).toBe(true);
     const events = await store.readTimeline('room-a', 3);
     expect(events.map((e) => e.summary)).toEqual(['event 11', 'event 10', 'event 9']);
+  });
+
+  it('moves the record when the timeline moves, so a watcher learns of it', async () => {
+    // A claim or a revision appends an event without touching anything else the
+    // Room panel follows. Without this the panel would show a stale timeline
+    // until the next turn happened to write room.json.
+    const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    const event = (id: string) => ({
+      id, roomId: 'room-a', at: 't', kind: 'claim' as const, memberId: 'm1', summary: id, details: null,
+    });
+
+    await store.appendTimeline('room-a', [event('e1'), event('e2')]);
+    expect((await store.readRoom('room-a'))?.runtime.timelineSequence).toBe(2);
+    const persisted = JSON.parse(await readFile(path.join(dir, 'rooms/room-a/room.json'), 'utf8'));
+    expect(persisted.runtime.timelineSequence).toBe(2);
+
+    await store.appendTimeline('room-a', [event('e3')]);
+    expect((await store.readRoom('room-a'))?.runtime.timelineSequence).toBe(3);
   });
 
   it('deletes the whole room dir and drops it from the index', async () => {

@@ -158,7 +158,27 @@ describe('the user Room surface', () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
     const outcome = await app.wake(roomId, 'nobody');
-    expect(outcome).toEqual({ ok: false, error: 'nobody is not an active member of this Room.' });
+    expect(outcome).toEqual({ ok: false, error: 'nobody is not a member this Room can put back to work.' });
+  });
+
+  it('says nothing more reaches a Room that has finished', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await store.updateMember(roomId, 'impl', (member) => ({
+      ...member,
+      status: 'waiting',
+      waitingOnQuestionId: 'q-3',
+    }));
+    await app.cancel(roomId, 'Not needed after all.');
+
+    // Every one of these would otherwise report a send that reached nobody:
+    // the member sessions are closed once the Room stops.
+    const gone = { ok: false, error: 'This Room has finished. Nothing more reaches its members.' };
+    expect(await app.intervene(roomId, 'one more thing')).toEqual(gone);
+    expect(await app.wake(roomId, 'impl')).toEqual(gone);
+    expect(await app.answer(roomId, 'impl', 'here you go')).toEqual(gone);
+    expect(await app.release(roomId, 'impl')).toEqual(gone);
+    expect(await store.readMessages(roomId, 0, 50)).toHaveLength(0);
   });
 
   it('answers a Room it cannot find without touching anything', async () => {

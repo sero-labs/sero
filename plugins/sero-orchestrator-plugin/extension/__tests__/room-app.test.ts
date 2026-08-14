@@ -45,6 +45,15 @@ function stubApp(): { app: RoomAppActions; calls: Call[] } {
 
 const ctx = { cwd: '/work/repo', sessionManager: {} } as unknown as ExtensionContext;
 
+/** A real chat: it has a session file on disk, so its result can come back to it. */
+const chatCtx = {
+  cwd: '/work/repo',
+  sessionManager: {
+    getSessionFile: () => '/sessions/chat-9.jsonl',
+    getSessionId: () => 'chat-9',
+  },
+} as unknown as ExtensionContext;
+
 const notAMember = () => Promise.resolve(undefined);
 
 const runTool = (
@@ -121,5 +130,16 @@ describe('the rooms tool', () => {
       .toContain('approvalId is required');
     expect((await runTool({ action: 'resolve_approval', roomId: 'room-1', approvalId: 'ap-1' }, app)).text)
       .toContain('decision is required');
+  });
+
+  it('remembers which chat asked, and only when there is one to answer', async () => {
+    const { app, calls } = stubApp();
+    // The Room panel's own session is in-memory: it has no session file, so
+    // there is no chat to deliver to and the Room must not claim one.
+    await executeRoomAppTool({ action: 'prepare', problem: 'fix it' }, ctx, () => app, notAMember);
+    expect((calls[0].args[0] as { originSessionId: string | null }).originSessionId).toBeNull();
+
+    await executeRoomAppTool({ action: 'prepare', problem: 'fix it' }, chatCtx, () => app, notAMember);
+    expect((calls[1].args[0] as { originSessionId: string | null }).originSessionId).toBe('chat-9');
   });
 });

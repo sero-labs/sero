@@ -169,7 +169,10 @@ export function RoomMemberPanel({
               {shown.map((turn) => (
                 <TurnBlock key={turn.index} memberId={member.id} turn={turn} />
               ))}
-              {live?.text && (
+              {/* Only mid-turn: the retained text outlives the turn, and the
+                  finished turn arrives in the transcript above from the session
+                  file itself. */}
+              {live?.turnId && live.text && (
                 <div className="rounded-md border border-emerald-500/30 p-2.5">
                   <p className="text-xs text-emerald-400">In progress</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm">{live.text}</p>

@@ -49,7 +49,7 @@ function room(current: RoomMember): Room {
     runtime: {
       status: 'running', startedAt: 't', endedAt: null, activeMemberIds: [],
       usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, rosterRevisions: 0, memberReplacements: 0 },
-      stopReason: null, messageSequence: 0, appliedCommandIds: [], lastProgressAt: null,
+      stopReason: null, messageSequence: 0, timelineSequence: 0, appliedCommandIds: [], lastProgressAt: null,
     },
     members: [current],
     brief: {

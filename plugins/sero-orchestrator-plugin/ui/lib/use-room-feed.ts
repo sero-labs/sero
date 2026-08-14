@@ -123,12 +123,15 @@ export function useMemberHistory(
   signal: string,
 ): MemberHistory {
   const [entries, setEntries] = useState<PersistentSessionHistoryEntry[]>([]);
-  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  // `exhausted` is not the same as "no cursor yet": once the user has read back
+  // to the start of the session, a later re-read of the NEWEST page must not
+  // offer "load earlier turns" again.
+  const [tail, setTail] = useState<{ cursor: string | null; exhausted: boolean }>({ cursor: null, exhausted: false });
   const [loadingOlder, setLoadingOlder] = useState(false);
 
   useEffect(() => {
     setEntries([]);
-    setOlderCursor(null);
+    setTail({ cursor: null, exhausted: false });
   }, [roomId, memberId]);
 
   useEffect(() => {
@@ -139,7 +142,9 @@ export function useMemberHistory(
       setEntries((previous) => mergeHistory(details.entries ?? [], previous));
       // The first read sets the cursor; later reads must not rewind past what
       // the user has already opened.
-      setOlderCursor((previous) => previous ?? details.olderCursor ?? null);
+      setTail((previous) =>
+        previous.exhausted || previous.cursor ? previous : { cursor: details.olderCursor ?? null, exhausted: false },
+      );
     });
     return () => {
       current = false;
@@ -147,18 +152,22 @@ export function useMemberHistory(
   }, [roomId, memberId, signal, dispatch]);
 
   const loadOlder = () => {
-    if (!roomId || !memberId || !olderCursor || loadingOlder) return;
+    if (!roomId || !memberId || !tail.cursor || loadingOlder) return;
     setLoadingOlder(true);
-    void dispatch({ action: 'history', roomId, memberId, cursor: olderCursor })
+    void dispatch({ action: 'history', roomId, memberId, cursor: tail.cursor })
       .then((details) => {
         if (!details?.entries) return;
         setEntries((previous) => mergeHistory(previous, details.entries ?? []));
-        setOlderCursor(details.olderCursor ?? null);
+        setTail(
+          details.olderCursor
+            ? { cursor: details.olderCursor, exhausted: false }
+            : { cursor: null, exhausted: true },
+        );
       })
       .finally(() => setLoadingOlder(false));
   };
 
-  return { entries, olderCursor, loadOlder, loadingOlder };
+  return { entries, olderCursor: tail.cursor, loadOlder, loadingOlder };
 }
 
 /** How full a member's context window is. Null while its session is not live. */

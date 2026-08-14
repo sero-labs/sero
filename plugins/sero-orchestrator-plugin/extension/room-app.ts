@@ -155,7 +155,11 @@ function plannedResult(outcome: PrepareRoomOutcome): ToolResult {
   return failure(outcome.error);
 }
 
-async function run(app: RoomAppActions, params: RoomAppToolParamsShape): Promise<ToolResult> {
+async function run(
+  app: RoomAppActions,
+  params: RoomAppToolParamsShape,
+  originSessionId: string | null,
+): Promise<ToolResult> {
   if (params.action === 'prepare') {
     const clarifications = clarificationsOf(params.clarificationsJson);
     if ('error' in clarifications) return failure(clarifications.error);
@@ -164,6 +168,7 @@ async function run(app: RoomAppActions, params: RoomAppToolParamsShape): Promise
         problem: params.problem ?? '',
         presetId: params.presetId,
         clarifications,
+        originSessionId,
         limits: {
           maxCostUsd: params.maxCostUsd,
           maxWallClockMs: params.maxMinutes === undefined ? undefined : params.maxMinutes * 60_000,
@@ -294,6 +299,10 @@ export async function executeRoomAppTool(
     sessionPath: ctx?.sessionManager.getSessionFile?.() ?? null,
     cwd: ctx?.cwd ?? null,
   };
+  // Which chat gets the result (FR-029). A chat has a session file on disk; the
+  // Room panel's own agent session is in-memory, and a result delivered there
+  // would reach nobody — so a Room prepared from the panel has no origin chat.
+  const originSessionId = signals.sessionPath ? ctx?.sessionManager.getSessionId?.() ?? null : null;
   // The authority rule. A member has its own surface, where every command is
   // checked against the roster; letting it through here would hand it the
   // user's controls.
@@ -305,7 +314,7 @@ export async function executeRoomAppTool(
   if (!app) {
     return failure('Room mode is not running for this workspace. It is switched on with SERO_ROOMS=1.');
   }
-  return run(app, params);
+  return run(app, params, originSessionId);
 }
 
 export function registerRoomAppTool(pi: ExtensionAPI): void {

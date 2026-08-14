@@ -180,6 +180,13 @@ export interface RoomRuntimeState {
   stopReason: RoomStopReason | null;
   /** Monotonic; the message cursor domain. */
   messageSequence: number;
+  /**
+   * Timeline events appended so far. It exists so a reader that watches
+   * room.json learns that the timeline moved: a claim, a revision or a
+   * compaction appends an event without touching anything else the panel
+   * follows, and would otherwise go unseen until the next turn.
+   */
+  timelineSequence: number;
   /** Command idempotency keys already applied (NFR-003). Bounded. */
   appliedCommandIds: string[];
   lastProgressAt: string | null;
@@ -301,4 +308,4 @@ export interface RoomIndex {
  * It lives with the shape it describes, so the renderer can state the version
  * of an empty index without importing runtime code.
  */
-export const ROOM_SCHEMA_VERSION = 1;
+export const ROOM_SCHEMA_VERSION = 2;

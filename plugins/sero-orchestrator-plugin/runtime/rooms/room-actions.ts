@@ -78,6 +78,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, rosterRevisions: 0, memberReplacements: 0 },
       stopReason: null,
       messageSequence: 0,
+      timelineSequence: 0,
       appliedCommandIds: [],
       lastProgressAt: null,
     },

@@ -70,8 +70,15 @@ describe('which view a Room opens on', () => {
 });
 
 describe('what a Watch pane says', () => {
-  it('shows the live text when there is any', () => {
-    expect(memberPaneText('working', snapshot({ text: 'editing session.ts' }))).toBe('editing session.ts');
+  it('shows the live text while the turn is in flight', () => {
+    expect(memberPaneText('working', snapshot({ turnId: 't-1', text: 'editing session.ts' }))).toBe('editing session.ts');
+  });
+
+  it('stops showing it once the turn ends, rather than dressing it as live', () => {
+    // The text is retained until the next turn starts; the finished turn is
+    // read from the session file instead.
+    expect(memberPaneText('idle', snapshot({ turnId: null, text: 'editing session.ts', lastTurnStatus: 'completed' })))
+      .toContain('last turn completed');
   });
 
   it('explains a waiting member rather than leaving its last line up as live', () => {

@@ -433,7 +433,22 @@ export function createRoomStore(
     // Serialized like every other write: the timeline shares the state
     // directory, and an unserialized append can interleave with a room write
     // and lose events under concurrency.
-    appendTimeline: (roomId, events) => serialize(() => timeline.append(roomId, events)),
+    appendTimeline: (roomId, events) =>
+      serialize(async () => {
+        await timeline.append(roomId, events);
+        // The panel watches room.json, so an append that left the record
+        // untouched would never reach it. Nested `serialize` would deadlock,
+        // hence the inline commit.
+        const prev = await ensureLoaded();
+        if (!prev.rooms.some((room) => room.definition.id === roomId)) return;
+        await commit(
+          prev,
+          mapRoom(prev, roomId, (room) => ({
+            ...room,
+            runtime: { ...room.runtime, timelineSequence: room.runtime.timelineSequence + events.length },
+          })),
+        );
+      }),
 
     readTimeline: (roomId, limit) => timeline.read(roomId, limit),
 

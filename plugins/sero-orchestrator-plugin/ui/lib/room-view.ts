@@ -17,14 +17,15 @@ import { TERMINAL_ROOM_STATUSES, type MemberStatus, type PersistedRoom, type Roo
 export type RoomView = 'timeline' | 'watch' | 'result';
 
 /**
- * What "the Room moved" means, as one comparable value. Status, progress and
- * who holds a turn are exactly the changes a timeline or a live pane must
- * follow; a change anywhere else in the record does not need a re-read.
+ * What "the Room moved" means, as one comparable value. Status, spend, who
+ * holds a turn, and the two append counters cover every change a timeline or a
+ * live pane must follow — a claim or a revision moves the timeline counter
+ * without moving anything else, which is why that counter exists.
  */
 export function roomSignal(room: PersistedRoom | null): string {
   if (!room) return '';
-  const { status, messageSequence, usage, activeMemberIds } = room.runtime;
-  return [status, messageSequence, usage.turns, usage.costUsd, activeMemberIds.join('+')].join(':');
+  const { status, messageSequence, timelineSequence, usage, activeMemberIds } = room.runtime;
+  return [status, messageSequence, timelineSequence, usage.turns, usage.costUsd, activeMemberIds.join('+')].join(':');
 }
 
 /** A finished Room opens on its result; a live one opens on what is happening. */
@@ -39,7 +40,10 @@ export function defaultRoomView(status: RoomStatus): RoomView {
  * do.
  */
 export function memberPaneText(status: MemberStatus, snapshot: MemberLiveSnapshot | null): string {
-  if (snapshot?.text) return snapshot.text;
+  // Only WHILE a turn is in flight. The text is retained after the turn ends,
+  // and showing it then would be a finished turn dressed as a live one — the
+  // session file already carries it, and the transcript reads it from there.
+  if (snapshot?.turnId && snapshot.text) return snapshot.text;
   if (status === 'waiting') {
     return 'Its turn ended when it asked its question, so nothing is streaming and no turn is held. It picks up in the same session the moment a reply lands.';
   }
@@ -47,6 +51,7 @@ export function memberPaneText(status: MemberStatus, snapshot: MemberLiveSnapsho
     return 'Its session is closed but kept. Open it to read everything it did.';
   }
   if (snapshot?.turnId) return 'Working. The turn has produced no text yet.';
+  if (snapshot?.lastTurnStatus) return `Its last turn ${snapshot.lastTurnStatus}. Open its session to read it.`;
   return 'Nothing is streaming from this member right now.';
 }
 
@@ -72,7 +77,7 @@ export function toSessionTurns(entries: PersistentSessionHistoryEntry[]): Sessio
 
 /** An entry's identity across re-reads: one turn writes one entry per role and text. */
 const entryKey = (entry: PersistentSessionHistoryEntry): string =>
-  `${entry.turnIndex}:${entry.timestamp}:${entry.role}:${entry.text.length}`;
+  `${entry.turnIndex}:${entry.timestamp}:${entry.role}:${entry.text}`;
 
 /**
  * Combines two reads of one session's history, newest first.

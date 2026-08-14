@@ -18,7 +18,7 @@ import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
 import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
-import type { RoomStatus } from '../../shared/room-types';
+import { TERMINAL_ROOM_STATUSES, type MemberStatus, type RoomStatus } from '../../shared/room-types';
 import { findRoomTemplate, type RoomTemplate } from '../../shared/room-templates';
 import { adjustRoom } from './adjust';
 import { planRoom, type RoomUserLimits } from './planner';
@@ -30,6 +30,13 @@ import type { RoomMessageDraft } from './room-messages';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
 const PLANNABLE: readonly RoomStatus[] = ['draft', 'ready'];
+
+/**
+ * Member states a wake can act on. The rest have no session to put back to
+ * work — retired and failed are over, and a member already working does not
+ * need waking.
+ */
+const WAKEABLE: readonly MemberStatus[] = ['idle', 'waiting', 'blocked', 'suspended', 'starting'];
 
 export interface RoomAppActionsContext extends RoomLiveContext {
   coordinator: RoomCoordinator;
@@ -145,6 +152,16 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
     if (!record) return { ok: false, error: `Room not found: ${roomId}` };
     return run(record.runtime.status);
   }
+
+  /**
+   * Nothing the user says reaches a Room that has stopped for good: its member
+   * sessions are closed, so the message would never be read and the wake would
+   * wake nobody. Refusing says so instead of reporting a send that did nothing.
+   */
+  const stopped = (status: RoomStatus): SimpleOutcome | null =>
+    TERMINAL_ROOM_STATUSES.includes(status)
+      ? { ok: false, error: 'This Room has finished. Nothing more reaches its members.' }
+      : null;
 
   /**
    * Ends one member's wait on the user's word. Both ways of doing it write ONE
@@ -284,7 +301,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
     async intervene(roomId, body, memberIds, wake = true) {
       const said = body.trim();
       if (!said) return { ok: false, error: 'Write what you want to tell the Room.' };
-      return withRoom(roomId, async () => {
+      return withRoom(roomId, async (status) => {
+        const finished = stopped(status);
+        if (finished) return finished;
         const record = await store.readRoom(roomId);
         if (!record) return { ok: false, error: `Room not found: ${roomId}` };
         const active = record.members.filter((member) => member.status !== 'retired');
@@ -322,28 +341,31 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
     async answer(roomId, memberId, body) {
       const said = body.trim();
       if (!said) return { ok: false, error: 'Write the answer.' };
-      return settleWait(roomId, memberId, (questionId) => ({
+      return withRoom(roomId, async (status) => stopped(status) ?? settleWait(roomId, memberId, (questionId) => ({
         kind: 'system' as const,
         body: said,
         questionId: null,
         inReplyToQuestionId: questionId,
-      }));
+      })));
     },
 
     async release(roomId, memberId) {
-      return settleWait(roomId, memberId, (questionId) => ({
+      return withRoom(roomId, async (status) => stopped(status) ?? settleWait(roomId, memberId, (questionId) => ({
         kind: 'cancel' as const,
         body: 'That question will not be answered. Carry on without it.',
         questionId,
         inReplyToQuestionId: null,
-      }));
+      })));
     },
 
     async wake(roomId, memberId) {
-      return withRoom(roomId, async () => {
+      return withRoom(roomId, async (status) => {
+        const finished = stopped(status);
+        if (finished) return finished;
         const member = await store.readMember(roomId, memberId);
-        if (!member || member.status === 'retired') {
-          return { ok: false, error: `${memberId} is not an active member of this Room.` };
+        // A member that finished or failed has no session left to wake.
+        if (!member || WAKEABLE.includes(member.status) === false) {
+          return { ok: false, error: `${memberId} is not a member this Room can put back to work.` };
         }
         await coordinator.wake(roomId, memberId, 'user-intervention');
         return { ok: true };
