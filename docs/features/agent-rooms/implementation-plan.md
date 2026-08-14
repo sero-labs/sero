@@ -489,6 +489,26 @@ At the end of Phase 7, Room mode is usable behind a feature flag. The old collab
 > A member now runs on its own command surface: the Room-owning plugin's
 > commands and nothing else. A run can be held on one model and one effort level
 > (`SERO_ROOM_MODELS`, `SERO_ROOM_THINKING`).
+>
+> A second round of live runs found the defects a Room only shows when real
+> models drive it. All are fixed:
+>
+> - the protocol prompt listed command names without their arguments, so a
+>   member invented a syntax and was refused every time;
+> - a member that stopped to wait had its own reason overwritten with "Finished
+>   its turn.", hiding what it waited for;
+> - only work-board changes counted as progress, so a Room that claimed paths
+>   and worked stopped for "nothing has progressed";
+> - a member waiting for an answer from an idle member was in no cycle, so
+>   nothing woke either of them — the Room now chases the answer once and then
+>   frees the asker;
+> - a member that asked for the user had no answer box, and its notification was
+>   too long to read and did nothing when clicked.
+>
+> **Entry-point decision (user, 14 Aug 2026):** the two chat buttons that ran the
+> fixed collaboration and debate sequences are REMOVED rather than re-routed.
+> Those sequences run from the Agent Rooms UI, so there is no hard-coded pipeline
+> left to point anywhere.
 
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.
@@ -500,28 +520,28 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 - [ ] Evaluate parallel issues with worktrees and path claims. *(harness ready)*
 - [ ] Evaluate chat-origin result delivery. *(harness ready)*
 - [ ] Measure success, duration, cost, failures and user intervention. *(recorded to `e2e/screenshots/agent-rooms/evaluation.json` by the harness)*
-- [ ] Fix Room defects that block normal use.
+- [x] Fix Room defects that block normal use.
 - [ ] Confirm that built-in presets remain adaptive.
-- [ ] Route collaboration and adversarial entry points to Room creation after approval.
+- [x] Route collaboration and adversarial entry points to Room creation after approval. *(decided: the buttons are removed, not re-routed — Rooms are started from the Agent Rooms UI)*
 - [ ] Add release and migration notes.
-- [ ] Remove CollaborationEngine and DebateEngine.
-- [ ] Remove orphaned legacy IPC, stores, UI, templates, tests and documentation.
-- [ ] Verify that no Room record or production entry point depends on a legacy engine.
+- [x] Remove CollaborationEngine and DebateEngine.
+- [x] Remove orphaned legacy IPC, stores, UI, templates, tests and documentation. *(~4,200 lines: main-process feature, IPC, preload, renderer stores, components and tests)*
+- [x] Verify that no Room record or production entry point depends on a legacy engine. *(repo typecheck green; the only `collaboration` string left is the published theme colour group)*
 
 ### Deliverables
 
 - [ ] Evaluation report for the three primary scenarios.
 - [ ] Approved entry-point switch.
 - [ ] Release and migration notes.
-- [ ] Removal of both legacy engines and orphaned code.
+- [x] Removal of both legacy engines and orphaned code.
 
 ### Acceptance criteria
 
 - [ ] Generated Rooms complete the agreed primary scenarios.
 - [ ] Collaboration behaviour comes from the problem and optional preset, not a fixed sequence.
 - [ ] Chat invocation still receives one final result.
-- [ ] No dual-runtime parity framework remains.
-- [ ] No production code constructs CollaborationEngine or DebateEngine.
+- [x] No dual-runtime parity framework remains.
+- [x] No production code constructs CollaborationEngine or DebateEngine.
 - [ ] No orphaned legacy state remains.
 - [ ] pnpm typecheck and the full relevant test suite pass.
 
