@@ -27,25 +27,27 @@ interface Addressee {
 interface RoomMessageDialogProps {
   open: boolean;
   busy: boolean;
+  /** Members the dialog opens already addressed to. Empty = the whole Room. */
+  addressed: string[];
   members: Addressee[];
   onSend: (body: string, memberIds: string[], now: boolean) => void;
   onClose: () => void;
 }
 
-export function RoomMessageDialog({ open, busy, members, onSend, onClose }: RoomMessageDialogProps) {
+export function RoomMessageDialog({ open, busy, addressed, members, onSend, onClose }: RoomMessageDialogProps) {
   const [body, setBody] = useState('');
-  const [targets, setTargets] = useState<string[]>([]);
+  const [chosen, setChosen] = useState<string[] | null>(null);
   const [now, setNow] = useState(true);
+  // Opening from one member addresses that member; the user may still change it.
+  const targets = chosen ?? addressed;
 
   const toggle = (memberId: string) =>
-    setTargets((current) =>
-      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
-    );
+    setChosen(targets.includes(memberId) ? targets.filter((id) => id !== memberId) : [...targets, memberId]);
 
   const send = () => {
     onSend(body.trim(), targets, now);
     setBody('');
-    setTargets([]);
+    setChosen(null);
   };
 
   return (
@@ -67,11 +69,12 @@ export function RoomMessageDialog({ open, busy, members, onSend, onClose }: Room
           placeholder="Stop and check the migration first."
         />
 
-        <div className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label="Who hears it" className="flex flex-wrap gap-1.5">
           {members.map((member) => (
             <Button
               key={member.id}
               size="sm"
+              aria-pressed={targets.includes(member.id)}
               variant={targets.includes(member.id) ? 'secondary' : 'ghost'}
               onClick={() => toggle(member.id)}
             >
@@ -83,9 +86,13 @@ export function RoomMessageDialog({ open, busy, members, onSend, onClose }: Room
           {targets.length === 0 ? 'Nobody named — everyone in the Room hears it.' : `${targets.length} named.`}
         </p>
 
-        <div className="flex gap-1">
-          <Button size="sm" variant={now ? 'secondary' : 'ghost'} onClick={() => setNow(true)}>Interrupt them</Button>
-          <Button size="sm" variant={now ? 'ghost' : 'secondary'} onClick={() => setNow(false)}>Wait for their next turn</Button>
+        <div role="group" aria-label="When it arrives" className="flex gap-1">
+          <Button size="sm" aria-pressed={now} variant={now ? 'secondary' : 'ghost'} onClick={() => setNow(true)}>
+            Interrupt them
+          </Button>
+          <Button size="sm" aria-pressed={!now} variant={now ? 'ghost' : 'secondary'} onClick={() => setNow(false)}>
+            Wait for their next turn
+          </Button>
         </div>
 
         <DialogFooter>

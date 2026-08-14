@@ -9,7 +9,9 @@
  */
 
 import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
+import { patternsOverlap } from '../../shared/room-claim-overlap';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
+import type { PathClaim } from '../../shared/room-message-types';
 import { TERMINAL_ROOM_STATUSES, type MemberStatus, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 
 export type RoomView = 'timeline' | 'watch' | 'result';
@@ -90,4 +92,29 @@ export function mergeHistory(
     seen.add(key);
     return true;
   });
+}
+
+export interface ClaimOverlap {
+  members: [string, string];
+  patterns: [string, string];
+}
+
+/**
+ * Pairs of active claims, held by different members, that can name one file.
+ *
+ * It uses the runtime's own overlap rule rather than a second one written for
+ * the panel, so the warning the user reads is the warning the members were
+ * given.
+ */
+export function claimOverlaps(claims: PathClaim[]): ClaimOverlap[] {
+  const overlaps: ClaimOverlap[] = [];
+  for (let left = 0; left < claims.length; left += 1) {
+    for (let right = left + 1; right < claims.length; right += 1) {
+      const [one, other] = [claims[left], claims[right]];
+      if (one.memberId !== other.memberId && patternsOverlap(one.pattern, other.pattern)) {
+        overlaps.push({ members: [one.memberId, other.memberId], patterns: [one.pattern, other.pattern] });
+      }
+    }
+  }
+  return overlaps;
 }

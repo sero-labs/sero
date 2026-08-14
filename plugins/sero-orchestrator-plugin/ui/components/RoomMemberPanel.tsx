@@ -41,6 +41,8 @@ interface RoomMemberPanelProps {
   busy: boolean;
   dispatch: RoomFeedDispatch;
   onWake: () => void;
+  /** Tells this member alone, as the Room rather than as a peer. */
+  onMessage: () => void;
   /** Answers, on the user's behalf, the question this member is blocked on. */
   onAnswer: (body: string) => void;
   /** Releases it from a question that is never going to be answered. */
@@ -56,6 +58,7 @@ export function RoomMemberPanel({
   busy,
   dispatch,
   onWake,
+  onMessage,
   onAnswer,
   onRelease,
   onClose,
@@ -95,7 +98,9 @@ export function RoomMemberPanel({
           {formatCost(member.usage.costUsd)}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          {(member.status === 'waiting' || member.status === 'idle') && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onMessage}>Message</Button>
+          {/* Blocked is included: waking it is the user saying "start it anyway". */}
+          {(member.status === 'waiting' || member.status === 'idle' || member.status === 'blocked') && (
             <Button size="sm" variant="ghost" disabled={busy} onClick={onWake}>Wake</Button>
           )}
           <Button size="sm" variant="ghost" onClick={onClose}><X className="h-3.5 w-3.5" /></Button>
@@ -123,7 +128,7 @@ export function RoomMemberPanel({
       {tab !== 'session' ? (
         <MemberTabPanel tab={tab} member={member} live={live} context={context} maxCostUsd={maxCostUsd} />
       ) : (
-        <div className="flex min-h-0 flex-1">
+        <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
               <span className={live?.turnId ? 'text-emerald-400' : 'text-muted-foreground'}>
@@ -134,6 +139,7 @@ export function RoomMemberPanel({
               )}
               <Button
                 size="sm"
+                aria-pressed={follow}
                 variant={follow ? 'secondary' : 'ghost'}
                 className="ml-auto"
                 onClick={() => setFollow(!follow)}
@@ -246,6 +252,7 @@ function TurnStrip({ turns, onJump }: { turns: SessionTurn[]; onJump: (index: nu
           key={turn.index}
           type="button"
           title={`Turn ${turn.index} · ${formatTime(turn.at)}`}
+          aria-label={`Go to turn ${turn.index}${turn.compacted ? ', compacted' : ''}`}
           onClick={() => onJump(turn.index)}
           className={`h-3 w-1.5 shrink-0 rounded-sm ${turn.compacted ? 'bg-sky-500' : 'bg-muted-foreground/40'} hover:bg-foreground`}
         />

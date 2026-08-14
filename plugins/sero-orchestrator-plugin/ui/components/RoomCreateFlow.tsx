@@ -140,7 +140,7 @@ export function RoomCreateFlow({ busy, dispatch, onStarted, onCancel }: RoomCrea
 function Preparing() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground motion-reduce:animate-none" />
       <div>
         <p className="text-base font-medium">Designing the team</p>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">

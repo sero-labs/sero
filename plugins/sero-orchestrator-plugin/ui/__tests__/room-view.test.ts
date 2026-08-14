@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest';
 import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { PersistedRoom } from '../../shared/room-types';
-import { defaultRoomView, memberPaneText, mergeHistory, roomSignal, toSessionTurns } from '../lib/room-view';
+import type { PathClaim } from '../../shared/room-message-types';
+import { claimOverlaps, defaultRoomView, memberPaneText, mergeHistory, roomSignal, toSessionTurns } from '../lib/room-view';
 
 const room = (runtime: Partial<PersistedRoom['runtime']>): PersistedRoom =>
   ({
@@ -117,5 +118,35 @@ describe('reading a member session', () => {
       [entry({ turnIndex: 1, role: 'tool', text: 'same' })],
     );
     expect(merged).toHaveLength(2);
+  });
+});
+
+const claim = (memberId: string, pattern: string): PathClaim => ({
+  id: `${memberId}:${pattern}`,
+  roomId: 'room-1',
+  memberId,
+  pattern,
+  reason: 'working here',
+  status: 'active',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  releasedAt: null,
+});
+
+describe('who is about to edit the same file', () => {
+  it('pairs two members whose claims meet, including through a directory claim', () => {
+    const overlaps = claimOverlaps([
+      claim('impl-1', 'src/auth/session.ts'),
+      claim('impl-2', 'src/auth'),
+      claim('tester', 'tests/auth/**'),
+    ]);
+
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0].members).toEqual(['impl-1', 'impl-2']);
+  });
+
+  it('does not warn about one member claiming two paths, or about paths that never meet', () => {
+    // Same member, and the two patterns DO meet — it is only overlapping itself.
+    expect(claimOverlaps([claim('impl-1', 'src/auth'), claim('impl-1', 'src/auth/session.ts')])).toEqual([]);
+    expect(claimOverlaps([claim('impl-1', 'src/a.ts'), claim('impl-2', 'src/b.ts')])).toEqual([]);
   });
 });

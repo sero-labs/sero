@@ -65,17 +65,34 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
       </span>
 
       <div className="ml-auto flex items-center gap-1">
-        {finished && (
-          <Button size="sm" variant={view === 'result' ? 'secondary' : 'ghost'} onClick={() => onView('result')}>
-            Result
+        <div role="group" aria-label="Room view" className="flex gap-1">
+          {finished && (
+            <Button
+              size="sm"
+              aria-pressed={view === 'result'}
+              variant={view === 'result' ? 'secondary' : 'ghost'}
+              onClick={() => onView('result')}
+            >
+              Result
+            </Button>
+          )}
+          <Button
+            size="sm"
+            aria-pressed={view === 'timeline'}
+            variant={view === 'timeline' ? 'secondary' : 'ghost'}
+            onClick={() => onView('timeline')}
+          >
+            Timeline
           </Button>
-        )}
-        <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'} onClick={() => onView('timeline')}>
-          Timeline
-        </Button>
-        <Button size="sm" variant={view === 'watch' ? 'secondary' : 'ghost'} onClick={() => onView('watch')}>
-          Watch
-        </Button>
+          <Button
+            size="sm"
+            aria-pressed={view === 'watch'}
+            variant={view === 'watch' ? 'secondary' : 'ghost'}
+            onClick={() => onView('watch')}
+          >
+            Watch
+          </Button>
+        </div>
         {live && (
           <Button size="sm" variant="ghost" disabled={busy} onClick={onMessage}>
             <MessageSquare className="mr-1 h-3.5 w-3.5" /> Message the team

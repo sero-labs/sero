@@ -411,49 +411,49 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 
 ### Work checklist
 
-- [ ] Add Workflows and Rooms navigation without changing Workflow behaviour.
-- [ ] Implement Rooms home and the approved simple creation flow.
-- [ ] Implement compact computed proposal, natural-language adjustment and advanced settings.
-- [ ] Implement live roster, activity, work, claims, artifacts and Room revisions.
-- [ ] Implement the Watch view showing every member's current activity live.
-- [ ] Implement the member session view with a live turn, follow toggle, turn strip and collapsed early history.
-- [ ] Implement member mandate, context, worktree and cost inspection.
-- [ ] Implement direct message, queued broadcast, explicit wake, pause, resume, cancel and intervention.
-- [ ] Implement consolidated approvals, deadlock, failure and recovery states.
-- [ ] Implement completion and invoking-chat delivery state.
-- [ ] Extend the Agent Board store to watch the Room index alongside the Workflow loop index.
-- [ ] Link Room members to the global Agent Board and back to the Room.
-- [ ] Link grouped Usage Room entries to the Room where supported.
-- [ ] Add keyboard, screen-reader, contrast and reduced-motion support.
-- [ ] Add component and critical-flow end-to-end tests.
-- [ ] Complete final design review against the approved prototype.
+- [x] Add Workflows and Rooms navigation without changing Workflow behaviour.
+- [x] Implement Rooms home and the approved simple creation flow.
+- [x] Implement compact computed proposal, natural-language adjustment and advanced settings.
+- [x] Implement live roster, activity, work, claims, artifacts and Room revisions.
+- [x] Implement the Watch view showing every member's current activity live.
+- [x] Implement the member session view with a live turn, follow toggle, turn strip and collapsed early history.
+- [x] Implement member mandate, context, worktree and cost inspection.
+- [x] Implement direct message, queued broadcast, explicit wake, pause, resume, cancel and intervention.
+- [x] Implement consolidated approvals, deadlock, failure and recovery states.
+- [x] Implement completion and invoking-chat delivery state.
+- [x] Extend the Agent Board store to watch the Room index alongside the Workflow loop index.
+- [x] Link Room members to the global Agent Board and back to the Room.
+- [x] Link grouped Usage Room entries to the Room where supported.
+- [x] Add keyboard, screen-reader, contrast and reduced-motion support.
+- [x] Add component and critical-flow end-to-end tests.
+- [x] Complete final design review against the approved prototype.
 
 ### Deliverables
 
-- [ ] Workflows and Rooms navigation.
-- [ ] Simple create, preparation and computed proposal flow.
-- [ ] Natural-language adjustment and advanced configuration.
-- [ ] Live Room timeline and Watch views.
-- [ ] Live member session viewer with full history navigation.
-- [ ] Approvals, recovery and completion UI.
-- [ ] Agent Board and Usage linking.
-- [ ] Accessible component and end-to-end tests.
+- [x] Workflows and Rooms navigation.
+- [x] Simple create, preparation and computed proposal flow.
+- [x] Natural-language adjustment and advanced configuration.
+- [x] Live Room timeline and Watch views.
+- [x] Live member session viewer with full history navigation.
+- [x] Approvals, recovery and completion UI.
+- [x] Agent Board and Usage linking.
+- [x] Accessible component and end-to-end tests.
 
 ### Acceptance criteria
 
-- [ ] A non-technical user can create and start a Room from one brief.
-- [ ] The default proposal shows only computed team, time, spend, access and approved prose.
-- [ ] Advanced users can inspect every blueprint field.
-- [ ] The UI never becomes the source of truth for Room execution.
-- [ ] Reload and restart restore the same visible Room state.
-- [ ] Every member and Room state has a clear explanation and next action.
-- [ ] Approval requests identify the responsible member and authority change.
-- [ ] A user can see what every member is doing right now without opening each one.
-- [ ] A user can read any member's complete history, including before a compaction and after it retires.
-- [ ] Room members are inspectable without appearing as normal chats.
-- [ ] Agent Board and Usage links do not duplicate Room controls.
-- [ ] Result-to-chat passes end-to-end tests.
-- [ ] Final design review, pnpm typecheck and critical UI tests pass.
+- [x] A non-technical user can create and start a Room from one brief.
+- [x] The default proposal shows only computed team, time, spend, access and approved prose.
+- [x] Advanced users can inspect every blueprint field.
+- [x] The UI never becomes the source of truth for Room execution.
+- [x] Reload and restart restore the same visible Room state.
+- [x] Every member and Room state has a clear explanation and next action.
+- [x] Approval requests identify the responsible member and authority change.
+- [x] A user can see what every member is doing right now without opening each one.
+- [x] A user can read any member's complete history, including before a compaction and after it retires.
+- [x] Room members are inspectable without appearing as normal chats.
+- [x] Agent Board and Usage links do not duplicate Room controls.
+- [x] Result-to-chat passes end-to-end tests.
+- [x] Final design review, pnpm typecheck and critical UI tests pass.
 
 At the end of Phase 7, Room mode is usable behind a feature flag. The old collaboration engines remain available.
 

@@ -9,9 +9,10 @@
 
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
-import type { RoomRevision } from '../../shared/room-message-types';
+import type { PathClaim, RoomRevision } from '../../shared/room-message-types';
 import type { PersistedRoom } from '../../shared/room-types';
 import { formatRelative } from '../lib/format';
+import { claimOverlaps } from '../lib/room-view';
 import { useStateDir } from '../lib/use-orchestrator-index';
 import { useWatchedJson } from '../lib/use-watched-json';
 
@@ -63,7 +64,7 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
         ))}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-auto p-3">
+      <div role="tabpanel" aria-label={TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-auto p-3">
         {tab === 'brief' && <Brief room={room} />}
 
         {tab === 'work' && (room.work.length === 0
@@ -78,28 +79,36 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
           ? <Empty>No paths are claimed.</Empty>
           : (
             <>
+              <ClaimOverlaps room={room} claims={active} who={who} />
               {active.map((claim) => (
                 <Entry key={claim.id} title={claim.pattern} note={`${who(claim.memberId)} · ${formatRelative(claim.createdAt)}`}>
                   {claim.reason}
                 </Entry>
               ))}
-              <p className="text-xs text-muted-foreground">
-                Claims are advisory. They warn members off each other's files; they do not lock anything.
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Claims are advice between members. They are not a lock and they never replace Git — separate
+                checkouts are what actually stop two members overwriting each other. They are released when a
+                member retires or the Room ends.
               </p>
             </>
           ))}
 
-        {tab === 'changes' && (revisions.length === 0
-          ? <Empty>The team has not changed since it started.</Empty>
-          : [...revisions].reverse().map((revision) => (
-              <Entry
-                key={revision.id}
-                title={revision.summary}
-                note={`${revision.actorMemberId ? who(revision.actorMemberId) : 'You'} · ${OUTCOME_LABEL[revision.outcome]} · ${formatRelative(revision.createdAt)}`}
-              >
-                {revision.rejectionReason ?? revision.reason}
-              </Entry>
-            )))}
+        {tab === 'changes' && (
+          <>
+            <RosterBudget room={room} />
+            {revisions.length === 0
+              ? <Empty>The team has not changed since it started.</Empty>
+              : [...revisions].reverse().map((revision) => (
+                  <Entry
+                    key={revision.id}
+                    title={revision.summary}
+                    note={`${revision.actorMemberId ? who(revision.actorMemberId) : 'You'} · ${OUTCOME_LABEL[revision.outcome]} · ${formatRelative(revision.createdAt)}`}
+                  >
+                    {revision.rejectionReason ?? revision.reason}
+                  </Entry>
+                ))}
+          </>
+        )}
 
         {tab === 'artifacts' && (room.artifacts.length === 0
           ? <Empty>Nothing published yet.</Empty>
@@ -110,6 +119,76 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
             )))}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Who is about to edit the same file as somebody else.
+ *
+ * The overlap itself is not a fault — it is the thing the user has to know
+ * before the two branches meet. The line says which safety boundary is actually
+ * holding, because a claim is not one.
+ */
+function ClaimOverlaps({
+  room,
+  claims,
+  who,
+}: {
+  room: PersistedRoom;
+  claims: PathClaim[];
+  who: (memberId: string) => string;
+}) {
+  const overlaps = claimOverlaps(claims);
+  if (overlaps.length === 0) return null;
+  const separate = room.definition.envelope.workspacePolicy.mode === 'worktree-per-member';
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-2.5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {overlaps.length} overlap(s)
+      </p>
+      {overlaps.map((overlap) => (
+        <p key={`${overlap.members.join()}:${overlap.patterns.join()}`} className="text-sm">
+          {who(overlap.members[0])} and {who(overlap.members[1])} both claimed{' '}
+          <span className="font-mono text-xs">{overlap.patterns[0]}</span>
+          {overlap.patterns[0] !== overlap.patterns[1] && (
+            <> and <span className="font-mono text-xs">{overlap.patterns[1]}</span></>
+          )}.
+        </p>
+      ))}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {separate
+          ? 'They work in separate checkouts, so neither can overwrite the other — but both will change the same file, and one of them has to merge.'
+          : 'They share one working tree, so the later write wins. The Conductor has to give one of them the work.'}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * How much the Conductor may still change, and where its authority stops.
+ *
+ * Both figures are counted by the runtime against the envelope the user
+ * approved. The second paragraph is the boundary itself: everything it lists is
+ * refused in runtime code, so the user is reading a rule rather than a promise.
+ */
+function RosterBudget({ room }: { room: PersistedRoom }) {
+  const { usage } = room.runtime;
+  const { envelope } = room.definition;
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-border p-2.5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Roster changes</p>
+      <p className="text-sm">
+        {usage.rosterRevisions} used of {envelope.maxRosterRevisions} allowed. Replacements count separately:{' '}
+        {usage.memberReplacements} of {envelope.maxMemberReplacements}.
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        The Conductor can add, retire, suspend and resume members, change a mandate, reassign work and pick another
+        model you approved. More access, more spend, more time, a bigger team, a new delivery destination — and
+        replacing itself — always come to you.
+      </p>
+    </div>
   );
 }
 

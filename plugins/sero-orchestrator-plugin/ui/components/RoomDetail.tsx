@@ -43,7 +43,8 @@ interface RoomDetailProps {
 export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack }: RoomDetailProps) {
   const [view, setView] = useState<RoomView | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [composing, setComposing] = useState(false);
+  // Null = closed; a member list = writing to those members (empty = everyone).
+  const [composing, setComposing] = useState<{ memberIds: string[] } | null>(null);
 
   const room = useRoom(roomId);
   // A finished Room opens on its result; a live one opens on its activity. The
@@ -89,7 +90,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           setView(next);
           setSelectedId(null);
         }}
-        onMessage={() => setComposing(true)}
+        onMessage={() => setComposing({ memberIds: [] })}
         onPause={() => send('pause')}
         onResume={() => send('resume')}
         onStop={() => send('cancel')}
@@ -100,7 +101,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           stopReason={room.runtime.stopReason}
           resumable={!finished}
           busy={busy}
-          onMessage={() => setComposing(true)}
+          onMessage={() => setComposing({ memberIds: [] })}
           onResume={() => send('resume')}
           onStop={() => send('cancel')}
         />
@@ -137,6 +138,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             busy={busy}
             dispatch={dispatch}
             onWake={() => send('wake', { memberId: selected.id })}
+            onMessage={() => setComposing({ memberIds: [selected.id] })}
             onAnswer={(body) => send('answer', { memberId: selected.id, body })}
             onRelease={() => send('release', { memberId: selected.id })}
             onClose={() => setSelectedId(null)}
@@ -164,14 +166,15 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
       </div>
 
       <RoomMessageDialog
-        open={composing}
+        open={composing !== null}
         busy={busy}
+        addressed={composing?.memberIds ?? []}
         members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
         onSend={(body, memberIds, now) => {
           send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
-          setComposing(false);
+          setComposing(null);
         }}
-        onClose={() => setComposing(false)}
+        onClose={() => setComposing(null)}
       />
     </div>
   );
