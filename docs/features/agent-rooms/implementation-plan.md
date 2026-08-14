@@ -463,11 +463,11 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 
 ### Work checklist
 
-- [ ] Evaluate issue delivery with generated problem-specific rosters.
-- [ ] Evaluate adversarial analysis.
-- [ ] Evaluate parallel issues with worktrees and path claims.
-- [ ] Evaluate chat-origin result delivery.
-- [ ] Measure success, duration, cost, failures and user intervention.
+- [ ] Evaluate issue delivery with generated problem-specific rosters. *(harness ready — `docs/features/agent-rooms/evaluation.md`; the run itself spends real money and is the user's to approve)*
+- [ ] Evaluate adversarial analysis. *(harness ready)*
+- [ ] Evaluate parallel issues with worktrees and path claims. *(harness ready)*
+- [ ] Evaluate chat-origin result delivery. *(harness ready)*
+- [ ] Measure success, duration, cost, failures and user intervention. *(recorded to `e2e/screenshots/agent-rooms/evaluation.json` by the harness)*
 - [ ] Fix Room defects that block normal use.
 - [ ] Confirm that built-in presets remain adaptive.
 - [ ] Route collaboration and adversarial entry points to Room creation after approval.
