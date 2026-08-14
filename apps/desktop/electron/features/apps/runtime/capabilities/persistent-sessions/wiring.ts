@@ -83,7 +83,9 @@ async function clampAndApprove(
     timeoutMs: 120_000,
   });
 
-  // A timeout is a denial. Silence must never widen authority.
+  // A timeout is a denial. Silence must never widen authority — but it is not
+  // the same as a refusal, and the caller has to be able to say which happened.
+  if (choice.timedOut) throw new Error('nobody answered the request to allow agent sessions');
   if (choice.choiceId !== 'allow') return null;
 
   return { approvalId: `approval_${Date.now().toString(36)}`, approved: clamped };

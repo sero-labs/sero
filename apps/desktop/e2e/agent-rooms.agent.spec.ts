@@ -169,8 +169,27 @@ async function openRooms(): Promise<void> {
 }
 
 /**
+ * Answers the host's request to allow agent sessions (AD-029).
+ *
+ * A Room opens no session until the user allows one, and silence is a refusal.
+ * The evaluation answers it the way a user does — by pressing the button — so
+ * the consent surface is exercised rather than turned off.
+ */
+async function allowAgentSessions(name: string): Promise<void> {
+  // The card numbers its options, so the accessible name is "1. Allow" — a
+  // substring match, never an exact one.
+  const allow = page.getByRole('button', { name: 'Allow' }).first();
+  await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: 30_000 });
+  await shot(`${name}-02b-approval.png`);
+  // Somebody watching the run can press it first. The Room's own status is what
+  // decides whether it started; this click only has to not be the reason it
+  // did not.
+  await allow.click({ timeout: 10_000 }).catch(() => undefined);
+}
+
+/**
  * Drives the panel the way a user does: describe the problem, read the team
- * Sero proposes, start it. Returns the Room id the runtime wrote.
+ * Sero proposes, start it, allow the sessions. Returns the Room id.
  */
 async function startRoom(brief: string, name: string): Promise<string> {
   await openRooms();
@@ -184,12 +203,19 @@ async function startRoom(brief: string, name: string): Promise<string> {
   await expect(panel().getByRole('button', { name: 'Start room' })).toBeVisible({ timeout: 300_000 });
   await shot(`${name}-02-proposal.png`);
 
-  await panel().getByRole('button', { name: 'Start room' }).click();
-  await expect
-    .poll(() => (roomIndex()?.rooms ?? []).find((room) => !before.has(room.id))?.id ?? null, { timeout: 60_000 })
-    .not.toBeNull();
+  // The draft is written when the planner answers, so the Room can be watched
+  // from the Start press rather than found afterwards.
   const roomId = (roomIndex()?.rooms ?? []).find((room) => !before.has(room.id))?.id;
-  if (!roomId) throw new Error('the Room was never written');
+  if (!roomId) throw new Error('the planner never wrote a draft Room');
+
+  await panel().getByRole('button', { name: 'Start room' }).click();
+  await allowAgentSessions(name);
+
+  // A Room that was refused stays a draft. Failing here says so in seconds,
+  // instead of looking like a Room that ran for 25 minutes and never finished.
+  await expect
+    .poll(() => roomFile(roomId)?.runtime.status ?? 'gone', { timeout: 120_000, intervals: [2_000] })
+    .not.toBe('draft');
   return roomId;
 }
 
@@ -244,6 +270,14 @@ test.beforeAll(async () => {
     // The rollout gate. Without it the runtime refuses every Room action.
     env: { SERO_ROOMS: '1', ...(REAL_HOME ? {} : getLlmLaunchEnv()) },
   }));
+
+  // What the app itself said, kept beside the screenshots. A Room that refuses
+  // to start says why in the main process, and a gate run that cannot be
+  // explained is not evidence.
+  const appLog = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'a' });
+  app.process().stdout?.pipe(appLog);
+  app.process().stderr?.pipe(appLog);
+
   await waitForShell(page);
 
   const created = await page.evaluate(async ({ folderPath }) => {

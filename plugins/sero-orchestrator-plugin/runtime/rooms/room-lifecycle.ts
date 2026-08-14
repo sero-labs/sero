@@ -114,11 +114,17 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
 
   // The user can decline, and the host denies anything outside their authority.
   // Both arrive as a rejection, and both mean no session is ever created.
-  const grant = await requestRoomGrant(ctx.host, placedRecord).catch((error: unknown) => {
-    ctx.host.log(`room ${roomId}: grant refused: ${String(error)}`);
-    return null;
-  });
-  if (!grant) return fail('This Room was not allowed to start.');
+  const requested = await requestRoomGrant(ctx.host, placedRecord).then(
+    (grant) => ({ grant, error: null as string | null }),
+    (error: unknown) => ({ grant: null, error: error instanceof Error ? error.message : String(error) }),
+  );
+  if (!requested.grant) {
+    ctx.host.log(`room ${roomId}: grant refused: ${requested.error}`);
+    // The reason matters: "nobody answered" and "you said no" need different
+    // things from the user, and a bare refusal tells them neither.
+    return fail(`This Room was not allowed to start: ${requested.error ?? 'the request was refused.'}`);
+  }
+  const grant = requested.grant;
 
   const now = ctx.host.now();
   await ctx.store.updateRoom(roomId, (current) =>

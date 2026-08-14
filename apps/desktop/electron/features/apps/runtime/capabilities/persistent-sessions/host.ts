@@ -92,7 +92,9 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     // proposal object while the approval dialog is open and the host would
     // store the mutation.
     const decision = await this.deps.approveGrant(structuredClone(proposal));
-    if (!decision) throw new Error('Persistent-session grant was not approved.');
+    // The caller shows this to the user, so it must say what happened. "Not
+    // approved" reads as a refusal even when nobody was ever asked.
+    if (!decision) throw new Error('you did not allow agent sessions for this app');
 
     const grant = await this.deps.grantStore.issue(
       this.deps.appId,

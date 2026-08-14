@@ -92,6 +92,8 @@ describe('starting a Room', () => {
 
     const result = await coordinator.startRoom(roomId);
     expect(result.ok).toBe(false);
+    // The user has to know whether they refused, or were never asked.
+    expect(result.ok ? '' : result.error).toContain('the user declined this Room');
     const record = await store.readRoom(roomId);
     expect(record?.runtime.status).toBe('draft');
     expect(record?.definition.grantId).toBeNull();
