@@ -33,6 +33,8 @@ export const ROOM_APP_ACTIONS = [
   'resolve_approval',
   'intervene',
   'wake',
+  'answer',
+  'release',
   'timeline',
   'watch',
   'unwatch',
@@ -42,6 +44,9 @@ export const ROOM_APP_ACTIONS = [
 
 const APPROVAL_DECISIONS = ['approved', 'rejected'] as const;
 
+/** When the user's word reaches the team. `now` costs a wake; `next-turn` costs nothing. */
+const DELIVER_MODES = ['now', 'next-turn'] as const;
+
 const ROOM_PRESET_IDS = BUILT_IN_ROOM_TEMPLATES.map((template) => template.id);
 
 export const RoomAppToolParams = Type.Object({
@@ -49,8 +54,9 @@ export const RoomAppToolParams = Type.Object({
   roomId: Type.Optional(Type.String({ description: 'The Room to act on. Not needed for prepare' })),
   problem: Type.Optional(Type.String({ description: 'For prepare: what the Room is for, in the user\'s own words' })),
   instruction: Type.Optional(Type.String({ description: 'For adjust: what to change about the proposed team, in plain words' })),
-  body: Type.Optional(Type.String({ description: 'For intervene: what to tell the Room' })),
+  body: Type.Optional(Type.String({ description: 'For intervene: what to tell the Room. For answer: the answer the waiting member needs' })),
   memberIds: Type.Optional(Type.String({ description: 'For intervene: member ids to address, comma-separated (default: everyone)' })),
+  deliver: Type.Optional(StringEnum(DELIVER_MODES, { description: 'For intervene: now interrupts the members it names; next-turn waits for their next turn' })),
   memberId: Type.Optional(Type.String({ description: 'For wake: the member to put back to work now. For history: whose session to read' })),
   detail: Type.Optional(Type.String({ description: 'For pause/cancel: why, shown to the user and the Room' })),
   approvalId: Type.Optional(Type.String({ description: 'For resolve_approval: the approval to answer' })),
@@ -73,6 +79,7 @@ export interface RoomAppToolParamsShape {
   instruction?: string;
   body?: string;
   memberIds?: string;
+  deliver?: (typeof DELIVER_MODES)[number];
   memberId?: string;
   detail?: string;
   approvalId?: string;
@@ -214,8 +221,11 @@ async function settledResult(
       return outcome.ok ? done(`Approval ${approvalId} ${params.decision}.`) : failure(outcome.error);
     }
     case 'intervene': {
-      const outcome = await app.intervene(roomId, params.body ?? '', list(params.memberIds));
-      return outcome.ok ? done('The Room was told, and the members it reached are awake.') : failure(outcome.error);
+      const now = params.deliver !== 'next-turn';
+      const outcome = await app.intervene(roomId, params.body ?? '', list(params.memberIds), now);
+      return outcome.ok
+        ? done(now ? 'The Room was told, and the members it reached are awake.' : 'The Room was told. It arrives on their next turn.')
+        : failure(outcome.error);
     }
     case 'timeline': {
       const events = await app.timeline(roomId, params.limit);
@@ -250,6 +260,18 @@ async function settledResult(
         entries: page.entries,
         olderCursor: page.olderCursor,
       });
+    }
+    case 'answer': {
+      const memberId = params.memberId?.trim();
+      if (!memberId) return failure('memberId is required for answer');
+      const outcome = await app.answer(roomId, memberId, params.body ?? '');
+      return outcome.ok ? done(`${memberId} has its answer and is awake.`) : failure(outcome.error);
+    }
+    case 'release': {
+      const memberId = params.memberId?.trim();
+      if (!memberId) return failure('memberId is required for release');
+      const outcome = await app.release(roomId, memberId);
+      return outcome.ok ? done(`${memberId} is no longer waiting on that question.`) : failure(outcome.error);
     }
     case 'wake': {
       const memberId = params.memberId?.trim();

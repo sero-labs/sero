@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button, Textarea } from '@sero-ai/ui';
 import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
 import { X } from 'lucide-react';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
@@ -40,6 +40,10 @@ interface RoomMemberPanelProps {
   busy: boolean;
   dispatch: RoomFeedDispatch;
   onWake: () => void;
+  /** Answers, on the user's behalf, the question this member is blocked on. */
+  onAnswer: (body: string) => void;
+  /** Releases it from a question that is never going to be answered. */
+  onRelease: () => void;
   onClose: () => void;
 }
 
@@ -62,7 +66,18 @@ function toTurns(entries: PersistentSessionHistoryEntry[]): Turn[] {
   return [...byIndex.values()].sort((a, b) => a.index - b.index);
 }
 
-export function RoomMemberPanel({ roomId, member, live, maxCostUsd, busy, dispatch, onWake, onClose }: RoomMemberPanelProps) {
+export function RoomMemberPanel({
+  roomId,
+  member,
+  live,
+  maxCostUsd,
+  busy,
+  dispatch,
+  onWake,
+  onAnswer,
+  onRelease,
+  onClose,
+}: RoomMemberPanelProps) {
   const [tab, setTab] = useState<MemberTab>('session');
   const [follow, setFollow] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -116,6 +131,10 @@ export function RoomMemberPanel({ roomId, member, live, maxCostUsd, busy, dispat
           ))}
         </div>
       </div>
+
+      {member.status === 'waiting' && (
+        <WaitingStrip busy={busy} detail={member.statusDetail} onAnswer={onAnswer} onRelease={onRelease} />
+      )}
 
       {tab !== 'session' ? (
         <MemberTabPanel tab={tab} member={member} live={live} context={context} maxCostUsd={maxCostUsd} />
@@ -172,6 +191,56 @@ export function RoomMemberPanel({ roomId, member, live, maxCostUsd, busy, dispat
           <MemberLiveRail member={member} live={live} context={context} />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A waiting member, and the two ways only the user can end the wait.
+ *
+ * Waiting has to read as normal and free, because it is how the Room stays
+ * inside its concurrency limit — a user who reads it as a stall will stop a
+ * Room that is working perfectly.
+ */
+function WaitingStrip({
+  busy,
+  detail,
+  onAnswer,
+  onRelease,
+}: {
+  busy: boolean;
+  detail: string;
+  onAnswer: (body: string) => void;
+  onRelease: () => void;
+}) {
+  const [body, setBody] = useState('');
+
+  return (
+    <div className="flex flex-col gap-2 border-b border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
+      <p className="text-sm">{detail}</p>
+      <p className="text-xs text-muted-foreground">
+        This costs nothing. Its turn ended and its slot went back to the team; it starts again the moment an
+        answer lands, in the same session, with everything it already knew.
+      </p>
+      <Textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        rows={2}
+        placeholder="Answer for it…"
+      />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={busy || body.trim().length === 0}
+          onClick={() => {
+            onAnswer(body.trim());
+            setBody('');
+          }}
+        >
+          Send answer
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={onRelease}>Cancel the question</Button>
+      </div>
     </div>
   );
 }

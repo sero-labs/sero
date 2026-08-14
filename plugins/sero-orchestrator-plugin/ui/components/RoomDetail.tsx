@@ -14,14 +14,16 @@
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
 import { ArrowLeft } from 'lucide-react';
-import type { RoomSummary } from '../../shared/room-types';
+import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
 import { roomSignal, useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
 import { RoomActivity } from './RoomActivity';
+import { RoomCompletion } from './RoomCompletion';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
 import { RoomMemberPanel } from './RoomMemberPanel';
 import { RoomMessageDialog } from './RoomMessageDialog';
+import { RoomStopBanner } from './RoomStopBanner';
 import { RoomRoster } from './RoomRoster';
 import { RoomSidePanel } from './RoomSidePanel';
 import { RoomTopBar, type RoomView } from './RoomTopBar';
@@ -38,18 +40,22 @@ interface RoomDetailProps {
 }
 
 export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack }: RoomDetailProps) {
-  const [view, setView] = useState<RoomView>('timeline');
+  const [view, setView] = useState<RoomView | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
 
   const room = useRoom(roomId);
+  // A finished Room opens on its result; a live one opens on its activity. The
+  // user's own choice wins from then on.
+  const finished = room ? TERMINAL_ROOM_STATUSES.includes(room.runtime.status) : false;
+  const shownView = view ?? (finished ? 'result' : 'timeline');
   const members = useRoomMembers(roomId, room?.memberIds ?? []);
   const names = memberNames(members);
   const signal = roomSignal(room);
   const events = useRoomTimeline(roomId, dispatch, signal);
   // Live text is retained only while a Watch view asks for it, so the demand
   // follows the view rather than the open Room.
-  const live = useRoomLive(roomId, dispatch, view === 'watch' || selectedId !== null, signal);
+  const live = useRoomLive(roomId, dispatch, shownView === 'watch' || selectedId !== null, signal);
 
   if (!room) {
     return (
@@ -76,7 +82,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
 
       <RoomTopBar
         room={room}
-        view={view}
+        view={shownView}
         busy={busy}
         onView={(next) => {
           setView(next);
@@ -87,6 +93,17 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         onResume={() => send('resume')}
         onStop={() => send('cancel')}
       />
+
+      {room.runtime.stopReason && (
+        <RoomStopBanner
+          stopReason={room.runtime.stopReason}
+          resumable={!finished}
+          busy={busy}
+          onMessage={() => setComposing(true)}
+          onResume={() => send('resume')}
+          onStop={() => send('cancel')}
+        />
+      )}
 
       {approvals.length > 0 && summary && (
         <div className="grid gap-3 border-b border-border p-3 md:grid-cols-2">
@@ -119,9 +136,18 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             busy={busy}
             dispatch={dispatch}
             onWake={() => send('wake', { memberId: selected.id })}
+            onAnswer={(body) => send('answer', { memberId: selected.id, body })}
+            onRelease={() => send('release', { memberId: selected.id })}
             onClose={() => setSelectedId(null)}
           />
-        ) : view === 'watch' ? (
+        ) : shownView === 'result' ? (
+          <RoomCompletion
+            room={room}
+            members={members}
+            finalLine={events.find((event) => event.kind === 'room-status')?.summary ?? null}
+            onOpenMember={setSelectedId}
+          />
+        ) : shownView === 'watch' ? (
           <RoomWatch
             memberIds={room.memberIds}
             members={members}
@@ -140,8 +166,8 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         open={composing}
         busy={busy}
         members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
-        onSend={(body, memberIds) => {
-          send('intervene', { body, memberIds: memberIds.join(',') });
+        onSend={(body, memberIds, now) => {
+          send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
           setComposing(false);
         }}
         onClose={() => setComposing(false)}

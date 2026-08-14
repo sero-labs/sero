@@ -13,11 +13,11 @@
 
 import { Button } from '@sero-ai/ui';
 import { MessageSquare, Pause, Play, Square } from 'lucide-react';
-import type { PersistedRoom } from '../../shared/room-types';
+import { TERMINAL_ROOM_STATUSES, type PersistedRoom } from '../../shared/room-types';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration } from '../lib/format';
 
-export type RoomView = 'timeline' | 'watch';
+export type RoomView = 'timeline' | 'watch' | 'result';
 
 interface RoomTopBarProps {
   room: PersistedRoom;
@@ -38,6 +38,7 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
     : 0;
   const running = runtime.status === 'running';
   const paused = runtime.status === 'paused';
+  const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);
   // Cancelling a Room that has already stopped changes nothing, so the control
   // that would do it is not offered.
   const live = running || paused || runtime.status === 'pausing' || runtime.status === 'completing';
@@ -63,6 +64,11 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
       </span>
 
       <div className="ml-auto flex items-center gap-1">
+        {finished && (
+          <Button size="sm" variant={view === 'result' ? 'secondary' : 'ghost'} onClick={() => onView('result')}>
+            Result
+          </Button>
+        )}
         <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'} onClick={() => onView('timeline')}>
           Timeline
         </Button>
@@ -90,10 +96,6 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
           </Button>
         )}
       </div>
-
-      {runtime.stopReason && (
-        <p className="w-full text-xs text-muted-foreground">{runtime.stopReason.detail}</p>
-      )}
     </div>
   );
 }

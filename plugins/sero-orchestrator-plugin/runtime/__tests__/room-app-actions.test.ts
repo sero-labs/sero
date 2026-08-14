@@ -94,6 +94,66 @@ describe('the user Room surface', () => {
     expect(told?.toMemberIds).toEqual(MEMBERS.map((member) => member.key));
   });
 
+  it('answers for a waiting member, and the answer settles the wait', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await store.updateMember(roomId, 'impl', (member) => ({
+      ...member,
+      status: 'waiting',
+      statusDetail: 'Waiting for an answer from the Conductor.',
+      waitingOnQuestionId: 'q-1',
+    }));
+
+    const outcome = await app.answer(roomId, 'impl', 'It keys on the identifier.');
+    expect(outcome.ok).toBe(true);
+
+    const messages = await store.readMessages(roomId, 0, 50);
+    const answer = messages.find((message) => message.body.includes('identifier'));
+    // The question id is what settles the wait — after a restart the message is
+    // all that is left to prove the answer arrived.
+    expect(answer?.inReplyToQuestionId).toBe('q-1');
+    expect(answer?.fromMemberId).toBeNull();
+    expect(answer?.toMemberIds).toEqual(['impl']);
+    await waitFor(async () => (await memberIn(store, roomId, 'impl')).waitingOnQuestionId === null, 'the wait to end');
+  });
+
+  it('releases a member from a question nobody will answer', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await store.updateMember(roomId, 'impl', (member) => ({
+      ...member,
+      status: 'waiting',
+      waitingOnQuestionId: 'q-2',
+    }));
+
+    expect(await app.release(roomId, 'impl')).toEqual({ ok: true });
+    const messages = await store.readMessages(roomId, 0, 50);
+    const cancelled = messages.find((message) => message.kind === 'cancel');
+    expect(cancelled?.questionId).toBe('q-2');
+  });
+
+  it('will not answer for a member that is not waiting', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    expect(await app.answer(roomId, 'impl', 'here you go')).toEqual({
+      ok: false,
+      error: 'Implementer is not waiting on a question.',
+    });
+
+    // A member that has already been woken carries its old question id until
+    // its turn starts. Answering then would write a reply to a question nobody
+    // is blocked on any more.
+    await store.updateMember(roomId, 'impl', (member) => ({
+      ...member,
+      status: 'working',
+      waitingOnQuestionId: 'q-old',
+    }));
+    expect(await app.answer(roomId, 'impl', 'here you go')).toEqual({
+      ok: false,
+      error: 'Implementer is not waiting on a question.',
+    });
+  });
+
   it('refuses to wake somebody who is not a member', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

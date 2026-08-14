@@ -9,20 +9,39 @@
 
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
+import type { RoomRevision } from '../../shared/room-message-types';
 import type { PersistedRoom } from '../../shared/room-types';
 import { formatRelative } from '../lib/format';
+import { useStateDir } from '../lib/use-orchestrator-index';
+import { useWatchedJson } from '../lib/use-watched-json';
 
-type Tab = 'brief' | 'work' | 'claims' | 'artifacts';
+type Tab = 'brief' | 'work' | 'claims' | 'artifacts' | 'changes';
 
 const TAB_LABEL: Record<Tab, string> = {
   brief: 'Brief',
   work: 'Work',
   claims: 'Claims',
   artifacts: 'Artifacts',
+  changes: 'Changes',
+};
+
+/** What a revision DID, in the user's terms rather than the record's. */
+const OUTCOME_LABEL: Record<RoomRevision['outcome'], string> = {
+  applied: 'applied',
+  'awaiting-approval': 'waiting for you',
+  rejected: 'you rejected it',
+  refused: 'refused — outside the envelope',
+  withdrawn: 'withdrawn',
 };
 
 export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map<string, string> }) {
   const [tab, setTab] = useState<Tab>('brief');
+  const stateDir = useStateDir();
+  // Revisions have their own file, so the changes tab follows it directly.
+  const revisions = useWatchedJson<RoomRevision[]>(
+    stateDir ? `${stateDir}/rooms/${room.definition.id}/revisions.json` : null,
+    [],
+  );
   const who = (memberId: string | null) => (memberId ? names.get(memberId) ?? memberId : 'nobody');
   // A released claim is history; the panel answers "what is claimed now".
   const active = room.claims.filter((claim) => claim.status === 'active');
@@ -67,6 +86,18 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
               </p>
             </>
           ))}
+
+        {tab === 'changes' && (revisions.length === 0
+          ? <Empty>The team has not changed since it started.</Empty>
+          : [...revisions].reverse().map((revision) => (
+              <Entry
+                key={revision.id}
+                title={revision.summary}
+                note={`${revision.actorMemberId ? who(revision.actorMemberId) : 'You'} · ${OUTCOME_LABEL[revision.outcome]} · ${formatRelative(revision.createdAt)}`}
+              >
+                {revision.rejectionReason ?? revision.reason}
+              </Entry>
+            )))}
 
         {tab === 'artifacts' && (room.artifacts.length === 0
           ? <Empty>Nothing published yet.</Empty>

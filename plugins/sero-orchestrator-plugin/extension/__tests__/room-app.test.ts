@@ -97,7 +97,14 @@ describe('the rooms tool', () => {
   it('splits the addressed members and passes the rest straight through', async () => {
     const { app, calls } = stubApp();
     await runTool({ action: 'intervene', roomId: 'room-1', body: 'stop', memberIds: 'impl, scout' }, app);
-    expect(calls[0]).toEqual({ method: 'intervene', args: ['room-1', 'stop', ['impl', 'scout']] });
+    // Interrupting is the default: the user is waiting on it.
+    expect(calls[0]).toEqual({ method: 'intervene', args: ['room-1', 'stop', ['impl', 'scout'], true] });
+  });
+
+  it('leaves a note for the next turn when the user does not want to interrupt', async () => {
+    const { app, calls } = stubApp();
+    await runTool({ action: 'intervene', roomId: 'room-1', body: 'no rush', deliver: 'next-turn' }, app);
+    expect(calls[0]).toEqual({ method: 'intervene', args: ['room-1', 'no rush', [], false] });
   });
 
   it('needs a Room for everything except planning one', async () => {

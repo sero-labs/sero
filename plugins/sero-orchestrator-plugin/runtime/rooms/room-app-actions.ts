@@ -13,8 +13,6 @@
  * coordinator or the store, which is the single writer.
  */
 
-import type { PersistentSessionContextUsage, PersistentSessionHistoryPage, PersistentSessionsApi } from '@sero-ai/common';
-
 import type { HumanQuestion } from '../../shared/human-input-types';
 import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -22,27 +20,20 @@ import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import type { RoomStatus } from '../../shared/room-types';
 import { findRoomTemplate, type RoomTemplate } from '../../shared/room-templates';
-import type { OrchestratorHost } from '../host';
 import { adjustRoom } from './adjust';
 import { planRoom, type RoomUserLimits } from './planner';
 import type { RoomPresetSeed } from './planner-prompt';
 import { buildRoomRecord } from './room-actions';
 import type { RoomCoordinator } from './room-coordinator';
-import type { MemberLiveSnapshot, RoomObservation } from './room-observation';
-import type { RoomStore } from './room-store';
+import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
+import type { RoomMessageDraft } from './room-messages';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
 const PLANNABLE: readonly RoomStatus[] = ['draft', 'ready'];
 
-export interface RoomAppActionsContext {
-  host: OrchestratorHost;
-  store: RoomStore;
+export interface RoomAppActionsContext extends RoomLiveContext {
   coordinator: RoomCoordinator;
   workspaceId: string;
-  /** Live turns and session history. Absent in tests that never watch. */
-  observation?: RoomObservation;
-  /** Context pressure for the member panel. Absent when the host cannot report it. */
-  sessions?: Pick<PersistentSessionsApi, 'getContextUsage'>;
 }
 
 export interface PrepareRoomInput {
@@ -72,7 +63,7 @@ export type PrepareRoomOutcome =
 
 export type SimpleOutcome = { ok: true } | { ok: false; error: string };
 
-export interface RoomAppActions {
+export interface RoomAppActions extends RoomLiveActions {
   /** Plans a team from one brief and drafts the Room. Nothing runs yet. */
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
   /** Re-plans a draft in the user's own words. Refused once the Room has started. */
@@ -87,10 +78,27 @@ export interface RoomAppActions {
    * The user's word to the Room. Delivered as a SYSTEM message, never as a peer
    * message: it comes from outside the roster, and a member must not be able to
    * forge one.
+   *
+   * `wake` is the difference between an interruption and a note. An
+   * interruption reaches a member before it does the next thing; a note waits
+   * for its next turn and costs nothing.
    */
-  intervene(roomId: string, body: string, memberIds?: string[]): Promise<SimpleOutcome>;
+  intervene(roomId: string, body: string, memberIds?: string[], wake?: boolean): Promise<SimpleOutcome>;
   /** Puts one member back to work now rather than at its next turn. */
   wake(roomId: string, memberId: string): Promise<SimpleOutcome>;
+  /**
+   * Answers, on the user's behalf, the question a member is blocked on.
+   *
+   * This is how a user breaks a deadlock the Room could not break itself. The
+   * answer settles the wait by the same rule a member's reply does — it carries
+   * the question id — so nothing special has to know the user wrote it.
+   */
+  answer(roomId: string, memberId: string, body: string): Promise<SimpleOutcome>;
+  /**
+   * Releases a member from a question that is never going to be answered. The
+   * member starts again knowing the answer is not coming.
+   */
+  release(roomId: string, memberId: string): Promise<SimpleOutcome>;
   /**
    * Recent timeline events, newest first.
    *
@@ -100,50 +108,10 @@ export interface RoomAppActions {
    * is the signal — rather than a poll.
    */
   timeline(roomId: string, limit?: number): Promise<RoomTimelineEvent[]>;
-  /**
-   * What every member is doing RIGHT NOW: the current turn's text and the tool
-   * in flight.
-   *
-   * The call also registers the demand that makes the runtime retain streamed
-   * text at all — a member nobody watches keeps no text (NFR-016). The panel
-   * asks again whenever the Room record changes, so the view is driven by the
-   * Room's own writes rather than by a timer.
-   */
-  watch(roomId: string): Promise<MemberLiveSnapshot[]>;
-  /** Drops the retention demand. Called when the Watch view closes. */
-  unwatch(roomId: string): Promise<void>;
-  /**
-   * A page of one member's own history, newest first.
-   *
-   * This is the Pi session file, not a Room record, so it works for a member
-   * that is disposed, retired, replaced or failed, and it reads through a
-   * compaction boundary rather than stopping at it (D-34).
-   */
-  history(
-    roomId: string,
-    memberId: string,
-    options?: { cursor?: string; limit?: number },
-  ): Promise<PersistentSessionHistoryPage>;
-  /**
-   * How full one member's context window is. Null when its session is not live
-   * — a disposed member holds no window, and a made-up figure would read as a
-   * real one.
-   */
-  context(roomId: string, memberId: string): Promise<PersistentSessionContextUsage | null>;
 }
 
 /** One screen of history. More than this is an audit question, not a panel question. */
 const TIMELINE_PAGE = 100;
-
-/**
- * How long a Watch view's retention demand outlives its last read.
- *
- * A renderer that reloads or crashes cannot release its own lease, so a lease
- * is dropped once it goes quiet. Expiry is evaluated on the next read by ANY
- * panel rather than on a timer: an abandoned lease costs one capped turn buffer
- * per live member until then, which is the same bound the module already keeps.
- */
-const WATCH_LEASE_MS = 5 * 60_000;
 
 /**
  * A preset as the planner sees it: a label, how this kind of problem is usually
@@ -165,29 +133,8 @@ function presetSeed(template: RoomTemplate): RoomPresetSeed {
 }
 
 export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions {
-  const { host, store, coordinator, workspaceId, observation, sessions } = ctx;
-
-  /** Open Watch views, by Room. The listener is empty on purpose — demand is the point. */
-  const leases = new Map<string, { release: () => void; readAt: number }>();
-
-  function releaseLease(roomId: string): void {
-    leases.get(roomId)?.release();
-    leases.delete(roomId);
-  }
-
-  function holdLease(roomId: string): void {
-    if (!observation) return;
-    const now = Date.parse(host.now());
-    for (const [held, lease] of leases) {
-      if (held !== roomId && now - lease.readAt > WATCH_LEASE_MS) releaseLease(held);
-    }
-    const existing = leases.get(roomId);
-    if (existing) {
-      existing.readAt = now;
-      return;
-    }
-    leases.set(roomId, { release: observation.watchRoom(roomId, () => undefined), readAt: now });
-  }
+  const { host, store, coordinator, workspaceId } = ctx;
+  const live = createRoomLiveActions(ctx);
 
   /** Every action but `prepare` names a Room, and a missing one is the same answer each time. */
   async function withRoom<T>(
@@ -199,11 +146,41 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
     return run(record.runtime.status);
   }
 
+  /**
+   * Ends one member's wait on the user's word. Both ways of doing it write ONE
+   * message and then wake the member: the message is what makes the wait
+   * settled after a restart, and the wake is what makes it settled now.
+   */
+  async function settleWait(
+    roomId: string,
+    memberId: string,
+    compose: (questionId: string) => Pick<RoomMessageDraft, 'kind' | 'body' | 'questionId' | 'inReplyToQuestionId'>,
+  ): Promise<SimpleOutcome> {
+    const member = await store.readMember(roomId, memberId);
+    if (!member) return { ok: false, error: `${memberId} is not a member of this Room.` };
+    if (member.status !== 'waiting' || !member.waitingOnQuestionId) {
+      return { ok: false, error: `${member.displayName} is not waiting on a question.` };
+    }
+    await store.appendMessages(roomId, [{
+      ...compose(member.waitingOnQuestionId),
+      id: host.newId('msg'),
+      fromMemberId: null,
+      toMemberIds: [memberId],
+      wakeRecipients: true,
+      commandId: host.newId('cmd'),
+      createdAt: host.now(),
+    }]);
+    await coordinator.wake(roomId, memberId, 'reply-received');
+    return { ok: true };
+  }
+
   /** The coordinator answers with the whole record; the user surface needs only the verdict. */
   const settled = (result: { ok: boolean; error?: string }): SimpleOutcome =>
     result.ok ? { ok: true } : { ok: false, error: result.error ?? 'That did not work.' };
 
   return {
+    ...live,
+
     async prepare(input) {
       const problem = input.problem.trim();
       if (!problem) return { ok: false, error: 'Say what the Room is for.' };
@@ -304,7 +281,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return outcome.ok ? { ok: true } : { ok: false, error: outcome.reason ?? 'That approval could not be answered.' };
     },
 
-    async intervene(roomId, body, memberIds) {
+    async intervene(roomId, body, memberIds, wake = true) {
       const said = body.trim();
       if (!said) return { ok: false, error: 'Write what you want to tell the Room.' };
       return withRoom(roomId, async () => {
@@ -324,14 +301,16 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
           body: said,
           questionId: null,
           inReplyToQuestionId: null,
-          // The user is waiting on the answer, so this is the one message that
-          // always wakes: a queued intervention would arrive after the thing it
-          // was meant to stop.
-          wakeRecipients: true,
+          // An interruption is the default: a queued one would arrive after the
+          // thing it was meant to stop. A note the user is not waiting on rides
+          // along with the member's next turn instead.
+          wakeRecipients: wake,
           commandId: host.newId('cmd'),
           createdAt: host.now(),
         }]);
-        for (const member of targets) await coordinator.wake(roomId, member.id, 'user-intervention');
+        if (wake) {
+          for (const member of targets) await coordinator.wake(roomId, member.id, 'user-intervention');
+        }
         return { ok: true };
       });
     },
@@ -340,32 +319,24 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return store.readTimeline(roomId, Math.max(1, Math.min(limit, TIMELINE_PAGE)));
     },
 
-    async watch(roomId) {
-      if (!observation) return [];
-      holdLease(roomId);
-      return observation.snapshotRoom(roomId);
+    async answer(roomId, memberId, body) {
+      const said = body.trim();
+      if (!said) return { ok: false, error: 'Write the answer.' };
+      return settleWait(roomId, memberId, (questionId) => ({
+        kind: 'system' as const,
+        body: said,
+        questionId: null,
+        inReplyToQuestionId: questionId,
+      }));
     },
 
-    async unwatch(roomId) {
-      releaseLease(roomId);
-    },
-
-    async context(roomId, memberId) {
-      if (!sessions) return null;
-      const member = await store.readMember(roomId, memberId);
-      const handleId = member?.session.liveHandleId;
-      return handleId ? sessions.getContextUsage(handleId) : null;
-    },
-
-    async history(roomId, memberId, options) {
-      const empty: PersistentSessionHistoryPage = { entries: [], olderCursor: null };
-      if (!observation) return empty;
-      const record = await store.readRoom(roomId);
-      const grantId = record?.definition.grantId;
-      // No grant means no session was ever issued for this Room, so there is no
-      // file to read — an empty page, not an error the panel has to explain.
-      if (!grantId || !record.members.some((member) => member.id === memberId)) return empty;
-      return observation.readMemberHistory(grantId, memberId, options);
+    async release(roomId, memberId) {
+      return settleWait(roomId, memberId, (questionId) => ({
+        kind: 'cancel' as const,
+        body: 'That question will not be answered. Carry on without it.',
+        questionId,
+        inReplyToQuestionId: null,
+      }));
     },
 
     async wake(roomId, memberId) {
