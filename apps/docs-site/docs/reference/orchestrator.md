@@ -350,6 +350,62 @@ Curated, ready-made loops you install instead of writing from scratch. The
 - If an entry needs a tool you don't have (listed as `requiredTools`), the
   install still works and the draft carries a warning.
 
+## Rooms (preview)
+
+Rooms are the Orchestrator's second mode. A loop is a step plan for one job; a
+Room is a **team** for one problem — a Conductor and the specialists the problem
+needs, each a real Sero session, working and talking until the problem is
+solved. The team is written for the problem, not chosen from a fixed cast, and
+it can change while it works.
+
+Rooms are off unless the profile sets `SERO_ROOMS=1`. A build without it behaves
+exactly like Workflow-only Sero.
+
+### How a Room runs
+
+1. **Describe the problem.** One brief, in your own words.
+2. **Read the proposal.** Sero computes the team, the time and spend ceiling,
+   and what access the team gets. Nothing runs and nothing is spent yet. You can
+   adjust it in plain words, or open every field.
+3. **Start it.** Members take turns inside the ceiling you approved. A member
+   that asks a question ends its turn and frees its slot; it picks up in the
+   same session when the answer lands.
+4. **Watch or leave it.** The Room shows what has happened and what each member
+   is doing right now. Watching changes nothing.
+5. **It delivers.** A Room started from a chat answers that chat.
+
+### What the team may change on its own
+
+The Conductor can add, retire, suspend and resume members, change a mandate,
+reassign work, and pick another model you already approved. More access, more
+spend, more time, a bigger team, a new delivery destination — and replacing the
+Conductor itself — always come to you as an approval.
+
+### Room actions
+
+The `rooms` tool is the user's surface: `prepare`, `adjust`, `start`, `pause`,
+`resume`, `cancel`, `delete`, `resolve_approval`, `intervene`, `wake`, `answer`,
+`release`, `timeline`, `watch`, `unwatch`, `history`, `context`.
+
+Members use a different tool (`room`) through the Sero CLI, and it refuses
+anybody who is not on the roster. The two surfaces never overlap: a member
+cannot approve its own request or stop the Room you are watching.
+
+### Room state
+
+```text
+<workspace>/.sero/apps/orchestrator/rooms/
+  index.json                        # the Room list the panel and Agent Board read
+  <roomId>/room.json                # the Room, its brief, work, artifacts and claims
+  <roomId>/members/<memberId>.json  # one file per member
+  <roomId>/messages/<page>.json     # the Room's message log
+  <roomId>/revisions.json           # every change to the team, and who asked
+  <roomId>/timeline.jsonl           # what happened, as an audit record
+```
+
+Member sessions are ordinary Pi session files, so a member's whole history stays
+readable after it retires — including before a compaction.
+
 ## State and storage
 
 Per-workspace loop state:

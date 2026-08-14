@@ -266,6 +266,33 @@ it builds the seed files for you:
 The `issues/` folder ends up with one simple fix and two code changes — exactly
 the mix Walkthrough 2 needs so the loop has something real to branch on.
 
+## Rooms — a team instead of a plan (preview)
+
+A loop is one job with a plan. Some problems are not one job: they need a few
+people who each know something different, who talk to each other and change
+course as they find things out. That is a **Room**.
+
+You describe the problem once. Sero works out who is needed — a Conductor to
+decide what happens next, and the specialists the problem actually calls for —
+and shows you the team, the time and spend ceiling, and what access they get.
+Nothing runs and nothing is spent until you press **Start room**. If the team
+looks wrong, say so in plain words ("drop the second implementer") and Sero
+re-does it.
+
+While it runs you can see what has happened and what every member is doing right
+now, open any member's whole session, tell the team something mid-flight, or
+answer a question a member is stuck on. Watching costs nothing and changes
+nothing.
+
+The team adapts as it works — it can add or retire members, hand work over and
+change its own instructions. Anything that widens what the team may do — more
+access, more spend, more time, a bigger team, somewhere new to deliver — comes
+back to you as an approval first.
+
+A Room you asked for in a chat sends its result back to that chat.
+
+Rooms are a preview and are off unless your profile sets `SERO_ROOMS=1`.
+
 ## Looking something up
 
 This guide covers the everyday flow. For exact details — the full list of
