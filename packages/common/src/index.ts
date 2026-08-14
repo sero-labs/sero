@@ -329,6 +329,7 @@ export type {
 export {
   ORCHESTRATOR_APP_ID,
   ORCHESTRATOR_INDEX_FILE,
+  ORCHESTRATOR_ROOM_INDEX_FILE,
   ORCHESTRATOR_REGISTRY_GLOBAL_KEY,
   getOrchestratorRegistry,
 } from './orchestrator-contract';
@@ -348,6 +349,9 @@ export type {
   OrchestratorPullRequestView,
   OrchestratorBoardLoopView,
   OrchestratorBoardIndexView,
+  OrchestratorRoomStatus,
+  OrchestratorBoardRoomView,
+  OrchestratorBoardRoomIndexView,
   OrchestratorInputAnswerView,
   OrchestratorBoardEventView,
   OrchestratorBoardAction,

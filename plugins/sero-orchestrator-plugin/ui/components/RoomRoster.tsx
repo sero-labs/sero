@@ -11,7 +11,8 @@
  * look the same from outside and mean opposite things.
  */
 
-import { Users } from 'lucide-react';
+import { openSeroApp } from '@sero-ai/app-runtime';
+import { ArrowUpRight, Users } from 'lucide-react';
 import type { MemberStatus, RoomMember } from '../../shared/room-types';
 import { formatCost } from '../lib/format';
 
@@ -58,6 +59,15 @@ export function RoomRoster({ memberIds, members, selectedId, onSelect }: RoomRos
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         Waiting and idle members hold no turn. A waiting member picks up again the moment its answer lands.
       </p>
+      {/* The board shows this team beside every other piece of work in flight.
+          It links back here rather than repeating the Room's controls. */}
+      <button
+        type="button"
+        onClick={() => void openSeroApp('board')}
+        className="mt-1 flex items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+      >
+        Open this team on the Agent Board <ArrowUpRight className="h-3 w-3" />
+      </button>
     </aside>
   );
 }

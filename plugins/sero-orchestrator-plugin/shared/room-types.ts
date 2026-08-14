@@ -11,6 +11,8 @@
  * (FR-030).
  */
 
+import type { OrchestratorBoardRoomView } from '@sero-ai/common';
+
 import type { RoomAttention } from './attention-types';
 import type {
   MemberReadCursor,
@@ -241,8 +243,14 @@ export interface Room {
   archivedAt: string | null;
 }
 
-/** Watched by the UI. Deliberately small — the list view reads only this. */
-export interface RoomSummary {
+/**
+ * Watched by the UI. Deliberately small — the list view reads only this.
+ *
+ * It extends the cross-surface board contract, so the shell's Agent Board reads
+ * the same index this plugin writes and drifting from it fails typecheck here
+ * rather than showing an empty card at runtime.
+ */
+export interface RoomSummary extends OrchestratorBoardRoomView {
   id: string;
   title: string;
   status: RoomStatus;

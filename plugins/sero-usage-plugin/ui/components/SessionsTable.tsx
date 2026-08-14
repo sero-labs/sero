@@ -5,6 +5,7 @@
  */
 
 import { memo, useMemo, useState } from 'react';
+import { openSeroApp } from '@sero-ai/app-runtime';
 import {
   IconButton,
   Table,
@@ -16,7 +17,7 @@ import {
   Text,
   cn,
 } from '@sero-ai/ui';
-import { ArrowDown, FolderOpen } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronRight, FolderOpen, Users } from 'lucide-react';
 
 import { formatCost, formatCount, formatRelativeTime, formatTokens } from '../../shared/format';
 import type { SessionStats } from '../../shared/types';
@@ -39,8 +40,15 @@ function workspaceName(cwd: string): string {
   return cwd.split('/').filter(Boolean).at(-1) ?? cwd;
 }
 
+/**
+ * Agent Rooms appear as ONE grouped row (spec §27.1), because a Room's members
+ * must never read as unexplained ordinary chats. The group opens to the member
+ * rows behind it, and a Room the path identifies also links back to the Room
+ * itself — a deep link, not a read of the Orchestrator's store.
+ */
 export const SessionsTable = memo(function SessionsTable({ sessions }: { sessions: SessionStats[] }) {
   const [sortKey, setSortKey] = useState<SortKey>('cost');
+  const [openRooms, setOpenRooms] = useState<string[]>([]);
   const canReveal = canRevealInFolder();
 
   const sorted = useMemo(
@@ -76,10 +84,22 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((session) => (
+            {sorted.flatMap((session) => [
               <TableRow key={session.id}>
                 <TableCell className="max-w-64 truncate" title={session.label}>
-                  {session.label}
+                  {session.room ? (
+                    <RoomLabel
+                      session={session}
+                      open={openRooms.includes(session.id)}
+                      onToggle={() => setOpenRooms((current) => (
+                        current.includes(session.id)
+                          ? current.filter((id) => id !== session.id)
+                          : [...current, session.id]
+                      ))}
+                    />
+                  ) : (
+                    session.label
+                  )}
                 </TableCell>
                 <TableCell className="max-w-40 truncate text-muted-foreground" title={session.cwd}>
                   {workspaceName(session.cwd)}
@@ -100,8 +120,36 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
                     />
                   </TableCell>
                 )}
-              </TableRow>
-            ))}
+              </TableRow>,
+              ...(openRooms.includes(session.id)
+                ? (session.room?.members ?? []).map((member) => (
+                    <TableRow key={member.id} className="text-muted-foreground">
+                      <TableCell className="max-w-64 truncate pl-8" title={member.label}>
+                        {member.label}
+                      </TableCell>
+                      <TableCell className="max-w-40 truncate" title={member.cwd}>
+                        {workspaceName(member.cwd)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCount(member.messages)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCost(member.cost)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatTokens(member.tokens.total)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {member.lastActivity > 0 ? formatRelativeTime(member.lastActivity) : '-'}
+                      </TableCell>
+                      {canReveal && (
+                        <TableCell>
+                          <IconButton
+                            icon={FolderOpen}
+                            label="Reveal session file in folder"
+                            size="xs"
+                            onClick={() => revealInFolder(member.path)}
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                : []),
+            ])}
           </TableBody>
         </Table>
       </div>
@@ -113,3 +161,38 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
     </div>
   );
 });
+
+/** A Room group: expands to its members, and opens the Room when it can. */
+function RoomLabel({
+  session,
+  open,
+  onToggle,
+}: {
+  session: SessionStats;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const roomId = session.room?.roomId ?? null;
+  const Caret = open ? ChevronDown : ChevronRight;
+
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <button type="button" onClick={onToggle} aria-label={open ? 'Hide members' : 'Show members'}>
+        <Caret className="size-3.5 shrink-0" aria-hidden />
+      </button>
+      <Users className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      {roomId ? (
+        <button
+          type="button"
+          className="min-w-0 truncate underline-offset-2 hover:underline"
+          onClick={() => void openSeroApp('orchestrator', { roomId })}
+          title="Open this Room"
+        >
+          {session.label}
+        </button>
+      ) : (
+        <span className="min-w-0 truncate">{session.label}</span>
+      )}
+    </span>
+  );
+}

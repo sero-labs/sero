@@ -12,16 +12,18 @@
 import { create } from 'zustand';
 import {
   ORCHESTRATOR_INDEX_FILE,
+  ORCHESTRATOR_ROOM_INDEX_FILE,
   type GitDiffStat,
   type OrchestratorBoardAction,
   type OrchestratorBoardActionResult,
   type OrchestratorBoardIndexView,
+  type OrchestratorBoardRoomIndexView,
 } from '@sero-ai/common';
 import type { BoardColumnId, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
 
-const EMPTY_SLICE: WorkspaceBoardSlice = { index: null, issues: [], openPrs: [] };
+const EMPTY_SLICE: WorkspaceBoardSlice = { index: null, rooms: null, issues: [], openPrs: [] };
 
 interface AgentBoardState {
   /** Aggregated per-workspace state (watched files + fetched gh reads). */
@@ -47,13 +49,20 @@ interface AgentBoardState {
   hydrate: (layout: BoardLayoutState | undefined) => void;
 }
 
-/** Absolute index path → owning workspace id. Module-level: survives store updates. */
-const watchTargets = new Map<string, string>();
+/** What a watched file is: the two indexes are different shapes in the same slice. */
+type WatchKind = 'loops' | 'rooms';
+
+/** Absolute index path → what it is and whose. Module-level: survives store updates. */
+const watchTargets = new Map<string, { workspaceId: string; kind: WatchKind }>();
 let changeUnsubscribe: (() => void) | null = null;
 let workspaceUnsubscribe: (() => void) | null = null;
 
 function indexPath(workspacePath: string): string {
   return `${workspacePath}/${ORCHESTRATOR_INDEX_FILE}`;
+}
+
+function roomIndexPath(workspacePath: string): string {
+  return `${workspacePath}/${ORCHESTRATOR_ROOM_INDEX_FILE}`;
 }
 
 function normalizeIndex(data: unknown): OrchestratorBoardIndexView | null {
@@ -63,38 +72,48 @@ function normalizeIndex(data: unknown): OrchestratorBoardIndexView | null {
   return data as OrchestratorBoardIndexView;
 }
 
+function normalizeRoomIndex(data: unknown): OrchestratorBoardRoomIndexView | null {
+  if (!data || typeof data !== 'object' || !Array.isArray((data as { rooms?: unknown }).rooms)) {
+    return null;
+  }
+  return data as OrchestratorBoardRoomIndexView;
+}
+
 export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
-  function applyWatched(workspaceId: string, data: unknown): void {
+  function applyWatched(workspaceId: string, kind: WatchKind, data: unknown): void {
     set((state) => {
       const slice = state.slices[workspaceId] ?? EMPTY_SLICE;
-      const next: WorkspaceBoardSlice = { ...slice, index: normalizeIndex(data) };
+      const next: WorkspaceBoardSlice = kind === 'loops'
+        ? { ...slice, index: normalizeIndex(data) }
+        : { ...slice, rooms: normalizeRoomIndex(data) };
       return { slices: { ...state.slices, [workspaceId]: next } };
     });
   }
 
-  function watchPath(filePath: string, workspaceId: string): void {
+  function watchPath(filePath: string, workspaceId: string, kind: WatchKind): void {
     if (watchTargets.has(filePath)) return;
-    watchTargets.set(filePath, workspaceId);
+    watchTargets.set(filePath, { workspaceId, kind });
     window.sero.appState
       .watch(filePath)
-      .then((data: unknown) => applyWatched(workspaceId, data))
-      .catch(() => applyWatched(workspaceId, null));
+      .then((data: unknown) => applyWatched(workspaceId, kind, data))
+      .catch(() => applyWatched(workspaceId, kind, null));
   }
 
   /** Aligns watchers with the current workspace list (idempotent, push-driven). */
   function syncWatchers(): void {
     const workspaces = useWorkspaceStore.getState().workspaces;
-    const wanted = new Map<string, string>();
+    const wanted = new Map<string, { workspaceId: string; kind: WatchKind }>();
     for (const ws of workspaces) {
       if (!ws.path) continue;
-      wanted.set(indexPath(ws.path), ws.id);
+      wanted.set(indexPath(ws.path), { workspaceId: ws.id, kind: 'loops' });
+      wanted.set(roomIndexPath(ws.path), { workspaceId: ws.id, kind: 'rooms' });
     }
     for (const [filePath] of watchTargets) {
       if (wanted.has(filePath)) continue;
       watchTargets.delete(filePath);
       void window.sero.appState.unwatch(filePath).catch(() => undefined);
     }
-    for (const [filePath, workspaceId] of wanted) watchPath(filePath, workspaceId);
+    for (const [filePath, target] of wanted) watchPath(filePath, target.workspaceId, target.kind);
     // Drop slices of workspaces that no longer exist.
     set((state) => {
       const ids = new Set(workspaces.map((ws) => ws.id));
@@ -116,8 +135,8 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
       if (!get().started) {
         set({ started: true });
         changeUnsubscribe ??= window.sero.appState.onChange((filePath: string, data: unknown) => {
-          const workspaceId = watchTargets.get(filePath);
-          if (workspaceId) applyWatched(workspaceId, data);
+          const target = watchTargets.get(filePath);
+          if (target) applyWatched(target.workspaceId, target.kind, data);
         });
         // Workspaces added/removed while the board is up re-align the watcher set.
         workspaceUnsubscribe ??= useWorkspaceStore.subscribe((state, prev) => {

@@ -3,6 +3,7 @@ import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
   OrchestratorBoardLoopView,
+  OrchestratorBoardRoomView,
 } from '@sero-ai/common';
 import type { WorkspaceBoardSlice } from '@/types/board';
 import {
@@ -14,6 +15,7 @@ import {
   formatUntil,
   isUnclaimedIssue,
   loopColumn,
+  roomColumn,
   type BoardWorkspace,
 } from './board-model';
 
@@ -27,6 +29,22 @@ function loop(partial: Partial<OrchestratorBoardLoopView>): OrchestratorBoardLoo
     title: 'Fix flaky tests',
     status: 'active',
     updatedAt: '2026-07-18T11:00:00Z',
+    ...partial,
+  };
+}
+
+function room(partial: Partial<OrchestratorBoardRoomView>): OrchestratorBoardRoomView {
+  return {
+    id: 'room-1',
+    title: 'Auth hardening',
+    status: 'running',
+    memberCount: 4,
+    activeMemberCount: 2,
+    costUsd: 3.18,
+    maxCostUsd: 6,
+    startedAt: '2026-07-18T10:00:00Z',
+    updatedAt: '2026-07-18T11:30:00Z',
+    attentionCount: 0,
     ...partial,
   };
 }
@@ -55,7 +73,7 @@ function pr(partial: Partial<AppRuntimePullRequestSummary>): AppRuntimePullReque
 }
 
 function slice(partial: Partial<WorkspaceBoardSlice>): Record<string, WorkspaceBoardSlice> {
-  return { ws1: { index: null, issues: [], openPrs: [], ...partial } };
+  return { ws1: { index: null, rooms: null, issues: [], openPrs: [], ...partial } };
 }
 
 describe('loopColumn', () => {
@@ -134,7 +152,41 @@ describe('issue claiming', () => {
   });
 });
 
+describe('roomColumn', () => {
+  it('puts a Room that needs the user in Needs Attention, whatever else it is doing', () => {
+    expect(roomColumn(room({ status: 'running', attentionCount: 1 }))).toBe('attention');
+    expect(roomColumn(room({ status: 'paused' }))).toBe('attention');
+  });
+
+  it('routes the rest by status', () => {
+    expect(roomColumn(room({ status: 'draft' }))).toBe('backlog');
+    expect(roomColumn(room({ status: 'ready' }))).toBe('backlog');
+    expect(roomColumn(room({ status: 'running' }))).toBe('active');
+    expect(roomColumn(room({ status: 'completing' }))).toBe('active');
+    expect(roomColumn(room({ status: 'completed' }))).toBe('done');
+    expect(roomColumn(room({ status: 'cancelled' }))).toBe('done');
+  });
+});
+
 describe('buildBoardColumns', () => {
+  it('shows Rooms beside loops, and nothing at all when Room mode has never run', () => {
+    const withRooms = buildBoardColumns(
+      [WS],
+      slice({
+        index: { loops: [loop({ id: 'running', progress: { total: 2, done: 1, running: true } })] },
+        rooms: { rooms: [room({ id: 'r1' }), room({ id: 'r2', status: 'completed' })] },
+      }),
+      [],
+      NOW,
+    );
+    expect(withRooms.active.map((c) => c.key)).toEqual(['ws1:room:r1', 'ws1:loop:running']);
+    expect(withRooms.done.map((c) => c.key)).toEqual(['ws1:room:r2']);
+
+    // A workspace with no Room index is the normal case while Room mode is off.
+    const withoutRooms = buildBoardColumns([WS], slice({ index: { loops: [] } }), [], NOW);
+    expect(withoutRooms.active).toEqual([]);
+  });
+
   it('merges loops, unclaimed issues, and live sessions into columns', () => {
     const columns = buildBoardColumns(
       [WS],

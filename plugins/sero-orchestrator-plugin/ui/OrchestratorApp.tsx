@@ -31,13 +31,16 @@ type View =
 /** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
 interface OrchestratorLaunchParams extends Record<string, unknown> {
   loopId?: string;
+  /** A Room, from the Agent Board or a notification. */
+  roomId?: string;
 }
 
 const MemoizedLoopList = memo(LoopList);
 
-/** Initial view: a loop deep-link from another app lands on that loop's detail. */
+/** Initial view: a deep-link from another app lands on that loop or Room. */
 function initialView(): View {
   const params = consumeAppLaunchParams<OrchestratorLaunchParams>('orchestrator');
+  if (typeof params?.roomId === 'string') return { mode: 'rooms', roomId: params.roomId };
   return typeof params?.loopId === 'string' ? { mode: 'detail', loopId: params.loopId } : { mode: 'home' };
 }
 
@@ -73,7 +76,8 @@ export function OrchestratorApp() {
   // A notification can deep-link while Orchestrator is already mounted. Mount
   // params handle cross-app launches; this listener handles same-app launches.
   useEffect(() => onAppLaunchParams<OrchestratorLaunchParams>('orchestrator', (params) => {
-    if (typeof params.loopId === 'string') setView({ mode: 'detail', loopId: params.loopId });
+    if (typeof params.roomId === 'string') setView({ mode: 'rooms', roomId: params.roomId });
+    else if (typeof params.loopId === 'string') setView({ mode: 'detail', loopId: params.loopId });
   }), []);
 
   // Resolve the profile-global library dir once (the renderer can't derive it).
