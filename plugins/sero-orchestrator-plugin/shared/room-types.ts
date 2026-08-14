@@ -56,6 +56,14 @@ export type MemberStatus =
 /** Terminal Room states — no further turns start. */
 export const TERMINAL_ROOM_STATUSES: readonly RoomStatus[] = ['completed', 'failed', 'cancelled'];
 
+/**
+ * Room states a turn may start in. Every other state — paused, pausing,
+ * completing, or a terminal one — must leave the scheduler with nothing to do,
+ * and the check is repeated inside the write that starts the turns, because a
+ * pause or a cancel can land between the two.
+ */
+export const SCHEDULABLE_ROOM_STATUSES: readonly RoomStatus[] = ['running', 'ready'];
+
 /** Member states that hold no execution slot (NFR-004). */
 export const IDLE_MEMBER_STATUSES: readonly MemberStatus[] = [
   'idle', 'waiting', 'blocked', 'suspended', 'retired', 'completed', 'failed', 'offline',

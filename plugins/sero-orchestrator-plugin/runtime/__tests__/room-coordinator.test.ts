@@ -250,6 +250,44 @@ describe('stopping a Room', () => {
     expect(api.revoked).toEqual(['grant-1']);
     expect(api.aborted).toEqual(['lead']);
   });
+
+  it('starts nothing when the Room is stopped while a pass is deciding', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
+
+    // The record the pass will decide on: a live Room with a member ready.
+    const live = await store.readRoom(roomId);
+    if (!live) throw new Error('no room');
+    const stale = {
+      ...live,
+      runtime: { ...live.runtime, status: 'running' as const },
+      members: live.members.map((member) => ({ ...member, status: 'idle' as const })),
+    };
+
+    await coordinator.cancelRoom(roomId);
+    api.endTurn('lead', 'aborted');
+
+    // The race itself: the pass reads the Room as running, and the write that
+    // marks the turns started sees the cancelled record. Without the re-check
+    // inside that write, the Room would go back to running and spend again.
+    const readRoom = store.readRoom.bind(store);
+    let served = false;
+    store.readRoom = async (id: string) => {
+      if (id === roomId && !served) {
+        served = true;
+        return stale;
+      }
+      return readRoom(id);
+    };
+    await coordinator.advance(roomId, [{ memberId: 'impl', reason: 'user-intervention', at: host.now() }]);
+    store.readRoom = readRoom;
+
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('cancelled');
+    expect(api.openTurns()).toEqual([]);
+  });
 });
 
 describe('limits and the no-progress ladder', () => {

@@ -18,7 +18,7 @@
  */
 
 import type { DeliveryReceipt } from '../../shared/delivery-types';
-import type { RoomMember } from '../../shared/room-types';
+import { SCHEDULABLE_ROOM_STATUSES, type RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { LoopLocks } from '../locks';
 import { resolveApprovalForUser, type ApprovalResolution } from './room-delivery';
@@ -261,7 +261,7 @@ export class RoomCoordinator {
   private async pass(roomId: string): Promise<void> {
     const record = await this.deps.store.readRoom(roomId);
     if (!record) return;
-    if (record.runtime.status !== 'running' && record.runtime.status !== 'ready') return;
+    if (!SCHEDULABLE_ROOM_STATUSES.includes(record.runtime.status)) return;
 
     const nowMs = Date.parse(this.host.now());
     const inFlight = this.hasTurnsInFlight(roomId);
@@ -281,7 +281,19 @@ export class RoomCoordinator {
     const memberIds = decision.start.map((turn) => turn.memberId);
     for (const memberId of memberIds) this.turns.set(turnKey(roomId, memberId), new AbortController());
     this.consumeSignals(roomId, memberIds);
-    await this.deps.store.updateRoom(roomId, (current) => markTurnsStarted(current, memberIds, this.host.now()));
+    // A cancel or a pause can land between the read above and this write, and
+    // marking turns started would put the Room back to `running` and spend on a
+    // Room the user stopped. The status is therefore re-checked inside the same
+    // serialized write, and the turns run only if that write took.
+    const started = await this.deps.store.transact(roomId, null, (current) =>
+      SCHEDULABLE_ROOM_STATUSES.includes(current.runtime.status)
+        ? { record: markTurnsStarted(current, memberIds, this.host.now()), result: true }
+        : { record: null, result: false },
+    );
+    if (started.duplicate || !started.result) {
+      for (const memberId of memberIds) this.turns.delete(turnKey(roomId, memberId));
+      return;
+    }
     // Turns run outside the lock: holding it across a model call would serialize
     // the whole Room down to one member at a time.
     for (const memberId of memberIds) {
