@@ -20,14 +20,22 @@ cd apps/desktop
 env -u ELECTRON_RUN_AS_NODE \
   SERO_E2E_REAL_HOME=1 \
   SERO_E2E_ROOMS=1 \
+  SERO_ROOM_MODELS=openai-codex/gpt-5.6-terra \
+  SERO_ROOM_THINKING=medium \
   npx playwright test e2e/agent-rooms.agent.spec.ts --project=agent
 ```
 
 - `SERO_E2E_ROOMS=1` is the opt-in. Without it every scenario skips, because
-  each one costs money.
+  each one costs money. Check the spelling before you blame the test: a
+  mistyped name skips all four and looks like a pass.
 - `SERO_E2E_REAL_HOME=1` uses `~/.sero-ui`, so the run uses your existing model
   login. Without it the run needs `e2e/.env.test` like the other agent specs.
 - `SERO_E2E_ROOM_SCENARIO=2` runs one scenario alone.
+- `SERO_ROOM_MODELS` and `SERO_ROOM_THINKING` hold every member of every Room on
+  the models and effort levels you name — comma separated, models as
+  `provider/id`. Pin both, or a measured cost says nothing about the next run.
+  A name that matches nothing is ignored and written to the log, so read the log
+  if the roster does not look pinned.
 - Electron rejects the debug port when `ELECTRON_RUN_AS_NODE` is set, and the
   sandbox closes the window seconds after it opens — run it with the sandbox
   off, as the other agent specs are run.
@@ -52,8 +60,8 @@ Each scenario appends one entry to `evaluation.json`:
 - `durationMs` against the envelope's wall-clock ceiling;
 - `costUsd` against `maxCostUsd`, and cost per member;
 - `turns`, `rosterRevisions`, `memberReplacements`;
-- the roster as roles, so "was it staffed for the problem" can be read rather
-  than argued.
+- the roster as roles, each with the model and effort level it ran on, so "was
+  it staffed for the problem" can be read rather than argued.
 
 User intervention is measured by hand: count every time you had to answer,
 wake, message or unstick a Room to get it finished, and write it beside the

@@ -52,6 +52,7 @@ const SKILLS: ContextSkillInfo[] = [{ name: 'sero-plugin', description: 'Plugin 
 
 const CATALOGUE: RoomCatalogue = {
   models: [{ id: SONNET, label: 'Sonnet' }, { id: HAIKU, label: 'Haiku' }],
+  thinkingLevels: ['off', 'minimal', 'low', 'medium', 'high'],
   tools: TOOL_CATALOG,
   skills: SKILLS,
 };
@@ -193,6 +194,43 @@ describe('planRoom', () => {
     expect(task).toContain(PROBLEM);
     expect(task).toContain(SONNET);
     expect(task).toContain('sero-plugin');
+  });
+
+  it('holds every member to the model and effort level the machine pins', async () => {
+    process.env.SERO_ROOM_MODELS = HAIKU;
+    process.env.SERO_ROOM_THINKING = 'medium';
+    try {
+      const host = roomHost();
+      // The planner only ever sees the pinned model, so it plans on it.
+      host.modelResponses.push({ response: reply(blueprint({ members: [member({ model: HAIKU }), worker('impl')] })) });
+
+      const outcome = planned(await planRoom(host, planRequest()));
+
+      expect(outcome.blueprint.envelope.allowedModels).toEqual([HAIKU]);
+      expect(outcome.blueprint.members.map((each) => each.model)).toEqual([HAIKU, HAIKU]);
+      // Effort above the pin is lowered rather than left to spend.
+      expect(outcome.blueprint.members.map((each) => each.thinking)).toEqual(['medium', 'medium']);
+      // The planner is never offered what the pin took away.
+      expect(host.modelCalls[0].task).not.toContain(SONNET);
+    } finally {
+      delete process.env.SERO_ROOM_MODELS;
+      delete process.env.SERO_ROOM_THINKING;
+    }
+  });
+
+  it('ignores a pin that matches nothing, so a Room can still be staffed', async () => {
+    process.env.SERO_ROOM_MODELS = 'nothing/at-all';
+    try {
+      const host = roomHost();
+      host.modelResponses.push({ response: reply(blueprint()) });
+
+      const outcome = planned(await planRoom(host, planRequest()));
+
+      expect(outcome.blueprint.envelope.allowedModels).toEqual([SONNET, HAIKU]);
+      expect(host.logs.join('\n')).toContain('SERO_ROOM_MODELS');
+    } finally {
+      delete process.env.SERO_ROOM_MODELS;
+    }
   });
 
   it('refuses an invented model, tool or skill and names each one in the repair prompt', async () => {

@@ -184,17 +184,40 @@ function allowsCapability(name: string, access: RoomAccessChoice): boolean {
 /** Everything the workspace can actually resolve right now, with labels for the prompt. */
 export interface RoomCatalogue {
   models: RoomPlanningModelInfo[];
+  thinkingLevels: string[];
   tools: ContextToolInfo[];
   skills: ContextSkillInfo[];
 }
 
+/**
+ * A machine-level pin on what any Room may run: `SERO_ROOM_MODELS` takes
+ * `provider/id` keys and `SERO_ROOM_THINKING` takes effort levels, both comma
+ * separated. The evaluation gate uses them to hold a whole run on one model and
+ * one effort level, so a measured cost means something. Unset, a Room may use
+ * everything the workspace offers.
+ *
+ * A pin that matches nothing is reported and ignored: a Room with no model left
+ * cannot be staffed at all, and a silent typo is worse than no pin.
+ */
+function pinned(host: OrchestratorHost, variable: string, available: string[]): string[] {
+  const wanted = (process.env[variable] ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (wanted.length === 0) return available;
+  const kept = available.filter((entry) => wanted.includes(entry));
+  if (kept.length > 0) return kept;
+  host.log(`${variable}=${wanted.join(',')} matches nothing available (${available.join(', ')}); ignoring it`);
+  return available;
+}
+
 async function loadCatalogue(host: OrchestratorHost, skills: ContextSkillInfo[]): Promise<RoomCatalogue> {
   const [groups, tools] = await Promise.all([host.listAvailableModels(), host.listToolCatalog()]);
+  const models = flattenModelGroups(groups).map((model) => ({
+    id: modelKey(model.provider, model.modelId),
+    label: model.name,
+  }));
+  const allowed = pinned(host, 'SERO_ROOM_MODELS', models.map((model) => model.id));
   return {
-    models: flattenModelGroups(groups).map((model) => ({
-      id: modelKey(model.provider, model.modelId),
-      label: model.name,
-    })),
+    models: models.filter((model) => allowed.includes(model.id)),
+    thinkingLevels: pinned(host, 'SERO_ROOM_THINKING', [...DEFAULT_THINKING_LEVELS]),
     tools,
     skills,
   };
@@ -225,7 +248,7 @@ export function resolveRoomEnvelope(catalogue: RoomCatalogue, limits: RoomUserLi
     maxCostUsdPerMember: maxCostUsd * MEMBER_SHARE,
     maxTokensPerMember: ENVELOPE_MECHANICS.maxTokens * MEMBER_SHARE,
     allowedModels: catalogue.models.map((model) => model.id),
-    allowedThinkingLevels: [...DEFAULT_THINKING_LEVELS],
+    allowedThinkingLevels: [...catalogue.thinkingLevels],
     allowedTools: catalogue.tools.map((tool) => tool.name).filter((name) => allowsCapability(name, access)),
     allowedSkills: catalogue.skills.map((skill) => skill.name).filter((name) => allowsCapability(name, access)),
     workspacePolicy: {

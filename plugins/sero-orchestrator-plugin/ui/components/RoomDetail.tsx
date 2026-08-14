@@ -22,6 +22,7 @@ import { useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-
 import { RoomActivity } from './RoomActivity';
 import { RoomCompletion } from './RoomCompletion';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
+import { RoomDraftReview } from './RoomDraftReview';
 import { RoomMemberPanel } from './RoomMemberPanel';
 import { RoomMessageDialog } from './RoomMessageDialog';
 import { RoomStopBanner } from './RoomStopBanner';
@@ -69,6 +70,13 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         <Button size="sm" variant="ghost" onClick={onBack}>Back to Rooms</Button>
       </div>
     );
+  }
+
+  // A Room a chat prepared, or a proposal the user left, is still a draft:
+  // nothing has run, so there is nothing to watch and nothing to pause. It
+  // opens where it can be started, adjusted or discarded instead.
+  if (room.runtime.status === 'draft') {
+    return <RoomDraftReview roomId={roomId} busy={busy} dispatch={dispatch} onLeave={onBack} showBack />;
   }
 
   const send = (action: string, params: Record<string, unknown> = {}) =>

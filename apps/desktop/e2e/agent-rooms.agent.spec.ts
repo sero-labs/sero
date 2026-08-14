@@ -17,9 +17,11 @@
  *   env -u ELECTRON_RUN_AS_NODE SERO_E2E_REAL_HOME=1 SERO_E2E_ROOMS=1 \
  *     npx playwright test e2e/agent-rooms.agent.spec.ts --project=agent
  *
- * Set SERO_E2E_ROOM_SCENARIO=2 to run one of them alone. Every run appends what
- * it measured to e2e/screenshots/agent-rooms/evaluation.json — duration, spend,
- * roster, interventions — which is the evidence the gate is decided on.
+ * Set SERO_E2E_ROOM_SCENARIO=2 to run one of them alone, and SERO_ROOM_MODELS /
+ * SERO_ROOM_THINKING to hold the whole run on one model and one effort level.
+ * Every run appends what it measured to e2e/screenshots/agent-rooms/
+ * evaluation.json — duration, spend, roster, interventions — which is the
+ * evidence the gate is decided on.
  */
 
 import fs from 'node:fs';
@@ -101,6 +103,7 @@ interface MemberFile {
   displayName: string;
   isConductor: boolean;
   mandate: { role: string };
+  configuration: { model: string; thinking: string };
   worktreePath: string | null;
   worktreeBranch: string | null;
   usage: { costUsd: number; turns: number };
@@ -141,7 +144,13 @@ function record(scenario: string, room: RoomFile, roster: MemberFile[], notes: R
     stopReason: room.runtime.stopReason?.kind ?? null,
     delivered: room.delivery.deliveredAt !== null,
     deliveryRef: room.delivery.deliveryRef,
-    roster: roster.map((member) => ({ role: member.mandate.role, conductor: member.isConductor, costUsd: member.usage.costUsd })),
+    roster: roster.map((member) => ({
+      role: member.mandate.role,
+      conductor: member.isConductor,
+      model: member.configuration.model,
+      thinking: member.configuration.thinking,
+      costUsd: member.usage.costUsd,
+    })),
     ...notes,
   });
   fs.writeFileSync(RESULTS, JSON.stringify(existing, null, 2), 'utf8');
