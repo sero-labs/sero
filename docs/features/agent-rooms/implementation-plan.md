@@ -467,6 +467,13 @@ At the end of Phase 7, Room mode is usable behind a feature flag. The old collab
 > `apps/desktop/e2e/agent-rooms.agent.spec.ts`). The evaluation runs spend real
 > money and are the user's to approve. Entry-point routing and engine removal
 > wait on the gate, as this plan requires.
+>
+> The first live attempt already paid for itself. It found two defects no unit
+> test could reach, both fixed: the host matched bare model ids against
+> `provider/id` keys, so it dropped every model a Room asked for and no member
+> session could open; and a drafted Room opened on the live Room view, so a Room
+> a chat prepared could not be approved in the panel. A run can now be held on
+> one model and one effort level (`SERO_ROOM_MODELS`, `SERO_ROOM_THINKING`).
 
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.
