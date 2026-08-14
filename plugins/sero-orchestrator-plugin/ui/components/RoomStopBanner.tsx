@@ -36,6 +36,10 @@ const EXPLANATION: Record<RoomStopReason['kind'], { title: string; note: string 
     title: 'A member is waiting for your answer',
     note: 'It asked for authority it does not have. Nothing runs until you answer.',
   },
+  'awaiting-user': {
+    title: 'A member needs you',
+    note: 'It asked you something only you can answer. Answer it here and the Room carries on where it stopped.',
+  },
   'user-paused': {
     title: 'You paused this Room',
     note: 'Turns in flight finished. Nothing more starts, and nothing more is spent, until you resume it.',

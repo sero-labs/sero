@@ -142,6 +142,25 @@ export function OrchestratorApp() {
     [roomDispatch],
   );
 
+  /**
+   * Answering a member from the home inbox. The Room may be paused because it
+   * was waiting for exactly this, so the runtime resumes it on the answer —
+   * the user says one thing and the Room carries on.
+   */
+  const onRoomAnswer = useCallback(
+    (roomId: string, memberId: string, body: string) => {
+      void roomDispatch({ action: 'intervene', roomId, memberIds: memberId, body, deliver: 'now' });
+    },
+    [roomDispatch],
+  );
+
+  const onRoomResume = useCallback(
+    (roomId: string) => {
+      void roomDispatch({ action: 'resume', roomId });
+    },
+    [roomDispatch],
+  );
+
   const openRoom = useCallback((roomId: string) => setView({ mode: 'rooms', roomId }), []);
   const openRoomCreate = useCallback(() => setView({ mode: 'room-create' }), []);
 
@@ -262,6 +281,8 @@ export function OrchestratorApp() {
             onNew={openCreate}
             rooms={roomIndex.rooms}
             onRoomApproval={onRoomApproval}
+            onRoomAnswer={onRoomAnswer}
+            onRoomResume={onRoomResume}
             onOpenRoom={openRoom}
           />
         )}

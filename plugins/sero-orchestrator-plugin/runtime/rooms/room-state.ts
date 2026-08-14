@@ -28,8 +28,8 @@ import {
   type PersistedRoom,
   type RoomSummary,
 } from '../../shared/room-types';
-// The inbox owns what an approval entry says; the summary only carries it.
-import { toRoomAttention } from './room-delivery';
+// The inbox owns what an entry says; the summary only carries it.
+import { toRoomAttention } from './room-attention';
 
 export { ROOM_SCHEMA_VERSION } from '../../shared/room-types';
 
@@ -146,7 +146,16 @@ export function reassembleRoom(
  * a badge that disagrees with the inbox below it is worse than no badge.
  */
 function toAttentionCount(record: RoomRecord, attention: RoomAttention | undefined): number {
-  return (attention?.approvals.length ?? 0) + (record.runtime.stopReason?.kind === 'awaiting-approval' ? 1 : 0);
+  if (!attention) return 0;
+  // Everything the inbox will show, counted from the same payload it renders:
+  // a badge that disagrees with the list under it is worse than no badge.
+  return (
+    attention.approvals.length
+    + (attention.requests?.length ?? 0)
+    + (attention.pause ? 1 : 0)
+    // A Room paused for an approval counts once, on the approval itself.
+    + (attention.approvals.length === 0 && record.runtime.stopReason?.kind === 'awaiting-approval' ? 1 : 0)
+  );
 }
 
 export function toRoomSummary(record: RoomRecord): RoomSummary {

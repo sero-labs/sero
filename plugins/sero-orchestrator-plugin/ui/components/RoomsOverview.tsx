@@ -127,7 +127,14 @@ function RoomRow({ room, onOpen }: { room: RoomSummary; onOpen: (roomId: string)
       className={`flex w-full items-center gap-3 rounded-md border border-border px-3 py-2 text-left hover:bg-accent/40 ${style.tint}`}
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">{room.title}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">{room.title}</span>
+        {/* A stopped Room said nothing about why, so the list showed a row the
+            user could only understand by opening it. */}
+        {room.attention?.pause && (
+          <span className="truncate text-xs text-muted-foreground">{room.attention.pause.detail}</span>
+        )}
+      </span>
       {room.attentionCount > 0 && (
         <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
           {room.attentionCount} needs you

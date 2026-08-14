@@ -171,6 +171,13 @@ export interface RoomStopReason {
     | 'deadlock'
     | 'conductor-failed'
     | 'awaiting-approval'
+    /**
+     * A member asked the user a question only the user can answer. The Room is
+     * not stalled and has not failed: it is waiting on a person, and it says so
+     * rather than spending its no-progress clock and pausing for the wrong
+     * reason with the question buried in a member's status line.
+     */
+    | 'awaiting-user'
     | 'user-paused'
     | 'user-cancelled'
     | 'storage-failure';

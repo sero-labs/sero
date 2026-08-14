@@ -61,6 +61,7 @@ export const RoomToolParams = Type.Object({
   paths: Type.Optional(Type.String({ description: 'For claim-paths/release-paths: paths, directories or globs, comma-separated' })),
   reason: Type.Optional(Type.String({ description: 'Why — for a claim, a mandate change or a revision' })),
   artifactKind: Type.Optional(StringEnum(ARTIFACT_KINDS, { description: 'For publish-artifact: what kind of artifact it is' })),
+  artifactId: Type.Optional(Type.String({ description: 'For read-artifact: the artifact id from show-artifacts' })),
   content: Type.Optional(Type.String({ description: 'For request-delivery-approval: the EXACT text the send will carry. The user approves that text, and only that text may be delivered' })),
   approvalId: Type.Optional(Type.String({ description: 'For finish-room: the approval id from request-delivery-approval, when the result was sent outside Sero' })),
   ref: Type.Optional(Type.String({ description: 'For publish-artifact: an external reference (URL, branch, commit) instead of body content; for finish-room: where the delivered result landed' })),
@@ -89,6 +90,7 @@ export interface RoomToolParamsShape {
   paths?: string;
   reason?: string;
   artifactKind?: RoomArtifactKind;
+  artifactId?: string;
   content?: string;
   approvalId?: string;
   ref?: string;
@@ -154,6 +156,7 @@ export function buildRoomCommandInput(
     paths: list(params.paths),
     reason: params.reason,
     artifactKind: params.artifactKind,
+    artifactId: params.artifactId,
     content: params.content,
     approvalId: params.approvalId,
     ref: params.ref,

@@ -343,6 +343,13 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         if (wake) {
           for (const member of targets) await coordinator.wake(roomId, member.id, 'user-intervention');
         }
+        // The Room stopped BECAUSE it was waiting for this. A message that
+        // leaves it paused would answer the question and change nothing, so the
+        // answer restarts it — and only for that one stop reason: a Room the
+        // user paused stays paused whatever else they say to it.
+        if (record.runtime.stopReason?.kind === 'awaiting-user' && record.runtime.status === 'paused') {
+          await coordinator.resumeRoom(roomId);
+        }
         return { ok: true };
       });
     },

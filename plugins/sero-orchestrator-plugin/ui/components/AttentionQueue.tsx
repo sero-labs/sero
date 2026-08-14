@@ -19,6 +19,7 @@ import type { RoomSummary } from '../../shared/room-types';
 import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
 import { OpenLink } from './OpenLink';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
+import { RoomPauseCard, RoomRequestCard } from './RoomAttentionCards';
 
 export type { RoomApprovalDecision };
 
@@ -30,15 +31,33 @@ interface AttentionQueueProps {
   /** Rooms from the watched Room index. Absent until Room mode is mounted. */
   rooms?: RoomSummary[];
   onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  /** Answers a member that stopped to ask the user something. */
+  onRoomAnswer?: (roomId: string, memberId: string, body: string) => void;
+  /** Starts a Room that stopped and cannot start itself. */
+  onRoomResume?: (roomId: string) => void;
   onOpenRoom?: (roomId: string) => void;
 }
 
-export function AttentionQueue({ loops, busy, onAction, onOpenLoop, rooms = [], onRoomApproval, onOpenRoom }: AttentionQueueProps) {
+export function AttentionQueue({
+  loops,
+  busy,
+  onAction,
+  onOpenLoop,
+  rooms = [],
+  onRoomApproval,
+  onRoomAnswer,
+  onRoomResume,
+  onOpenRoom,
+}: AttentionQueueProps) {
   const inputs = loops.flatMap((l) => (l.attention?.input ? [{ loop: l, input: l.attention.input }] : []));
   const suggestions = loops.flatMap((l) => (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })));
   const approvals = rooms.flatMap((room) => (room.attention?.approvals ?? []).map((approval) => ({ room, approval })));
+  // A question a member asked the user, and a Room that stopped for one: both
+  // need the user, and both used to be visible only inside the Room itself.
+  const requests = rooms.flatMap((room) => (room.attention?.requests ?? []).map((request) => ({ room, request })));
+  const pauses = rooms.flatMap((room) => (room.attention?.pause ? [{ room, pause: room.attention.pause }] : []));
 
-  if (inputs.length === 0 && suggestions.length === 0 && approvals.length === 0) {
+  if (inputs.length === 0 && suggestions.length === 0 && approvals.length === 0 && requests.length === 0 && pauses.length === 0) {
     return <p className="text-base text-muted-foreground">Nothing needs you right now.</p>;
   }
 
@@ -51,6 +70,26 @@ export function AttentionQueue({ loops, busy, onAction, onOpenLoop, rooms = [], 
           approval={approval}
           busy={busy}
           onDecide={onRoomApproval}
+          onOpenRoom={onOpenRoom}
+        />
+      ))}
+      {requests.map(({ room, request }) => (
+        <RoomRequestCard
+          key={`${room.id}:${request.memberId}`}
+          room={room}
+          request={request}
+          busy={busy}
+          onAnswer={onRoomAnswer}
+          onOpenRoom={onOpenRoom}
+        />
+      ))}
+      {pauses.map(({ room, pause }) => (
+        <RoomPauseCard
+          key={`${room.id}:pause`}
+          room={room}
+          pause={pause}
+          busy={busy}
+          onResume={onRoomResume}
           onOpenRoom={onOpenRoom}
         />
       ))}

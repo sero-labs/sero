@@ -411,6 +411,43 @@ describe('idempotency', () => {
     expect((await store.readRoom(roomId))?.artifacts).toHaveLength(1);
   });
 
+  it('lets one member read what another published, across separate checkouts', async () => {
+    // A member cannot open another member's worktree, so an artifact nobody can
+    // read back is evidence nobody can check — which is how a live Room spent
+    // its time arguing about a file only one member could see.
+    const published = await router.execute(asImpl, {
+      command: 'publish-artifact',
+      artifactKind: 'report',
+      title: 'What the greet module does',
+      body: 'greet(name) returns "Hello, {name}!".',
+    });
+    const artifactId = published.details.artifactId as string;
+
+    const listed = await router.execute(asLead, { command: 'show-artifacts' });
+    expect(listed.ok).toBe(true);
+    expect(listed.text).toContain(artifactId);
+    expect(listed.text).toContain('What the greet module does');
+
+    const read = await router.execute(asLead, { command: 'read-artifact', artifactId });
+    expect(read.ok).toBe(true);
+    expect(read.text).toContain('greet(name) returns "Hello, {name}!".');
+  });
+
+  it('says so when an artifact names something it cannot open', async () => {
+    const published = await router.execute(asImpl, {
+      command: 'publish-artifact',
+      artifactKind: 'pull-request',
+      title: 'The PR',
+      ref: 'https://github.com/sero-labs/sero/pull/1',
+    });
+    const read = await router.execute(asLead, {
+      command: 'read-artifact',
+      artifactId: published.details.artifactId as string,
+    });
+    expect(read.ok).toBe(false);
+    expect(read.text).toContain('cannot be read from here');
+  });
+
   it('never records a command key without the work item it guards', async () => {
     const add = () =>
       router.execute(asImpl, { command: 'update-work', commandId: 'cmd-9', title: 'Rewrite the tokenizer' });

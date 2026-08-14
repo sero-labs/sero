@@ -39,7 +39,12 @@ import {
   requestDeliverySend,
   type RoomDeliveryCommandDeps,
 } from './room-command-delivery';
-import { renderArtifact, renderClaims, renderMandate, renderRoster } from './room-command-text';
+import { renderClaims, renderMandate, renderRoster } from './room-command-text';
+import {
+  publishArtifactCommand,
+  readArtifactCommand,
+  showArtifactsCommand,
+} from './room-command-artifacts';
 import type { MailboxResult, RoomMailbox } from './room-mailbox';
 import { timelineEvent, withMember, withMemberStatus, withRoomStatus } from './room-actions';
 import { memberRefHelp, resolveMemberRef } from '../../shared/room-member-ref';
@@ -82,6 +87,8 @@ export interface RoomCommandInput {
   paths?: string[];
   reason?: string;
   artifactKind?: RoomArtifactKind;
+  /** read-artifact only: which published artifact to read. */
+  artifactId?: string;
   /** request-delivery-approval only: the exact payload the send will carry. */
   content?: string;
   /** finish-room only: the approval that authorised an external send. */
@@ -301,28 +308,17 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
         );
       }
 
-      case 'publish-artifact': {
-        if (!input.artifactKind) return no('Say what kind of artifact this is (plan, decision, commit, review, report, …).');
-        const result = await deps.work.publishArtifact(
-          roomId,
-          member.id,
-          {
-            kind: input.artifactKind,
-            title: input.title ?? '',
-            content: input.body || undefined,
-            ref: input.ref,
-            relatedWorkId: input.relatedWorkId,
-          },
-          commandId,
-        );
-        if (!result.ok) {
-          return result.code === 'duplicate'
-            ? ok(result.message, { duplicate: true })
-            : no(result.message, { code: result.code });
-        }
-        await deps.noteStructuralProgress(roomId, `${member.displayName} published ${result.artifact.kind}: ${result.artifact.title}.`);
-        return ok(renderArtifact(result.artifact), { artifactId: result.artifact.id, ref: result.artifact.ref });
-      }
+      case 'publish-artifact':
+        return publishArtifactCommand(deps, record, member.id, input, commandId);
+
+      // Members work in separate checkouts, so a member cannot open the file
+      // another one changed. Artifacts are what they share, and evidence nobody
+      // can read is no evidence at all.
+      case 'show-artifacts':
+        return showArtifactsCommand(deps, record);
+
+      case 'read-artifact':
+        return readArtifactCommand(deps, record, input);
 
       case 'claim-paths': {
         if (!input.paths?.length) return no('Name the paths, directories or globs you are claiming.');

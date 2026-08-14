@@ -95,6 +95,22 @@ export function renderArtifact(artifact: RoomArtifact): string {
 }
 
 /**
+ * The Room's published artifacts, newest last, with the id each one is read by.
+ *
+ * Members work in separate checkouts, so one member cannot open another's
+ * files. An artifact is the only thing they all share, and a list a member
+ * cannot act on is no use — so each line carries the id `read-artifact` takes.
+ */
+export function renderArtifactList(artifacts: RoomArtifact[], names: Map<string, string>): string {
+  if (artifacts.length === 0) return 'No artifacts have been published in this Room yet.';
+  const lines = artifacts.map(
+    (artifact) =>
+      `- [${artifact.id}] ${artifact.kind}: "${artifact.title}" — ${names.get(artifact.producedByMemberId) ?? artifact.producedByMemberId}`,
+  );
+  return ['Artifacts:', ...lines, 'Read one with: sero room read-artifact --artifactId <id>'].join('\n');
+}
+
+/**
  * What the Conductor gets back from collecting commits: one line per branch,
  * then the files more than one member changed. The conflicts are listed with
  * their owners because integrating them is the Conductor's next decision, and

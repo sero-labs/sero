@@ -21,6 +21,8 @@ interface HomeViewProps {
   /** Rooms from the watched Room index — their pending approvals join the same queue. */
   rooms?: RoomSummary[];
   onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  onRoomAnswer?: (roomId: string, memberId: string, body: string) => void;
+  onRoomResume?: (roomId: string) => void;
   onOpenRoom?: (roomId: string) => void;
 }
 
@@ -28,21 +30,38 @@ interface HomeViewProps {
 // eye gets tedious; a small workspace stays uncluttered.
 const SEARCH_THRESHOLD = 10;
 
-export function HomeView({ loops, busy, onAction, onOpenLoop, onNew, rooms = [], onRoomApproval, onOpenRoom }: HomeViewProps) {
+export function HomeView({
+  loops,
+  busy,
+  onAction,
+  onOpenLoop,
+  onNew,
+  rooms = [],
+  onRoomApproval,
+  onRoomAnswer,
+  onRoomResume,
+  onOpenRoom,
+}: HomeViewProps) {
   const [query, setQuery] = useState('');
   const questions = loops.reduce((n, l) => n + (l.attention?.input?.questions.length ?? 0), 0);
   const suggestions = loops.reduce((n, l) => n + (l.attention?.suggestions?.length ?? 0), 0);
   const approvals = rooms.reduce((n, r) => n + (r.attention?.approvals.length ?? 0), 0);
+  // A member's question and a stopped Room count here too: the header used to
+  // say "all caught up" while a Room sat waiting for the user.
+  const asks = rooms.reduce((n, r) => n + (r.attention?.requests?.length ?? 0), 0);
+  const stopped = rooms.filter((r) => r.attention?.pause).length;
   const needing =
     loops.filter((l) => l.attention?.input || l.attention?.suggestions?.length).length
-    + rooms.filter((r) => r.attention?.approvals.length).length;
-  const caughtUp = questions === 0 && suggestions === 0 && approvals === 0;
+    + rooms.filter((r) => r.attention).length;
+  const caughtUp = questions === 0 && suggestions === 0 && approvals === 0 && asks === 0 && stopped === 0;
   // Approvals are named only when a Room raised one, so a workspace with no
   // Rooms reads exactly as it did before.
   const counts = [
     `${questions} question${questions === 1 ? '' : 's'}`,
     `${suggestions} suggestion${suggestions === 1 ? '' : 's'}`,
     ...(approvals > 0 ? [`${approvals} approval${approvals === 1 ? '' : 's'}`] : []),
+    ...(asks > 0 ? [`${asks} question${asks === 1 ? '' : 's'} from a Room`] : []),
+    ...(stopped > 0 ? [`${stopped} stopped Room${stopped === 1 ? '' : 's'}`] : []),
   ];
 
   // Search filters only the loops overview by title/summary/prompt; the
@@ -76,6 +95,8 @@ export function HomeView({ loops, busy, onAction, onOpenLoop, onNew, rooms = [],
           onOpenLoop={onOpenLoop}
           rooms={rooms}
           onRoomApproval={onRoomApproval}
+          onRoomAnswer={onRoomAnswer}
+          onRoomResume={onRoomResume}
           onOpenRoom={onOpenRoom}
         />
       </section>

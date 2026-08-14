@@ -55,7 +55,7 @@ import {
 import { reconcileAllRooms } from './room-reconcile';
 import { scheduleRoomTurns, type ReadySignal, type WakeReason } from './room-scheduler';
 import { RoomSignalBook, quietMark } from './room-signals';
-import { escalate, handleStall, reportWaitCycle, type StallContext } from './room-stall';
+import { handleIdleLimit, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
@@ -280,7 +280,7 @@ export class RoomCoordinator {
     // turn takes longer than the idle window.
     if (!inFlight && ready.length === 0) {
       const idle = checkIdleLimit(record, nowMs);
-      if (!idle.ok) return escalate(this.ctx, record, 'no-progress', idle.reason ?? 'Nothing has progressed.');
+      if (!idle.ok) return handleIdleLimit(this.ctx, record, idle.reason);
     }
 
     const decision = scheduleRoomTurns(record, ready, nowMs);

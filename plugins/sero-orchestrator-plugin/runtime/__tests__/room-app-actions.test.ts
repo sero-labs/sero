@@ -107,6 +107,41 @@ describe('the user Room surface', () => {
     expect(told?.toMemberIds).toEqual(MEMBERS.map((member) => member.key));
   });
 
+  it('restarts a Room that stopped waiting for the user, and only that one', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberIn(store, roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.updateMember(roomId, 'impl', (member) => ({
+      ...member,
+      status: 'blocked',
+      statusDetail: 'Needs the user: which database?',
+    }));
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      runtime: {
+        ...record.runtime,
+        status: 'paused',
+        stopReason: { kind: 'awaiting-user', detail: 'Implementer needs you: which database?', at: 't1' },
+      },
+    }));
+
+    // The Room stopped for this answer. Delivering it and leaving the Room
+    // stopped would answer the question and change nothing.
+    expect((await app.intervene(roomId, 'Use Postgres.', ['impl'])).ok).toBe(true);
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status !== 'paused', 'the Room to carry on');
+    expect((await memberIn(store, roomId, 'impl')).status).not.toBe('blocked');
+  });
+
+  it('leaves a Room the user paused paused, whatever else they say to it', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await coordinator.pauseRoom(roomId, 'Paused.');
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'paused', 'the pause');
+
+    expect((await app.intervene(roomId, 'A note for later.')).ok).toBe(true);
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
+  });
+
   it('answers for a waiting member, and the answer settles the wait', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

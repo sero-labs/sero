@@ -21,8 +21,8 @@ import {
   receiptProblems,
   requestDeliveryApproval,
   resolveApprovalForUser,
-  toRoomAttention,
 } from '../rooms/room-delivery';
+import { toRoomAttention } from '../rooms/room-attention';
 import { buildDeliveryBinding } from '../rooms/room-delivery-binding';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import type { RoomRecord } from '../rooms/room-state';
@@ -116,6 +116,47 @@ describe('the Room approval inbox', () => {
     const resolved = JSON.parse(await readFile(store.indexFile, 'utf8')) as RoomIndex;
     expect(resolved.rooms[0].attention).toBeUndefined();
     expect(resolved.rooms[0].attentionCount).toBe(0);
+  });
+
+  it('carries a member that asked the user, and a Room that stopped, into the same inbox', async () => {
+    // Neither is an approval, and before this both were invisible from Home:
+    // the Room stopped and the inbox said the user was all caught up.
+    await seedRoom((room) => ({
+      ...room,
+      members: room.members.map((member) =>
+        member.id === 'impl'
+          ? { ...member, status: 'blocked' as const, statusDetail: 'Needs the user: which database?' }
+          : member,
+      ),
+      runtime: {
+        ...room.runtime,
+        status: 'paused' as const,
+        stopReason: { kind: 'awaiting-user' as const, detail: 'Implementer needs you: which database?', at: 't3' },
+      },
+    }));
+    const index = JSON.parse(await readFile(store.indexFile, 'utf8')) as RoomIndex;
+    const attention = index.rooms[0].attention;
+    expect(attention?.requests).toEqual([
+      { memberId: 'impl', memberName: 'Implementer', question: 'which database?' },
+    ]);
+    expect(attention?.pause?.kind).toBe('awaiting-user');
+    expect(index.rooms[0].attentionCount).toBe(2);
+  });
+
+  it('leaves a Room the user paused out of the inbox', async () => {
+    // The user stopped it on purpose. Asking them about their own decision is
+    // how an inbox becomes noise nobody reads.
+    await seedRoom((room) => ({
+      ...room,
+      runtime: {
+        ...room.runtime,
+        status: 'paused' as const,
+        stopReason: { kind: 'user-paused' as const, detail: 'Paused.', at: 't3' },
+      },
+    }));
+    const index = JSON.parse(await readFile(store.indexFile, 'utf8')) as RoomIndex;
+    expect(index.rooms[0].attention).toBeUndefined();
+    expect(index.rooms[0].attentionCount).toBe(0);
   });
 
   it('refuses a member — including the Conductor — and keeps the request open', async () => {

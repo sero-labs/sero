@@ -30,9 +30,15 @@ import {
   isExternalDestination,
   type DeliveryReceipt,
 } from '../../shared/delivery-types';
-import type { RoomAttention, RoomAttentionApproval } from '../../shared/attention-types';
+import type {
+  RoomAttention,
+  RoomAttentionApproval,
+  RoomAttentionPause,
+  RoomAttentionRequest,
+} from '../../shared/attention-types';
 import { ROOM_ACCESS_LABEL_TEXT } from '../../shared/room-access-map';
 import type { RoomApprovalRequest } from '../../shared/room-message-types';
+import type { RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import {
   buildDeliveryBinding,
@@ -66,41 +72,6 @@ export interface RoomDeliveryDeps {
   store: RoomStore;
 }
 
-// ── 1. The approval inbox ───────────────────────────────────
-
-/**
- * The pending approvals of ONE Room, as the home inbox renders them. Pure, so
- * `toRoomSummary` can embed it in the watched index without a store read.
- *
- * It lives here rather than in `room-state.ts` because this file owns what an
- * inbox entry says; the summary just carries it.
- */
-export function toRoomAttention(record: RoomRecord): RoomAttention | undefined {
-  const pending = record.approvals.filter((approval) => approval.status === 'pending');
-  if (pending.length === 0) return undefined;
-  return { approvals: pending.map((approval) => toApprovalEntry(record, approval)) };
-}
-
-function toApprovalEntry(record: RoomRecord, approval: RoomApprovalRequest): RoomAttentionApproval {
-  const member = record.members.find((candidate) => candidate.id === approval.requestedByMemberId);
-  return {
-    approvalId: approval.id,
-    memberId: approval.requestedByMemberId,
-    // A retired member's record can be pruned before the user answers; the id
-    // is still true, so the entry names it rather than pretending it is gone.
-    memberName: member?.displayName ?? approval.requestedByMemberId,
-    title: approval.title,
-    reason: approval.reason,
-    consequence: approval.consequence,
-    affects: approval.affects,
-    kind: approval.kind,
-    estimatedCostUsd: approval.estimatedCostUsd,
-    // The bound payload, so the user answers on the text itself rather than on
-    // a member's description of it.
-    ...(approval.delivery ? { payload: approval.delivery.content } : {}),
-    createdAt: approval.createdAt,
-  };
-}
 
 /**
  * Who is answering an approval. The user is the only accepted answer, and this

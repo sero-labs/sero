@@ -16,7 +16,7 @@
  */
 
 import type { RoomMessage } from '../../shared/room-message-types';
-import type { RoomStopReason } from '../../shared/room-types';
+import type { RoomMember, RoomStopReason } from '../../shared/room-types';
 import { quietMark, type RoomSignalBook } from './room-signals';
 import { timelineEvent, withRoomStatus } from './room-actions';
 import { settlePause, type RoomLifecycleContext } from './room-lifecycle';
@@ -107,7 +107,53 @@ export async function handleStall(
     await ctx.wake(roomId, lead.id, 'room-quiet');
     return;
   }
+  // Nothing could be woken, and a member is stopped waiting for the user. That
+  // is not a stall — it is a question with nobody reading it. The Room says so
+  // and pauses NOW, rather than spending its no-progress clock and then blaming
+  // the members for a silence the user was never told about.
+  const asking = record.members.find((member) => member.status === 'blocked');
+  if (asking) {
+    const now = ctx.host.now();
+    await settlePause(ctx, record, awaitingUser(asking, now), now);
+    return;
+  }
   if (decision.blocked) ctx.emit({ roomId, kind: 'blocked', memberId: null, detail: decision.blocked.reason });
+}
+
+/**
+ * The stop reason for a Room that is waiting on a person, naming who asked and
+ * what for. The detail is what the inbox and the banner show, so the user reads
+ * the question itself rather than "blocked".
+ */
+export function awaitingUser(member: RoomMember, at: string): RoomStopReason {
+  const asked = member.statusDetail.replace(/^Needs the user:\s*/i, '').trim();
+  return {
+    kind: 'awaiting-user',
+    detail: asked ? `${member.displayName} needs you: ${asked}` : `${member.displayName} needs you.`,
+    at,
+  };
+}
+
+/**
+ * What the no-progress limit means for THIS Room (§21).
+ *
+ * A Room where somebody asked the user is not going in circles: it is waiting
+ * on a person, and only that person can end it. Escalating there would blame
+ * the members for a silence the user was never told about, and bury the
+ * question under "nothing has progressed".
+ */
+export async function handleIdleLimit(
+  ctx: StallContext,
+  record: RoomRecord,
+  reason: string | undefined,
+): Promise<void> {
+  const asking = record.members.find((member) => member.status === 'blocked');
+  if (!asking) {
+    await escalate(ctx, record, 'no-progress', reason ?? 'Nothing has progressed.');
+    return;
+  }
+  const now = ctx.host.now();
+  await settlePause(ctx, record, awaitingUser(asking, now), now);
 }
 
 /** The longest a repeated question stays readable in a reminder. */

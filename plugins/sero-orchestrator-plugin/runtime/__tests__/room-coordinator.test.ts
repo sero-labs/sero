@@ -433,6 +433,32 @@ describe('limits and the no-progress ladder', () => {
     expect((await store.readRoom(roomId))?.runtime.stopReason?.kind).toBe('no-progress');
   });
 
+  it('says the user is needed rather than blaming the members for the silence', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // The Conductor asked the user something, exactly as request-attention
+    // leaves it, and the idle clock has run out. The Room is waiting on a
+    // person — not going in circles — and only the user can end that.
+    await store.updateMember(roomId, 'lead', (member) => ({
+      ...member,
+      status: 'blocked' as const,
+      statusDetail: 'Needs the user: which database should I use?',
+    }));
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      definition: { ...record.definition, envelope: { ...record.definition.envelope, maxIdleMs: 1 } },
+    }));
+
+    await coordinator.advance(roomId);
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'paused', 'the Room to wait for the user');
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.stopReason?.kind).toBe('awaiting-user');
+    // The question itself, not "blocked": it is what the user reads in the inbox.
+    expect(record?.runtime.stopReason?.detail).toContain('which database should I use?');
+  });
+
   it('pauses on a hard limit and stops starting turns', async () => {
     const roomId = await draftRoom(envelopeWith({ maxCostUsd: 0.2 }));
     await coordinator.startRoom(roomId);

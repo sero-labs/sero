@@ -21,6 +21,8 @@ export type RoomCommandId =
   | 'claim-paths'
   | 'release-paths'
   | 'publish-artifact'
+  | 'show-artifacts'
+  | 'read-artifact'
   | 'report-status'
   | 'request-attention'
   | 'publish-note'
@@ -99,6 +101,13 @@ export const ROOM_COMMANDS: readonly RoomCommandSpec[] = [
     label: 'Publish artifact',
     conductorOnly: false,
     usage: 'sero room publish-artifact --artifactKind report --title "Findings" --body "…"',
+  },
+  { id: 'show-artifacts', label: 'Show artifacts', conductorOnly: false, usage: 'sero room show-artifacts' },
+  {
+    id: 'read-artifact',
+    label: 'Read artifact',
+    conductorOnly: false,
+    usage: 'sero room read-artifact --artifactId <id from show-artifacts>',
   },
   { id: 'report-status', label: 'Report status', conductorOnly: false, usage: 'sero room report-status --body "fixing the parser"' },
   {

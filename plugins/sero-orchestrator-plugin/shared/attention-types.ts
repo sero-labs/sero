@@ -17,6 +17,7 @@
 import type { HumanQuestion } from './human-input-types';
 import type { SuggestionConfidence } from './reflection-types';
 import type { RoomApprovalRequest } from './room-message-types';
+import type { RoomStopReason } from './room-types';
 
 /** A loop's pending input request, enough to answer it from the home inbox. */
 export interface LoopAttentionInput {
@@ -80,4 +81,31 @@ export interface RoomAttentionApproval {
  */
 export interface RoomAttention {
   approvals: RoomAttentionApproval[];
+  /**
+   * Members that asked the user something (`request-attention`). They are not
+   * approvals — nothing is being authorised — but they stop the member just as
+   * hard, and a request the user never sees is a Room that dies quietly.
+   */
+  requests?: RoomAttentionRequest[];
+  /**
+   * A Room that stopped and cannot start itself again. Absent while it runs,
+   * and absent when the user stopped it themselves: the inbox lists what needs
+   * a decision, not what the user already decided.
+   */
+  pause?: RoomAttentionPause;
+}
+
+/** One member waiting on the user, with the question it asked. */
+export interface RoomAttentionRequest {
+  memberId: string;
+  memberName: string;
+  /** What the member said it needs, in its own words. */
+  question: string;
+}
+
+/** Why a Room is stopped, for the inbox card that offers to resume it. */
+export interface RoomAttentionPause {
+  kind: RoomStopReason['kind'];
+  detail: string;
+  at: string;
 }
