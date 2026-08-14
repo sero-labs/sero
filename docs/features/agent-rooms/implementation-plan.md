@@ -407,6 +407,10 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 
 ## 11. Phase 7: First-party Room UI
 
+> **Status:** complete. Reviewed in three routed rounds; the findings and their
+> fixes are recorded on PR #373.
+
+
 Objective: Implement and approve the Room experience inside sero-orchestrator-plugin on top of the proven runtime.
 
 ### Work checklist
@@ -458,6 +462,12 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 At the end of Phase 7, Room mode is usable behind a feature flag. The old collaboration engines remain available.
 
 ## 12. Phase 8: Prove Room mode and remove legacy engines
+
+> **Status:** the gate harness is built (`docs/features/agent-rooms/evaluation.md`,
+> `apps/desktop/e2e/agent-rooms.agent.spec.ts`). The evaluation runs spend real
+> money and are the user's to approve. Entry-point routing and engine removal
+> wait on the gate, as this plan requires.
+
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.
 
