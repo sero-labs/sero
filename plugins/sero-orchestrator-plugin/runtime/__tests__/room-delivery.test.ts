@@ -271,6 +271,27 @@ describe('external delivery', () => {
     expect(receiptProblems(spent!, { ...receipt, approvalId: 'appr-x' }, SENT)[0]).toContain('already used');
   });
 
+  it('lets only one of two concurrent finishes spend the approval', async () => {
+    await seedRoom((room) => external({ ...room, approvals: [approved('appr-x')] }));
+    const send = () =>
+      deliverRoomResult(
+        { host, store },
+        { roomId: 'room-a', finalResult: SENT, receipt: { ...receipt, approvalId: 'appr-x' } },
+      );
+
+    // Both read a Room with no delivery and the same usable approval. Deciding
+    // outside the write let both accept it — one approval, two sends.
+    const [first, second] = await Promise.all([send(), send()]);
+
+    // Both callers succeed — the loser is told the delivery already happened,
+    // which is the honest answer. What must not happen is the approval being
+    // spent twice, or two different sends being accepted.
+    const record = await store.readRoom('room-a');
+    expect(record?.approvals.filter((entry) => entry.consumedAt !== null)).toHaveLength(1);
+    expect(first.ref).toBe(second.ref);
+    expect(record?.delivery.deliveryRef).toBe('https://chat.test/p/1');
+  });
+
   it('refuses a claimed send with no receipt at all', async () => {
     const record = await seedRoom(external);
     expect(receiptProblems(record, undefined, SENT)).toEqual([

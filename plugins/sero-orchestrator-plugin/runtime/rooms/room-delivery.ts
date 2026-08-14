@@ -242,54 +242,97 @@ export interface RoomDeliveryOutcome {
  * internal and the user is exactly who needs to hear that the send did not
  * happen.
  */
+/**
+ * What the serialized claim decided. `won` is the only state that performs a
+ * send, so exactly one caller can.
+ */
+type DeliveryClaim =
+  | { state: 'already'; problems: string[]; ref: string | null; sessionId?: undefined }
+  | { state: 'nothing'; problems: string[]; ref: null; sessionId?: undefined }
+  | { state: 'won'; problems: string[]; ref: string | null; sessionId: string | null };
+
 export async function deliverRoomResult(
   deps: RoomDeliveryDeps,
   request: RoomDeliveryRequest,
 ): Promise<RoomDeliveryOutcome> {
-  const record = await deps.store.readRoom(request.roomId);
-  if (!record) return { ok: false, problems: [`Room not found: ${request.roomId}`], returnedToChat: false, ref: null };
-  // One Room, one delivery. The approval is spent below as well, so a send is
-  // single-use by its own record and not only by this guard.
-  if (record.delivery.deliveredAt) {
-    return { ok: true, problems: [], returnedToChat: false, ref: record.delivery.deliveryRef };
+  const now = deps.host.now();
+
+  // Validate and CLAIM in one serialized decision. Reading, validating and then
+  // writing let two concurrent finishes both see no delivery and the same
+  // usable approval, and both accept it — one approval authorising two sends,
+  // which is precisely what binding an approval to one payload is for.
+  const claim = await deps.store.transact<DeliveryClaim>(request.roomId, null, (current) => {
+    if (current.delivery.deliveredAt) {
+      return {
+        record: null,
+        result: { state: 'already' as const, problems: [], ref: current.delivery.deliveryRef },
+      };
+    }
+    // The result IS the payload: what the destination receives and what the
+    // approval was bound to are the same text, so a swapped payload is a
+    // different final answer and fails the binding.
+    const problems = receiptProblems(current, request.receipt, request.finalResult);
+    const accepted = problems.length === 0 && request.receipt ? request.receipt.ref : null;
+    const sessionId = current.delivery.originSessionId;
+    // Nothing to claim: the destination was refused with no chat to fall back
+    // on, or the Room keeps its result. Writing nothing leaves the Room free to
+    // finish again with a corrected receipt.
+    if (!accepted && !sessionId) {
+      return { record: null, result: { state: 'nothing' as const, problems, ref: null } };
+    }
+
+    // The claim is taken BEFORE the chat send below, so only one caller can
+    // perform it. The approval is spent in the same write: two writes would
+    // leave a window where an accepted send still authorises another one.
+    return {
+      record: {
+        ...current,
+        approvals: accepted ? withApprovalConsumed(current.approvals, request.receipt?.approvalId, now) : current.approvals,
+        delivery: { ...current.delivery, deliveredAt: now, deliveryRef: accepted },
+      },
+      result: { state: 'won' as const, problems, ref: accepted, sessionId },
+    };
+  });
+
+  // `transact` reports duplicates by command key; this call passes none.
+  const outcome = claim.duplicate ? null : claim.result;
+  if (!outcome) return { ok: false, problems: ['This delivery was already recorded.'], returnedToChat: false, ref: null };
+  if (outcome.state === 'already') return { ok: true, problems: [], returnedToChat: false, ref: outcome.ref };
+  if (outcome.state === 'nothing') {
+    return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat: false, ref: null };
   }
 
-  // The result IS the payload: what the destination receives and what the
-  // approval was bound to are the same text, so a swapped payload is a
-  // different final answer and fails the binding.
-  const problems = receiptProblems(record, request.receipt, request.finalResult);
-  const sessionId = record.delivery.originSessionId;
-  const returnedToChat = sessionId
-    ? await returnToInvokingChat(deps, record, sessionId, request.finalResult, problems)
-    : false;
+  // The chat hears about the result whether or not the declared destination was
+  // accepted: a refused external send is a reason to tell the user MORE, not to
+  // leave them with nothing.
+  const record = await deps.store.readRoom(request.roomId);
+  const sessionId = outcome.sessionId;
+  const returnedToChat =
+    record && sessionId
+      ? await returnToInvokingChat(deps, record, sessionId, request.finalResult, outcome.problems)
+      : false;
 
-  // What the Room records as its delivery: the agent's proof when the declared
-  // destination was accepted, else the chat that did receive the result.
-  const accepted = problems.length === 0 && request.receipt ? request.receipt.ref : null;
-  const ref = accepted ?? (returnedToChat && sessionId ? `session:${sessionId}` : null);
-  // Nothing to record: either the destination was refused, or the Room keeps its
-  // result (workspace files, no invoking chat), which is a valid outcome.
-  if (ref === null) return { ok: problems.length === 0, problems, returnedToChat, ref: null };
-
-  const now = deps.host.now();
-  // The approval is spent in the SAME write that records the delivery: two
-  // writes would leave a window where an accepted send has an approval that
-  // still authorises another one.
-  await deps.store.updateRoom(request.roomId, (current) => ({
-    ...current,
-    approvals: accepted ? withApprovalConsumed(current.approvals, request.receipt?.approvalId, now) : current.approvals,
-    delivery: { ...current.delivery, deliveredAt: now, deliveryRef: ref },
-  }));
+  const ref = outcome.ref ?? (returnedToChat && sessionId ? `session:${sessionId}` : null);
+  if (ref !== outcome.ref) {
+    await deps.store.updateRoom(request.roomId, (current) => ({
+      ...current,
+      delivery: { ...current.delivery, deliveryRef: ref },
+    }));
+  }
   await deps.store.appendTimeline(request.roomId, [{
     id: deps.host.newId('tl'),
     roomId: request.roomId,
     at: now,
     kind: 'delivery',
     memberId: null,
-    summary: `Result delivered to ${record.delivery.destination}.`,
-    details: { ref },
+    // A claimed delivery whose send then failed leaves no ref. Recording that
+    // as "delivered" would put a false line in the audit timeline.
+    summary: ref
+      ? `Result delivered to ${record?.delivery.destination ?? request.roomId}.`
+      : `Result could not be delivered to ${record?.delivery.destination ?? request.roomId}.`,
+    details: ref ? { ref } : {},
   }]);
-  return { ok: problems.length === 0, problems, returnedToChat, ref };
+  return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat, ref };
 }
 
 /**
