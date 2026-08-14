@@ -188,6 +188,39 @@ describe('durable delivery', () => {
     expect(String(host.persistentSessions.prompts.at(-1)?.content)).toContain('take the parser');
   });
 
+  it('accepts the name the roster shows, not only the member id', async () => {
+    const roomId = await startRoom();
+
+    // A member reads "Implementer" in the roster and writes "Implementer". The
+    // ids are what the Room stores, so the message must still land on `impl`.
+    const sent = await coordinator.mailbox.send(roomId, {
+      commandId: 'cmd-1',
+      fromMemberId: 'lead',
+      toMemberIds: ['Implementer'],
+      body: 'take the parser',
+    });
+
+    expect(sent.ok).toBe(true);
+    expect((await store.readMessages(roomId, 0, 10))[0]).toMatchObject({ toMemberIds: ['impl'] });
+  });
+
+  it('says who is in the Room when it refuses a name nobody answers to', async () => {
+    const roomId = await startRoom();
+
+    const sent = await coordinator.mailbox.send(roomId, {
+      commandId: 'cmd-1',
+      fromMemberId: 'lead',
+      toMemberIds: ['Nobody'],
+      body: 'take the parser',
+    });
+
+    // A refusal that does not say what to write instead costs another turn.
+    expect(sent).toMatchObject({ ok: false, code: 'unknown-recipient' });
+    const refusal = sent.ok ? '' : sent.message;
+    expect(refusal).toContain('impl');
+    expect(refusal).toContain('scout');
+  });
+
   it('treats a repeated command id as the same logical message', async () => {
     const roomId = await startRoom();
     const request = {

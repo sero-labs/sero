@@ -16,7 +16,7 @@ import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent'
 
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
-import { bridgeExtensionTools } from '@electron/cli';
+import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
@@ -124,25 +124,61 @@ export async function installPersistentSessions(
       if (removed.length > 0) {
         console.warn(`[persistent-sessions] permission profile removed: ${removed.join(', ')}`);
       }
+      // The CLI scope of this session. Pi names its own session only after the
+      // session exists, and the CLI registry needs the name BEFORE that — so the
+      // scope is the host-issued grant and subject, which are unique per member
+      // and known here. Leaving it blank makes the registry fall back to
+      // whichever chat is open in the workspace, which would show the member
+      // another session's app commands and hide its own.
+      const cliScopeId = `${input.grantId}:${input.subject}`;
+      // This session's own command surface, starting empty. The app's own
+      // commands are bridged into it below; the shared surface — app control,
+      // workspaces, other plugins — never is. A member that could reach `sero
+      // app click` could drive the user's desktop, which is not a capability
+      // any Room approval describes, and a member with no Room command to run
+      // WILL go looking for another way to talk.
+      const cliRegistry = createPrivateCliRegistry();
       return {
         tools: allowed,
         modelRuntime: infra.modelRuntime,
         settingsManager: infra.settingsManager,
-        resourceLoader: createMemberResourceLoader({
+        // Without this the session has no `sero-cli` tool object at all, so the
+        // approved `sero-cli` name matches nothing and the member cannot run a
+        // single Room command (AD-020).
+        customTools: [createWorkspaceCliTool(target.workspace.id, cliScopeId, cliRegistry)],
+        resourceLoader: await createMemberResourceLoader({
           cwd: input.cwd,
           // The POLICY's skills, intersected with what the request asked for —
           // the request alone would be the caller's word for it.
           allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
           appendSystemPrompt: input.systemPromptAdditions,
           settingsManager: infra.settingsManager,
+          // The app that holds the grant, and only it.
+          packages: [target.manifest.packagePath],
           extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, target.workspace.id, '', undefined, {
+            createSeroExtensionFactory(workspaceManager, target.workspace.id, cliScopeId, undefined, {
               // No agent-management tools: a Room member must not be able to
               // spawn agents outside the roster the user approved.
               enableAgentManagementTools: false,
+              cliRegistry,
             }),
           ],
-          bridgeExtensions: (base) => bridgeExtensionTools(base),
+          bridgeExtensions: (base) => {
+            const bridged = bridgeExtensionTools(base, { sessionId: cliScopeId, registry: cliRegistry });
+            // The one line that says whether the member can talk at all. A Room
+            // whose members hold no `room` command looks like a Room that has
+            // nothing to say, so the commands and any extension that failed to
+            // load are both worth a line of log.
+            const commands = cliRegistry.list({ sessionId: cliScopeId }).map((command) => command.name);
+            console.log(
+              `[persistent-sessions] ${input.subject} commands: ${commands.join(', ') || 'none'}`
+              + ` (from ${bridged.extensions.map((extension) => extension.resolvedPath).join(', ') || 'no extensions'})`,
+            );
+            for (const failure of bridged.errors) {
+              console.log(`[persistent-sessions] ${input.subject} extension failed: ${failure.path}: ${failure.error}`);
+            }
+            return bridged;
+          },
         }),
       };
     },

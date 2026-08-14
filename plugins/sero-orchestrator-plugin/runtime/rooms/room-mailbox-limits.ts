@@ -13,6 +13,7 @@
  * restart has already ended that run.
  */
 
+import { resolveMemberRef } from '../../shared/room-member-ref';
 import type { RoomRecord } from './room-state';
 
 export interface MailboxLimits {
@@ -93,7 +94,6 @@ export function planRecipients(
   requested: string[] | null,
   limits: MailboxLimits,
 ): RecipientPlan {
-  const byId = new Map(record.members.map((member) => [member.id, member]));
   const backlog = new Map(record.readCursors.map((cursor) => [cursor.memberId, cursor.pendingCount]));
   const requestedIds =
     requested ??
@@ -103,15 +103,18 @@ export function planRecipients(
   const skipped: SkippedRecipient[] = [];
   const unknownIds: string[] = [];
 
-  for (const memberId of new Set(requestedIds)) {
-    // A member never messages itself: it would read its own words back as new
-    // input on its next turn.
-    if (memberId === fromMemberId) continue;
-    const member = byId.get(memberId);
+  for (const ref of new Set(requestedIds)) {
+    // The roster shows names, so a member writes names. Resolving here means the
+    // rest of the Room still deals only in ids.
+    const member = resolveMemberRef(record.members, ref);
     if (!member) {
-      unknownIds.push(memberId);
+      unknownIds.push(ref);
       continue;
     }
+    const memberId = member.id;
+    // A member never messages itself: it would read its own words back as new
+    // input on its next turn.
+    if (memberId === fromMemberId || memberIds.includes(memberId)) continue;
     if (member.status === 'retired') {
       skipped.push({ memberId, kind: 'retired', reason: `${member.displayName} has left the Room.` });
       continue;

@@ -16,6 +16,7 @@
  */
 
 import type { RoomStopReason } from '../../shared/room-types';
+import { quietMark, type RoomSignalBook } from './room-signals';
 import { timelineEvent, withRoomStatus } from './room-actions';
 import { settlePause, type RoomLifecycleContext } from './room-lifecycle';
 import type { RoomMessageDraft } from './room-messages';
@@ -27,6 +28,8 @@ export interface StallContext extends RoomLifecycleContext {
   wake(roomId: string, memberId: string, reason: WakeReason): Promise<void>;
   /** The mailbox's view of who waits on whom (FR-020). One source, one answer. */
   detectDeadlock(roomId: string): Promise<string[][]>;
+  /** What the Room is holding. Read here only to claim one wake per event. */
+  signals: RoomSignalBook;
 }
 
 export async function handleStall(
@@ -50,6 +53,15 @@ export async function handleStall(
   if (inFlight) return;
   if ((await ctx.detectDeadlock(roomId)).length > 0) {
     await escalate(ctx, record, 'deadlock', 'Members are waiting on each other, so nobody can continue.');
+    return;
+  }
+  // Nobody is waiting on anybody and nothing is queued: the members simply
+  // stopped talking. Only the Conductor can read the work and decide the Room is
+  // finished, and nothing else was ever going to wake it — so this silence used
+  // to run out the no-progress clock and land on the user.
+  const lead = record.members.find((member) => member.isConductor && member.status === 'idle');
+  if (lead && ctx.signals.claimQuietWake(roomId, quietMark(record))) {
+    await ctx.wake(roomId, lead.id, 'room-quiet');
     return;
   }
   ctx.emit({ roomId, kind: 'blocked', memberId: null, detail: decision.blocked.reason });

@@ -35,7 +35,7 @@ import { validatePersistentSessionRequest } from './validate';
 /** The parts of a Pi session the host assembles from the grant. */
 export type SessionInputs = Pick<
   CreateAgentSessionOptions,
-  'resourceLoader' | 'customTools' | 'modelRuntime' | 'settingsManager' | 'model' | 'thinkingLevel'
+  'resourceLoader' | 'customTools' | 'modelRuntime' | 'settingsManager' | 'model' | 'thinkingLevel' | 'tools'
 >;
 
 /** Everything the host needs injected, so the whole surface is testable. */
@@ -69,6 +69,9 @@ export interface PersistentSessionHostDeps {
    * the user approved, never from the request.
    */
   buildSessionInputs(input: {
+    /** Host-issued grant id and the validated subject: together, this session's identity. */
+    grantId: string;
+    subject: string;
     cwd: string;
     tools: string[];
     skills: string[];
@@ -256,7 +259,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       cacheReadTokens: stats?.tokens.cacheRead ?? 0,
       cacheWriteTokens: stats?.tokens.cacheWrite ?? 0,
       costUsd: stats?.cost ?? 0,
-      turns: entry.session.agent.state.messages.length,
+      turns: entry.turnsTaken,
     };
   }
 
@@ -308,6 +311,8 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     sessionManager: SessionManager,
   ) {
     const inputs = await this.deps.buildSessionInputs({
+      grantId: request.grantId,
+      subject: request.subject,
       cwd: validation.cwd,
       tools: request.tools,
       skills: request.skills,
@@ -326,9 +331,12 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       model: await this.deps.resolveModel(request.model),
       thinkingLevel: validation.thinking as CreateAgentSessionOptions['thinkingLevel'],
       // Only the approved tool names are enabled. `noTools: 'builtin'` alone
-      // would leave every extension tool on.
+      // would leave every extension tool on. The list is the builder's, not the
+      // request's: the builder applied the approved permission profile on top of
+      // the allowlist, and the request has not — using the request here would
+      // make the profile decorative.
       noTools: 'builtin',
-      tools: request.tools,
+      tools: inputs.tools,
     });
     return session;
   }

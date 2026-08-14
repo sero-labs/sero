@@ -27,7 +27,9 @@ export type WakeReason =
   | 'user-intervention'
   | 'direct-message'
   | 'assigned-work'
-  | 'first-turn';
+  | 'first-turn'
+  /** Everyone went idle and the Room is not finished — the lead has to decide. */
+  | 'room-quiet';
 
 export interface ScheduledTurn {
   memberId: string;
@@ -48,6 +50,8 @@ const WAKE_PRIORITY: Record<WakeReason, number> = {
   'direct-message': 2,
   'assigned-work': 3,
   'first-turn': 4,
+  // Last: a Room with anything else to run does not need its lead prodded.
+  'room-quiet': 5,
 };
 
 export interface ReadySignal {

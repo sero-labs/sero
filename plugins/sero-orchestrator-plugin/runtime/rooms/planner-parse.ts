@@ -43,6 +43,7 @@ import {
 import { parseHumanQuestions } from '../human-input';
 import { isRecord, type ParseResult } from '../structured-call';
 import { parseRoomBlueprint } from './blueprint-schema';
+import { withRoomSurface } from '../../shared/room-surface';
 
 /** The user-owned half of a plan: everything the model is not allowed to author. */
 export interface RoomPlannerContext {
@@ -179,7 +180,9 @@ export function parseRoomPlannerReply(value: unknown, context: RoomPlannerContex
   const reasons = missingReasons(parsed.value);
   if (reasons.length > 0) return { ok: false, errors: reasons };
 
-  const proposed = applyCeilings(parsed.value, context, clamps);
+  // Every member holds the Room surface, whether or not the planner asked for
+  // it. A member that cannot run a Room command is not in the Room.
+  const proposed = applyCeilings(withRoomSurface(parsed.value), context, clamps);
 
   // Existence, and only existence: an over-reach is the clamp's job, but a name
   // nothing can resolve has to go back to the model.

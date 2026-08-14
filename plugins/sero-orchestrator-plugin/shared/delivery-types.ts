@@ -8,6 +8,8 @@
  * each file within the 500-LOC limit; re-exported from types.ts.
  */
 
+import type { MemberPermissionLevel } from './room-blueprint-types';
+
 export const DELIVERY_DESTINATION_IDS = [
   'pr',
   'workspace-files',
@@ -96,6 +98,25 @@ export const DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = [
    */
   { id: 'invoking-chat', label: 'Invoking chat', external: false, roomOnly: true, paramHints: [] },
 ];
+
+/**
+ * Where a Room's result goes when the user does not say.
+ *
+ * It follows the access they chose, because that is what the result IS: a
+ * read-only team produces a document, a team that edits produces changed files,
+ * a team that may push produces a pull request. `invoking-chat` is never a
+ * default — it only works for a Room a chat started, and a Room that cannot
+ * reach its destination finishes having delivered nothing.
+ */
+const DEFAULT_DELIVERY: Record<MemberPermissionLevel, DeliveryDestinationId> = {
+  'read-only': 'saved-artifact',
+  'edit-workspace': 'workspace-files',
+  'edit-and-push': 'pr',
+};
+
+export function defaultDeliveryFor(access: MemberPermissionLevel): DeliveryDestinationId {
+  return DEFAULT_DELIVERY[access];
+}
 
 /** Destinations a Workflow loop may choose — everything that is not Rooms-only. */
 export const LOOP_DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = DELIVERY_DESTINATIONS.filter((d) => !d.roomOnly);

@@ -29,6 +29,17 @@ export interface MemberResourceProfileInput {
    * `sero-cli` bridge. The caller assembles these from the grant.
    */
   extensionFactories: NonNullable<LoaderOptions['extensionFactories']>;
+  /**
+   * The packages this session loads extensions from — nothing else is
+   * discovered. Same form as a `packages` entry in settings: a path or spec,
+   * not a file inside the package.
+   *
+   * A member is given the extensions of the app that holds its grant, and no
+   * others. Every installed plugin loading into a member session would put
+   * every plugin's commands on its `sero-cli` surface, which is authority
+   * nobody approved and prompt the member has no use for.
+   */
+  packages: string[];
   /** Bridges plugin tools into the single `sero-cli` tool (AD-020). */
   bridgeExtensions(base: LoadExtensionsResult): LoadExtensionsResult;
 }
@@ -42,15 +53,25 @@ export interface MemberResourceProfileInput {
  * outside the approved set — which also keeps third-party session-lifecycle
  * hooks out. Persistence stays Pi `SessionManager`'s job and never depends on a
  * plugin hook.
+ *
+ * Returns a LOADED loader. `createAgentSession` only loads a loader it built
+ * itself, so a caller's loader that was never told to load hands the session an
+ * empty extension set — no tools, no commands, no bridge — and nothing about
+ * the session says so.
  */
-export function createMemberResourceLoader(input: MemberResourceProfileInput): DefaultResourceLoader {
+export async function createMemberResourceLoader(
+  input: MemberResourceProfileInput,
+): Promise<DefaultResourceLoader> {
   const allowedSkills = new Set(input.allowedSkills);
 
-  return new DefaultResourceLoader({
+  const loader = new DefaultResourceLoader({
     cwd: input.cwd,
     agentDir: SERO_AGENT_DIR,
     settingsManager: input.settingsManager,
     extensionFactories: input.extensionFactories,
+    // Discovery off, then exactly the approved packages back on.
+    noExtensions: true,
+    additionalExtensionPaths: input.packages,
     appendSystemPrompt: input.appendSystemPrompt,
     // A member runs one approved prompt, not a library of user-authored ones.
     noPromptTemplates: true,
@@ -65,4 +86,7 @@ export function createMemberResourceLoader(input: MemberResourceProfileInput): D
     }),
     extensionsOverride: (base: LoadExtensionsResult) => input.bridgeExtensions(base),
   });
+
+  await loader.reload();
+  return loader;
 }

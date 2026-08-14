@@ -121,12 +121,18 @@ export function markMemberWorking(
 }
 
 /**
- * Session usage is CUMULATIVE for that session, so it replaces the member's
+ * Cost and tokens are CUMULATIVE for the session, so they replace the member's
  * counters instead of adding to them — a re-read after a retry can then never
- * double-count. With no reading, only the turn count moves.
+ * double-count.
+ *
+ * Turns are counted here instead, because the runtime is what takes them. The
+ * session cannot count them: a turn is one prompt and its whole reply, which is
+ * any number of messages and model calls, and the count has to survive the
+ * session being closed and reopened.
  */
 function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null): MemberUsage {
-  if (!session) return { ...current, turns: current.turns + 1 };
+  const turns = current.turns + 1;
+  if (!session) return { ...current, turns };
   return {
     ...current,
     costUsd: session.costUsd,
@@ -134,7 +140,7 @@ function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null
     outputTokens: session.outputTokens,
     cacheReadTokens: session.cacheReadTokens,
     cacheWriteTokens: session.cacheWriteTokens,
-    turns: session.turns,
+    turns,
   };
 }
 

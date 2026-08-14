@@ -86,6 +86,35 @@ describe('starting a Room', () => {
     expect(String(host.persistentSessions.prompts[1].content)).not.toContain('## Room protocol');
   });
 
+  it('gives the lead a turn when the Room falls quiet with work still open', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // A member finished something and said nothing to anyone. Only the Conductor
+    // can decide what that means for the Room, and nothing else would wake it —
+    // this silence used to run out the no-progress clock and land on the user.
+    await coordinator.noteStructuralProgress(roomId, 'Implementer finished the parser.');
+
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 2, 'the lead deciding');
+  });
+
+  it('does not wake the lead twice for the same silence', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    await coordinator.noteStructuralProgress(roomId, 'Implementer finished the parser.');
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 2, 'the lead deciding');
+    // The lead's own turn changed nothing, so the Room is quiet again for the
+    // same reason. Waking it on that would spend the whole budget on one member
+    // being asked the same question.
+    await coordinator.advance(roomId);
+    await coordinator.advance(roomId);
+
+    expect((await memberOf(roomId, 'lead')).usage.turns).toBe(2);
+  });
+
   it('pauses the Room when the Conductor cannot start', async () => {
     const roomId = await draftRoom();
     host.persistentSessions.refuseGrant = true;

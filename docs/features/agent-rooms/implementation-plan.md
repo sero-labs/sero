@@ -468,12 +468,27 @@ At the end of Phase 7, Room mode is usable behind a feature flag. The old collab
 > money and are the user's to approve. Entry-point routing and engine removal
 > wait on the gate, as this plan requires.
 >
-> The first live attempt already paid for itself. It found two defects no unit
-> test could reach, both fixed: the host matched bare model ids against
-> `provider/id` keys, so it dropped every model a Room asked for and no member
-> session could open; and a drafted Room opened on the live Room view, so a Room
-> a chat prepared could not be approved in the panel. A run can now be held on
-> one model and one effort level (`SERO_ROOM_MODELS`, `SERO_ROOM_THINKING`).
+> The live attempts have paid for themselves. Each found defects no unit test
+> could reach, because the plugin's test host answers every request and the real
+> one does not. All are fixed:
+>
+> - the host matched bare model ids against `provider/id` keys, so it dropped
+>   every model a Room asked for and no member session could open;
+> - a drafted Room opened on the live Room view, so a Room a chat prepared could
+>   not be approved in the panel;
+> - nobody answered the host's grant question, and a silent timeout was reported
+>   as a refusal with no reason;
+> - `prompt()` returned a turn id Pi never uses, so every member waited for a
+>   turn boundary that could not arrive;
+> - the planner never gave a member the `sero-cli` tool, so no Room command was
+>   possible;
+> - a member session was handed a resource loader that nobody loaded, so it held
+>   no extensions, no Room commands and no bridge — and it went looking for
+>   another way to talk, ending up driving the desktop through `sero app`.
+>
+> A member now runs on its own command surface: the Room-owning plugin's
+> commands and nothing else. A run can be held on one model and one effort level
+> (`SERO_ROOM_MODELS`, `SERO_ROOM_THINKING`).
 
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.

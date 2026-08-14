@@ -128,6 +128,11 @@ export interface PersistentSessionUsage {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   costUsd: number;
+  /**
+   * Turns this session has completed since it was opened. A turn is one prompt
+   * and its whole reply — not a message and not a model call — so a caller that
+   * needs a lifetime total counts its own prompts rather than reading this.
+   */
   turns: number;
 }
 

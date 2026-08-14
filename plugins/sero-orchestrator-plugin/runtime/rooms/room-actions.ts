@@ -209,10 +209,19 @@ export function renderTurnRequest(record: RoomRecord, member: RoomMember, messag
   if (messages.length > 0) {
     lines.push('## New messages', ...messages.map((message) => renderMessage(record, message)), '');
   }
+  // The Conductor woken into a silent Room is the one member that can end it:
+  // nobody else can decide the objective is met. Telling it plainly what it is
+  // looking at is the difference between a decision and another idle turn.
+  // The Conductor woken into a silent Room is the one member that can end it:
+  // nobody else can decide the objective is met. Telling it plainly what it is
+  // looking at is the difference between a decision and another idle turn.
+  const roomIsQuiet = record.runtime.activeMemberIds.every((id) => id === member.id);
   lines.push(
     messages.length > 0
       ? 'Answer what you were asked, then continue your own work.'
-      : 'Continue your work. Ask the Room when you need something you cannot get yourself.',
+      : member.isConductor && roomIsQuiet
+        ? 'Nothing else is running. Check the work that was done, then either assign what is next or finish the Room.'
+        : 'Continue your work. Ask the Room when you need something you cannot get yourself.',
   );
   return lines.join('\n');
 }

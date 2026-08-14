@@ -42,6 +42,7 @@ import {
 import { renderArtifact, renderClaims, renderMandate, renderRoster } from './room-command-text';
 import type { MailboxResult, RoomMailbox } from './room-mailbox';
 import { timelineEvent, withMember, withMemberStatus, withRoomStatus } from './room-actions';
+import { memberRefHelp, resolveMemberRef } from '../../shared/room-member-ref';
 import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { RevisionResult } from './room-revisions';
 import type { RoomRecord } from './room-state';
@@ -218,10 +219,10 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
         return ok(renderRoster(record, member));
 
       case 'show-mandate': {
-        const target = input.memberId
-          ? record.members.find((candidate) => candidate.id === input.memberId)
-          : member;
-        return target ? ok(renderMandate(target)) : no(`There is no member ${input.memberId} in this Room.`);
+        const target = input.memberId ? resolveMemberRef(record.members, input.memberId) : member;
+        return target
+          ? ok(renderMandate(target))
+          : no(`There is no member ${input.memberId} in this Room.${memberRefHelp(record.members)}`);
       }
 
       case 'send-message':
@@ -267,13 +268,19 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
       }
 
       case 'update-work': {
+        // A work owner is named the same way a recipient is: by id, or by the
+        // name the roster shows.
+        const named = input.memberId ? resolveMemberRef(record.members, input.memberId) : undefined;
+        if (input.memberId && !named) {
+          return no(`There is no member ${input.memberId} in this Room.${memberRefHelp(record.members)}`);
+        }
         const result = await deps.work.update(
           roomId,
           member.id,
           {
             workId: input.workId,
             title: input.title,
-            ownerMemberId: input.memberId,
+            ownerMemberId: named?.id ?? input.memberId,
             status: input.status,
             notes: input.notes,
             dependsOnWorkIds: input.dependsOn,
@@ -367,11 +374,15 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
 
       case 'update-mandate': {
         if (!input.memberId) return no('Name the member whose mandate you are changing.');
+        const subject = resolveMemberRef(record.members, input.memberId);
+        if (!subject) {
+          return no(`There is no member ${input.memberId} in this Room.${memberRefHelp(record.members)}`);
+        }
         const proposal: RoomRevisionProposal = input.task
-          ? { kind: 'assign-work', memberId: input.memberId, task: input.task, priorities: input.priorities }
+          ? { kind: 'assign-work', memberId: subject.id, task: input.task, priorities: input.priorities }
           : {
               kind: 'update-mandate',
-              memberId: input.memberId,
+              memberId: subject.id,
               mandate: {
                 responsibilities: input.notes,
                 currentTask: input.task,

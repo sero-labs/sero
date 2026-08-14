@@ -30,6 +30,8 @@ export interface LiveSession {
   currentTurnId: string | null;
   /** Set by `abort`, so the turn that ends next is reported as cancelled. */
   aborting: boolean;
+  /** Turns completed since this session was opened. Pi counts messages, not turns. */
+  turnsTaken: number;
   /** Detaches the Pi listener when the session is disposed. */
   detach(): void;
 }
@@ -107,13 +109,14 @@ export class LiveSessionRegistry {
     return `${grantId}::${subject}`;
   }
 
-  add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting'>): LiveSession {
+  add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting' | 'turnsTaken'>): LiveSession {
     const detach = entry.session.subscribe((event) => {
       const mapped = toPersistentSessionEvent(event, { id: live.currentTurnId, aborting: live.aborting });
       if (!mapped) return;
       // The turn is over: the next one gets its own id, and a cancellation
       // applies to the turn it cancelled, not to the one after it.
       if (mapped.type === 'turn_end') {
+        if (live.currentTurnId) live.turnsTaken += 1;
         live.currentTurnId = null;
         live.aborting = false;
       }
@@ -127,7 +130,7 @@ export class LiveSessionRegistry {
       }
     });
 
-    const live: LiveSession = { ...entry, currentTurnId: null, aborting: false, detach };
+    const live: LiveSession = { ...entry, currentTurnId: null, aborting: false, turnsTaken: 0, detach };
     this.byHandle.set(entry.handleId, live);
     this.handleBySubject.set(LiveSessionRegistry.subjectKey(entry.grantId, entry.subject), entry.handleId);
     return live;

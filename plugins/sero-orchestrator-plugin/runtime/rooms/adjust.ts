@@ -33,6 +33,7 @@ import type { OrchestratorHost } from '../host';
 import type { ParseResult } from '../structured-call';
 import { isRecord, runStructuredJson } from '../structured-call';
 import { parseRoomBlueprint } from './blueprint-schema';
+import { withRoomSurface } from '../../shared/room-surface';
 import type { AdjustCapabilityBlock } from './adjust-prompt';
 import {
   ROOM_ADJUST_SYSTEM_PROMPT,
@@ -180,7 +181,7 @@ function settleReply(
   );
   if (!parsed.ok) return parsed;
 
-  const clamped = clampBlueprintToLocks(parsed.value, approvedEnvelope(request), locks);
+  const clamped = clampBlueprintToLocks(withRoomSurface(parsed.value), approvedEnvelope(request), locks);
   const validation = validateRoomBlueprint(clamped.blueprint, catalogue);
   if (!validation.ok) {
     return { ok: false, errors: validation.errors.map((error) => `${error.path}: ${error.message}`) };

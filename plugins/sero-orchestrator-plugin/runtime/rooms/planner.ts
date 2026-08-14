@@ -21,8 +21,9 @@
  */
 
 import { flattenModelGroups, modelKey, type ContextSkillInfo, type ContextToolInfo } from '@sero-ai/common';
+import { ROOM_SURFACE_TOOL } from '../../shared/room-surface';
 
-import { deliveryDestinationInfo, type DeliveryDestinationId } from '../../shared/delivery-types';
+import { defaultDeliveryFor, deliveryDestinationInfo, type DeliveryDestinationId } from '../../shared/delivery-types';
 import type { HumanQuestion } from '../../shared/human-input-types';
 import type {
   AccessLabel,
@@ -153,12 +154,6 @@ const BLOCKED_ACCESS_LABELS: Record<RoomAccessChoice, readonly AccessLabel[]> = 
   'edit-and-push': ['deployment'],
 };
 
-const DEFAULT_DELIVERY: Record<RoomAccessChoice, DeliveryDestinationId> = {
-  'read-only': 'saved-artifact',
-  'edit-workspace': 'workspace-files',
-  'edit-and-push': 'pr',
-};
-
 /** The user's number when they set one, the default when they did not. */
 function chosen(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && value > 0 ? value : fallback;
@@ -169,7 +164,7 @@ function accessChoice(limits: RoomUserLimits): RoomAccessChoice {
 }
 
 function deliveryChoice(limits: RoomUserLimits): DeliveryDestinationId {
-  return limits.deliveryDestination ?? DEFAULT_DELIVERY[accessChoice(limits)];
+  return limits.deliveryDestination ?? defaultDeliveryFor(accessChoice(limits));
 }
 
 function allowsCapability(name: string, access: RoomAccessChoice): boolean {
@@ -227,7 +222,10 @@ async function loadCatalogue(host: OrchestratorHost, skills: ContextSkillInfo[])
 function capabilityNames(catalogue: RoomCatalogue): RoomCapabilityCatalogue {
   return {
     models: catalogue.models.map((model) => model.id),
-    tools: catalogue.tools.map((tool) => tool.name),
+    // The Room surface always exists — the host provides it to every member
+    // session — so it is never an invented name, even though the planner is not
+    // shown it and never picks it.
+    tools: [ROOM_SURFACE_TOOL, ...catalogue.tools.map((tool) => tool.name).filter((name) => name !== ROOM_SURFACE_TOOL)],
     skills: catalogue.skills.map((skill) => skill.name),
   };
 }
@@ -249,7 +247,12 @@ export function resolveRoomEnvelope(catalogue: RoomCatalogue, limits: RoomUserLi
     maxTokensPerMember: ENVELOPE_MECHANICS.maxTokens * MEMBER_SHARE,
     allowedModels: catalogue.models.map((model) => model.id),
     allowedThinkingLevels: [...catalogue.thinkingLevels],
-    allowedTools: catalogue.tools.map((tool) => tool.name).filter((name) => allowsCapability(name, access)),
+    // The Room surface is not an access choice: a read-only member still has to
+    // be able to answer a question and report what it found (AD-020).
+    allowedTools: [
+      ROOM_SURFACE_TOOL,
+      ...catalogue.tools.map((tool) => tool.name).filter((name) => name !== ROOM_SURFACE_TOOL && allowsCapability(name, access)),
+    ],
     allowedSkills: catalogue.skills.map((skill) => skill.name).filter((name) => allowsCapability(name, access)),
     workspacePolicy: {
       mode: WORKSPACE_CEILING[access],
@@ -266,7 +269,7 @@ export function resolveRoomEnvelope(catalogue: RoomCatalogue, limits: RoomUserLi
 function promptCatalogue(catalogue: RoomCatalogue, envelope: OperatingEnvelope): RoomPlanningCatalogue {
   return {
     models: catalogue.models.filter((model) => envelope.allowedModels.includes(model.id)),
-    tools: catalogue.tools.filter((tool) => envelope.allowedTools.includes(tool.name)),
+    tools: catalogue.tools.filter((tool) => tool.name !== ROOM_SURFACE_TOOL && envelope.allowedTools.includes(tool.name)),
     skills: catalogue.skills.filter((skill) => envelope.allowedSkills.includes(skill.name)),
     thinkingLevels: envelope.allowedThinkingLevels,
   };

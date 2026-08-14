@@ -125,6 +125,22 @@ function members(roomId: string): MemberFile[] {
     .filter((member): member is MemberFile => member !== null);
 }
 
+/**
+ * Every copy of a workspace file the Room could have written.
+ *
+ * The default workspace mode gives each editing member its own checkout, so the
+ * work lands on a member branch and the shared tree is deliberately untouched
+ * until the user merges. Reading only the shared tree would score the Room on
+ * something it is designed not to do.
+ */
+function roomCopiesOf(roomId: string, relativePath: string): { root: string; content: string }[] {
+  const roots = [wsDir, ...members(roomId).map((member) => member.worktreePath).filter((root): root is string => !!root)];
+  return roots
+    .map((root) => ({ root, file: path.join(root, relativePath) }))
+    .filter((entry) => fs.existsSync(entry.file))
+    .map((entry) => ({ root: entry.root, content: fs.readFileSync(entry.file, 'utf8') }));
+}
+
 /** What the gate is decided on. Appended per scenario so a partial run still reports. */
 function record(scenario: string, room: RoomFile, roster: MemberFile[], notes: Record<string, unknown>): void {
   const durationMs = room.runtime.startedAt && room.runtime.endedAt
@@ -312,17 +328,19 @@ test.describe('the Room evaluation gate', () => {
     expect(roster.filter((member) => member.isConductor)).toHaveLength(1);
 
     const room = await settle(roomId, 'delivery');
+    const greet = roomCopiesOf(roomId, 'src/greet.ts');
     record('1-delivery', room, members(roomId), {
       workItems: room.work.length,
       artifacts: room.artifacts.length,
-      greetFile: fs.readFileSync(path.join(wsDir, 'src', 'greet.ts'), 'utf8'),
+      greetFiles: greet,
     });
 
     expect(room.runtime.status).toBe('completed');
     expect(room.delivery.deliveredAt).not.toBeNull();
     expect(room.runtime.usage.costUsd).toBeLessThanOrEqual(room.definition.envelope.maxCostUsd);
-    // The point of the scenario: the workspace actually changed.
-    expect(fs.readFileSync(path.join(wsDir, 'src', 'greet.ts'), 'utf8')).not.toContain('return `Hello, ${name}!`;\n}\n');
+    // The point of the scenario: the code actually changed, wherever the Room's
+    // workspace mode put it.
+    expect(greet.some((copy) => !copy.content.includes('return `Hello, ${name}!`;'))).toBe(true);
   });
 
   test('2 — an adversarial brief staffs both sides of the argument', async () => {
@@ -332,9 +350,10 @@ test.describe('the Room evaluation gate', () => {
     const roomId = await startRoom(BRIEFS.adversarial, 'adversarial');
     const room = await settle(roomId, 'adversarial');
     const roster = members(roomId);
+    const decision = roomCopiesOf(roomId, 'DECISION.md');
     record('2-adversarial', room, roster, {
       artifacts: room.artifacts.length,
-      decision: fs.existsSync(path.join(wsDir, 'DECISION.md')),
+      decision: decision.map((copy) => copy.root),
     });
 
     expect(room.runtime.status).toBe('completed');
@@ -342,7 +361,7 @@ test.describe('the Room evaluation gate', () => {
     // is what makes the analysis adversarial, not a prompt telling one member
     // to disagree with itself.
     expect(roster.length).toBeGreaterThanOrEqual(3);
-    expect(fs.existsSync(path.join(wsDir, 'DECISION.md'))).toBe(true);
+    expect(decision.length).toBeGreaterThan(0);
   });
 
   test('3 — parallel work gets a checkout each, and overlaps are claimed', async () => {

@@ -18,7 +18,7 @@ import type { RoomMember, RoomStopReason } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { requestRoomGrant, requirePersistentSessions } from './member-grant';
-import { deliverRoomResult } from './room-delivery';
+import { deliverRoomResult, INVOKING_CHAT_DESTINATION } from './room-delivery';
 import type { MemberSessionPool } from './member-session';
 import {
   buildRoomRecord,
@@ -95,6 +95,16 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
   }
   const conductor = record.members.find((member) => member.isConductor);
   if (!conductor) return fail('This Room has no Conductor.');
+
+  // Checked BEFORE anything is spent. A Room that delivers to the chat that
+  // started it, with no chat behind it, runs the whole job and then finds it has
+  // nowhere to put the result — the user pays for work they never receive.
+  if (record.delivery.destination === INVOKING_CHAT_DESTINATION && !record.delivery.originSessionId) {
+    return fail(
+      'This Room delivers to the chat that started it, but no chat started it. '
+      + 'Change where the result goes before starting it.',
+    );
+  }
 
   // Placement comes FIRST. A grant subject is pinned to the directory its member
   // may work in, so an editing member with no worktree yet would either be

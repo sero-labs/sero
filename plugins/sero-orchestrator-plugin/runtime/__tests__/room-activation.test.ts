@@ -115,7 +115,7 @@ const MEMBERS: BlueprintMember[] = [
   }),
 ];
 
-async function draftRoom(): Promise<string> {
+async function draftRoom(deliveryDestination = 'saved-artifact'): Promise<string> {
   const env = envelope();
   const blueprint: RoomBlueprint = {
     schemaVersion: 1,
@@ -131,7 +131,7 @@ async function draftRoom(): Promise<string> {
     envelope: env,
     estimatedDurationMs: 60_000,
     estimatedCostUsd: 1,
-    deliveryDestination: 'saved-artifact',
+    deliveryDestination,
     openAssumptions: [],
   };
   const result = await coordinator.createRoom({
@@ -226,5 +226,19 @@ describe('starting a Room whose members edit', () => {
     expect(proposal.subjects.impl.allowedCwds).toEqual([impl?.worktreePath]);
     expect(proposal.subjects.impl.allowedCwds).not.toContain(host.workspacePath);
     expect(proposal.subjects.lead.allowedCwds).toEqual([host.workspacePath]);
+  });
+
+  it('does not start a Room that delivers to a chat when no chat started it', async () => {
+    const roomId = await draftRoom('invoking-chat');
+
+    const result = await coordinator.startRoom(roomId);
+
+    // Refused BEFORE the work, not after paying for it: the old behaviour ran
+    // the whole Room and then had nowhere to put the result.
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('no chat started it');
+    expect(host.persistentSessions.proposals).toEqual([]);
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.status).toBe('draft');
   });
 });

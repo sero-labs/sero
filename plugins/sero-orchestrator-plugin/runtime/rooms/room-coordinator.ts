@@ -54,6 +54,7 @@ import {
 } from './room-lifecycle';
 import { reconcileAllRooms } from './room-reconcile';
 import { scheduleRoomTurns, type ReadySignal, type WakeReason } from './room-scheduler';
+import { RoomSignalBook, quietMark } from './room-signals';
 import { escalate, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
@@ -89,8 +90,8 @@ export class RoomCoordinator {
   private readonly locks = new LoopLocks();
   /** Rooms owed another pass because one was already running when they asked. */
   private readonly duePasses = new Set<string>();
-  /** Ready signals collected since each Room's last pass (the event path). */
-  private readonly signals = new Map<string, ReadySignal[]>();
+  /** What has happened since each Room's last pass (the event path). */
+  private readonly signals = new RoomSignalBook();
   /** One abort handle per turn this process is running, keyed `roomId:memberId`. */
   private readonly turns = new Map<string, AbortController>();
   /** Post-compaction context a member's next turn must carry. Transient by design. */
@@ -119,11 +120,12 @@ export class RoomCoordinator {
       abortTurns: (roomId) => this.abortTurns(roomId),
       emit: (event) => this.emit(event),
       forgetSignals: (roomId) => {
-        this.signals.delete(roomId);
+        this.signals.forget(roomId);
         this.mailbox.forget(roomId);
       },
       wake: (roomId, memberId, reason) => this.wake(roomId, memberId, reason),
       detectDeadlock: (roomId) => this.mailbox.detectDeadlock(roomId),
+      signals: this.signals,
     };
   }
 
@@ -243,7 +245,7 @@ export class RoomCoordinator {
    * a Room is never advanced twice at once and no wake is lost.
    */
   async advance(roomId: string, signals: ReadySignal[] = []): Promise<void> {
-    this.enqueue(roomId, signals);
+    this.signals.add(roomId, signals);
     if (!this.locks.tryAcquire(roomId)) {
       this.duePasses.add(roomId);
       return;
@@ -265,7 +267,7 @@ export class RoomCoordinator {
 
     const nowMs = Date.parse(this.host.now());
     const inFlight = this.hasTurnsInFlight(roomId);
-    const ready = this.readySignals(roomId);
+    const ready = this.signals.ready(roomId, (memberId) => this.turns.has(turnKey(roomId, memberId)));
     // Idle is measured only when the Room is genuinely still: a member mid-turn
     // has made no structural progress YET, and a Room holding a ready signal is
     // about to run. Escalating in either case would pause every Room whose first
@@ -280,7 +282,12 @@ export class RoomCoordinator {
 
     const memberIds = decision.start.map((turn) => turn.memberId);
     for (const memberId of memberIds) this.turns.set(turnKey(roomId, memberId), new AbortController());
-    this.consumeSignals(roomId, memberIds);
+    this.signals.consume(roomId, memberIds);
+    // The lead is about to look at the Room as it stands, so it does not also
+    // need waking for the same state when the Room falls quiet after this turn.
+    if (memberIds.some((memberId) => record.members.find((member) => member.id === memberId)?.isConductor)) {
+      this.signals.claimQuietWake(roomId, quietMark(record));
+    }
     // A cancel or a pause can land between the read above and this write, and
     // marking turns started would put the Room back to `running` and spend on a
     // Room the user stopped. The status is therefore re-checked inside the same
@@ -467,34 +474,6 @@ export class RoomCoordinator {
     for (const [key, controller] of this.turns) {
       if (key.startsWith(`${roomId}:`)) controller.abort();
     }
-  }
-
-  /** Keeps one signal per member and reason; the earliest arrival wins a repeat. */
-  private enqueue(roomId: string, incoming: ReadySignal[]): void {
-    if (incoming.length === 0) return;
-    const merged = [...(this.signals.get(roomId) ?? [])];
-    for (const signal of incoming) {
-      if (merged.some((held) => held.memberId === signal.memberId && held.reason === signal.reason)) continue;
-      merged.push(signal);
-    }
-    this.signals.set(roomId, merged);
-  }
-
-  /** A member already taking a turn is not ready, whatever signal it collected. */
-  private readySignals(roomId: string): ReadySignal[] {
-    return (this.signals.get(roomId) ?? []).filter((signal) => !this.turns.has(turnKey(roomId, signal.memberId)));
-  }
-
-  /**
-   * Drops only the signals for members that actually started. A member held back
-   * by capacity keeps its signal, so it runs as soon as a slot frees rather than
-   * waiting for another event that may never come.
-   */
-  private consumeSignals(roomId: string, memberIds: string[]): void {
-    const started = new Set(memberIds);
-    const kept = (this.signals.get(roomId) ?? []).filter((signal) => !started.has(signal.memberId));
-    if (kept.length === 0) this.signals.delete(roomId);
-    else this.signals.set(roomId, kept);
   }
 
   private emit(event: RoomCoordinatorEvent): void {

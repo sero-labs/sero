@@ -72,6 +72,8 @@ export interface PersistentSessionWiring {
   approveGrant: PersistentSessionHostDepsApproval;
   /** Builds the filtered member resource profile from the approved policy. */
   buildSessionInputs(input: {
+    grantId: string;
+    subject: string;
     cwd: string;
     tools: string[];
     skills: string[];

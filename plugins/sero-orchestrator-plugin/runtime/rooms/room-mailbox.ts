@@ -23,6 +23,7 @@
 import type { RoomMessage } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
+import { memberRefHelp } from '../../shared/room-member-ref';
 import { timelineEvent, withMember, withMemberStatus, withRoomStatus } from './room-actions';
 import {
   DEFAULT_MAILBOX_LIMITS,
@@ -208,6 +209,12 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
     if (cycles.length > 0) await ctx.onWaitCycle(roomId, cycles);
   }
 
+
+/** A refusal that also says what the caller could have written instead. */
+function unknownRecipient(record: RoomRecord, ref: string): string {
+  return `There is no member ${ref} in this Room.${memberRefHelp(record.members)}`;
+}
+
   return {
     async send(roomId, request) {
       const opened = await open(roomId, request);
@@ -215,7 +222,7 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
       if (!opened.ok) return opened;
       const plan = planRecipients(opened.record, request.fromMemberId, request.toMemberIds, limits);
       if (plan.unknownIds.length > 0) {
-        return deny('unknown-recipient', `There is no member ${plan.unknownIds[0]} in this Room.`);
+        return deny('unknown-recipient', unknownRecipient(opened.record, plan.unknownIds[0]!));
       }
       if (plan.memberIds.length === 0) return nothingDelivered(plan.skipped, 'Nobody could receive that message.');
 
@@ -266,7 +273,7 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
       const { record, sender } = opened;
       const plan = planRecipients(record, request.fromMemberId, request.toMemberIds, limits);
       if (plan.unknownIds.length > 0) {
-        return deny('unknown-recipient', `There is no member ${plan.unknownIds[0]} in this Room.`);
+        return deny('unknown-recipient', unknownRecipient(record, plan.unknownIds[0]!));
       }
       // A question is not partially deliverable: the asker stops to wait, so an
       // answerer that never receives it would leave the asker blocked for good.
@@ -373,7 +380,7 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
       if (!opened.ok) return opened;
       const plan = planRecipients(opened.record, request.fromMemberId, request.toMemberIds, limits);
       if (plan.unknownIds.length > 0) {
-        return deny('unknown-recipient', `There is no member ${plan.unknownIds[0]} in this Room.`);
+        return deny('unknown-recipient', unknownRecipient(opened.record, plan.unknownIds[0]!));
       }
       if (plan.memberIds.length === 0) {
         return nothingDelivered(plan.skipped, 'Nobody could receive that acknowledgement.');

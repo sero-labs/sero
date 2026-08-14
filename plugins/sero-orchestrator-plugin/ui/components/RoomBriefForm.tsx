@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@sero-ai/ui';
-import { DELIVERY_DESTINATIONS } from '../../shared/delivery-types';
+import { DELIVERY_DESTINATIONS, defaultDeliveryFor } from '../../shared/delivery-types';
 import type { DeliveryDestinationId } from '../../shared/delivery-types';
 import type { MemberPermissionLevel } from '../../shared/room-blueprint-types';
 import { BUILT_IN_ROOM_TEMPLATES } from '../../shared/room-templates';
@@ -24,12 +24,18 @@ export interface RoomBrief {
 }
 
 /** The chip defaults. They match the planner's own defaults, so an untouched chip changes nothing. */
-const DEFAULTS: Omit<RoomBrief, 'problem' | 'presetId'> = {
+const DEFAULTS: Omit<RoomBrief, 'problem' | 'presetId' | 'deliveryDestination'> = {
   maxCostUsd: 5,
   maxMinutes: 60,
   access: 'edit-workspace',
-  deliveryDestination: 'invoking-chat',
 };
+
+/**
+ * A Room started here has no chat behind it, so it cannot answer one. Offering
+ * that destination lets the user pick a Room that finishes having delivered
+ * nothing — the chat-origin Room sets it for itself.
+ */
+const PANEL_DESTINATIONS = DELIVERY_DESTINATIONS.filter((destination) => destination.id !== 'invoking-chat');
 
 const SPEND_CHOICES = [2, 5, 10, 25];
 const TIME_CHOICES = [30, 60, 120, 240];
@@ -50,6 +56,10 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
   const [problem, setProblem] = useState('');
   const [presetId, setPresetId] = useState<string | undefined>();
   const [limits, setLimits] = useState(DEFAULTS);
+  // Untouched, the destination follows the access — the same rule the planner
+  // applies, so the chip shows what would happen rather than a fixed guess.
+  const [chosenDestination, setChosenDestination] = useState<DeliveryDestinationId | null>(null);
+  const deliveryDestination = chosenDestination ?? defaultDeliveryFor(limits.access);
   const ready = problem.trim().length > 0 && !busy;
 
   return (
@@ -98,11 +108,9 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
         </Chip>
         <Chip label="Deliver to">
           <Choice
-            value={limits.deliveryDestination}
-            onChange={(value) =>
-              setLimits((current) => ({ ...current, deliveryDestination: value as DeliveryDestinationId }))
-            }
-            options={DELIVERY_DESTINATIONS.map((destination) => ({ value: destination.id, label: destination.label }))}
+            value={deliveryDestination}
+            onChange={(value) => setChosenDestination(value as DeliveryDestinationId)}
+            options={PANEL_DESTINATIONS.map((destination) => ({ value: destination.id, label: destination.label }))}
           />
         </Chip>
       </div>
@@ -115,7 +123,7 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
           <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
           <Button
             disabled={!ready}
-            onClick={() => onDesign({ problem: problem.trim(), presetId, ...limits })}
+            onClick={() => onDesign({ problem: problem.trim(), presetId, ...limits, deliveryDestination })}
           >
             {busy ? 'Designing…' : 'Design the team'}
           </Button>

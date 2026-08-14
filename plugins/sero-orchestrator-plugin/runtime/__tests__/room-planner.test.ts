@@ -233,6 +233,26 @@ describe('planRoom', () => {
     }
   });
 
+  it('gives every member the Room surface, whether or not the planner asked for it', async () => {
+    const host = roomHost();
+    // A roster that can read and write, and cannot say a word to anybody.
+    host.modelResponses.push({
+      response: reply(blueprint({
+        members: [member({ tools: ['read'] }), worker('impl', { tools: ['read', 'write'] })],
+      })),
+    });
+
+    const outcome = planned(await planRoom(host, planRequest()));
+
+    expect(outcome.blueprint.members.map((each) => each.tools)).toEqual([
+      ['read', 'sero-cli'],
+      ['read', 'write', 'sero-cli'],
+    ]);
+    // Allowed by the envelope even though no workspace catalogue lists it: the
+    // host gives it to every member session, so it is always resolvable.
+    expect(outcome.blueprint.envelope.allowedTools).toContain('sero-cli');
+  });
+
   it('refuses an invented model, tool or skill and names each one in the repair prompt', async () => {
     const host = roomHost();
     host.modelResponses.push({
