@@ -377,6 +377,8 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [x] Do not read the Orchestrator store from the Usage plugin.
 - [x] Allow only optional published label or link enrichment from Room metadata.
 - [x] Show grouped Room totals and optional per-member usage without changing Pi session format.
+- [x] Add the `SERO_ROOMS` rollout flag. One gate in front of the whole Room
+      runtime: switched off, no coordinator, no tick and no state are created.
 - [ ] Run the completed runtime behind the feature flag without the final Room UI.
 - [ ] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests.
 
@@ -500,6 +502,14 @@ Objective: Make Room mode safe and reliable for general use.
 - [ ] Add long-running soak tests with repeated wait, wake, dispose, reopen and compaction.
 - [ ] Add mixed-model, mixed-provider, throttle and network-failure tests.
 - [ ] Add storage failure, crash recovery and low-disk tests.
+- [ ] Make a store transaction crash-atomic ACROSS files. Each file write is
+      atomic on its own, but one transaction writes several (member files, the
+      revision list, room.json, the index) and a crash can land some of them.
+      room.json is written last and carries the applied-command key, so an
+      interrupted transaction is retried rather than half-claimed — but the
+      record a reload builds from a partial set can still mix old and new.
+      Needs a journal with a commit marker, or one file per Room. Raised by the
+      phase 5/6 review; deferred here as a durability change, not a phase 5/6 fix.
 - [ ] Add budget, cancellation, revision and delivery race tests.
 - [ ] Add worktree conflict and cleanup recovery tests.
 - [ ] Add prompt-injection, authority-expansion and forged-approval security tests.

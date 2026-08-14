@@ -4,10 +4,11 @@
  * Split from runtime/index.ts so that file stays small and so the Room wiring —
  * store, session pool, observation, coordinator — reads as one unit.
  *
- * Room mode is **inert without the host capability**. A build or a plugin that
- * does not pass the AD-029 built-in gate gets `host.persistentSessions ===
- * undefined`, and this returns null: no coordinator, no tick, no state written.
- * That is the intended shape — Workflow mode is unaffected either way.
+ * Room mode is **inert unless it is switched on AND the host supports it**. The
+ * rollout flag is checked first, then the AD-029 capability: a build or a plugin
+ * that does not pass the built-in gate gets `host.persistentSessions ===
+ * undefined`. Either miss returns null — no coordinator, no tick, no state
+ * written. That is the intended shape; Workflow mode is unaffected either way.
  */
 
 import type { AppRuntimeContext } from '@sero-ai/common';
@@ -43,10 +44,25 @@ export interface RoomRuntime {
   tick(): Promise<void>;
 }
 
+/**
+ * The rollout gate. Room mode ships dark: a build carries the code, and a
+ * profile that has not switched it on behaves exactly like Workflow-only Sero.
+ *
+ * Set `SERO_ROOMS=1` (or `true`) to switch it on. It is deliberately a single
+ * gate in front of the whole runtime rather than a check at each entry point —
+ * there is no half-enabled Room mode to reason about, and Phase 9 removes it by
+ * deleting these lines.
+ */
+export function roomModeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const flag = env.SERO_ROOMS?.trim().toLowerCase();
+  return flag === '1' || flag === 'true';
+}
+
 export function createRoomRuntime(
   ctx: AppRuntimeContext,
   host: OrchestratorHost,
 ): RoomRuntime | null {
+  if (!roomModeEnabled()) return null;
   // The one hard prerequisite. Without the capability a Room cannot create a
   // member session, so standing up a coordinator that could only fail would be
   // worse than not having one.
