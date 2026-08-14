@@ -16,18 +16,17 @@
  */
 
 import type { RoomStopReason } from '../../shared/room-types';
-import { buildWaitEdges, timelineEvent, withRoomStatus } from './room-actions';
+import { timelineEvent, withRoomStatus } from './room-actions';
 import { settlePause, type RoomLifecycleContext } from './room-lifecycle';
 import type { RoomMessageDraft } from './room-messages';
-import { detectWaitCycles, type SchedulerDecision, type WakeReason } from './room-scheduler';
+import type { SchedulerDecision, WakeReason } from './room-scheduler';
 import type { RoomRecord } from './room-state';
-
-/** How far back a deadlock check reads for the questions members are waiting on. */
-const DEADLOCK_SCAN = 100;
 
 export interface StallContext extends RoomLifecycleContext {
   /** The coordinator's own wake path — this module never schedules directly. */
   wake(roomId: string, memberId: string, reason: WakeReason): Promise<void>;
+  /** The mailbox's view of who waits on whom (FR-020). One source, one answer. */
+  detectDeadlock(roomId: string): Promise<string[][]>;
 }
 
 export async function handleStall(
@@ -49,20 +48,26 @@ export async function handleStall(
   }
   // Work in flight is not a stall: whoever is running may free everyone else.
   if (inFlight) return;
-  if (await hasWaitCycle(ctx, record)) {
+  if ((await ctx.detectDeadlock(roomId)).length > 0) {
     await escalate(ctx, record, 'deadlock', 'Members are waiting on each other, so nobody can continue.');
     return;
   }
   ctx.emit({ roomId, kind: 'blocked', memberId: null, detail: decision.blocked.reason });
 }
 
-async function hasWaitCycle(ctx: StallContext, record: RoomRecord): Promise<boolean> {
-  // One waiting member cannot be a cycle, and reading the message log to prove
-  // that would cost a page read on every quiet pass.
-  if (record.members.filter((member) => member.status === 'waiting').length < 2) return false;
-  const from = Math.max(0, record.runtime.messageSequence - DEADLOCK_SCAN);
-  const messages = await ctx.store.readMessages(record.definition.id, from, DEADLOCK_SCAN);
-  return detectWaitCycles(buildWaitEdges(record, messages)).length > 0;
+/**
+ * A wait cycle among members (FR-020). The Conductor hears about it first,
+ * because it is the one member that can reassign the work that breaks the
+ * cycle; a cycle still there next time pauses the Room for the user.
+ */
+export async function reportWaitCycle(ctx: StallContext, roomId: string, cycles: string[][]): Promise<void> {
+  const record = await ctx.store.readRoom(roomId);
+  if (!record) return;
+  if (record.runtime.status !== 'running' && record.runtime.status !== 'ready') return;
+  const names = cycles[0]
+    .map((memberId) => record.members.find((member) => member.id === memberId)?.displayName ?? memberId)
+    .join(' → ');
+  await escalate(ctx, record, 'deadlock', `${names} are waiting on each other, so nobody can continue.`);
 }
 
 /**

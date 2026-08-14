@@ -36,6 +36,8 @@ import {
 import { buildRoomBrief, setConductorNote, type BriefSources } from './room-brief';
 import { compactMemberAtSafeBoundary } from './room-context';
 import { checkIdleLimit } from './room-limits';
+import { createRoomMailbox, type RoomMailbox } from './room-mailbox';
+import type { MailboxLimits } from './room-mailbox-limits';
 import {
   cancelRoom,
   completeRoom,
@@ -50,7 +52,7 @@ import {
 } from './room-lifecycle';
 import { reconcileAllRooms } from './room-reconcile';
 import { scheduleRoomTurns, type ReadySignal, type WakeReason } from './room-scheduler';
-import { escalate, handleStall, type StallContext } from './room-stall';
+import { escalate, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
 
@@ -65,6 +67,8 @@ const WAIT_ENDING_REASONS: readonly WakeReason[] = ['reply-received', 'user-inte
 export interface RoomCoordinatorDeps {
   store: RoomStore;
   sessions: MemberSessionPool;
+  /** Overrides for the mailbox traffic guards. Tests use it; production does not. */
+  mailboxLimits?: Partial<MailboxLimits>;
   /**
    * Work, artifacts and open questions for the brief. Phase 5 owns those
    * records; until then a Room has none, and the brief is computed from the
@@ -74,6 +78,12 @@ export interface RoomCoordinatorDeps {
 }
 
 export class RoomCoordinator {
+  /**
+   * Durable member-to-member messaging. It is created here, with the
+   * coordinator's own wake seam, so a Room has exactly one writer and exactly
+   * one path from a persisted message to a resumed turn (spec §17).
+   */
+  readonly mailbox: RoomMailbox;
   private readonly locks = new LoopLocks();
   /** Rooms owed another pass because one was already running when they asked. */
   private readonly duePasses = new Set<string>();
@@ -91,6 +101,13 @@ export class RoomCoordinator {
     private readonly host: OrchestratorHost,
     private readonly deps: RoomCoordinatorDeps,
   ) {
+    this.mailbox = createRoomMailbox({
+      host,
+      store: deps.store,
+      wake: (roomId, memberId, reason) => this.wake(roomId, memberId, reason),
+      onWaitCycle: (roomId, cycles) => reportWaitCycle(this.ctx, roomId, cycles),
+      limits: deps.mailboxLimits,
+    });
     this.ctx = {
       host,
       store: deps.store,
@@ -98,8 +115,12 @@ export class RoomCoordinator {
       hasTurnsInFlight: (roomId) => this.hasTurnsInFlight(roomId),
       abortTurns: (roomId) => this.abortTurns(roomId),
       emit: (event) => this.emit(event),
-      forgetSignals: (roomId) => this.signals.delete(roomId),
+      forgetSignals: (roomId) => {
+        this.signals.delete(roomId);
+        this.mailbox.forget(roomId);
+      },
       wake: (roomId, memberId, reason) => this.wake(roomId, memberId, reason),
+      detectDeadlock: (roomId) => this.mailbox.detectDeadlock(roomId),
     };
   }
 

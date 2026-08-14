@@ -47,7 +47,8 @@ export interface ClampResult {
   clamps: BlueprintClamp[];
 }
 
-const NUMERIC_ENVELOPE_FIELDS = [
+/** Exported so a limit revision moves exactly the fields clamping knows about. */
+export const NUMERIC_ENVELOPE_FIELDS = [
   'maxMembers', 'maxActiveTurns', 'maxRosterRevisions', 'maxMemberReplacements',
   'maxWallClockMs', 'maxCostUsd', 'maxCostUsdPerMember', 'maxTokens', 'maxTokensPerMember',
   'maxTurnsPerMember', 'maxRetriesPerMember', 'maxConsecutiveFailures', 'maxIdleMs',

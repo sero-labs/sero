@@ -145,6 +145,24 @@ export const ROOM_ACCESS_RULES: readonly AccessRule[] = [
  */
 export const ROOM_PROTOCOL_CAPABILITIES: readonly string[] = ['sero-cli'];
 
+/**
+ * One plain-English phrase per label, so a consequence line and a proposal tile
+ * always say the same thing about the same authority. Every consequence the
+ * user reads is built from this table — a requesting member never writes one.
+ */
+export const ROOM_ACCESS_LABEL_TEXT: Record<AccessLabel, string> = {
+  'read-workspace': 'read your workspace files',
+  'edit-workspace': 'change files in its own worktree',
+  'edit-working-files-directly': 'change your working files directly',
+  'read-github': 'read GitHub issues and pull requests',
+  'github-write': 'push branches and open pull requests',
+  'run-commands': 'run commands',
+  'reach-internet': 'reach the internet',
+  deployment: 'change live systems',
+  'send-outside-sero': 'send results outside Sero',
+  'other-tools': 'use other tools',
+};
+
 export interface AccessSummary {
   entries: AccessSummaryEntry[];
   /** Capabilities no rule matched. Always listed in advanced settings. */
