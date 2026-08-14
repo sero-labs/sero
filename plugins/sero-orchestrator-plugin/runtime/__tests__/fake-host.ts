@@ -89,6 +89,8 @@ export interface FakeHost extends OrchestratorHost {
   sessionSends: { sessionId: string; kind: 'steer' | 'context' }[];
   /** The context messages themselves, for callers that assert on the content. */
   contextMessages: ExtensionRuntimeMessage[];
+  /** Set to make the next context send reject — a closed or unreachable chat. */
+  failNextContextSend: string | null;
   /** In-memory Loop Library state (profile-global store stand-in). */
   libraryEntries: Map<string, LibraryEntry>;
   libraryVersions: Map<string, LibraryVersion>;
@@ -137,6 +139,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
     contextMessages: [],
+    failNextContextSend: null,
     libraryEntries: new Map<string, LibraryEntry>(),
     libraryVersions: new Map<string, LibraryVersion>(),
     libraryIndex: structuredClone(DEFAULT_LIBRARY_INDEX),
@@ -243,6 +246,11 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         return { turnId: host.turnResult.turnId };
       },
       async sendContextMessage(sessionId, message, options) {
+        const failure = host.failNextContextSend;
+        if (failure) {
+          host.failNextContextSend = null;
+          throw new Error(failure);
+        }
         host.sessionSends.push({ sessionId, kind: 'context' });
         host.contextMessages.push(message);
         return { turnId: options.triggerTurn ? host.turnResult.turnId : null };

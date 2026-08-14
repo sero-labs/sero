@@ -25,15 +25,14 @@
  */
 
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
+import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { reconcileMemberSessions, type MemberSessionDeps } from './member-session';
-import { timelineEvent, withRoomStatus } from './room-actions';
+import { timelineEvent, withMemberStatus, withRoomStatus } from './room-actions';
 import { checkRoomLimits } from './room-limits';
+import { MESSAGE_PAGE_SIZE, undeliveredFloor } from './room-messages';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
-
-/** How far back recovery looks for an answer a waiting member never heard. */
-const SETTLED_WAIT_SCAN = 500;
 
 export interface RoomReconcileResult {
   /** The same reference when nothing changed, so no file is rewritten. */
@@ -121,9 +120,14 @@ export function reconcileRoomRecord(host: OrchestratorHost, record: RoomRecord):
  * as a duplicate, and the waiter holds its slot for good. Recovery ends the wait
  * from the log instead.
  *
- * Only a wait that can be SHOWN to be over is ended. A question with no settling
- * message — including one older than the scan — is treated as still open, so a
- * member is never released from a wait that a member is genuinely still owed.
+ * The scan starts at the undelivered floor and runs to the head. Retention may
+ * not prune below that floor, so every message a waiting member has yet to read
+ * is still on disk — and the answer it never heard is one of them. A fixed-size
+ * window would miss it once the Room got busy, which is the case the waiter has
+ * no other way out of.
+ *
+ * Only a wait that can be SHOWN to be over is ended, so a member is never
+ * released from a wait it is genuinely still owed.
  */
 async function settledWaits(store: RoomStore, record: RoomRecord): Promise<string[]> {
   const waiting = record.members.flatMap((member) =>
@@ -133,19 +137,35 @@ async function settledWaits(store: RoomStore, record: RoomRecord): Promise<strin
   );
   if (waiting.length === 0) return [];
 
+  const roomId = record.definition.id;
   const latest = record.runtime.messageSequence;
-  const messages = await store.readMessages(
-    record.definition.id,
-    Math.max(0, latest - SETTLED_WAIT_SCAN),
-    SETTLED_WAIT_SCAN,
-  );
-  const settled = new Set(
-    messages.flatMap((message) => {
-      if (message.inReplyToQuestionId) return [message.inReplyToQuestionId];
-      return message.kind === 'cancel' && message.questionId ? [message.questionId] : [];
-    }),
-  );
+  const settled = new Set<string>();
+  let after = undeliveredFloor(record, latest);
+  while (after < latest) {
+    const batch = await store.readMessages(roomId, after, MESSAGE_PAGE_SIZE);
+    // Empty means the rest was pruned or never written; either way there is no
+    // more evidence to find.
+    if (batch.length === 0) break;
+    for (const message of batch) {
+      if (message.inReplyToQuestionId) settled.add(message.inReplyToQuestionId);
+      else if (message.kind === 'cancel' && message.questionId) settled.add(message.questionId);
+    }
+    after = batch[batch.length - 1].sequence;
+  }
   return waiting.filter((wait) => settled.has(wait.questionId)).map((wait) => wait.memberId);
+}
+
+/** Ends the waits recovery settled. A released member is schedulable again. */
+function withReleasedWaits(record: RoomRecord, memberIds: string[]): RoomRecord {
+  if (memberIds.length === 0) return record;
+  return {
+    ...record,
+    members: record.members.map((member) =>
+      memberIds.includes(member.id)
+        ? { ...withMemberStatus(member, 'idle', 'Ready.'), waitingOnQuestionId: null }
+        : member,
+    ),
+  };
 }
 
 /** A Room that may resume, and who it owes a wake to. */
@@ -169,15 +189,22 @@ export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<RoomRe
     const current = await deps.store.readRoom(roomId);
     if (!current) continue;
     const result = reconcileRoomRecord(deps.host, current);
-    // Only a resuming Room settles waits: a paused one wakes nobody, and the
-    // check runs again when it resumes.
-    const settledWaitMemberIds = result.resume ? await settledWaits(deps.store, current) : [];
+    // Every live Room settles its waits, not only a resuming one: a Room that
+    // restarts paused resumes later through `resumeRoom`, which wakes the
+    // Conductor alone. Correcting the RECORD here is what frees the waiter,
+    // whenever the Room next runs. Waking is only how a running Room gets on
+    // with it sooner.
+    const settledWaitMemberIds =
+      current.archivedAt || TERMINAL_ROOM_STATUSES.includes(current.runtime.status)
+        ? []
+        : await settledWaits(deps.store, current);
     const events = [...result.events];
     if (settledWaitMemberIds.length > 0) {
       const summary = `${settledWaitMemberIds.length} member(s) waited for an answer that had already arrived. They were released.`;
       events.push(timelineEvent(deps.host, roomId, 'recovery', null, summary));
     }
-    if (result.record !== current) await deps.store.updateRoom(roomId, () => result.record);
+    const next = withReleasedWaits(result.record, settledWaitMemberIds);
+    if (next !== current) await deps.store.updateRoom(roomId, () => next);
     if (events.length > 0) await deps.store.appendTimeline(roomId, events);
     if (result.resume) resumable.push({ roomId, replayMemberIds: result.replayMemberIds, settledWaitMemberIds });
   }

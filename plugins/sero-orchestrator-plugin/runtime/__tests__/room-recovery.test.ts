@@ -31,6 +31,25 @@ let coordinator: RoomCoordinator;
 const draftRoom = () => draftRoomIn(coordinator, envelopeWith(), MEMBERS);
 const memberOf = (roomId: string, memberId: string) => memberIn(store, roomId, memberId);
 
+const message = (overrides: Partial<RoomMessageDraft>): RoomMessageDraft => ({
+  id: 'msg', kind: 'direct', fromMemberId: null, toMemberIds: [], body: '', questionId: null,
+  inReplyToQuestionId: null, wakeRecipients: true, commandId: 'cmd', createdAt: host.now(), ...overrides,
+});
+
+const question = (questionId: string, from: string, to: string): RoomMessageDraft =>
+  message({ id: questionId, kind: 'question', fromMemberId: from, toMemberIds: [to],
+    body: 'Which patch?', questionId, commandId: `cmd-${questionId}` });
+
+const reply = (questionId: string, from: string, to: string): RoomMessageDraft =>
+  message({ id: `a-${questionId}`, kind: 'reply', fromMemberId: from, toMemberIds: [to],
+    body: 'The first one.', inReplyToQuestionId: questionId, commandId: `cmd-a-${questionId}` });
+
+/** The durable half of a wait, as `blockOnQuestion` writes it. */
+const waitOn = (roomId: string, memberId: string, questionId: string) =>
+  store.updateMember(roomId, memberId, (current) => ({
+    ...current, status: 'waiting', statusDetail: 'Waiting.', waitingOnQuestionId: questionId,
+  }));
+
 beforeEach(async () => {
   ({ dir, host, store, coordinator } = await createRoomHarness());
 });
@@ -128,24 +147,13 @@ describe('restart recovery', () => {
     // The crash window: the reply is persisted and its command key claimed, but
     // the process died before the waiter was released. The sender cannot retry —
     // the same commandId now reads as a duplicate.
-    const message = (overrides: Partial<RoomMessageDraft>): RoomMessageDraft => ({
-      id: 'msg', kind: 'direct', fromMemberId: null, toMemberIds: [], body: '', questionId: null,
-      inReplyToQuestionId: null, wakeRecipients: true, commandId: 'cmd', createdAt: host.now(), ...overrides,
-    });
     await store.appendMessages(roomId, [
-      message({ id: 'q-1', kind: 'question', fromMemberId: 'impl', toMemberIds: ['lead'],
-        body: 'Which patch?', questionId: 'q-1', commandId: 'cmd-q1' }),
-      message({ id: 'a-1', kind: 'reply', fromMemberId: 'lead', toMemberIds: ['impl'],
-        body: 'The first one.', inReplyToQuestionId: 'q-1', commandId: 'cmd-a1' }),
-      message({ id: 'q-2', kind: 'question', fromMemberId: 'scout', toMemberIds: ['lead'],
-        body: 'And the tests?', questionId: 'q-2', commandId: 'cmd-q2' }),
+      question('q-1', 'impl', 'lead'),
+      reply('q-1', 'lead', 'impl'),
+      question('q-2', 'scout', 'lead'),
     ]);
-    const waitOn = (memberId: string, questionId: string) =>
-      store.updateMember(roomId, memberId, (current) => ({
-        ...current, status: 'waiting', statusDetail: 'Waiting.', waitingOnQuestionId: questionId,
-      }));
-    await waitOn('impl', 'q-1');
-    await waitOn('scout', 'q-2');
+    await waitOn(roomId, 'impl', 'q-1');
+    await waitOn(roomId, 'scout', 'q-2');
 
     await restartCoordinator(host, store).reconcileRooms();
 
@@ -157,6 +165,50 @@ describe('restart recovery', () => {
     const scout = await memberOf(roomId, 'scout');
     expect(scout.status).toBe('waiting');
     expect(scout.waitingOnQuestionId).toBe('q-2');
+  });
+
+  it('settles a wait in a paused Room, which resumes by waking only the Conductor', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.appendMessages(roomId, [question('q-1', 'impl', 'lead'), reply('q-1', 'lead', 'impl')]);
+    await waitOn(roomId, 'impl', 'q-1');
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      runtime: { ...record.runtime, status: 'paused' },
+    }));
+
+    await restartCoordinator(host, store).reconcileRooms();
+
+    // Recovery corrected the record rather than waking anyone, so the member is
+    // schedulable the moment the Room resumes.
+    const impl = await memberOf(roomId, 'impl');
+    expect(impl.status).toBe('idle');
+    expect(impl.waitingOnQuestionId).toBeNull();
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
+  });
+
+  it('finds the answer however far back it is', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.appendMessages(roomId, [question('q-1', 'impl', 'lead'), reply('q-1', 'lead', 'impl')]);
+    await waitOn(roomId, 'impl', 'q-1');
+    // The Room stays busy while the waiter is stuck. A fixed-size window over
+    // the newest messages would scroll straight past the answer.
+    await store.appendMessages(
+      roomId,
+      Array.from({ length: 520 }, (_, index) =>
+        message({ id: `noise-${index}`, fromMemberId: 'lead', toMemberIds: ['scout'], body: 'Carry on.',
+          commandId: `cmd-noise-${index}` }),
+      ),
+    );
+
+    await restartCoordinator(host, store).reconcileRooms();
+
+    const impl = await memberOf(roomId, 'impl');
+    expect(impl.waitingOnQuestionId).toBeNull();
+    expect(impl.status).not.toBe('waiting');
   });
 
   it('does not repeat an interrupted delivery', async () => {

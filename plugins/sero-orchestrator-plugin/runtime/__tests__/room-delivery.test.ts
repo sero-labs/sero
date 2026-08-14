@@ -177,6 +177,34 @@ describe('delivery to the invoking chat', () => {
     expect(host.sessionSends).toHaveLength(1);
   });
 
+  it('releases the claim when the send fails, so the result is not lost to a false record', async () => {
+    await seedRoom(chatRoom);
+    host.failNextContextSend = 'the chat is gone';
+    const failed = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Done.' });
+    expect(failed).toMatchObject({ ok: true, returnedToChat: false, ref: null });
+    // Nothing landed, so nothing may be recorded as delivered — otherwise the
+    // claim alone would close the Room over a result the user never saw.
+    const after = await store.readRoom('room-a');
+    expect(after?.delivery.deliveredAt).toBeNull();
+    expect(after?.delivery.deliveryRef).toBeNull();
+
+    const retried = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Done.' });
+    expect(retried).toMatchObject({ ok: true, returnedToChat: true, ref: 'session:sess-9' });
+    expect(host.sessionSends).toHaveLength(1);
+  });
+
+  it('does not call a claim with no ref a delivery', async () => {
+    await seedRoom((record) => ({
+      ...chatRoom(record),
+      // What a crash between the claim and the send leaves behind.
+      delivery: { ...chatRoom(record).delivery, deliveredAt: 't1', deliveryRef: null },
+    }));
+    const outcome = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Done.' });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.problems[0]).toContain('did not complete it');
+    expect(host.sessionSends).toEqual([]);
+  });
+
   it('refuses when the Room was never started from a chat', async () => {
     await seedRoom((record) => ({ ...record, delivery: { ...record.delivery, destination: 'invoking-chat' } }));
     const outcome = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Done.' });

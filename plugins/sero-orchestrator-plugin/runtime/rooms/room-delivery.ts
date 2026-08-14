@@ -297,7 +297,19 @@ export async function deliverRoomResult(
   // `transact` reports duplicates by command key; this call passes none.
   const outcome = claim.duplicate ? null : claim.result;
   if (!outcome) return { ok: false, problems: ['This delivery was already recorded.'], returnedToChat: false, ref: null };
-  if (outcome.state === 'already') return { ok: true, problems: [], returnedToChat: false, ref: outcome.ref };
+  if (outcome.state === 'already') {
+    // A claim with no ref is a delivery that was attempted and did not land.
+    // Reporting that as delivered is the hollow success this whole path exists
+    // to prevent, so it is reported for what it is.
+    return outcome.ref
+      ? { ok: true, problems: [], returnedToChat: false, ref: outcome.ref }
+      : {
+          ok: false,
+          problems: ['An earlier attempt claimed this delivery and did not complete it.'],
+          returnedToChat: false,
+          ref: null,
+        };
+  }
   if (outcome.state === 'nothing') {
     return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat: false, ref: null };
   }
@@ -317,6 +329,16 @@ export async function deliverRoomResult(
     await deps.store.updateRoom(request.roomId, (current) => ({
       ...current,
       delivery: { ...current.delivery, deliveryRef: ref },
+    }));
+  } else if (!ref) {
+    // The claim was taken and nothing was delivered: the chat send failed and no
+    // external receipt was accepted. Releasing it lets the Room finish again
+    // rather than record a delivery that never happened. Safe precisely because
+    // nothing landed — an accepted receipt always leaves a ref, and the approval
+    // it spends is consumed in the same write that sets one.
+    await deps.store.updateRoom(request.roomId, (current) => ({
+      ...current,
+      delivery: { ...current.delivery, deliveredAt: null },
     }));
   }
   await deps.store.appendTimeline(request.roomId, [{
