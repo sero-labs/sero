@@ -19,6 +19,7 @@ import type {
   ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
+  PersistentSessionsApi,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import type {
@@ -249,6 +250,15 @@ export interface OrchestratorHost {
 
   // ── Active-session control ────────────────────────────────
   session: SessionHost;
+
+  /**
+   * Host-managed persistent Pi sessions (AD-029). Room members run on this and
+   * nothing else — plugin code never constructs a Pi session.
+   *
+   * Absent unless this host build installed the capability for the Orchestrator,
+   * so every caller must check for it. Room mode is unavailable without it.
+   */
+  persistentSessions?: PersistentSessionsApi;
 
   // ── Loop Library (profile-global versioned definition store) ──
   library: LibraryStore;

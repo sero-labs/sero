@@ -11,6 +11,7 @@ import type {
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog';
+import { createFakePersistentSessions, type FakePersistentSessions } from './fake-persistent-sessions';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
@@ -86,6 +87,8 @@ export interface FakeHost extends OrchestratorHost {
   catalogRepos: CatalogRepoRef[];
   /** Cached contents by repo key; absent ⇒ never fetched. */
   catalogContents: Map<string, CatalogRepoContents>;
+  /** Always present here; on a real host the capability is usually absent. */
+  persistentSessions: FakePersistentSessions;
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -124,6 +127,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     libraryWatching: false,
     catalogRepos: [{ key: OFFICIAL_CATALOG_KEY, url: OFFICIAL_CATALOG_URL, official: true }],
     catalogContents: new Map<string, CatalogRepoContents>(),
+    persistentSessions: createFakePersistentSessions(),
 
     async readState() {
       return structuredClone(this.state);

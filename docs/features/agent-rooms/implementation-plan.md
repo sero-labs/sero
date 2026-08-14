@@ -248,60 +248,60 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 
 ### Work checklist
 
-- [ ] Consume appRuntime.persistentSessions rather than constructing sessions in plugin code.
-- [ ] Use SessionManager.create for new members and SessionManager.open for resumed members behind the host capability.
-- [ ] Store standard Pi session files in the approved Room-specific directory.
-- [ ] Store only session references and configuration revisions in Room state.
-- [ ] Set deterministic Pi session names that identify Room and member.
-- [ ] Load project context files such as AGENTS.md.
-- [ ] Load the approved member prompt, mandate, selected skills, platform tools and sero-cli Room commands.
-- [ ] Load only plugin extensions that provide an approved selected capability.
-- [ ] Keep unrelated extensions, prompts, themes, agent definitions and third-party lifecycle hooks off by default.
-- [ ] Enforce the filtered resource policy in the host from the approved grant.
-- [ ] Resolve models through the host ModelRuntime and apply approved tools, skills and permissions.
-- [ ] Add a bounded live AgentSession pool that can dispose and reopen members.
-- [ ] Integrate Room lifecycle with existing Orchestrator scheduling, limits, abort and recovery.
-- [ ] Reserve execution capacity for the Conductor and release capacity for idle members.
-- [ ] Track cost, tokens, turns, retries and failures by member and Room.
-- [ ] Reconcile active and uncertain turns after restart.
-- [ ] Build the authoritative Room brief automatically from current Room state after structural progress.
-- [ ] Allow a clearly labelled Conductor situation note without overriding computed fields.
-- [ ] Project only member-relevant Room brief content into each session.
-- [ ] Monitor context usage and compact only at safe turn boundaries.
-- [ ] Preserve a member checkpoint, Room brief, mandate, questions and artifacts through compaction.
-- [ ] Implement subscribe as a bounded per-member live output buffer that is never persisted.
-- [ ] Implement paged member-history reads through the host capability, derived on read.
-- [ ] Keep observation read-only, holding no execution slot and changing no member behaviour.
+- [x] Consume appRuntime.persistentSessions rather than constructing sessions in plugin code.
+- [x] Use SessionManager.create for new members and SessionManager.open for resumed members behind the host capability.
+- [x] Store standard Pi session files in the approved Room-specific directory.
+- [x] Store only session references and configuration revisions in Room state.
+- [x] Set deterministic Pi session names that identify Room and member.
+- [x] Load project context files such as AGENTS.md.
+- [x] Load the approved member prompt, mandate, selected skills, platform tools and sero-cli Room commands.
+- [x] Load only plugin extensions that provide an approved selected capability.
+- [x] Keep unrelated extensions, prompts, themes, agent definitions and third-party lifecycle hooks off by default.
+- [x] Enforce the filtered resource policy in the host from the approved grant.
+- [x] Resolve models through the host ModelRuntime and apply approved tools, skills and permissions.
+- [x] Add a bounded live AgentSession pool that can dispose and reopen members.
+- [x] Integrate Room lifecycle with existing Orchestrator scheduling, limits, abort and recovery.
+- [x] Reserve execution capacity for the Conductor and release capacity for idle members.
+- [x] Track cost, tokens, turns, retries and failures by member and Room.
+- [x] Reconcile active and uncertain turns after restart.
+- [x] Build the authoritative Room brief automatically from current Room state after structural progress.
+- [x] Allow a clearly labelled Conductor situation note without overriding computed fields.
+- [x] Project only member-relevant Room brief content into each session.
+- [x] Monitor context usage and compact only at safe turn boundaries.
+- [x] Preserve a member checkpoint, Room brief, mandate, questions and artifacts through compaction.
+- [x] Implement subscribe as a bounded per-member live output buffer that is never persisted.
+- [x] Implement paged member-history reads through the host capability, derived on read.
+- [x] Keep observation read-only, holding no execution slot and changing no member behaviour.
 - [ ] Add local presence plus passive cache read and write usage capture.
-- [ ] Add real temporary-session, fake-clock, concurrency, compaction and restart tests.
+- [x] Add real temporary-session, fake-clock, concurrency, compaction and restart tests.
 
 ### Deliverables
 
-- [ ] Standard Pi persistent member-session host.
-- [ ] Bounded live session pool and Room scheduler integration.
-- [ ] Restart reconciliation.
-- [ ] Live member observation and paged history reads.
+- [x] Standard Pi persistent member-session host.
+- [x] Bounded live session pool and Room scheduler integration.
+- [x] Restart reconciliation.
+- [x] Live member observation and paged history reads.
 - [ ] Context management, compaction and passive cache telemetry.
-- [ ] Deterministic runtime tests.
+- [x] Deterministic runtime tests.
 
 ### Acceptance criteria
 
-- [ ] At least three differently configured members run with separate Pi session files.
-- [ ] No active Room member uses SessionManager.inMemory.
-- [ ] A disposed member resumes from the same session file.
-- [ ] An application restart reopens members without Room transcript replay.
-- [ ] Room sessions do not appear in normal chat history.
-- [ ] Pause, cancellation and hard limits stop new turns correctly.
-- [ ] Concurrency stays within limits and the Conductor reserve remains available.
-- [ ] Context compaction preserves current responsibilities and active work.
-- [ ] A member's live turn output and complete history are both readable through the runtime.
-- [ ] A retired, replaced or failed member's history stays readable.
-- [ ] Observation writes nothing into Room records.
+- [x] At least three differently configured members run with separate Pi session files.
+- [x] No active Room member uses SessionManager.inMemory.
+- [x] A disposed member resumes from the same session file.
+- [x] An application restart reopens members without Room transcript replay.
+- [x] Room sessions do not appear in normal chat history.
+- [x] Pause, cancellation and hard limits stop new turns correctly.
+- [x] Concurrency stays within limits and the Conductor reserve remains available.
+- [x] Context compaction preserves current responsibilities and active work.
+- [x] A member's live turn output and complete history are both readable through the runtime.
+- [x] A retired, replaced or failed member's history stays readable.
+- [x] Observation writes nothing into Room records.
 - [ ] A provider with no cache metadata runs normally.
-- [ ] Member sessions contain approved project context but do not load every installed extension.
-- [ ] The authoritative Room brief is available without reading the full Room transcript.
-- [ ] No second ModelRuntime, credential store or transcript store exists.
-- [ ] pnpm typecheck and relevant tests pass.
+- [x] Member sessions contain approved project context but do not load every installed extension.
+- [x] The authoritative Room brief is available without reading the full Room transcript.
+- [x] No second ModelRuntime, credential store or transcript store exists.
+- [x] pnpm typecheck and relevant tests pass.
 
 ## 9. Phase 5: Communication, waiting and dynamic Room revisions
 

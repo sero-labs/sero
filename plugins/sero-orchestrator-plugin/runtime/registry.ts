@@ -13,6 +13,7 @@
 
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY } from '@sero-ai/common';
 import type { Coordinator } from './coordinator';
+import type { RoomCoordinator } from './rooms/room-coordinator';
 
 interface RegistryEntry {
   workspaceId: string;
@@ -67,6 +68,26 @@ export function resolveCoordinatorByCwd(cwd: string): Coordinator | undefined {
 }
 
 /** Test/diagnostic helper. */
+/**
+ * Room coordinators, kept in their own map. A workspace can have a Workflow
+ * coordinator and no Room coordinator — Room mode needs the AD-029 capability,
+ * Workflow mode does not — so one map with an optional field would make every
+ * caller handle a shape that cannot occur.
+ */
+const roomCoordinators = new Map<string, RoomCoordinator>();
+
+export function registerRoomCoordinator(workspaceId: string, coordinator: RoomCoordinator): void {
+  roomCoordinators.set(workspaceId, coordinator);
+}
+
+export function unregisterRoomCoordinator(workspaceId: string): void {
+  roomCoordinators.delete(workspaceId);
+}
+
+export function getRoomCoordinator(workspaceId: string): RoomCoordinator | undefined {
+  return roomCoordinators.get(workspaceId);
+}
+
 export function registeredWorkspaceIds(): string[] {
   return [...store().keys()];
 }

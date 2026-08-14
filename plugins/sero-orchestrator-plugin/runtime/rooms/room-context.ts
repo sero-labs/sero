@@ -151,7 +151,8 @@ export function buildPostCompactionContext(room: Room, member: RoomMember, work:
   const projection = projectBriefForMember(room.brief, member, work);
   const lines = [
     '## Context was compacted',
-    'Your earlier messages were summarised to free space. The Room record below is authoritative — trust it over anything you remember.',
+    'Your earlier messages were summarised to free space. The Room record below is authoritative —'
+      + ' trust it over anything you remember.',
     '',
     renderMemberBrief(projection),
   ];

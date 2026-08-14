@@ -107,6 +107,9 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
 
     session: ctx.host.session,
 
+    // Absent unless this host build installed the capability for this plugin.
+    persistentSessions: ctx.host.persistentSessions,
+
     library,
 
     catalog,
