@@ -8,7 +8,8 @@ import { useMemo, useState } from 'react';
 import { Button, Input } from '@sero-ai/ui';
 import { Plus, Search } from 'lucide-react';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';
-import { AttentionQueue } from './AttentionQueue';
+import type { RoomSummary } from '../../shared/room-types';
+import { AttentionQueue, type RoomApprovalDecision } from './AttentionQueue';
 import { LoopsOverview } from './LoopsOverview';
 
 interface HomeViewProps {
@@ -17,18 +18,32 @@ interface HomeViewProps {
   onAction: (action: OrchestratorAction) => void;
   onOpenLoop: (loopId: string) => void;
   onNew: () => void;
+  /** Rooms from the watched Room index — their pending approvals join the same queue. */
+  rooms?: RoomSummary[];
+  onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  onOpenRoom?: (roomId: string) => void;
 }
 
 // Show the search field once the overview is large enough that scanning it by
 // eye gets tedious; a small workspace stays uncluttered.
 const SEARCH_THRESHOLD = 10;
 
-export function HomeView({ loops, busy, onAction, onOpenLoop, onNew }: HomeViewProps) {
+export function HomeView({ loops, busy, onAction, onOpenLoop, onNew, rooms = [], onRoomApproval, onOpenRoom }: HomeViewProps) {
   const [query, setQuery] = useState('');
   const questions = loops.reduce((n, l) => n + (l.attention?.input?.questions.length ?? 0), 0);
   const suggestions = loops.reduce((n, l) => n + (l.attention?.suggestions?.length ?? 0), 0);
-  const needing = loops.filter((l) => l.attention?.input || l.attention?.suggestions?.length).length;
-  const caughtUp = questions === 0 && suggestions === 0;
+  const approvals = rooms.reduce((n, r) => n + (r.attention?.approvals.length ?? 0), 0);
+  const needing =
+    loops.filter((l) => l.attention?.input || l.attention?.suggestions?.length).length
+    + rooms.filter((r) => r.attention?.approvals.length).length;
+  const caughtUp = questions === 0 && suggestions === 0 && approvals === 0;
+  // Approvals are named only when a Room raised one, so a workspace with no
+  // Rooms reads exactly as it did before.
+  const counts = [
+    `${questions} question${questions === 1 ? '' : 's'}`,
+    `${suggestions} suggestion${suggestions === 1 ? '' : 's'}`,
+    ...(approvals > 0 ? [`${approvals} approval${approvals === 1 ? '' : 's'}`] : []),
+  ];
 
   // Search filters only the loops overview by title/summary/prompt; the
   // "Needs you" queue always reflects every loop (it must never be hidden).
@@ -49,12 +64,20 @@ export function HomeView({ loops, busy, onAction, onOpenLoop, onNew }: HomeViewP
             <p className="text-xs text-muted-foreground">
               {caughtUp
                 ? "You're all caught up."
-                : `${questions} question${questions === 1 ? '' : 's'} · ${suggestions} suggestion${suggestions === 1 ? '' : 's'} across ${needing} loop${needing === 1 ? '' : 's'}`}
+                : `${counts.join(' · ')} across ${needing} item${needing === 1 ? '' : 's'}`}
             </p>
           </div>
           <Button size="sm" onClick={onNew}><Plus className="mr-1 h-4 w-4" /> New loop</Button>
         </div>
-        <AttentionQueue loops={loops} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
+        <AttentionQueue
+          loops={loops}
+          busy={busy}
+          onAction={onAction}
+          onOpenLoop={onOpenLoop}
+          rooms={rooms}
+          onRoomApproval={onRoomApproval}
+          onOpenRoom={onOpenRoom}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

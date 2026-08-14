@@ -17,9 +17,11 @@
  * transcript, and never copies streamed output into Room state.
  */
 
+import type { DeliveryReceipt } from '../../shared/delivery-types';
 import type { RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { LoopLocks } from '../locks';
+import { resolveApprovalForUser, type ApprovalResolution } from './room-delivery';
 import { requirePersistentSessions } from './member-grant';
 import type { MemberSessionPool, MemberTurnResult } from './member-session';
 import {
@@ -160,8 +162,18 @@ export class RoomCoordinator {
     return cancelRoom(this.ctx, roomId, detail);
   }
 
-  completeRoom(roomId: string, summary?: string): Promise<RoomActionResult> {
-    return completeRoom(this.ctx, roomId, summary);
+  /** `summary` is the final answer the invoking chat receives; `receipt` proves an agent-performed send. */
+  completeRoom(roomId: string, summary?: string, receipt?: DeliveryReceipt): Promise<RoomActionResult> {
+    return completeRoom(this.ctx, roomId, summary, receipt);
+  }
+
+  /**
+   * The user's answer to a Room approval. Members never reach this: the
+   * responder is fixed here, and `resolveApprovalForUser` refuses anything else
+   * (§22).
+   */
+  resolveApproval(roomId: string, approvalId: string, decision: 'approved' | 'rejected'): Promise<ApprovalResolution> {
+    return resolveApprovalForUser({ host: this.host, store: this.deps.store }, roomId, approvalId, decision, { kind: 'user' });
   }
 
   deleteRoom(roomId: string): Promise<RoomActionResult> {

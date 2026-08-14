@@ -43,6 +43,22 @@ export interface ProviderStats {
   models: ModelStats[];
 }
 
+/**
+ * An Agent Rooms group (docs/features/agent-rooms/spec.md §27.1). Derived from
+ * the session path and the Pi session name only — the Usage plugin never reads
+ * the Orchestrator store.
+ */
+export interface RoomGroup {
+  /** From the `rooms/<roomId>/` path segment; null when the path has none. */
+  roomId: string | null;
+  /** From the session name `Room <title> — <role>`; null when it is malformed. */
+  title: string | null;
+  /** Optional published deep link. Attribution never depends on it. */
+  link?: string;
+  /** One row per member session, cost desc. Labels are member roles. */
+  members: SessionStats[];
+}
+
 export interface SessionStats {
   id: string;
   /** session_info name, else first user message (truncated), else id. */
@@ -56,6 +72,8 @@ export interface SessionStats {
   tokens: TokenBreakdown;
   firstActivity: number;
   lastActivity: number;
+  /** Set on a grouped Room row only. Ordinary chats never carry it. */
+  room?: RoomGroup;
 }
 
 export interface PeriodStats {

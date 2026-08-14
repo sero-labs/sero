@@ -309,49 +309,49 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 
 ### Work checklist
 
-- [ ] Implement a durable single-host Room mailbox with direct, broadcast, question, reply, cancel and system messages.
-- [ ] Persist messages before delivery and maintain per-member read cursors.
-- [ ] Add message size, backlog, rate and idempotency limits.
-- [ ] Queue broadcasts by default and require an explicit policy-approved wake option.
-- [ ] End a waiting member's turn, release its slot and reopen the same session for a matching reply.
-- [ ] Emit an immediate coordinator event when a reply or targeted wake signal is persisted.
-- [ ] Keep the periodic scheduler tick as recovery only, not the normal wake path.
+- [x] Implement a durable single-host Room mailbox with direct, broadcast, question, reply, cancel and system messages.
+- [x] Persist messages before delivery and maintain per-member read cursors.
+- [x] Add message size, backlog, rate and idempotency limits.
+- [x] Queue broadcasts by default and require an explicit policy-approved wake option.
+- [x] End a waiting member's turn, release its slot and reopen the same session for a matching reply.
+- [x] Emit an immediate coordinator event when a reply or targeted wake signal is persisted.
+- [x] Keep the periodic scheduler tick as recovery only, not the normal wake path.
 - [ ] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit.
-- [ ] Add required wait-cycle detection, Conductor notification and user pause.
-- [ ] Implement add, mandate update, assign, suspend, resume, retire and replace revisions.
-- [ ] Validate every revision against the operating envelope.
-- [ ] Apply mandate changes as instructions only.
-- [ ] Route every model, tool, skill, permission, workspace and delivery change through a validated configuration revision.
-- [ ] Apply configuration changes at safe turn boundaries.
-- [ ] Require user approval for any authority expansion.
-- [ ] Create handover summaries and retain retired session history.
-- [ ] Bound roster revisions and prevent autonomous Conductor self-replacement.
-- [ ] Bridge logical Room operations through sero-cli under AD-020.
-- [ ] Enforce Conductor-only actions in runtime code.
-- [ ] Add duplicate, late-reply, message-storm, deadlock, revision-race and restart tests.
+- [x] Add required wait-cycle detection, Conductor notification and user pause.
+- [x] Implement add, mandate update, assign, suspend, resume, retire and replace revisions.
+- [x] Validate every revision against the operating envelope.
+- [x] Apply mandate changes as instructions only.
+- [x] Route every model, tool, skill, permission, workspace and delivery change through a validated configuration revision.
+- [x] Apply configuration changes at safe turn boundaries.
+- [x] Require user approval for any authority expansion.
+- [x] Create handover summaries and retain retired session history.
+- [x] Bound roster revisions and prevent autonomous Conductor self-replacement.
+- [x] Bridge logical Room operations through sero-cli under AD-020.
+- [x] Enforce Conductor-only actions in runtime code.
+- [x] Add duplicate, late-reply, message-storm, deadlock, revision-race and restart tests.
 
 ### Deliverables
 
-- [ ] Durable Room mailbox and delivery policy.
-- [ ] Wait, wake and deadlock handling.
-- [ ] Controlled Room revision engine.
-- [ ] AD-020 Room command namespace.
-- [ ] Messaging and authority tests.
+- [x] Durable Room mailbox and delivery policy.
+- [x] Wait, wake and deadlock handling.
+- [x] Controlled Room revision engine.
+- [x] AD-020 Room command namespace.
+- [x] Messaging and authority tests.
 
 ### Acceptance criteria
 
-- [ ] A member can ask another member and later resume the same Pi session with the answer.
-- [ ] Reply delivery uses the event path and does not wait for the periodic tick.
+- [x] A member can ask another member and later resume the same Pi session with the answer.
+- [x] Reply delivery uses the event path and does not wait for the periodic tick.
 - [ ] Event-to-resumed-turn latency meets the two-second target when capacity is available.
-- [ ] Waiting consumes no active execution slot.
-- [ ] A normal broadcast does not wake idle recipients.
-- [ ] Peer messages cannot grant permission or approve protected work.
-- [ ] The Conductor can add a member inside the approved envelope.
-- [ ] Permission, spend or team-limit expansion waits for the user.
-- [ ] Fundamental identity change creates a replacement and handover.
-- [ ] Continued deadlock pauses for the user.
-- [ ] Room commands do not add many tool schemas to each turn.
-- [ ] pnpm typecheck and relevant tests pass.
+- [x] Waiting consumes no active execution slot.
+- [x] A normal broadcast does not wake idle recipients.
+- [x] Peer messages cannot grant permission or approve protected work.
+- [x] The Conductor can add a member inside the approved envelope.
+- [x] Permission, spend or team-limit expansion waits for the user.
+- [x] Fundamental identity change creates a replacement and handover.
+- [x] Continued deadlock pauses for the user.
+- [x] Room commands do not add many tool schemas to each turn.
+- [x] pnpm typecheck and relevant tests pass.
 
 ## 10. Phase 6: Workspace safety, approvals and delivery runtime
 
@@ -359,49 +359,49 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 
 ### Work checklist
 
-- [ ] Reuse the unified Git service and existing Orchestrator workspace placement.
-- [ ] Support read-only shared work and a managed worktree for each editing member.
-- [ ] Keep shared-root editing behind explicit user approval.
-- [ ] Add minimal free-form WorkItem records and simple advisory path claims.
-- [ ] Detect overlapping claims and apply warn or block policy.
-- [ ] Persist artifacts and support Conductor commit collection and conflict reporting.
-- [ ] Preserve uncommitted member work during failure and cancellation.
-- [ ] Add one multi-member approval and attention queue.
-- [ ] Prevent the Conductor from answering user approvals.
-- [ ] Reuse Orchestrator delivery settings, the agent-authored send and the DeliveryReceipt approval token.
-- [ ] Add a Room origin field and a new internal invoking-chat delivery destination; the seven existing destinations are all external.
-- [ ] Deliver final result, artifacts, unresolved items, duration and cost to the approved destination.
-- [ ] Label Pi sessions with Room and member identity.
-- [ ] Extend the Usage aggregator with path-derived Room grouping; leave the scanner unchanged.
-- [ ] Derive Usage grouping from the rooms/<roomId>/ path and Pi session name.
-- [ ] Do not read the Orchestrator store from the Usage plugin.
-- [ ] Allow only optional published label or link enrichment from Room metadata.
-- [ ] Show grouped Room totals and optional per-member usage without changing Pi session format.
+- [x] Reuse the unified Git service and existing Orchestrator workspace placement.
+- [x] Support read-only shared work and a managed worktree for each editing member.
+- [x] Keep shared-root editing behind explicit user approval.
+- [x] Add minimal free-form WorkItem records and simple advisory path claims.
+- [x] Detect overlapping claims and apply warn or block policy.
+- [x] Persist artifacts and support Conductor commit collection and conflict reporting.
+- [x] Preserve uncommitted member work during failure and cancellation.
+- [x] Add one multi-member approval and attention queue.
+- [x] Prevent the Conductor from answering user approvals.
+- [x] Reuse Orchestrator delivery settings, the agent-authored send and the DeliveryReceipt approval token.
+- [x] Add a Room origin field and a new internal invoking-chat delivery destination; the seven existing destinations are all external.
+- [x] Deliver final result, artifacts, unresolved items, duration and cost to the approved destination.
+- [x] Label Pi sessions with Room and member identity.
+- [x] Extend the Usage aggregator with path-derived Room grouping; leave the scanner unchanged.
+- [x] Derive Usage grouping from the rooms/<roomId>/ path and Pi session name.
+- [x] Do not read the Orchestrator store from the Usage plugin.
+- [x] Allow only optional published label or link enrichment from Room metadata.
+- [x] Show grouped Room totals and optional per-member usage without changing Pi session format.
 - [ ] Run the completed runtime behind the feature flag without the final Room UI.
 - [ ] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests.
 
 ### Deliverables
 
-- [ ] Per-member worktrees, minimal work records, simple claims and artifacts.
-- [ ] Consolidated approval and attention runtime.
-- [ ] Invoking-chat and external delivery.
-- [ ] Room-labelled Usage analytics.
+- [x] Per-member worktrees, minimal work records, simple claims and artifacts.
+- [x] Consolidated approval and attention runtime.
+- [x] Invoking-chat and external delivery.
+- [x] Room-labelled Usage analytics.
 - [ ] Runtime soak report behind the feature flag.
 
 ### Acceptance criteria
 
-- [ ] Two editing members can work in separate worktrees.
-- [ ] Claims remain clearly advisory.
-- [ ] Cancellation does not silently delete uncommitted work.
-- [ ] Approval requests identify the member and authority consequence.
-- [ ] A Room created from chat returns one final result to that chat.
-- [ ] External delivery cannot bypass approval.
-- [ ] Usage groups member sessions under their Room instead of unexplained ordinary sessions.
-- [ ] Usage aggregation still works when no Orchestrator metadata lookup is available.
-- [ ] No direct Usage-to-Orchestrator store dependency exists.
-- [ ] No Room code bypasses the unified Git service.
+- [x] Two editing members can work in separate worktrees.
+- [x] Claims remain clearly advisory.
+- [x] Cancellation does not silently delete uncommitted work.
+- [x] Approval requests identify the member and authority consequence.
+- [x] A Room created from chat returns one final result to that chat.
+- [x] External delivery cannot bypass approval.
+- [x] Usage groups member sessions under their Room instead of unexplained ordinary sessions.
+- [x] Usage aggregation still works when no Orchestrator metadata lookup is available.
+- [x] No direct Usage-to-Orchestrator store dependency exists.
+- [x] No Room code bypasses the unified Git service.
 - [ ] Runtime soak has no dependency on the final Room UI.
-- [ ] pnpm typecheck and relevant runtime tests pass.
+- [x] pnpm typecheck and relevant runtime tests pass.
 
 ## 11. Phase 7: First-party Room UI
 

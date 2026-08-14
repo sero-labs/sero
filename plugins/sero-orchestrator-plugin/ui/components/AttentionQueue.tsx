@@ -4,31 +4,55 @@
  * attention payload, side by side, so the user resolves them inline — answering a
  * question or approving/rejecting a suggestion — without opening each loop. All
  * actions reuse the existing coordinator actions (answer_input / choose_suggestion).
+ *
+ * Room approvals join the SAME queue (agent-rooms spec §22, FR-026): one inbox
+ * for every member of every Room, beside the Workflow items, read from the Room
+ * index's own attention payload. Only the user answers them — no Room member,
+ * not even the Conductor — which the runtime enforces independently.
  */
 
 import { useMemo, useState } from 'react';
 import { Button, Card, Textarea } from '@sero-ai/ui';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldQuestion, Sparkles } from 'lucide-react';
 import type { LoopAttentionInput, LoopAttentionSuggestion, LoopSummary, OrchestratorAction } from '../../shared/types';
+import type { RoomAttentionApproval } from '../../shared/attention-types';
+import type { RoomSummary } from '../../shared/room-types';
 import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
+
+export type RoomApprovalDecision = 'approved' | 'rejected';
 
 interface AttentionQueueProps {
   loops: LoopSummary[];
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
   onOpenLoop: (loopId: string) => void;
+  /** Rooms from the watched Room index. Absent until Room mode is mounted. */
+  rooms?: RoomSummary[];
+  onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  onOpenRoom?: (roomId: string) => void;
 }
 
-export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQueueProps) {
+export function AttentionQueue({ loops, busy, onAction, onOpenLoop, rooms = [], onRoomApproval, onOpenRoom }: AttentionQueueProps) {
   const inputs = loops.flatMap((l) => (l.attention?.input ? [{ loop: l, input: l.attention.input }] : []));
   const suggestions = loops.flatMap((l) => (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })));
+  const approvals = rooms.flatMap((room) => (room.attention?.approvals ?? []).map((approval) => ({ room, approval })));
 
-  if (inputs.length === 0 && suggestions.length === 0) {
+  if (inputs.length === 0 && suggestions.length === 0 && approvals.length === 0) {
     return <p className="text-base text-muted-foreground">Nothing needs you right now.</p>;
   }
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
+      {approvals.map(({ room, approval }) => (
+        <RoomApprovalCard
+          key={`${room.id}:${approval.approvalId}`}
+          room={room}
+          approval={approval}
+          busy={busy}
+          onDecide={onRoomApproval}
+          onOpenRoom={onOpenRoom}
+        />
+      ))}
       {inputs.map(({ loop, input }) => (
         <AttentionInputCard key={`${loop.id}:${input.requestId}`} loop={loop} input={input} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
       ))}
@@ -36,6 +60,55 @@ export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQ
         <AttentionSuggestionCard key={`${loop.id}:${suggestion.id}`} loop={loop} suggestion={suggestion} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
       ))}
     </div>
+  );
+}
+
+/**
+ * One Room member's request for authority. The title, consequence and affected
+ * target are computed by the runtime; only `reason` is the member's own words,
+ * so it is attributed to the member.
+ */
+function RoomApprovalCard({
+  room,
+  approval,
+  busy,
+  onDecide,
+  onOpenRoom,
+}: {
+  room: RoomSummary;
+  approval: RoomAttentionApproval;
+  busy: boolean;
+  onDecide?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  onOpenRoom?: (roomId: string) => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-2 border-violet-500/30 bg-violet-500/[0.06] p-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-violet-500/20 text-violet-400">
+          <ShieldQuestion className="h-3 w-3" />
+        </span>
+        <span className="text-base font-semibold text-violet-400">{approval.memberName} needs your approval</span>
+        {onOpenRoom && <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenRoom(room.id)} /></span>}
+      </div>
+      <span className="text-base font-medium">{room.title}</span>
+      <p className="text-base">{approval.title}</p>
+      <p className="text-base text-muted-foreground">{approval.consequence}</p>
+      <p className="text-xs text-muted-foreground">
+        {approval.memberName} asked: {approval.reason}
+      </p>
+      <span className="text-xs text-muted-foreground">
+        Affects {approval.affects}
+        {approval.estimatedCostUsd !== null && ` · about $${approval.estimatedCostUsd.toFixed(2)}`}
+      </span>
+      <div className="mt-auto flex items-center gap-2">
+        <Button size="sm" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'approved')}>
+          Approve
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'rejected')}>
+          Reject
+        </Button>
+      </div>
+    </Card>
   );
 }
 

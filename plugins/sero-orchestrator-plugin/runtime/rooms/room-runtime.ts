@@ -14,14 +14,28 @@ import type { AppRuntimeContext } from '@sero-ai/common';
 
 import type { OrchestratorHost } from '../host';
 import { createMemberSessionPool } from './member-session';
+import { createRoomClaims, type RoomClaims } from './room-claims';
 import { RoomCoordinator } from './room-coordinator';
 import { createRoomObservation } from './room-observation';
 import { createRoomStore } from './room-store';
+import { createRoomCommandRouter, type RoomCommandRouter } from './room-command-router';
+import { applyRevisionToRoom } from './room-revision-mutate';
+import { applyRoomRevision } from './room-revisions';
+import { createRoomWork, type RoomWork } from './room-work';
+import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 import type { RoomObservation } from './room-observation';
 
 export interface RoomRuntime {
   coordinator: RoomCoordinator;
   observation: RoomObservation;
+  /** The AD-020 command surface a member reaches through `sero-cli`. */
+  commands: RoomCommandRouter;
+  /** Placement, checkpoints and commit collection for the Room's members. */
+  workspaces: RoomWorkspaces;
+  /** Work records and artifacts. */
+  work: RoomWork;
+  /** Advisory path claims. */
+  claims: RoomClaims;
   /** Restart recovery. Runs before any scheduling, as the Workflow side does. */
   reconcile(): Promise<void>;
   /** Recovery pass only — the normal wake path is the coordinator's event path. */
@@ -43,11 +57,64 @@ export function createRoomRuntime(
     now: () => host.now(),
   });
   const sessions = createMemberSessionPool({ host, store, observation });
-  const coordinator = new RoomCoordinator(host, { store, sessions });
+  const work = createRoomWork({ host, store });
+  const claims = createRoomClaims({ host, store });
+  const workspaces = createRoomWorkspaces({ host, store });
+  // The brief is computed from current records, and work and artifacts are two
+  // of them — without this the brief would keep reporting a Room with no work.
+  const coordinator = new RoomCoordinator(host, {
+    store,
+    sessions,
+    briefSources: (roomId) => work.briefSources(roomId),
+  });
+
+  // AD-020: one command surface for every logical Room operation, routed to the
+  // module that already owns it. Nothing new is implemented for the bridge.
+  const commands = createRoomCommandRouter({
+    host,
+    store,
+    mailbox: coordinator.mailbox,
+    claims,
+    work,
+    applyRevision: (input) =>
+      applyRoomRevision(
+        {
+          host,
+          store,
+          mutate: applyRevisionToRoom,
+          // A system message, not a peer message: the Room is telling a member
+          // what changed, and nothing about it can be answered or argued with.
+          notify: async (roomId, memberIds, summary) => {
+            await store.appendMessages(roomId, [{
+              id: host.newId('msg'),
+              kind: 'system',
+              fromMemberId: null,
+              toMemberIds: memberIds,
+              body: summary,
+              questionId: null,
+              inReplyToQuestionId: null,
+              // The change is already in the member's mandate, which every turn
+              // carries, so waking it now would only cost a turn.
+              wakeRecipients: false,
+              commandId: host.newId('cmd'),
+              createdAt: host.now(),
+            }]);
+          },
+        },
+        input,
+      ),
+    completeRoom: (roomId, summary) => coordinator.completeRoom(roomId, summary),
+    publishConductorNote: (roomId, note) => coordinator.publishConductorNote(roomId, note),
+    noteStructuralProgress: (roomId, summary) => coordinator.noteStructuralProgress(roomId, summary),
+  });
 
   return {
     coordinator,
     observation,
+    commands,
+    workspaces,
+    work,
+    claims,
     reconcile: () => coordinator.reconcileRooms(),
     tick: () => coordinator.tick(),
   };

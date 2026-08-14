@@ -13,10 +13,12 @@
  * approval from the user.
  */
 
+import type { DeliveryReceipt } from '../../shared/delivery-types';
 import type { RoomMember, RoomStopReason } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { requestRoomGrant, requirePersistentSessions } from './member-grant';
+import { deliverRoomResult } from './room-delivery';
 import type { MemberSessionPool } from './member-session';
 import {
   buildRoomRecord,
@@ -221,13 +223,18 @@ export async function cancelRoom(
 }
 
 /**
- * Completes the Room. Delivery itself is Phase 6: this records the transition,
- * closes the sessions and revokes the grant, so nothing can run afterwards.
+ * Completes the Room: records the transition, delivers the result, then closes
+ * the sessions and revokes the grant so nothing can run afterwards.
+ *
+ * `summary` is the Conductor's final answer — it is what the invoking chat
+ * receives. Delivery runs on the completed record, so what the user reads
+ * (state, artifacts, cost) is what was actually persisted.
  */
 export async function completeRoom(
   ctx: RoomLifecycleContext,
   roomId: string,
   summary = 'The Room finished its work.',
+  receipt?: DeliveryReceipt,
 ): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
@@ -242,6 +249,14 @@ export async function completeRoom(
       null,
     ),
   );
+
+  // Delivery never decides whether the Room finished: the work is done, and a
+  // refused destination is reported to the user rather than reopening the Room.
+  const delivered = await deliverRoomResult({ host: ctx.host, store: ctx.store }, { roomId, finalResult: summary, receipt });
+  if (!delivered.ok && delivered.problems.length > 0) {
+    ctx.host.notify(`The Room finished, but its result was not delivered: ${delivered.problems.join('; ')}`, 'warning');
+  }
+
   await releaseAuthority(ctx, roomId, summary);
   return ok(await reread(ctx, roomId, record));
 }

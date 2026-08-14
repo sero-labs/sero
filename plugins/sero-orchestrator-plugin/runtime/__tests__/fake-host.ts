@@ -8,6 +8,7 @@ import type {
   AppRuntimePullRequestSummary,
   ContextAgentInfo,
   ContextToolInfo,
+  ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog';
@@ -63,6 +64,14 @@ export interface FakeHost extends OrchestratorHost {
   worktreesRemoved: string[];
   /** Full removeWorktree calls, including the options passed. */
   worktreeRemovals: { loopId: string; deleteBranch?: boolean; deleteMergedBranch?: boolean; force?: boolean }[];
+  /** Checkpoint commits taken, in order. A path in `checkpointFailures` throws instead. */
+  checkpoints: { worktreePath: string; message: string }[];
+  /** Worktree paths whose checkpoint must fail, mapped to the failure reason. */
+  checkpointFailures: Map<string, string>;
+  /** Worktree paths with nothing to commit — createCheckpoint returns null for these. */
+  cleanWorktrees: Set<string>;
+  /** `git diff --name-status` output per worktree path (empty string by default). */
+  diffSummaries: Map<string, string>;
   notifications: { message: string; type?: string }[];
   choiceRequests: ChoiceRequest[];
   stashes: string[];
@@ -78,6 +87,8 @@ export interface FakeHost extends OrchestratorHost {
   turnResult: TurnResult;
   /** Records active-session sends. */
   sessionSends: { sessionId: string; kind: 'steer' | 'context' }[];
+  /** The context messages themselves, for callers that assert on the content. */
+  contextMessages: ExtensionRuntimeMessage[];
   /** In-memory Loop Library state (profile-global store stand-in). */
   libraryEntries: Map<string, LibraryEntry>;
   libraryVersions: Map<string, LibraryVersion>;
@@ -112,6 +123,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     worktreeCreates: [],
     worktreesRemoved: [],
     worktreeRemovals: [],
+    checkpoints: [],
+    checkpointFailures: new Map<string, string>(),
+    cleanWorktrees: new Set<string>(),
+    diffSummaries: new Map<string, string>(),
     notifications: [],
     choiceRequests: [],
     stashes: [],
@@ -121,6 +136,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
+    contextMessages: [],
     libraryEntries: new Map<string, LibraryEntry>(),
     libraryVersions: new Map<string, LibraryVersion>(),
     libraryIndex: structuredClone(DEFAULT_LIBRARY_INDEX),
@@ -185,6 +201,15 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         force: options?.force,
       });
     },
+    async createCheckpoint(worktreePath, message) {
+      const failure = this.checkpointFailures.get(worktreePath);
+      if (failure) throw new Error(failure);
+      this.checkpoints.push({ worktreePath, message });
+      return this.cleanWorktrees.has(worktreePath) ? null : `commit_${this.checkpoints.length}`;
+    },
+    async getDiffSummary(worktreePath) {
+      return this.diffSummaries.get(worktreePath) ?? '';
+    },
     async getWorkspaceStatus() {
       return this.workspaceStatus;
     },
@@ -217,8 +242,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         host.sessionSends.push({ sessionId, kind: 'steer' });
         return { turnId: host.turnResult.turnId };
       },
-      async sendContextMessage(sessionId, _message, options) {
+      async sendContextMessage(sessionId, message, options) {
         host.sessionSends.push({ sessionId, kind: 'context' });
+        host.contextMessages.push(message);
         return { turnId: options.triggerTurn ? host.turnResult.turnId : null };
       },
       onTurnComplete(_sessionId, cb) {

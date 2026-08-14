@@ -14,7 +14,7 @@ import {
 } from '@sero-ai/ui';
 import { Loader2 } from 'lucide-react';
 import type { DeliveryDestinationId, LoopDeliverySettings } from '../../shared/types';
-import { DELIVERY_DESTINATIONS, deliveryDestinationInfo, isDeliveryDestinationId } from '../../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATIONS, deliveryDestinationInfo, isLoopDeliveryDestinationId } from '../../shared/delivery-types';
 
 export interface CreateLoopSubmit {
   prompt: string;
@@ -108,14 +108,14 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
           <Label htmlFor="loop-delivery" className="font-normal">Deliver results to</Label>
           <Select
             value={destination}
-            onValueChange={(value) => setDestination(isDeliveryDestinationId(value) ? value : 'auto')}
+            onValueChange={(value) => setDestination(isLoopDeliveryDestinationId(value) ? value : 'auto')}
           >
             <SelectTrigger id="loop-delivery" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">Automatic</SelectItem>
-              {DELIVERY_DESTINATIONS.map((d) => (
+              {LOOP_DELIVERY_DESTINATIONS.map((d) => (
                 <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
               ))}
             </SelectContent>

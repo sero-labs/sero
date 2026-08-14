@@ -226,6 +226,15 @@ export interface OrchestratorHost {
     loopId: string,
     options?: AppRuntimeWorktreeRemoveOptions,
   ): Promise<void>;
+  /**
+   * Commits everything uncommitted in a worktree onto its own branch and returns
+   * the commit, or null when there was nothing to commit. The unified Git
+   * service does the work (AD-024) — this is the seam Room mode uses to make a
+   * member's in-progress edits durable before anything can remove its checkout.
+   */
+  createCheckpoint(worktreePath: string, message: string): Promise<string | null>;
+  /** `git diff --name-status <base>...HEAD` for a worktree: what its branch changed. */
+  getDiffSummary(worktreePath: string): Promise<string>;
   /** Workspace-root dirty preflight (workspace-root mode only). */
   getWorkspaceStatus(): Promise<WorkspaceStatus>;
   /** Stashes current workspace changes after an explicit user choice. */

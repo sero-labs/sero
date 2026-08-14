@@ -13,6 +13,7 @@
 
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY } from '@sero-ai/common';
 import type { Coordinator } from './coordinator';
+import type { RoomCallerSignals, RoomCommandRouter } from './rooms/room-command-router';
 import type { RoomCoordinator } from './rooms/room-coordinator';
 
 interface RegistryEntry {
@@ -67,25 +68,64 @@ export function resolveCoordinatorByCwd(cwd: string): Coordinator | undefined {
   return best?.coordinator;
 }
 
-/** Test/diagnostic helper. */
 /**
- * Room coordinators, kept in their own map. A workspace can have a Workflow
+ * Room runtimes, kept in their own map. A workspace can have a Workflow
  * coordinator and no Room coordinator — Room mode needs the AD-029 capability,
  * Workflow mode does not — so one map with an optional field would make every
  * caller handle a shape that cannot occur.
+ *
+ * On `globalThis` for the same reason the Workflow registry is: the runtime
+ * entry and the extension entry are bundled by different loaders, and a plain
+ * module-level Map would give the AD-020 command bridge a second, empty copy.
  */
-const roomCoordinators = new Map<string, RoomCoordinator>();
+const ROOM_REGISTRY_KEY = `${ORCHESTRATOR_REGISTRY_GLOBAL_KEY}:rooms`;
 
-export function registerRoomCoordinator(workspaceId: string, coordinator: RoomCoordinator): void {
-  roomCoordinators.set(workspaceId, coordinator);
+interface RoomRegistryEntry {
+  coordinator: RoomCoordinator;
+  /** The AD-020 command surface for this workspace's Rooms. */
+  router: RoomCommandRouter;
+}
+
+function roomStore(): Map<string, RoomRegistryEntry> {
+  const globalScope = globalThis as Record<string, unknown>;
+  const existing = globalScope[ROOM_REGISTRY_KEY] as Map<string, RoomRegistryEntry> | undefined;
+  if (existing) return existing;
+  const created = new Map<string, RoomRegistryEntry>();
+  globalScope[ROOM_REGISTRY_KEY] = created;
+  return created;
+}
+
+export function registerRoomCoordinator(
+  workspaceId: string,
+  coordinator: RoomCoordinator,
+  router: RoomCommandRouter,
+): void {
+  roomStore().set(workspaceId, { coordinator, router });
 }
 
 export function unregisterRoomCoordinator(workspaceId: string): void {
-  roomCoordinators.delete(workspaceId);
+  roomStore().delete(workspaceId);
 }
 
 export function getRoomCoordinator(workspaceId: string): RoomCoordinator | undefined {
-  return roomCoordinators.get(workspaceId);
+  return roomStore().get(workspaceId)?.coordinator;
+}
+
+/**
+ * The command surface that owns the CALLER — not the one that owns its cwd.
+ *
+ * An editing member works in a managed worktree, which sits outside the
+ * workspace root, so matching the directory against registered workspaces would
+ * miss exactly the members that most need the bridge. Each router is asked
+ * whether the caller is one of its members instead, and the roster answers.
+ */
+export async function resolveRoomRouterForCaller(
+  signals: RoomCallerSignals,
+): Promise<RoomCommandRouter | undefined> {
+  for (const entry of roomStore().values()) {
+    if (await entry.router.owns(signals)) return entry.router;
+  }
+  return undefined;
 }
 
 export function registeredWorkspaceIds(): string[] {

@@ -19,7 +19,7 @@ import type {
   OrchestratorActionResult,
   RecoveryDecision,
 } from '../shared/types';
-import { DELIVERY_DESTINATION_IDS } from '../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATION_IDS } from '../shared/delivery-types';
 
 export const ORCHESTRATOR_ACTIONS = [
   'create',
@@ -83,7 +83,7 @@ export const OrchestratorToolParams = Type.Object({
   triggerId: Type.Optional(Type.String({ description: 'For set_schedule: the cron/hybrid trigger id (loop.triggers[].id)' })),
   schedule: Type.Optional(Type.String({ description: 'For set_schedule: the new 5-field cron expression (minute hour dom month dow, UTC); omit to keep the current one' })),
   scheduleDisabled: Type.Optional(Type.Boolean({ description: 'For set_schedule: pause (true) or resume (false) the trigger\'s schedule; omit to keep the current state' })),
-  deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For create/set_delivery: where the loop ships its results (user-chosen; omit on create to derive from placement — worktree ⇒ pr, root ⇒ workspace-files)' })),
+  deliveryDestination: Type.Optional(StringEnum(LOOP_DELIVERY_DESTINATION_IDS, { description: 'For create/set_delivery: where the loop ships its results (user-chosen; omit on create to derive from placement — worktree ⇒ pr, root ⇒ workspace-files)' })),
   deliveryParamsJson: Type.Optional(Type.String({ description: 'For create/set_delivery: JSON-encoded flat object of destination params (e.g. {"channel":"#market-intel"} or {"url":"https://…"})' })),
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
@@ -121,7 +121,7 @@ export interface OrchestratorToolParamsShape {
   triggerId?: string;
   schedule?: string;
   scheduleDisabled?: boolean;
-  deliveryDestination?: (typeof DELIVERY_DESTINATION_IDS)[number];
+  deliveryDestination?: (typeof LOOP_DELIVERY_DESTINATION_IDS)[number];
   deliveryParamsJson?: string;
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];

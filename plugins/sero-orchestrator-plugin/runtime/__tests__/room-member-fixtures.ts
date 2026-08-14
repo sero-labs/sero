@@ -159,5 +159,8 @@ export function roomFixture(envelope: OperatingEnvelope, members: BlueprintMembe
     revisions: [],
     readCursors: [],
     approvals: [],
+    work: [],
+    artifacts: [],
+    claims: [],
   };
 }

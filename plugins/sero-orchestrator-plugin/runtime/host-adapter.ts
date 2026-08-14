@@ -97,6 +97,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       return { worktreePath: result.worktreePath, branchName: result.branchName };
     },
     removeWorktree: (loopId, options) => ctx.host.git.removeWorktree(ctx.workspacePath, loopId, options),
+    createCheckpoint: (worktreePath, message) => ctx.host.git.createCheckpoint(worktreePath, message),
+    getDiffSummary: (worktreePath) => ctx.host.git.getDiffSummary(worktreePath),
     getWorkspaceStatus: () => ctx.host.git.getWorkspaceStatus(ctx.workspacePath),
     stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
     listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),

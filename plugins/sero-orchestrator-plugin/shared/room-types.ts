@@ -11,6 +11,7 @@
  * (FR-030).
  */
 
+import type { RoomAttention } from './attention-types';
 import type {
   MemberPermissionLevel,
   OperatingEnvelope,
@@ -246,6 +247,12 @@ export interface RoomSummary {
   updatedAt: string;
   /** Count of open approvals and attention items, for the home inbox badge. */
   attentionCount: number;
+  /**
+   * The pending approvals themselves, so the home inbox renders and resolves
+   * them from the watched index alone — the same contract Workflow loops use
+   * (`LoopSummary.attention`). Absent when nothing is pending.
+   */
+  attention?: RoomAttention;
 }
 
 export interface RoomIndex {

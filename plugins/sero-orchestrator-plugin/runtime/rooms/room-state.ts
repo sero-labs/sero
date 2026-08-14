@@ -10,8 +10,18 @@
  * a member map/spread produces fresh objects for members that did not change.
  */
 
-import type { MemberReadCursor, RoomApprovalRequest, RoomRevision } from '../../shared/room-message-types';
+import type { RoomAttention } from '../../shared/attention-types';
+import type {
+  MemberReadCursor,
+  PathClaim,
+  RoomApprovalRequest,
+  RoomArtifact,
+  RoomRevision,
+  WorkItem,
+} from '../../shared/room-message-types';
 import type { Room, RoomIndex, RoomMember, RoomSummary } from '../../shared/room-types';
+// The inbox owns what an approval entry says; the summary only carries it.
+import { toRoomAttention } from './room-delivery';
 
 /** Bumped whenever the persisted Room shape changes. See room-migrations.ts. */
 export const ROOM_SCHEMA_VERSION = 1;
@@ -57,6 +67,15 @@ export interface RoomRecord extends Room {
    * has few of them — unlike messages, which page.
    */
   approvals: RoomApprovalRequest[];
+  /**
+   * Work, artifacts and path claims live with the Room for the same reason
+   * approvals do: they are few, they are read together with the Room, and every
+   * one of them is bounded (§19.1–§19.3). Messages page into their own files
+   * because they are the one list that grows without limit.
+   */
+  work: WorkItem[];
+  artifacts: RoomArtifact[];
+  claims: PathClaim[];
 }
 
 /**
@@ -83,6 +102,9 @@ export function stripRoomForPersist(record: RoomRecord): PersistedRoom {
     archivedAt: record.archivedAt,
     readCursors: record.readCursors,
     approvals: record.approvals,
+    work: record.work,
+    artifacts: record.artifacts,
+    claims: record.claims,
     memberIds: record.members.map((member) => member.id),
   };
 }
@@ -99,19 +121,29 @@ export function reassembleRoom(
     delivery: persisted.delivery,
     archivedAt: persisted.archivedAt,
     readCursors: persisted.readCursors,
+    // `?? []` rather than a migration step: these lists were added to a shape
+    // that was already on disk, and an absent list means "none", not damage.
     approvals: persisted.approvals ?? [],
+    work: persisted.work ?? [],
+    artifacts: persisted.artifacts ?? [],
+    claims: persisted.claims ?? [],
     members,
     revisions,
   };
 }
 
-/** Everything the user must act on: revisions held for approval, plus a Room stopped waiting for one. */
-function toAttentionCount(record: RoomRecord): number {
-  const awaiting = record.revisions.filter((revision) => revision.outcome === 'awaiting-approval').length;
-  return awaiting + (record.runtime.stopReason?.kind === 'awaiting-approval' ? 1 : 0);
+/**
+ * Everything the user must act on: the pending approvals themselves, plus a
+ * Room stopped waiting for one. Counted from `approvals` rather than from
+ * revisions held for approval, because a delivery approval has no revision and
+ * a badge that disagrees with the inbox below it is worse than no badge.
+ */
+function toAttentionCount(record: RoomRecord, attention: RoomAttention | undefined): number {
+  return (attention?.approvals.length ?? 0) + (record.runtime.stopReason?.kind === 'awaiting-approval' ? 1 : 0);
 }
 
 export function toRoomSummary(record: RoomRecord): RoomSummary {
+  const attention = toRoomAttention(record);
   return {
     id: record.definition.id,
     title: record.definition.title,
@@ -122,7 +154,8 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
     maxCostUsd: record.definition.envelope.maxCostUsd,
     startedAt: record.runtime.startedAt,
     updatedAt: record.definition.updatedAt,
-    attentionCount: toAttentionCount(record),
+    attentionCount: toAttentionCount(record, attention),
+    attention,
   };
 }
 

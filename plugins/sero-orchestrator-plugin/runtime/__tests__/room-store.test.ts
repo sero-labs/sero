@@ -71,6 +71,9 @@ function roomFixture(id: string): RoomRecord {
     revisions: [],
     readCursors: [],
     approvals: [],
+    work: [],
+    artifacts: [],
+    claims: [],
   };
 }
 

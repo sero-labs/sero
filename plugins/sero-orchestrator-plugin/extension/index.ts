@@ -1,13 +1,15 @@
 /**
- * Orchestrator extension — registers the `orchestrator` tool and the
- * `/orchestrator` slash command. Both are bridged through the CLI registry and
- * call the per-workspace coordinator via the shared registry.
+ * Orchestrator extension — registers the `orchestrator` tool, the `/orchestrator`
+ * slash command, and the AD-020 `room` command surface. All of them are bridged
+ * through the CLI registry and call the per-workspace coordinator via the shared
+ * registry.
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 import { executeOrchestratorTool, OrchestratorToolParams, type OrchestratorToolParamsShape } from './tools';
 import { registerOrchestratorCommand } from './commands';
+import { registerRoomCommands } from './room-commands';
 
 export default function orchestratorExtension(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -39,4 +41,5 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
   });
 
   registerOrchestratorCommand(pi);
+  registerRoomCommands(pi);
 }
