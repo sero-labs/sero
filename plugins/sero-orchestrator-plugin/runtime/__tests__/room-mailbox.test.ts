@@ -185,7 +185,10 @@ describe('durable delivery', () => {
     await coordinator.wake(roomId, 'impl', 'assigned-work');
     await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the delivery turn');
     expect(await cursorOf(roomId, 'impl')).toMatchObject({ lastReadSequence: 1, pendingCount: 0 });
-    expect(String(host.persistentSessions.prompts.at(-1)?.content)).toContain('take the parser');
+    // Not the last prompt: the Room falls quiet when this turn ends, and the
+    // lead is given its own turn to decide what that means.
+    expect(host.persistentSessions.prompts.map((entry) => String(entry.content)))
+      .toContainEqual(expect.stringContaining('take the parser'));
   });
 
   it('accepts the name the roster shows, not only the member id', async () => {

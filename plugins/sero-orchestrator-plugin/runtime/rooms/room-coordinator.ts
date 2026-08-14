@@ -289,11 +289,9 @@ export class RoomCoordinator {
     const memberIds = decision.start.map((turn) => turn.memberId);
     for (const memberId of memberIds) this.turns.set(turnKey(roomId, memberId), new AbortController());
     this.signals.consume(roomId, memberIds);
-    // The lead is about to look at the Room as it stands, so it does not also
-    // need waking for the same state when the Room falls quiet after this turn.
-    if (memberIds.some((memberId) => record.members.find((member) => member.id === memberId)?.isConductor)) {
-      this.signals.claimQuietWake(roomId, quietMark(record));
-    }
+    // A member about to run is looking at the Room as it stands, so it does not
+    // also need a nudge for that same state when the Room falls quiet after it.
+    for (const memberId of memberIds) this.signals.claimQuietWake(roomId, memberId, quietMark(record, memberId));
 
     // A cancel or a pause can land between the read above and this write, and
     // marking turns started would put the Room back to `running` and spend on a

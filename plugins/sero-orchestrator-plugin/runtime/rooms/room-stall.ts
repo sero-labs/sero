@@ -63,7 +63,7 @@ export async function handleStall(
   // front of it — the asker cannot answer itself, and used to sit there until
   // the no-progress clock ran out.
   const owed = await strandedQuestion(ctx, record);
-  if (owed && ctx.signals.claimQuietWake(roomId, quietMark(record))) {
+  if (owed && ctx.signals.claimQuietWake(roomId, owed.memberId, quietMark(record, owed.memberId))) {
     await remindAnswerer(ctx, record, owed.question, owed.memberId);
     return;
   }
@@ -78,7 +78,7 @@ export async function handleStall(
       member.status === 'idle'
       && (record.readCursors.find((cursor) => cursor.memberId === member.id)?.pendingCount ?? 0) > 0,
   );
-  if (unread && ctx.signals.claimQuietWake(roomId, quietMark(record))) {
+  if (unread && ctx.signals.claimQuietWake(roomId, unread.id, quietMark(record, unread.id))) {
     await ctx.wake(roomId, unread.id, 'direct-message');
     return;
   }
@@ -91,7 +91,7 @@ export async function handleStall(
   // case this exists for: it must be handled whether or not the scheduler could
   // name one.
   const lead = record.members.find((member) => member.isConductor && member.status === 'idle');
-  if (lead && ctx.signals.claimQuietWake(roomId, quietMark(record))) {
+  if (lead && ctx.signals.claimQuietWake(roomId, lead.id, quietMark(record, lead.id))) {
     await ctx.wake(roomId, lead.id, 'room-quiet');
     return;
   }

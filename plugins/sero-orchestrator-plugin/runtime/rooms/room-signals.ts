@@ -13,14 +13,26 @@
 import type { ReadySignal } from './room-scheduler';
 import type { RoomRecord } from './room-state';
 
-/** The last thing that happened in a Room — what a lead's turn is a response to. */
-export function quietMark(record: RoomRecord): string {
-  return record.runtime.lastProgressAt ?? record.runtime.startedAt ?? '';
+/**
+ * The state of the Room as one member sees it: the last structural progress,
+ * and how many turns EVERYONE ELSE has taken.
+ *
+ * A member is nudged at most once per mark, so counting other members' turns is
+ * what separates the two silences that look alike. A member whose own empty turn
+ * created the silence learns nothing by being asked again, and would spend the
+ * Room's budget going round; a member whose colleague has just finished a turn
+ * is looking at something new, and is the only one who can act on it.
+ */
+export function quietMark(record: RoomRecord, memberId: string): string {
+  const elsewhere = record.members
+    .filter((member) => member.id !== memberId)
+    .reduce((turns, member) => turns + member.usage.turns, 0);
+  return `${record.runtime.lastProgressAt ?? record.runtime.startedAt ?? ''}#${elsewhere}`;
 }
 
 export class RoomSignalBook {
   private readonly signals = new Map<string, ReadySignal[]>();
-  /** The progress mark each Room's lead was last woken on. */
+  /** The mark each member was last nudged on, keyed `roomId:memberId`. */
   private readonly quietWakes = new Map<string, string>();
 
   /** Keeps one signal per member and reason; the earliest arrival wins a repeat. */
@@ -52,20 +64,23 @@ export class RoomSignalBook {
   }
 
   /**
-   * True the first time it is asked about a given mark.
+   * True the first time this member is asked about a given mark.
    *
-   * The mark is the last thing that HAPPENED in the Room, so the lead is woken
-   * once per event and never by its own silence — otherwise a Conductor with
-   * nothing to add would be woken by the quiet it just created, for ever.
+   * Per member, because one Room can owe two different nudges at once — an
+   * answer from one member and an unread assignment to another — and a single
+   * shared claim would silently drop the second.
    */
-  claimQuietWake(roomId: string, mark: string): boolean {
-    if (this.quietWakes.get(roomId) === mark) return false;
-    this.quietWakes.set(roomId, mark);
+  claimQuietWake(roomId: string, memberId: string, mark: string): boolean {
+    const key = `${roomId}:${memberId}`;
+    if (this.quietWakes.get(key) === mark) return false;
+    this.quietWakes.set(key, mark);
     return true;
   }
 
   forget(roomId: string): void {
     this.signals.delete(roomId);
-    this.quietWakes.delete(roomId);
+    for (const key of [...this.quietWakes.keys()]) {
+      if (key.startsWith(`${roomId}:`)) this.quietWakes.delete(key);
+    }
   }
 }

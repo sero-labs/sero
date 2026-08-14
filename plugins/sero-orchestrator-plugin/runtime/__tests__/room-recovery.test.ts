@@ -103,7 +103,7 @@ describe('restart recovery', () => {
     expect(api.prompts.filter((entry) => entry.handleId === 'handle-9')).toEqual([]);
   });
 
-  it('hands over a batch no turn ever took, and stops once one has', async () => {
+  it('re-delivers a batch the session never took, without waiting for a restart', async () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;
     await coordinator.startRoom(roomId);
@@ -120,23 +120,48 @@ describe('restart recovery', () => {
     const carries = (): number =>
       api.prompts.filter((entry) => String(entry.content).includes('REVIEW THE PATCH')).length;
     await coordinator.wake(roomId, 'impl', 'direct-message');
-    await waitFor(() => carries() === 1, 'the first delivery');
-    await waitFor(async () => (await memberOf(roomId, 'impl')).status === 'idle', 'the failed turn to settle');
-    // The cursor must not claim a message that no session ever saw.
+
+    // The Room hands it to the next turn itself: the cursor never claimed it,
+    // and a member holding unread messages in a quiet Room is started.
     const cursorFor = async (id: string) =>
       (await store.readRoom(roomId))?.readCursors.find((entry) => entry.memberId === id);
-    expect((await cursorFor('impl'))?.lastReadSequence).toBe(0);
+    await waitFor(() => carries() >= 2, 'the redelivery');
+    await waitFor(async () => (await cursorFor('impl'))?.lastReadSequence === 1, 'the cursor to move');
 
-    const restarted = restartCoordinator(host, store);
-    await restarted.reconcileRooms();
-    await waitFor(() => carries() === 2, 'the replay');
-    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the replayed turn to finish');
-
-    // That turn took the batch, so a second restart delivers nothing again.
+    // That turn took the batch, so a restart delivers nothing again.
+    const delivered = carries();
     await restartCoordinator(host, store).reconcileRooms();
     expect((await cursorFor('impl'))?.lease).toBeNull();
     expect((await store.leaseMessagesFor(roomId, 'impl', 20)).messages).toEqual([]);
-    expect(carries()).toBe(2);
+    expect(carries()).toBe(delivered);
+  });
+
+  it('hands over a batch a crash left leased to a turn that never ran', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.appendMessages(roomId, [
+      {
+        id: 'msg-1', kind: 'direct', fromMemberId: 'lead', toMemberIds: ['impl'], body: 'REVIEW THE PATCH',
+        questionId: null, inReplyToQuestionId: null, wakeRecipients: true, commandId: 'cmd-1', createdAt: host.now(),
+      },
+    ]);
+
+    // The state a crash leaves: the batch is leased, and the process died before
+    // any turn ran with it. Nothing in the Room can know whether it was seen.
+    const leased = await store.leaseMessagesFor(roomId, 'impl', 20);
+    expect(leased.messages).toHaveLength(1);
+
+    const carries = (): number =>
+      api.prompts.filter((entry) => String(entry.content).includes('REVIEW THE PATCH')).length;
+    expect(carries()).toBe(0);
+
+    const restarted = restartCoordinator(host, store);
+    await restarted.reconcileRooms();
+    await waitFor(() => carries() >= 1, 'the replay');
+    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the replayed turn to finish');
+    expect((await store.readRoom(roomId))?.readCursors.find((entry) => entry.memberId === 'impl')?.lease).toBeNull();
   });
 
   it('ends a wait the log shows is over, and leaves an open one alone', async () => {
