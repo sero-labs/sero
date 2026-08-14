@@ -173,7 +173,9 @@ function applyTurn(
   return {
     ...member,
     status: nextStatus(member, outcome, failures, maxFailures),
-    statusDetail: outcome.detail,
+    // A member that left `working` during its turn wrote its own reason — it is
+    // waiting on a question, and "Finished its turn." would hide what for.
+    statusDetail: member.status === 'working' ? outcome.detail : member.statusDetail,
     usage: {
       ...applyUsage(member.usage, session),
       retries: outcome.status === 'error' ? member.usage.retries + 1 : member.usage.retries,

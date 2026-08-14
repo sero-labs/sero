@@ -1,0 +1,81 @@
+[
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_30da4f51-b2f1-491a-be85-d7bf7838e2cb",
+    "status": "completed",
+    "durationMs": 174458,
+    "costUsd": 0.19303080000000003,
+    "maxCostUsd": 5,
+    "turns": 3,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": false,
+    "deliveryRef": null,
+    "roster": [
+      {
+        "role": "Conductor and verifier",
+        "conductor": true,
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "costUsd": 0.0464336
+      },
+      {
+        "role": "TypeScript implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "costUsd": 0.14659720000000004
+      }
+    ],
+    "workItems": 1,
+    "artifacts": 1,
+    "greetFile": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_3a236fb5-d05d-483f-af7f-30c4c7d38dcb",
+    "status": "completed",
+    "durationMs": 184054,
+    "costUsd": 0.18985760000000002,
+    "maxCostUsd": 5,
+    "turns": 3,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": false,
+    "deliveryRef": null,
+    "roster": [
+      {
+        "role": "Conductor and verifier",
+        "conductor": true,
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "costUsd": 0.0595104
+      },
+      {
+        "role": "Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "costUsd": 0.13034720000000002
+      }
+    ],
+    "workItems": 1,
+    "artifacts": 1,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786721132474",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786721132474/.sero/worktrees/card-room-room_3a236fb5-d05d-483f-af7f-30c4c7d38dcb-conductor",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name === \"\" ? \"world\" : name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786721132474/.sero/worktrees/card-room-room_3a236fb5-d05d-483f-af7f-30c4c7d38dcb-implementer",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name === \"\" ? \"world\" : name}!`;\n}\n"
+      }
+    ]
+  }
+]

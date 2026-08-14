@@ -222,6 +222,40 @@ describe('delivery to the invoking chat', () => {
   });
 });
 
+describe('delivery that stays in the workspace', () => {
+  const workspaceRoom = (record: RoomRecord): RoomRecord => ({
+    ...record,
+    runtime: { ...record.runtime, status: 'completed', endedAt: 't0' },
+    delivery: { ...record.delivery, destination: 'workspace-files', originSessionId: null, originWorkspaceId: null },
+  });
+
+  it('is delivered when the Room finishes, because the changed files are the result', async () => {
+    await seedRoom(workspaceRoom);
+
+    const outcome = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'The greeting is fixed.' });
+
+    expect(outcome).toMatchObject({ ok: true, problems: [], ref: 'workspace' });
+    // Nothing was sent anywhere, and nothing had to be: recording this as
+    // undelivered would tell the user their finished work never arrived.
+    const stored = await store.readRoom('room-a');
+    expect(stored?.delivery.deliveredAt).not.toBeNull();
+    expect(stored?.delivery.deliveryRef).toBe('workspace');
+  });
+
+  it('still needs proof when the result has to go somewhere', async () => {
+    await seedRoom((record) => ({
+      ...record,
+      runtime: { ...record.runtime, status: 'completed', endedAt: 't0' },
+      delivery: { ...record.delivery, destination: 'saved-artifact', originSessionId: null, originWorkspaceId: null },
+    }));
+
+    const outcome = await deliverRoomResult({ host, store }, { roomId: 'room-a', finalResult: 'Done.' });
+
+    expect(outcome.ok).toBe(false);
+    expect((await store.readRoom('room-a'))?.delivery.deliveredAt).toBeNull();
+  });
+});
+
 describe('external delivery', () => {
   const external = (record: RoomRecord): RoomRecord => ({
     ...record,

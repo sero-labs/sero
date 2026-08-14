@@ -314,6 +314,9 @@ describe('member turns', () => {
     const stored = await store.readMember('room-a', 'lead');
     expect(stored?.status).toBe('waiting');
     expect(stored?.waitingOnQuestionId).toBe('q-1');
+    // The wait keeps its own reason. "Finished its turn." here would show the
+    // user a waiting member with no sign of what it waits for.
+    expect(stored?.statusDetail).toBe('Asked the Implementer a question.');
     // Usage still lands: the turn happened, whatever the member did with it.
     expect(stored?.usage.turns).toBe(1);
   });

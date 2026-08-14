@@ -191,9 +191,11 @@ export function RoomMemberPanel({
 /**
  * A waiting member, and the two ways only the user can end the wait.
  *
- * Waiting has to read as normal and free, because it is how the Room stays
- * inside its concurrency limit — a user who reads it as a stall will stop a
- * Room that is working perfectly.
+ * The question is between two members, so the strip must not read as a question
+ * to the user: the answer box stays closed until the user asks for it. Waiting
+ * also has to read as normal and free, because it is how the Room stays inside
+ * its concurrency limit — a user who reads it as a stall will stop a Room that
+ * is working perfectly.
  */
 function WaitingStrip({
   busy,
@@ -207,31 +209,42 @@ function WaitingStrip({
   onRelease: () => void;
 }) {
   const [body, setBody] = useState('');
+  const [answering, setAnswering] = useState(false);
 
   return (
     <div className="flex flex-col gap-2 border-b border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
       <p className="text-sm">{detail}</p>
       <p className="text-xs text-muted-foreground">
-        This costs nothing. Its turn ended and its slot went back to the team; it starts again the moment an
-        answer lands, in the same session, with everything it already knew.
+        Nothing is needed from you. This costs nothing: its turn ended and its slot went back to the team, and it
+        starts again the moment the answer lands, in the same session, with everything it already knew.
       </p>
-      <Textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        rows={2}
-        placeholder="Answer for it…"
-      />
+      {answering && (
+        <Textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={2}
+          autoFocus
+          placeholder="Answer in place of the member it asked…"
+        />
+      )}
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          disabled={busy || body.trim().length === 0}
-          onClick={() => {
-            onAnswer(body.trim());
-            setBody('');
-          }}
-        >
-          Send answer
-        </Button>
+        {answering ? (
+          <Button
+            size="sm"
+            disabled={busy || body.trim().length === 0}
+            onClick={() => {
+              onAnswer(body.trim());
+              setBody('');
+              setAnswering(false);
+            }}
+          >
+            Send answer
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setAnswering(true)}>
+            Answer it yourself
+          </Button>
+        )}
         <Button size="sm" variant="ghost" disabled={busy} onClick={onRelease}>Cancel the question</Button>
       </div>
     </div>

@@ -47,6 +47,17 @@ import { resolveRoomApproval, type ApprovalOutcome } from './room-revisions';
 /** The destination whose delivery the runtime performs itself (never an agent). */
 export const INVOKING_CHAT_DESTINATION = 'invoking-chat';
 
+/**
+ * The destination that IS the workspace, and what a delivery to it is called.
+ *
+ * Nothing is sent and nothing has to be proved: the result is the changed files,
+ * which are already where the user asked for them. Without a ref of its own such
+ * a Room finishes reporting that it delivered nothing, which is the opposite of
+ * what happened.
+ */
+export const WORKSPACE_DESTINATION = 'workspace-files';
+export const WORKSPACE_DELIVERY_REF = 'workspace';
+
 /** Longest list the chat summary prints. A summary that grows without bound is a transcript. */
 const MAX_LISTED = 8;
 
@@ -272,7 +283,10 @@ export async function deliverRoomResult(
     // approval was bound to are the same text, so a swapped payload is a
     // different final answer and fails the binding.
     const problems = receiptProblems(current, request.receipt, request.finalResult);
-    const accepted = problems.length === 0 && request.receipt ? request.receipt.ref : null;
+    const accepted = problems.length > 0
+      ? null
+      : request.receipt?.ref
+        ?? (current.delivery.destination === WORKSPACE_DESTINATION ? WORKSPACE_DELIVERY_REF : null);
     const sessionId = current.delivery.originSessionId;
     // Nothing to claim: the destination was refused with no chat to fall back
     // on, or the Room keeps its result. Writing nothing leaves the Room free to
@@ -380,7 +394,7 @@ export function receiptProblems(
   }
   // Results that stay in the working tree have nothing to prove — the same
   // exemption Workflow makes, for the same reason.
-  if (destination === 'workspace-files') return [];
+  if (destination === WORKSPACE_DESTINATION) return [];
   if (!isDeliveryDestinationId(destination)) return [`"${destination}" is not a delivery destination this build knows.`];
   if (!receipt) return ['the Room finished without proof that its result was delivered'];
 
