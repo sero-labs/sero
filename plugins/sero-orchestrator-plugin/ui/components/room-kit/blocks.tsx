@@ -139,6 +139,7 @@ export function ModeCard({ glyph, title, badge, meta, on, className, children, .
   return (
     <button
       type="button"
+      aria-pressed={on}
       className={cn(
         'relative overflow-hidden rounded-[10px] border p-[18px] text-left',
         on
@@ -181,7 +182,7 @@ export function NeedsBand({ title = 'Needs you', count, className, children }: N
       <div className="flex items-center gap-[9px] text-xs font-medium text-room-ink-warn">
         <span aria-hidden>⚠</span>
         {title}
-        {count != null && <span className="room-mono-micro ml-auto text-room-text4">{count}</span>}
+        {count != null && <span className="room-tabular ml-auto text-[10px] text-room-text4">{count}</span>}
       </div>
       {children}
     </div>

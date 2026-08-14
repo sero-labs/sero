@@ -79,7 +79,7 @@ export function SectionHead({ count, className, children }: SectionHeadProps) {
     >
       {children}
       <span className="mx-3 h-px flex-1 bg-room-line" />
-      {count != null && <span className="room-mono-micro tracking-normal normal-case">{count}</span>}
+      {count != null && <span className="room-tabular text-[10px] tracking-normal normal-case">{count}</span>}
     </div>
   );
 }
@@ -121,7 +121,7 @@ const NOTE_TONES: Record<
   collab: {
     container: 'border-room-line border-l-2 border-l-collab-primary bg-collab-primary-muted rounded-r-[7px]',
     eyebrow: 'collab',
-    // The prototype's planner note dims its violet (#a99ad0, not #bda8f5).
+    // The prototype's planner note runs dimmer than the collab pill ink.
     body: 'text-room-ink-collab opacity-80',
   },
   brand: {
