@@ -20,6 +20,7 @@ import type {
   RoomBlueprint,
   RoomWorkspaceMode,
 } from './room-blueprint-types';
+import { MEMBER_PERMISSION_LEVELS } from './room-blueprint-types';
 import { ROOM_PROTOCOL_CAPABILITIES } from './room-access-map';
 
 /**
@@ -327,7 +328,7 @@ function slugify(text: string): string {
   return TEMPLATE_ID_PATTERN.test(slug) ? slug : `room-${slug}`;
 }
 
-const PERMISSION_REACH: readonly MemberPermissionLevel[] = ['read-only', 'edit-workspace', 'edit-and-push'];
+const PERMISSION_REACH = MEMBER_PERMISSION_LEVELS;
 
 function highestPermission(blueprint: RoomBlueprint): MemberPermissionLevel {
   return blueprint.members.reduce<MemberPermissionLevel>(

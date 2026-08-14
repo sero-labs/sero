@@ -11,6 +11,7 @@ import type {
   OrchestratorState,
   RunIndex,
 } from './types';
+import { ROOM_SCHEMA_VERSION, type RoomIndex } from './room-types';
 
 export const DEFAULT_STATE: OrchestratorState = {
   version: 1,
@@ -25,6 +26,12 @@ export const DEFAULT_INDEX: OrchestratorIndex = {
 export const DEFAULT_RUN_INDEX: RunIndex = {
   version: 1,
   runs: [],
+};
+
+/** Empty Room index, for a workspace where Room mode has never run. */
+export const DEFAULT_ROOM_INDEX: RoomIndex = {
+  schemaVersion: ROOM_SCHEMA_VERSION,
+  rooms: [],
 };
 
 /** Empty Loop Library index (profile-global; see specs/08-loop-library.md). */

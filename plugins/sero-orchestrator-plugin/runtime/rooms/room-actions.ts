@@ -36,12 +36,18 @@ export interface CreateRoomRequest {
   /** Set when the Room was started from a chat, so its result can go back there. */
   originSessionId?: string | null;
   deliveryParams?: Record<string, string | number | boolean>;
+  /**
+   * Keeps an existing Room's identity when its draft is re-planned. Minted when
+   * absent. A user adjusting a proposal is still looking at the same Room, and
+   * the roster is stamped with the id, so it cannot simply be patched in after.
+   */
+  id?: string;
 }
 
 /** A draft Room: members exist and are addressable, but nothing runs and no grant is held. */
 export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomRequest): RoomRecord {
   const now = host.now();
-  const id = host.newId('room');
+  const id = request.id ?? host.newId('room');
   const members = request.blueprint.members.map((member) => ({
     ...toMemberRecord(member, id, now, request.workspaceId),
     // `starting` holds an execution slot, so a roster that has not started yet

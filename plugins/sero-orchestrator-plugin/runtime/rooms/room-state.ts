@@ -19,12 +19,11 @@ import type {
   RoomRevision,
   WorkItem,
 } from '../../shared/room-message-types';
-import type { Room, RoomIndex, RoomMember, RoomSummary } from '../../shared/room-types';
+import { ROOM_SCHEMA_VERSION, type Room, type RoomIndex, type RoomMember, type RoomSummary } from '../../shared/room-types';
 // The inbox owns what an approval entry says; the summary only carries it.
 import { toRoomAttention } from './room-delivery';
 
-/** Bumped whenever the persisted Room shape changes. See room-migrations.ts. */
-export const ROOM_SCHEMA_VERSION = 1;
+export { ROOM_SCHEMA_VERSION } from '../../shared/room-types';
 
 /** How much per-Room history survives retention. */
 export interface RoomRetention {

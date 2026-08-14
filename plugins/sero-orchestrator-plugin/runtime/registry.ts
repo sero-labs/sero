@@ -13,6 +13,7 @@
 
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY } from '@sero-ai/common';
 import type { Coordinator } from './coordinator';
+import type { RoomAppActions } from './rooms/room-app-actions';
 import type { RoomCallerSignals, RoomCommandRouter } from './rooms/room-command-router';
 import type { RoomCoordinator } from './rooms/room-coordinator';
 
@@ -57,6 +58,11 @@ export function getCoordinator(workspaceId: string): Coordinator | undefined {
  * by matching the cwd against each registered workspace path.
  */
 export function resolveCoordinatorByCwd(cwd: string): Coordinator | undefined {
+  return entryByCwd(cwd)?.coordinator;
+}
+
+/** The registered workspace whose root contains `cwd` — the deepest one, when they nest. */
+function entryByCwd(cwd: string): RegistryEntry | undefined {
   const normalized = normalize(cwd);
   let best: RegistryEntry | undefined;
   for (const entry of store().values()) {
@@ -65,7 +71,7 @@ export function resolveCoordinatorByCwd(cwd: string): Coordinator | undefined {
       if (!best || root.length > normalize(best.workspacePath).length) best = entry;
     }
   }
-  return best?.coordinator;
+  return best;
 }
 
 /**
@@ -84,6 +90,8 @@ interface RoomRegistryEntry {
   coordinator: RoomCoordinator;
   /** The AD-020 command surface for this workspace's Rooms. */
   router: RoomCommandRouter;
+  /** The user's control surface, which the Room panel drives. */
+  app: RoomAppActions;
 }
 
 function roomStore(): Map<string, RoomRegistryEntry> {
@@ -99,8 +107,9 @@ export function registerRoomCoordinator(
   workspaceId: string,
   coordinator: RoomCoordinator,
   router: RoomCommandRouter,
+  app: RoomAppActions,
 ): void {
-  roomStore().set(workspaceId, { coordinator, router });
+  roomStore().set(workspaceId, { coordinator, router, app });
 }
 
 export function unregisterRoomCoordinator(workspaceId: string): void {
@@ -109,6 +118,19 @@ export function unregisterRoomCoordinator(workspaceId: string): void {
 
 export function getRoomCoordinator(workspaceId: string): RoomCoordinator | undefined {
   return roomStore().get(workspaceId)?.coordinator;
+}
+
+/**
+ * The user's Room surface for the workspace that contains `cwd`.
+ *
+ * Rooms are registered by workspace id and the Workflow registry is the only
+ * one that knows each workspace's path, so the lookup goes through it. A
+ * workspace with Workflow mode but no Room runtime resolves to nothing, which
+ * is the honest answer: Room mode is off or unsupported there.
+ */
+export function resolveRoomAppByCwd(cwd: string): RoomAppActions | undefined {
+  const workspaceId = entryByCwd(cwd)?.workspaceId;
+  return workspaceId ? roomStore().get(workspaceId)?.app : undefined;
 }
 
 /**

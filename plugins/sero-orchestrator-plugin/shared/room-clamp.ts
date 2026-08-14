@@ -21,6 +21,7 @@ import type {
   RoomWorkspaceMode,
   RoomWorkspacePolicy,
 } from './room-blueprint-types';
+import { MEMBER_PERMISSION_LEVELS } from './room-blueprint-types';
 import { isDeliveryDestinationId, isExternalDestination } from './delivery-types';
 
 export type BlueprintClampKind =
@@ -78,7 +79,7 @@ void ENVELOPE_CLAMP_COVERAGE;
 const WORKSPACE_MODES: readonly RoomWorkspaceMode[] = ['read-only-shared', 'worktree-per-member', 'shared-working-tree'];
 
 /** Reach order, same rule as the workspace modes. */
-const PERMISSION_LEVELS: readonly MemberPermissionLevel[] = ['read-only', 'edit-workspace', 'edit-and-push'];
+const PERMISSION_LEVELS = MEMBER_PERMISSION_LEVELS;
 
 function clampEnvelope(
   proposed: OperatingEnvelope,

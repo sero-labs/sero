@@ -16,6 +16,7 @@ import type {
   RoomBlueprint,
   RoomWorkspaceMode,
 } from './room-blueprint-types';
+import { MEMBER_PERMISSION_LEVELS } from './room-blueprint-types';
 import type { BlueprintClamp, ClampResult } from './room-clamp';
 import { clampBlueprintToEnvelope } from './room-clamp';
 
@@ -40,7 +41,7 @@ export interface RoomUserLocks {
 
 /** Reach order; each mode is a strict superset of the one before it. */
 const WORKSPACE_MODES: readonly RoomWorkspaceMode[] = ['read-only-shared', 'worktree-per-member', 'shared-working-tree'];
-const PERMISSION_LEVELS: readonly MemberPermissionLevel[] = ['read-only', 'edit-workspace', 'edit-and-push'];
+const PERMISSION_LEVELS = MEMBER_PERMISSION_LEVELS;
 
 function lower(current: number, lock: number | undefined): number {
   return lock === undefined ? current : Math.min(current, lock);

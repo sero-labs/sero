@@ -23,10 +23,11 @@ import type {
   RoomWorkspaceMode,
   RoomWorkspacePolicy,
 } from '../../shared/room-blueprint-types';
+import { MEMBER_PERMISSION_LEVELS } from '../../shared/room-blueprint-types';
 import type { ParseResult } from '../structured-call';
 import { describeValue, isRecord } from '../structured-call';
 
-const PERMISSION_LEVELS: readonly MemberPermissionLevel[] = ['read-only', 'edit-workspace', 'edit-and-push'];
+const PERMISSION_LEVELS = MEMBER_PERMISSION_LEVELS;
 const WORKSPACE_MODES: readonly RoomWorkspaceMode[] = ['read-only-shared', 'worktree-per-member', 'shared-working-tree'];
 const CLAIM_POLICIES: readonly RoomWorkspacePolicy['claimPolicy'][] = ['warn', 'block'];
 

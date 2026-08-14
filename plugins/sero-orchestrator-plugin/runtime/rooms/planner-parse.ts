@@ -31,6 +31,7 @@ import type {
   OperatingEnvelope,
   RoomBlueprint,
 } from '../../shared/room-blueprint-types';
+import { MEMBER_PERMISSION_LEVELS } from '../../shared/room-blueprint-types';
 import {
   clampBlueprintToEnvelope,
   validateRoomBlueprint,
@@ -70,7 +71,7 @@ const PLANNER_FIELDS = [
 ] as const satisfies readonly (keyof RoomBlueprint)[];
 
 /** Reach order. Each level is a strict superset of the one before it. */
-const PERMISSION_LEVELS: readonly MemberPermissionLevel[] = ['read-only', 'edit-workspace', 'edit-and-push'];
+const PERMISSION_LEVELS = MEMBER_PERMISSION_LEVELS;
 
 /** Names that exist nowhere — a hallucination rather than an over-reach. */
 const INVENTED_NAME_CODES: readonly RoomBlueprintErrorCode[] = ['model-unknown', 'tool-unknown', 'skill-unknown'];

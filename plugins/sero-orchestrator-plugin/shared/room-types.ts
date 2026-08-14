@@ -259,3 +259,10 @@ export interface RoomIndex {
   schemaVersion: number;
   rooms: RoomSummary[];
 }
+
+/**
+ * Bumped whenever the persisted Room shape changes (see room-migrations.ts).
+ * It lives with the shape it describes, so the renderer can state the version
+ * of an empty index without importing runtime code.
+ */
+export const ROOM_SCHEMA_VERSION = 1;

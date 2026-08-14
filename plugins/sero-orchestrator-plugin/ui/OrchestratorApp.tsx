@@ -1,10 +1,13 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
-import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
+import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles, Users } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
+import { RoomsOverview } from './components/RoomsOverview';
+import type { RoomApprovalDecision } from './components/AttentionQueue';
+import { useRoomIndex } from './lib/use-room-index';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryView } from './components/LibraryView';
 import { HomeView } from './components/HomeView';
@@ -15,7 +18,12 @@ import { useOrchestratorIndex, useStateDir } from './lib/use-orchestrator-index'
 import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
-type View = { mode: 'home' } | { mode: 'detail'; loopId: string | null } | { mode: 'create' } | { mode: 'library' };
+type View =
+  | { mode: 'home' }
+  | { mode: 'detail'; loopId: string | null }
+  | { mode: 'create' }
+  | { mode: 'library' }
+  | { mode: 'rooms'; roomId: string | null };
 
 /** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
 interface OrchestratorLaunchParams extends Record<string, unknown> {
@@ -53,6 +61,7 @@ export function OrchestratorApp() {
   const [libraryDir, setLibraryDir] = useState<string | null>(null);
 
   const index = useOrchestratorIndex();
+  const roomIndex = useRoomIndex();
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
@@ -94,6 +103,39 @@ export function OrchestratorApp() {
     },
     [run],
   );
+
+  /**
+   * Room actions go to the `rooms` tool — the user's Room surface. It is a
+   * different tool from `orchestrator` because it is a different authority: the
+   * member surface (`room`) refuses a user, and this one refuses a member.
+   */
+  const roomDispatch = useCallback(
+    async (params: Record<string, unknown>) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await run('rooms', params);
+        const details = res?.details as { ok?: boolean; error?: string } | null;
+        if (details && details.ok === false && details.error) setError(details.error);
+        return details;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [run],
+  );
+
+  const onRoomApproval = useCallback(
+    (roomId: string, approvalId: string, decision: RoomApprovalDecision) => {
+      void roomDispatch({ action: 'resolve_approval', roomId, approvalId, decision });
+    },
+    [roomDispatch],
+  );
+
+  const openRoom = useCallback((roomId: string) => setView({ mode: 'rooms', roomId }), []);
 
   // The Catalog tab drives itself through tool calls; it only needs the details.
   const detailsDispatch = useCallback(
@@ -165,6 +207,17 @@ export function OrchestratorApp() {
           <Button size="sm" variant={view.mode === 'home' ? 'secondary' : 'ghost'} onClick={() => setView({ mode: 'home' })} title="Home — what needs you">
             <Home className="mr-1 h-3.5 w-3.5" /> Home
           </Button>
+          <Button
+            size="sm"
+            variant={view.mode === 'rooms' ? 'secondary' : 'ghost'}
+            onClick={() => setView({ mode: 'rooms', roomId: null })}
+            title="Rooms — a team per problem"
+          >
+            <Users className="mr-1 h-3.5 w-3.5" /> Rooms
+            {roomIndex.rooms.length > 0 && (
+              <span className="ml-1 text-xs text-muted-foreground">{roomIndex.rooms.length}</span>
+            )}
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => setView({ mode: 'create' })} title="Create a new loop">
             <Plus className="mr-1 h-3.5 w-3.5" /> New
           </Button>
@@ -193,10 +246,30 @@ export function OrchestratorApp() {
 
       <div className="flex min-h-0 flex-1">
         {view.mode === 'home' && (
-          <HomeView loops={index.loops} busy={busy} onAction={onAction} onOpenLoop={openLoop} onNew={openCreate} />
+          <HomeView
+            loops={index.loops}
+            busy={busy}
+            onAction={onAction}
+            onOpenLoop={openLoop}
+            onNew={openCreate}
+            rooms={roomIndex.rooms}
+            onRoomApproval={onRoomApproval}
+            onOpenRoom={openRoom}
+          />
         )}
         {view.mode === 'create' && (
           <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => setView({ mode: 'home' })} />
+        )}
+        {view.mode === 'rooms' && (
+          <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
+            <div>
+              <h2 className="text-base font-semibold">Rooms</h2>
+              <p className="text-xs text-muted-foreground">
+                A team per problem. Sero staffs it, and it adapts as the work changes.
+              </p>
+            </div>
+            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={openRoom} onNew={openCreate} />
+          </div>
         )}
         {view.mode === 'library' && (
           <LibraryView

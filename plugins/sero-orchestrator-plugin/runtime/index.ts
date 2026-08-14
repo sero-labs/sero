@@ -43,7 +43,7 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   return {
     start: async () => {
       registerCoordinator(ctx.workspaceId, ctx.workspacePath, coordinator);
-      if (rooms) registerRoomCoordinator(ctx.workspaceId, rooms.coordinator, rooms.commands);
+      if (rooms) registerRoomCoordinator(ctx.workspaceId, rooms.coordinator, rooms.commands, rooms.app);
       // Restart recovery: reconcile orphaned runs/attempts before any scheduling.
       await coordinator.reconcile();
       // Rooms reconcile on the same rule — recover in-flight state before any

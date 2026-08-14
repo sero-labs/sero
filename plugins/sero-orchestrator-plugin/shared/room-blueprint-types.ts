@@ -50,6 +50,17 @@ export interface RoomWorkspacePolicy {
 
 export type MemberPermissionLevel = 'read-only' | 'edit-workspace' | 'edit-and-push';
 
+/**
+ * The levels in increasing reach, which is what makes the ORDER load-bearing:
+ * every ceiling check compares positions in this list. One copy, so a level
+ * added here cannot be missed by a check that kept its own list.
+ */
+export const MEMBER_PERMISSION_LEVELS: readonly MemberPermissionLevel[] = [
+  'read-only',
+  'edit-workspace',
+  'edit-and-push',
+];
+
 /** One proposed member. It needs no saved agent file (FR-006). */
 export interface BlueprintMember {
   /** Stable within the blueprint; becomes the member id on activation. */

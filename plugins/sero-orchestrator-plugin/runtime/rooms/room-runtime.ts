@@ -15,6 +15,7 @@ import type { AppRuntimeContext } from '@sero-ai/common';
 
 import type { OrchestratorHost } from '../host';
 import { createMemberSessionPool } from './member-session';
+import { createRoomAppActions, type RoomAppActions } from './room-app-actions';
 import { createRoomClaims, type RoomClaims } from './room-claims';
 import { RoomCoordinator } from './room-coordinator';
 import { createRoomObservation } from './room-observation';
@@ -32,6 +33,8 @@ export interface RoomRuntime {
   observation: RoomObservation;
   /** The AD-020 command surface a member reaches through `sero-cli`. */
   commands: RoomCommandRouter;
+  /** The user's control surface, which the Room panel drives. */
+  app: RoomAppActions;
   /** Placement, checkpoints and commit collection for the Room's members. */
   workspaces: RoomWorkspaces;
   /** Work records and artifacts. */
@@ -137,6 +140,7 @@ export function createRoomRuntime(
     coordinator,
     observation,
     commands,
+    app: createRoomAppActions({ host, store, coordinator, workspaceId: ctx.workspaceId }),
     workspaces,
     work,
     claims,
