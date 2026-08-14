@@ -10,7 +10,7 @@
  * a member map/spread produces fresh objects for members that did not change.
  */
 
-import type { MemberReadCursor, RoomRevision } from '../../shared/room-message-types';
+import type { MemberReadCursor, RoomApprovalRequest, RoomRevision } from '../../shared/room-message-types';
 import type { Room, RoomIndex, RoomMember, RoomSummary } from '../../shared/room-types';
 
 /** Bumped whenever the persisted Room shape changes. See room-migrations.ts. */
@@ -51,6 +51,12 @@ export const DEFAULT_ROOM_RETENTION: RoomRetention = {
 export interface RoomRecord extends Room {
   revisions: RoomRevision[];
   readCursors: MemberReadCursor[];
+  /**
+   * Pending and resolved approval requests. Kept on the record rather than in
+   * their own file because the UI's inbox reads them with the Room, and a Room
+   * has few of them — unlike messages, which page.
+   */
+  approvals: RoomApprovalRequest[];
 }
 
 /**
@@ -76,6 +82,7 @@ export function stripRoomForPersist(record: RoomRecord): PersistedRoom {
     delivery: record.delivery,
     archivedAt: record.archivedAt,
     readCursors: record.readCursors,
+    approvals: record.approvals,
     memberIds: record.members.map((member) => member.id),
   };
 }
@@ -92,6 +99,7 @@ export function reassembleRoom(
     delivery: persisted.delivery,
     archivedAt: persisted.archivedAt,
     readCursors: persisted.readCursors,
+    approvals: persisted.approvals ?? [],
     members,
     revisions,
   };

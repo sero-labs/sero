@@ -99,6 +99,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
     archivedAt: null,
     revisions: [],
     readCursors: [],
+    approvals: [],
   };
   // Built through the function every later rebuild uses, so a draft brief and a
   // running brief can never be computed two different ways.

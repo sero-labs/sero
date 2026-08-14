@@ -70,6 +70,7 @@ function roomFixture(id: string): RoomRecord {
     archivedAt: null,
     revisions: [],
     readCursors: [],
+    approvals: [],
   };
 }
 
