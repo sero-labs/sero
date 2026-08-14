@@ -52,6 +52,8 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   refuseGrant: boolean;
   /** Set to fail the next prompt with this message, as a dead route would. */
   failNextPrompt: string | null;
+  /** Set to refuse the next session creation, as an unavailable model does. */
+  failNextCreate: string | null;
   /** Ends the turn before `prompt()` resolves, the race a naive watcher loses. */
   endBeforePromptResolves: boolean;
   /** Fraction of the context window reported as used. */
@@ -97,6 +99,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     liveHandles: byHandle,
     refuseGrant: false,
     failNextPrompt: null,
+    failNextCreate: null,
     endBeforePromptResolves: false,
     contextFill: 0.1,
 
@@ -119,6 +122,11 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
 
     async create(request): Promise<PersistentSessionHandle> {
       api.requests.push(request);
+      if (api.failNextCreate) {
+        const message = api.failNextCreate;
+        api.failNextCreate = null;
+        throw new Error(message);
+      }
       // The host binds a subject to one file exactly once; a second create for
       // the same subject is a denial, not a new session.
       if (bySubject.has(request.subject)) throw new Error(`subject ${request.subject} already has a session`);

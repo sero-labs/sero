@@ -12,6 +12,7 @@ import path from 'path';
 import { mkdir } from 'fs/promises';
 
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import { modelKey } from '@sero-ai/common';
 import type {
   PersistentSessionGrantProposal,
   PersistentSessionSubjectPolicy,
@@ -111,7 +112,9 @@ export async function createPersistentSessionsApi(
     approveGrant: wiring.approveGrant,
     listAvailableModelIds: async () => {
       const { modelRuntime } = await ensureAiInfra();
-      return new Set((await modelRuntime.getAvailable()).map((model) => model.id));
+      // Provider-qualified, because that is the identity a caller names a model
+      // by. A bare id is ambiguous — two providers can serve the same one.
+      return new Set((await modelRuntime.getAvailable()).map((model) => modelKey(model.provider, model.id)));
     },
     defaultThinking: () => 'medium',
     buildSessionInputs: wiring.buildSessionInputs,

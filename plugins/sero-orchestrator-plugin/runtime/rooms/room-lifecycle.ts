@@ -153,20 +153,30 @@ async function startConductor(
   if (!record) return fail(`Room not found: ${roomId}`);
   const member = record.members.find((candidate) => candidate.id === conductor.id);
   const opened = member
-    ? await ctx.sessions.ensure(record, member).catch((error: unknown) => {
-        ctx.host.log(`room ${roomId}: the Conductor's session failed: ${String(error)}`);
-        return null;
-      })
-    : null;
-  if (opened) return ok(record);
+    ? await ctx.sessions.ensure(record, member).then(
+        (session) => ({ session, error: null as string | null }),
+        (error: unknown) => ({ session: null, error: error instanceof Error ? error.message : String(error) }),
+      )
+    : { session: null, error: 'the Conductor is no longer on the roster' };
+  if (opened.session) return ok(record);
+  ctx.host.log(`room ${roomId}: the Conductor's session failed: ${opened.error}`);
 
   // No fallback Conductor in the first release: the Room pauses for the user
   // rather than running a team with nobody coordinating it (§13.4).
+  //
+  // The CAUSE travels with the pause. "It could not start" sends the user to a
+  // log file; "its model is not available on this machine" tells them what to
+  // change, and this is the state a misconfigured host always lands in.
   const now = ctx.host.now();
-  const detail = 'The Conductor could not start, so the Room is paused.';
+  const detail = opened.error
+    ? `The Conductor could not start, so the Room is paused: ${opened.error}`
+    : 'The Conductor could not start, so the Room is paused.';
+  const memberDetail = opened.error
+    ? `Its session could not be opened: ${opened.error}`
+    : 'Its session could not be opened.';
   await ctx.store.updateRoom(roomId, (current) =>
     withRoomStatus(
-      withMember(current, conductor.id, (entry) => withMemberStatus(entry, 'failed', 'Its session could not be opened.')),
+      withMember(current, conductor.id, (entry) => withMemberStatus(entry, 'failed', memberDetail)),
       'paused',
       now,
       { kind: 'conductor-failed', detail, at: now },

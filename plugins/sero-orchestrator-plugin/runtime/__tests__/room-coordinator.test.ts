@@ -96,6 +96,21 @@ describe('starting a Room', () => {
     expect(record?.runtime.status).toBe('draft');
     expect(record?.definition.grantId).toBeNull();
   });
+
+  it('says WHY the Conductor could not start', async () => {
+    const roomId = await draftRoom();
+    // The state a misconfigured host lands in. Without the cause the user is
+    // sent to a log file to find out that a model was unavailable.
+    host.persistentSessions.failNextCreate = 'Model anthropic/claude-haiku-4-5 is not available on this machine.';
+
+    const result = await coordinator.startRoom(roomId);
+    expect(result.ok).toBe(false);
+
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.stopReason?.kind).toBe('conductor-failed');
+    expect(record?.runtime.stopReason?.detail).toContain('not available on this machine');
+    expect((await memberOf(roomId, 'lead')).statusDetail).toContain('not available on this machine');
+  });
 });
 
 describe('the scheduling pass', () => {

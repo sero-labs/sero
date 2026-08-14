@@ -11,7 +11,7 @@
  * that ordering irrelevant.
  */
 
-import type { PersistentSessionGrantProposal, PersistentSessionsApi } from '@sero-ai/common';
+import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionsApi } from '@sero-ai/common';
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
@@ -49,7 +49,8 @@ async function clampAndApprove(
   // cannot resolve is dropped, never trusted — see clamp.ts.
   const { proposal: clamped, notes } = clampProposal(proposal, {
     workspaceRoots: workspaces.map((workspace) => workspace.path),
-    availableModels: new Set(models.map((model) => model.id)),
+    // The same provider-qualified identity the caller names a model by.
+    availableModels: new Set(models.map((model) => modelKey(model.provider, model.id))),
     availableTools: new Set(toolCatalog.map((tool) => tool.name)),
     availableSkills: new Set<string>(),
     // The ceiling this build permits a managed session. Nothing here can grant
@@ -103,7 +104,8 @@ export async function installPersistentSessions(
     approveGrant: (proposal) => clampAndApprove(target, proposal),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
-      const model = (await modelRuntime.getAvailable()).find((candidate) => candidate.id === modelId);
+      const model = (await modelRuntime.getAvailable())
+        .find((candidate) => modelKey(candidate.provider, candidate.id) === modelId);
       // Validation already checked availability; reaching here means the model
       // disappeared between the two, so failing is correct.
       if (!model) throw new Error(`Model ${modelId} is no longer available.`);
