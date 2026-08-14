@@ -1,5 +1,5 @@
 import { DEFAULT_ROOM_INDEX } from '../../shared/defaults';
-import type { Room, RoomIndex } from '../../shared/room-types';
+import type { PersistedRoom, RoomIndex } from '../../shared/room-types';
 import { useStateDir } from './use-orchestrator-index';
 import { useWatchedJson } from './use-watched-json';
 
@@ -20,8 +20,8 @@ export function useRoomIndex(): RoomIndex {
  * carries what a list needs, and the open Room carries everything else, so a
  * busy Room does not rewrite the list on every turn.
  */
-export function useRoom(roomId: string | null): Room | null {
+export function useRoom(roomId: string | null): PersistedRoom | null {
   const stateDir = useStateDir();
   const path = roomId && stateDir ? `${stateDir}/rooms/${roomId}/room.json` : null;
-  return useWatchedJson<Room | null>(path, null);
+  return useWatchedJson<PersistedRoom | null>(path, null);
 }

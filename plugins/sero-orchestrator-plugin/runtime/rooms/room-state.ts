@@ -19,7 +19,15 @@ import type {
   RoomRevision,
   WorkItem,
 } from '../../shared/room-message-types';
-import { ROOM_SCHEMA_VERSION, type Room, type RoomIndex, type RoomMember, type RoomSummary } from '../../shared/room-types';
+import {
+  ROOM_SCHEMA_VERSION,
+  type Room,
+  type RoomIndex,
+  type RoomLists,
+  type RoomMember,
+  type PersistedRoom,
+  type RoomSummary,
+} from '../../shared/room-types';
 // The inbox owns what an approval entry says; the summary only carries it.
 import { toRoomAttention } from './room-delivery';
 
@@ -65,31 +73,15 @@ export const DEFAULT_ROOM_RETENTION: RoomRetention = {
  * cursors persist with the Room rather than with the member, because they are
  * positions in the Room's own message sequence.
  */
-export interface RoomRecord extends Room {
+export interface RoomRecord extends Room, RoomLists {
   revisions: RoomRevision[];
-  readCursors: MemberReadCursor[];
-  /**
-   * Pending and resolved approval requests. Kept on the record rather than in
-   * their own file because the UI's inbox reads them with the Room, and a Room
-   * has few of them — unlike messages, which page.
-   */
-  approvals: RoomApprovalRequest[];
-  /**
-   * Work, artifacts and path claims live with the Room for the same reason
-   * approvals do: they are few, they are read together with the Room, and every
-   * one of them is bounded (§19.1–§19.3). Messages page into their own files
-   * because they are the one list that grows without limit.
-   */
-  work: WorkItem[];
-  artifacts: RoomArtifact[];
-  claims: PathClaim[];
 }
 
 /**
  * room.json: the Room minus the parts stored in their own files. `memberIds`
  * carries the roster order, so members reassemble in the order they joined.
  */
-export type PersistedRoom = Omit<RoomRecord, 'members' | 'revisions'> & { memberIds: string[] };
+export type { PersistedRoom };
 
 export interface RoomState {
   schemaVersion: number;

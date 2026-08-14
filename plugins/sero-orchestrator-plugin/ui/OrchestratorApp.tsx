@@ -7,6 +7,7 @@ import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { RoomsOverview } from './components/RoomsOverview';
 import { RoomCreateFlow } from './components/RoomCreateFlow';
+import { RoomDetail } from './components/RoomDetail';
 import type { RoomApprovalDecision } from './components/AttentionQueue';
 import { useRoomIndex } from './lib/use-room-index';
 import { LoopDetail } from './components/LoopDetail';
@@ -263,7 +264,17 @@ export function OrchestratorApp() {
         {view.mode === 'create' && (
           <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => setView({ mode: 'home' })} />
         )}
-        {view.mode === 'rooms' && (
+        {view.mode === 'rooms' && view.roomId && (
+          <RoomDetail
+            roomId={view.roomId}
+            summary={roomIndex.rooms.find((room) => room.id === view.roomId)}
+            busy={busy}
+            dispatch={roomDispatch}
+            onApproval={onRoomApproval}
+            onBack={() => setView({ mode: 'rooms', roomId: null })}
+          />
+        )}
+        {view.mode === 'rooms' && !view.roomId && (
           <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
             <div className="flex items-start justify-between gap-2">
               <div>

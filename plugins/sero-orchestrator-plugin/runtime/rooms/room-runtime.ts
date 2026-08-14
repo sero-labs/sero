@@ -140,7 +140,7 @@ export function createRoomRuntime(
     coordinator,
     observation,
     commands,
-    app: createRoomAppActions({ host, store, coordinator, workspaceId: ctx.workspaceId }),
+    app: createRoomAppActions({ host, store, coordinator, workspaceId: ctx.workspaceId, observation, sessions: ctx.host.persistentSessions }),
     workspaces,
     work,
     claims,

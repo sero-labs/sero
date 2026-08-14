@@ -13,13 +13,14 @@
 
 import { useMemo, useState } from 'react';
 import { Button, Card, Textarea } from '@sero-ai/ui';
-import { ArrowRight, ShieldQuestion, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { LoopAttentionInput, LoopAttentionSuggestion, LoopSummary, OrchestratorAction } from '../../shared/types';
-import type { RoomAttentionApproval } from '../../shared/attention-types';
 import type { RoomSummary } from '../../shared/room-types';
 import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
+import { OpenLink } from './OpenLink';
+import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
 
-export type RoomApprovalDecision = 'approved' | 'rejected';
+export type { RoomApprovalDecision };
 
 interface AttentionQueueProps {
   loops: LoopSummary[];
@@ -63,69 +64,6 @@ export function AttentionQueue({ loops, busy, onAction, onOpenLoop, rooms = [], 
   );
 }
 
-/**
- * One Room member's request for authority. The title, consequence and affected
- * target are computed by the runtime; only `reason` is the member's own words,
- * so it is attributed to the member.
- */
-function RoomApprovalCard({
-  room,
-  approval,
-  busy,
-  onDecide,
-  onOpenRoom,
-}: {
-  room: RoomSummary;
-  approval: RoomAttentionApproval;
-  busy: boolean;
-  onDecide?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
-  onOpenRoom?: (roomId: string) => void;
-}) {
-  return (
-    <Card className="flex flex-col gap-2 border-violet-500/30 bg-violet-500/[0.06] p-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-violet-500/20 text-violet-400">
-          <ShieldQuestion className="h-3 w-3" />
-        </span>
-        <span className="text-base font-semibold text-violet-400">{approval.memberName} needs your approval</span>
-        {onOpenRoom && <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenRoom(room.id)} /></span>}
-      </div>
-      <span className="text-base font-medium">{room.title}</span>
-      <p className="text-base">{approval.title}</p>
-      <p className="text-base text-muted-foreground">{approval.consequence}</p>
-      {/* The send is bound to this exact text, so approving without seeing it
-          would be approving something else. */}
-      {approval.payload && (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs">
-          {approval.payload}
-        </pre>
-      )}
-      <p className="text-xs text-muted-foreground">
-        {approval.memberName} asked: {approval.reason}
-      </p>
-      <span className="text-xs text-muted-foreground">
-        Affects {approval.affects}
-        {approval.estimatedCostUsd !== null && ` · about $${approval.estimatedCostUsd.toFixed(2)}`}
-      </span>
-      <div className="mt-auto flex items-center gap-2">
-        <Button size="sm" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'approved')}>
-          Approve
-        </Button>
-        <Button size="sm" variant="ghost" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'rejected')}>
-          Reject
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-function OpenLink({ title, onClick }: { title: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-      {title} <ArrowRight className="h-3.5 w-3.5" />
-    </button>
-  );
-}
 
 function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop: LoopSummary; input: LoopAttentionInput; busy: boolean; onAction: AttentionQueueProps['onAction']; onOpenLoop: (id: string) => void }) {
   const [draft, setDraft] = useState<AnswerDraft>({});

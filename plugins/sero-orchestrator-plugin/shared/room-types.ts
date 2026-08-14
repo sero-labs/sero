@@ -13,6 +13,13 @@
 
 import type { RoomAttention } from './attention-types';
 import type {
+  MemberReadCursor,
+  PathClaim,
+  RoomApprovalRequest,
+  RoomArtifact,
+  WorkItem,
+} from './room-message-types';
+import type {
   MemberPermissionLevel,
   OperatingEnvelope,
   RoomBlueprint,
@@ -254,6 +261,27 @@ export interface RoomSummary {
    */
   attention?: RoomAttention;
 }
+
+/**
+ * The bounded lists that live WITH a Room rather than in their own file: few of
+ * them, read together with the Room, and each one capped (§19.1–§19.3). Only
+ * messages page separately, because they are the one list that grows without
+ * limit.
+ */
+export interface RoomLists {
+  readCursors: MemberReadCursor[];
+  approvals: RoomApprovalRequest[];
+  work: WorkItem[];
+  artifacts: RoomArtifact[];
+  claims: PathClaim[];
+}
+
+/**
+ * room.json: the Room and its lists, with the roster as ids — each member has
+ * its own file. Shared because the Room panel reads this file directly, and a
+ * second description of the same bytes would be free to drift from it.
+ */
+export type PersistedRoom = Omit<Room, 'members'> & RoomLists & { memberIds: string[] };
 
 export interface RoomIndex {
   schemaVersion: number;

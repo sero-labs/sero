@@ -33,6 +33,11 @@ export const ROOM_APP_ACTIONS = [
   'resolve_approval',
   'intervene',
   'wake',
+  'timeline',
+  'watch',
+  'unwatch',
+  'history',
+  'context',
 ] as const;
 
 const APPROVAL_DECISIONS = ['approved', 'rejected'] as const;
@@ -46,7 +51,7 @@ export const RoomAppToolParams = Type.Object({
   instruction: Type.Optional(Type.String({ description: 'For adjust: what to change about the proposed team, in plain words' })),
   body: Type.Optional(Type.String({ description: 'For intervene: what to tell the Room' })),
   memberIds: Type.Optional(Type.String({ description: 'For intervene: member ids to address, comma-separated (default: everyone)' })),
-  memberId: Type.Optional(Type.String({ description: 'For wake: the member to put back to work now' })),
+  memberId: Type.Optional(Type.String({ description: 'For wake: the member to put back to work now. For history: whose session to read' })),
   detail: Type.Optional(Type.String({ description: 'For pause/cancel: why, shown to the user and the Room' })),
   approvalId: Type.Optional(Type.String({ description: 'For resolve_approval: the approval to answer' })),
   decision: Type.Optional(StringEnum(APPROVAL_DECISIONS, { description: 'For resolve_approval: the answer' })),
@@ -56,6 +61,8 @@ export const RoomAppToolParams = Type.Object({
   access: Type.Optional(StringEnum(MEMBER_PERMISSION_LEVELS, { description: 'For prepare: the highest access any member may hold' })),
   deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For prepare: where the result goes. invoking-chat returns it to the chat that asked' })),
   presetId: Type.Optional(StringEnum(ROOM_PRESET_IDS, { description: 'For prepare: a preset to start from. It guides the planner and never widens what the team may do' })),
+  limit: Type.Optional(Type.Number({ description: 'For timeline and history: how many entries to return' })),
+  cursor: Type.Optional(Type.String({ description: 'For history: the cursor from the previous page, to read further back' })),
   clarificationsJson: Type.Optional(Type.String({ description: 'For prepare: answers to the planner\'s questions, as JSON [{"prompt":"...","answer":"..."}]' })),
 });
 
@@ -76,6 +83,8 @@ export interface RoomAppToolParamsShape {
   access?: MemberPermissionLevel;
   deliveryDestination?: DeliveryDestinationId;
   presetId?: string;
+  limit?: number;
+  cursor?: string;
   clarificationsJson?: string;
 }
 
@@ -208,6 +217,40 @@ async function settledResult(
       const outcome = await app.intervene(roomId, params.body ?? '', list(params.memberIds));
       return outcome.ok ? done('The Room was told, and the members it reached are awake.') : failure(outcome.error);
     }
+    case 'timeline': {
+      const events = await app.timeline(roomId, params.limit);
+      return result(`${events.length} event(s) in Room ${roomId}.`, { ok: true, roomId, events });
+    }
+    case 'watch': {
+      const snapshots = await app.watch(roomId);
+      const live = snapshots.filter((snapshot) => snapshot.turnId !== null).length;
+      return result(`${live} of ${snapshots.length} member(s) are mid-turn.`, { ok: true, roomId, snapshots });
+    }
+    case 'unwatch': {
+      await app.unwatch(roomId);
+      return done(`Stopped watching Room ${roomId}.`);
+    }
+    case 'context': {
+      const memberId = params.memberId?.trim();
+      if (!memberId) return failure('memberId is required for context');
+      const usage = await app.context(roomId, memberId);
+      return result(
+        usage ? `${memberId} has used ${usage.usedTokens} of ${usage.maxTokens} tokens.` : `${memberId} has no live session.`,
+        { ok: true, roomId, memberId, usage },
+      );
+    }
+    case 'history': {
+      const memberId = params.memberId?.trim();
+      if (!memberId) return failure('memberId is required for history');
+      const page = await app.history(roomId, memberId, { cursor: params.cursor, limit: params.limit });
+      return result(`${page.entries.length} history entry(ies) for ${memberId}.`, {
+        ok: true,
+        roomId,
+        memberId,
+        entries: page.entries,
+        olderCursor: page.olderCursor,
+      });
+    }
     case 'wake': {
       const memberId = params.memberId?.trim();
       if (!memberId) return failure('memberId is required for wake');
@@ -251,6 +294,7 @@ export function registerRoomAppTool(pi: ExtensionAPI): void {
       'Create and control Agent Rooms on the user\'s behalf. ' +
       `Actions: ${ROOM_APP_ACTIONS.join(', ')}. ` +
       'Start with prepare, which plans a team from one brief and drafts the Room for review; nothing runs until start. ' +
+      'watch reports what every member is doing right now, and history reads one member\'s own session. ' +
       'If you are a member of a Room, this tool is not for you — use `room`.',
     parameters: RoomAppToolParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
