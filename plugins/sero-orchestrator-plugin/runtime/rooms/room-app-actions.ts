@@ -26,6 +26,7 @@ import type { RoomPresetSeed } from './planner-prompt';
 import { buildRoomRecord } from './room-actions';
 import type { RoomCoordinator } from './room-coordinator';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
+import { INVOKING_CHAT_DESTINATION } from './room-delivery';
 import type { RoomMessageDraft } from './room-messages';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
@@ -55,6 +56,16 @@ export interface PrepareRoomInput {
   clarifications?: { prompt: string; answer: string }[];
   /** The chat that asked for the Room, when there was one. */
   originSessionId?: string | null;
+}
+
+/**
+ * A Room a chat asked for answers that chat (FR-029) unless the caller named
+ * somewhere else. The planner never chooses a destination, so the choice is
+ * made here — the only place that knows a chat is behind this Room.
+ */
+export function limitsForOrigin(input: PrepareRoomInput): RoomUserLimits | undefined {
+  if (!input.originSessionId || input.limits?.deliveryDestination) return input.limits;
+  return { ...input.limits, deliveryDestination: INVOKING_CHAT_DESTINATION };
 }
 
 export interface RoomPlanned {
@@ -210,7 +221,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       const plan = await planRoom(host, {
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
-        limits: input.limits,
+        limits: limitsForOrigin(input),
         clarifications: input.clarifications,
         preset: template ? presetSeed(template) : undefined,
       });

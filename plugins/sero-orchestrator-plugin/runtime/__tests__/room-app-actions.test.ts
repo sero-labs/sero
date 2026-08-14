@@ -7,7 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createRoomAppActions, type RoomAppActions } from '../rooms/room-app-actions';
+import { createRoomAppActions, limitsForOrigin, type RoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
 import type { RoomStore } from '../rooms/room-store';
 import type { FakeHost } from './fake-host';
@@ -42,6 +42,19 @@ describe('the user Room surface', () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok || outcome.needsInput) throw new Error('expected a refusal');
     expect(outcome.error).toContain('what the Room is for');
+  });
+
+  it('sends a Room a chat asked for back to that chat (FR-029)', () => {
+    // The planner never chooses a destination, so a chat-origin Room used to
+    // take the access default and answer the workspace instead of the chat.
+    expect(limitsForOrigin({ problem: 'x', originSessionId: 'sess-9' })?.deliveryDestination).toBe('invoking-chat');
+    // A destination the caller named is never overruled.
+    expect(
+      limitsForOrigin({ problem: 'x', originSessionId: 'sess-9', limits: { deliveryDestination: 'pr' } })
+        ?.deliveryDestination,
+    ).toBe('pr');
+    // A Room started in the panel has no chat to answer.
+    expect(limitsForOrigin({ problem: 'x' })).toBeUndefined();
   });
 
   it('refuses a preset it does not have rather than planning without one', async () => {
