@@ -90,6 +90,23 @@ export function withLease(record: RoomRecord, memberId: string, lease: MessageLe
   };
 }
 
+/**
+ * The oldest sequence still owed to somebody, and so the point retention may
+ * not prune past.
+ *
+ * A cursor is the floor whether or not it holds a lease: an unread member is
+ * owed its messages just as much as a member whose batch is mid-flight, and a
+ * replay reads from `lastReadSequence` in both cases. With no cursors at all
+ * nothing is owed, so the latest sequence is the floor and normal retention
+ * applies.
+ */
+export function undeliveredFloor(record: RoomRecord, latestSequence: number): number {
+  const cursors = record.readCursors;
+  return cursors.length === 0
+    ? latestSequence
+    : Math.min(...cursors.map((cursor) => cursor.lastReadSequence));
+}
+
 /** Commits the lease: the cursor jumps to it, and nothing is left outstanding. */
 export function withAcknowledgedLease(record: RoomRecord, memberId: string): RoomRecord {
   const lease = record.readCursors.find((cursor) => cursor.memberId === memberId)?.lease;
@@ -113,8 +130,14 @@ export interface MessageLog {
     limit: number,
     match?: (message: RoomMessage) => boolean,
   ): Promise<RoomMessage[]>;
-  /** Drops pages older than the retained window. */
-  prune(roomId: string, latestSequence: number, keepPages: number): Promise<void>;
+  /**
+   * Drops pages older than the retained window, but never one a member could
+   * still read. `floorSequence` is the lowest sequence any cursor has yet to
+   * consume: pruning past it does not merely forget history, it deletes
+   * undelivered messages — and a leased batch would then replay as empty and be
+   * acknowledged, which is the message loss the lease exists to prevent.
+   */
+  prune(roomId: string, latestSequence: number, keepPages: number, floorSequence: number): Promise<void>;
 }
 
 export function createMessageLog(appState: AppRuntimeStateApi, paths: RoomPaths): MessageLog {
@@ -160,9 +183,14 @@ export function createMessageLog(appState: AppRuntimeStateApi, paths: RoomPaths)
       return found;
     },
 
-    async prune(roomId, latestSequence, keepPages) {
+    async prune(roomId, latestSequence, keepPages, floorSequence) {
+      // The window is whichever is older: the retained page count, or the page
+      // holding the oldest message still owed to somebody. Retention forgets
+      // history; it must never consume a delivery.
+      const windowStart = messagePageOf(latestSequence) - keepPages;
+      const floorPage = messagePageOf(floorSequence + 1);
       // Pages are pruned oldest-first, so the first gap below the window ends the walk.
-      for (let page = messagePageOf(latestSequence) - keepPages; page >= 1; page -= 1) {
+      for (let page = Math.min(windowStart, floorPage - 1); page >= 1; page -= 1) {
         const file = paths.messagePage(roomId, page);
         if (!existsSync(file)) break;
         await rm(file, { force: true });

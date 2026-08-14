@@ -37,9 +37,13 @@ export interface RoomRetention {
    *
    * This is a RETENTION number, not a scratch window: a key dropped while the
    * effect it guards is still on the Room lets a retry duplicate that effect.
-   * So it is sized above every keyed record a Room can hold at once — 200
-   * revisions, 200 work items and 200 artifacts — plus two full message pages,
-   * which is far beyond any retry horizon a member can reach.
+   * So it must exceed every keyed record a Room can hold at once — the retained
+   * messages (maxMessagePages × MESSAGE_PAGE_SIZE, each one keyed) plus 200
+   * revisions, 200 work items and 200 artifacts.
+   *
+   * `room-store.test.ts` asserts that relation against the real constants, so
+   * raising message retention without raising this fails a test rather than
+   * quietly reopening the duplicate-message hole.
    */
   maxAppliedCommandIds: number;
   /** Bytes the active timeline file may reach before it rotates. */
@@ -51,7 +55,7 @@ export interface RoomRetention {
 export const DEFAULT_ROOM_RETENTION: RoomRetention = {
   maxMessagePages: 20,
   maxRevisions: 200,
-  maxAppliedCommandIds: 1000,
+  maxAppliedCommandIds: 5000,
   maxTimelineBytes: 1_000_000,
   maxTimelineFiles: 2,
 };

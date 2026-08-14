@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import { createRoomStore } from '../rooms/room-store';
+import { MESSAGE_PAGE_SIZE } from '../rooms/room-messages';
 import { DEFAULT_ROOM_RETENTION, type RoomRecord } from '../rooms/room-state';
 import type { RoomMember } from '../../shared/room-types';
 import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -189,6 +190,30 @@ describe('room store', () => {
     expect(await store.hasAppliedCommand('room-a', 'cmd-1')).toBe(false);
   });
 
+  it('keeps more keys than there are keyed records to guard', () => {
+    // Every retained message can carry a key, so message retention is part of
+    // this sum — it was missed once, and keys then evicted while their messages
+    // were still on disk, which lets a retry duplicate a delivered message.
+    const keyedRecords =
+      DEFAULT_ROOM_RETENTION.maxMessagePages * MESSAGE_PAGE_SIZE + DEFAULT_ROOM_RETENTION.maxRevisions + 200 + 200;
+    expect(DEFAULT_ROOM_RETENTION.maxAppliedCommandIds).toBeGreaterThan(keyedRecords);
+  });
+
+  it('never prunes a page a member has not read yet', async () => {
+    // One page kept, but m2 has read nothing: retention must yield to delivery.
+    const store = createRoomStore(makeCtx(), { ...DEFAULT_ROOM_RETENTION, maxMessagePages: 1 });
+    await store.updateState((s) => ({ ...s, rooms: [...s.rooms, roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'the first thing', 'c1')]);
+
+    // Push past the retained window: without a floor, page 1 is deleted here.
+    for (let i = 0; i < MESSAGE_PAGE_SIZE * 2; i += 1) {
+      await store.appendMessages('room-a', [draft('m1', ['m2'], `filler ${i}`, `f${i}`)]);
+    }
+
+    const leased = await store.leaseMessagesFor('room-a', 'm2', 5);
+    expect(leased.messages[0]?.body).toBe('the first thing');
+  });
+
   it('keeps a key for the default retention, well past the records it guards', async () => {
     const store = createRoomStore(makeCtx());
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
@@ -246,8 +271,13 @@ describe('room store', () => {
       await store.appendMessages('room-a', [draft('m1', ['m2'], `b${i}`, `c${i}`)]);
     }
     expect(existsSync(path.join(dir, 'rooms/room-a/messages/2.json'))).toBe(true);
-    expect(existsSync(path.join(dir, 'rooms/room-a/messages/1.json'))).toBe(false);
+    // Still there while the Room runs: m2 has read none of it, and retention
+    // does not get to consume an undelivered message.
+    expect(existsSync(path.join(dir, 'rooms/room-a/messages/1.json'))).toBe(true);
+
     await store.archiveRoom('room-a', '2026-08-14T00:00:00.000Z');
+    // Archiving closes every session, so nothing is owed and the page goes.
+    expect(existsSync(path.join(dir, 'rooms/room-a/messages/1.json'))).toBe(false);
     expect((await store.readRoom('room-a'))?.archivedAt).toBe('2026-08-14T00:00:00.000Z');
     const index = JSON.parse(await readFile(path.join(dir, 'rooms/index.json'), 'utf8'));
     expect(index.rooms).toHaveLength(1);

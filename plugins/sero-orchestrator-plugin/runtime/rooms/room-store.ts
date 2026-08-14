@@ -28,6 +28,7 @@ import {
   assignSequences,
   createMessageLog,
   messagePageOf,
+  undeliveredFloor,
   withAcknowledgedLease,
   withAdvancedCursor,
   withAppendedMessages,
@@ -301,7 +302,9 @@ export function createRoomStore(
         }),
       );
       if (messagePageOf(latest) > messagePageOf(base)) {
-        await messages.prune(roomId, latest, retention.maxMessagePages);
+        // Cursors are untouched by an append, so the record read above still
+        // names the oldest message anybody is owed.
+        await messages.prune(roomId, latest, retention.maxMessagePages, undeliveredFloor(record, latest));
       }
       return written;
     });
@@ -311,7 +314,15 @@ export function createRoomStore(
     await serialize(async () => {
       const prev = await ensureLoaded();
       const record = requireRoom(prev, roomId);
-      await messages.prune(roomId, record.runtime.messageSequence, retention.maxMessagePages);
+      // An archived Room is over: its sessions are closed and no member can ever
+      // read again, so the delivery floor that protects a live Room would only
+      // pin history nobody can reach. A live Room keeps every page it still owes.
+      await messages.prune(
+        roomId,
+        record.runtime.messageSequence,
+        retention.maxMessagePages,
+        record.archivedAt ? record.runtime.messageSequence : undeliveredFloor(record, record.runtime.messageSequence),
+      );
       const revisions = record.revisions.slice(-retention.maxRevisions);
       if (revisions.length === record.revisions.length) return;
       await commit(prev, mapRoom(prev, roomId, (room) => ({ ...room, revisions })));
