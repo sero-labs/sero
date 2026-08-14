@@ -17,7 +17,8 @@ import { ArrowLeft } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
-import { roomSignal, useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
+import { defaultRoomView, roomSignal, type RoomView } from '../lib/room-view';
+import { useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
 import { RoomActivity } from './RoomActivity';
 import { RoomCompletion } from './RoomCompletion';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
@@ -26,7 +27,7 @@ import { RoomMessageDialog } from './RoomMessageDialog';
 import { RoomStopBanner } from './RoomStopBanner';
 import { RoomRoster } from './RoomRoster';
 import { RoomSidePanel } from './RoomSidePanel';
-import { RoomTopBar, type RoomView } from './RoomTopBar';
+import { RoomTopBar } from './RoomTopBar';
 import { RoomWatch } from './RoomWatch';
 
 interface RoomDetailProps {
@@ -48,7 +49,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
   // A finished Room opens on its result; a live one opens on its activity. The
   // user's own choice wins from then on.
   const finished = room ? TERMINAL_ROOM_STATUSES.includes(room.runtime.status) : false;
-  const shownView = view ?? (finished ? 'result' : 'timeline');
+  const shownView = view ?? (room ? defaultRoomView(room.runtime.status) : 'timeline');
   const members = useRoomMembers(roomId, room?.memberIds ?? []);
   const names = memberNames(members);
   const signal = roomSignal(room);

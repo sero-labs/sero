@@ -51,11 +51,12 @@ export function RoomActivity({ events, names }: RoomActivityProps) {
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <b className="text-sm">Activity</b>
-        <div className="ml-auto flex gap-1">
+        <div role="group" aria-label="Filter activity" className="ml-auto flex gap-1">
           {(Object.keys(FILTER_LABEL) as Filter[]).map((option) => (
             <Button
               key={option}
               size="sm"
+              aria-pressed={filter === option}
               variant={filter === option ? 'secondary' : 'ghost'}
               onClick={() => setFilter(option)}
             >
@@ -92,7 +93,7 @@ function ActivityRow({ event, names }: { event: RoomTimelineEvent; names: Map<st
           <b className="font-medium">{who}</b> <span className="text-muted-foreground">{event.summary}</span>
         </p>
         {event.details?.ref && (
-          <p className="truncate font-mono text-xs text-muted-foreground/80">{String(event.details.ref)}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">{String(event.details.ref)}</p>
         )}
       </div>
     </div>

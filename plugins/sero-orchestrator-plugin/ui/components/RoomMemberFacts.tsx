@@ -42,7 +42,7 @@ export function MemberLiveRail({ member, live, context }: Omit<FactsProps, 'maxC
       ) : (
         <p className="text-xs text-muted-foreground">{member.statusDetail}</p>
       )}
-      <p className="text-xs leading-relaxed text-muted-foreground/70">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         Streamed from the session itself as it happens — the same output the member is producing, not a summary
         of it.
       </p>

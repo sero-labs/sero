@@ -19,6 +19,7 @@ import { X } from 'lucide-react';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatCost, formatTime } from '../lib/format';
+import { toSessionTurns, type SessionTurn } from '../lib/room-view';
 import { useMemberContext, useMemberHistory, type RoomFeedDispatch } from '../lib/use-room-feed';
 import {
   MEMBER_TAB_LABEL,
@@ -47,25 +48,6 @@ interface RoomMemberPanelProps {
   onClose: () => void;
 }
 
-interface Turn {
-  index: number;
-  at: string;
-  entries: PersistentSessionHistoryEntry[];
-  compacted: boolean;
-}
-
-/** History arrives newest first; a transcript reads the other way. */
-function toTurns(entries: PersistentSessionHistoryEntry[]): Turn[] {
-  const byIndex = new Map<number, Turn>();
-  for (const entry of [...entries].reverse()) {
-    const turn = byIndex.get(entry.turnIndex) ?? { index: entry.turnIndex, at: entry.timestamp, entries: [], compacted: false };
-    turn.entries.push(entry);
-    if (entry.compactionBoundary) turn.compacted = true;
-    byIndex.set(entry.turnIndex, turn);
-  }
-  return [...byIndex.values()].sort((a, b) => a.index - b.index);
-}
-
 export function RoomMemberPanel({
   roomId,
   member,
@@ -88,7 +70,7 @@ export function RoomMemberPanel({
   const signal = `${member.usage.turns}:${member.session.compactionCount}:${member.status}`;
   const history = useMemberHistory(roomId, member.id, dispatch, signal);
   const context = useMemberContext(roomId, member.id, dispatch, signal);
-  const turns = useMemo(() => toTurns(history.entries), [history.entries]);
+  const turns = useMemo(() => toSessionTurns(history.entries), [history.entries]);
   const shown = expanded ? turns : turns.slice(-RECENT_TURNS);
   const hidden = turns.length - shown.length;
 
@@ -106,7 +88,7 @@ export function RoomMemberPanel({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
-        <span className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[member.status]}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[member.status]}`} />
         <b className="text-sm">{member.displayName}</b>
         <span className="text-xs text-muted-foreground">
           {member.configuration.model} · {member.configuration.thinking} · {member.usage.turns} turn(s) ·{' '}
@@ -118,11 +100,13 @@ export function RoomMemberPanel({
           )}
           <Button size="sm" variant="ghost" onClick={onClose}><X className="h-3.5 w-3.5" /></Button>
         </div>
-        <div className="flex w-full gap-1">
+        <div role="tablist" aria-label="Member detail" className="flex w-full gap-1">
           {(Object.keys(MEMBER_TAB_LABEL) as MemberTab[]).map((option) => (
             <Button
               key={option}
               size="sm"
+              role="tab"
+              aria-selected={tab === option}
               variant={tab === option ? 'secondary' : 'ghost'}
               onClick={() => setTab(option)}
             >
@@ -250,7 +234,7 @@ function WaitingStrip({
  * place. A user can jump anywhere in the history, including before a
  * compaction — the file kept it, so the panel must be able to reach it.
  */
-function TurnStrip({ turns, onJump }: { turns: Turn[]; onJump: (index: number) => void }) {
+function TurnStrip({ turns, onJump }: { turns: SessionTurn[]; onJump: (index: number) => void }) {
   if (turns.length === 0) return null;
   const compactions = turns.filter((turn) => turn.compacted).length;
 
@@ -273,7 +257,7 @@ function TurnStrip({ turns, onJump }: { turns: Turn[]; onJump: (index: number) =
   );
 }
 
-function TurnBlock({ memberId, turn }: { memberId: string; turn: Turn }) {
+function TurnBlock({ memberId, turn }: { memberId: string; turn: SessionTurn }) {
   return (
     <div id={`turn-${memberId}-${turn.index}`} className="flex flex-col gap-1.5">
       <p className="text-xs text-muted-foreground">

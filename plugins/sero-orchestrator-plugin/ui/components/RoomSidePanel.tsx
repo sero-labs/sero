@@ -48,11 +48,13 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
 
   return (
     <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border">
-      <div className="flex gap-1 border-b border-border px-2 py-2">
+      <div role="tablist" aria-label="Room detail" className="flex gap-1 border-b border-border px-2 py-2">
         {(Object.keys(TAB_LABEL) as Tab[]).map((option) => (
           <Button
             key={option}
             size="sm"
+            role="tab"
+            aria-selected={tab === option}
             variant={tab === option ? 'secondary' : 'ghost'}
             onClick={() => setTab(option)}
           >
@@ -136,7 +138,7 @@ function Brief({ room }: { room: PersistedRoom }) {
         </div>
       )}
 
-      <p className="text-xs leading-relaxed text-muted-foreground/70">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         The brief is built from Room records, not from the transcript. Each member is given only the part
         that concerns its own work.
       </p>
@@ -165,7 +167,7 @@ function Entry({ title, note, children }: { title: string; note: string; childre
     <div className="rounded-md border border-border p-2.5">
       <p className="text-sm font-medium">{title}</p>
       <p className="text-xs text-muted-foreground">{note}</p>
-      {children && <p className="mt-1 break-words text-xs text-muted-foreground/80">{children}</p>}
+      {children && <p className="mt-1 break-words text-xs text-muted-foreground">{children}</p>}
     </div>
   );
 }

@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import type { PersistentSessionContextUsage, PersistentSessionHistoryEntry } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
-import type { PersistedRoom } from '../../shared/room-types';
+import { mergeHistory } from './room-view';
 
 interface FeedDetails {
   ok?: boolean;
@@ -30,17 +30,6 @@ interface FeedDetails {
 }
 
 export type RoomFeedDispatch = (params: Record<string, unknown>) => Promise<FeedDetails | null>;
-
-/**
- * What "the Room moved" means, as one comparable value. Status, progress and
- * who holds a turn are exactly the changes a timeline or a live pane must
- * follow; a change anywhere else in the record does not need a re-read.
- */
-export function roomSignal(room: PersistedRoom | null): string {
-  if (!room) return '';
-  const { status, messageSequence, usage, activeMemberIds } = room.runtime;
-  return [status, messageSequence, usage.turns, usage.costUsd, activeMemberIds.join('+')].join(':');
-}
 
 /** Recent timeline events, newest first, re-read whenever the Room moves. */
 export function useRoomTimeline(
@@ -110,23 +99,6 @@ export function useRoomLive(
   return live;
 }
 
-/** An entry's identity across re-reads: one turn writes one entry per role and text. */
-const entryKey = (entry: PersistentSessionHistoryEntry): string =>
-  `${entry.turnIndex}:${entry.timestamp}:${entry.role}:${entry.text.length}`;
-
-function merge(
-  newer: PersistentSessionHistoryEntry[],
-  existing: PersistentSessionHistoryEntry[],
-): PersistentSessionHistoryEntry[] {
-  const seen = new Set<string>();
-  return [...newer, ...existing].filter((entry) => {
-    const key = entryKey(entry);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export interface MemberHistory {
   /** Newest first, as the session file is read. */
   entries: PersistentSessionHistoryEntry[];
@@ -164,7 +136,7 @@ export function useMemberHistory(
     let current = true;
     void dispatch({ action: 'history', roomId, memberId }).then((details) => {
       if (!current || !details?.entries) return;
-      setEntries((previous) => merge(details.entries ?? [], previous));
+      setEntries((previous) => mergeHistory(details.entries ?? [], previous));
       // The first read sets the cursor; later reads must not rewind past what
       // the user has already opened.
       setOlderCursor((previous) => previous ?? details.olderCursor ?? null);
@@ -180,7 +152,7 @@ export function useMemberHistory(
     void dispatch({ action: 'history', roomId, memberId, cursor: olderCursor })
       .then((details) => {
         if (!details?.entries) return;
-        setEntries((previous) => merge(previous, details.entries ?? []));
+        setEntries((previous) => mergeHistory(previous, details.entries ?? []));
         setOlderCursor(details.olderCursor ?? null);
       })
       .finally(() => setLoadingOlder(false));

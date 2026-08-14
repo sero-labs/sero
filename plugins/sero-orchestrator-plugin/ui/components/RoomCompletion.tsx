@@ -70,7 +70,7 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
               <span className="ml-2 text-xs text-muted-foreground">
                 {artifact.kind} · {members.get(artifact.producedByMemberId)?.displayName ?? artifact.producedByMemberId}
               </span>
-              <span className="block break-all font-mono text-xs text-muted-foreground/80">{artifact.ref}</span>
+              <span className="block break-all font-mono text-xs text-muted-foreground">{artifact.ref}</span>
             </p>
           ))
         )}

@@ -14,10 +14,9 @@
 import { Button } from '@sero-ai/ui';
 import { MessageSquare, Pause, Play, Square } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom } from '../../shared/room-types';
+import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration } from '../lib/format';
-
-export type RoomView = 'timeline' | 'watch' | 'result';
 
 interface RoomTopBarProps {
   room: PersistedRoom;
@@ -45,16 +44,18 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2">
-      <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
+      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
       <h2 className="truncate text-base font-semibold">{definition.title}</h2>
       <span className={`rounded-full border px-2 py-0.5 text-xs ${style.badge}`}>{style.label}</span>
 
       <Meter
+        label="Time used"
         value={formatDuration(elapsedMs)}
         of={formatDuration(definition.envelope.maxWallClockMs)}
         fraction={elapsedMs / definition.envelope.maxWallClockMs}
       />
       <Meter
+        label="Spent"
         value={formatCost(runtime.usage.costUsd)}
         of={formatCost(definition.envelope.maxCostUsd)}
         fraction={runtime.usage.costUsd / definition.envelope.maxCostUsd}
@@ -100,12 +101,19 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
   );
 }
 
-function Meter({ value, of, fraction }: { value: string; of: string; fraction: number }) {
+function Meter({ label, value, of, fraction }: { label: string; value: string; of: string; fraction: number }) {
   const pct = Math.min(100, Math.max(0, fraction * 100));
   return (
-    <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+    <span
+      role="progressbar"
+      aria-label={`${label}: ${value} of ${of}`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+      className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground"
+    >
       <span className="text-foreground">{value}</span>
-      <span className="h-1 w-12 overflow-hidden rounded-full bg-muted">
+      <span aria-hidden className="h-1 w-12 overflow-hidden rounded-full bg-muted">
         <span
           className={`block h-full rounded-full ${pct >= 90 ? 'bg-amber-500' : 'bg-emerald-500'}`}
           style={{ width: `${pct}%` }}

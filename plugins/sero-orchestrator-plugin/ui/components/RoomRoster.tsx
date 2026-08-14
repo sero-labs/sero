@@ -34,6 +34,24 @@ const MEMBER_DOT: Record<MemberStatus, string> = {
 /** States that hold no execution slot, which is the thing the rail must make obvious. */
 const SPENDS_NO_TURN: readonly MemberStatus[] = ['idle', 'waiting', 'blocked', 'suspended', 'offline'];
 
+/**
+ * The status in words. The dot carries it visually; a screen reader and anybody
+ * who cannot tell amber from green need it written down.
+ */
+const MEMBER_STATUS_LABEL: Record<MemberStatus, string> = {
+  starting: 'starting',
+  idle: 'idle',
+  working: 'working',
+  waiting: 'waiting',
+  blocked: 'blocked',
+  suspended: 'suspended',
+  retiring: 'retiring',
+  retired: 'retired',
+  completed: 'finished',
+  failed: 'failed',
+  offline: 'offline',
+};
+
 interface RoomRosterProps {
   memberIds: string[];
   members: Map<string, RoomMember>;
@@ -89,22 +107,24 @@ function MemberRow({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       onClick={() => onSelect(memberId)}
       className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/40 ${
         selected ? 'bg-accent/60' : ''
       }`}
     >
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[status]}`} />
+      <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[status]}`} />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-1.5">
           <b className="truncate text-sm">{name}</b>
+          <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
           {member?.isConductor && <span className="text-xs text-muted-foreground">leads</span>}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
           {member?.statusDetail ?? 'Loading…'}
         </span>
         {member && SPENDS_NO_TURN.includes(status) && (
-          <span className="block text-xs text-muted-foreground/70">holds no turn</span>
+          <span className="block text-xs text-muted-foreground">holds no turn</span>
         )}
       </span>
       {member && <span className="shrink-0 text-xs text-muted-foreground">{formatCost(member.usage.costUsd)}</span>}
