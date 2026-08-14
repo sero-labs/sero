@@ -54,12 +54,6 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.chatPanelSizePct === 'number' && state.chatPanelSizePct > 0) {
         update.chatPanelSizePct = state.chatPanelSizePct;
       }
-      if (
-        typeof state.chatCollaborationSizePct === 'number' &&
-        state.chatCollaborationSizePct > 0
-      ) {
-        update.chatCollaborationSizePct = state.chatCollaborationSizePct;
-      }
 
       // Hydrate theme via theme store (handles presets + mode)
       await hydrateThemeStore(state.theme, state.activeThemeId);

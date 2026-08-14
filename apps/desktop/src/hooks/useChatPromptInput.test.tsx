@@ -49,7 +49,6 @@ describe('useChatPromptInput', () => {
   let root: Root | null = null;
 
   const sendPrompt = vi.fn();
-  const sendCollaborationPrompt = vi.fn();
   const steerAgent = vi.fn();
   const enqueue = vi.fn();
   const onLoginRequest = vi.fn();
@@ -68,8 +67,6 @@ describe('useChatPromptInput', () => {
       isStreaming: false,
       focusedWorkspaceId: null,
       sendPrompt,
-      sendCollaborationPrompt,
-      collaborationMode: false,
       steerAgent,
       messageQueue: { enqueue },
       onLoginRequest,
@@ -153,7 +150,6 @@ describe('useChatPromptInput', () => {
     expect(onLoginRequest).toHaveBeenCalledWith('login');
     expect(readInput(container)).toBe('');
     expect(sendPrompt).not.toHaveBeenCalled();
-    expect(sendCollaborationPrompt).not.toHaveBeenCalled();
     expect(steerAgent).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
@@ -175,7 +171,6 @@ describe('useChatPromptInput', () => {
     expect(onLoginRequest).toHaveBeenCalledWith('logout');
     expect(readInput(container)).toBe('');
     expect(sendPrompt).not.toHaveBeenCalled();
-    expect(sendCollaborationPrompt).not.toHaveBeenCalled();
     expect(steerAgent).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });

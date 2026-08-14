@@ -41,8 +41,6 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     favouriteApps: partial.favouriteApps ?? app.favouriteApps,
     mainSidebarSizePct: partial.mainSidebarSizePct ?? app.mainSidebarSizePct,
     chatPanelSizePct: partial.chatPanelSizePct ?? app.chatPanelSizePct,
-    chatCollaborationSizePct:
-      partial.chatCollaborationSizePct ?? app.chatCollaborationSizePct,
     theme: partial.theme ?? app.theme,
     activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
     themeEditorAutoSave: partial.themeEditorAutoSave ?? app.themeEditorAutoSave,

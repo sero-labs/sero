@@ -5,12 +5,6 @@ import type {
   SessionModelState,
   SeroSlashCommandInfo,
 } from '@/types/ipc';
-import type {
-  CollaborationStrategy,
-  CollaborationStateSnapshot,
-  DebateConfig,
-} from '@/types/collaboration';
-import type { CollaborationSessionMap } from '@/stores/agent-collaboration';
 import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
 /** State for a single agent session in the pool. */
@@ -39,8 +33,6 @@ export interface AgentState {
   showThinkingBlocks: boolean;
   /** Whether to display memory context blocks in the chat. */
   showMemoryBlocks: boolean;
-  /** Collaboration UI state, keyed by session ID. */
-  collaborations: CollaborationSessionMap;
   /** Open a session — creates an AgentSession in the main-process pool. */
   openSession: (
     sessionId: string,
@@ -76,21 +68,6 @@ export interface AgentState {
   setComposerPrefill: (sessionId: string, prefill: ChatComposerPrefill) => void;
   /** Clear a session-scoped composer prefill once the prompt area consumes it. */
   clearComposerPrefill: (sessionId: string, requestId?: string) => void;
-  /** Toggle collaboration mode on/off for the focused session. */
-  toggleCollaborationMode: () => void;
-  /** Set the collaboration strategy for the focused session. */
-  setCollaborationStrategy: (strategy: CollaborationStrategy) => void;
-  /** Update debate configuration for the focused session. */
-  setDebateConfig: (config: Partial<DebateConfig>) => void;
-  /** Send a prompt through the collaboration framework. */
-  sendCollaborationPrompt: (sessionId: string, text: string) => Promise<void>;
-  /** Hydrate collaboration state after a renderer reload / refocus. */
-  hydrateCollaborationState: (
-    sessionId: string,
-    snapshot: CollaborationStateSnapshot | null,
-  ) => void;
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
-  /** Subscribe to collaboration events. Returns cleanup function. */
-  initCollaborationListener: () => () => void;
 }

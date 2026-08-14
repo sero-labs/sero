@@ -58,22 +58,18 @@ describe('useSessionAgent', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
 
-  const getState = vi.fn(async () => null);
   const ensureContainer = vi.fn(async () => null);
   const openSession = vi.fn(async () => {});
   const focusSession = vi.fn();
   const clearFocus = vi.fn();
-  const hydrateCollaborationState = vi.fn();
   const loadSessions = vi.fn(async () => {});
 
   beforeEach(() => {
     vi.useFakeTimers();
-    getState.mockClear();
     ensureContainer.mockClear();
     openSession.mockClear();
     focusSession.mockClear();
     clearFocus.mockClear();
-    hydrateCollaborationState.mockClear();
     loadSessions.mockClear();
 
     useAgentStore.setState(initialAgentState, true);
@@ -85,11 +81,6 @@ describe('useSessionAgent', () => {
       configurable: true,
       writable: true,
       value: {
-        collaboration: {
-          getState,
-          onEvent: vi.fn(() => () => {}),
-          prompt: vi.fn(async () => undefined),
-        },
         container: {
           ensure: ensureContainer,
         },
@@ -118,7 +109,7 @@ describe('useSessionAgent', () => {
     vi.useRealTimers();
   });
 
-  it('does not resync collaboration state after idle-triggered session list refreshes', async () => {
+  it('does not resync the active session after idle-triggered session list refreshes', async () => {
     const initialSession = createSession();
     const refreshedSession = createSession({
       modified: '2026-04-12T00:05:00.000Z',
@@ -155,7 +146,6 @@ describe('useSessionAgent', () => {
       openSession,
       focusSession,
       clearFocus,
-      hydrateCollaborationState,
     });
 
     await act(async () => {
@@ -163,11 +153,9 @@ describe('useSessionAgent', () => {
     });
 
     await vi.waitFor(() => {
-      expect(getState).toHaveBeenCalledTimes(1);
+      expect(focusSession).toHaveBeenCalledTimes(1);
     });
-    expect(focusSession).toHaveBeenCalledTimes(1);
     expect(openSession).not.toHaveBeenCalled();
-    expect(hydrateCollaborationState).toHaveBeenCalledTimes(1);
     expect(ensureContainer).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -187,7 +175,7 @@ describe('useSessionAgent', () => {
     });
 
     expect(loadSessions).toHaveBeenCalledTimes(1);
-    expect(getState).toHaveBeenCalledTimes(1);
-    expect(hydrateCollaborationState).toHaveBeenCalledTimes(1);
+    expect(focusSession).toHaveBeenCalledTimes(1);
+    expect(openSession).not.toHaveBeenCalled();
   });
 });

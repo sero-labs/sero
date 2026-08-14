@@ -30,13 +30,8 @@ export function useActiveSessionSync(): void {
   const openSession = useAgentStore((state) => state.openSession);
   const focusSession = useAgentStore((state) => state.focusSession);
   const clearFocus = useAgentStore((state) => state.clearFocus);
-  const hydrateCollaborationState = useAgentStore(
-    (state) => state.hydrateCollaborationState,
-  );
 
   useEffect(() => {
-    let cancelled = false;
-
     async function syncActiveSession() {
       if (!activeSessionId) {
         clearFocus();
@@ -56,20 +51,12 @@ export function useActiveSessionSync(): void {
             activeWorkspaceBackend,
           );
         }
-
-        const snapshot = await window.sero.collaboration.getState(activeSessionId);
-        if (cancelled) return;
-        hydrateCollaborationState(activeSessionId, snapshot);
       } catch (err) {
         console.error('[useSessionAgent] failed to sync active session:', err);
       }
     }
 
     void syncActiveSession();
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     activeAgentReady,
     activeSessionId,
@@ -78,7 +65,6 @@ export function useActiveSessionSync(): void {
     activeWorkspaceBackend,
     clearFocus,
     focusSession,
-    hydrateCollaborationState,
     openSession,
   ]);
 }

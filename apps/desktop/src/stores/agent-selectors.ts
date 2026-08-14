@@ -2,9 +2,8 @@ import type { SeroSlashCommandInfo, SessionModelState } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import type { AgentInstance, AgentState } from '@/stores/agent-types';
 
-type AgentSelectorState = Pick<AgentState, 'agents' | 'focusedSessionId' | 'collaborations'>;
+type AgentSelectorState = Pick<AgentState, 'agents' | 'focusedSessionId'>;
 
-const EMPTY_SPECIALISTS: [] = [];
 const EMPTY_STREAMING_SESSION_IDS: string[] = [];
 const EMPTY_COMMANDS: SeroSlashCommandInfo[] = [];
 
@@ -101,58 +100,4 @@ export function useStreamingSessionIds(): string[] {
 
 export function useFocusedCommands(): SeroSlashCommandInfo[] {
   return useAgentStore(selectFocusedCommands);
-}
-
-export function useFocusedCollaborationMode(): boolean {
-  return useAgentStore((s) =>
-    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.mode ?? false) : false,
-  );
-}
-
-export function useFocusedCollaborationStatus() {
-  return useAgentStore((s) =>
-    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.status ?? 'idle') : 'idle',
-  );
-}
-
-export function useFocusedCollaborationResult() {
-  return useAgentStore((s) =>
-    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.result ?? null) : null,
-  );
-}
-
-export function useFocusedCollaborationSpecialists() {
-  return useAgentStore((s) =>
-    s.focusedSessionId
-      ? (s.collaborations[s.focusedSessionId]?.specialists ?? EMPTY_SPECIALISTS)
-      : EMPTY_SPECIALISTS,
-  );
-}
-
-export function useFocusedCollaborationStrategy() {
-  return useAgentStore((s) =>
-    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.strategy ?? 'standard') : 'standard',
-  );
-}
-
-export function useFocusedCollaborationPendingUserQuery() {
-  return useAgentStore((s) =>
-    s.focusedSessionId
-      ? (s.collaborations[s.focusedSessionId]?.pendingUserQuery ?? null)
-      : null,
-  );
-}
-
-export function useFocusedDebateState() {
-  return useAgentStore((s) =>
-    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.debate ?? null) : null,
-  );
-}
-
-export function useFocusedDebateConfig() {
-  return useAgentStore((s) =>
-    s.focusedSessionId
-      ? (s.collaborations[s.focusedSessionId]?.debateConfig ?? null)
-      : null,
-  );
 }

@@ -88,7 +88,6 @@ export function App() {
   const profileReady = useProfileStore((s) => s.ready);
   const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
   const initAgentEventListener = useAgentStore((s) => s.initEventListener);
-  const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
@@ -138,11 +137,6 @@ export function App() {
     const unsub = initAgentEventListener();
     return unsub;
   }, [initAgentEventListener]);
-
-  useEffect(() => {
-    const unsub = initCollaborationListener();
-    return unsub;
-  }, [initCollaborationListener]);
 
   useEffect(() => {
     return window.sero.auth.onEvent((event) => {

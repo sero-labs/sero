@@ -63,9 +63,21 @@ export async function handleStall(
   // front of it — the asker cannot answer itself, and used to sit there until
   // the no-progress clock ran out.
   const owed = await strandedQuestion(ctx, record);
-  if (owed && ctx.signals.claimQuietWake(roomId, owed.memberId, quietMark(record, owed.memberId))) {
-    await remindAnswerer(ctx, record, owed.question, owed.memberId);
-    return;
+  if (owed) {
+    const turns = record.members.find((member) => member.id === owed.memberId)?.usage.turns ?? 0;
+    if (ctx.signals.claimQuietWake(roomId, owed.memberId, quietMark(record, owed.memberId))) {
+      ctx.signals.noteReminder(roomId, owed.memberId, turns);
+      await remindAnswerer(ctx, record, owed.question, owed.memberId);
+      return;
+    }
+    // Chased, given a turn, and still no answer. The answer is not coming, and
+    // only the member waiting for it can be freed — otherwise the Room burns its
+    // no-progress clock on a question nobody will ever settle, and lands on the
+    // user for something it could resolve itself.
+    if (ctx.signals.answerIgnored(roomId, owed.memberId, turns)) {
+      await freeAsker(ctx, record, owed.question, owed.memberId);
+      return;
+    }
   }
   // Nothing is running, and a member is sitting on a message it has never
   // read. An ordinary message deliberately wakes nobody — it must not spend a
@@ -146,6 +158,42 @@ async function remindAnswerer(
   };
   await ctx.store.appendMessages(roomId, [draft]);
   await ctx.wake(roomId, memberId, 'direct-message');
+}
+
+/**
+ * Ends a wait for an answer that is never going to arrive.
+ *
+ * The message goes to the ASKER, and the wake carries a wait-ending reason, so
+ * the release travels the same path as a real reply rather than a second way of
+ * writing a member's status.
+ */
+async function freeAsker(
+  ctx: StallContext,
+  record: RoomRecord,
+  question: RoomMessage,
+  answererId: string,
+): Promise<void> {
+  const roomId = record.definition.id;
+  const asker = record.members.find((member) => member.id === question.fromMemberId);
+  if (!asker) return;
+  const answerer = record.members.find((member) => member.id === answererId);
+  const draft: RoomMessageDraft = {
+    id: ctx.host.newId('msg'),
+    kind: 'system',
+    fromMemberId: null,
+    toMemberIds: [asker.id],
+    body:
+      `${answerer?.displayName ?? 'The member you asked'} did not answer: `
+      + `"${question.body.slice(0, QUESTION_QUOTE_CHARS)}". `
+      + 'Carry on without that answer, ask somebody else, or finish the Room.',
+    questionId: null,
+    inReplyToQuestionId: question.questionId,
+    wakeRecipients: true,
+    commandId: ctx.host.newId('cmd'),
+    createdAt: ctx.host.now(),
+  };
+  await ctx.store.appendMessages(roomId, [draft]);
+  await ctx.wake(roomId, asker.id, 'direct-message');
 }
 
 /**

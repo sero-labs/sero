@@ -34,6 +34,8 @@ export class RoomSignalBook {
   private readonly signals = new Map<string, ReadySignal[]>();
   /** The mark each member was last nudged on, keyed `roomId:memberId`. */
   private readonly quietWakes = new Map<string, string>();
+  /** Turns a member had when it was last chased for an answer it owes. */
+  private readonly reminders = new Map<string, number>();
 
   /** Keeps one signal per member and reason; the earliest arrival wins a repeat. */
   add(roomId: string, incoming: ReadySignal[]): void {
@@ -77,10 +79,25 @@ export class RoomSignalBook {
     return true;
   }
 
+  /** Remembers the turn count a member had when it was chased for an answer. */
+  noteReminder(roomId: string, memberId: string, turns: number): void {
+    this.reminders.set(`${roomId}:${memberId}`, turns);
+  }
+
+  /**
+   * True when a member was chased for an answer, has taken a turn since, and
+   * still has not sent one. The answer is not coming, and the member waiting for
+   * it is the only one that can be freed.
+   */
+  answerIgnored(roomId: string, memberId: string, turns: number): boolean {
+    const chasedAt = this.reminders.get(`${roomId}:${memberId}`);
+    return chasedAt !== undefined && turns > chasedAt;
+  }
+
   forget(roomId: string): void {
     this.signals.delete(roomId);
-    for (const key of [...this.quietWakes.keys()]) {
-      if (key.startsWith(`${roomId}:`)) this.quietWakes.delete(key);
+    for (const map of [this.quietWakes, this.reminders]) {
+      for (const key of [...map.keys()]) if (key.startsWith(`${roomId}:`)) map.delete(key);
     }
   }
 }

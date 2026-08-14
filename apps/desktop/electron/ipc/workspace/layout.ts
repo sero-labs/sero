@@ -67,7 +67,6 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   // Optional numeric panel sizes
   if (!isOptionalNumber(c.mainSidebarSizePct)) return false;
   if (!isOptionalNumber(c.chatPanelSizePct)) return false;
-  if (!isOptionalNumber(c.chatCollaborationSizePct)) return false;
   // Optional strings — reject wrong types to prevent garbage propagation
   if (c.theme !== undefined && typeof c.theme !== 'string') return false;
   if (c.activeApp !== undefined && typeof c.activeApp !== 'string') return false;

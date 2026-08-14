@@ -3,7 +3,7 @@
  * doesn't re-render on every streaming token.
  *
  * Subscribes to store selectors that return primitives (sessionId,
- * isStreaming, workspaceId, collaborationMode) so Zustand's Object.is
+ * isStreaming, workspaceId) so Zustand's Object.is
  * check keeps this stable during text streaming.
  */
 
@@ -23,10 +23,6 @@ import {
   PromptInputActionAddAttachments,
 } from '@sero-ai/ui/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
-import {
-  useFocusedCollaborationMode,
-  useFocusedCollaborationStrategy,
-} from '@/stores/agent-selectors';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
 import { PromptAttachmentsBar } from './ChatAttachments';
@@ -35,7 +31,7 @@ import { ModelSelector } from './models/ModelSelector';
 import { AuthLoginDialog } from './auth/AuthLoginDialog';
 import { ContextEditor } from './ContextEditor';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
-import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle, CollaborationToggle } from './ChatPanelHelpers';
+import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle } from './ChatPanelHelpers';
 import { WorkspaceSnapshotMenuItem } from './WorkspaceSnapshotMenuItem';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useChatPromptInput } from '@/hooks/useChatPromptInput';
@@ -57,12 +53,9 @@ export const ChatPromptArea = memo(function ChatPromptArea({
   onExternalDraftApplied,
 }: ChatPromptAreaProps) {
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
-  const sendCollaborationPrompt = useAgentStore((s) => s.sendCollaborationPrompt);
   const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const fetchModelState = useAgentStore((s) => s.fetchModelState);
-  const collaborationMode = useFocusedCollaborationMode();
-  const collaborationStrategy = useFocusedCollaborationStrategy();
   const hasSession = !!sessionId;
 
   // ── Login dialog state ─────────────────────────────────────
@@ -87,8 +80,6 @@ export const ChatPromptArea = memo(function ChatPromptArea({
     isStreaming,
     focusedWorkspaceId,
     sendPrompt,
-    sendCollaborationPrompt,
-    collaborationMode,
     steerAgent,
     messageQueue,
     onLoginRequest,
@@ -163,11 +154,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
               onKeyDown={prompt.handleKeyDown}
               placeholder={
                 hasSession
-                  ? collaborationMode
-                    ? collaborationStrategy === 'debate'
-                      ? 'Debate Collaboration, agents will analyze, debate & synthesize...'
-                      : '4-Agent Collaboration active, ask a complex question...'
-                    : 'Ask Sero anything... (/ for commands, @ for files)'
+                  ? 'Ask Sero anything... (/ for commands, @ for files)'
                   : 'Select a chat first...'
               }
               disabled={!hasSession}
@@ -191,7 +178,6 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 disabled={!hasSession || isStreaming}
                 onTranscript={handleTranscript}
               />
-              <CollaborationToggle disabled={!hasSession} />
               <MemoryBlocksToggle disabled={!hasSession} />
               <ThinkingBlocksToggle disabled={!hasSession} />
               <ModelSelector disabled={!hasSession} />

@@ -4,23 +4,6 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '@/types/ipc';
-import type {
-  CollaborationEvent,
-  CollaborationStateSnapshot,
-  CollaborationStrategy,
-  DebateConfig,
-} from '@/types/collaboration';
-import {
-  removeCollaborationSession,
-  setCollaborationStrategyForSession,
-  setDebateConfigForSession,
-  toggleCollaborationModeForSession,
-} from '@/stores/agent-collaboration';
-import {
-  hydrateCollaborationStateWithSnapshot,
-  reduceCollaborationEventState,
-  sendCollaborationPromptWithState,
-} from '@/stores/agent-collaboration-runtime';
 import type { AgentState } from '@/stores/agent-types';
 import {
   appendOptimisticUserMessage,
@@ -43,7 +26,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   focusedSessionId: null,
   showThinkingBlocks: false,
   showMemoryBlocks: false,
-  collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId, runtimeBackend) => {
     notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
@@ -128,7 +110,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             composerPrefills: restPrefills,
             focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
             // Note: error is stored per-agent, but since we're removing it, we just log.
-            collaborations: removeCollaborationSession(s.collaborations, sessionId),
           };
         });
       }
@@ -160,7 +141,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         agents: rest,
         composerPrefills: restPrefills,
         focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
-        collaborations: removeCollaborationSession(s.collaborations, sessionId),
       };
     });
   },
@@ -310,41 +290,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return { composerPrefills: restPrefills };
     }),
 
-  toggleCollaborationMode: () =>
-    set((s) => {
-      if (!s.focusedSessionId) return s;
-      return {
-        collaborations: toggleCollaborationModeForSession(s.collaborations, s.focusedSessionId),
-      };
-    }),
-
-  setCollaborationStrategy: (strategy: CollaborationStrategy) =>
-    set((s) => {
-      if (!s.focusedSessionId) return s;
-      return {
-        collaborations: setCollaborationStrategyForSession(s.collaborations, s.focusedSessionId, strategy),
-      };
-    }),
-
-  setDebateConfig: (config: Partial<DebateConfig>) =>
-    set((s) => {
-      if (!s.focusedSessionId) return s;
-      return {
-        collaborations: setDebateConfigForSession(s.collaborations, s.focusedSessionId, config),
-      };
-    }),
-
-  sendCollaborationPrompt: async (sessionId, text) => {
-    await sendCollaborationPromptWithState(set, get, sessionId, text);
-  },
-
-  hydrateCollaborationState: (
-    sessionId: string,
-    snapshot: CollaborationStateSnapshot | null,
-  ) => {
-    hydrateCollaborationStateWithSnapshot(set, sessionId, snapshot);
-  },
-
   initEventListener: () => {
     // Flush buffered text/thinking deltas into the store in one batch.
     const flushDeltas = () => {
@@ -375,11 +320,5 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     });
 
     return unsubscribe;
-  },
-
-  initCollaborationListener: () => {
-    return window.sero.collaboration.onEvent((event: CollaborationEvent) => {
-      set((state) => reduceCollaborationEventState(state, event));
-    });
   },
 }));

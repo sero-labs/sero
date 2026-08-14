@@ -48,8 +48,6 @@ export interface AppState {
   setMainSidebarSizePct: (pct: number) => void;
   chatPanelSizePct: number;
   setChatPanelSizePct: (pct: number) => void;
-  chatCollaborationSizePct: number;
-  setChatCollaborationSizePct: (pct: number) => void;
 
   // Favourites (sidebar-visible discovered apps)
   favouriteApps: string[];
@@ -144,11 +142,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatPanelSizePct: (pct) => {
     set({ chatPanelSizePct: pct });
     persistLayout({ chatPanelSizePct: pct });
-  },
-  chatCollaborationSizePct: 35,
-  setChatCollaborationSizePct: (pct) => {
-    set({ chatCollaborationSizePct: pct });
-    persistLayout({ chatCollaborationSizePct: pct });
   },
 
   favouriteApps: [...DEFAULT_FAVOURITE_APP_IDS],

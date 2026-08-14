@@ -122,9 +122,31 @@ describe('starting a Room', () => {
 
     await coordinator.noteStructuralProgress(roomId, 'Implementer finished the parser.');
     await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 2, 'the implementer chased');
-    expect((await memberOf(roomId, 'lead')).status).toBe('waiting');
-    const prompt = String(host.persistentSessions.prompts.at(-1)?.content);
-    expect(prompt).toContain('Which file holds the parser?');
+    // The question itself is put back in front of it, not a summary of one.
+    expect(host.persistentSessions.prompts.map((entry) => String(entry.content)))
+      .toContainEqual(expect.stringContaining('Which file holds the parser?'));
+  });
+
+  it('frees the asker when the answer never comes', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    await coordinator.mailbox.ask(roomId, {
+      fromMemberId: 'lead',
+      toMemberIds: ['impl'],
+      body: 'Which file holds the parser?',
+      commandId: 'cmd-ask-2',
+    });
+    await waitFor(async () => (await memberOf(roomId, 'lead')).status === 'waiting', 'the lead waiting');
+
+    // Chased once, given a turn, and still no reply. Nobody else can end that
+    // wait, and a Room that sits on it burns its no-progress clock and lands on
+    // the user for something it can settle itself.
+    await coordinator.noteStructuralProgress(roomId, 'Implementer finished the parser.');
+    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns >= 2, 'the implementer chased');
+    await waitFor(async () => (await memberOf(roomId, 'lead')).status === 'idle', 'the lead freed');
+    expect((await memberOf(roomId, 'lead')).waitingOnQuestionId).toBeNull();
   });
 
   it('delivers a message nobody was woken for once the Room falls quiet', async () => {
@@ -144,7 +166,8 @@ describe('starting a Room', () => {
     await coordinator.noteStructuralProgress(roomId, 'Lead planned the work.');
 
     await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the implementer starting');
-    expect(String(host.persistentSessions.prompts.at(-1)?.content)).toContain('Start on the parser.');
+    expect(host.persistentSessions.prompts.map((entry) => String(entry.content)))
+      .toContainEqual(expect.stringContaining('Start on the parser.'));
   });
 
   it('does not wake the lead twice for the same silence', async () => {
