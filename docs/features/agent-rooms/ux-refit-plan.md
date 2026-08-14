@@ -1,5 +1,24 @@
 # Agent Rooms — UI refit plan
 
+## Progress
+
+- [x] Preview harness (§7)
+- [x] Phase 1 — token layer
+- [ ] Phase 2 — room-kit primitives (gate: Dan approves the kit)
+- [ ] Phase 3 — app shell
+- [ ] Phase 4 — Home
+- [ ] Phase 5 — Create a Room
+- [ ] Phase 6 — Preparing
+- [ ] Phase 7 — The proposal
+- [ ] Phase 8 — Adjust
+- [ ] Phase 9 — Why this team? (needs 6a rationale)
+- [ ] Phase 10 — Advanced settings
+- [ ] Phase 11 — The live Room (needs 6b statusAt)
+- [ ] Phase 12 — Watch and the member session
+- [ ] Data 6(a) — per-member rationale
+- [ ] Data 6(b) — RoomMember.statusAt
+- [ ] Final: harness out of the repo, second review round
+
 The Rooms UI has the right structure but the wrong surface. Every screen in
 `docs/prototypes/agent-rooms/` is recognisable in the shipped app, and none of
 them looks like it. This plan closes that gap screen by screen, and fixes the

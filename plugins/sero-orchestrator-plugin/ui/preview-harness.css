@@ -1,0 +1,11 @@
+/*
+ * Harness-only stylesheet. The Sero shell normally supplies the design
+ * tokens and the semantic bridge (--background, --muted, …) at the document
+ * root; a standalone page has neither. Importing the ui package globals here
+ * gives the preview both — scoped to the plugin root by seroPluginCssScope,
+ * with the theme switcher overriding the raw tokens inline on that root.
+ *
+ * This file is removed with the rest of the harness before the final commit.
+ */
+@import "./styles.css";
+@import "@sero-ai/ui/styles/globals.css";
