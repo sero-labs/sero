@@ -38,32 +38,100 @@ export interface RoomCommandSpec {
    * finishing the Room. Everything else is a member's own work.
    */
   conductorOnly: boolean;
+  /**
+   * How to call it, arguments and all.
+   *
+   * A member holds one bridged tool, so the only thing it knows about a command
+   * is what the protocol prompt tells it. Without the arguments in front of it a
+   * member invents a format, every call is refused for a missing field, and a
+   * Room that could do the work does nothing at all. Live runs failed exactly
+   * that way, so the syntax lives beside the command it belongs to.
+   */
+  usage: string;
 }
 
 export const ROOM_COMMANDS: readonly RoomCommandSpec[] = [
-  { id: 'show-roster', label: 'Show roster', conductorOnly: false },
-  { id: 'send-message', label: 'Send message', conductorOnly: false },
-  { id: 'broadcast', label: 'Broadcast', conductorOnly: false },
-  { id: 'ask', label: 'Ask', conductorOnly: false },
-  { id: 'reply', label: 'Reply', conductorOnly: false },
-  { id: 'wait', label: 'Wait', conductorOnly: false },
-  { id: 'show-mandate', label: 'Show mandate', conductorOnly: false },
-  { id: 'update-mandate', label: 'Update mandate', conductorOnly: true },
-  { id: 'update-work', label: 'Create or update work', conductorOnly: false },
-  { id: 'claim-paths', label: 'Claim paths', conductorOnly: false },
-  { id: 'release-paths', label: 'Release paths', conductorOnly: false },
-  { id: 'publish-artifact', label: 'Publish artifact', conductorOnly: false },
-  { id: 'report-status', label: 'Report status', conductorOnly: false },
-  { id: 'request-attention', label: 'Request attention', conductorOnly: false },
-  { id: 'publish-note', label: 'Publish situation note', conductorOnly: true },
-  { id: 'propose-revision', label: 'Propose Room revision', conductorOnly: true },
-  { id: 'collect-commits', label: 'Collect member commits and report overlapping edits', conductorOnly: true },
+  { id: 'show-roster', label: 'Show roster', conductorOnly: false, usage: 'sero room show-roster' },
+  {
+    id: 'send-message',
+    label: 'Send message',
+    conductorOnly: false,
+    usage: 'sero room send-message --to implementer --body "the parser is ready"',
+  },
+  { id: 'broadcast', label: 'Broadcast', conductorOnly: false, usage: 'sero room broadcast --body "I am on the parser"' },
+  {
+    id: 'ask',
+    label: 'Ask',
+    conductorOnly: false,
+    usage: 'sero room ask --to implementer --body "which file holds the parser?"',
+  },
+  {
+    id: 'reply',
+    label: 'Reply',
+    conductorOnly: false,
+    usage: 'sero room reply --questionId <id from the question> --body "src/parser.ts"',
+  },
+  { id: 'wait', label: 'Wait', conductorOnly: false, usage: 'sero room wait --questionId <id you asked>' },
+  { id: 'show-mandate', label: 'Show mandate', conductorOnly: false, usage: 'sero room show-mandate' },
+  {
+    id: 'update-mandate',
+    label: 'Update mandate',
+    conductorOnly: true,
+    usage: 'sero room update-mandate --memberId implementer --task "fix the parser" --priorities "tests first"',
+  },
+  {
+    id: 'update-work',
+    label: 'Create or update work',
+    conductorOnly: false,
+    usage:
+      'sero room update-work --title "Fix the parser" --memberId implementer --status "in progress"'
+      + ' (add --workId to update one)',
+  },
+  {
+    id: 'claim-paths',
+    label: 'Claim paths',
+    conductorOnly: false,
+    usage: 'sero room claim-paths --paths "src/parser.ts,src/lexer.ts" --reason "rewriting the tokenizer"',
+  },
+  { id: 'release-paths', label: 'Release paths', conductorOnly: false, usage: 'sero room release-paths --paths "src/parser.ts"' },
+  {
+    id: 'publish-artifact',
+    label: 'Publish artifact',
+    conductorOnly: false,
+    usage: 'sero room publish-artifact --artifactKind report --title "Findings" --body "…"',
+  },
+  { id: 'report-status', label: 'Report status', conductorOnly: false, usage: 'sero room report-status --body "fixing the parser"' },
+  {
+    id: 'request-attention',
+    label: 'Request attention',
+    conductorOnly: false,
+    usage: 'sero room request-attention --body "the API key is missing"',
+  },
+  { id: 'publish-note', label: 'Publish situation note', conductorOnly: true, usage: 'sero room publish-note --body "we are on track"' },
+  {
+    id: 'propose-revision',
+    label: 'Propose Room revision',
+    conductorOnly: true,
+    usage: 'sero room propose-revision --proposalJson \'{"kind":"suspend-member","memberId":"reviewer"}\' --reason "idle"',
+  },
+  {
+    id: 'collect-commits',
+    label: 'Collect member commits and report overlapping edits',
+    conductorOnly: true,
+    usage: 'sero room collect-commits',
+  },
   {
     id: 'request-delivery-approval',
     label: 'Ask the user to approve sending the result out of Sero',
     conductorOnly: true,
+    usage: 'sero room request-delivery-approval --content "the exact text the send will carry"',
   },
-  { id: 'finish-room', label: 'Finish Room', conductorOnly: true },
+  {
+    id: 'finish-room',
+    label: 'Finish Room',
+    conductorOnly: true,
+    usage: 'sero room finish-room --summary "what the Room achieved" (add --ref where the result landed)',
+  },
 ];
 
 export interface RoomCommandRequest {

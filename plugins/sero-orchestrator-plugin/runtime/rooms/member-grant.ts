@@ -109,11 +109,15 @@ export function memberCwdRoots(host: OrchestratorHost, member: RoomMember): stri
  */
 export function buildRoomProtocolPrompt(member: RoomMember): string {
   const commands = ROOM_COMMANDS.filter((command) => !command.conductorOnly || member.isConductor)
-    .map((command) => `- ${command.id}: ${command.label}`)
+    .map((command) => `- ${command.label}\n    ${command.usage}`)
     .join('\n');
   return [
     '## Room protocol',
     'You work with the other members through Room commands, run with the sero-cli tool.',
+    // Every argument is a named flag. A member that guesses the format spends
+    // its whole turn being refused for a missing field, which is how a Room
+    // with plenty of work to do ends up doing none of it.
+    'Every argument is a --flag, and text with spaces goes in quotes. One command per call.',
     'Ask when you are blocked, reply when you are asked, and wait rather than guessing.',
     'Waiting costs nothing: your turn ends, and it resumes when the answer arrives.',
     // The work board is the only record of progress the Room can read. Messages

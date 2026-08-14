@@ -300,6 +300,14 @@ describe('routing', () => {
     expect(record?.brief.activeWork[0]).toContain('Rewrite the tokenizer');
   });
 
+  it('answers a refusal with the syntax the caller needed', async () => {
+    const result = await router.execute(asImpl, { command: 'update-work' });
+    expect(result.ok).toBe(false);
+    // The member cannot see the tool schema — a refusal that only says what is
+    // missing leaves it guessing the shape of the call.
+    expect(result.text).toContain('Usage: sero room update-work --title');
+  });
+
   it('will not let a member put work on someone else', async () => {
     const result = await router.execute(asImpl, {
       command: 'update-work',

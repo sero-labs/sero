@@ -452,7 +452,12 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
     async execute(signals: RoomCallerSignals, input: RoomCommandInput): Promise<RoomCommandOutcome> {
       const known = ROOM_COMMANDS.find((candidate) => candidate.id === input.command);
       if (!known) {
-        return no(`"${input.command}" is not a Room command. Available: ${ROOM_COMMANDS.map((c) => c.id).join(', ')}.`);
+        // With the usage lines a member that guessed wrong can correct itself on
+        // the next call, instead of guessing a second format from a list of ids.
+        return no(
+          `"${input.command}" is not a Room command. These are:\n`
+          + ROOM_COMMANDS.map((command) => `  ${command.usage}`).join('\n'),
+        );
       }
       const caller = await resolveRoomCaller(store, signals);
       if (!caller) return no('Room commands are for Room members, and this session is not one.');
@@ -470,7 +475,12 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
       );
       if (!verdict.ok) return no(verdict.message, { code: verdict.code });
 
-      return run(caller, record, input, known.id, commandId);
+      const outcome = await run(caller, record, input, known.id, commandId);
+      // A refusal always carries the syntax. "New work needs a title" tells a
+      // member what is missing but not how to supply it, and a member that
+      // cannot see the shape of the call retries the same wrong shape until its
+      // turn is gone.
+      return outcome.ok ? outcome : { ...outcome, text: `${outcome.text}\nUsage: ${known.usage}` };
     },
   };
 }

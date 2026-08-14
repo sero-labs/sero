@@ -76,6 +76,10 @@ describe('starting a Room', () => {
     const additions = host.persistentSessions.requests[0].systemPromptAdditions?.join('\n') ?? '';
     expect(additions).toContain('## Room protocol');
     expect(additions).toContain('finish-room');
+    // With the ids alone a member invents an argument format, every call is
+    // refused for a missing field, and the Room does nothing. It gets the
+    // arguments, not just the names.
+    expect(additions).toContain('sero room ask --to implementer --body');
 
     const first = String(host.persistentSessions.prompts[0].content);
     expect(first).toContain('## Room brief');
