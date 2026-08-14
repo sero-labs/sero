@@ -367,7 +367,9 @@ exactly like Workflow-only Sero.
 2. **Read the proposal.** Sero computes the team, the time and spend ceiling,
    and what access the team gets. Nothing runs and nothing is spent yet. You can
    adjust it in plain words, or open every field.
-3. **Start it.** Members take turns inside the ceiling you approved. A member
+3. **Start it.** Sero asks you once to allow agent sessions — that press is the
+   approval the host stores. Members then take turns inside the ceiling you
+   approved. A member
    that asks a question ends its turn and frees its slot; it picks up in the
    same session when the answer lands.
 4. **Watch or leave it.** The Room shows what has happened and what each member
@@ -405,6 +407,14 @@ cannot approve its own request or stop the Room you are watching.
 
 Member sessions are ordinary Pi session files, so a member's whole history stays
 readable after it retires — including before a compaction.
+
+### Holding a machine to one model
+
+`SERO_ROOM_MODELS` limits every Room on the machine to the models it names, as
+`provider/id` and comma separated. `SERO_ROOM_THINKING` does the same for effort
+levels. Both are machine settings, not Room settings: the team is still designed
+for the problem, but it can only be staffed from what you allow. A name that
+matches nothing is ignored and written to the log.
 
 ## State and storage
 

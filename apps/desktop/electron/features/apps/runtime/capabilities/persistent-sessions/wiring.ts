@@ -80,6 +80,9 @@ async function clampAndApprove(
       { id: 'allow', label: 'Allow' },
       { id: 'deny', label: 'Not now' },
     ],
+    // Without this the card offers to continue by itself, which is the opposite
+    // of what silence does to a consent question.
+    fallbackLabel: 'nothing starts',
     timeoutMs: 120_000,
   });
 
