@@ -9,6 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
+import type { RoomMessageDraft } from '../rooms/room-messages';
 import type { RoomStore } from '../rooms/room-store';
 import type { FakeHost } from './fake-host';
 import {
@@ -117,6 +118,45 @@ describe('restart recovery', () => {
     expect((await cursorFor('impl'))?.lease).toBeNull();
     expect((await store.leaseMessagesFor(roomId, 'impl', 20)).messages).toEqual([]);
     expect(carries()).toBe(2);
+  });
+
+  it('ends a wait the log shows is over, and leaves an open one alone', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // The crash window: the reply is persisted and its command key claimed, but
+    // the process died before the waiter was released. The sender cannot retry —
+    // the same commandId now reads as a duplicate.
+    const message = (overrides: Partial<RoomMessageDraft>): RoomMessageDraft => ({
+      id: 'msg', kind: 'direct', fromMemberId: null, toMemberIds: [], body: '', questionId: null,
+      inReplyToQuestionId: null, wakeRecipients: true, commandId: 'cmd', createdAt: host.now(), ...overrides,
+    });
+    await store.appendMessages(roomId, [
+      message({ id: 'q-1', kind: 'question', fromMemberId: 'impl', toMemberIds: ['lead'],
+        body: 'Which patch?', questionId: 'q-1', commandId: 'cmd-q1' }),
+      message({ id: 'a-1', kind: 'reply', fromMemberId: 'lead', toMemberIds: ['impl'],
+        body: 'The first one.', inReplyToQuestionId: 'q-1', commandId: 'cmd-a1' }),
+      message({ id: 'q-2', kind: 'question', fromMemberId: 'scout', toMemberIds: ['lead'],
+        body: 'And the tests?', questionId: 'q-2', commandId: 'cmd-q2' }),
+    ]);
+    const waitOn = (memberId: string, questionId: string) =>
+      store.updateMember(roomId, memberId, (current) => ({
+        ...current, status: 'waiting', statusDetail: 'Waiting.', waitingOnQuestionId: questionId,
+      }));
+    await waitOn('impl', 'q-1');
+    await waitOn('scout', 'q-2');
+
+    await restartCoordinator(host, store).reconcileRooms();
+
+    // The answer is on record, so the wait is over whether or not anyone woke it.
+    const impl = await memberOf(roomId, 'impl');
+    expect(impl.waitingOnQuestionId).toBeNull();
+    expect(impl.status).not.toBe('waiting');
+    // Nothing answers q-2, so that wait is real and stands.
+    const scout = await memberOf(roomId, 'scout');
+    expect(scout.status).toBe('waiting');
+    expect(scout.waitingOnQuestionId).toBe('q-2');
   });
 
   it('does not repeat an interrupted delivery', async () => {

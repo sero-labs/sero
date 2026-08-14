@@ -153,6 +153,30 @@ function checkCaller(record: RoomRecord | null, memberId: string): CallerCheck {
   return { ok: true, record };
 }
 
+/**
+ * Every record-dependent reason a publish is refused.
+ *
+ * Deliberately run twice: once before the content file is written, so a publish
+ * already known to fail leaves nothing behind, and again inside the transaction,
+ * which is the only authority. The pre-check may go stale between the two; the
+ * transaction is what decides.
+ */
+function artifactRefusal(
+  record: RoomRecord | null,
+  memberId: string,
+  relatedWorkId: string | null,
+): RecordDenied<ArtifactDenyCode> | null {
+  const check = checkCaller(record, memberId);
+  if (!check.ok) return denied<ArtifactDenyCode>(check.code, check.message);
+  if (check.record.artifacts.length >= MAX_ARTIFACTS) {
+    return denied<ArtifactDenyCode>('too-many-artifacts', `This Room already holds ${MAX_ARTIFACTS} artifacts.`);
+  }
+  if (relatedWorkId && !check.record.work.some((item) => item.id === relatedWorkId)) {
+    return denied<ArtifactDenyCode>('unknown-work', `There is no work item ${relatedWorkId}.`);
+  }
+  return null;
+}
+
 export function createRoomWork(ctx: RoomWorkContext): RoomWork {
   const { host, store } = ctx;
 
@@ -263,9 +287,10 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
     },
 
     async publishArtifact(roomId, memberId, input, commandId) {
-      // The checks that need no record run first, because the content file is
-      // written before the transaction and a rejected request should not have
-      // produced one. A retry stops here too, so it cannot orphan a second file.
+      // Content is written BEFORE the transaction on purpose: a record naming a
+      // file that does not exist loses the artifact, while a file nothing names
+      // only wastes space the Room reclaims when it is deleted. So everything
+      // that can refuse the publish is checked first, and nothing doomed writes.
       if (!input.title.trim()) return denied<ArtifactDenyCode>('no-title', 'An artifact needs a title.');
       if (input.content === undefined && !input.ref?.trim()) {
         return denied<ArtifactDenyCode>('no-content', 'An artifact needs either content or a reference.');
@@ -276,6 +301,8 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
       if (commandId && (await store.hasAppliedCommand(roomId, commandId))) {
         return denied<ArtifactDenyCode>('duplicate', 'That artifact was already published.');
       }
+      const refusal = artifactRefusal(await store.readRoom(roomId), memberId, input.relatedWorkId ?? null);
+      if (refusal) return refusal;
 
       const id = host.newId('artifact');
       // Content is stored under the Room's own directory, so deleting the Room
@@ -297,17 +324,8 @@ export function createRoomWork(ctx: RoomWorkContext): RoomWork {
       };
 
       const outcome = await store.transact<ArtifactResult>(roomId, commandId ?? null, (record) => {
-        const nothing = (result: ArtifactResult): RoomTransaction<ArtifactResult> => ({ record: null, result });
-        const check = checkCaller(record, memberId);
-        if (!check.ok) return nothing(denied<ArtifactDenyCode>(check.code, check.message));
-        if (record.artifacts.length >= MAX_ARTIFACTS) {
-          return nothing(
-            denied<ArtifactDenyCode>('too-many-artifacts', `This Room already holds ${MAX_ARTIFACTS} artifacts.`),
-          );
-        }
-        if (artifact.relatedWorkId && !record.work.some((item) => item.id === artifact.relatedWorkId)) {
-          return nothing(denied<ArtifactDenyCode>('unknown-work', `There is no work item ${artifact.relatedWorkId}.`));
-        }
+        const refused = artifactRefusal(record, memberId, artifact.relatedWorkId);
+        if (refused) return { record: null, result: refused };
         return {
           record: {
             ...record,

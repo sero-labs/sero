@@ -407,16 +407,19 @@ export class RoomCoordinator {
    *
    * A member still holding a leased message batch is the exception. Its cursor
    * never moved, so waking it hands over the same messages rather than a repeat
-   * of the work (§17.1).
+   * of the work (§17.1). A member whose answer arrived while nothing was there
+   * to release it is woken for the same reason: to end a wait, not to redo work.
    */
   async reconcileRooms(options: { resume?: boolean } = {}): Promise<void> {
     const resumable = await reconcileAllRooms({ host: this.host, store: this.deps.store });
     if (options.resume === false) return;
-    for (const { roomId, replayMemberIds } of resumable) {
+    for (const { roomId, replayMemberIds, settledWaitMemberIds } of resumable) {
       const record = await this.deps.store.readRoom(roomId);
       const conductor = record?.members.find((member) => member.isConductor && member.status !== 'retired');
       if (conductor) await this.wake(roomId, conductor.id, 'user-intervention');
       for (const memberId of replayMemberIds) await this.wake(roomId, memberId, 'direct-message');
+      // The answer is already in their inbox; this only ends the wait it never got to end.
+      for (const memberId of settledWaitMemberIds) await this.wake(roomId, memberId, 'reply-received');
     }
   }
 

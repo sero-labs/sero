@@ -300,6 +300,21 @@ describe('work records and artifacts', () => {
     const stored = (await work.list(roomId)).find((entry) => entry.id === item.item.id);
     expect(stored?.artifactRefs).toEqual([published.artifact.ref]);
   });
+
+  it('writes no content file for a publish the record refuses', async () => {
+    const roomId = await draftRoom();
+    const before = host.artifacts.size;
+    const refused = await work.publishArtifact(roomId, 'api', {
+      kind: 'report',
+      title: 'What broke',
+      content: 'The handler threw on an empty body.',
+      relatedWorkId: 'work-that-is-not-there',
+    });
+    if (refused.ok) throw new Error('expected a refusal');
+    expect(refused.code).toBe('unknown-work');
+    // The refusal is knowable before the write, so it leaves nothing behind.
+    expect(host.artifacts.size).toBe(before);
+  });
 });
 
 describe('preserving uncommitted work', () => {

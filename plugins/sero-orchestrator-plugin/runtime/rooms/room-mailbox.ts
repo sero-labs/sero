@@ -284,6 +284,10 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
       // The wait is recorded BEFORE anyone is woken, so an answer that comes
       // straight back still finds a member to resume. Releasing the slot is what
       // ends the asker's turn (§17.3).
+      //
+      // A crash between the message and this line leaves the asker unblocked
+      // rather than stranded: the answer is addressed from the question itself,
+      // so it still arrives — the asker simply did not stop to wait for it.
       if (request.waitForReply !== false) {
         await blockOnQuestion(roomId, sender.id, questionId, `Waiting for an answer from ${names}.`);
       }

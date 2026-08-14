@@ -19,6 +19,9 @@
  * never accepted its prompt left the read cursor where it was, so the member is
  * woken and handed the same batch again — arriving twice is recoverable, being
  * dropped is not (§17.1).
+ *
+ * Waits are re-derived rather than repeated. A wait that the log proves is over
+ * is ended here, because the wake that would have ended it cannot come twice.
  */
 
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
@@ -27,6 +30,10 @@ import { reconcileMemberSessions, type MemberSessionDeps } from './member-sessio
 import { timelineEvent, withRoomStatus } from './room-actions';
 import { checkRoomLimits } from './room-limits';
 import type { RoomRecord } from './room-state';
+import type { RoomStore } from './room-store';
+
+/** How far back recovery looks for an answer a waiting member never heard. */
+const SETTLED_WAIT_SCAN = 500;
 
 export interface RoomReconcileResult {
   /** The same reference when nothing changed, so no file is rewritten. */
@@ -105,10 +112,48 @@ export function reconcileRoomRecord(host: OrchestratorHost, record: RoomRecord):
   return { record: withRoomStatus(record, 'running', now, null), resume: true, replayMemberIds, events };
 }
 
+/**
+ * Members left waiting on a question the durable log shows was already answered
+ * or withdrawn.
+ *
+ * A reply is persisted before its waiter is released, so a restart between the
+ * two leaves a durable wait with no wake coming: the sender's retry is refused
+ * as a duplicate, and the waiter holds its slot for good. Recovery ends the wait
+ * from the log instead.
+ *
+ * Only a wait that can be SHOWN to be over is ended. A question with no settling
+ * message — including one older than the scan — is treated as still open, so a
+ * member is never released from a wait that a member is genuinely still owed.
+ */
+async function settledWaits(store: RoomStore, record: RoomRecord): Promise<string[]> {
+  const waiting = record.members.flatMap((member) =>
+    member.status === 'waiting' && member.waitingOnQuestionId
+      ? [{ memberId: member.id, questionId: member.waitingOnQuestionId }]
+      : [],
+  );
+  if (waiting.length === 0) return [];
+
+  const latest = record.runtime.messageSequence;
+  const messages = await store.readMessages(
+    record.definition.id,
+    Math.max(0, latest - SETTLED_WAIT_SCAN),
+    SETTLED_WAIT_SCAN,
+  );
+  const settled = new Set(
+    messages.flatMap((message) => {
+      if (message.inReplyToQuestionId) return [message.inReplyToQuestionId];
+      return message.kind === 'cancel' && message.questionId ? [message.questionId] : [];
+    }),
+  );
+  return waiting.filter((wait) => settled.has(wait.questionId)).map((wait) => wait.memberId);
+}
+
 /** A Room that may resume, and who it owes a wake to. */
 export interface RoomResumption {
   roomId: string;
   replayMemberIds: string[];
+  /** Waits the log settled while nobody was there to end them. */
+  settledWaitMemberIds: string[];
 }
 
 /**
@@ -124,9 +169,17 @@ export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<RoomRe
     const current = await deps.store.readRoom(roomId);
     if (!current) continue;
     const result = reconcileRoomRecord(deps.host, current);
+    // Only a resuming Room settles waits: a paused one wakes nobody, and the
+    // check runs again when it resumes.
+    const settledWaitMemberIds = result.resume ? await settledWaits(deps.store, current) : [];
+    const events = [...result.events];
+    if (settledWaitMemberIds.length > 0) {
+      const summary = `${settledWaitMemberIds.length} member(s) waited for an answer that had already arrived. They were released.`;
+      events.push(timelineEvent(deps.host, roomId, 'recovery', null, summary));
+    }
     if (result.record !== current) await deps.store.updateRoom(roomId, () => result.record);
-    if (result.events.length > 0) await deps.store.appendTimeline(roomId, result.events);
-    if (result.resume) resumable.push({ roomId, replayMemberIds: result.replayMemberIds });
+    if (events.length > 0) await deps.store.appendTimeline(roomId, events);
+    if (result.resume) resumable.push({ roomId, replayMemberIds: result.replayMemberIds, settledWaitMemberIds });
   }
   return resumable;
 }
