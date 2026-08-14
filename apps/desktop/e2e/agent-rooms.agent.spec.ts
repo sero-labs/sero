@@ -175,11 +175,11 @@ async function openRooms(): Promise<void> {
  * The evaluation answers it the way a user does — by pressing the button — so
  * the consent surface is exercised rather than turned off.
  */
-async function allowAgentSessions(name: string): Promise<void> {
+async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<void> {
   // The card numbers its options, so the accessible name is "1. Allow" — a
   // substring match, never an exact one.
   const allow = page.getByRole('button', { name: 'Allow' }).first();
-  await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: 30_000 });
+  await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: timeoutMs });
   await shot(`${name}-02b-approval.png`);
   // Somebody watching the run can press it first. The Room's own status is what
   // decides whether it started; this click only has to not be the reason it
@@ -375,13 +375,17 @@ test.describe('the Room evaluation gate', () => {
 
     // The chat asks for a Room in the user's own words. The `rooms` tool is
     // what turns that into a drafted Room; nothing runs until it is started.
-    await promptAndCollectEvents(
+    const asked = promptAndCollectEvents(
       page,
       session.id,
       'Use the rooms tool to prepare a Room that documents what src/greet.ts does, in README.md. '
       + 'Then start it and tell me the Room id.',
       600_000,
     );
+    // The Room the chat starts needs the same approval as one started by hand,
+    // and the chat is still running while it is asked.
+    await allowAgentSessions('chat', 300_000);
+    await asked;
 
     const roomId = (roomIndex()?.rooms ?? []).find((room) => !before.has(room.id))?.id;
     expect(roomId, 'the chat never created a Room').toBeTruthy();

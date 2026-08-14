@@ -20,6 +20,16 @@ export interface LiveSession {
   sessionId: string;
   sessionPath: string;
   session: AgentSession;
+  /**
+   * The turn this session is running, or null between turns. Pi's own events
+   * carry no turn identity — `agent_start` has no fields and `agent_end` only
+   * the messages — so the id a caller is given by `prompt()` is the id this
+   * registry stamps on the events of that run. Without it a watcher waits for a
+   * turn boundary that can never arrive.
+   */
+  currentTurnId: string | null;
+  /** Set by `abort`, so the turn that ends next is reported as cancelled. */
+  aborting: boolean;
   /** Detaches the Pi listener when the session is disposed. */
   detach(): void;
 }
@@ -28,41 +38,58 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** Longest a tool's arguments may be shown as. Enough to read, short enough to sit on one line. */
+const SUMMARY_LIMIT = 120;
+
+/**
+ * One line describing what a tool was called with — the command, the path, the
+ * pattern. Taken as the first string argument rather than per tool: a fixed
+ * list of tool names would go stale the moment a tool is added, and this is a
+ * transient label, not a record.
+ */
+function argSummary(args: unknown): string {
+  if (!isRecord(args)) return '';
+  const first = Object.values(args).find((value): value is string => typeof value === 'string' && value.length > 0);
+  if (!first) return '';
+  const line = first.split('\n')[0].trim();
+  return line.length > SUMMARY_LIMIT ? `${line.slice(0, SUMMARY_LIMIT - 1)}…` : line;
+}
+
 /**
  * Maps a Pi session event to the capability's event, or null for the many Pi
  * events a watcher does not need. Keeping this union small is deliberate: it is
  * the contract a renderer eventually sees, and every field widens what a plugin
  * can observe about another product's session.
  */
-export function toPersistentSessionEvent(event: unknown): PersistentSessionEvent | null {
+export function toPersistentSessionEvent(
+  event: unknown,
+  turn: { id: string | null; aborting: boolean },
+): PersistentSessionEvent | null {
   if (!isRecord(event) || typeof event.type !== 'string') return null;
 
   switch (event.type) {
     case 'agent_start':
-      return { type: 'turn_start', turnId: String(event.turnId ?? '') };
-    case 'text':
-    case 'text_delta':
-      return typeof event.text === 'string' && event.text.length > 0
-        ? { type: 'text', text: event.text }
-        : null;
-    case 'tool_start':
-      return {
-        type: 'tool_start',
-        toolName: String(event.toolName ?? event.name ?? 'tool'),
-        summary: typeof event.summary === 'string' ? event.summary : '',
-      };
-    case 'tool_end':
-      return {
-        type: 'tool_end',
-        toolName: String(event.toolName ?? event.name ?? 'tool'),
-        ok: event.isError !== true,
-      };
+      return { type: 'turn_start', turnId: turn.id ?? '' };
+    // Pi streams the answer as deltas on the message being written. The
+    // thinking deltas are deliberately not forwarded: a watcher wants to know
+    // what the session is doing, and reasoning is neither its answer nor its act.
+    case 'message_update': {
+      const delta = isRecord(event.assistantMessageEvent) ? event.assistantMessageEvent : null;
+      if (!delta || delta.type !== 'text_delta' || typeof delta.delta !== 'string' || delta.delta.length === 0) {
+        return null;
+      }
+      return { type: 'text', text: delta.delta };
+    }
+    case 'tool_execution_start':
+      return { type: 'tool_start', toolName: String(event.toolName ?? 'tool'), summary: argSummary(event.args) };
+    case 'tool_execution_end':
+      return { type: 'tool_end', toolName: String(event.toolName ?? 'tool'), ok: event.isError !== true };
     case 'agent_end':
-      return {
-        type: 'turn_end',
-        turnId: String(event.turnId ?? ''),
-        status: event.aborted === true ? 'aborted' : 'completed',
-      };
+      // Pi retries inside one run: it emits `agent_end` for the attempt and
+      // starts again. The turn is only over when it will not retry.
+      return event.willRetry === true
+        ? null
+        : { type: 'turn_end', turnId: turn.id ?? '', status: turn.aborting ? 'aborted' : 'completed' };
     case 'compaction_end':
       return event.aborted === true ? null : { type: 'compacted' };
     default:
@@ -80,10 +107,16 @@ export class LiveSessionRegistry {
     return `${grantId}::${subject}`;
   }
 
-  add(entry: Omit<LiveSession, 'detach'>): LiveSession {
+  add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting'>): LiveSession {
     const detach = entry.session.subscribe((event) => {
-      const mapped = toPersistentSessionEvent(event);
+      const mapped = toPersistentSessionEvent(event, { id: live.currentTurnId, aborting: live.aborting });
       if (!mapped) return;
+      // The turn is over: the next one gets its own id, and a cancellation
+      // applies to the turn it cancelled, not to the one after it.
+      if (mapped.type === 'turn_end') {
+        live.currentTurnId = null;
+        live.aborting = false;
+      }
       // A throwing watcher must not break the session or the other watchers.
       for (const watcher of this.watchers.get(entry.handleId) ?? []) {
         try {
@@ -94,7 +127,7 @@ export class LiveSessionRegistry {
       }
     });
 
-    const live: LiveSession = { ...entry, detach };
+    const live: LiveSession = { ...entry, currentTurnId: null, aborting: false, detach };
     this.byHandle.set(entry.handleId, live);
     this.handleBySubject.set(LiveSessionRegistry.subjectKey(entry.grantId, entry.subject), entry.handleId);
     return live;
@@ -122,6 +155,20 @@ export class LiveSessionRegistry {
     this.handleBySubject.delete(LiveSessionRegistry.subjectKey(entry.grantId, entry.subject));
     this.watchers.delete(handleId);
     return entry;
+  }
+
+  /** Names the turn a session is about to run, so its events can be matched to it. */
+  beginTurn(handleId: string, turnId: string): void {
+    const entry = this.byHandle.get(handleId);
+    if (!entry) return;
+    entry.currentTurnId = turnId;
+    entry.aborting = false;
+  }
+
+  /** Records that the running turn was cancelled rather than finished. */
+  markAborting(handleId: string): void {
+    const entry = this.byHandle.get(handleId);
+    if (entry) entry.aborting = true;
   }
 
   watch(handleId: string, cb: (event: PersistentSessionEvent) => void): () => void {

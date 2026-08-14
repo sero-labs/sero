@@ -207,8 +207,13 @@ export class PersistentSessionHost implements PersistentSessionsApi {
 
   async prompt(handleId: string, content: ExtensionRuntimeContent): Promise<{ turnId: string }> {
     const entry = this.requireLive(handleId);
+    // Named BEFORE the message is sent. A fast turn can start and end while
+    // `sendUserMessage` is still resolving, and those events must already carry
+    // the id this call is about to return.
+    const turnId = this.deps.newId('turn');
+    this.live.beginTurn(handleId, turnId);
     await entry.session.sendUserMessage(toPiContent(content));
-    return { turnId: this.deps.newId('turn') };
+    return { turnId };
   }
 
   async steer(handleId: string, content: ExtensionRuntimeContent): Promise<void> {
@@ -217,7 +222,11 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   }
 
   async abort(handleId: string): Promise<void> {
-    await this.requireLive(handleId).session.abort();
+    const entry = this.requireLive(handleId);
+    // Pi reports no reason with the end of a run, so the cancellation is
+    // remembered here — otherwise a cancelled turn is reported as finished.
+    this.live.markAborting(handleId);
+    await entry.session.abort();
   }
 
   subscribe(handleId: string, cb: (event: PersistentSessionEvent) => void): () => void {
