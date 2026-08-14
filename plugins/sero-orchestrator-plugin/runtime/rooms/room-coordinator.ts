@@ -57,6 +57,7 @@ import { scheduleRoomTurns, type ReadySignal, type WakeReason } from './room-sch
 import { escalate, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
+import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 
 export type { RoomActionResult, RoomCoordinatorEvent } from './room-lifecycle';
 
@@ -77,6 +78,8 @@ export interface RoomCoordinatorDeps {
    * definition and the roster alone.
    */
   briefSources?(roomId: string): Promise<BriefSources>;
+  /** Placement and checkpoints. Defaulted below, so production cannot omit it. */
+  workspaces?: RoomWorkspaces;
 }
 
 export class RoomCoordinator {
@@ -114,6 +117,7 @@ export class RoomCoordinator {
       host,
       store: deps.store,
       sessions: deps.sessions,
+      workspaces: deps.workspaces ?? createRoomWorkspaces({ host, store: deps.store }),
       hasTurnsInFlight: (roomId) => this.hasTurnsInFlight(roomId),
       abortTurns: (roomId) => this.abortTurns(roomId),
       emit: (event) => this.emit(event),

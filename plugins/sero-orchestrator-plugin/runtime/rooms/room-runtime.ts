@@ -65,6 +65,9 @@ export function createRoomRuntime(
   const coordinator = new RoomCoordinator(host, {
     store,
     sessions,
+    // The SAME instance the runtime exposes, so placement, checkpoints and
+    // commit collection all act on one view of the Room's checkouts.
+    workspaces,
     briefSources: (roomId) => work.briefSources(roomId),
   });
 

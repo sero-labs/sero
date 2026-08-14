@@ -30,6 +30,7 @@ import {
 } from './room-actions';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
+import type { RoomWorkspaces } from './room-workspace';
 
 export interface RoomActionResult {
   ok: boolean;
@@ -49,6 +50,8 @@ export interface RoomLifecycleContext {
   host: OrchestratorHost;
   store: RoomStore;
   sessions: MemberSessionPool;
+  /** Placement and checkpoints. Activation needs it BEFORE the grant is requested. */
+  workspaces: RoomWorkspaces;
   /** True while this process has a turn running for the Room. */
   hasTurnsInFlight(roomId: string): boolean;
   /** Aborts every turn this process is running for the Room. */
@@ -93,9 +96,25 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
   const conductor = record.members.find((member) => member.isConductor);
   if (!conductor) return fail('This Room has no Conductor.');
 
+  // Placement comes FIRST. A grant subject is pinned to the directory its member
+  // may work in, so an editing member with no worktree yet would either be
+  // pinned to the shared tree — the exact reach a worktree exists to prevent —
+  // or refused outright. `memberCwdRoots` chooses to refuse, so a Room whose
+  // members edit cannot be granted until its trees exist.
+  const placements = await ctx.workspaces.prepare(roomId).catch((error: unknown) => {
+    ctx.host.log(`room ${roomId}: workspace preparation failed: ${String(error)}`);
+    return null;
+  });
+  if (!placements) return fail('This Room could not prepare a workspace for its members, so it did not start.');
+
+  // Placement wrote `worktreePath` for each editing member, so the grant is
+  // requested against the re-read record rather than the stale one.
+  const placedRecord = await ctx.store.readRoom(roomId);
+  if (!placedRecord) return fail(`Room not found: ${roomId}`);
+
   // The user can decline, and the host denies anything outside their authority.
   // Both arrive as a rejection, and both mean no session is ever created.
-  const grant = await requestRoomGrant(ctx.host, record).catch((error: unknown) => {
+  const grant = await requestRoomGrant(ctx.host, placedRecord).catch((error: unknown) => {
     ctx.host.log(`room ${roomId}: grant refused: ${String(error)}`);
     return null;
   });
@@ -209,6 +228,17 @@ export async function cancelRoom(
   // Cancellation is the one path that does stop work mid-turn: the user asked
   // for it, so the tokens already spent are the price of stopping now.
   ctx.abortTurns(roomId);
+
+  // Commit whatever the members had not committed, BEFORE the grant goes. After
+  // `releaseAuthority` no member session can ever run again, so edits left
+  // uncommitted here would be stranded in a worktree with nothing in the Room
+  // able to finish them. This preserves; it removes nothing (§10, and the rule
+  // that cancelling never silently loses member work).
+  await ctx.workspaces.preserveRoom(roomId, detail).catch((error: unknown) => {
+    ctx.host.log(`room ${roomId}: could not preserve member work on cancel: ${String(error)}`);
+    return [];
+  });
+
   const now = ctx.host.now();
   await ctx.store.updateRoom(roomId, (current) =>
     withRoomStatus(
@@ -256,6 +286,16 @@ export async function completeRoom(
   if (!delivered.ok && delivered.problems.length > 0) {
     ctx.host.notify(`The Room finished, but its result was not delivered: ${delivered.problems.join('; ')}`, 'warning');
   }
+
+  // Same reason as cancellation, and a likelier case: finishing is the NORMAL
+  // ending, so a member that left edits uncommitted loses them here unless they
+  // are checkpointed before the grant goes. The Conductor is meant to collect
+  // commits first, but a Room that completes without doing so must still not
+  // strand work.
+  await ctx.workspaces.preserveRoom(roomId, summary).catch((error: unknown) => {
+    ctx.host.log(`room ${roomId}: could not preserve member work on completion: ${String(error)}`);
+    return [];
+  });
 
   await releaseAuthority(ctx, roomId, summary);
   return ok(await reread(ctx, roomId, record));
