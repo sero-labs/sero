@@ -580,5 +580,202 @@
       "currency-formatter:src/money.ts",
       "currency-formatter:src/money.spec.ts"
     ]
+  },
+  {
+    "scenario": "4-chat-origin",
+    "roomId": "room_2401fd1e-e97e-4024-8929-8ae5837abc0b",
+    "status": "completed",
+    "durationMs": 240986,
+    "costUsd": 0.24248790000000003,
+    "maxCostUsd": 5,
+    "turns": 22,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "session:01a001e2-d42c-7467-855e-58d9a07ebe44",
+    "roster": [
+      {
+        "role": "Conductor and reviewer",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "low",
+        "costUsd": 0.11249895
+      },
+      {
+        "role": "Documentation implementer",
+        "conductor": false,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "low",
+        "costUsd": 0.12998895000000002
+      }
+    ],
+    "sessionId": "01a001e2-d42c-7467-855e-58d9a07ebe44"
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_1d41b501-f2dc-4cc3-820c-f19391a8dc8c",
+    "status": "completed",
+    "durationMs": 202169,
+    "costUsd": 0.0783267,
+    "maxCostUsd": 5,
+    "turns": 2,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Conductor and Reviewer",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "low",
+        "costUsd": 0.03806790000000001
+      },
+      {
+        "role": "Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.0402588
+      }
+    ],
+    "workItems": 2,
+    "artifacts": 2,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786738371967",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786738371967/.sero/worktrees/card-room-room_1d41b501-f2dc-4cc3-820c-f19391a8dc8c-implementer",
+        "content": "export function greet(name: string): string {\n  const resolvedName = name || \"world\";\n  return `Hello, ${resolvedName}!`;\n}\n"
+      }
+    ]
+  },
+  {
+    "scenario": "2-adversarial",
+    "roomId": "room_d150c578-f61b-4fbb-8d8c-51a516829107",
+    "status": "completed",
+    "durationMs": 845093,
+    "costUsd": 1.0133442,
+    "maxCostUsd": 5,
+    "turns": 12,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Decision synthesiser",
+        "conductor": true,
+        "model": "anthropic/claude-sonnet-5",
+        "thinking": "high",
+        "costUsd": 0.28298699999999993
+      },
+      {
+        "role": "Design advocate",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "medium",
+        "costUsd": 0.5962158
+      },
+      {
+        "role": "Security and reliability critic",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-5",
+        "thinking": "high",
+        "costUsd": 0.13414140000000002
+      }
+    ],
+    "artifacts": 4,
+    "decision": [
+      "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786738371967/.sero/worktrees/card-room-room_d150c578-f61b-4fbb-8d8c-51a516829107-conductor"
+    ]
+  },
+  {
+    "scenario": "3-parallel",
+    "roomId": "room_746d9351-6e97-4096-90cb-ff746f07598b",
+    "status": "completed",
+    "durationMs": 289809,
+    "costUsd": 0.15176279999999998,
+    "maxCostUsd": 5,
+    "turns": 4,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Integration Conductor",
+        "conductor": true,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.0646689
+      },
+      {
+        "role": "Currency Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.0443121
+      },
+      {
+        "role": "Greeting Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.04278179999999999
+      }
+    ],
+    "worktrees": [
+      "chore/parallel-greeting-and-currency-enhancements-morg-room-room_746d9351-6e97-4096-90cb-ff746f07598b-conductor",
+      "chore/parallel-greeting-and-currency-enhancements-grac-room-room_746d9351-6e97-4096-90cb-ff746f07598b-currency-implementer",
+      "chore/parallel-greeting-and-currency-enhancements-ada--room-room_746d9351-6e97-4096-90cb-ff746f07598b-greeting-implementer"
+    ],
+    "claims": [
+      "conductor:src/greet.ts",
+      "conductor:src/greet.test.ts",
+      "conductor:src/money.ts",
+      "conductor:src/money.test.ts",
+      "greeting-implementer:src/greet.ts",
+      "greeting-implementer:src/greet.test.ts",
+      "currency-implementer:src/money.ts",
+      "currency-implementer:src/money.test.ts"
+    ]
+  },
+  {
+    "scenario": "4-chat-origin",
+    "roomId": "room_78d92913-3e05-47ac-9157-ad1e9f745bfb",
+    "status": "completed",
+    "durationMs": 155843,
+    "costUsd": 0.12256479999999997,
+    "maxCostUsd": 5,
+    "turns": 4,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "session:01a001fe-7ec0-76e4-8c66-07e2e6496920",
+    "roster": [
+      {
+        "role": "Conductor and verifier",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "medium",
+        "costUsd": 0.09016839999999998
+      },
+      {
+        "role": "Documentation implementer",
+        "conductor": false,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "low",
+        "costUsd": 0.0323964
+      }
+    ],
+    "sessionId": "01a001fe-7ec0-76e4-8c66-07e2e6496920"
   }
 ]

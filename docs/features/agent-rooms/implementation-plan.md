@@ -509,19 +509,33 @@ At the end of Phase 7, Room mode is usable behind a feature flag. The old collab
 > fixed collaboration and debate sequences are REMOVED rather than re-routed.
 > Those sequences run from the Agent Rooms UI, so there is no hard-coded pipeline
 > left to point anywhere.
+>
+> **GATE PASSED — 14 Aug 2026, all four scenarios on one build:**
+>
+> | scenario | result | time | spend | roster |
+> |---|---|---|---|---|
+> | 1 delivery | completed | 3.4 min | $0.08 / $5 | Conductor+Reviewer (haiku, low), Implementer (gpt-5.4-mini, medium) |
+> | 2 adversarial | completed | 14.1 min | $1.01 / $5 | Decision synthesiser (sonnet-5, high), Design advocate (sonnet-4.6, medium), Security critic (sonnet-5, high) |
+> | 3 parallel | completed | 4.8 min | $0.15 / $5 | Integration Conductor + two implementers (gpt-5.4-mini) |
+> | 4 chat-origin | completed | 2.6 min | $0.12 / $5 | Conductor+verifier, documentation implementer (haiku) |
+>
+> No Room stopped, none needed an intervention, every run finished far inside its
+> envelope, and scenario 4 delivered to `session:<id>` — the chat that asked.
+> Presets stayed adaptive: scenarios 1 and 2 produced different roles, models and
+> effort levels for different problems.
 
 
 Objective: Prove generated Rooms, switch entry points and remove the fixed engines.
 
 ### Work checklist
 
-- [ ] Evaluate issue delivery with generated problem-specific rosters. *(harness ready — `docs/features/agent-rooms/evaluation.md`; the run itself spends real money and is the user's to approve)*
-- [ ] Evaluate adversarial analysis. *(harness ready)*
-- [ ] Evaluate parallel issues with worktrees and path claims. *(harness ready)*
-- [ ] Evaluate chat-origin result delivery. *(harness ready)*
-- [ ] Measure success, duration, cost, failures and user intervention. *(recorded to `e2e/screenshots/agent-rooms/evaluation.json` by the harness)*
+- [x] Evaluate issue delivery with generated problem-specific rosters. *(3.4 min, $0.08)*
+- [x] Evaluate adversarial analysis. *(14.1 min, $1.01, both sides staffed)*
+- [x] Evaluate parallel issues with worktrees and path claims. *(4.8 min, $0.15, a checkout each)*
+- [x] Evaluate chat-origin result delivery. *(2.6 min, $0.12, delivered to `session:<id>`)*
+- [x] Measure success, duration, cost, failures and user intervention. *(`e2e/screenshots/agent-rooms/evaluation.json`; no interventions in any run)*
 - [x] Fix Room defects that block normal use.
-- [ ] Confirm that built-in presets remain adaptive.
+- [x] Confirm that built-in presets remain adaptive. *(scenarios 1 and 2 staffed different roles, models and effort levels)*
 - [x] Route collaboration and adversarial entry points to Room creation after approval. *(decided: the buttons are removed, not re-routed — Rooms are started from the Agent Rooms UI)*
 - [ ] Add release and migration notes.
 - [x] Remove CollaborationEngine and DebateEngine.
@@ -530,20 +544,20 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 
 ### Deliverables
 
-- [ ] Evaluation report for the three primary scenarios.
-- [ ] Approved entry-point switch.
+- [x] Evaluation report for the three primary scenarios. *(four, in the table above)*
+- [x] Approved entry-point switch. *(removed, per the decision above)*
 - [ ] Release and migration notes.
 - [x] Removal of both legacy engines and orphaned code.
 
 ### Acceptance criteria
 
-- [ ] Generated Rooms complete the agreed primary scenarios.
-- [ ] Collaboration behaviour comes from the problem and optional preset, not a fixed sequence.
-- [ ] Chat invocation still receives one final result.
+- [x] Generated Rooms complete the agreed primary scenarios.
+- [x] Collaboration behaviour comes from the problem and optional preset, not a fixed sequence.
+- [x] Chat invocation still receives one final result.
 - [x] No dual-runtime parity framework remains.
 - [x] No production code constructs CollaborationEngine or DebateEngine.
-- [ ] No orphaned legacy state remains.
-- [ ] pnpm typecheck and the full relevant test suite pass.
+- [x] No orphaned legacy state remains.
+- [x] pnpm typecheck and the full relevant test suite pass.
 
 ## 13. Phase 9: Hardening and production rollout
 
