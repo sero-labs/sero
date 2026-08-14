@@ -181,7 +181,9 @@ const panel = () => page.locator('[data-app="orchestrator"]').first();
 async function openRooms(): Promise<void> {
   await page.evaluate(() => window.__appControl?.openApp('orchestrator'));
   await expect(panel()).toBeVisible({ timeout: 20_000 });
-  await panel().getByRole('button', { name: 'Rooms' }).click();
+  // By its title, not its name: once a Room exists the mode tab reads
+  // "Rooms 1", and the Room list has a "Rooms" button of its own.
+  await panel().getByTitle('Rooms — a team per problem').click();
 }
 
 /**
@@ -246,7 +248,9 @@ async function settle(roomId: string, name: string): Promise<RoomFile> {
   return room;
 }
 
-test.describe.configure({ mode: 'serial' });
+// One app, one scenario at a time — but NOT serial: the gate needs all four
+// answers from one run, and serial mode skips the rest as soon as one fails.
+test.describe.configure({ mode: 'default' });
 test.skip(gate.skip, gate.reason);
 test.skip(!ENABLED, 'Set SERO_E2E_ROOMS=1 to run the Room evaluation. It spends real money.');
 

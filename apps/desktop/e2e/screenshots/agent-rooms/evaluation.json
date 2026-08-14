@@ -77,5 +77,89 @@
         "content": "export function greet(name: string): string {\n  return `Hello, ${name === \"\" ? \"world\" : name}!`;\n}\n"
       }
     ]
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_febe018c-6c4c-474a-9505-d1318fb3f2b1",
+    "status": "completed",
+    "durationMs": 247688,
+    "costUsd": 0.27389434999999995,
+    "maxCostUsd": 5,
+    "turns": 2,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Coordinator and Reviewer",
+        "conductor": true,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "medium",
+        "costUsd": 0.07458195000000001
+      },
+      {
+        "role": "TypeScript Fix Implementer",
+        "conductor": false,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "medium",
+        "costUsd": 0.19931239999999997
+      }
+    ],
+    "workItems": 1,
+    "artifacts": 0,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786721745433",
+        "content": "export function greet(name: string): string {\n  const displayName = name === '' ? 'World' : name;\n  return `Hello, ${displayName}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786721745433/.sero/worktrees/card-room-room_febe018c-6c4c-474a-9505-d1318fb3f2b1-implementer",
+        "content": "export function greet(name: string): string {\n  const displayName = name === '' ? 'World' : name;\n  return `Hello, ${displayName}!`;\n}\n"
+      }
+    ]
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_773848b1-ab71-4c33-adab-4a88a39910af",
+    "status": "completed",
+    "durationMs": 235212,
+    "costUsd": 0.13099555000000002,
+    "maxCostUsd": 5,
+    "turns": 3,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Conductor and Reviewer",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "medium",
+        "costUsd": 0.07055440000000002
+      },
+      {
+        "role": "Bug Fix Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.06044114999999999
+      }
+    ],
+    "workItems": 2,
+    "artifacts": 0,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786724402230",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786724402230/.sero/worktrees/card-room-room_773848b1-ab71-4c33-adab-4a88a39910af-implementer",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name || \"World\"}!`;\n}\n"
+      }
+    ]
   }
 ]
