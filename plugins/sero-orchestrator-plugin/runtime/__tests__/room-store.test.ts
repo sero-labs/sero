@@ -283,6 +283,23 @@ describe('room store', () => {
     expect(index.schemaVersion).toBe(ROOM_SCHEMA_VERSION);
   });
 
+  it('rebuilds a summary an older build left stale, without waiting for the Room to move', async () => {
+    // The index is what the home inbox reads. A Room paused by an older build
+    // carried a summary that predates what the inbox now shows, and nothing was
+    // going to touch that record again — so the Room sat waiting for the user
+    // while the inbox said there was nothing to do.
+    const store = createRoomStore(makeCtx());
+    await store.updateState((state) => ({ ...state, rooms: [roomFixture('room-a')] }));
+    const indexPath = path.join(dir, 'rooms/index.json');
+    const stale = JSON.parse(await readFile(indexPath, 'utf8'));
+    stale.rooms[0].attentionCount = 99;
+    await writeFile(indexPath, JSON.stringify(stale), 'utf8');
+
+    await createRoomStore(makeCtx()).readState();
+    const repaired = JSON.parse(await readFile(indexPath, 'utf8'));
+    expect(repaired.rooms[0].attentionCount).toBe(0);
+  });
+
   it('moves the record when the timeline moves, so a watcher learns of it', async () => {
     // A claim or a revision appends an event without touching anything else the
     // Room panel follows. Without this the panel would show a stale timeline

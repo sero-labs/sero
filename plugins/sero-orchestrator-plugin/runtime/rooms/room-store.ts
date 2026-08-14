@@ -38,7 +38,6 @@ import {
 import { createRoomPaths } from './room-paths';
 import {
   DEFAULT_ROOM_RETENTION,
-  ROOM_SCHEMA_VERSION,
   buildRoomIndex,
   composeRoomState,
   diffMembers,
@@ -215,7 +214,13 @@ export function createRoomStore(
       rooms.push(migrated);
     }
     const state = composeRoomState(rooms);
-    if (index.schemaVersion !== ROOM_SCHEMA_VERSION) await writeJson(paths.index, buildRoomIndex(state));
+    // The index is a projection of the records, and it is what the home inbox
+    // and the Rooms list read. Rebuilding it here — and writing only when it
+    // actually differs — means a Room written by an older build cannot leave a
+    // stale summary on screen for ever: a paused Room that needed the user
+    // stayed out of the inbox until something happened to touch its record.
+    const rebuilt = buildRoomIndex(state);
+    if (JSON.stringify(rebuilt) !== JSON.stringify(index)) await writeJson(paths.index, rebuilt);
     return state;
   }
 

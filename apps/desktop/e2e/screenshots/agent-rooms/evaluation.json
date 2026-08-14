@@ -324,5 +324,261 @@
       }
     ],
     "sessionId": "01a00136-2eab-7d56-a5b9-1c6cbb83c901"
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_949cea67-9730-45ec-94f1-c1b14117a65d",
+    "status": "completed",
+    "durationMs": 559109,
+    "costUsd": 0.18953584999999998,
+    "maxCostUsd": 5,
+    "turns": 2,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Conductor",
+        "conductor": true,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.026903100000000003
+      },
+      {
+        "role": "Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.3-codex-spark",
+        "thinking": "medium",
+        "costUsd": 0.16263274999999996
+      }
+    ],
+    "workItems": 2,
+    "artifacts": 1,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786730037733",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786730037733/.sero/worktrees/card-room-room_949cea67-9730-45ec-94f1-c1b14117a65d-conductor",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name || \"world\"}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786730037733/.sero/worktrees/card-room-room_949cea67-9730-45ec-94f1-c1b14117a65d-implementer",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name || \"world\"}!`;\n}\n"
+      }
+    ]
+  },
+  {
+    "scenario": "2-adversarial",
+    "roomId": "room_bd94fa0b-1a11-4290-b15e-f51bbf83938c",
+    "status": "completed",
+    "durationMs": 1046054,
+    "costUsd": 2.11084215,
+    "maxCostUsd": 5,
+    "turns": 12,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Decision editor",
+        "conductor": true,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "high",
+        "costUsd": 0.4575616500000001
+      },
+      {
+        "role": "Case-for analyst",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "medium",
+        "costUsd": 0.5691228
+      },
+      {
+        "role": "Case-against analyst",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "high",
+        "costUsd": 1.0841576999999998
+      }
+    ],
+    "artifacts": 17,
+    "decision": [
+      "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786730037733/.sero/worktrees/card-room-room_bd94fa0b-1a11-4290-b15e-f51bbf83938c-conductor"
+    ]
+  },
+  {
+    "scenario": "3-parallel",
+    "roomId": "room_772b03e3-cbd1-40fa-b88f-ca587e5fa459",
+    "status": "completed",
+    "durationMs": 380110,
+    "costUsd": 0.13396215,
+    "maxCostUsd": 5,
+    "turns": 3,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Conductor and Greeting Implementer",
+        "conductor": true,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.07051425000000001
+      },
+      {
+        "role": "Money Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.0634479
+      }
+    ],
+    "worktrees": [
+      "chore/parallel-greet-and-money-updates-ada-greeting-ow-room-room_772b03e3-cbd1-40fa-b88f-ca587e5fa459-greet-conductor",
+      "chore/parallel-greet-and-money-updates-mina-currency-f-room-room_772b03e3-cbd1-40fa-b88f-ca587e5fa459-money-implementer"
+    ],
+    "claims": [
+      "greet-conductor:src/greet.ts",
+      "money-implementer:src/money.ts"
+    ]
+  },
+  {
+    "scenario": "1-delivery",
+    "roomId": "room_4637b27e-ab5e-4e6f-9082-ff948af84926",
+    "status": "completed",
+    "durationMs": 213437,
+    "costUsd": 0.0652487,
+    "maxCostUsd": 5,
+    "turns": 2,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Conductor",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "medium",
+        "costUsd": 0.037707500000000005
+      },
+      {
+        "role": "TypeScript implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.0275412
+      }
+    ],
+    "workItems": 1,
+    "artifacts": 1,
+    "greetFiles": [
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786733109123",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n"
+      },
+      {
+        "root": "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786733109123/.sero/worktrees/card-room-room_4637b27e-ab5e-4e6f-9082-ff948af84926-implementer",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name === \"\" ? \"world\" : name}!`;\n}\n"
+      }
+    ]
+  },
+  {
+    "scenario": "2-adversarial",
+    "roomId": "room_c290dd6b-e052-4198-a675-e9f9a47e20e3",
+    "status": "completed",
+    "durationMs": 1424304,
+    "costUsd": 1.4521564000000002,
+    "maxCostUsd": 5,
+    "turns": 6,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Decision editor",
+        "conductor": true,
+        "model": "anthropic/claude-sonnet-5",
+        "thinking": "high",
+        "costUsd": 0.17709760000000002
+      },
+      {
+        "role": "Case-for analyst",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "medium",
+        "costUsd": 0.49907055000000017
+      },
+      {
+        "role": "Case-against analyst",
+        "conductor": false,
+        "model": "anthropic/claude-sonnet-4-6",
+        "thinking": "high",
+        "costUsd": 0.7759882500000002
+      }
+    ],
+    "artifacts": 6,
+    "decision": [
+      "/Users/danielcarter/.sero-ui/workspaces/agent-rooms-e2e-1786733109123/.sero/worktrees/card-room-room_c290dd6b-e052-4198-a675-e9f9a47e20e3-conductor"
+    ]
+  },
+  {
+    "scenario": "3-parallel",
+    "roomId": "room_dcdb3d2f-b624-490b-8af8-479e51cf1d78",
+    "status": "completed",
+    "durationMs": 454382,
+    "costUsd": 0.27566720000000006,
+    "maxCostUsd": 5,
+    "turns": 11,
+    "rosterRevisions": 0,
+    "memberReplacements": 0,
+    "stopReason": null,
+    "delivered": true,
+    "deliveryRef": "workspace",
+    "roster": [
+      {
+        "role": "Integration Conductor",
+        "conductor": true,
+        "model": "anthropic/claude-haiku-4-5",
+        "thinking": "low",
+        "costUsd": 0.14041430000000002
+      },
+      {
+        "role": "Money Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.05496045
+      },
+      {
+        "role": "Greeting Implementer",
+        "conductor": false,
+        "model": "openai-codex/gpt-5.4-mini",
+        "thinking": "medium",
+        "costUsd": 0.08029245000000002
+      }
+    ],
+    "worktrees": [
+      "chore/greeting-validation-and-currency-formatting-morg-room-room_dcdb3d2f-b624-490b-8af8-479e51cf1d78-conductor",
+      "chore/greeting-validation-and-currency-formatting-rile-room-room_dcdb3d2f-b624-490b-8af8-479e51cf1d78-currency-formatter",
+      "chore/greeting-validation-and-currency-formatting-aver-room-room_dcdb3d2f-b624-490b-8af8-479e51cf1d78-greeting-validator"
+    ],
+    "claims": [
+      "greeting-validator:src/greet.ts",
+      "greeting-validator:src/greet.spec.ts",
+      "currency-formatter:src/money.ts",
+      "currency-formatter:src/money.spec.ts"
+    ]
   }
 ]

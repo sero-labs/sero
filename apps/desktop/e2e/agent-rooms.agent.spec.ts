@@ -35,6 +35,7 @@ import {
   launchSeroApp,
   requireLlmReady,
   getLlmLaunchEnv,
+  layout as layoutSel,
   workspace as workspaceSel,
   type TempSeroHome,
 } from './helpers';
@@ -306,7 +307,12 @@ test.beforeAll(async () => {
     return workspace;
   }, { folderPath: wsDir });
   wsId = created.id;
-  await page.locator(workspaceSel.nodeById(wsId)).click();
+  // With a real home the shell restores the user's own layout, and a collapsed
+  // sidebar hides the workspace tree entirely — the gate then fails on a
+  // missing node rather than on anything it is meant to measure.
+  const node = page.locator(workspaceSel.nodeById(wsId));
+  if (!(await node.isVisible())) await page.locator(layoutSel.sidebarToggle).click();
+  await node.click();
   await expect
     .poll(() => page.evaluate(() => window.sero.layout.load()), { timeout: 10_000 })
     .toMatchObject({ activeWorkspaceId: wsId });
