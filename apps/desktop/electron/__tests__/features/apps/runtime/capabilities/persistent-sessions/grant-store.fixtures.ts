@@ -137,7 +137,7 @@ export async function issueWithSession(
   handleId: string,
   overrides: Partial<PersistentSessionGrantProposal> = {},
 ): Promise<StoredGrant> {
-  const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal(overrides));
+  const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal(overrides));
   const reservationId = await reserved(store, grant.grantId, subject);
   await store.commitReservation(grant.grantId, reservationId, handleId, sessionPath);
   return grant;

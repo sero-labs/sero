@@ -166,6 +166,8 @@ export interface MemberDiffEntry {
   thinkingChanged?: { from: string; to: string };
   permissionsChanged?: { from: MemberPermissionLevel; to: MemberPermissionLevel };
   worktreeChanged?: { from: boolean; to: boolean };
+  /** Conductor status is authority, so a transfer between members is a change. */
+  conductorChanged?: { from: boolean; to: boolean };
 }
 
 export interface EnvelopeDiffEntry {

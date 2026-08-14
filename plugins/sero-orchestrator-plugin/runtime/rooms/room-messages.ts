@@ -116,6 +116,11 @@ export function createMessageLog(appState: AppRuntimeStateApi, paths: RoomPaths)
         const messages = (await appState.read<RoomMessage[]>(paths.messagePage(roomId, page))) ?? [];
         for (const message of messages) {
           if (message.sequence <= afterSequence) continue;
+          // Never surface a message above the authoritative sequence. A page is
+          // written before the room state that advances the sequence, so a
+          // crash between the two can leave a message on disk that the Room has
+          // not accepted — returning it would deliver work that never happened.
+          if (message.sequence > latestSequence) continue;
           if (match && !match(message)) continue;
           found.push(message);
           if (found.length === limit) break;

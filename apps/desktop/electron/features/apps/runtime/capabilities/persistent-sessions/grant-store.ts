@@ -27,8 +27,21 @@
  * persisted live count would leak on a crash and wedge the grant forever.
  */
 
-import { existsSync, readdirSync, rmSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, realpathSync, rmSync } from 'fs';
+import { join, relative, resolve } from 'path';
+
+/** Containment after symlink resolution, compared segment-wise. */
+function isInsideDir(child: string, parent: string): boolean {
+  const canonical = (target: string) => {
+    try {
+      return realpathSync(target);
+    } catch {
+      return resolve(target);
+    }
+  };
+  const rel = relative(canonical(parent), canonical(child));
+  return rel !== '' && !rel.startsWith('..') && !rel.includes('..');
+}
 
 import type {
   PersistentSessionGrantProposal,
@@ -77,7 +90,8 @@ export type ReserveResult =
         | 'grant-revoked'
         | 'live-limit'
         | 'total-limit'
-        | 'subject-already-bound';
+        | 'subject-already-bound'
+        | 'subject-already-open';
     };
 
 /**
@@ -103,6 +117,9 @@ export class GrantStore {
   private grants: Record<string, StoredGrant> = {};
   /** Live handles per grant. In memory only, by design. */
   private readonly live = new Map<string, Set<string>>();
+  /** Subjects with a live session, so a second concurrent open is refused. */
+  private readonly openSubjects = new Map<string, Set<string>>();
+  private readonly subjectByHandle = new Map<string, string>();
   private loaded = false;
   private tail: Promise<unknown> = Promise.resolve();
 
@@ -168,21 +185,32 @@ export class GrantStore {
     return this.grants[grantId]?.sessionPaths[subject] ?? null;
   }
 
+  /**
+   * `sessionDirFor` takes the grant id rather than a ready-made path, because a
+   * directory derived from caller-controlled fields could COLLIDE with another
+   * grant's — and the startup sweep, which removes files no subject is bound
+   * to, would then delete the other grant's sessions.
+   */
   async issue(
     appId: string,
-    sessionDir: string,
+    sessionDirFor: (grantId: string) => string,
     approvalId: string,
     approved: PersistentSessionGrantProposal,
   ): Promise<StoredGrant> {
     return this.serialize(async () => {
+      const grantId = this.deps.newId('grant');
       const grant: StoredGrant = {
-        grantId: this.deps.newId('grant'),
+        grantId,
         appId,
         owner: approved.owner,
         scope: approved.scope,
         workspaceId: approved.workspaceId,
-        sessionDir,
-        subjects: approved.subjects,
+        sessionDir: sessionDirFor(grantId),
+        // DEEP COPY. The caller holds a reference to the object it proposed; if
+        // the store kept that same object the caller could push a tool or model
+        // into a policy after approval and later validation would read the
+        // mutation as if the user had approved it.
+        subjects: structuredClone(approved.subjects),
         maxLiveSessions: approved.maxLiveSessions,
         maxTotalSessions: approved.maxTotalSessions,
         approvalId,
@@ -265,12 +293,31 @@ export class GrantStore {
         return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
       }
 
+      // Verify the path construction produced before trusting it. Pi is given
+      // the grant's directory, so this should always hold — but a binding is
+      // permanent, and a wrong one would let `open` reach outside the grant
+      // forever.
+      if (!isInsideDir(sessionPath, grant.sessionDir)) {
+        delete grant.pending[reservationId];
+        await this.deps.persistence.write(this.grants);
+        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+      }
+      // One path per subject, globally within the grant: two subjects sharing a
+      // file would alias each other's session.
+      const pathOwner = Object.entries(grant.sessionPaths)
+        .find(([subject, bound]) => bound === sessionPath && subject !== reservation.subject);
+      if (pathOwner) {
+        delete grant.pending[reservationId];
+        await this.deps.persistence.write(this.grants);
+        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+      }
+
       delete grant.pending[reservationId];
       // The binding is written HERE, with the path construction produced — so a
       // crash before this point leaves no binding to be wrong about.
       grant.sessionPaths[reservation.subject] = sessionPath;
       grant.createdSessions += 1;
-      this.trackLive(grantId, handleId);
+      this.trackLive(grantId, handleId, reservation.subject);
       await this.deps.persistence.write(this.grants);
       return { ok: true as const };
     });
@@ -292,29 +339,46 @@ export class GrantStore {
     });
   }
 
-  /** Reopening an existing session still consumes a live slot. */
-  async reserveLive(grantId: string, handleId: string): Promise<ReserveResult> {
+  /**
+   * Reopening an existing session still consumes a live slot, and the claim is
+   * SUBJECT-AWARE: two concurrent opens for one subject would otherwise both
+   * pass a bare count check and construct two live sessions over one file.
+   */
+  async reserveLive(grantId: string, subject: string, handleId: string): Promise<ReserveResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       if (!grant) return { ok: false as const, reason: 'grant-not-found' as const };
       if (grant.status !== 'active') return { ok: false as const, reason: 'grant-revoked' as const };
+      if (this.openSubjects.get(grantId)?.has(subject)) {
+        return { ok: false as const, reason: 'subject-already-open' as const };
+      }
       const liveCount = this.live.get(grantId)?.size ?? 0;
       if (liveCount + Object.keys(grant.pending).length >= grant.maxLiveSessions) {
         return { ok: false as const, reason: 'live-limit' as const };
       }
-      this.trackLive(grantId, handleId);
+      this.trackLive(grantId, handleId, subject);
       return { ok: true as const, reservationId: handleId };
     });
   }
 
-  private trackLive(grantId: string, handleId: string): void {
+  private trackLive(grantId: string, handleId: string, subject: string): void {
     const handles = this.live.get(grantId) ?? new Set<string>();
     handles.add(handleId);
     this.live.set(grantId, handles);
+
+    const subjects = this.openSubjects.get(grantId) ?? new Set<string>();
+    subjects.add(subject);
+    this.openSubjects.set(grantId, subjects);
+    this.subjectByHandle.set(handleId, subject);
   }
 
   releaseLive(grantId: string, handleId: string): void {
     this.live.get(grantId)?.delete(handleId);
+    const subject = this.subjectByHandle.get(handleId);
+    if (subject) {
+      this.openSubjects.get(grantId)?.delete(subject);
+      this.subjectByHandle.delete(handleId);
+    }
   }
 
   liveHandles(grantId: string): string[] {
@@ -339,6 +403,8 @@ export class GrantStore {
 
   /** After a revoked grant's sessions have been disposed. */
   clearLive(grantId: string): void {
+    for (const handleId of this.live.get(grantId) ?? []) this.subjectByHandle.delete(handleId);
     this.live.delete(grantId);
+    this.openSubjects.delete(grantId);
   }
 }

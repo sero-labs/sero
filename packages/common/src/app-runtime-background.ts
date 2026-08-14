@@ -12,6 +12,7 @@ import type { SharedAvailableModelGroup } from './model-selection/types';
 import type { ContextAgentInfo, ContextToolInfo } from './context-editor';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
+import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
@@ -480,6 +481,16 @@ export interface AppRuntimeHost {
    */
   media?: AppRuntimeMediaApi;
   session: AppRuntimeSessionHost;
+  /**
+   * Host-managed persistent Pi sessions (AD-029).
+   *
+   * Optional and normally ABSENT: the host installs it only for a bundled
+   * first-party plugin that passes the built-in gate. Declaring
+   * `appRuntime.persistentSessions` in a manifest does not produce it — that
+   * list is a compatibility declaration, not an authorisation. Always check for
+   * the property before use.
+   */
+  persistentSessions?: PersistentSessionsApi;
 }
 
 export interface AppRuntimeContext {

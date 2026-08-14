@@ -300,7 +300,10 @@ export function createRoomStore(
         return true;
       }),
 
-    appendTimeline: (roomId, events) => timeline.append(roomId, events),
+    // Serialized like every other write: the timeline shares the state
+    // directory, and an unserialized append can interleave with a room write
+    // and lose events under concurrency.
+    appendTimeline: (roomId, events) => serialize(() => timeline.append(roomId, events)),
 
     readTimeline: (roomId, limit) => timeline.read(roomId, limit),
 

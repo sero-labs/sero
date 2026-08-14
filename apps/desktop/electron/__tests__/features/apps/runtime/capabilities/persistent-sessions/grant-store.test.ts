@@ -31,7 +31,7 @@ describe('GrantStore — issue', () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
 
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
 
     expect(grant.appId).toBe('orchestrator');
     expect(grant.sessionDir).toBe(SESSION_DIR);
@@ -51,7 +51,7 @@ describe('GrantStore — reserve', () => {
   it('writes a pending reservation but no binding, because Pi has not named the file yet', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
 
     const reservationId = await reserved(store, grant.grantId, 'implementer');
 
@@ -72,20 +72,18 @@ describe('GrantStore — reserve', () => {
 
   it('denies a revoked grant', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     await store.markRevoked(grant.grantId);
 
     expect(await store.reserve(grant.grantId, 'implementer'))
       .toEqual({ ok: false, reason: 'grant-revoked' });
-    expect(await store.reserveLive(grant.grantId, 'handle-1'))
+    expect(await store.reserveLive(grant.grantId, 'member-a', 'handle-1'))
       .toEqual({ ok: false, reason: 'grant-revoked' });
   });
 
   it('counts a pending reservation against the live cap', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
       'approval-1',
       proposal({ maxLiveSessions: 1, maxTotalSessions: 4 }),
     );
@@ -109,9 +107,7 @@ describe('GrantStore — reserve', () => {
 
   it('counts a pending reservation against the lifetime cap', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
       'approval-1',
       proposal({ maxLiveSessions: 4, maxTotalSessions: 1 }),
     );
@@ -146,7 +142,7 @@ describe('GrantStore — reserve', () => {
 
   it('denies a subject that already has a reservation in flight', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     await reserved(store, grant.grantId, 'implementer');
 
     // One create in flight per subject: two constructions would otherwise race
@@ -157,19 +153,36 @@ describe('GrantStore — reserve', () => {
 
   it('charges a live slot for reopening an existing session', async () => {
     const store = createStore(createPersistence().persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
       'approval-1',
       proposal({ maxLiveSessions: 1, maxTotalSessions: 4 }),
     );
 
-    expect((await store.reserveLive(grant.grantId, 'handle-1')).ok).toBe(true);
-    expect(await store.reserveLive(grant.grantId, 'handle-2'))
+    // Two DIFFERENT subjects, so this exercises the live cap rather than the
+    // one-session-per-subject rule below.
+    expect((await store.reserveLive(grant.grantId, 'member-a', 'handle-1')).ok).toBe(true);
+    expect(await store.reserveLive(grant.grantId, 'member-b', 'handle-2'))
       .toEqual({ ok: false, reason: 'live-limit' });
 
     store.releaseLive(grant.grantId, 'handle-1');
-    expect((await store.reserveLive(grant.grantId, 'handle-2')).ok).toBe(true);
+    expect((await store.reserveLive(grant.grantId, 'member-b', 'handle-2')).ok).toBe(true);
+  });
+
+  it('refuses a second live session for the same subject', async () => {
+    const store = createStore(createPersistence().persistence);
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
+      'approval-1',
+      proposal({ maxLiveSessions: 4, maxTotalSessions: 4 }),
+    );
+
+    expect((await store.reserveLive(grant.grantId, 'member-a', 'handle-1')).ok).toBe(true);
+    // Capacity is free — this must fail on identity, not on the cap. Two live
+    // sessions over one file would let each overwrite the other's history.
+    expect(await store.reserveLive(grant.grantId, 'member-a', 'handle-2'))
+      .toEqual({ ok: false, reason: 'subject-already-open' });
+
+    store.releaseLive(grant.grantId, 'handle-1');
+    expect((await store.reserveLive(grant.grantId, 'member-a', 'handle-2')).ok).toBe(true);
   });
 });
 
@@ -177,9 +190,7 @@ describe('GrantStore — concurrent reserve', () => {
   it('lets exactly one of two concurrent creates through a one-session cap', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
       'approval-1',
       proposal({ maxLiveSessions: 1, maxTotalSessions: 4 }),
     );
@@ -199,9 +210,7 @@ describe('GrantStore — concurrent reserve', () => {
   it('lets exactly one of two concurrent creates through a one-session lifetime cap', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue(
-      'orchestrator',
-      SESSION_DIR,
+    const grant = await store.issue('orchestrator', () => SESSION_DIR,
       'approval-1',
       proposal({ maxLiveSessions: 4, maxTotalSessions: 1 }),
     );
@@ -220,7 +229,7 @@ describe('GrantStore — commit and release', () => {
   it('binds the subject to the path construction produced', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     const reservationId = await reserved(store, grant.grantId, 'implementer');
 
     expect(await store.commitReservation(grant.grantId, reservationId, 'handle-1', IMPLEMENTER_FILE))
@@ -237,7 +246,7 @@ describe('GrantStore — commit and release', () => {
   it('refuses a commit that lost the race with revocation and demands disposal', async () => {
     const fake = createPersistence();
     const store = createStore(fake.persistence);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     const reservationId = await reserved(store, grant.grantId, 'implementer');
     await store.markRevoked(grant.grantId);
 
@@ -258,7 +267,7 @@ describe('GrantStore — commit and release', () => {
     const fake = createPersistence();
     const files = createFiles([IMPLEMENTER_FILE]);
     const store = createStore(fake.persistence, files);
-    const grant = await store.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     const reservationId = await reserved(store, grant.grantId, 'implementer');
 
     await store.releaseReservation(grant.grantId, reservationId);
@@ -298,7 +307,7 @@ describe('GrantStore — revocation', () => {
   it('survives a restart as revoked', async () => {
     const fake = createPersistence();
     const first = createStore(fake.persistence);
-    const grant = await first.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+    const grant = await first.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
     await first.markRevoked(grant.grantId);
 
     const restarted = createStore(fake.persistence);
@@ -317,7 +326,7 @@ describe('GrantStore — restart reconciliation', () => {
     it(`always rolls back a pending reservation, session file ${present ? 'present' : 'absent'}`, async () => {
       const fake = createPersistence();
       const first = createStore(fake.persistence);
-      const grant = await first.issue('orchestrator', SESSION_DIR, 'approval-1', proposal());
+      const grant = await first.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
       await reserved(first, grant.grantId, 'implementer');
 
       const restarted = createStore(fake.persistence, createFiles(present ? [IMPLEMENTER_FILE] : []));
@@ -368,6 +377,6 @@ describe('GrantStore — restart reconciliation', () => {
     expect(restarted.liveHandles(grant.grantId)).toEqual([]);
     expect(restarted.get(grant.grantId)?.createdSessions).toBe(1);
     expect(restarted.registeredSessionPath(grant.grantId, 'implementer')).toBe(IMPLEMENTER_FILE);
-    expect((await restarted.reserveLive(grant.grantId, 'handle-2')).ok).toBe(true);
+    expect((await restarted.reserveLive(grant.grantId, 'member-a', 'handle-2')).ok).toBe(true);
   });
 });

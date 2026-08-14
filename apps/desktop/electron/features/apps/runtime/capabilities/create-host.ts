@@ -84,6 +84,10 @@ async function runtimeFromServerId(serverId: string) {
 }
 
 export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost {
+  // `persistentSessions` is deliberately NOT set here. It is installed by the
+  // manager after the built-in gate runs (AD-029), so a runtime that is not a
+  // permitted bundled plugin simply has no such property — declaring the
+  // capability in a manifest produces nothing.
   return {
     appState: {
       read: async <T = unknown>(filePath: string) => appStateManager.read(filePath) as T | null,

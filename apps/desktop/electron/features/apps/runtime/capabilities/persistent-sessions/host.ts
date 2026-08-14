@@ -15,6 +15,7 @@ import { SessionManager, createAgentSession } from '@earendil-works/pi-coding-ag
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { ExtensionRuntimeContent } from '@sero-ai/common';
 import type {
+  PersistentSessionSubjectPolicy,
   PersistentSessionContextUsage,
   PersistentSessionEvent,
   PersistentSessionGrantHandle,
@@ -42,8 +43,13 @@ export interface PersistentSessionHostDeps {
   /** App id of the runtime instance. Caller identity — never from a payload. */
   appId: string;
   grantStore: GrantStore;
-  /** Absolute directory a grant's sessions live under, derived by the host. */
-  resolveSessionDir(proposal: PersistentSessionGrantProposal): string;
+  /**
+   * Absolute directory this grant's sessions live under. Keyed by the
+   * HOST-ISSUED grant id, so two grants can never share a directory — the
+   * startup sweep removes files no subject is bound to, and a shared directory
+   * would make one grant's sweep delete another grant's sessions.
+   */
+  resolveSessionDir(grantId: string): string;
   /**
    * Clamps a proposal to current user authority and the real workspace
    * catalogue, then asks the user to approve the clamped set. Returns null when
@@ -57,13 +63,20 @@ export interface PersistentSessionHostDeps {
   listAvailableModelIds(): Promise<Set<string>>;
   /** The thinking level Pi applies when a request omits one. */
   defaultThinking(): string;
-  /** Builds the filtered resource loader and platform tools from the GRANT. */
+  /**
+   * Builds the filtered resource loader and platform tools from the APPROVED
+   * policy. It receives the validated policy so the loader is derived from what
+   * the user approved, never from the request.
+   */
   buildSessionInputs(input: {
     cwd: string;
     tools: string[];
     skills: string[];
     systemPromptAdditions: string[];
+    policy: PersistentSessionSubjectPolicy;
   }): Promise<SessionInputs>;
+  /** Resolves a validated model id to the Pi model the session runs. */
+  resolveModel(modelId: string): Promise<CreateAgentSessionOptions['model']>;
   newId(prefix: string): string;
   log(message: string): void;
 }
@@ -79,14 +92,16 @@ export class PersistentSessionHost implements PersistentSessionsApi {
 
     const grant = await this.deps.grantStore.issue(
       this.deps.appId,
-      this.deps.resolveSessionDir(decision.approved),
+      (grantId) => this.deps.resolveSessionDir(grantId),
       decision.approvalId,
       decision.approved,
     );
 
     return {
       grantId: grant.grantId,
-      subjects: grant.subjects,
+      // A copy: the caller must not hold a reference into stored authority, or
+      // it could widen its own policy after approval.
+      subjects: structuredClone(grant.subjects),
       maxLiveSessions: grant.maxLiveSessions,
       maxTotalSessions: grant.maxTotalSessions,
       issuedAt: grant.issuedAt,
@@ -169,7 +184,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     if (!grant) throw new Error('Cannot open session: grant-not-found.');
 
     const handleId = this.deps.newId('psh');
-    const reservation = await this.deps.grantStore.reserveLive(request.grantId, handleId);
+    const reservation = await this.deps.grantStore.reserveLive(request.grantId, request.subject, handleId);
     if (!reservation.ok) throw new Error(`Cannot open session: ${reservation.reason}.`);
 
     try {
@@ -274,7 +289,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
 
   private async buildSession(
     request: PersistentSessionRequest,
-    validation: { cwd: string; thinking: string },
+    validation: { cwd: string; thinking: string; policy: PersistentSessionSubjectPolicy },
     sessionManager: SessionManager,
   ) {
     const inputs = await this.deps.buildSessionInputs({
@@ -282,12 +297,19 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       tools: request.tools,
       skills: request.skills,
       systemPromptAdditions: request.systemPromptAdditions ?? [],
+      policy: validation.policy,
     });
 
     const { session } = await createAgentSession({
       ...inputs,
       cwd: validation.cwd,
       sessionManager,
+      // These come AFTER the spread deliberately. Validation checked a specific
+      // model and a specific effective thinking level; if the builder's own
+      // choices were allowed to win, the session would run something other than
+      // what was validated — and validation would be decorative.
+      model: await this.deps.resolveModel(request.model),
+      thinkingLevel: validation.thinking as CreateAgentSessionOptions['thinkingLevel'],
       // Only the approved tool names are enabled. `noTools: 'builtin'` alone
       // would leave every extension tool on.
       noTools: 'builtin',

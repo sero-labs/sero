@@ -11,7 +11,12 @@
 import path from 'path';
 import { mkdir } from 'fs/promises';
 
-import type { PersistentSessionGrantProposal, PersistentSessionsApi } from '@sero-ai/common';
+import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type {
+  PersistentSessionGrantProposal,
+  PersistentSessionSubjectPolicy,
+  PersistentSessionsApi,
+} from '@sero-ai/common';
 
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
 import { appStateManager } from '@electron/features/apps/state/manager';
@@ -64,13 +69,16 @@ export interface PersistentSessionWiring {
    * capability concern.
    */
   approveGrant: PersistentSessionHostDepsApproval;
-  /** Builds the filtered member resource profile from the approved grant. */
+  /** Builds the filtered member resource profile from the approved policy. */
   buildSessionInputs(input: {
     cwd: string;
     tools: string[];
     skills: string[];
     systemPromptAdditions: string[];
+    policy: PersistentSessionSubjectPolicy;
   }): Promise<SessionInputs>;
+  /** Resolves a validated model id to the Pi model the session runs. */
+  resolveModel(modelId: string): Promise<CreateAgentSessionOptions['model']>;
   log(message: string): void;
 }
 
@@ -96,9 +104,10 @@ export async function createPersistentSessionsApi(
   return new PersistentSessionHost({
     appId: wiring.appId,
     grantStore,
-    // Host-derived, never proposal-derived: the opaque scope is used as a
-    // directory segment, so it is sanitised rather than trusted.
-    resolveSessionDir: (proposal) => path.join(SERO_SESSION_DIR, wiring.appId, sanitizeSegment(proposal.scope)),
+    // Keyed by the host-issued GRANT ID, never by a caller-controlled field:
+    // two grants sharing a directory would make one grant's startup sweep
+    // delete the other's sessions.
+    resolveSessionDir: (grantId) => path.join(SERO_SESSION_DIR, wiring.appId, grantId),
     approveGrant: wiring.approveGrant,
     listAvailableModelIds: async () => {
       const { modelRuntime } = await ensureAiInfra();
@@ -106,19 +115,10 @@ export async function createPersistentSessionsApi(
     },
     defaultThinking: () => 'medium',
     buildSessionInputs: wiring.buildSessionInputs,
+    resolveModel: wiring.resolveModel,
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
     log: wiring.log,
   });
-}
-
-/**
- * `scope` is an opaque caller string that becomes a directory segment. Anything
- * that is not a safe segment character is replaced, so a caller cannot smuggle
- * a traversal through it even though the host never interprets its meaning.
- */
-function sanitizeSegment(value: string): string {
-  const cleaned = value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^\.+/, '');
-  return cleaned.length > 0 ? cleaned.slice(0, 64) : 'default';
 }
 
 /** Creates the grant's session directory. Called before the first `create`. */
