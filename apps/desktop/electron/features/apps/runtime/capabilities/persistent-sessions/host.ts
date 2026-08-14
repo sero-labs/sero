@@ -87,7 +87,11 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   constructor(private readonly deps: PersistentSessionHostDeps) {}
 
   async requestGrant(proposal: PersistentSessionGrantProposal): Promise<PersistentSessionGrantHandle> {
-    const decision = await this.deps.approveGrant(proposal);
+    // Snapshot on ENTRY. Approval is asynchronous and the caller runs in this
+    // same process, so without a copy taken here it could mutate its own
+    // proposal object while the approval dialog is open and the host would
+    // store the mutation.
+    const decision = await this.deps.approveGrant(structuredClone(proposal));
     if (!decision) throw new Error('Persistent-session grant was not approved.');
 
     const grant = await this.deps.grantStore.issue(

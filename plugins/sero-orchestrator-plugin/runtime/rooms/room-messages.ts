@@ -101,10 +101,16 @@ export function createMessageLog(appState: AppRuntimeStateApi, paths: RoomPaths)
         pages.set(page, [...(pages.get(page) ?? []), message]);
       }
       for (const [page, batch] of pages) {
-        await appState.update<RoomMessage[]>(paths.messagePage(roomId, page), (current) => [
-          ...(current ?? []),
-          ...batch,
-        ]);
+        await appState.update<RoomMessage[]>(paths.messagePage(roomId, page), (current) => {
+          // Replace by sequence rather than append. A page is written before the
+          // Room state that accepts it, so a failed commit is retried with the
+          // same sequences — a blind append would leave two copies of each, and
+          // both would become visible once a later commit advanced the
+          // authoritative sequence past them.
+          const bySequence = new Map((current ?? []).map((message) => [message.sequence, message]));
+          for (const message of batch) bySequence.set(message.sequence, message);
+          return [...bySequence.values()].sort((left, right) => left.sequence - right.sequence);
+        });
       }
     },
 

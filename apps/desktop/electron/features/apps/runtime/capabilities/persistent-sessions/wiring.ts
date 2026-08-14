@@ -19,7 +19,10 @@ import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools } from '@electron/cli';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 
+import { clampProposal, describeGrantAuthority } from './clamp';
+import { applyPermissionProfile } from './permission-tools';
 import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
 import type { AppRuntimeTarget } from '../../types';
@@ -32,30 +35,46 @@ import type { AppRuntimeTarget } from '../../types';
  * proposal is an input to this decision, never a source of authority.
  */
 async function clampAndApprove(
+  target: AppRuntimeTarget,
   proposal: PersistentSessionGrantProposal,
 ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null> {
   const { modelRuntime } = await ensureAiInfra();
-  const availableModels = new Set((await modelRuntime.getAvailable()).map((model) => model.id));
+  const [models, workspaces, toolCatalog] = await Promise.all([
+    modelRuntime.getAvailable(),
+    workspaceManager.list(),
+    warmSubagentToolCatalog().then(() => getSubagentToolCatalog()),
+  ]);
 
-  const subjects = Object.fromEntries(
-    Object.entries(proposal.subjects).map(([subject, policy]) => [
-      subject,
-      {
-        ...policy,
-        // Only models this machine can actually resolve. A grant naming an
-        // absent model would fail at create time instead of at approval time,
-        // which is the wrong moment to discover it.
-        allowedModels: policy.allowedModels.filter((model) => availableModels.has(model)),
-      },
-    ]),
-  );
+  // Every field is verified against something real. A proposal field the host
+  // cannot resolve is dropped, never trusted — see clamp.ts.
+  const { proposal: clamped, notes } = clampProposal(proposal, {
+    workspaceRoots: workspaces.map((workspace) => workspace.path),
+    availableModels: new Set(models.map((model) => model.id)),
+    availableTools: new Set(toolCatalog.map((tool) => tool.name)),
+    availableSkills: new Set<string>(),
+    // The ceiling this build permits a managed session. Nothing here can grant
+    // authority the user does not already hold in the workspace.
+    permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },
+  });
 
-  const clamped: PersistentSessionGrantProposal = { ...proposal, subjects };
-  const memberCount = Object.keys(subjects).length;
+  const authority = describeGrantAuthority(clamped);
+  const memberCount = Object.keys(clamped.subjects).length;
+  const droppedNote = notes.length > 0
+    ? `\n\nNot available here, so removed: ${notes.map((note) => note.dropped.join(', ')).join('; ')}`
+    : '';
 
   const choice = await requestChoice({
     title: 'Allow persistent agent sessions?',
-    body: `${proposal.reason}\n\n${memberCount} agent${memberCount === 1 ? '' : 's'}, up to ${clamped.maxLiveSessions} running at once.`,
+    // The user must see the AUTHORITY, not just a count. A dialog that says
+    // "3 agents" is consent to a number, not to a capability.
+    body: [
+      clamped.reason,
+      '',
+      `${memberCount} agent${memberCount === 1 ? '' : 's'}, up to ${clamped.maxLiveSessions} running at once.`,
+      '',
+      'They will be able to:',
+      ...authority.map((line) => `• ${line}`),
+    ].join('\n') + droppedNote,
     choices: [
       { id: 'allow', label: 'Allow' },
       { id: 'deny', label: 'Not now' },
@@ -81,7 +100,7 @@ export async function installPersistentSessions(
     appId: target.manifest.id,
     packagePath: target.manifest.packagePath,
     workspaceId: target.workspace.id,
-    approveGrant: clampAndApprove,
+    approveGrant: (proposal) => clampAndApprove(target, proposal),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable()).find((candidate) => candidate.id === modelId);
@@ -92,7 +111,14 @@ export async function installPersistentSessions(
     },
     buildSessionInputs: async (input) => {
       const infra = await ensureAiInfra();
+      // Second filter, after the allowlist: a profile that restricts nothing is
+      // decorative, and the approval dialog described the profile.
+      const { allowed, removed } = applyPermissionProfile(input.tools, input.policy.permissionProfile);
+      if (removed.length > 0) {
+        console.warn(`[persistent-sessions] permission profile removed: ${removed.join(', ')}`);
+      }
       return {
+        tools: allowed,
         modelRuntime: infra.modelRuntime,
         settingsManager: infra.settingsManager,
         resourceLoader: createMemberResourceLoader({
