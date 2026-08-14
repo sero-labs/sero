@@ -37,8 +37,19 @@
   --color-collab-primary-subtle: var(--collab-primary-subtle);
   --color-collab-primary-border: var(--collab-primary-border);
 
+  /* Accent ink — the prototype's lightened text on tinted washes
+     (#8ce7c5, #bda8f5, …), mixed toward the theme ink so it darkens
+     instead of lightens on a light theme. */
+  --color-room-ink-brand: color-mix(in srgb, var(--brand-primary) 62%, var(--text-primary));
+  --color-room-ink-collab: color-mix(in srgb, var(--collab-primary) 68%, var(--text-primary));
+  /* Amber is the one accent the prototype dims instead of lightens
+     (#d9b565): it mixes toward the secondary ink, not the primary. */
+  --color-room-ink-warn: color-mix(in srgb, var(--status-warning) 55%, var(--text-secondary));
+  --color-room-ink-error: color-mix(in srgb, var(--status-error) 62%, var(--text-primary));
+  --color-room-ink-info: color-mix(in srgb, var(--status-info) 62%, var(--text-primary));
+
   /* Member-face gradient stops (room-kit/identity.tsx draws the gradients) */
-  --color-room-face-from: color-mix(in srgb, var(--bg-overlay) 82%, var(--text-primary));
+  --color-room-face-from: color-mix(in srgb, var(--bg-overlay) 76%, var(--text-primary));
   --color-room-face-to: var(--bg-elevated);
   --color-room-face-c-from: color-mix(in srgb, var(--brand-primary) 55%, var(--bg-base));
   --color-room-face-c-to: color-mix(in srgb, var(--brand-primary) 30%, var(--bg-base));
@@ -46,13 +57,12 @@
   --color-room-face-new-to: color-mix(in srgb, var(--collab-primary) 24%, var(--bg-base));
 }
 
-/* The 9–10px mono eyebrow/meta face. Tone and tracking vary per use;
-   the face itself does not. */
+/* The 9–10px mono eyebrow/meta face. Tone and tracking vary per use —
+   set them with text-* and tracking-* beside this utility. */
 @utility room-mono-micro {
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.1;
-  letter-spacing: 0.06em;
 }
 
 /* Every figure that changes in place (costs, timers, counts). */

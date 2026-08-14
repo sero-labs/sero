@@ -16,10 +16,33 @@
 import { StrictMode, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Button } from '@sero-ai/ui';
 import { validateThemePreset } from '@sero-ai/ui/theme';
 import type { ColorTokens, ThemePreset } from '@sero-ai/ui/theme';
 import defaultThemeJson from '../../../packages/templates/themes/default.json';
 import rosePineThemeJson from '../../../packages/templates/themes/rose-pine.json';
+import {
+  AuthorityBand,
+  EventCard,
+  Eyebrow,
+  Face,
+  FaceStack,
+  FieldLabel,
+  FieldRow,
+  FieldSelect,
+  FieldText,
+  LivePill,
+  Meter,
+  ModeCard,
+  NeedsBand,
+  NeedsRow,
+  NoteBlock,
+  Pill,
+  SectionHead,
+  StatusDot,
+  TokenChip,
+  type MemberStatus,
+} from './components/room-kit';
 import './preview-harness.css';
 
 // ── Theme plumbing ───────────────────────────────────────────
@@ -103,6 +126,42 @@ function themeVars(colors: ColorTokens): Record<string, string> {
   return vars;
 }
 
+// ── Capture crops ────────────────────────────────────────────
+// The approved captures are 2584px over a 1400-CSS-px app frame; scaling by
+// 1400/2584 shows a crop at exactly the size the kit renders beside it.
+
+// Safe-name copies of docs/prototypes/agent-rooms — the originals' commas
+// and question marks 404 through vite's static middleware.
+const CAPTURES_DIR = '/ui/preview-captures';
+const CAPTURE_WIDTH = 2584;
+const CAPTURE_SCALE = 1400 / CAPTURE_WIDTH;
+
+interface CropSpec {
+  file: string;
+  /** Crop rect in the capture's own pixels. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+}
+
+function Crop({ file, x, y, w, h, label }: CropSpec) {
+  const s = CAPTURE_SCALE;
+  return (
+    <figure style={{ margin: 0 }}>
+      <div style={{ width: w * s, height: h * s, overflow: 'hidden', position: 'relative' }}>
+        <img
+          alt={label}
+          src={`${CAPTURES_DIR}/${encodeURIComponent(file)}`}
+          style={{ position: 'absolute', left: -x * s, top: -y * s, width: CAPTURE_WIDTH * s, maxWidth: 'none' }}
+        />
+      </div>
+      <figcaption className="room-mono-micro mt-1 text-room-text4">{label}</figcaption>
+    </figure>
+  );
+}
+
 // ── Preview sections ─────────────────────────────────────────
 // Phase 2 registers every room-kit primitive here; screen phases add their
 // fixture-driven screens.
@@ -110,9 +169,294 @@ function themeVars(colors: ColorTokens): Record<string, string> {
 interface Section {
   title: string;
   render: () => ReactNode;
+  /** Matching regions from the approved captures, shown under the section. */
+  crops?: CropSpec[];
 }
 
+const CAP_HOME = 'cap1.jpg';
+const CAP_PROPOSAL = 'cap4.jpg';
+const CAP_ADJUST = 'cap5.jpg';
+const CAP_WHY = 'cap6.jpg';
+const CAP_ADVANCED = 'cap7.jpg';
+const CAP_LIVE = 'cap8.jpg';
+const CAP_WATCH = 'cap9.jpg';
+
+const ALL_STATUSES: MemberStatus[] = ['working', 'waiting', 'idle', 'blocked', 'done', 'suspended'];
+
+/** The prototype's small .btn (26px, 11px type) for fixture actions. */
+const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
+
 const SECTIONS: Section[] = [
+  {
+    title: 'identity — Face / FaceStack / StatusDot / LivePill',
+    crops: [
+      { file: CAP_PROPOSAL, x: 568, y: 497, w: 503, h: 264, label: '30px faces — proposal roster' },
+      { file: CAP_LIVE, x: 52, y: 239, w: 428, h: 496, label: '26px faces + corner dots — roster rail' },
+      { file: CAP_HOME, x: 1909, y: 993, w: 590, h: 77, label: 'face stack — home row' },
+      { file: CAP_WATCH, x: 74, y: 252, w: 1197, h: 86, label: 'live pill — watch tile' },
+      { file: CAP_WATCH, x: 74, y: 664, w: 1197, h: 74, label: 'idle pill — watch tile' },
+    ],
+    render: () => (
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex items-center gap-3">
+          <Face label="◎" tone="conductor" size={36} />
+          <Face label="◎" tone="conductor" size={30} />
+          <Face label="R" size={30} />
+          <Face label="1" size={26} />
+          <Face label="M" tone="new" size={26} />
+          <Face label="2" size={24} />
+          <Face label="T" size={22} />
+        </div>
+        <div className="flex items-center gap-3">
+          <Face label="◎" tone="conductor" size={26} status="working" />
+          <Face label="R" size={26} status="done" />
+          <Face label="1" size={26} status="working" />
+          <Face label="2" size={26} status="waiting" />
+          <Face label="T" size={26} status="idle" />
+          <Face label="M" tone="new" size={26} status="suspended" />
+          <span className="ml-4">
+            <FaceStack
+              faces={[
+                { label: 'C', tone: 'conductor' },
+                { label: 'R' },
+                { label: 'I' },
+                { label: 'I' },
+                { label: 'T' },
+              ]}
+            />
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          {ALL_STATUSES.map((s) => (
+            <span key={s} className="flex items-center gap-2 text-[11px] text-room-text3">
+              <StatusDot status={s} />
+              {s}
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <LivePill>Live · turn 12</LivePill>
+          <LivePill idle>Waiting 3m</LivePill>
+          <LivePill idle>Finished</LivePill>
+          <LivePill idle>Not started</LivePill>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'chrome — Eyebrow / Pill / SectionHead / Meter / NoteBlock',
+    crops: [
+      { file: CAP_PROPOSAL, x: 568, y: 187, w: 336, h: 32, label: 'eyebrow — proposed room' },
+      { file: CAP_LIVE, x: 1993, y: 316, w: 522, h: 39, label: 'eyebrow — room brief' },
+      { file: CAP_LIVE, x: 1838, y: 142, w: 240, h: 42, label: 'pills — selected + neutral' },
+      { file: CAP_LIVE, x: 306, y: 151, w: 97, h: 36, label: 'pill — running' },
+      { file: CAP_LIVE, x: 1780, y: 819, w: 138, h: 35, label: 'pill — warn' },
+      { file: CAP_WHY, x: 1783, y: 226, w: 194, h: 35, label: 'pill — collab' },
+      { file: CAP_HOME, x: 74, y: 935, w: 2425, h: 45, label: 'section head' },
+      { file: CAP_LIVE, x: 445, y: 148, w: 795, h: 45, label: 'meters — room bar' },
+      { file: CAP_LIVE, x: 1993, y: 1025, w: 522, h: 142, label: 'note — conductor' },
+      { file: CAP_WHY, x: 593, y: 1129, w: 1380, h: 90, label: 'note — planner' },
+    ],
+    render: () => (
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex items-center gap-5">
+          <Eyebrow>Room brief · updated 14:33</Eyebrow>
+          <Eyebrow tone="brand">Proposed room</Eyebrow>
+          <Eyebrow tone="collab">Planner reasoning</Eyebrow>
+          <Eyebrow tone="warn">Needs you</Eyebrow>
+        </div>
+        <div className="flex items-center gap-2">
+          <Pill>Watch</Pill>
+          <Pill tone="brand">Running</Pill>
+          <Pill tone="collab">Applied</Pill>
+          <Pill tone="warn">Waiting 3m</Pill>
+          <Pill tone="error">3 attempts</Pill>
+          <Pill tone="info">Already allowed</Pill>
+        </div>
+        <div className="max-w-[520px]">
+          <SectionHead count="2">Rooms</SectionHead>
+        </div>
+        <div className="flex items-center gap-6">
+          <Meter value="41m" of="2h" pct={34} />
+          <Meter value="$3.18" of="$6.00" pct={53} />
+          <Meter value="$5.70" of="$6.00" pct={95} />
+        </div>
+        <div className="grid max-w-[640px] gap-2.5">
+          <NoteBlock tone="collab">
+            This is the planner explaining its choices. It does not change what the team is allowed
+            to do — the access, spend, time and team size you approve are computed from the plan
+            itself, and this text cannot alter them.
+          </NoteBlock>
+          <NoteBlock tone="brand" title="Conductor's note">
+            Keeping the tester idle until Implementer 1's branch settles — writing the test against
+            a moving target wastes turns.
+          </NoteBlock>
+          <NoteBlock tone="info" title="Real session">
+            <b>This is a real session, not a chat.</b> It lives in this Room's session folder, so it
+            does not appear in your chat history.
+          </NoteBlock>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'blocks — EventCard / AuthorityBand / ModeCard / NeedsBand',
+    crops: [
+      { file: CAP_LIVE, x: 694, y: 454, w: 1243, h: 142, label: 'event card — finding (ok)' },
+      { file: CAP_LIVE, x: 694, y: 806, w: 1243, h: 151, label: 'event card — question (neutral, warn pill)' },
+      { file: CAP_PROPOSAL, x: 568, y: 1013, w: 1440, h: 228, label: 'authority band' },
+      { file: CAP_ADJUST, x: 568, y: 619, w: 1440, h: 284, label: 'recompute band' },
+      { file: CAP_HOME, x: 74, y: 632, w: 2425, h: 256, label: 'mode cards' },
+      { file: CAP_HOME, x: 74, y: 290, w: 2425, h: 306, label: 'needs band' },
+    ],
+    render: () => (
+      <div className="flex flex-col gap-4 p-4">
+        <div className="grid max-w-[640px] gap-2.5">
+          <EventCard tone="ok" title="Finding · session fixation is real" pill={<Pill tone="brand">Artifact</Pill>}>
+            The session identifier issued before authentication survives the privilege change in{' '}
+            <span className="room-tabular text-room-text3">src/auth/session.ts:118</span>. An attacker
+            who fixes the identifier before login keeps a valid authenticated session.
+          </EventCard>
+          <EventCard title="Question → Implementer 1" pill={<Pill tone="warn">Waiting 3m</Pill>}>
+            “Are you rotating the identifier on login, or issuing a new session object entirely? The
+            downstream cache keys off the object identity, so it changes what I have to update.”
+          </EventCard>
+          <EventCard
+            tone="revision"
+            title="Room revision · member added"
+            pill={<Pill tone="collab">Applied</Pill>}
+            actions={
+              <>
+                <Button variant="outline" size="sm" className={SMALL_BTN}>Inspect the change</Button>
+                <Button variant="outline" size="sm" className={SMALL_BTN}>Undo</Button>
+              </>
+            }
+          >
+            <b className="text-room-text2">Migration checker</b> — the session table has a stored
+            identifier column, so the fix needs a migration nobody was checking.
+          </EventCard>
+          <EventCard tone="warn" title="Room revision · replace member" pill={<Pill tone="warn">Waiting for you</Pill>}>
+            The replacement needs database write access, which no member currently has and the
+            envelope does not allow.
+          </EventCard>
+        </div>
+        <div className="max-w-[760px]">
+          <AuthorityBand
+            title="✓ What you are approving"
+            hint="computed from the plan the team will run under"
+            cells={[
+              { label: 'Team', value: '5 members', sub: '1 leads, 4 work' },
+              { label: 'Working time', value: 'Up to 2 hours', sub: 'then it pauses for you' },
+              { label: 'Spend', value: 'Up to $6.00', sub: 'hard stop' },
+              { label: 'Access', value: 'This workspace and GitHub', sub: 'read, edit, push' },
+            ]}
+          />
+        </div>
+        <div className="max-w-[760px]">
+          <AuthorityBand
+            tone="neutral"
+            title={<><span className="text-brand-primary">✓</span> Recomputed from the revised plan</>}
+            cells={[
+              { label: 'Team', value: '4 members', was: '5 members' },
+              { label: 'Working time', value: 'Up to 2 hours' },
+              { label: 'Spend', value: 'Up to $2.00', was: '$6.00' },
+              { label: 'Access', value: 'This workspace', was: 'and GitHub' },
+            ]}
+            footer={
+              <>
+                <b className="font-medium text-room-text3">Kept as you set them:</b> the 2-hour limit,
+                delivery back to this chat, and the read-and-edit access you approved.{' '}
+                <b className="font-medium text-room-text3">Removed:</b> Implementer 2, and GitHub push
+                for every member.
+              </>
+            }
+          />
+        </div>
+        <div className="grid max-w-[900px] grid-cols-2 gap-3.5">
+          <ModeCard glyph="⟳" title="Workflow" meta={<><Pill>7 workflows</Pill><Pill>2 running</Pill><Pill>Step graph</Pill></>}>
+            Describe a repeatable job. Sero plans the steps, their order and their completion
+            checks, then runs it — once, on a schedule, or on an event.
+          </ModeCard>
+          <ModeCard
+            on
+            glyph="◎"
+            title="Room"
+            badge={<Pill tone="brand" className="h-[19px] text-[9px]">New</Pill>}
+            meta={<><Pill>2 rooms</Pill><Pill tone="brand">1 running</Pill><Pill>Persistent team</Pill></>}
+          >
+            Describe a problem. Sero builds a team for it — a Conductor plus the specialists the
+            problem needs — and they work, talk and adapt until it is done.
+          </ModeCard>
+        </div>
+        <div className="max-w-[900px]">
+          <NeedsBand count="3 items">
+            <NeedsRow
+              status="blocked"
+              source="Room · Auth hardening · Implementer 2"
+              action={<Button variant="outline" size="sm" className={SMALL_BTN}>Review</Button>}
+            >
+              Push branch <span className="room-tabular text-room-text2">room/auth-hardening/impl-2</span> to origin
+            </NeedsRow>
+            <NeedsRow
+              source="Room · Auth hardening · Conductor"
+              action={<Button variant="outline" size="sm" className={SMALL_BTN}>Review</Button>}
+            >
+              Raise the spend limit from $6.00 to $9.00
+            </NeedsRow>
+            <NeedsRow
+              source="Workflow · Nightly dependency sweep"
+              action={<Button variant="outline" size="sm" className={SMALL_BTN}>Answer</Button>}
+            >
+              Answer planner question about the target branch
+            </NeedsRow>
+          </NeedsBand>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'fields — FieldRow / FieldLabel / FieldText / FieldSelect / TokenChip',
+    crops: [
+      { file: CAP_ADVANCED, x: 442, y: 226, w: 1525, h: 194, label: 'mandate field' },
+      { file: CAP_ADVANCED, x: 442, y: 452, w: 1525, h: 90, label: 'selects' },
+      { file: CAP_ADVANCED, x: 442, y: 568, w: 1525, h: 187, label: 'tools + skills chips' },
+    ],
+    render: () => (
+      <div className="max-w-[560px] p-4">
+        <FieldRow className="mt-0">
+          <FieldLabel hint="changes instructions only — never capabilities">Mandate</FieldLabel>
+          <FieldText tall>
+            Confirm whether the login flow is vulnerable to session fixation. Read the session
+            lifecycle end to end before concluding. State the exact file and line where the session
+            identifier survives authentication, or state clearly that it does not.
+          </FieldText>
+        </FieldRow>
+        <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+          <div>
+            <FieldLabel>Model</FieldLabel>
+            <FieldSelect>Claude Opus 5</FieldSelect>
+          </div>
+          <div>
+            <FieldLabel>Thinking</FieldLabel>
+            <FieldSelect>High</FieldSelect>
+          </div>
+        </div>
+        <FieldRow>
+          <FieldLabel hint="from this workspace's real catalogue">Tools</FieldLabel>
+          <div className="flex flex-wrap gap-[5px]">
+            <TokenChip on>read</TokenChip>
+            <TokenChip on>grep</TokenChip>
+            <TokenChip on>bash</TokenChip>
+            <TokenChip on>sero-cli</TokenChip>
+            <TokenChip>write</TokenChip>
+            <TokenChip>edit</TokenChip>
+            <TokenChip>gh</TokenChip>
+            <TokenChip>browser</TokenChip>
+          </div>
+        </FieldRow>
+      </div>
+    ),
+  },
   {
     title: 'Phase 1 — room token layer',
     render: () => (
@@ -215,14 +559,23 @@ function PreviewApp() {
             style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', ...vars } as CSSProperties}
           >
             {SECTIONS.map((section) => (
-              <section key={section.title}>
-                <div
-                  className="room-mono-micro"
-                  style={{ padding: '14px 16px 0', color: 'var(--text-muted)' }}
-                >
-                  {section.title.toUpperCase()}
+              <section key={section.title} className="border-b border-room-line pb-5 last:border-b-0">
+                <div className="room-mono-micro px-4 pt-4 uppercase tracking-[0.08em] text-room-text3">
+                  {section.title}
                 </div>
                 {section.render()}
+                {section.crops && (
+                  <div className="mx-4 mt-1 rounded-lg border border-dashed border-room-line-strong p-3">
+                    <div className="room-mono-micro mb-2 uppercase tracking-[0.08em] text-room-text4">
+                      capture reference — default dark
+                    </div>
+                    <div className="flex flex-wrap items-start gap-4">
+                      {section.crops.map((crop) => (
+                        <Crop key={crop.label} {...crop} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
             ))}
           </div>
