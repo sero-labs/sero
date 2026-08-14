@@ -211,8 +211,11 @@ export class RoomCoordinator {
    * a changed blocker or an accepted revision. This is the ONLY place the brief
    * is rebuilt — a message is not progress, and rebuilding on every message
    * would turn the brief back into a transcript.
+   *
+   * `recordEvent` is false when the caller already wrote its own timeline entry,
+   * so a claim reads as one claim rather than as a claim and a work item.
    */
-  async noteStructuralProgress(roomId: string, summary: string): Promise<void> {
+  async noteStructuralProgress(roomId: string, summary: string, recordEvent = true): Promise<void> {
     const sources = await this.briefSources(roomId);
     const now = this.host.now();
     await this.deps.store.updateRoom(roomId, (current) => {
@@ -223,7 +226,9 @@ export class RoomCoordinator {
         brief: buildRoomBrief(cleared, sources, now),
       };
     });
-    await this.deps.store.appendTimeline(roomId, [timelineEvent(this.host, roomId, 'work', null, summary)]);
+    if (recordEvent) {
+      await this.deps.store.appendTimeline(roomId, [timelineEvent(this.host, roomId, 'work', null, summary)]);
+    }
     this.emit({ roomId, kind: 'progress', memberId: null, detail: summary });
     await this.advance(roomId);
   }
@@ -288,6 +293,7 @@ export class RoomCoordinator {
     if (memberIds.some((memberId) => record.members.find((member) => member.id === memberId)?.isConductor)) {
       this.signals.claimQuietWake(roomId, quietMark(record));
     }
+
     // A cancel or a pause can land between the read above and this write, and
     // marking turns started would put the Room back to `running` and spend on a
     // Room the user stopped. The status is therefore re-checked inside the same

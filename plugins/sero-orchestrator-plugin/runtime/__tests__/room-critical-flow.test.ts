@@ -105,7 +105,8 @@ async function roomFromChat(): Promise<void> {
     requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
     completeRoom: (id, summary, receipt) => coordinator.completeRoom(id, summary, receipt),
     publishConductorNote: (id, note) => coordinator.publishConductorNote(id, note),
-    noteStructuralProgress: (id, summary) => coordinator.noteStructuralProgress(id, summary),
+    noteStructuralProgress: (id, summary, recordEvent) =>
+      coordinator.noteStructuralProgress(id, summary, recordEvent),
   });
   app = createRoomAppActions({ host, store, coordinator, workspaceId: 'ws-1' });
 }

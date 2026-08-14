@@ -133,7 +133,8 @@ export function createRoomRuntime(
     requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
     completeRoom: (roomId, summary, receipt) => coordinator.completeRoom(roomId, summary, receipt),
     publishConductorNote: (roomId, note) => coordinator.publishConductorNote(roomId, note),
-    noteStructuralProgress: (roomId, summary) => coordinator.noteStructuralProgress(roomId, summary),
+    noteStructuralProgress: (roomId, summary, recordEvent) =>
+      coordinator.noteStructuralProgress(roomId, summary, recordEvent),
   });
 
   return {

@@ -126,7 +126,8 @@ async function makeRoom(): Promise<void> {
     requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
     completeRoom: (id, summary, receipt) => coordinator.completeRoom(id, summary, receipt),
     publishConductorNote: (id, note) => coordinator.publishConductorNote(id, note),
-    noteStructuralProgress: (id, summary) => coordinator.noteStructuralProgress(id, summary),
+    noteStructuralProgress: (id, summary, recordEvent) =>
+      coordinator.noteStructuralProgress(id, summary, recordEvent),
   });
 }
 
@@ -258,6 +259,22 @@ describe('routing', () => {
     expect(second.ok).toBe(true);
     expect(second.text).toContain('already claimed');
     expect(second.text).toContain('advisory');
+  });
+
+  it('counts a fresh claim as progress, and a repeat of it as nothing', async () => {
+    await router.execute(asImpl, { command: 'claim-paths', paths: ['src/parser'], reason: 'rewriting it' });
+    const first = (await store.readRoom(roomId))?.runtime.lastProgressAt;
+    // A member that takes files is working, whatever it does with the work
+    // board; the no-progress limit must not stop it for that.
+    expect(first).not.toBeNull();
+
+    await router.execute(asImpl, { command: 'claim-paths', paths: ['src/parser'], reason: 'still on it' });
+    // Re-claiming what it already holds is a no-op, so it buys no time.
+    expect((await store.readRoom(roomId))?.runtime.lastProgressAt).toBe(first);
+    const events = await store.readTimeline(roomId, 50);
+    expect(events.filter((event) => event.kind === 'claim')).toHaveLength(1);
+    // One claim reads as one event: progress is recorded, not re-announced.
+    expect(events.filter((event) => event.kind === 'work')).toHaveLength(0);
   });
 
   it('releases only the paths the caller holds', async () => {

@@ -212,9 +212,6 @@ export function renderTurnRequest(record: RoomRecord, member: RoomMember, messag
   // The Conductor woken into a silent Room is the one member that can end it:
   // nobody else can decide the objective is met. Telling it plainly what it is
   // looking at is the difference between a decision and another idle turn.
-  // The Conductor woken into a silent Room is the one member that can end it:
-  // nobody else can decide the objective is met. Telling it plainly what it is
-  // looking at is the difference between a decision and another idle turn.
   const roomIsQuiet = record.runtime.activeMemberIds.every((id) => id === member.id);
   lines.push(
     messages.length > 0

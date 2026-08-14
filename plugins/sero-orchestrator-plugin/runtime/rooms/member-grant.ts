@@ -116,6 +116,12 @@ export function buildRoomProtocolPrompt(member: RoomMember): string {
     'You work with the other members through Room commands, run with the sero-cli tool.',
     'Ask when you are blocked, reply when you are asked, and wait rather than guessing.',
     'Waiting costs nothing: your turn ends, and it resumes when the answer arrives.',
+    // The work board is the only record of progress the Room can read. Messages
+    // are not progress, so a Room whose members only talk is stopped as stalled
+    // however much work they are really doing.
+    'Put your work on the work board with update-work, and update it as it moves.',
+    'That board is how the Room knows anything is happening.',
+    ...(member.isConductor ? ['Write the plan on the board before you ask anyone to start.'] : []),
     '',
     'Commands available to you:',
     commands,

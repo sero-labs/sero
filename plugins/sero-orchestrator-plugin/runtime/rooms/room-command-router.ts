@@ -118,7 +118,7 @@ export interface RoomCommandDeps extends RoomDeliveryCommandDeps {
   }): Promise<RevisionResult>;
   /** The coordinator's own operations. Nothing else may drive a Room. */
   publishConductorNote(roomId: string, note: string): Promise<void>;
-  noteStructuralProgress(roomId: string, summary: string): Promise<void>;
+  noteStructuralProgress(roomId: string, summary: string, recordEvent?: boolean): Promise<void>;
 }
 
 export interface RoomCaller {
@@ -328,6 +328,15 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
         if (!input.paths?.length) return no('Name the paths, directories or globs you are claiming.');
         const result = await deps.claims.claim(roomId, member.id, input.paths, input.reason ?? body);
         if (!result.ok) return no(result.message, { code: result.code, overlaps: result.overlaps });
+        // Taking files IS structural progress: it is a member starting real work
+        // on the tree, and it is durable. Only FRESH patterns count, so a member
+        // cannot hold the no-progress clock open by re-claiming what it holds.
+        // Without this a Room that fixed the code and never touched the work
+        // board was stopped for "nothing has progressed".
+        if (result.claims.length > 0) {
+          const summary = `${member.displayName} claimed ${result.claims.length} path(s).`;
+          await deps.noteStructuralProgress(roomId, summary, false);
+        }
         return ok([renderClaims(record, result.claims), result.warning].filter(Boolean).join(' '), {
           claimIds: result.claims.map((claim) => claim.id),
         });
