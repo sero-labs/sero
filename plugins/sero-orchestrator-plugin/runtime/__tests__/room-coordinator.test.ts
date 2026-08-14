@@ -127,6 +127,26 @@ describe('starting a Room', () => {
     expect(prompt).toContain('Which file holds the parser?');
   });
 
+  it('delivers a message nobody was woken for once the Room falls quiet', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // An ordinary message wakes nobody on purpose — it must not spend a turn
+    // while the Room is busy. A member that has never run would otherwise sit
+    // on its assignment for ever.
+    await coordinator.mailbox.send(roomId, {
+      fromMemberId: 'lead',
+      toMemberIds: ['impl'],
+      body: 'Start on the parser.',
+      commandId: 'cmd-send-1',
+    });
+    await coordinator.noteStructuralProgress(roomId, 'Lead planned the work.');
+
+    await waitFor(async () => (await memberOf(roomId, 'impl')).usage.turns === 1, 'the implementer starting');
+    expect(String(host.persistentSessions.prompts.at(-1)?.content)).toContain('Start on the parser.');
+  });
+
   it('does not wake the lead twice for the same silence', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

@@ -67,6 +67,21 @@ export async function handleStall(
     await remindAnswerer(ctx, record, owed.question, owed.memberId);
     return;
   }
+  // Nothing is running, and a member is sitting on a message it has never
+  // read. An ordinary message deliberately wakes nobody — it must not spend a
+  // turn while the Room is busy — but a quiet Room has nothing else to spend,
+  // and that message is the only thing that can move it. A Conductor that
+  // assigned work by message used to leave the Room here until the clock ran
+  // out.
+  const unread = record.members.find(
+    (member) =>
+      member.status === 'idle'
+      && (record.readCursors.find((cursor) => cursor.memberId === member.id)?.pendingCount ?? 0) > 0,
+  );
+  if (unread && ctx.signals.claimQuietWake(roomId, quietMark(record))) {
+    await ctx.wake(roomId, unread.id, 'direct-message');
+    return;
+  }
   // Nobody is waiting on anybody and nothing is queued: the members simply
   // stopped talking. Only the Conductor can read the work and decide the Room is
   // finished, and nothing else was ever going to wake it — so this silence used
