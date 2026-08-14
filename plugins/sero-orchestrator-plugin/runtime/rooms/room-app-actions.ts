@@ -32,11 +32,13 @@ import type { RoomMessageDraft } from './room-messages';
 const PLANNABLE: readonly RoomStatus[] = ['draft', 'ready'];
 
 /**
- * Member states a wake can act on. The rest have no session to put back to
- * work — retired and failed are over, and a member already working does not
- * need waking.
+ * Member states a wake can actually move. `waiting` and `blocked` are cleared
+ * to idle by the wake itself, and an idle member is already schedulable. The
+ * rest go nowhere: a suspended member stays suspended until the Conductor
+ * resumes it, and one that is starting, working, retired or failed has nothing
+ * to wake.
  */
-const WAKEABLE: readonly MemberStatus[] = ['idle', 'waiting', 'blocked', 'suspended', 'starting'];
+const WAKEABLE: readonly MemberStatus[] = ['idle', 'waiting', 'blocked'];
 
 export interface RoomAppActionsContext extends RoomLiveContext {
   coordinator: RoomCoordinator;
@@ -362,6 +364,11 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return withRoom(roomId, async (status) => {
         const finished = stopped(status);
         if (finished) return finished;
+        // Only a running Room takes turns. Saying "awake" while it is paused
+        // would claim something the scheduler will not do until it resumes.
+        if (status !== 'running') {
+          return { ok: false, error: 'This Room is not running, so nobody can take a turn yet.' };
+        }
         const member = await store.readMember(roomId, memberId);
         // A member that finished or failed has no session left to wake.
         if (!member || WAKEABLE.includes(member.status) === false) {

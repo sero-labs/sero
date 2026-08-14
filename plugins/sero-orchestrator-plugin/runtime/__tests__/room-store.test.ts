@@ -251,6 +251,38 @@ describe('room store', () => {
     expect(events.map((e) => e.summary)).toEqual(['event 11', 'event 10', 'event 9']);
   });
 
+  it('repairs a Room written by an older build when it is loaded', async () => {
+    // A v1 Room has no `timelineSequence`. Without the migration every append
+    // would compute NaN and the panel would stop re-reading altogether.
+    const record = roomFixture('room-a');
+    const { timelineSequence: _dropped, ...v1Runtime } = record.runtime;
+    const { members, revisions: _revisions, ...rest } = record;
+    await mkdir(path.join(dir, 'rooms/room-a/members'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'rooms/index.json'),
+      JSON.stringify({ schemaVersion: 1, rooms: [{ id: 'room-a', title: 'Room room-a', status: 'running' }] }),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'rooms/room-a/room.json'),
+      JSON.stringify({ ...rest, runtime: v1Runtime, memberIds: members.map((one) => one.id) }),
+      'utf8',
+    );
+    for (const member of members) {
+      await writeFile(path.join(dir, `rooms/room-a/members/${member.id}.json`), JSON.stringify(member), 'utf8');
+    }
+
+    const store = createRoomStore(makeCtx());
+    expect((await store.readRoom('room-a'))?.runtime.timelineSequence).toBe(0);
+    await store.appendTimeline('room-a', [
+      { id: 'e1', roomId: 'room-a', at: 't', kind: 'claim', memberId: 'm1', summary: 'claimed', details: null },
+    ]);
+    expect((await store.readRoom('room-a'))?.runtime.timelineSequence).toBe(1);
+
+    const index = JSON.parse(await readFile(path.join(dir, 'rooms/index.json'), 'utf8'));
+    expect(index.schemaVersion).toBe(ROOM_SCHEMA_VERSION);
+  });
+
   it('moves the record when the timeline moves, so a watcher learns of it', async () => {
     // A claim or a revision appends an event without touching anything else the
     // Room panel follows. Without this the panel would show a stale timeline

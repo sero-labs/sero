@@ -161,6 +161,26 @@ describe('the user Room surface', () => {
     expect(outcome).toEqual({ ok: false, error: 'nobody is not a member this Room can put back to work.' });
   });
 
+  it('will not claim a wake it cannot deliver', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await store.updateMember(roomId, 'impl', (member) => ({ ...member, status: 'suspended' }));
+
+    // The Conductor suspended it; a wake does not resume it, so saying "awake"
+    // would report something the scheduler will never do.
+    expect(await app.wake(roomId, 'impl')).toEqual({
+      ok: false,
+      error: 'impl is not a member this Room can put back to work.',
+    });
+
+    await store.updateMember(roomId, 'impl', (member) => ({ ...member, status: 'idle' }));
+    await app.pause(roomId, 'Standing it down.');
+    expect(await app.wake(roomId, 'impl')).toEqual({
+      ok: false,
+      error: 'This Room is not running, so nobody can take a turn yet.',
+    });
+  });
+
   it('says nothing more reaches a Room that has finished', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
