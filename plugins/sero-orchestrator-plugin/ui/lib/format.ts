@@ -8,6 +8,13 @@ export function formatTime(iso?: string): string {
   return date.toLocaleString();
 }
 
+/** Wall-clock time of day — the timeline's `14:02` column. */
+export function formatClock(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 /** Compact relative time: "just now", "5m ago", "2h ago", "3d ago". */
 export function formatRelative(iso?: string): string {
   if (!iso) return '';

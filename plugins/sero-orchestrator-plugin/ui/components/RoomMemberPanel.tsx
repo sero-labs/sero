@@ -27,7 +27,7 @@ import {
   MemberTabPanel,
   type MemberTab,
 } from './RoomMemberFacts';
-import { MEMBER_DOT } from './RoomRoster';
+import { MEMBER_DOT_CLASS } from './RoomRoster';
 
 /** Turns shown before the early history is folded away. */
 const RECENT_TURNS = 6;
@@ -94,7 +94,7 @@ export function RoomMemberPanel({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[member.status]}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT_CLASS[member.status]}`} />
         <b className="text-sm">{member.displayName}</b>
         <span className="text-xs text-muted-foreground">
           {member.configuration.model} · {member.configuration.thinking} · {member.usage.turns} turn(s) ·{' '}

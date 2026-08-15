@@ -16,7 +16,7 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatCost, formatRelative } from '../lib/format';
 import { memberPaneText } from '../lib/room-view';
-import { MEMBER_DOT } from './RoomRoster';
+import { MEMBER_DOT_CLASS } from './RoomRoster';
 
 interface RoomWatchProps {
   memberIds: string[];
@@ -63,7 +63,7 @@ function WatchPane({
       className={`flex flex-col gap-2 rounded-md border p-3 ${midTurn ? 'border-emerald-500/30' : 'border-border'}`}
     >
       <div className="flex items-center gap-2">
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[member.status]}`} />
+        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT_CLASS[member.status]}`} />
         <b className="truncate text-sm">{member.displayName}</b>
         <span className="ml-auto shrink-0 text-xs text-muted-foreground">
           {midTurn ? `Live · turn ${member.usage.turns}` : member.statusDetail}

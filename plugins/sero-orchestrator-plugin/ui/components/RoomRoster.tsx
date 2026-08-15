@@ -12,44 +12,28 @@
  */
 
 import { openSeroApp } from '@sero-ai/app-runtime';
-import { ArrowUpRight, Users } from 'lucide-react';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { MemberStatus, RoomMember } from '../../shared/room-types';
-import { formatCost } from '../lib/format';
-
-/** Room member states, in the same visual language as loop and Room status. */
-const MEMBER_DOT: Record<MemberStatus, string> = {
-  starting: 'bg-emerald-500/50',
-  idle: 'bg-muted-foreground/40',
-  working: 'bg-emerald-500',
-  waiting: 'bg-amber-500',
-  blocked: 'bg-amber-500',
-  suspended: 'bg-muted-foreground/40',
-  retiring: 'bg-muted-foreground/40',
-  retired: 'bg-muted-foreground/30',
-  completed: 'bg-sky-500',
-  failed: 'bg-rose-500',
-  offline: 'bg-muted-foreground/30',
-};
-
-/** States that hold no execution slot, which is the thing the rail must make obvious. */
-const SPENDS_NO_TURN: readonly MemberStatus[] = ['idle', 'waiting', 'blocked', 'suspended', 'offline'];
+import { formatCost, formatElapsed } from '../lib/format';
+import { MEMBER_DOT, MEMBER_STATUS_LABEL, memberGlyph } from '../lib/member-glyph';
+import { Face } from './room-kit';
 
 /**
- * The status in words. The dot carries it visually; a screen reader and anybody
- * who cannot tell amber from green need it written down.
+ * The old class-based dot map, kept ONLY for RoomWatch and RoomMemberPanel
+ * until phase 12 restyles them onto the kit's StatusDot.
  */
-const MEMBER_STATUS_LABEL: Record<MemberStatus, string> = {
-  starting: 'starting',
-  idle: 'idle',
-  working: 'working',
-  waiting: 'waiting',
-  blocked: 'needs you',
-  suspended: 'suspended',
-  retiring: 'retiring',
-  retired: 'retired',
-  completed: 'finished',
-  failed: 'failed',
-  offline: 'offline',
+export const MEMBER_DOT_CLASS: Record<MemberStatus, string> = {
+  starting: 'bg-brand-primary/50',
+  idle: 'bg-room-text4',
+  working: 'bg-brand-primary',
+  waiting: 'bg-status-warning',
+  blocked: 'bg-status-warning',
+  suspended: 'bg-room-text4',
+  retiring: 'bg-room-text4',
+  retired: 'bg-room-text4/70',
+  completed: 'bg-status-info',
+  failed: 'bg-status-error',
+  offline: 'bg-room-text4/70',
 };
 
 interface RoomRosterProps {
@@ -57,14 +41,16 @@ interface RoomRosterProps {
   members: Map<string, RoomMember>;
   selectedId: string | null;
   onSelect: (memberId: string) => void;
+  className?: string;
 }
 
-export function RoomRoster({ memberIds, members, selectedId, onSelect }: RoomRosterProps) {
+export function RoomRoster({ memberIds, members, selectedId, onSelect, className }: RoomRosterProps) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-1 overflow-auto border-r border-border p-3">
-      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <Users className="h-3.5 w-3.5" /> Team · {memberIds.length}
-      </span>
+    <aside className={cn('flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-room-line px-2.5 py-[13px]', className)}>
+      <div className="room-mono-micro flex h-[26px] items-center px-2 uppercase tracking-[0.1em] text-room-text4">
+        Team
+        <span className="ml-auto tracking-normal">{memberIds.length}</span>
+      </div>
       {memberIds.map((memberId) => (
         <MemberRow
           key={memberId}
@@ -74,20 +60,29 @@ export function RoomRoster({ memberIds, members, selectedId, onSelect }: RoomRos
           onSelect={onSelect}
         />
       ))}
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-        Waiting and idle members hold no turn. A waiting member picks up again the moment its answer lands.
+      <p className="mt-[11px] border-t border-room-line px-[9px] pt-2.5 text-[10px] leading-[1.55] text-room-text4">
+        Waiting and idle members are not using a turn. A waiting member released its slot and picks up
+        again the moment its answer lands.
       </p>
       {/* The board shows this team beside every other piece of work in flight.
           It links back here rather than repeating the Room's controls. */}
       <button
         type="button"
         onClick={() => void openSeroApp('board')}
-        className="mt-1 flex items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+        className="mx-[9px] mt-2.5 self-start border-b border-dotted border-room-line-strong pb-px text-left text-[10px] text-room-text3 hover:text-room-text2"
       >
-        Open this team on the Agent Board <ArrowUpRight className="h-3 w-3" />
+        Open this team on the Agent Board ↗
       </button>
     </aside>
   );
+}
+
+/** `Waiting on a reply · 3m` — the duration a waiting member has been waiting. */
+function statusLine(member: RoomMember): string {
+  const base = member.statusDetail || MEMBER_STATUS_LABEL[member.status];
+  if (member.status !== 'waiting' && member.status !== 'blocked') return base;
+  const heldMs = Date.now() - new Date(member.statusAt).getTime();
+  return heldMs >= 60_000 ? `${base} · ${formatElapsed(heldMs)}` : base;
 }
 
 function MemberRow({
@@ -109,27 +104,30 @@ function MemberRow({
       type="button"
       aria-pressed={selected}
       onClick={() => onSelect(memberId)}
-      className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/40 ${
-        selected ? 'bg-accent/60' : ''
-      }`}
+      className={cn(
+        'mb-0.5 flex w-full items-center gap-[9px] rounded-[7px] border p-[9px] text-left',
+        selected ? 'border-room-line bg-room-raised' : 'border-transparent hover:bg-room-raised/50',
+      )}
     >
-      <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT[status]}`} />
+      <Face
+        size={26}
+        tone={member?.isConductor ? 'conductor' : 'member'}
+        label={memberGlyph(name, member?.isConductor)}
+        status={MEMBER_DOT[status]}
+        statusRingClass={selected ? 'border-room-raised' : 'border-room-bg'}
+      />
       <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-1.5">
-          <b className="truncate text-sm">{name}</b>
-          <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
-          {member?.isConductor && <span className="text-xs text-muted-foreground">leads</span>}
+        <b className={cn('block truncate text-xs font-medium', selected ? 'text-room-text' : 'text-room-text2')}>
+          {name}
+        </b>
+        <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
+        {/* "Holds no turn" is the rail-foot's job; repeating it per row
+            truncates the status detail it sits behind. */}
+        <span className="mt-[3px] block truncate text-[10px] text-room-text4">
+          {member ? statusLine(member) : 'Loading…'}
         </span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {member?.statusDetail ?? 'Loading…'}
-        </span>
-        {member && SPENDS_NO_TURN.includes(status) && (
-          <span className="block text-xs text-muted-foreground">holds no turn</span>
-        )}
       </span>
-      {member && <span className="shrink-0 text-xs text-muted-foreground">{formatCost(member.usage.costUsd)}</span>}
+      {member && <span className="room-mono-micro shrink-0 text-room-text4">{formatCost(member.usage.costUsd)}</span>}
     </button>
   );
 }
-
-export { MEMBER_DOT, SPENDS_NO_TURN };

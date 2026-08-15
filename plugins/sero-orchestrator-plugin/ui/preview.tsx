@@ -49,12 +49,20 @@ import { RoomBriefForm } from './components/RoomBriefForm';
 import { RoomPreparing } from './components/RoomPlanning';
 import { RoomProposal } from './components/RoomProposal';
 import { RoomAdvancedSettings } from './components/RoomAdvancedSettings';
+import { RoomTopBar } from './components/RoomTopBar';
+import { RoomRoster } from './components/RoomRoster';
+import { RoomActivity } from './components/RoomActivity';
+import { RoomSidePanel } from './components/RoomSidePanel';
+import { MEMBER_DOT, memberGlyph } from './lib/member-glyph';
 import {
   FIXTURE_BLUEPRINT,
+  FIXTURE_LIVE_MEMBERS,
+  FIXTURE_LIVE_ROOM,
   FIXTURE_LOOPS,
   FIXTURE_PROPOSAL,
   FIXTURE_PROPOSAL_REVISED,
   FIXTURE_ROOMS,
+  FIXTURE_TIMELINE,
   NOOP,
 } from './preview-fixtures';
 import './preview-harness.css';
@@ -202,7 +210,110 @@ const ALL_STATUSES: MemberStatus[] = ['working', 'waiting', 'idle', 'blocked', '
 /** The prototype's small .btn (26px, 11px type) for fixture actions. */
 const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
 
+/**
+ * Phase 11's screen composed from its four regions, with RoomDetail's
+ * container behaviour reproduced (face strip <900, drawer <1200): the real
+ * RoomDetail needs live IPC hooks the harness does not have.
+ */
+function LiveRoomPreview() {
+  const [view, setView] = useState<'result' | 'timeline' | 'watch'>('timeline');
+  const [selectedId, setSelectedId] = useState<string | null>('implementer-1');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'brief' | 'team'>('brief');
+  const members = new Map(FIXTURE_LIVE_MEMBERS.map((member) => [member.id, member]));
+  const names = new Map(FIXTURE_LIVE_MEMBERS.map((member) => [member.id, member.displayName]));
+
+  return (
+    <div className="flex h-[820px] flex-col">
+      <RoomTopBar
+        room={FIXTURE_LIVE_ROOM}
+        view={view}
+        busy={false}
+        panelOpen={panelOpen}
+        onTogglePanel={() => setPanelOpen((open) => !open)}
+        onBack={NOOP}
+        onView={setView}
+        onMessage={NOOP}
+        onPause={NOOP}
+        onResume={NOOP}
+        onStop={NOOP}
+      />
+      <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-room-line px-[18px] py-2 @min-[900px]/panel:hidden">
+        {FIXTURE_LIVE_MEMBERS.map((member) => (
+          <button
+            key={member.id}
+            type="button"
+            title={member.displayName}
+            aria-pressed={member.id === selectedId}
+            onClick={() => setSelectedId(member.id === selectedId ? null : member.id)}
+            className={`rounded-[7px] ${member.id === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
+          >
+            <Face
+              size={26}
+              tone={member.isConductor ? 'conductor' : 'member'}
+              label={memberGlyph(member.displayName, member.isConductor)}
+              status={MEMBER_DOT[member.status]}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="relative flex min-h-0 flex-1">
+        <RoomRoster
+          memberIds={FIXTURE_LIVE_ROOM.memberIds}
+          members={members}
+          selectedId={selectedId}
+          onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
+          className="hidden @min-[900px]/panel:flex"
+        />
+        <RoomActivity events={FIXTURE_TIMELINE} members={members} />
+        <RoomSidePanel room={FIXTURE_LIVE_ROOM} names={names} className="hidden @min-[1200px]/panel:flex" />
+        {panelOpen && (
+          <div className="absolute inset-y-0 right-0 z-10 flex w-80 max-w-full flex-col border-l border-room-line bg-room-bg shadow-xl @min-[1200px]/panel:hidden">
+            <div role="tablist" aria-label="Room panel" className="flex h-9 shrink-0 border-b border-room-line @min-[900px]/panel:hidden">
+              {(['brief', 'team'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={drawerTab === option}
+                  onClick={() => setDrawerTab(option)}
+                  className={`grid flex-1 place-items-center text-[11px] ${
+                    drawerTab === option
+                      ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
+                      : 'text-room-text4 hover:text-room-text3'
+                  }`}
+                >
+                  {option === 'brief' ? 'Brief' : 'Team'}
+                </button>
+              ))}
+            </div>
+            <RoomRoster
+              memberIds={FIXTURE_LIVE_ROOM.memberIds}
+              members={members}
+              selectedId={selectedId}
+              onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
+              className={drawerTab === 'team' ? 'w-full flex-1 border-r-0 @min-[900px]/panel:hidden' : 'hidden'}
+            />
+            <RoomSidePanel
+              room={FIXTURE_LIVE_ROOM}
+              names={names}
+              className={drawerTab === 'team' ? 'hidden w-full flex-1 border-l-0 @min-[900px]/panel:flex' : 'w-full flex-1 border-l-0'}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 11 — The live Room',
+    crops: [
+      { file: CAP_LIVE, x: 0, y: 104, w: 2584, h: 1410, label: 'live room — full' },
+    ],
+    render: () => <LiveRoomPreview />,
+  },
   {
     title: 'Phase 10 — Advanced settings',
     crops: [

@@ -13,12 +13,13 @@
 
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
-import { ArrowLeft } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
 import { defaultRoomView, roomSignal, type RoomView } from '../lib/room-view';
 import { useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
+import { MEMBER_DOT, memberGlyph } from '../lib/member-glyph';
+import { Face } from './room-kit';
 import { RoomActivity } from './RoomActivity';
 import { RoomCompletion } from './RoomCompletion';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
@@ -46,6 +47,10 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Null = closed; a member list = writing to those members (empty = everyone).
   const [composing, setComposing] = useState<{ memberIds: string[] } | null>(null);
+  // The side-panel drawer below 1200px; its Team tab carries the roster below
+  // 900px (F3 — the collapsed regions live here, toggled from the top bar).
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'brief' | 'team'>('brief');
 
   const room = useRoom(roomId);
   // A finished Room opens on its result; a live one opens on its activity. The
@@ -94,16 +99,13 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 px-4 pt-2">
-        <Button size="sm" variant="ghost" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Rooms
-        </Button>
-      </div>
-
       <RoomTopBar
         room={room}
         view={shownView}
         busy={busy}
+        panelOpen={panelOpen}
+        onTogglePanel={() => setPanelOpen((open) => !open)}
+        onBack={onBack}
         onView={(next) => {
           setView(next);
           setSelectedId(null);
@@ -113,6 +115,31 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         onResume={() => send('resume')}
         onStop={() => send('cancel')}
       />
+
+      {/* Below 900px the roster rail collapses to this face strip (F3). */}
+      <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-room-line px-[18px] py-2 @min-[900px]/panel:hidden">
+        {room.memberIds.map((memberId) => {
+          const member = members.get(memberId);
+          const name = member?.displayName ?? memberId;
+          return (
+            <button
+              key={memberId}
+              type="button"
+              title={name}
+              aria-pressed={memberId === selectedId}
+              onClick={() => setSelectedId(memberId === selectedId ? null : memberId)}
+              className={`rounded-[7px] ${memberId === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
+            >
+              <Face
+                size={26}
+                tone={member?.isConductor ? 'conductor' : 'member'}
+                label={memberGlyph(name, member?.isConductor)}
+                status={MEMBER_DOT[member?.status ?? 'offline']}
+              />
+            </button>
+          );
+        })}
+      </div>
 
       {room.runtime.stopReason && (
         <RoomStopBanner
@@ -129,11 +156,11 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           otherwise: the Room is still running, so there is no stop banner, and
           the request is not an approval. It has to be findable from here. */}
       {needsUser.length > 0 && !selectedId && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2">
-          <span className="text-sm">
+        <div className="flex flex-wrap items-center gap-2 border-b border-status-warning-border bg-status-warning-muted px-[18px] py-2">
+          <span className="text-xs text-room-ink-warn">
             {needsUser.map((member) => member.displayName).join(', ')} stopped to ask you something.
           </span>
-          <Button size="sm" className="ml-auto" onClick={() => setSelectedId(needsUser[0].id)}>
+          <Button className="ml-auto h-[26px] px-2.5 text-[11px]" onClick={() => setSelectedId(needsUser[0].id)}>
             Read it
           </Button>
         </div>
@@ -153,12 +180,13 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <RoomRoster
           memberIds={room.memberIds}
           members={members}
           selectedId={selectedId}
           onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
+          className="hidden @min-[900px]/panel:flex"
         />
 
         {selected ? (
@@ -195,9 +223,49 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           />
         ) : (
           <>
-            <RoomActivity events={events} names={names} />
-            <RoomSidePanel room={room} names={names} />
+            <RoomActivity events={events} members={members} />
+            <RoomSidePanel room={room} names={names} className="hidden @min-[1200px]/panel:flex" />
           </>
+        )}
+
+        {/* The drawer the top-bar Brief control opens below 1200px. Its Team
+            tab exists only below 900px, where the roster rail is gone too. */}
+        {panelOpen && !selected && (
+          <div className="absolute inset-y-0 right-0 z-10 flex w-80 max-w-full flex-col border-l border-room-line bg-room-bg shadow-xl @min-[1200px]/panel:hidden">
+            <div role="tablist" aria-label="Room panel" className="flex h-9 shrink-0 border-b border-room-line @min-[900px]/panel:hidden">
+              {(['brief', 'team'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={drawerTab === option}
+                  onClick={() => setDrawerTab(option)}
+                  className={`grid flex-1 place-items-center text-[11px] ${
+                    drawerTab === option
+                      ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
+                      : 'text-room-text4 hover:text-room-text3'
+                  }`}
+                >
+                  {option === 'brief' ? 'Brief' : 'Team'}
+                </button>
+              ))}
+            </div>
+            <RoomRoster
+              memberIds={room.memberIds}
+              members={members}
+              selectedId={selectedId}
+              onSelect={(memberId) => {
+                setSelectedId(memberId === selectedId ? null : memberId);
+                setPanelOpen(false);
+              }}
+              className={drawerTab === 'team' ? 'w-full flex-1 border-r-0 @min-[900px]/panel:hidden' : 'hidden'}
+            />
+            <RoomSidePanel
+              room={room}
+              names={names}
+              className={drawerTab === 'team' ? 'hidden w-full flex-1 border-l-0 @min-[900px]/panel:flex' : 'w-full flex-1 border-l-0'}
+            />
+          </div>
         )}
       </div>
 

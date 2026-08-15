@@ -8,13 +8,14 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { PathClaim, RoomRevision } from '../../shared/room-message-types';
 import type { PersistedRoom } from '../../shared/room-types';
 import { formatRelative } from '../lib/format';
 import { claimOverlaps } from '../lib/room-view';
 import { useStateDir } from '../lib/use-orchestrator-index';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { Eyebrow, NoteBlock } from './room-kit';
 
 type Tab = 'brief' | 'work' | 'claims' | 'artifacts' | 'changes';
 
@@ -35,7 +36,13 @@ const OUTCOME_LABEL: Record<RoomRevision['outcome'], string> = {
   withdrawn: 'withdrawn',
 };
 
-export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map<string, string> }) {
+interface RoomSidePanelProps {
+  room: PersistedRoom;
+  names: Map<string, string>;
+  className?: string;
+}
+
+export function RoomSidePanel({ room, names, className }: RoomSidePanelProps) {
   const [tab, setTab] = useState<Tab>('brief');
   const stateDir = useStateDir();
   // Revisions have their own file, so the changes tab follows it directly.
@@ -48,23 +55,28 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
   const active = room.claims.filter((claim) => claim.status === 'active');
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border">
-      <div role="tablist" aria-label="Room detail" className="flex gap-1 border-b border-border px-2 py-2">
+    <aside className={cn('flex w-80 shrink-0 flex-col overflow-hidden border-l border-room-line bg-room-sunken', className)}>
+      <div role="tablist" aria-label="Room detail" className="flex h-9 shrink-0 border-b border-room-line px-2.5">
         {(Object.keys(TAB_LABEL) as Tab[]).map((option) => (
-          <Button
+          <button
             key={option}
-            size="sm"
+            type="button"
             role="tab"
             aria-selected={tab === option}
-            variant={tab === option ? 'secondary' : 'ghost'}
             onClick={() => setTab(option)}
+            className={cn(
+              'grid flex-1 place-items-center text-[11px]',
+              tab === option
+                ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
+                : 'text-room-text4 hover:text-room-text3',
+            )}
           >
             {TAB_LABEL[option]}
-          </Button>
+          </button>
         ))}
       </div>
 
-      <div role="tabpanel" aria-label={TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-auto p-3">
+      <div role="tabpanel" aria-label={TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-y-auto p-3.5">
         {tab === 'brief' && <Brief room={room} />}
 
         {tab === 'work' && (room.work.length === 0
@@ -85,7 +97,7 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
                   {claim.reason}
                 </Entry>
               ))}
-              <p className="text-xs leading-relaxed text-muted-foreground">
+              <p className="text-[10px] leading-[1.55] text-room-text4">
                 Claims are advice between members. They are not a lock and they never replace Git — separate
                 checkouts are what actually stop two members overwriting each other. They are released when a
                 member retires or the Room ends.
@@ -98,7 +110,7 @@ export function RoomSidePanel({ room, names }: { room: PersistedRoom; names: Map
             <RosterBudget room={room} />
             {revisions.length === 0
               ? <Empty>The team has not changed since it started.</Empty>
-              : [...revisions].reverse().map((revision) => (
+              : revisions.toReversed().map((revision) => (
                   <Entry
                     key={revision.id}
                     title={revision.summary}
@@ -143,20 +155,18 @@ function ClaimOverlaps({
   const separate = room.definition.envelope.workspacePolicy.mode === 'worktree-per-member';
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-2.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {overlaps.length} overlap(s)
-      </p>
+    <div className="flex flex-col gap-1.5 rounded-lg border border-status-warning-border bg-status-warning-muted p-3">
+      <Eyebrow>{overlaps.length} overlap(s)</Eyebrow>
       {overlaps.map((overlap) => (
-        <p key={`${overlap.members.join()}:${overlap.patterns.join()}`} className="text-sm">
+        <p key={`${overlap.members.join()}:${overlap.patterns.join()}`} className="text-[11px] leading-relaxed text-room-text3">
           {who(overlap.members[0])} and {who(overlap.members[1])} both claimed{' '}
-          <span className="font-mono text-xs">{overlap.patterns[0]}</span>
+          <span className="room-tabular text-room-text3">{overlap.patterns[0]}</span>
           {overlap.patterns[0] !== overlap.patterns[1] && (
-            <> and <span className="font-mono text-xs">{overlap.patterns[1]}</span></>
+            <> and <span className="room-tabular text-room-text3">{overlap.patterns[1]}</span></>
           )}.
         </p>
       ))}
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-[10px] leading-[1.55] text-room-text4">
         {separate
           ? 'They work in separate checkouts, so neither can overwrite the other — but both will change the same file, and one of them has to merge.'
           : 'They share one working tree, so the later write wins. The Conductor has to give one of them the work.'}
@@ -177,13 +187,13 @@ function RosterBudget({ room }: { room: PersistedRoom }) {
   const { envelope } = room.definition;
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border p-2.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Roster changes</p>
-      <p className="text-sm">
+    <div className="flex flex-col gap-1.5 rounded-lg border border-room-line bg-room-surface p-3">
+      <Eyebrow>Roster changes</Eyebrow>
+      <p className="text-[11px] leading-relaxed text-room-text3">
         {usage.rosterRevisions} used of {envelope.maxRosterRevisions} allowed. Replacements count separately:{' '}
         {usage.memberReplacements} of {envelope.maxMemberReplacements}.
       </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-[10px] leading-[1.55] text-room-text4">
         The Conductor can add, retire, suspend and resume members, change a mandate, reassign work and pick another
         model you approved. More access, more spend, more time, a bigger team, a new delivery destination — and
         replacing itself — always come to you.
@@ -196,28 +206,23 @@ function Brief({ room }: { room: PersistedRoom }) {
   const { brief } = room;
   return (
     <>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Room brief · {formatRelative(brief.updatedAt)}
-        </p>
-        <p className="mt-1 text-sm">{brief.objective}</p>
+      <div className="rounded-lg border border-room-line bg-room-surface p-3">
+        <Eyebrow tone="brand" className="mb-2">Room brief · {formatRelative(brief.updatedAt)}</Eyebrow>
+        <p className="text-[11px] leading-[1.6] text-room-text3">{brief.objective}</p>
+        <BriefField label="Decided" lines={brief.decisions} />
+        <BriefField label="Active work" lines={brief.activeWork} />
+        <BriefField label="Blocked" lines={brief.blockers} />
+        <BriefField label="Open questions" lines={brief.openQuestions} />
+        <BriefField label="Success criteria" lines={brief.successCriteria} />
       </div>
-      <Field label="Decided" lines={brief.decisions} />
-      <Field label="Active work" lines={brief.activeWork} />
-      <Field label="Blocked" lines={brief.blockers} />
-      <Field label="Open questions" lines={brief.openQuestions} />
-      <Field label="Success criteria" lines={brief.successCriteria} />
 
       {brief.conductorNote && (
-        <div className="rounded-md border border-border p-2.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Conductor's note · {formatRelative(brief.conductorNoteAt ?? brief.updatedAt)}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">{brief.conductorNote}</p>
-        </div>
+        <NoteBlock tone="brand" title={<>Conductor's note · {formatRelative(brief.conductorNoteAt ?? brief.updatedAt)}</>}>
+          {brief.conductorNote}
+        </NoteBlock>
       )}
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-[10px] leading-[1.55] text-room-text4">
         The brief is built from Room records, not from the transcript. Each member is given only the part
         that concerns its own work.
       </p>
@@ -225,28 +230,28 @@ function Brief({ room }: { room: PersistedRoom }) {
   );
 }
 
-function Field({ label, lines }: { label: string; lines: string[] }) {
+function BriefField({ label, lines }: { label: string; lines: string[] }) {
   if (lines.length === 0) return null;
   return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <ul className="mt-0.5 flex flex-col gap-0.5">
-        {lines.map((line) => <li key={line} className="text-sm">{line}</li>)}
+    <div className="mt-[9px] border-t border-room-line pt-[9px]">
+      <small className="room-mono-micro block uppercase tracking-[0.07em] text-room-text4">{label}</small>
+      <ul className="mt-[5px] flex flex-col gap-1">
+        {lines.map((line) => <li key={line} className="text-[11px] leading-[1.55] text-room-text3">{line}</li>)}
       </ul>
     </div>
   );
 }
 
 function Empty({ children }: { children: string }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
+  return <p className="text-[11px] text-room-text4">{children}</p>;
 }
 
 function Entry({ title, note, children }: { title: string; note: string; children?: string | null }) {
   return (
-    <div className="rounded-md border border-border p-2.5">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-xs text-muted-foreground">{note}</p>
-      {children && <p className="mt-1 break-words text-xs text-muted-foreground">{children}</p>}
+    <div className="rounded-lg border border-room-line bg-room-surface p-3">
+      <p className="text-[11px] font-medium text-room-text2">{title}</p>
+      <p className="mt-0.5 text-[10px] text-room-text4">{note}</p>
+      {children && <p className="mt-1.5 break-words text-[11px] leading-relaxed text-room-text4">{children}</p>}
     </div>
   );
 }

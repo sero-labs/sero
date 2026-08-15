@@ -1,27 +1,53 @@
 /**
- * The live Room's top bar (prototype screens 8 and 9).
- *
- * Two jobs: say where the Room stands against its own limits, and hold the
- * controls that belong to the user rather than to the team. The meters read
- * against the approved envelope, because "41m" means nothing without "of 2h" —
- * a limit the user set and the Room cannot exceed.
+ * The live Room's top bar (prototype screens 8 and 9): 50px, dot, title,
+ * status pill, divider, the two meters against the approved envelope, the
+ * turn count, then Timeline/Watch and the user's controls with Stop danger-
+ * toned. "41m" means nothing without "of 2h" — a limit the user set and the
+ * Room cannot exceed.
  *
  * Elapsed time is computed at render. The component re-renders when the watched
  * Room record changes, so the figure advances with the Room's own progress and
  * no timer runs.
+ *
+ * F3: the regions that collapse at narrow widths surface here — the Brief
+ * toggle below 1200px (side panel drawer), which below 900px also carries the
+ * roster as its Team tab.
  */
 
 import { Button } from '@sero-ai/ui';
-import { MessageSquare, Pause, Play, Square } from 'lucide-react';
-import { TERMINAL_ROOM_STATUSES, type PersistedRoom } from '../../shared/room-types';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
-import { formatCost, formatDuration } from '../lib/format';
+import { formatCost, formatDuration, formatElapsed } from '../lib/format';
+import { ROOM_DOT } from './ListRow';
+import { Meter, Pill, StatusDot, type PillProps } from './room-kit';
+
+/** Room lifecycle → the pill's accent (prototype `.pill em` while running). */
+const STATUS_PILL_TONE: Record<RoomStatus, PillProps['tone']> = {
+  running: 'brand',
+  completing: 'brand',
+  pausing: 'warn',
+  paused: 'warn',
+  ready: 'neutral',
+  draft: 'neutral',
+  completed: 'info',
+  failed: 'error',
+  cancelled: 'neutral',
+};
+
+/** The prototype's small .btn (26px, 11px type). */
+const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
 
 interface RoomTopBarProps {
   room: PersistedRoom;
   view: RoomView;
   busy: boolean;
+  /** The side-panel drawer state below 1200px (F3). */
+  panelOpen: boolean;
+  onTogglePanel: () => void;
+  onBack: () => void;
   onView: (view: RoomView) => void;
   onMessage: () => void;
   onPause: () => void;
@@ -29,9 +55,20 @@ interface RoomTopBarProps {
   onStop: () => void;
 }
 
-export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onResume, onStop }: RoomTopBarProps) {
+export function RoomTopBar({
+  room,
+  view,
+  busy,
+  panelOpen,
+  onTogglePanel,
+  onBack,
+  onView,
+  onMessage,
+  onPause,
+  onResume,
+  onStop,
+}: RoomTopBarProps) {
   const { runtime, definition } = room;
-  const style = ROOM_STATUS_STYLE[runtime.status];
   const elapsedMs = runtime.startedAt
     ? (runtime.endedAt ? new Date(runtime.endedAt).getTime() : Date.now()) - new Date(runtime.startedAt).getTime()
     : 0;
@@ -42,101 +79,95 @@ export function RoomTopBar({ room, view, busy, onView, onMessage, onPause, onRes
   // that would do it is not offered.
   const live = running || paused || runtime.status === 'pausing' || runtime.status === 'completing';
 
+  const views: Array<{ id: RoomView; label: string }> = [
+    ...(finished ? [{ id: 'result' as const, label: 'Result' }] : []),
+    { id: 'timeline', label: 'Timeline' },
+    { id: 'watch', label: 'Watch' },
+  ];
+
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2">
-      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
-      <h2 className="truncate text-base font-semibold">{definition.title}</h2>
-      <span className={`rounded-full border px-2 py-0.5 text-xs ${style.badge}`}>{style.label}</span>
+    <div className="flex h-[50px] shrink-0 items-center gap-3.5 border-b border-room-line px-[18px]">
+      <Button variant="ghost" size="icon" aria-label="Back to Rooms" className="-ml-2 size-[26px] shrink-0 text-room-text3" onClick={onBack}>
+        <ArrowLeft className="size-3.5" />
+      </Button>
+      <StatusDot status={ROOM_DOT[runtime.status]} />
+      <h2 className="min-w-[72px] truncate text-sm font-semibold tracking-[-0.02em] text-room-text">
+        {definition.title}
+      </h2>
+      <Pill tone={STATUS_PILL_TONE[runtime.status]}>{ROOM_STATUS_STYLE[runtime.status].label}</Pill>
+      <span aria-hidden className="h-[18px] w-px shrink-0 bg-room-line @max-[820px]/panel:hidden" />
 
       <Meter
-        label="Time used"
-        value={formatDuration(elapsedMs)}
+        value={<span aria-label={`Time used: ${formatElapsed(elapsedMs)}`}>{formatElapsed(elapsedMs)}</span>}
         of={formatDuration(definition.envelope.maxWallClockMs)}
-        fraction={elapsedMs / definition.envelope.maxWallClockMs}
+        pct={(elapsedMs / definition.envelope.maxWallClockMs) * 100}
+        className="@max-[820px]/panel:hidden"
       />
       <Meter
-        label="Spent"
-        value={formatCost(runtime.usage.costUsd)}
+        value={<span aria-label={`Spent: ${formatCost(runtime.usage.costUsd)}`}>{formatCost(runtime.usage.costUsd)}</span>}
         of={formatCost(definition.envelope.maxCostUsd)}
-        fraction={runtime.usage.costUsd / definition.envelope.maxCostUsd}
+        pct={(runtime.usage.costUsd / definition.envelope.maxCostUsd) * 100}
+        className="@max-[820px]/panel:hidden"
       />
-      <span className="text-xs text-muted-foreground">
+      <span className="room-tabular shrink-0 text-[10px] text-room-text3 @max-[1000px]/panel:hidden">
         {runtime.activeMemberIds.length} of {definition.envelope.maxActiveTurns} turns active
       </span>
 
-      <div className="ml-auto flex items-center gap-1">
-        <div role="group" aria-label="Room view" className="flex gap-1">
-          {finished && (
-            <Button
-              size="sm"
-              aria-pressed={view === 'result'}
-              variant={view === 'result' ? 'secondary' : 'ghost'}
-              onClick={() => onView('result')}
+      <div className="ml-auto flex shrink-0 items-center gap-[7px]">
+        <div role="group" aria-label="Room view" className="flex gap-[5px]">
+          {views.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={view === option.id}
+              onClick={() => onView(option.id)}
+              className={cn(
+                'flex h-[21px] items-center rounded-[11px] px-2 text-[10px]',
+                view === option.id
+                  ? 'bg-brand-primary-subtle text-room-ink-brand'
+                  : 'bg-room-muted text-room-text3 hover:text-room-text2',
+              )}
             >
-              Result
-            </Button>
-          )}
-          <Button
-            size="sm"
-            aria-pressed={view === 'timeline'}
-            variant={view === 'timeline' ? 'secondary' : 'ghost'}
-            onClick={() => onView('timeline')}
-          >
-            Timeline
-          </Button>
-          <Button
-            size="sm"
-            aria-pressed={view === 'watch'}
-            variant={view === 'watch' ? 'secondary' : 'ghost'}
-            onClick={() => onView('watch')}
-          >
-            Watch
-          </Button>
+              {option.label}
+            </button>
+          ))}
         </div>
+        {/* F3: what collapsed gains its control here, in the same commit. */}
+        <Button
+          variant="outline"
+          aria-pressed={panelOpen}
+          className={cn(SMALL_BTN, 'hidden @max-[1200px]/panel:inline-flex')}
+          onClick={onTogglePanel}
+        >
+          Brief
+        </Button>
         {live && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onMessage}>
-            <MessageSquare className="mr-1 h-3.5 w-3.5" /> Message the team
+          <Button variant="outline" aria-label="Message the team" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
+            <MessageSquare className="size-3 @min-[1000px]/panel:hidden" />
+            <span className="@max-[1000px]/panel:hidden">Message the team</span>
           </Button>
         )}
         {running && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onPause}>
-            <Pause className="mr-1 h-3.5 w-3.5" /> Pause
+          <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onPause}>
+            Pause
           </Button>
         )}
         {paused && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onResume}>
-            <Play className="mr-1 h-3.5 w-3.5" /> Resume
+          <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onResume}>
+            Resume
           </Button>
         )}
         {live && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onStop} className="text-destructive">
-            <Square className="mr-1 h-3.5 w-3.5" /> Stop
+          <Button
+            variant="outline"
+            className={cn(SMALL_BTN, 'border-status-error-border text-status-error hover:bg-status-error-muted hover:text-status-error')}
+            disabled={busy}
+            onClick={onStop}
+          >
+            Stop
           </Button>
         )}
       </div>
     </div>
-  );
-}
-
-function Meter({ label, value, of, fraction }: { label: string; value: string; of: string; fraction: number }) {
-  const pct = Math.min(100, Math.max(0, fraction * 100));
-  return (
-    <span
-      role="progressbar"
-      aria-label={`${label}: ${value} of ${of}`}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(pct)}
-      className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground"
-    >
-      <span className="text-foreground">{value}</span>
-      <span aria-hidden className="h-1 w-12 overflow-hidden rounded-full bg-muted">
-        <span
-          className={`block h-full rounded-full ${pct >= 90 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </span>
-      of {of}
-    </span>
   );
 }
