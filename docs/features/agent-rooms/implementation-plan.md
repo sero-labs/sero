@@ -580,7 +580,7 @@ Objective: Make Room mode safe and reliable for general use.
 - [x] Add worktree conflict and cleanup recovery tests.
 - [x] Add prompt-injection, authority-expansion and forged-approval security tests.
 - [x] Verify AD-020, AD-024 and AD-026 compliance.
-- [ ] Measure scheduler fairness, recovery time and resource growth.
+- [x] Measure scheduler fairness, recovery time and resource growth. *(Deterministic bounds and benchmark are recorded in hardening-report.md; cohort telemetry is the production gate.)*
 - [x] Add archive, retention, deletion and redacted diagnostics.
 - [x] Add user, template-author and operator documentation.
 - [x] Add telemetry, support runbook, rollout and rollback plan.

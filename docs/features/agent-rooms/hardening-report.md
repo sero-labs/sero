@@ -48,7 +48,9 @@ runtime.
 Wake telemetry records the time from a persisted wake signal to the resumed
 turn start. It keeps only 1,000 local numeric samples and reports p95 without
 prompt or message content. Production cohort data is still required to approve
-the two-second target. Session and message bounds have deterministic tests;
-operators must watch logs, disk use, worktree count, cost, and recovery time
-during cohort rollout.
-
+the two-second target. A scheduler benchmark runs 10,000 passes across 21 ready
+members, verifies oldest-first fairness, and has a one-second CI ceiling.
+Recovery tests time out if reconciliation does not settle, and resource tests
+verify the 1,000 wake-sample bound, session-pool cap, message-page retention,
+timeline rotation, and worktree cleanup. Operators must still watch these
+measures during cohort rollout.
