@@ -86,12 +86,22 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
         {hint != null && <span className="ml-auto text-[10px] font-normal text-room-text4">{hint}</span>}
       </div>
       {/* The emerald band separates cells with hairlines; the neutral
-          recompute panel uses plain gaps (prototype .auth-grid vs .diff). */}
-      <div className={cn('grid grid-cols-4', !brand && 'gap-2.5 px-[15px] py-[13px]')}>
+          recompute panel uses plain gaps (prototype .auth-grid vs .diff).
+          Cells go 4 → 2 → 1 with the panel (ux-refit-plan.md phase 7) and
+          never truncate a figure — the numbers are what is consented to. */}
+      <div
+        className={cn(
+          'grid @min-[600px]/panel:grid-cols-2 @min-[900px]/panel:grid-cols-4',
+          !brand && 'gap-2.5 px-[15px] py-[13px]',
+        )}
+      >
         {cells.map((cell, i) => (
           <div
             key={i}
-            className={cn(brand && 'border-brand-primary-muted px-[15px] py-[13px] not-last:border-r')}
+            className={cn(
+              brand
+                && 'border-brand-primary-muted px-[15px] py-[13px] not-last:border-b @min-[600px]/panel:nth-[odd]:border-r @min-[600px]/panel:nth-[3]:border-b-0 @min-[900px]/panel:not-last:border-r @min-[900px]/panel:border-b-0',
+            )}
           >
             <span className="room-mono-micro block uppercase tracking-[0.07em] text-room-text4">{cell.label}</span>
             <span

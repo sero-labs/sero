@@ -57,6 +57,9 @@ export function RoomDraftReview({
   showBack = false,
 }: RoomDraftReviewProps) {
   const [rethinking, setRethinking] = useState(false);
+  // The read-only blueprint (screen 7) replaces the proposal rather than
+  // stacking under it — one consent surface on screen at a time.
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Null until an adjustment lands, so the clamps from the planning call that
   // opened this screen stay on show until there is a newer answer.
   const [revised, setRevised] = useState<BlueprintClamp[] | null>(null);
@@ -94,6 +97,22 @@ export function RoomDraftReview({
     );
   }
 
+  if (showAdvanced) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center gap-2 border-b border-room-line px-4 py-2">
+          <Button size="sm" variant="ghost" className="text-room-text3" onClick={() => setShowAdvanced(false)}>
+            <ArrowLeft className="mr-1 size-3.5" /> Back to proposal
+          </Button>
+          <Button size="sm" className="ml-auto" disabled={busy} onClick={start}>
+            Start room
+          </Button>
+        </div>
+        <RoomAdvancedSettings blueprint={room.definition.blueprint} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto">
       {showBack && (
@@ -118,8 +137,8 @@ export function RoomDraftReview({
         onStart={start}
         onAdjust={adjust}
         onDiscard={discard}
+        onOpenAdvanced={() => setShowAdvanced(true)}
       />
-      <RoomAdvancedSettings blueprint={room.definition.blueprint} />
     </div>
   );
 }

@@ -47,6 +47,8 @@ import { ShellTopBar } from './components/ShellTopBar';
 import { HomeView } from './components/HomeView';
 import { RoomBriefForm } from './components/RoomBriefForm';
 import { RoomPreparing } from './components/RoomPlanning';
+import { RoomProposal } from './components/RoomProposal';
+import type { RoomProposalSummary } from '../shared/room-blueprint-types';
 import type { LoopSummary } from '../shared/types';
 import type { RoomSummary } from '../shared/room-types';
 import './preview-harness.css';
@@ -300,7 +302,54 @@ const FIXTURE_LOOPS: LoopSummary[] = [
   },
 ];
 
+const FIXTURE_PROPOSAL: RoomProposalSummary = {
+  teamSize: 5,
+  conductorCount: 1,
+  maxWallClockMs: 2 * 3600_000,
+  maxCostUsd: 6,
+  access: [
+    { label: 'read-workspace' },
+    { label: 'edit-workspace' },
+    {
+      label: 'github-write',
+      warning: 'This team can push branches and open pull requests. It cannot merge them, deploy, or reach anything outside this repository.',
+    },
+  ],
+  warnings: [
+    'This team can push branches and open pull requests. It cannot merge them, deploy, or reach anything outside this repository.',
+  ],
+  title: 'Session-fixation fix for the login flow',
+  approach:
+    'A reviewer confirms whether the risk is real, two implementers fix it in separate branches, and a tester proves the fix with a failing-then-passing test before the pull request goes up.',
+  roles: [
+    { displayName: 'Conductor', responsibility: 'Keeps the work moving, decides what happens next, and reports back when it is done.', isConductor: true },
+    { displayName: 'Security reviewer', responsibility: 'Confirms whether the session-fixation risk is real and says exactly where it is.', isConductor: false },
+    { displayName: 'Implementer 1', responsibility: 'Fixes the session handling in the login path.', isConductor: false },
+    { displayName: 'Implementer 2', responsibility: 'Updates everything that depends on the old session behaviour.', isConductor: false },
+    { displayName: 'Tester', responsibility: 'Writes a test that fails on the old code and passes on the fix.', isConductor: false },
+  ],
+  teamRationale:
+    'Session fixation is cheap to misdiagnose and expensive to get wrong, so the first job is confirming it exists rather than assuming it. The fix itself touches two separate concerns — the login path and everything downstream that reads the old session — which is why the work splits across two implementers in separate branches instead of one agent making a wide change. A dedicated tester keeps the proof honest: the test has to fail on the current code before it is allowed to pass on the fix.',
+};
+
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 7 — The proposal',
+    crops: [
+      { file: CAP_PROPOSAL, x: 540, y: 120, w: 1520, h: 1400, label: 'proposal — column' },
+    ],
+    render: () => (
+      <RoomProposal
+        proposal={FIXTURE_PROPOSAL}
+        clamps={[]}
+        busy={false}
+        onStart={NOOP}
+        onAdjust={NOOP}
+        onDiscard={NOOP}
+        onOpenAdvanced={NOOP}
+      />
+    ),
+  },
   {
     title: 'Phase 4 — Home',
     crops: [
