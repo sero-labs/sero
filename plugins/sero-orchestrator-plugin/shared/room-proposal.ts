@@ -30,6 +30,8 @@ export function computeProposalSummary(blueprint: RoomBlueprint): RoomProposalSu
       displayName: member.displayName,
       responsibility: member.responsibility,
       isConductor: member.isConductor,
+      // Planner prose for "Why this team?" — carries no authority (6a).
+      ...(member.reasonForInclusion ? { rationale: member.reasonForInclusion } : {}),
     })),
     teamRationale: blueprint.teamRationale,
   };

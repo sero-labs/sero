@@ -262,6 +262,23 @@ export function RoomProposal({
           </div>
           <div className="p-[15px]">
             <p className="text-xs leading-[1.65] text-room-text3">{proposal.teamRationale}</p>
+            <div className="mt-3.5 grid gap-[9px]">
+              {proposal.roles.map((role) => (
+                <div key={role.displayName} className="flex gap-[11px] rounded-lg border border-room-line bg-room-sunken px-3 py-[11px]">
+                  <Face
+                    size={26}
+                    tone={role.isConductor ? 'conductor' : 'member'}
+                    label={memberGlyph(role.displayName, role.isConductor)}
+                  />
+                  <div className="min-w-0">
+                    <b className="block text-[11px] font-medium text-room-text2">{role.displayName}</b>
+                    <span className="mt-[5px] block text-[11px] leading-relaxed text-room-text4">
+                      {role.rationale ?? role.responsibility}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
             <NoteBlock tone="collab" className="mt-3.5">
               This is the planner explaining its choices. It does not change what the team is allowed
               to do — the access, spend, time and team size you approve are computed from the plan

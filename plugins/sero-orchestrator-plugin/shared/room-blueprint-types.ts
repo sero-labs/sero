@@ -145,7 +145,13 @@ export interface RoomProposalSummary {
   // ── planner prose ───────────────────────────────────────
   title: string;
   approach: string;
-  roles: { displayName: string; responsibility: string; isConductor: boolean }[];
+  roles: {
+    displayName: string;
+    responsibility: string;
+    isConductor: boolean;
+    /** The member's own reason for existing (screen 6). Planner prose, no authority. */
+    rationale?: string;
+  }[];
   teamRationale: string;
 }
 

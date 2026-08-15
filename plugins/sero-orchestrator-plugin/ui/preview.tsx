@@ -322,11 +322,36 @@ const FIXTURE_PROPOSAL: RoomProposalSummary = {
   approach:
     'A reviewer confirms whether the risk is real, two implementers fix it in separate branches, and a tester proves the fix with a failing-then-passing test before the pull request goes up.',
   roles: [
-    { displayName: 'Conductor', responsibility: 'Keeps the work moving, decides what happens next, and reports back when it is done.', isConductor: true },
-    { displayName: 'Security reviewer', responsibility: 'Confirms whether the session-fixation risk is real and says exactly where it is.', isConductor: false },
-    { displayName: 'Implementer 1', responsibility: 'Fixes the session handling in the login path.', isConductor: false },
-    { displayName: 'Implementer 2', responsibility: 'Updates everything that depends on the old session behaviour.', isConductor: false },
-    { displayName: 'Tester', responsibility: 'Writes a test that fails on the old code and passes on the fix.', isConductor: false },
+    {
+      displayName: 'Conductor',
+      responsibility: 'Keeps the work moving, decides what happens next, and reports back when it is done.',
+      isConductor: true,
+      rationale: 'Someone has to decide when the reviewer’s finding is solid enough to act on, and when the fix is finished. That decision cannot sit with the agent doing the work.',
+    },
+    {
+      displayName: 'Security reviewer',
+      responsibility: 'Confirms whether the session-fixation risk is real and says exactly where it is.',
+      isConductor: false,
+      rationale: 'Confirms the risk is real before anyone changes code. If it is not real, the Room can stop early instead of spending the budget.',
+    },
+    {
+      displayName: 'Implementer 1',
+      responsibility: 'Fixes the session handling in the login path.',
+      isConductor: false,
+      rationale: 'The login path change is small but delicate. It gets its own branch so it can be reviewed on its own.',
+    },
+    {
+      displayName: 'Implementer 2',
+      responsibility: 'Updates everything that depends on the old session behaviour.',
+      isConductor: false,
+      rationale: 'The downstream updates are wide and mechanical. Splitting them off keeps the delicate change readable.',
+    },
+    {
+      displayName: 'Tester',
+      responsibility: 'Writes a test that fails on the old code and passes on the fix.',
+      isConductor: false,
+      rationale: 'You asked for a test that fails on the old code. Writing it separately from the fix stops it being shaped to match the fix.',
+    },
   ],
   teamRationale:
     'Session fixation is cheap to misdiagnose and expensive to get wrong, so the first job is confirming it exists rather than assuming it. The fix itself touches two separate concerns — the login path and everything downstream that reads the old session — which is why the work splits across two implementers in separate branches instead of one agent making a wide change. A dedicated tester keeps the proof honest: the test has to fail on the current code before it is allowed to pass on the fix.',
@@ -364,9 +389,10 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    title: 'Phase 7 — The proposal',
+    title: 'Phase 7 — The proposal (open Why this team? for phase 9, cap6)',
     crops: [
       { file: CAP_PROPOSAL, x: 540, y: 120, w: 1520, h: 1400, label: 'proposal — column' },
+      { file: CAP_WHY, x: 540, y: 120, w: 1520, h: 1360, label: 'why this team — column' },
     ],
     render: () => (
       <RoomProposal
