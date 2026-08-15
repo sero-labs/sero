@@ -225,7 +225,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         ) : (
           <>
             <RoomActivity events={events} members={members} />
-            <RoomSidePanel room={room} names={names} className="hidden @min-[1200px]/panel:flex" />
+            <RoomSidePanel room={room} names={names} members={members} className="hidden @min-[1200px]/panel:flex" />
           </>
         )}
 
@@ -264,6 +264,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             <RoomSidePanel
               room={room}
               names={names}
+              members={members}
               className={drawerTab === 'team' ? 'hidden w-full flex-1 border-l-0 @min-[900px]/panel:flex' : 'w-full flex-1 border-l-0'}
             />
           </div>

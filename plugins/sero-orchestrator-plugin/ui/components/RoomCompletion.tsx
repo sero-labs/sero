@@ -11,8 +11,10 @@
  */
 
 import type { PersistedRoom, RoomMember } from '../../shared/room-types';
+import { resolveArtifactPath } from '../lib/artifact-path';
 import { formatCost, formatDuration, formatTime } from '../lib/format';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
+import { RoomArtifactLink } from './RoomArtifactLink';
 
 interface RoomCompletionProps {
   room: PersistedRoom;
@@ -33,14 +35,14 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
   const undone = [...brief.blockers, ...brief.openQuestions];
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
+    <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto p-6">
       <div>
         <span className={`rounded-full border px-2 py-0.5 text-xs ${style.badge}`}>{style.label}</span>
         <h3 className="mt-2 text-base font-semibold">{definition.title}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{finalLine ?? brief.objective}</p>
       </div>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
+      <div className="flex flex-wrap gap-x-10 gap-y-4">
         <Stat label="Duration" value={formatDuration(durationMs)} of={formatDuration(definition.envelope.maxWallClockMs)} />
         <Stat label="Spend" value={formatCost(runtime.usage.costUsd)} of={formatCost(definition.envelope.maxCostUsd)} />
         <Stat label="Team" value={`${roster.length} member(s)`} of={`${runtime.usage.memberReplacements} replaced`} />
@@ -64,15 +66,22 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
         {artifacts.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing was published.</p>
         ) : (
-          artifacts.map((artifact) => (
-            <p key={artifact.id} className="text-sm">
-              {artifact.title}
-              <span className="ml-2 text-xs text-muted-foreground">
-                {artifact.kind} · {members.get(artifact.producedByMemberId)?.displayName ?? artifact.producedByMemberId}
-              </span>
-              <span className="block break-all font-mono text-xs text-muted-foreground">{artifact.ref}</span>
-            </p>
-          ))
+          <div className="flex flex-col gap-3">
+            {artifacts.map((artifact) => (
+              <RoomArtifactLink
+                key={artifact.id}
+                workspaceId={members.get(artifact.producedByMemberId)?.session.workspaceId ?? roster[0]?.session.workspaceId}
+                path={resolveArtifactPath(artifact.ref, members.get(artifact.producedByMemberId))}
+                className="rounded-md px-1 py-0.5 hover:bg-accent/40"
+              >
+                <span className="text-sm">{artifact.title}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {artifact.kind} · {members.get(artifact.producedByMemberId)?.displayName ?? artifact.producedByMemberId}
+                </span>
+                <span className="block break-all font-mono text-xs text-muted-foreground">{artifact.ref}</span>
+              </RoomArtifactLink>
+            ))}
+          </div>
         )}
       </Panel>
 
@@ -94,9 +103,6 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
             <span className="w-16 shrink-0 text-right text-xs tabular-nums">{formatCost(member.usage.costUsd)}</span>
           </button>
         ))}
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Usage shows the same rows grouped under this Room, so none of them appears as an unexplained chat.
-        </p>
       </Panel>
 
       {undone.length > 0 && (
@@ -110,7 +116,7 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
 
 function Stat({ label, value, of }: { label: string; value: string; of: string }) {
   return (
-    <span className="flex flex-col">
+    <span className="flex min-w-20 flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
       <b className="text-sm">{value}</b>
       <span className="text-xs text-muted-foreground">of {of}</span>
@@ -120,7 +126,7 @@ function Stat({ label, value, of }: { label: string; value: string; of: string }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+    <section className="flex flex-col gap-3 rounded-md border border-border p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
       {children}
     </section>

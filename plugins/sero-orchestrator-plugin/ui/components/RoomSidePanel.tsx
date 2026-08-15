@@ -10,12 +10,14 @@
 import { useState } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { PathClaim, RoomRevision } from '../../shared/room-message-types';
-import type { PersistedRoom } from '../../shared/room-types';
+import type { PersistedRoom, RoomMember } from '../../shared/room-types';
+import { resolveArtifactPath } from '../lib/artifact-path';
 import { formatRelative } from '../lib/format';
 import { claimOverlaps } from '../lib/room-view';
 import { useStateDir } from '../lib/use-orchestrator-index';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { Eyebrow, NoteBlock } from './room-kit';
+import { RoomArtifactLink } from './RoomArtifactLink';
 
 type Tab = 'brief' | 'work' | 'claims' | 'artifacts' | 'changes';
 
@@ -39,10 +41,11 @@ const OUTCOME_LABEL: Record<RoomRevision['outcome'], string> = {
 interface RoomSidePanelProps {
   room: PersistedRoom;
   names: Map<string, string>;
+  members: Map<string, RoomMember>;
   className?: string;
 }
 
-export function RoomSidePanel({ room, names, className }: RoomSidePanelProps) {
+export function RoomSidePanel({ room, names, members, className }: RoomSidePanelProps) {
   const [tab, setTab] = useState<Tab>('brief');
   const stateDir = useStateDir();
   // Revisions have their own file, so the changes tab follows it directly.
@@ -125,9 +128,16 @@ export function RoomSidePanel({ room, names, className }: RoomSidePanelProps) {
         {tab === 'artifacts' && (room.artifacts.length === 0
           ? <Empty>Nothing published yet.</Empty>
           : room.artifacts.map((artifact) => (
-              <Entry key={artifact.id} title={artifact.title} note={`${artifact.kind} · ${who(artifact.producedByMemberId)}`}>
-                {artifact.ref}
-              </Entry>
+              <RoomArtifactLink
+                key={artifact.id}
+                workspaceId={members.get(artifact.producedByMemberId)?.session.workspaceId}
+                path={resolveArtifactPath(artifact.ref, members.get(artifact.producedByMemberId))}
+                className="rounded-lg hover:ring-1 hover:ring-room-line"
+              >
+                <Entry title={artifact.title} note={`${artifact.kind} · ${who(artifact.producedByMemberId)}`}>
+                  {artifact.ref}
+                </Entry>
+              </RoomArtifactLink>
             )))}
       </div>
     </aside>

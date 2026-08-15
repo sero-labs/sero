@@ -15,9 +15,11 @@ import { useMemo, useState } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
+import { resolveArtifactPath } from '../lib/artifact-path';
 import { formatClock } from '../lib/format';
 import { memberGlyph } from '../lib/member-glyph';
 import { EventCard, Face, type EventCardTone } from './room-kit';
+import { RoomArtifactLink } from './RoomArtifactLink';
 
 type Filter = 'all' | 'decisions' | 'messages' | 'work';
 
@@ -99,6 +101,8 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
   const system = !event.memberId && SYSTEM_KINDS.includes(event.kind);
   const who = member?.displayName ?? event.memberId ?? (system ? 'Sero' : 'The Room');
   const tone = PROMOTED_TONE[event.kind];
+  const artifactRef = event.kind === 'artifact' && event.details?.ref != null ? String(event.details.ref) : null;
+  const workspaceId = member?.session.workspaceId ?? members.values().next().value?.session.workspaceId;
   // The summary opens with the actor's name; the bold prefix must not repeat it.
   const sentence = event.summary.startsWith(who) ? event.summary.slice(who.length).trimStart() : event.summary;
 
@@ -117,7 +121,13 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
           // The weighty kinds are the card itself, not a sentence plus a card:
           // the record carries one summary, and saying it twice is noise.
           <EventCard tone={tone} title={<span className="min-w-0">{event.summary}</span>}>
-            {event.details?.ref != null && <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>}
+            {artifactRef ? (
+              <RoomArtifactLink workspaceId={workspaceId} path={resolveArtifactPath(artifactRef, member ?? undefined)} className="room-tabular break-all text-room-text3 hover:text-room-text2">
+                {artifactRef}
+              </RoomArtifactLink>
+            ) : event.details?.ref != null ? (
+              <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>
+            ) : null}
           </EventCard>
         ) : (
           <>
