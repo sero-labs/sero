@@ -535,6 +535,7 @@ function ToolbarButton({ label, on, onClick }: { label: string; on: boolean; onC
 function PreviewApp() {
   const [themeIndex, setThemeIndex] = useState(0);
   const [width, setWidth] = useState<number>(WIDTHS[0]);
+  const [showCrops, setShowCrops] = useState(true);
   const theme = THEMES[themeIndex];
   const colors = theme.mode === 'dark' ? theme.preset.colors.dark : theme.preset.colors.light;
   const vars = themeVars(colors);
@@ -550,6 +551,12 @@ function PreviewApp() {
         {WIDTHS.map((w) => (
           <ToolbarButton key={w} label={`${w}px`} on={w === width} onClick={() => setWidth(w)} />
         ))}
+        <span style={{ width: 1, height: 16, background: '#26262b', margin: '0 6px' }} />
+        <ToolbarButton
+          label={showCrops ? 'Hide capture crops' : 'Show capture crops'}
+          on={showCrops}
+          onClick={() => setShowCrops((v) => !v)}
+        />
       </div>
       <div style={{ padding: 24, display: 'grid', justifyContent: 'start', gap: 24 }}>
         <div style={{ width, border: '1px solid #26262b', borderRadius: 10, overflow: 'hidden' }}>
@@ -564,10 +571,11 @@ function PreviewApp() {
                   {section.title}
                 </div>
                 {section.render()}
-                {section.crops && (
+                {section.crops && showCrops && (
                   <div className="mx-4 mt-1 rounded-lg border border-dashed border-room-line-strong p-3">
-                    <div className="room-mono-micro mb-2 uppercase tracking-[0.08em] text-room-text4">
-                      capture reference — default dark
+                    <div className="room-mono-micro mb-2 uppercase tracking-[0.08em] text-status-warning">
+                      ⚠ reference only — crops from the approved captures (always dark). The live
+                      components are above.
                     </div>
                     <div className="flex flex-wrap items-start gap-4">
                       {section.crops.map((crop) => (

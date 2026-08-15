@@ -4,7 +4,7 @@
 
 - [x] Preview harness (§7)
 - [x] Phase 1 — token layer
-- [ ] Phase 2 — room-kit primitives (gate: Dan approves the kit)
+- [x] Phase 2 — room-kit primitives (gate passed: kit approved 2026-08-15)
 - [ ] Phase 3 — app shell
 - [ ] Phase 4 — Home
 - [ ] Phase 5 — Create a Room
