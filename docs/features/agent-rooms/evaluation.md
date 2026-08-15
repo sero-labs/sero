@@ -91,3 +91,34 @@ In order, and only then:
 
 If a scenario fails, fix the Room defect and re-run the whole gate. The old
 engines stay until every point above is done.
+
+## Hardening validation — 15 August 2026
+
+The four scenarios passed again on the final hardening source without user
+intervention:
+
+| scenario | result | time | spend | delivery |
+|---|---|---:|---:|---|
+| delivery | completed | 1.8 min | $0.09 | workspace |
+| adversarial | completed | 8.3 min | $1.16 | workspace |
+| parallel | completed | 5.0 min | $0.16 | workspace |
+| chat-origin | completed | 2.1 min | $0.13 | invoking session |
+
+The runs found and fixed three validation defects and one runtime weakness:
+
+- the panel test used an obsolete Rooms-tab title;
+- the test did not return to Room creation after persisted subview navigation;
+- the delivery assertion rejected a valid empty-name fix that kept the normal
+  name return path;
+- a waiting member stayed blocked when its answerer sent a direct response
+  instead of using the formal reply command. A direct response from the member
+  that owes the answer now resolves the wait and wakes the asker.
+
+One delivery attempt also completed without the requested regression test. The
+Conductor protocol now requires proof of every requested test and deliverable
+before `finish-room`. The final delivery run produced both the fix and the
+regression test.
+
+The final chat-origin log contained 61 event-to-turn wake samples. Its p95 was
+927 ms, below the two-second target. One delayed sample was 23.3 seconds, so the
+tail must still be watched during cohort rollout.

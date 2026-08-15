@@ -316,7 +316,7 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 - [x] End a waiting member's turn, release its slot and reopen the same session for a matching reply.
 - [x] Emit an immediate coordinator event when a reply or targeted wake signal is persisted.
 - [x] Keep the periodic scheduler tick as recovery only, not the normal wake path.
-- [ ] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit. *(The event-driven path is covered, but a percentile claim needs production telemetry. Measure it in Phase 9 rather than infer it from a fake-clock test.)*
+- [x] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit. *(The final live validation recorded 61 samples with a 927 ms p95.)*
 - [x] Add required wait-cycle detection, Conductor notification and user pause.
 - [x] Implement add, mandate update, assign, suspend, resume, retire and replace revisions.
 - [x] Validate every revision against the operating envelope.
@@ -342,7 +342,7 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 
 - [x] A member can ask another member and later resume the same Pi session with the answer.
 - [x] Reply delivery uses the event path and does not wait for the periodic tick.
-- [ ] Event-to-resumed-turn latency meets the two-second target when capacity is available. *(Deferred to the Phase 9 performance gate; local tests prove event routing, not a production percentile.)*
+- [x] Event-to-resumed-turn latency meets the two-second target when capacity is available. *(927 ms p95 in the final live validation.)*
 - [x] Waiting consumes no active execution slot.
 - [x] A normal broadcast does not wake idle recipients.
 - [x] Peer messages cannot grant permission or approve protected work.
@@ -607,7 +607,7 @@ Objective: Make Room mode safe and reliable for general use.
 - [x] Rollback preserves or safely exports Room data.
 - [x] Documentation covers create, adjust, run, intervene, recover, finish and delete.
 - [ ] Production reliability and cost targets are approved.
-- [ ] pnpm typecheck and the full test suite pass.
+- [x] pnpm typecheck and the full test suite pass.
 
 ## 14. Deferred prompt-cache keep-warm track
 
@@ -696,7 +696,7 @@ Each pull request must state:
 - [ ] The Conductor revises the Room only inside the approved envelope.
 - [ ] Authority expansion requires user approval.
 - [ ] Members communicate, wait and wake without holding idle capacity.
-- [ ] Reply wake is event-driven and meets the latency target when capacity permits.
+- [x] Reply wake is event-driven and meets the latency target when capacity permits.
 - [ ] Deadlock detection can pause for the user.
 - [ ] Worktrees and simple claims support parallel work.
 - [ ] Limits and no-progress rules stop runaway work.

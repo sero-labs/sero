@@ -338,6 +338,22 @@ describe('broadcasts', () => {
 });
 
 describe('waiting and waking', () => {
+  it('accepts a direct answer when the answerer omits the reply command', async () => {
+    const roomId = await startRoom();
+    const asked = await coordinator.mailbox.ask(roomId, {
+      commandId: 'cmd-1', fromMemberId: 'impl', toMemberIds: ['lead'], body: 'Which test command?',
+    });
+    expect(asked.ok).toBe(true);
+    expect((await memberOf(roomId, 'impl')).status).toBe('waiting');
+
+    const sent = await coordinator.mailbox.send(roomId, {
+      commandId: 'cmd-2', fromMemberId: 'lead', toMemberIds: ['impl'], body: 'Use pnpm test.',
+    });
+    expect(sent.ok && sent.wokeMemberIds).toContain('impl');
+    await waitFor(async () => (await memberOf(roomId, 'impl')).status !== 'waiting', 'the direct answer wake');
+    expect((await memberOf(roomId, 'impl')).waitingOnQuestionId).toBeNull();
+  });
+
   it('releases the asker slot and resumes the same session on the reply', async () => {
     const roomId = await startRoom();
     const api = host.persistentSessions;

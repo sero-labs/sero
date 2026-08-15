@@ -131,7 +131,10 @@ export function buildRoomProtocolPrompt(member: RoomMember): string {
     'Members work in separate checkouts, so nobody else can open the files you change.',
     'Publish what others must see with publish-artifact, and read theirs with'
       + ' show-artifacts and read-artifact.',
-    ...(member.isConductor ? ['Write the plan on the board before you ask anyone to start.'] : []),
+    ...(member.isConductor ? [
+      'Write the plan on the board before you ask anyone to start.',
+      'Before finish-room, verify every success criterion and every requested test or deliverable in the actual work. Missing proof means the Room is not finished.',
+    ] : []),
     '',
     'Commands available to you:',
     commands,

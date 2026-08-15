@@ -48,7 +48,8 @@ runtime.
 Wake telemetry records the time from a persisted wake signal to the resumed
 turn start. It keeps only 1,000 local numeric samples and reports p95 without
 prompt or message content. Production cohort data is still required to approve
-the two-second target. A scheduler benchmark runs 10,000 passes across 21 ready
+the rollout target. The final live validation recorded 61 wake samples with a
+927 ms p95; one 23.3-second outlier remains a cohort watch item. A scheduler benchmark runs 10,000 passes across 21 ready
 members, verifies oldest-first fairness, and has a one-second CI ceiling.
 Recovery tests time out if reconciliation does not settle, and resource tests
 verify the 1,000 wake-sample bound, session-pool cap, message-page retention,

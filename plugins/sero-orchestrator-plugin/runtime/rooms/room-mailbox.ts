@@ -231,7 +231,24 @@ function unknownRecipient(record: RoomRecord, ref: string): string {
         draft('direct', request, plan.memberIds, { wakeRecipients: wake }),
       ]);
       if (!messages) return alreadyApplied();
-      const woke = wake ? await signal(opened.record, plan.memberIds, 'direct-message') : [];
+      // A direct message from the person who owes an answer is a response even
+      // when the model did not use the formal reply command. Do not strand the
+      // asker on command syntax after the answer has reached its inbox.
+      const answered = opened.record.members.filter((member) =>
+        plan.memberIds.includes(member.id) && member.waitingOnQuestionId !== null,
+      );
+      const answeredIds: string[] = [];
+      for (const member of answered) {
+        const questionId = member.waitingOnQuestionId;
+        const question = questionId ? await waits.find(opened.record, questionId) : null;
+        if (!question?.toMemberIds.includes(opened.sender.id) || !questionId) continue;
+        waits.resolve(roomId, questionId);
+        await ctx.wake(roomId, member.id, 'reply-received');
+        answeredIds.push(member.id);
+      }
+      const answeredSet = new Set(answeredIds);
+      const remaining = plan.memberIds.filter((memberId) => !answeredSet.has(memberId));
+      const woke = wake ? [...answeredIds, ...await signal(opened.record, remaining, 'direct-message')] : [...answeredIds];
       return delivered(messages, woke, plan.skipped);
     },
 

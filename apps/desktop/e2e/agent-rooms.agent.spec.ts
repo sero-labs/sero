@@ -182,9 +182,9 @@ const panel = () => page.locator('[data-app="orchestrator"]').first();
 async function openRooms(): Promise<void> {
   await page.evaluate(() => window.__appControl?.openApp('orchestrator'));
   await expect(panel()).toBeVisible({ timeout: 20_000 });
-  // By its title, not its name: once a Room exists the mode tab reads
-  // "Rooms 1", and the Room list has a "Rooms" button of its own.
-  await panel().getByTitle('Rooms — a team per problem').click();
+  // The tab can include a Room count. Scope it to the top navigation so the
+  // Room list's own heading cannot match it.
+  await panel().locator('nav').getByRole('button', { name: /^Rooms(?: \d+)?$/ }).click();
 }
 
 /**
@@ -213,7 +213,7 @@ async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<voi
 async function startRoom(brief: string, name: string): Promise<string> {
   await openRooms();
   const before = new Set((roomIndex()?.rooms ?? []).map((room) => room.id));
-  await panel().getByRole('button', { name: /New room|Start a Room/ }).first().click();
+  await panel().getByRole('button', { name: 'New', exact: true }).click();
   await panel().getByPlaceholder(/session-fixation/).fill(brief);
   await shot(`${name}-01-brief.png`);
   await panel().getByRole('button', { name: 'Design the team' }).click();
@@ -339,18 +339,21 @@ test.describe('the Room evaluation gate', () => {
 
     const room = await settle(roomId, 'delivery');
     const greet = roomCopiesOf(roomId, 'src/greet.ts');
+    const tests = roomCopiesOf(roomId, 'src/greet.test.ts');
     record('1-delivery', room, members(roomId), {
       workItems: room.work.length,
       artifacts: room.artifacts.length,
       greetFiles: greet,
+      testFiles: tests,
     });
 
     expect(room.runtime.status).toBe('completed');
     expect(room.delivery.deliveredAt).not.toBeNull();
     expect(room.runtime.usage.costUsd).toBeLessThanOrEqual(room.definition.envelope.maxCostUsd);
-    // The point of the scenario: the code actually changed, wherever the Room's
-    // workspace mode put it.
-    expect(greet.some((copy) => !copy.content.includes('return `Hello, ${name}!`;'))).toBe(true);
+    // A valid fix can keep the normal-name return unchanged, so assert the
+    // required empty-name behavior and its regression test instead.
+    expect(greet.some((copy) => copy.content.toLowerCase().includes('world'))).toBe(true);
+    expect(tests.some((copy) => /greet\((?:''|"")\)/.test(copy.content) && /world/i.test(copy.content))).toBe(true);
   });
 
   test('2 — an adversarial brief staffs both sides of the argument', async () => {
