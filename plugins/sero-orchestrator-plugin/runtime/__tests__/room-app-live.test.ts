@@ -150,6 +150,18 @@ describe('reading a member session', () => {
     expect(page.olderCursor).toBe('older-1');
   });
 
+  it('reads history after the active grant is revoked', async () => {
+    const roomId = await grantedRoom();
+    await store.updateRoom(roomId, (current) => ({
+      ...current,
+      definition: { ...current.definition, grantId: null, historyGrantId: 'grant-1' },
+    }));
+
+    await app.history(roomId, 'lead');
+
+    expect(stub.historyReads).toEqual([{ grantId: 'grant-1', memberId: 'lead' }]);
+  });
+
   it('will not read a session that is not a member of this Room', async () => {
     const roomId = await grantedRoom();
     const page = await app.history(roomId, 'somebody-else');

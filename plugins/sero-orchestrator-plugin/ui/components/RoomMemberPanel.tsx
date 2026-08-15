@@ -175,9 +175,9 @@ export function RoomMemberPanel({
       ) : (
         <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="relative flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="flex shrink-0 items-center gap-[9px] border-b border-room-line bg-room-sunken px-[18px] py-2">
+            <div className="flex shrink-0 items-start gap-[9px] border-b border-room-line bg-room-sunken px-[18px] py-2">
               <LivePill idle={!live?.turnId}>{live?.turnId ? 'Live' : member.status}</LivePill>
-              <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text2">{liveNow}</span>
+              <span className="room-tabular min-w-0 flex-1 break-words text-[10px] leading-relaxed text-room-text2">{liveNow}</span>
               <FollowToggle on={follow} onToggle={() => setFollow(!follow)} />
             </div>
 
@@ -192,7 +192,11 @@ export function RoomMemberPanel({
               {folded.length > 0 && <CollapsedHistory turns={folded} onShow={() => setExpanded(true)} />}
               {turns.length === 0 && (
                 <p className="text-xs text-room-text4">
-                  {member.session.sessionId ? 'Reading this session…' : 'This member has not started yet.'}
+                  {history.loading
+                    ? 'Reading this session…'
+                    : member.session.sessionId
+                      ? 'No session history is available.'
+                      : 'This member has not started yet.'}
                 </p>
               )}
               {shown.map((turn) => (

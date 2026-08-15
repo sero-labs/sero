@@ -141,7 +141,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     withRoomStatus(
       {
         ...current,
-        definition: { ...current.definition, grantId: grant.grantId },
+        definition: { ...current.definition, grantId: grant.grantId, historyGrantId: grant.grantId },
         // Idle, not starting: a member without a session yet holds no execution
         // slot, and its session opens on its first turn.
         members: current.members.map((member) => withMemberStatus(member, 'idle', 'Ready.')),

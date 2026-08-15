@@ -67,6 +67,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       workspacePolicy: request.blueprint.workspacePolicy,
       // Issued at Start, from the user's approval — never at draft time.
       grantId: null,
+      historyGrantId: null,
       createdAt: now,
       updatedAt: now,
     },

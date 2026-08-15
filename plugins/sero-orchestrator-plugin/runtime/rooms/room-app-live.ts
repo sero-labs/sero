@@ -109,13 +109,13 @@ export function createRoomLiveActions({ host, store, observation, sessions }: Ro
       const empty: PersistentSessionHistoryPage = { entries: [], olderCursor: null };
       if (!observation) return empty;
       const record = await store.readRoom(roomId);
-      const grantId = record?.definition.grantId;
+      const grantId = record?.definition.grantId ?? record?.definition.historyGrantId;
       // No grant means no session was ever issued for this Room, so there is no
       // file to read — an empty page, not an error the panel has to explain.
       // The roster check matters more: the grant is the ROOM's, so reading a
       // subject that is not in it would reach another Room's session with this
       // Room's authority.
-      if (!grantId || !record.members.some((member) => member.id === memberId)) return empty;
+      if (!record || !grantId || !record.members.some((member) => member.id === memberId)) return empty;
       return observation.readMemberHistory(grantId, memberId, options);
     },
 

@@ -106,6 +106,7 @@ export interface MemberHistory {
   olderCursor: string | null;
   loadOlder: () => void;
   loadingOlder: boolean;
+  loading: boolean;
 }
 
 /**
@@ -126,26 +127,36 @@ export function useMemberHistory(
   // `exhausted` is not the same as "no cursor yet": once the user has read back
   // to the start of the session, a later re-read of the NEWEST page must not
   // offer "load earlier turns" again.
-  const [tail, setTail] = useState<{ cursor: string | null; exhausted: boolean }>({ cursor: null, exhausted: false });
+  const [tail, setTail] = useState<{ cursor: string | null; exhausted: boolean; loading: boolean }>({
+    cursor: null,
+    exhausted: false,
+    loading: true,
+  });
   const [loadingOlder, setLoadingOlder] = useState(false);
 
   useEffect(() => {
     setEntries([]);
-    setTail({ cursor: null, exhausted: false });
+    setTail({ cursor: null, exhausted: false, loading: true });
   }, [roomId, memberId]);
 
   useEffect(() => {
     if (!roomId || !memberId) return;
     let current = true;
-    void dispatch({ action: 'history', roomId, memberId }).then((details) => {
-      if (!current || !details?.entries) return;
-      setEntries((previous) => mergeHistory(details.entries ?? [], previous));
-      // The first read sets the cursor; later reads must not rewind past what
-      // the user has already opened.
-      setTail((previous) =>
-        previous.exhausted || previous.cursor ? previous : { cursor: details.olderCursor ?? null, exhausted: false },
-      );
-    });
+    void dispatch({ action: 'history', roomId, memberId })
+      .then((details) => {
+        if (!current || !details?.entries) return;
+        setEntries((previous) => mergeHistory(details.entries ?? [], previous));
+        // The first read sets the cursor; later reads must not rewind past what
+        // the user has already opened.
+        setTail((previous) =>
+          previous.exhausted || previous.cursor
+            ? previous
+            : { cursor: details.olderCursor ?? null, exhausted: false, loading: previous.loading },
+        );
+      })
+      .finally(() => {
+        if (current) setTail((previous) => ({ ...previous, loading: false }));
+      });
     return () => {
       current = false;
     };
@@ -160,14 +171,14 @@ export function useMemberHistory(
         setEntries((previous) => mergeHistory(previous, details.entries ?? []));
         setTail(
           details.olderCursor
-            ? { cursor: details.olderCursor, exhausted: false }
-            : { cursor: null, exhausted: true },
+            ? { cursor: details.olderCursor, exhausted: false, loading: false }
+            : { cursor: null, exhausted: true, loading: false },
         );
       })
       .finally(() => setLoadingOlder(false));
   };
 
-  return { entries, olderCursor: tail.cursor, loadOlder, loadingOlder };
+  return { entries, olderCursor: tail.cursor, loadOlder, loadingOlder, loading: tail.loading };
 }
 
 /** How full a member's context window is. Null while its session is not live. */

@@ -254,6 +254,8 @@ export interface RoomDefinition {
   workspacePolicy: RoomWorkspacePolicy;
   /** Host-issued grant backing every member session. Cleared on revocation. */
   grantId: string | null;
+  /** Grant retained only so disposed session history remains readable. */
+  historyGrantId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
