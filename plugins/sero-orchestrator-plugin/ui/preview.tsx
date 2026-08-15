@@ -45,6 +45,7 @@ import {
 } from './components/room-kit';
 import { ShellTopBar } from './components/ShellTopBar';
 import { HomeView } from './components/HomeView';
+import { RoomBriefForm } from './components/RoomBriefForm';
 import type { LoopSummary } from '../shared/types';
 import type { RoomSummary } from '../shared/room-types';
 import './preview-harness.css';
@@ -178,6 +179,7 @@ interface Section {
 }
 
 const CAP_HOME = 'cap1.jpg';
+const CAP_CREATE = 'cap2.jpg';
 const CAP_PROPOSAL = 'cap4.jpg';
 const CAP_ADJUST = 'cap5.jpg';
 const CAP_WHY = 'cap6.jpg';
@@ -317,6 +319,13 @@ const SECTIONS: Section[] = [
         onOpenRoom={NOOP}
       />
     ),
+  },
+  {
+    title: 'Phase 5 — Create a Room',
+    crops: [
+      { file: CAP_CREATE, x: 540, y: 140, w: 1500, h: 1220, label: 'create — column' },
+    ],
+    render: () => <RoomBriefForm busy={false} onDesign={NOOP} onCancel={NOOP} />,
   },
   {
     title: 'Phase 3 — shell top bar',
