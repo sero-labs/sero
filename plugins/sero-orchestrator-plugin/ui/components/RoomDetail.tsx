@@ -40,12 +40,28 @@ interface RoomDetailProps {
   busy: boolean;
   dispatch: RoomFeedDispatch;
   onApproval: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  initialView?: RoomView;
+  initialMemberId?: string;
+  onLocationChange: (
+    view: RoomView | undefined,
+    memberId: string | null,
+    options?: { replace?: boolean },
+  ) => void;
   onBack: () => void;
 }
 
-export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack }: RoomDetailProps) {
-  const [view, setView] = useState<RoomView | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export function RoomDetail({
+  roomId,
+  summary,
+  busy,
+  dispatch,
+  onApproval,
+  initialView,
+  initialMemberId,
+  onLocationChange,
+  onBack,
+}: RoomDetailProps) {
+  const selectedId = initialMemberId ?? null;
   // Null = closed; a member list = writing to those members (empty = everyone).
   const [composing, setComposing] = useState<{ memberIds: string[] } | null>(null);
   // The side-panel drawer below 1200px; its Team tab carries the roster below
@@ -57,7 +73,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
   // A finished Room opens on its result; a live one opens on its activity. The
   // user's own choice wins from then on.
   const finished = room ? TERMINAL_ROOM_STATUSES.includes(room.runtime.status) : false;
-  const shownView = view ?? (room ? defaultRoomView(room.runtime.status) : 'timeline');
+  const shownView = initialView ?? (room ? defaultRoomView(room.runtime.status) : 'timeline');
   const members = useRoomMembers(roomId, room?.memberIds ?? []);
   const names = memberNames(members);
   const signal = roomSignal(room);
@@ -65,6 +81,10 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
   // Live text is retained only while a Watch view asks for it, so the demand
   // follows the view rather than the open Room.
   const live = useRoomLive(roomId, dispatch, shownView === 'watch' || selectedId !== null, signal);
+
+  const selectMember = (memberId: string | null) => {
+    onLocationChange(initialView, memberId, { replace: true });
+  };
 
   if (!room) {
     return (
@@ -108,8 +128,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         onTogglePanel={() => setPanelOpen((open) => !open)}
         onBack={onBack}
         onView={(next) => {
-          setView(next);
-          setSelectedId(null);
+          onLocationChange(next, null);
         }}
         onMessage={() => setComposing({ memberIds: [] })}
         onPause={() => send('pause')}
@@ -128,7 +147,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
               type="button"
               title={name}
               aria-pressed={memberId === selectedId}
-              onClick={() => setSelectedId(memberId === selectedId ? null : memberId)}
+              onClick={() => selectMember(memberId === selectedId ? null : memberId)}
               className={`rounded-[7px] ${memberId === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
             >
               <Face
@@ -162,7 +181,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
           <span className="text-xs text-room-ink-warn">
             {needsUser.map((member) => member.displayName).join(', ')} stopped to ask you something.
           </span>
-          <Button className="ml-auto h-[26px] px-2.5 text-[11px]" onClick={() => setSelectedId(needsUser[0].id)}>
+          <Button className="ml-auto h-[26px] px-2.5 text-[11px]" onClick={() => selectMember(needsUser[0].id)}>
             Read it
           </Button>
         </div>
@@ -189,7 +208,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
               memberIds={room.memberIds}
               members={members}
               selectedId={selectedId}
-              onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
+              onSelect={(memberId) => selectMember(memberId === selectedId ? null : memberId)}
               className="w-full border-r-0"
             />
           )}
@@ -213,21 +232,21 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             onAnswer={(body) => send('answer', { memberId: selected.id, body })}
             onRelease={() => send('release', { memberId: selected.id })}
             onTell={(body) => send('intervene', { body, memberIds: selected.id, deliver: 'now' })}
-            onClose={() => setSelectedId(null)}
+            onClose={() => selectMember(null)}
           />
         ) : shownView === 'result' ? (
           <RoomCompletion
             room={room}
             members={members}
             finalLine={events.find((event) => event.kind === 'room-status')?.summary ?? null}
-            onOpenMember={setSelectedId}
+            onOpenMember={selectMember}
           />
         ) : shownView === 'watch' ? (
           <RoomWatch
             memberIds={room.memberIds}
             members={members}
             live={live}
-            onOpen={setSelectedId}
+            onOpen={selectMember}
           />
           ) : (
             <RoomActivity events={events} members={members} />
@@ -261,7 +280,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
               members={members}
               selectedId={selectedId}
               onSelect={(memberId) => {
-                setSelectedId(memberId === selectedId ? null : memberId);
+                selectMember(memberId === selectedId ? null : memberId);
                 setPanelOpen(false);
               }}
               className={drawerTab === 'team' ? 'w-full flex-1 border-r-0 @min-[900px]/panel:hidden' : 'hidden'}

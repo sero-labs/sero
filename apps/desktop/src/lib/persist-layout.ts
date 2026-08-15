@@ -49,6 +49,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,
     activeApp: partial.activeApp ?? app.activeApp,
+    appViewIds: partial.appViewIds ?? app.appViewIds,
     chromeShortcuts: partial.chromeShortcuts ?? app.chromeShortcuts,
     zoomFactor: partial.zoomFactor ?? useZoomStore.getState().factor,
     activeSessionId: partial.activeSessionId !== undefined

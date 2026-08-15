@@ -52,6 +52,8 @@ export interface LayoutState {
   activeWorkspaceId?: string | null;
   /** Last active app tab. */
   activeApp?: string;
+  /** Last internal view published by each app and workspace scope. */
+  appViewIds?: Record<string, Record<string, string>>;
   /** App ids pinned as shortcut chips in the title bar. */
   chromeShortcuts?: string[];
   /** Page zoom factor (chrome bars counter-scale and stay constant). */

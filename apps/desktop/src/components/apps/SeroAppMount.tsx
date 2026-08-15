@@ -73,7 +73,7 @@ export const SeroAppMount = memo(function SeroAppMount({ manifest }: SeroAppMoun
         <PluginStyleScope pluginId={manifest.id} surfaceId={surfaceId}>
           <div data-app={manifest.id} data-sero-plugin={manifest.id} className="contents">
             <Suspense fallback={<AppLoading name={manifest.name} />}>
-              <LazyComponent />
+              <LazyComponent key={contextValue.stateFilePath} />
             </Suspense>
           </div>
         </PluginStyleScope>

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@sero-ai/ui';
-import { DEFAULT_STATE } from '../../shared/defaults';
+import { useOrchestratorState } from '../lib/orchestrator-state';
 
 type LayoutMode = 'narrow' | 'roster' | 'rosterAndDetails';
 
@@ -20,7 +19,7 @@ const DETAILS_MAX = 480;
 export function RoomDesktopLayout({ roster, children, details }: RoomDesktopLayoutProps) {
   const container = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<LayoutMode>('narrow');
-  const [state, updateState] = useAppState(DEFAULT_STATE);
+  const { state, updateState } = useOrchestratorState();
   const hasDetails = Boolean(details);
 
   useEffect(() => {

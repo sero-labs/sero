@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useState } from 'react';
-import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
-import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useAppState, useAppTools } from '@sero-ai/app-runtime';
+import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { RoomsOverview } from './components/RoomsOverview';
@@ -17,18 +17,12 @@ import type { CreateLoopSubmit } from './components/CreateLoopForm';
 import { actionToParams } from './lib/action-params';
 import { useOrchestratorIndex, useStateDir } from './lib/use-orchestrator-index';
 import { useWatchedJson } from './lib/use-watched-json';
+import { useOrchestratorNavigation, type OrchestratorView } from './lib/orchestrator-navigation';
+import { OrchestratorStateContext } from './lib/orchestrator-state';
 import './styles.css';
 
-type View =
-  | { mode: 'home' }
-  | { mode: 'detail'; loopId: string | null }
-  | { mode: 'create' }
-  | { mode: 'library'; tab: 'mine' | 'catalog' }
-  | { mode: 'rooms'; roomId: string | null }
-  | { mode: 'room-create' };
-
 /** Which top-bar tab a view highlights. */
-function tabOf(view: View): ShellTab {
+function tabOf(view: OrchestratorView): ShellTab {
   switch (view.mode) {
     case 'home': return 'home';
     case 'detail': case 'create': return 'workflows';
@@ -37,21 +31,7 @@ function tabOf(view: View): ShellTab {
   }
 }
 
-/** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
-interface OrchestratorLaunchParams extends Record<string, unknown> {
-  loopId?: string;
-  /** A Room, from the Agent Board or a notification. */
-  roomId?: string;
-}
-
 const MemoizedLoopList = memo(LoopList);
-
-/** Initial view: a deep-link from another app lands on that loop or Room. */
-function initialView(): View {
-  const params = consumeAppLaunchParams<OrchestratorLaunchParams>('orchestrator');
-  if (typeof params?.roomId === 'string') return { mode: 'rooms', roomId: params.roomId };
-  return typeof params?.loopId === 'string' ? { mode: 'detail', loopId: params.loopId } : { mode: 'home' };
-}
 
 /** Directory of a file path, tolerant of either separator (renderer has no node:path). */
 function dirOf(filePath: string): string {
@@ -69,7 +49,16 @@ function dirOf(filePath: string): string {
 export function OrchestratorApp() {
   const stateDir = useStateDir();
   const { run } = useAppTools();
-  const [view, setView] = useState<View>(initialView);
+  const [appState, updateAppState, stateReady] = useAppState(DEFAULT_STATE);
+  const updateReadyState = useCallback((updater: Parameters<typeof updateAppState>[0]) => {
+    if (stateReady) updateAppState(updater);
+  }, [stateReady, updateAppState]);
+  const stateRuntime = useMemo(() => ({
+    state: appState,
+    updateState: updateReadyState,
+    ready: stateReady,
+  }), [appState, updateReadyState, stateReady]);
+  const [view, navigate] = useOrchestratorNavigation(stateRuntime);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reflectSummary, setReflectSummary] = useState<string | null>(null);
@@ -81,13 +70,6 @@ export function OrchestratorApp() {
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
   const libraryIndex = useWatchedJson<LibraryIndex>(libraryDir ? `${libraryDir}/index.json` : null, DEFAULT_LIBRARY_INDEX);
-
-  // A notification can deep-link while Orchestrator is already mounted. Mount
-  // params handle cross-app launches; this listener handles same-app launches.
-  useEffect(() => onAppLaunchParams<OrchestratorLaunchParams>('orchestrator', (params) => {
-    if (typeof params.roomId === 'string') setView({ mode: 'rooms', roomId: params.roomId });
-    else if (typeof params.loopId === 'string') setView({ mode: 'detail', loopId: params.loopId });
-  }), []);
 
   // Resolve the profile-global library dir once (the renderer can't derive it).
   useEffect(() => {
@@ -170,8 +152,8 @@ export function OrchestratorApp() {
     [roomDispatch],
   );
 
-  const openRoom = useCallback((roomId: string) => setView({ mode: 'rooms', roomId }), []);
-  const openRoomCreate = useCallback(() => setView({ mode: 'room-create' }), []);
+  const openRoom = useCallback((roomId: string) => navigate({ mode: 'rooms', roomId }), [navigate]);
+  const openRoomCreate = useCallback(() => navigate({ mode: 'room-create' }), [navigate]);
 
   // The Catalog tab drives itself through tool calls; it only needs the details.
   const detailsDispatch = useCallback(
@@ -187,9 +169,9 @@ export function OrchestratorApp() {
     const res = await dispatch(actionToParams(action));
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;
-      if (details?.ok !== false) setView({ mode: 'home' });
+      if (details?.ok !== false) navigate({ mode: 'home' });
     }
-  }, [dispatch]);
+  }, [dispatch, navigate]);
 
   const openLibrary = async (tab: 'mine' | 'catalog') => {
     if (libraryDir === null) {
@@ -197,13 +179,13 @@ export function OrchestratorApp() {
       const details = res?.details as { libraryDir?: string } | null;
       if (details?.libraryDir) setLibraryDir(details.libraryDir);
     }
-    setView({ mode: 'library', tab });
+    navigate({ mode: 'library', tab });
   };
 
   const onLoadFromLibrary = async (entryId: string, version?: number) => {
     const res = await dispatch({ action: 'library_load', entryId, version });
     const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;
-    if (details && details.ok !== false && details.loop?.id) setView({ mode: 'detail', loopId: details.loop.id });
+    if (details && details.ok !== false && details.loop?.id) navigate({ mode: 'detail', loopId: details.loop.id });
   };
 
   const createLoop = async (values: CreateLoopSubmit): Promise<string | null> => {
@@ -231,22 +213,23 @@ export function OrchestratorApp() {
     if (summary) setReflectSummary(`Reflected ${summary.reflected} workflow(s) · ${summary.suggestionCount} suggestion(s) to review.`);
   };
 
-  const openLoop = useCallback((loopId: string) => setView({ mode: 'detail', loopId }), []);
-  const openCreate = useCallback(() => setView({ mode: 'create' }), []);
+  const openLoop = useCallback((loopId: string) => navigate({ mode: 'detail', loopId }), [navigate]);
+  const openCreate = useCallback(() => navigate({ mode: 'create' }), [navigate]);
 
   const activeTab = tabOf(view);
   // The Home badge mirrors HomeView's "Needs you" count, row for row.
   const needsCount = attentionCount(index.loops, roomIndex.rooms);
 
   const onSelectTab = (tab: ShellTab) => {
-    if (tab === 'home') setView({ mode: 'home' });
-    else if (tab === 'workflows') setView({ mode: 'detail', loopId: null });
-    else if (tab === 'rooms') setView({ mode: 'rooms', roomId: null });
+    if (tab === 'home') navigate({ mode: 'home' });
+    else if (tab === 'workflows') navigate({ mode: 'detail', loopId: null });
+    else if (tab === 'rooms') navigate({ mode: 'rooms', roomId: null });
     else void openLibrary(tab === 'catalog' ? 'catalog' : 'mine');
   };
 
   return (
-    <div className="@container/panel flex h-full min-w-0 flex-col overflow-hidden bg-room-bg text-room-text">
+    <OrchestratorStateContext.Provider value={stateRuntime}>
+      <div className="@container/panel flex h-full min-w-0 flex-col overflow-hidden bg-room-bg text-room-text">
       <ShellTopBar
         active={activeTab}
         workflowCount={index.loops.length}
@@ -288,7 +271,7 @@ export function OrchestratorApp() {
           />
         )}
         {view.mode === 'create' && (
-          <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => setView({ mode: 'home' })} />
+          <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => navigate({ mode: 'home' })} />
         )}
         {view.mode === 'rooms' && view.roomId && (
           <RoomDetail
@@ -297,7 +280,18 @@ export function OrchestratorApp() {
             busy={busy}
             dispatch={roomDispatch}
             onApproval={onRoomApproval}
-            onBack={() => setView({ mode: 'rooms', roomId: null })}
+            initialView={view.roomView}
+            initialMemberId={view.memberId}
+            onLocationChange={(roomView, memberId, options) => navigate(
+              {
+                mode: 'rooms',
+                roomId: view.roomId,
+                roomView,
+                memberId: memberId ?? undefined,
+              },
+              options,
+            )}
+            onBack={() => navigate({ mode: 'rooms', roomId: null })}
           />
         )}
         {view.mode === 'rooms' && !view.roomId && (
@@ -310,7 +304,7 @@ export function OrchestratorApp() {
             busy={busy}
             dispatch={roomDispatch}
             onStarted={openRoom}
-            onCancel={() => setView({ mode: 'rooms', roomId: null })}
+            onCancel={() => navigate({ mode: 'rooms', roomId: null })}
           />
         )}
         {view.mode === 'library' && (
@@ -323,7 +317,7 @@ export function OrchestratorApp() {
             onLoad={onLoadFromLibrary}
             onOpenLoop={openLoop}
             dispatch={detailsDispatch}
-            onClose={() => setView({ mode: 'home' })}
+            onClose={() => navigate({ mode: 'home' })}
           />
         )}
         {view.mode === 'detail' && (
@@ -337,7 +331,8 @@ export function OrchestratorApp() {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </OrchestratorStateContext.Provider>
   );
 }
 

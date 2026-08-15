@@ -5,12 +5,20 @@ Shared runtime hooks for Sero federated app modules.
 This package provides the React hooks and context used by Sero apps:
 
 - `useAppState`
+- `useAppNavigation`
 - `useAppInfo`
 - `useAgentPrompt`
 - `useAI`
 - `useAvailableModels`
 - `useTheme`
 - `AppProvider`
+
+`useAppNavigation` lets a full app publish stable sub-view IDs. The host uses
+them for reload restoration and shell back/forward navigation. Keep the ID
+derived from static app data, such as `rooms/<room-id>?view=timeline`.
+
+`useAppState` also returns `ready`. Use it when an initial write must wait until
+the state file has been read.
 
 ## Development
 

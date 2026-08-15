@@ -4,6 +4,7 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
+import { useNavigationStore } from '@/stores/navigation';
 import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 
@@ -93,14 +94,34 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const activePresetId = useThemeStore((state) => state.activePresetId);
   const editorThemeId = useAppStore((state) => state.editorThemeId);
-
   const isGlobal = manifest.scope === 'global';
+  const navigationWorkspaceId = isGlobal ? undefined : activeWorkspaceId ?? undefined;
+  const navigationScopeId = navigationWorkspaceId ?? 'global';
+  const savedViewId = useAppStore((state) => state.appViewIds[manifest.id]?.[navigationScopeId]);
+  const navigationViewId = useNavigationStore((state) => {
+    const entry = state.entries[state.index];
+    return entry?.appId === manifest.id && entry.workspaceId === navigationWorkspaceId
+      ? entry.viewId
+      : undefined;
+  });
 
   // Prompt function injected into context — ensures a session exists,
   // opens it in the agent pool, reveals the chat panel, then sends.
   const promptAgent = useCallback((text: string) => {
     void ensureSessionReadyAndPrompt(text);
   }, []);
+
+  const navigate = useCallback((viewId: string, options?: { replace?: boolean }) => {
+    useAppStore.getState().setAppView(manifest.id, navigationScopeId, viewId, {
+      workspaceId: navigationWorkspaceId,
+      replaceHistory: options?.replace,
+    });
+  }, [manifest.id, navigationScopeId, navigationWorkspaceId]);
+
+  const navigation = useMemo(() => ({
+    viewId: navigationViewId ?? savedViewId,
+    navigate,
+  }), [navigationViewId, savedViewId, navigate]);
 
   // Resolve state file path based on scope.
   const stateFilePath = isGlobal
@@ -125,8 +146,9 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
       themeMode: effectiveMode,
       themePresetId: activePresetId,
       editorThemeId,
+      navigation,
     }),
-    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId],
+    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId, navigation],
   );
 
   return { contextValue, status };
