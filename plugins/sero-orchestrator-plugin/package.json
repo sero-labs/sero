@@ -60,6 +60,8 @@
     }
   },
   "dependencies": {
+    "@dicebear/bottts-neutral": "9.4.2",
+    "@dicebear/core": "9.4.2",
     "typebox": "catalog:"
   },
   "peerDependencies": {

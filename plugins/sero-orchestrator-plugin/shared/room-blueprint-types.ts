@@ -146,6 +146,8 @@ export interface RoomProposalSummary {
   title: string;
   approach: string;
   roles: {
+    /** Stable blueprint member key used by identity surfaces. */
+    key?: string;
     displayName: string;
     responsibility: string;
     isConductor: boolean;

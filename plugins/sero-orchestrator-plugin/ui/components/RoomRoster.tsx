@@ -92,6 +92,7 @@ function MemberRow({
       )}
     >
       <Face
+        seed={memberId}
         size={26}
         tone={member?.isConductor ? 'conductor' : 'member'}
         label={memberGlyph(name, member?.isConductor)}

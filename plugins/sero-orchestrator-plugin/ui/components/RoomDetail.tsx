@@ -131,6 +131,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
               className={`rounded-[7px] ${memberId === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
             >
               <Face
+                seed={memberId}
                 size={26}
                 tone={member?.isConductor ? 'conductor' : 'member'}
                 label={memberGlyph(name, member?.isConductor)}

@@ -77,6 +77,7 @@ export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) 
               <FaceStack
                 className="shrink-0"
                 faces={room.members.map((member) => ({
+                  seed: member.id ?? member.name,
                   // The 22px list face carries the initial (C), never ◎.
                   label: memberGlyph(member.name),
                   tone: member.isConductor ? 'conductor' : member.addedAfterStart ? 'new' : 'member',

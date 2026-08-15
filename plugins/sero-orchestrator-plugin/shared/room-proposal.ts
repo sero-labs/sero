@@ -27,6 +27,7 @@ export function computeProposalSummary(blueprint: RoomBlueprint): RoomProposalSu
     title: blueprint.title,
     approach: blueprint.approach,
     roles: blueprint.members.map((member) => ({
+      key: member.key,
       displayName: member.displayName,
       responsibility: member.responsibility,
       isConductor: member.isConductor,

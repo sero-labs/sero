@@ -97,7 +97,7 @@ function WatchPane({
       )}
     >
       <div className="flex shrink-0 items-center gap-[9px] border-b border-room-line px-3 py-2.5">
-        <Face size={24} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
+        <Face seed={member.id} size={24} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
         <b className="min-w-0 truncate text-xs font-medium text-room-text">{member.displayName}</b>
         <span className="ml-auto shrink-0">{panePill(member, midTurn)}</span>
       </div>

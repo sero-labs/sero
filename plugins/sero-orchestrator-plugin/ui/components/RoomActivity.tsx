@@ -106,7 +106,7 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
     <div className="flex gap-[11px] border-b border-room-line py-2.5 last:border-b-0">
       <span className="room-tabular w-11 shrink-0 pt-0.5 text-[9px] text-room-text4">{formatClock(event.at)}</span>
       {member || !system ? (
-        <Face size={22} tone={member?.isConductor ? 'conductor' : 'member'} label={memberGlyph(who, member?.isConductor)} />
+        <Face seed={member?.id ?? event.memberId ?? who} size={22} tone={member?.isConductor ? 'conductor' : 'member'} label={memberGlyph(who, member?.isConductor)} />
       ) : (
         <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-room-muted text-[9px] text-room-text3">
           ◷

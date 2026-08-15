@@ -8,6 +8,7 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { memberAvatar } from '../../lib/member-avatar';
 
 export type MemberTone = 'member' | 'conductor' | 'new';
 
@@ -47,6 +48,8 @@ const FACE_SIZES = {
 export type FaceSize = keyof typeof FACE_SIZES;
 
 export interface FaceProps {
+  /** Stable member key used to generate the avatar. */
+  seed: string;
   /** One or two glyphs: an initial, a number, or ◎ for the Conductor. */
   label: ReactNode;
   tone?: MemberTone;
@@ -60,6 +63,7 @@ export interface FaceProps {
 
 /** The rounded-square member avatar. */
 export function Face({
+  seed,
   label,
   tone = 'member',
   size = 26,
@@ -76,7 +80,8 @@ export function Face({
         className,
       )}
     >
-      {label}
+      <span className="sr-only">{label}</span>
+      <img src={memberAvatar(seed)} alt="" className="size-full rounded-[inherit]" />
       {status && (
         <span
           className={cn(
@@ -91,7 +96,7 @@ export function Face({
 }
 
 export interface FaceStackProps {
-  faces: Array<{ label: ReactNode; tone?: MemberTone }>;
+  faces: Array<{ seed: string; label: ReactNode; tone?: MemberTone }>;
   className?: string;
 }
 
@@ -99,15 +104,16 @@ export interface FaceStackProps {
 export function FaceStack({ faces, className }: FaceStackProps) {
   return (
     <span className={cn('flex pl-[5px]', className)}>
-      {faces.map((face, i) => (
+      {faces.map((face) => (
         <span
-          key={i}
+          key={face.seed}
           className={cn(
             'grid size-[22px] shrink-0 place-items-center rounded-full border-2 border-room-surface text-[9px] -ml-[5px]',
             FACE_TONES[face.tone ?? 'member'],
           )}
         >
-          {face.label}
+          <span className="sr-only">{face.label}</span>
+          <img src={memberAvatar(face.seed)} alt="" className="size-full rounded-full" />
         </span>
       ))}
     </span>

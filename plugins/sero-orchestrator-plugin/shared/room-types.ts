@@ -269,6 +269,8 @@ export interface Room {
 
 /** One roster entry as a list row draws it: a face and its tone. */
 export interface RoomSummaryMember {
+  /** Stable Room member id used by identity surfaces. */
+  id?: string;
   name: string;
   isConductor: boolean;
   /** Joined after the Room started — drawn in the "new member" tone. */

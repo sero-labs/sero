@@ -194,6 +194,7 @@ export function RoomProposal({
         {proposal.roles.map((role) => (
           <div key={role.displayName} className="flex items-center gap-3 border-b border-room-line px-[15px] py-3 last:border-b-0">
             <Face
+              seed={role.key ?? role.displayName}
               size={30}
               tone={role.isConductor ? 'conductor' : 'member'}
               label={memberGlyph(role.displayName, role.isConductor)}
@@ -275,6 +276,7 @@ export function RoomProposal({
               {proposal.roles.map((role) => (
                 <div key={role.displayName} className="flex gap-[11px] rounded-lg border border-room-line bg-room-sunken px-3 py-[11px]">
                   <Face
+                    seed={role.key ?? role.displayName}
                     size={26}
                     tone={role.isConductor ? 'conductor' : 'member'}
                     label={memberGlyph(role.displayName, role.isConductor)}

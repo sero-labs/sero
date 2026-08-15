@@ -179,6 +179,7 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
       .filter((member) => !member.retiredAt)
       .slice(0, SUMMARY_MEMBER_CAP)
       .map((member) => ({
+        id: member.id,
         name: member.displayName,
         isConductor: member.isConductor,
         ...(startedAt && member.createdAt > startedAt ? { addedAfterStart: true } : {}),

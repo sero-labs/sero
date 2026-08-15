@@ -108,7 +108,7 @@ export function RoomMemberPanel({
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div className="shrink-0 px-[18px] pt-[15px]">
         <div className="flex items-center gap-3">
-          <Face size={36} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
+          <Face seed={member.id} size={36} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
           <div className="min-w-0">
             <h3 className="truncate text-base font-semibold tracking-[-0.02em] text-room-text">{member.displayName}</h3>
             <p className="mt-1 truncate text-[11px] text-room-text4">
