@@ -265,6 +265,14 @@ export interface Room {
   archivedAt: string | null;
 }
 
+/** One roster entry as a list row draws it: a face and its tone. */
+export interface RoomSummaryMember {
+  name: string;
+  isConductor: boolean;
+  /** Joined after the Room started — drawn in the "new member" tone. */
+  addedAfterStart?: boolean;
+}
+
 /**
  * Watched by the UI. Deliberately small — the list view reads only this.
  *
@@ -282,6 +290,10 @@ export interface RoomSummary extends OrchestratorBoardRoomView {
   maxCostUsd: number;
   startedAt: string | null;
   updatedAt: string;
+  /** The user's problem, for list-row subtitles. */
+  problemStatement?: string;
+  /** Active roster, capped, for the list row's face stack. */
+  members?: RoomSummaryMember[];
   /** Count of open approvals and attention items, for the home inbox badge. */
   attentionCount: number;
   /**

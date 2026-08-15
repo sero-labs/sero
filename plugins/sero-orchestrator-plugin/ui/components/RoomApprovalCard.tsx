@@ -7,10 +7,10 @@
  * another. Only the user answers it; no member can, not even the Conductor.
  */
 
-import { Button, Card } from '@sero-ai/ui';
-import { ShieldQuestion } from 'lucide-react';
+import { Button } from '@sero-ai/ui';
 import type { RoomAttentionApproval } from '../../shared/attention-types';
 import type { RoomSummary } from '../../shared/room-types';
+import { EventCard, Pill } from './room-kit';
 import { OpenLink } from './OpenLink';
 
 export type RoomApprovalDecision = 'approved' | 'rejected';
@@ -34,39 +34,37 @@ export function RoomApprovalCard({
   onOpenRoom?: (roomId: string) => void;
 }) {
   return (
-    <Card className="flex flex-col gap-2 border-violet-500/30 bg-violet-500/[0.06] p-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-violet-500/20 text-violet-400">
-          <ShieldQuestion className="h-3 w-3" />
-        </span>
-        <span className="text-base font-semibold text-violet-400">{approval.memberName} needs your approval</span>
-        {onOpenRoom && <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenRoom(room.id)} /></span>}
-      </div>
-      <span className="text-base font-medium">{room.title}</span>
-      <p className="text-base">{approval.title}</p>
-      <p className="text-base text-muted-foreground">{approval.consequence}</p>
+    <EventCard
+      tone="warn"
+      title={approval.title}
+      pill={<Pill tone="warn">{approval.memberName}</Pill>}
+      actions={
+        <>
+          <Button size="sm" className="h-[26px] px-2.5 text-[11px]" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'approved')}>
+            Approve
+          </Button>
+          <Button size="sm" variant="ghost" className="h-[26px] px-2.5 text-[11px]" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'rejected')}>
+            Reject
+          </Button>
+          {onOpenRoom && <span className="ml-auto self-center"><OpenLink title="Open" onClick={() => onOpenRoom(room.id)} /></span>}
+        </>
+      }
+    >
+      <p className="text-xs text-room-text2">{approval.consequence}</p>
       {/* The send is bound to this exact text, so approving without seeing it
           would be approving something else. */}
       {approval.payload && (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs">
+        <pre className="room-tabular mt-2 max-h-40 overflow-auto rounded-[7px] border border-room-line-strong bg-room-sunken p-2 text-[10px] whitespace-pre-wrap text-room-text3">
           {approval.payload}
         </pre>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="mt-2">
         {approval.memberName} asked: {approval.reason}
       </p>
-      <span className="text-xs text-muted-foreground">
+      <p className="mt-1 text-[10px]">
         Affects {approval.affects}
         {approval.estimatedCostUsd !== null && ` · about $${approval.estimatedCostUsd.toFixed(2)}`}
-      </span>
-      <div className="mt-auto flex items-center gap-2">
-        <Button size="sm" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'approved')}>
-          Approve
-        </Button>
-        <Button size="sm" variant="ghost" disabled={busy || !onDecide} onClick={() => onDecide?.(room.id, approval.approvalId, 'rejected')}>
-          Reject
-        </Button>
-      </div>
-    </Card>
+      </p>
+    </EventCard>
   );
 }

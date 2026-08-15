@@ -46,13 +46,21 @@ export function formatTokens(n?: number): string {
   return `${n}`;
 }
 
-/** USD with cents, extending to 4 dp for sub-cent amounts. */
+/** Elapsed working time at minute resolution — `41m`, `1h 12m` (prototype meta). */
+export function formatElapsed(ms: number): string {
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return '<1m';
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+/**
+ * USD with cents, extending to 4 dp for sub-cent amounts. A plain `$` prefix
+ * on every locale — `toLocaleString` renders `US$` outside the US, which
+ * turns every meter and row meta into noise (prototype: `$3.18 / $6.00`).
+ */
 export function formatCost(usd?: number): string {
   if (usd === undefined) return '—';
-  return usd.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: usd < 0.1 ? 4 : 2,
-  });
+  if (usd > 0 && usd < 0.1) return `$${usd.toFixed(4).replace(/0{1,2}$/, '')}`;
+  return `$${usd.toFixed(2)}`;
 }

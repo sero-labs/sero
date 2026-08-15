@@ -158,8 +158,12 @@ function toAttentionCount(record: RoomRecord, attention: RoomAttention | undefin
   );
 }
 
+/** List rows draw at most this many faces; the row meta carries the true count. */
+const SUMMARY_MEMBER_CAP = 8;
+
 export function toRoomSummary(record: RoomRecord): RoomSummary {
   const attention = toRoomAttention(record);
+  const startedAt = record.runtime.startedAt;
   return {
     id: record.definition.id,
     title: record.definition.title,
@@ -168,8 +172,17 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
     activeMemberCount: record.runtime.activeMemberIds.length,
     costUsd: record.runtime.usage.costUsd,
     maxCostUsd: record.definition.envelope.maxCostUsd,
-    startedAt: record.runtime.startedAt,
+    startedAt,
     updatedAt: record.definition.updatedAt,
+    problemStatement: record.definition.problemStatement,
+    members: record.members
+      .filter((member) => !member.retiredAt)
+      .slice(0, SUMMARY_MEMBER_CAP)
+      .map((member) => ({
+        name: member.displayName,
+        isConductor: member.isConductor,
+        ...(startedAt && member.createdAt > startedAt ? { addedAfterStart: true } : {}),
+      })),
     attentionCount: toAttentionCount(record, attention),
     attention,
   };

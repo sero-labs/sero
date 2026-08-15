@@ -44,6 +44,9 @@ import {
   type MemberStatus,
 } from './components/room-kit';
 import { ShellTopBar } from './components/ShellTopBar';
+import { HomeView } from './components/HomeView';
+import type { LoopSummary } from '../shared/types';
+import type { RoomSummary } from '../shared/room-types';
 import './preview-harness.css';
 
 // ── Theme plumbing ───────────────────────────────────────────
@@ -187,7 +190,134 @@ const ALL_STATUSES: MemberStatus[] = ['working', 'waiting', 'idle', 'blocked', '
 /** The prototype's small .btn (26px, 11px type) for fixture actions. */
 const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
 
+// ── Screen fixtures (phase 4+) ───────────────────────────────
+
+const T0 = new Date(Date.now() - 41 * 60_000).toISOString();
+const NOOP = () => {};
+
+const FIXTURE_ROOMS: RoomSummary[] = [
+  {
+    id: 'room-auth',
+    title: 'Auth hardening',
+    status: 'running',
+    memberCount: 5,
+    activeMemberCount: 3,
+    costUsd: 3.18,
+    maxCostUsd: 6,
+    startedAt: T0,
+    updatedAt: new Date().toISOString(),
+    problemStatement: 'Find and fix the session-fixation risk before the release cut',
+    members: [
+      { name: 'Conductor', isConductor: true },
+      { name: 'Security reviewer', isConductor: false },
+      { name: 'Implementer 1', isConductor: false },
+      { name: 'Implementer 2', isConductor: false },
+      { name: 'Tester', isConductor: false },
+    ],
+    attentionCount: 2,
+    attention: {
+      approvals: [
+        {
+          approvalId: 'appr-1',
+          memberId: 'impl-2',
+          memberName: 'Implementer 2',
+          title: 'Push branch room/auth-hardening/impl-2 to origin',
+          reason: 'The cache reader updates are complete and ready to collect.',
+          consequence: 'One branch leaves this machine. Nothing else changes.',
+          affects: 'GitHub',
+          kind: 'external-write',
+          estimatedCostUsd: null,
+          createdAt: T0,
+        },
+        {
+          approvalId: 'appr-2',
+          memberId: 'conductor',
+          memberName: 'Conductor',
+          title: 'Raise the spend limit from $6.00 to $9.00',
+          reason: '$3.00 more, to finish the migration work and re-run the tests.',
+          consequence: 'The Room may spend up to $9.00 in total.',
+          affects: 'Spend limit',
+          kind: 'limit-change',
+          estimatedCostUsd: 3,
+          createdAt: T0,
+        },
+      ],
+    },
+  },
+  {
+    id: 'room-pricing',
+    title: 'Pricing page rewrite',
+    status: 'completed',
+    memberCount: 3,
+    activeMemberCount: 0,
+    costUsd: 0.94,
+    maxCostUsd: 3,
+    startedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 3600_000 - 38 * 60_000).toISOString(),
+    problemStatement: 'Rewrite the pricing page copy for the launch',
+    members: [
+      { name: 'Conductor', isConductor: true },
+      { name: 'Writer', isConductor: false },
+      { name: 'Designer', isConductor: false },
+    ],
+    attentionCount: 0,
+  },
+];
+
+const FIXTURE_LOOPS: LoopSummary[] = [
+  {
+    id: 'loop-sweep',
+    title: 'Nightly dependency sweep',
+    status: 'active',
+    summary: 'Sweeps dependencies nightly and opens a PR when something moves.',
+    prompt: 'Sweep dependencies nightly.',
+    progress: { running: true, done: 2, total: 6 },
+    activeStepTitles: ['running verification'],
+    schedules: [{ triggerId: 't1', type: 'cron', schedule: '0 2 * * *' }],
+    usage: { costUsd: 0.31 },
+    attention: {
+      input: {
+        requestId: 'req-1',
+        source: 'planner',
+        questions: [{ id: 'q1', prompt: 'Answer planner question about the target branch' }],
+      },
+    },
+    createdAt: T0,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'loop-triage',
+    title: 'Issue triage',
+    status: 'draft',
+    summary: 'Waiting for a GitHub issue event',
+    prompt: 'Triage new GitHub issues.',
+    createdAt: T0,
+    updatedAt: new Date(Date.now() - 50 * 60_000).toISOString(),
+  },
+];
+
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 4 — Home',
+    crops: [
+      { file: CAP_HOME, x: 0, y: 104, w: 2584, h: 1410, label: 'home — full body' },
+    ],
+    render: () => (
+      <HomeView
+        loops={FIXTURE_LOOPS}
+        busy={false}
+        onAction={NOOP}
+        onOpenLoop={NOOP}
+        onNew={NOOP}
+        onNewRoom={NOOP}
+        rooms={FIXTURE_ROOMS}
+        onRoomApproval={NOOP}
+        onRoomAnswer={NOOP}
+        onRoomResume={NOOP}
+        onOpenRoom={NOOP}
+      />
+    ),
+  },
   {
     title: 'Phase 3 — shell top bar',
     crops: [

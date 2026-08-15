@@ -1,7 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
-import { Button } from '@sero-ai/ui';
-import { Plus } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
@@ -283,6 +281,7 @@ export function OrchestratorApp() {
             onAction={onAction}
             onOpenLoop={openLoop}
             onNew={openCreate}
+            onNewRoom={openRoomCreate}
             rooms={roomIndex.rooms}
             onRoomApproval={onRoomApproval}
             onRoomAnswer={onRoomAnswer}
@@ -304,18 +303,7 @@ export function OrchestratorApp() {
           />
         )}
         {view.mode === 'rooms' && !view.roomId && (
-          <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold">Rooms</h2>
-                <p className="text-xs text-muted-foreground">
-                  A team per problem. Sero staffs it, and it adapts as the work changes.
-                </p>
-              </div>
-              <Button size="sm" onClick={openRoomCreate}>
-                <Plus className="mr-1 h-4 w-4" /> New room
-              </Button>
-            </div>
+          <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
             <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={openRoom} onNew={openRoomCreate} />
           </div>
         )}
