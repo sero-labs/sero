@@ -1,6 +1,6 @@
 /**
  * What a member IS, beside what it is saying (prototype screen 10, right side
- * and the Mandate / Context / Worktree / Cost tabs).
+ * and the Mandate / Info tabs).
  *
  * The split matters: a mandate is instructions and the user may see it change
  * freely, while a model, tool, skill or permission is authority and only ever
@@ -9,21 +9,20 @@
  */
 
 import { cn } from '@sero-ai/ui/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui';
 import type { PersistentSessionContextUsage } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
-import { formatClock, formatCost, formatRelative, formatTokens } from '../lib/format';
+import { formatClock, formatCost, formatTokens } from '../lib/format';
+import { canShowItemInFolder, showItemInFolder } from '../lib/host-files';
 import { ToolLiveCard } from './RoomMemberTranscript';
 import { Eyebrow } from './room-kit';
 
-export type MemberTab = 'session' | 'mandate' | 'context' | 'worktree' | 'cost';
+export type MemberTab = 'session' | 'info';
 
 export const MEMBER_TAB_LABEL: Record<MemberTab, string> = {
   session: 'Session',
-  mandate: 'Mandate',
-  context: 'Context',
-  worktree: 'Worktree',
-  cost: 'Cost',
+  info: 'Info',
 };
 
 interface FactsProps {
@@ -36,30 +35,31 @@ interface FactsProps {
 /** The useful fallback when a completed member has no readable transcript. */
 export function MemberCompletedOutcome({ member }: { member: RoomMember }) {
   return (
-    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-      <div className="max-w-4xl">
+    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="min-h-0 flex-1 overflow-y-auto p-[18px]">
+      <div className="w-full">
         <Eyebrow tone="brand">Outcome</Eyebrow>
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-room-text2">{member.statusDetail}</p>
+        <p className="mt-3 max-w-5xl whitespace-pre-wrap text-sm leading-relaxed text-room-text2">{member.statusDetail}</p>
 
-        <div className="mt-6 grid border-t border-room-line sm:grid-cols-2">
-          <OutcomeFact label="Finished" value={formatClock(member.session.lastClosedAt ?? member.statusAt)} />
-          <OutcomeFact label="Turns" value={String(member.usage.turns)} />
-          <OutcomeFact label="Cost" value={formatCost(member.usage.costUsd)} />
-          <OutcomeFact label="Compactions" value={String(member.session.compactionCount)} />
+        <section className="mt-6 rounded-lg border border-room-line bg-room-surface p-3.5">
+          <Eyebrow tone="brand">Session details</Eyebrow>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-room-line pt-3 sm:grid-cols-4">
+            <CostStat label="Finished" value={formatClock(member.session.lastClosedAt ?? member.statusAt)} />
+            <CostStat label="Turns" value={String(member.usage.turns)} />
+            <CostStat label="Cost" value={formatCost(member.usage.costUsd)} />
+            <CostStat label="Compactions" value={String(member.session.compactionCount)} />
+          </div>
           {member.worktreePath && (
-            <OutcomeFact label="Worktree" value={member.worktreeBranch ?? member.worktreePath} mono />
+            <TooltipProvider>
+              <div className="mt-3 border-t border-room-line pt-3">
+                <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">Worktree</p>
+                <div className="room-tabular mt-1 max-w-full text-xs text-room-text3">
+                  <WorktreeValue value={member.worktreePath} openable />
+                </div>
+              </div>
+            </TooltipProvider>
           )}
-        </div>
+        </section>
       </div>
-    </div>
-  );
-}
-
-function OutcomeFact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="min-w-0 border-b border-room-line py-2.5 sm:odd:pr-6 sm:even:pl-6">
-      <span className="text-xs uppercase tracking-[0.12em] text-room-text4">{label}</span>
-      <p className={cn('mt-1 break-words text-xs text-room-text2', mono && 'room-mono')}>{value}</p>
     </div>
   );
 }
@@ -115,91 +115,138 @@ export function MemberLiveRail({
 export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps & { tab: MemberTab }) {
   const { mandate, configuration, session, usage } = member;
 
-  if (tab === 'mandate') {
-    return (
-      <TabPanel tab={tab}>
-        <Fact label="Role" value={mandate.role} />
-        <Fact label="Responsibilities" value={mandate.responsibilities} />
-        <Fact label="Doing now" value={mandate.currentTask} />
-        {mandate.priorities.length > 0 && <Fact label="Priorities" value={mandate.priorities.join(' · ')} />}
-        <Fact label="Working instructions" value={mandate.workingInstructions} />
-        <Fact label="Revision" value={`${mandate.revision} · ${formatRelative(mandate.updatedAt)}`} />
-        <p className="rounded-lg border border-room-line px-[11px] py-2.5 text-[10px] leading-[1.55] text-room-text4">
-          <b className="text-room-text3">A mandate change is instructions only.</b> Giving this member a new
-          tool, model, skill or permission is a configuration change — validated against the envelope, applied at
-          a safe turn boundary, and it needs your approval when it widens access.
-        </p>
-      </TabPanel>
-    );
-  }
+  if (tab === 'info') {
+    const costPercent = maxCostUsd > 0 ? Math.min(100, (usage.costUsd / maxCostUsd) * 100) : 0;
 
-  if (tab === 'context') {
     return (
-      <TabPanel tab={tab}>
-        <ContextMeter context={context} member={member} />
-        <Fact label="Compactions" value={`${session.compactionCount}${session.lastCompactedAt ? ` · ${formatClock(session.lastCompactedAt)}` : ''}`} />
-        <Fact label="Model" value={`${configuration.model} · ${configuration.thinking}`} />
-        <Fact label="Tools" value={configuration.tools.join(', ') || 'none'} />
-        <Fact label="Skills" value={configuration.skills.join(', ') || 'none'} />
-        <Fact label="Access" value={configuration.permissions} />
-        <p className="text-[10px] leading-[1.55] text-room-text4">
-          Compaction happens at a safe turn boundary. The member's checkpoint, mandate and the part of the Room
-          brief that concerns it are carried across; its session history is unchanged.
-        </p>
-      </TabPanel>
-    );
-  }
+      <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.info} className="min-h-0 flex-1 overflow-y-auto p-[18px]">
+        <div className="grid w-full gap-3 sm:grid-cols-2">
+          <section className="rounded-lg border border-room-line bg-room-surface p-3.5 sm:col-span-2">
+            <Eyebrow tone="brand">Mandate</Eyebrow>
+            <div className="mt-2">
+              <MandateRow label="Role">{mandate.role}</MandateRow>
+              <MandateRow label="Responsibilities">{mandate.responsibilities}</MandateRow>
+              {mandate.currentTask && <MandateRow label="Doing now">{mandate.currentTask}</MandateRow>}
+              {mandate.priorities.length > 0 && (
+                <MandateRow label="Priorities">{mandate.priorities.join(' · ')}</MandateRow>
+              )}
+              <MandateRow label="Working instructions">{mandate.workingInstructions}</MandateRow>
+            </div>
+          </section>
 
-  if (tab === 'worktree') {
-    return (
-      <TabPanel tab={tab}>
-        {member.worktreePath ? (
-          <>
-            <Fact label="Branch" value={member.worktreeBranch ?? '—'} mono />
-            <Fact label="Path" value={member.worktreePath} mono />
-            <p className="text-[10px] leading-[1.55] text-room-text4">
-              This member edits in its own checkout, so nothing it does touches another member's files. Its work
-              is collected when the Room finishes.
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-room-text4">This member has no checkout of its own.</p>
-        )}
-      </TabPanel>
-    );
-  }
+          <section className="rounded-lg border border-room-line bg-room-surface p-3.5">
+            <ContextMeter context={context} member={member} brand />
+            <div className="mt-2">
+              <Kv label="Compactions">
+                {session.compactionCount}
+                {session.lastCompactedAt && ` · ${formatClock(session.lastCompactedAt)}`}
+              </Kv>
+              <Kv label="Model">{configuration.model} · {configuration.thinking}</Kv>
+              <Kv label="Tools" mono>{configuration.tools.join(', ') || 'none'}</Kv>
+              <Kv label="Skills" mono>{configuration.skills.join(', ') || 'none'}</Kv>
+              <Kv label="Access">{configuration.permissions}</Kv>
+            </div>
+          </section>
 
-  if (tab === 'cost') {
-    return (
-      <TabPanel tab={tab}>
-        <Fact label="Spent" value={`${formatCost(usage.costUsd)} of ${formatCost(maxCostUsd)}`} />
-        <Fact label="Turns" value={`${usage.turns}`} />
-        <Fact label="Input tokens" value={formatTokens(usage.inputTokens)} />
-        <Fact label="Output tokens" value={formatTokens(usage.outputTokens)} />
-        <Fact label="Cache read" value={formatTokens(usage.cacheReadTokens)} />
-        <Fact label="Retries" value={`${usage.retries}`} />
-      </TabPanel>
+          <section className="rounded-lg border border-room-line bg-room-surface p-3.5">
+            <Eyebrow tone="brand">Worktree</Eyebrow>
+            {member.worktreePath ? (
+              <TooltipProvider>
+                <div className="mt-2">
+                  <Kv label="Branch" mono>
+                    <WorktreeValue value={member.worktreeBranch ?? '—'} />
+                  </Kv>
+                  <Kv label="Path" mono>
+                    <WorktreeValue value={member.worktreePath} openable />
+                  </Kv>
+                </div>
+              </TooltipProvider>
+            ) : (
+              <p className="mt-2 text-xs text-room-text4">No worktree</p>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-room-line bg-room-surface p-3.5 sm:col-span-2">
+            <Eyebrow tone="brand">Cost</Eyebrow>
+            <div className="mt-2 flex items-baseline gap-2">
+              <b className="text-lg font-semibold text-room-text">{formatCost(usage.costUsd)}</b>
+              <span className="room-tabular text-xs text-room-text4">of {formatCost(maxCostUsd)}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-room-muted">
+              <div className="h-full bg-brand-primary" style={{ width: `${costPercent}%` }} />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-room-line pt-3 sm:grid-cols-5">
+              <CostStat label="Turns" value={String(usage.turns)} />
+              <CostStat label="Input" value={formatTokens(usage.inputTokens)} />
+              <CostStat label="Output" value={formatTokens(usage.outputTokens)} />
+              <CostStat label="Cache read" value={formatTokens(usage.cacheReadTokens)} />
+              <CostStat label="Retries" value={String(usage.retries)} />
+            </div>
+          </section>
+        </div>
+      </div>
     );
   }
 
   return null;
 }
 
-/** Each tab's body is the panel its tab controls, and says so. */
-function TabPanel({ tab, children }: { tab: MemberTab; children: React.ReactNode }) {
+function WorktreeValue({ value, openable = false }: { value: string; openable?: boolean }) {
+  const canOpen = openable && canShowItemInFolder();
+  const valueNode = canOpen ? (
+    <button
+      type="button"
+      className="block max-w-full truncate text-left underline decoration-room-text4 underline-offset-2 hover:text-room-text"
+      onClick={() => void showItemInFolder(value)}
+    >
+      {value}
+    </button>
+  ) : (
+    <span className="block max-w-full truncate">{value}</span>
+  );
+
   return (
-    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-y-auto px-[18px] py-3.5">
-      {children}
+    <Tooltip>
+      <TooltipTrigger asChild>{valueNode}</TooltipTrigger>
+      <TooltipContent className="max-w-[min(36rem,calc(100vw-2rem))] break-all text-left" sideOffset={6}>
+        {value}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function MandateRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1 border-t border-room-line py-2.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
+      <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">{label}</p>
+      <p className="text-xs leading-relaxed text-room-text2">{children}</p>
+    </div>
+  );
+}
+
+function CostStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">{label}</p>
+      <p className="room-tabular mt-1 text-xs text-room-text2">{value}</p>
     </div>
   );
 }
 
 /** The 6px context track with its legend (prototype `.ctx-meter`). */
-function ContextMeter({ context, member }: { context: PersistentSessionContextUsage | null; member: RoomMember }) {
+function ContextMeter({
+  context,
+  member,
+  brand = false,
+}: {
+  context: PersistentSessionContextUsage | null;
+  member: RoomMember;
+  brand?: boolean;
+}) {
   if (!context) {
     return (
       <div>
-        <Eyebrow>Context</Eyebrow>
+        <Eyebrow tone={brand ? 'brand' : 'neutral'}>Context</Eyebrow>
         <p className="mt-1.5 text-[10px] leading-[1.55] text-room-text4">
           {member.session.sessionId
             ? 'The session is closed, so it holds no context window. Its history is still readable.'
@@ -211,7 +258,7 @@ function ContextMeter({ context, member }: { context: PersistentSessionContextUs
   const pct = Math.min(100, (context.usedTokens / context.maxTokens) * 100);
   return (
     <div>
-      <Eyebrow>Context</Eyebrow>
+      <Eyebrow tone={brand ? 'brand' : 'neutral'}>Context</Eyebrow>
       <span className="mt-[9px] block h-1.5 w-full overflow-hidden rounded-[3px] bg-room-muted">
         <span
           className={cn('block h-full', pct >= 80 ? 'bg-status-warning' : 'bg-brand-primary')}
@@ -233,15 +280,6 @@ function Kv({ label, mono, children }: { label: string; mono?: boolean; children
       <span className={cn('min-w-0 truncate text-right', mono ? 'room-tabular text-[10px] text-room-text3' : 'font-medium text-room-text2')}>
         {children}
       </span>
-    </div>
-  );
-}
-
-function Fact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <p className="room-mono-micro uppercase tracking-[0.07em] text-room-text4">{label}</p>
-      <p className={cn('mt-1 text-xs text-room-text2', mono && 'room-tabular break-all text-[10px] text-room-text3')}>{value}</p>
     </div>
   );
 }

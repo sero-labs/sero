@@ -358,6 +358,24 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .kv .mono{font-size:10px;color:var(--text-3)}
 .notice{margin-top:12px;padding:10px 11px;border:1px solid rgba(96,165,250,.22);border-radius:8px;background:var(--blue-wash);color:#9cc6f6;font-size:10px;line-height:1.55}
 .notice b{color:#bcd9fb}
+.info-panel{padding:18px;overflow:hidden}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:980px}
+.info-card{min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:14px}
+.info-card.mandate-card{grid-column:1/-1}
+.info-card.cost-card{grid-column:1/-1}
+.mandate-summary{margin-top:9px}
+.mandate-row{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;padding:9px 0;border-top:1px solid var(--line)}
+.mandate-row small{color:var(--text-4);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.mandate-row p{color:var(--text-2);font-size:11px;line-height:1.6}
+.info-card .kv:first-of-type{margin-top:8px}
+.info-cost-head{display:flex;align-items:baseline;gap:8px;margin-top:9px}
+.info-cost-head b{font-size:18px;font-weight:550;color:var(--text)}
+.info-cost-head span{font:10px var(--mono);color:var(--text-4)}
+.info-cost-track{height:5px;margin-top:9px;border-radius:3px;background:var(--muted);overflow:hidden}
+.info-cost-track i{display:block;width:1.3%;height:100%;background:var(--emerald)}
+.info-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.info-stat small{display:block;color:var(--text-4);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.info-stat b{display:block;margin-top:5px;color:var(--text-2);font:11px var(--mono);font-weight:500}
 
 /* ── live observation ─────────────────────────────────── */
 .live-pill{height:20px;padding:0 8px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,.13);color:#8ce7c5;font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
@@ -1020,7 +1038,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
               <div><h3>Implementer 1</h3><p class="sub">Claude Opus 5 · high · started 14:14 · 9 turns · $0.83</p></div>
               <div class="acts"><button type="button" class="btn">Send a message</button><button type="button" class="btn">Change mandate</button><button type="button" class="btn">Suspend</button></div>
             </div>
-            <div class="insp-tabs"><span class="itab on">Session</span><span class="itab">Mandate</span><span class="itab">Context</span><span class="itab">Worktree</span><span class="itab">Cost</span></div>
+            <div class="insp-tabs"><span class="itab on">Session</span><span class="itab">Info</span></div>
           </div>
           <div class="follow-bar">
             <span class="live-pill"><i></i>Live</span>
@@ -1074,9 +1092,9 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
   </section>
 
   <!-- ═══ 10b ══════════════════════════════════════════════ -->
-  <section class="state">
-    <h2>10b · Inside one member’s session — completed</h2>
-    <p class="note">Once a member finishes, this view becomes a record of its work. The transcript stays primary. Live controls and live context disappear; the final outcome and a small set of useful facts remain.</p>
+  <section class="state" id="member-info-prototype">
+    <h2>10b · Inside one member — Info</h2>
+    <p class="note">Mandate, context, worktree and cost belong to one supporting view. The current responsibility appears first, operational details sit below it, and cost uses one compact horizontal summary instead of a tall list.</p>
     <div class="app tall">
       <header class="top">
         <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
@@ -1097,39 +1115,47 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
               <div><h3>Security reviewer</h3><p class="sub">Claude Sonnet 4.5 · high · 8 turns · $0.94</p></div>
               <div class="acts"><button type="button" class="btn">Close</button></div>
             </div>
-            <div class="insp-tabs"><span class="itab on">Session</span><span class="itab">Mandate</span><span class="itab">Context</span><span class="itab">Worktree</span><span class="itab">Cost</span></div>
+            <div class="insp-tabs"><span class="itab">Session</span><span class="itab on">Info</span></div>
           </div>
-          <div class="follow-bar">
-            <span class="live-pill idle"><i></i>Completed</span>
-            <span class="now">Finished 14:11</span>
-          </div>
-          <div class="hist-nav">
-            <span class="lbl">Turns</span>
-            <span class="tmark"></span><span class="tmark t"></span><span class="tmark"></span><span class="tmark c"></span><span class="tmark"></span><span class="tmark t"></span><span class="tmark"></span><span class="tmark"></span>
-            <span class="jump"><span class="pill">Compactions 1</span><span class="pill">Room messages 2</span><span class="pill">Tool calls 14</span></span>
-          </div>
-          <div class="insp-body">
-            <div class="transcript scroll-fade">
-              <div class="collapsed-hist">Turns 1–5 · 13:46 to 14:03 · 9 tool calls<button type="button" class="btn">Show</button></div>
-              <div class="turn"><div class="turn-head">Turn 6 · 14:05<span class="line"></span></div>
-                <div class="bub">The login path rotates the session identifier after the credential check. I am checking the fallback path for the same guarantee.</div>
-                <div class="bub tool">read src/auth/session.ts</div></div>
-              <div class="turn"><div class="turn-head">Turn 7 · 14:08<span class="line"></span></div>
-                <div class="bub room"><b>Room</b> — The implementer confirmed the downstream cache keys on the identifier.</div>
-                <div class="bub">The fallback path is safe. The remaining concern is test coverage for failed authentication.</div></div>
-              <div class="turn"><div class="turn-head">Turn 8 · 14:11<span class="line"></span></div>
-                <div class="bub">Review complete. Identifier rotation happens only after successful authentication, failed login cannot burn a fresh identifier, and the cache follows the rotated value. I found no remaining blocker.</div></div>
+          <div class="info-panel">
+            <div class="info-grid">
+              <div class="info-card mandate-card">
+                <div class="eyebrow em">Mandate</div>
+                <div class="mandate-summary">
+                  <div class="mandate-row"><small>Role</small><p>Conductor and verifier</p></div>
+                  <div class="mandate-row"><small>Responsibilities</small><p>Coordinates the update and independently verifies every README claim against the implementation.</p></div>
+                  <div class="mandate-row"><small>Working instructions</small><p>Inspect <span class="mono">src/greet.ts</span>, <span class="mono">README.md</span>, and relevant project configuration to establish the expected documentation facts and validation method. Assign the documentation change to the implementer, maintain the shared brief, resolve ambiguities, review the resulting diff, and run appropriate checks. Done means the final README wording has been compared directly with the source and the verification outcome is reported. Do not edit README.md or application code; request any documentation correction from the implementer. Ask the implementer for evidence or revisions when needed, resolve overlapping interpretations, and decide when the objective is met.</p></div>
+                </div>
+              </div>
+              <div class="info-card">
+                <div class="eyebrow em">Context</div>
+                <div class="ctx-meter">
+                  <div class="ctx-track"><i class="used" style="width:47%"></i></div>
+                  <div class="ctx-legend"><span>94k of 200k used</span><span>compacts at 80%</span></div>
+                </div>
+                <div class="kv"><small>Compactions</small><b>1 · 14:31</b></div>
+                <div class="kv"><small>Model</small><b>Claude Sonnet 4.5 · high</b></div>
+                <div class="kv"><small>Tools</small><span class="mono">read, edit, bash</span></div>
+                <div class="kv"><small>Access</small><b>Write</b></div>
+              </div>
+              <div class="info-card">
+                <div class="eyebrow em">Worktree</div>
+                <div class="kv"><small>Branch</small><span class="mono">room/auth-hardening/reviewer</span></div>
+                <div class="kv"><small>Path</small><span class="mono">/workspace/.sero/worktrees/reviewer</span></div>
+              </div>
+              <div class="info-card cost-card">
+                <div class="eyebrow em">Cost</div>
+                <div class="info-cost-head"><b>$0.0324</b><span>of $2.50</span></div>
+                <div class="info-cost-track"><i></i></div>
+                <div class="info-stats">
+                  <div class="info-stat"><small>Turns</small><b>2</b></div>
+                  <div class="info-stat"><small>Input</small><b>7.8k</b></div>
+                  <div class="info-stat"><small>Output</small><b>1.8k</b></div>
+                  <div class="info-stat"><small>Cache read</small><b>19.6k</b></div>
+                  <div class="info-stat"><small>Retries</small><b>0</b></div>
+                </div>
+              </div>
             </div>
-            <aside class="insp-side">
-              <div class="eyebrow em">Outcome</div>
-              <p style="margin-top:9px;color:var(--text-3);font-size:11px;line-height:1.55">Review complete. No remaining blocker.</p>
-              <div class="hr"></div>
-              <div class="kv"><small>Finished</small><b>14:11</b></div>
-              <div class="kv"><small>Turns</small><b>8</b></div>
-              <div class="kv"><small>Cost</small><b>$0.94</b></div>
-              <div class="kv"><small>Compactions</small><b>1</b></div>
-              <div class="kv"><small>Worktree</small><span class="mono">room/auth-hardening/reviewer</span></div>
-            </aside>
           </div>
         </div>
       </div></div>
