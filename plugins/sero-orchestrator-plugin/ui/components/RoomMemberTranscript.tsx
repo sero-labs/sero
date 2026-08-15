@@ -4,8 +4,8 @@
  * bubbles, the compaction gradient rule, and the live tool card.
  *
  * Everything here renders the session file as it is — nothing is a
- * reconstruction, which is why a room message and a tool call keep their own
- * visual language instead of flattening into one bubble style.
+ * reconstruction. Room input and member output use explicit sender labels;
+ * green is reserved for the live state rather than historical message roles.
  */
 
 import { Button } from '@sero-ai/ui';
@@ -19,9 +19,9 @@ import { Pill } from './room-kit';
 /** The running tool, streamed from the session: spinner, command, stopwatch. */
 export function ToolLiveCard({ tool, className }: { tool: LiveToolCall; className?: string }) {
   return (
-    <div className={cn('flex items-center gap-[9px] rounded-lg border border-brand-primary-border bg-brand-primary-faint px-3 py-[9px]', className)}>
+    <div className={cn('flex items-center gap-[9px] rounded-lg border border-brand-primary-border bg-room-surface px-3 py-[9px]', className)}>
       <span aria-hidden className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-brand-primary-border border-t-brand-primary" />
-      <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-ink-brand">
+      <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text3">
         {tool.toolName} {tool.summary}
       </span>
       <span className="room-mono-micro shrink-0 text-room-text4">
@@ -110,7 +110,7 @@ function CompactMark({ at }: { at: string }) {
   );
 }
 
-function Bubble({ entry }: { entry: PersistentSessionHistoryEntry }) {
+function Bubble({ entry, memberName }: { entry: PersistentSessionHistoryEntry; memberName: string }) {
   if (entry.role === 'tool') {
     return (
       <div className="room-tabular mt-2 whitespace-pre-wrap rounded-[9px] border border-room-line bg-room-sunken px-[13px] py-[11px] text-[10px] leading-[1.6] text-room-text4">
@@ -119,23 +119,16 @@ function Bubble({ entry }: { entry: PersistentSessionHistoryEntry }) {
     );
   }
   // A user-role entry in a member session IS the Room speaking to the member.
-  const room = entry.role === 'user';
+  const speaker = entry.role === 'user' ? 'Room' : memberName;
   return (
-    <div
-      className={cn(
-        'mt-2 whitespace-pre-wrap rounded-[9px] border px-[13px] py-[11px] text-xs leading-[1.6]',
-        room
-          ? 'border-brand-primary-border bg-brand-primary-faint text-room-ink-brand'
-          : 'border-room-line bg-room-surface text-room-text3',
-      )}
-    >
-      {room && <b className="font-medium text-room-text2">Room — </b>}
+    <div className="mt-2 whitespace-pre-wrap rounded-[9px] border border-room-line bg-room-surface px-[13px] py-[11px] text-xs leading-[1.6] text-room-text3">
+      <b className="room-mono-micro mb-1.5 block font-bold uppercase tracking-[0.08em] text-room-text2">{speaker}</b>
       {entry.text}
     </div>
   );
 }
 
-export function TurnBlock({ memberId, turn, live = false }: { memberId: string; turn: SessionTurn; live?: boolean }) {
+export function TurnBlock({ memberId, memberName, turn, live = false }: { memberId: string; memberName: string; turn: SessionTurn; live?: boolean }) {
   return (
     <div id={`turn-${memberId}-${turn.index}`}>
       {turn.compacted && <CompactMark at={turn.at} />}
@@ -144,14 +137,14 @@ export function TurnBlock({ memberId, turn, live = false }: { memberId: string; 
         <span aria-hidden className="h-px flex-1 bg-room-line" />
       </div>
       {turn.entries.map((entry, position) => (
-        <Bubble key={`${entry.timestamp}:${position}`} entry={entry} />
+        <Bubble key={`${entry.timestamp}:${position}`} entry={entry} memberName={memberName} />
       ))}
     </div>
   );
 }
 
 /** The in-flight turn: retained text with the caret, and the running tool. */
-export function LiveTurn({ text, tool, turnIndex }: { text: string; tool: LiveToolCall | null; turnIndex: number }) {
+export function LiveTurn({ memberName, text, tool, turnIndex }: { memberName: string; text: string; tool: LiveToolCall | null; turnIndex: number }) {
   return (
     <div>
       <div className="room-mono-micro flex items-center gap-2 uppercase tracking-[0.06em] text-room-text4">
@@ -160,8 +153,11 @@ export function LiveTurn({ text, tool, turnIndex }: { text: string; tool: LiveTo
       </div>
       {text && (
         <div className="mt-2 whitespace-pre-wrap rounded-[9px] border border-brand-primary-border bg-room-surface px-[13px] py-[11px] text-xs leading-[1.6] text-room-text3">
+          <b className="room-mono-micro mb-1.5 block font-bold uppercase tracking-[0.08em] text-room-text2">
+            {memberName} · Live
+          </b>
           {text}
-          <span aria-hidden className="ml-0.5 inline-block h-3 w-[1.5px] translate-y-0.5 bg-brand-primary" />
+          <span aria-hidden className="ml-0.5 inline-block h-3 w-[1.5px] translate-y-0.5 bg-room-text3" />
         </div>
       )}
       {tool && <ToolLiveCard tool={tool} className="mt-2" />}

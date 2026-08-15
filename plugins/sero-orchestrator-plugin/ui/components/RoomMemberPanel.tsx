@@ -211,13 +211,13 @@ export function RoomMemberPanel({
                 </p>
               )}
               {shown.map((turn) => (
-                <TurnBlock key={turn.index} memberId={member.id} turn={turn} />
+                <TurnBlock key={turn.index} memberId={member.id} memberName={member.displayName} turn={turn} />
               ))}
               {/* Only mid-turn: the retained text outlives the turn, and the
                   finished turn arrives in the transcript above from the session
                   file itself. */}
               {live?.turnId && (live.text || live.toolInFlight) && (
-                <LiveTurn text={live.text} tool={live.toolInFlight} turnIndex={member.usage.turns} />
+                <LiveTurn memberName={member.displayName} text={live.text} tool={live.toolInFlight} turnIndex={member.usage.turns} />
               )}
             </div>
           </div>

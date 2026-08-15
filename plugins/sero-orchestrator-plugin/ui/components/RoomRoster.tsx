@@ -13,8 +13,9 @@
 
 import { openSeroApp } from '@sero-ai/app-runtime';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { ArrowUpRight } from 'lucide-react';
 import type { RoomMember } from '../../shared/room-types';
-import { formatCost, formatElapsed } from '../lib/format';
+import { formatElapsed } from '../lib/format';
 import { MEMBER_DOT, MEMBER_STATUS_LABEL, memberGlyph } from '../lib/member-glyph';
 import { Face } from './room-kit';
 
@@ -42,26 +43,23 @@ export function RoomRoster({ memberIds, members, selectedId, onSelect, className
           onSelect={onSelect}
         />
       ))}
-      <p className="mt-[11px] border-t border-room-line px-[9px] pt-2.5 text-[10px] leading-[1.55] text-room-text4">
-        Waiting and idle members are not using a turn. A waiting member released its slot and picks up
-        again the moment its answer lands.
-      </p>
       {/* The board shows this team beside every other piece of work in flight.
           It links back here rather than repeating the Room's controls. */}
       <button
         type="button"
         onClick={() => void openSeroApp('board')}
-        className="mx-[9px] mt-2.5 self-start border-b border-dotted border-room-line-strong pb-px text-left text-[10px] text-room-text3 hover:text-room-text2"
+        className="mt-3 flex w-full items-center justify-between rounded-lg border border-room-line bg-room-raised/60 px-3 py-2.5 text-left text-xs font-medium text-room-text2 transition-colors hover:border-room-line-strong hover:bg-room-raised hover:text-room-text"
       >
-        Open this team on the Agent Board ↗
+        Open in Agent Board
+        <ArrowUpRight aria-hidden="true" className="size-3.5 text-room-text3" />
       </button>
     </aside>
   );
 }
 
-/** `Waiting on a reply · 3m` — the duration a waiting member has been waiting. */
+/** `Waiting · 3m` — the duration a waiting member has been waiting. */
 function statusLine(member: RoomMember): string {
-  const base = member.statusDetail || MEMBER_STATUS_LABEL[member.status];
+  const base = MEMBER_STATUS_LABEL[member.status];
   if (member.status !== 'waiting' && member.status !== 'blocked') return base;
   const heldMs = Date.now() - new Date(member.statusAt).getTime();
   return heldMs >= 60_000 ? `${base} · ${formatElapsed(heldMs)}` : base;
@@ -80,6 +78,7 @@ function MemberRow({
 }) {
   const name = member?.displayName ?? memberId;
   const status = member?.status ?? 'offline';
+  const isActive = status === 'starting' || status === 'working' || status === 'retiring';
 
   return (
     <button
@@ -88,7 +87,9 @@ function MemberRow({
       onClick={() => onSelect(memberId)}
       className={cn(
         'mb-0.5 flex w-full items-center gap-[9px] rounded-[7px] border p-[9px] text-left',
-        selected ? 'border-room-line bg-room-raised' : 'border-transparent hover:bg-room-raised/50',
+        isActive && 'border-emerald-400/35 bg-emerald-400/[0.07]',
+        selected && !isActive && 'border-room-line bg-room-raised',
+        !selected && !isActive && 'border-transparent hover:bg-room-raised/50',
       )}
     >
       <Face
@@ -100,17 +101,16 @@ function MemberRow({
         statusRingClass={selected ? 'border-room-raised' : 'border-room-bg'}
       />
       <span className="min-w-0 flex-1">
-        <b className={cn('block truncate text-xs font-medium', selected ? 'text-room-text' : 'text-room-text2')}>
+        <b className={cn('block truncate text-xs font-medium', selected || isActive ? 'text-room-text' : 'text-room-text2')}>
           {name}
         </b>
         <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
         {/* "Holds no turn" is the rail-foot's job; repeating it per row
             truncates the status detail it sits behind. */}
-        <span className="mt-[3px] block truncate text-[10px] text-room-text4">
+        <span className={cn('mt-[3px] block truncate text-xs', isActive ? 'text-emerald-200/80' : 'text-room-text4')}>
           {member ? statusLine(member) : 'Loading…'}
         </span>
       </span>
-      {member && <span className="room-mono-micro shrink-0 text-room-text4">{formatCost(member.usage.costUsd)}</span>}
     </button>
   );
 }

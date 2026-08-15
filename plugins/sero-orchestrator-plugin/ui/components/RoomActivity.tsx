@@ -21,20 +21,26 @@ import { memberGlyph } from '../lib/member-glyph';
 import { EventCard, Face, type EventCardTone } from './room-kit';
 import { RoomArtifactLink } from './RoomArtifactLink';
 
-type Filter = 'all' | 'decisions' | 'messages' | 'work';
+type Filter = 'highlights' | 'all' | 'decisions' | 'messages' | 'work';
 
-const FILTER_KINDS: Record<Exclude<Filter, 'all'>, readonly RoomTimelineEvent['kind'][]> = {
+const FILTER_KINDS: Record<Exclude<Filter, 'all' | 'highlights'>, readonly RoomTimelineEvent['kind'][]> = {
   decisions: ['revision', 'approval', 'room-status', 'delivery', 'limit'],
   messages: ['message'],
   work: ['work', 'artifact', 'claim'],
 };
 
 const FILTER_LABEL: Record<Filter, string> = {
+  highlights: 'Highlights',
   all: 'All',
   decisions: 'Decisions',
   messages: 'Messages',
   work: 'Work',
 };
+
+function isHighlight(event: RoomTimelineEvent): boolean {
+  if (event.kind === 'session' || event.kind === 'compaction' || event.kind === 'claim') return false;
+  return event.kind !== 'member-status' || event.details?.status !== 'completed';
+}
 
 /** Kinds the Room did to itself rather than a member doing them. */
 const SYSTEM_KINDS: readonly RoomTimelineEvent['kind'][] = ['session', 'compaction', 'recovery', 'limit'];
@@ -53,10 +59,14 @@ interface RoomActivityProps {
 }
 
 export function RoomActivity({ events, members }: RoomActivityProps) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('highlights');
 
   const shown = useMemo(
-    () => (filter === 'all' ? events : events.filter((event) => FILTER_KINDS[filter].includes(event.kind))),
+    () => {
+      if (filter === 'highlights') return events.filter(isHighlight);
+      if (filter === 'all') return events;
+      return events.filter((event) => FILTER_KINDS[filter].includes(event.kind));
+    },
     [events, filter],
   );
 
@@ -120,12 +130,19 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
         {tone ? (
           // The weighty kinds are the card itself, not a sentence plus a card:
           // the record carries one summary, and saying it twice is noise.
-          <EventCard tone={tone} title={<span className="min-w-0">{event.summary}</span>}>
-            {artifactRef ? (
-              <RoomArtifactLink workspaceId={workspaceId} path={resolveArtifactPath(artifactRef, member ?? undefined)} className="room-tabular break-all text-room-text3 hover:text-room-text2">
+          <EventCard
+            tone={tone}
+            title={artifactRef ? (
+              <RoomArtifactLink
+                workspaceId={workspaceId}
+                path={resolveArtifactPath(artifactRef, member ?? undefined)}
+                className="room-tabular truncate text-room-text2 hover:text-room-text"
+              >
                 {artifactFileName(artifactRef)}
               </RoomArtifactLink>
-            ) : event.details?.ref != null ? (
+            ) : <span className="min-w-0">{event.summary}</span>}
+          >
+            {!artifactRef && event.details?.ref != null ? (
               <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>
             ) : null}
           </EventCard>

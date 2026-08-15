@@ -266,6 +266,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .rail-title span{margin-left:auto;letter-spacing:0}
 .mrow{display:flex;align-items:center;gap:9px;padding:9px;border-radius:7px;margin-bottom:2px;border:1px solid transparent}
 .mrow.on{background:var(--raised);border-color:var(--line)}
+.mrow.active{position:relative;background:rgba(52,211,153,.07);border-color:rgba(52,211,153,.35)}
 .mrow .mf{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,#3b3b44,#1c1c21);display:grid;place-items:center;font-size:10px;color:#cfcfd8;flex:0 0 auto;position:relative}
 .mrow .mf.c{background:linear-gradient(140deg,#12805e,#0b4636);color:#b6f5de}
 .mrow .mf.new{background:linear-gradient(140deg,#4b3a7a,#241d3c);color:#cbb6ff}
@@ -274,11 +275,11 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .st.work{background:var(--emerald)}.st.wait{background:var(--amber)}.st.idle{background:#4b4b53}.st.block{background:var(--red)}.st.done{background:var(--blue)}.st.susp{background:var(--violet)}
 .mrow .mi{min-width:0;flex:1}
 .mrow .mi b{display:block;font-size:12px;font-weight:500;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mrow.on .mi b{color:var(--text)}
+.mrow.on .mi b,.mrow.active .mi b{color:var(--text)}
+.mrow.active .mi>span{color:#86cdb4}
 .mrow .mi span{display:block;margin-top:3px;color:var(--text-4);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mrow .cost{color:var(--text-4);font:9px var(--mono);flex:0 0 auto}
-.rail-foot{margin-top:11px;padding:10px 9px;border-top:1px solid var(--line);color:var(--text-4);font-size:10px;line-height:1.55}
-.rail-foot a{color:var(--text-3);text-decoration:none;border-bottom:1px dotted var(--line-strong)}
+.rail-foot{display:flex;align-items:center;justify-content:space-between;margin-top:11px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--text-2);font-size:11px;font-weight:500}
+.rail-foot a{color:inherit;text-decoration:none}
 
 .timeline{padding:15px 18px;overflow:hidden;min-width:0}
 .tl-head{display:flex;align-items:center;margin-bottom:12px}
@@ -343,9 +344,10 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .turn-head{display:flex;align-items:center;gap:8px;color:var(--text-4);font:9px var(--mono);letter-spacing:.06em;text-transform:uppercase}
 .turn-head .line{flex:1;height:1px;background:var(--line)}
 .bub{margin-top:8px;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text-3);font-size:12px;line-height:1.6}
-.bub.room{border-color:rgba(52,211,153,.22);background:rgba(16,185,129,.04);color:#96cbb6}
+.bub.room{background:var(--surface);color:var(--text-3)}
 .bub.tool{font-family:var(--mono);font-size:10px;color:var(--text-4);background:#0c0c0f}
 .bub b{color:var(--text-2);font-weight:550}
+.bub .speaker{display:block;margin-bottom:6px;color:var(--text-2);font:9px var(--mono);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .compact-mark{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--violet);font-size:11px}
 .compact-mark .line{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.35),transparent)}
 .insp-side{border-left:1px solid var(--line);background:#0e0e10;padding:14px;overflow:hidden}
@@ -422,6 +424,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .tmark.now{background:var(--emerald);box-shadow:0 0 0 2px rgba(52,211,153,.16)}
 .hist-nav .jump{margin-left:auto;display:flex;gap:6px}
 .turn.live .bub{border-color:rgba(52,211,153,.3)}
+.turn.live .cursor{background:var(--text-3)}
 .tool-live{display:flex;align-items:center;gap:9px;margin-top:8px;padding:9px 12px;border:1px solid rgba(52,211,153,.26);border-radius:8px;background:rgba(16,185,129,.045)}
 .tool-live .spin{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(52,211,153,.3);border-top-color:var(--emerald);flex:0 0 auto}
 .tool-live .cmd{font-family:var(--mono);font-size:10px;color:#8ce7c5;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -912,18 +915,18 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
         <div class="room-body">
           <aside class="roster-rail">
             <div class="rail-title">Team <span>5</span></div>
-            <div class="mrow"><span class="mf c">◎<span class="st work"></span></span><span class="mi"><b>Conductor</b><span>Deciding what happens next</span></span><span class="cost">$0.71</span></div>
-            <div class="mrow"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished · risk confirmed</span></span><span class="cost">$0.94</span></div>
-            <div class="mrow on"><span class="mf">1<span class="st work"></span></span><span class="mi"><b>Implementer 1</b><span>Editing session handling</span></span><span class="cost">$0.83</span></div>
-            <div class="mrow"><span class="mf">2<span class="st wait"></span></span><span class="mi"><b>Implementer 2</b><span>Waiting on a reply</span></span><span class="cost">$0.44</span></div>
-            <div class="mrow"><span class="mf">T<span class="st idle"></span></span><span class="mi"><b>Tester</b><span>Idle · nothing to test yet</span></span><span class="cost">$0.26</span></div>
-            <p class="rail-foot">Waiting and idle members are not using a turn. Implementer 2 released its slot when it asked its question and will pick up again the moment a reply lands.<br><br><a href="#">Open this team on the Agent Board ↗</a></p>
+            <div class="mrow active"><span class="mf c">◎<span class="st work"></span></span><span class="mi"><b>Conductor</b><span>Working</span></span></div>
+            <div class="mrow"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished</span></span></div>
+            <div class="mrow on active"><span class="mf">1<span class="st work"></span></span><span class="mi"><b>Implementer 1</b><span>Working</span></span></div>
+            <div class="mrow"><span class="mf">2<span class="st wait"></span></span><span class="mi"><b>Implementer 2</b><span>Waiting · 3m</span></span></div>
+            <div class="mrow"><span class="mf">T<span class="st idle"></span></span><span class="mi"><b>Tester</b><span>Idle</span></span></div>
+            <p class="rail-foot"><a href="#">Open in Agent Board</a><span>↗</span></p>
           </aside>
           <div class="timeline scroll-fade">
-            <div class="tl-head"><b>Activity</b><div class="filters"><span class="pill">All</span><span class="pill">Decisions</span><span class="pill">Messages</span><span class="pill">Work</span></div></div>
+            <div class="tl-head"><b>Activity</b><div class="filters"><span class="pill em">Highlights</span><span class="pill">All</span><span class="pill">Decisions</span><span class="pill">Messages</span><span class="pill">Work</span></div></div>
             <div class="ev"><span class="when">14:02</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> asked the Security reviewer to confirm the risk before any code changes.</p></div></div>
             <div class="ev"><span class="when">14:11</span><span class="who">R</span><div class="body"><p><b>Security reviewer</b> confirmed the risk and named the location.</p>
-              <div class="ev-card ok"><h5>Finding · session fixation is real <span class="pill em">Artifact</span></h5><p>The session identifier issued before authentication survives the privilege change in <span class="mono" style="color:var(--text-3)">src/auth/session.ts:118</span>. An attacker who fixes the identifier before login keeps a valid authenticated session.</p></div></div></div>
+              <div class="ev-card ok" title="/workspace/.sero/apps/orchestrator/rooms/auth-hardening/artifacts/session-fixation-report.md"><h5><span class="mono">session-fixation-report.md</span> <span class="pill em">Artifact</span></h5></div></div></div>
             <div class="ev"><span class="when">14:14</span><span class="who c">◎</span><div class="body"><p><b>Conductor</b> split the fix across two branches and started both implementers.</p><p class="sub">Implementer 1 → <span class="mono">room/auth-hardening/impl-1</span> · Implementer 2 → <span class="mono">room/auth-hardening/impl-2</span></p></div></div>
             <div class="ev"><span class="when">14:29</span><span class="who">2</span><div class="body"><p><b>Implementer 2</b> asked Implementer 1 a question and is waiting.</p>
               <div class="ev-card"><h5>Question → Implementer 1 <span class="pill am">Waiting 3m</span></h5><p>“Are you rotating the identifier on login, or issuing a new session object entirely? The downstream cache keys off the object identity, so it changes what I have to update.”</p></div></div></div>
@@ -1018,7 +1021,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
   <!-- ═══ 10 ═══════════════════════════════════════════════ -->
   <section class="state">
     <h2>10 · Inside one member’s session — live, with its whole history</h2>
-    <p class="note">A member is a standard persistent Pi session, so its complete history is real and readable. The pane follows the live turn by default; turning Follow off leaves the scroll where the user put it. The turn strip above the transcript is the whole session at a glance — one mark per turn, with compaction points and Room messages marked — so a user can jump anywhere in the history, including before a compaction. Nothing here is a reconstruction; it is the session file.</p>
+    <p class="note">A member is a standard persistent Pi session, so its complete history is real and readable. Room input and member output use the same neutral surface with explicit sender labels; green is reserved for work that is live now. The pane follows the live turn by default; turning Follow off leaves the scroll where the user put it. Nothing here is a reconstruction; it is the session file.</p>
     <div class="app tall">
       <header class="top">
         <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
@@ -1058,17 +1061,17 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
             <div class="transcript scroll-fade">
               <div class="collapsed-hist">Turns 1–5 · 14:14 to 14:24 · 11 tool calls<button type="button" class="btn">Show</button></div>
               <div class="turn"><div class="turn-head">Turn 6 · 14:26<span class="line"></span></div>
-                <div class="bub room"><b>Room</b> — Brief updated. The reviewer confirmed the risk at <span class="mono">src/auth/session.ts:118</span>. Your mandate is unchanged: rotate the identifier on the login path only.</div></div>
+                <div class="bub room"><span class="speaker">Room</span>Brief updated. The reviewer confirmed the risk at <span class="mono">src/auth/session.ts:118</span>. Your mandate is unchanged: rotate the identifier on the login path only.</div></div>
               <div class="compact-mark"><span class="line"></span>Context compacted at 14:31 · <span class="peek">see what was carried across</span><span class="line"></span></div>
               <div class="turn"><div class="turn-head">Turn 7 · 14:29<span class="line"></span></div>
-                <div class="bub">I have the rotation in place. Before I commit I want to be sure the downstream cache is not keyed on the session object itself — if it is, rotating the identifier is not enough on its own.</div>
+                <div class="bub"><span class="speaker">Implementer 1</span>I have the rotation in place. Before I commit I want to be sure the downstream cache is not keyed on the session object itself — if it is, rotating the identifier is not enough on its own.</div>
                 <div class="bub tool">sero-cli room ask --to implementer-2 "Does the downstream cache key on the session object or the identifier?"</div></div>
               <div class="turn"><div class="turn-head">Turn 8 · 14:31<span class="line"></span></div>
-                <div class="bub room"><b>Room</b> — Reply from Implementer 2: it keys on the identifier, not the object. Rotating is sufficient.</div>
-                <div class="bub">Good. Committing the rotation and handing the branch to the tester.</div>
+                <div class="bub room"><span class="speaker">Room</span>Reply from Implementer 2: it keys on the identifier, not the object. Rotating is sufficient.</div>
+                <div class="bub"><span class="speaker">Implementer 1</span>Good. Committing the rotation and handing the branch to the tester.</div>
                 <div class="bub tool">git commit -m "rotate the session identifier after a successful authentication"</div></div>
               <div class="turn live"><div class="turn-head">Turn 9 · 14:34 · in progress<span class="line"></span></div>
-                <div class="bub">Rotation is in place at line 118. I am moving the regenerate call to after the credential check rather than before it, so a failed login cannot burn a fresh identifier<span class="cursor"></span></div>
+                <div class="bub"><span class="speaker">Implementer 1 · Live</span>Rotation is in place at line 118. I am moving the regenerate call to after the credential check rather than before it, so a failed login cannot burn a fresh identifier<span class="cursor"></span></div>
                 <div class="tool-live"><span class="spin"></span><span class="cmd">edit src/auth/session.ts</span><span class="el">0:03</span></div>
               </div>
             </div>
