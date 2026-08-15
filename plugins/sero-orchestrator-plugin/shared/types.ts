@@ -107,6 +107,12 @@ export type {
 export interface OrchestratorState {
   version: 1;
   loops: Loop[];
+  ui?: {
+    roomPanelLayouts?: {
+      roster?: Record<string, number>;
+      rosterAndDetails?: Record<string, number>;
+    };
+  };
   /**
    * Ring of recently delivered event keys (`source#dedupeKey`), so a source
    * adapter restart never re-fires an event it already delivered. Only events

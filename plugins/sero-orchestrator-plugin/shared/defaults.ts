@@ -16,6 +16,7 @@ import { ROOM_SCHEMA_VERSION, type RoomIndex } from './room-types';
 export const DEFAULT_STATE: OrchestratorState = {
   version: 1,
   loops: [],
+  ui: {},
 };
 
 export const DEFAULT_INDEX: OrchestratorIndex = {

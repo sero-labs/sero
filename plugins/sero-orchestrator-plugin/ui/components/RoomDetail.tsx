@@ -24,6 +24,7 @@ import { RoomActivity } from './RoomActivity';
 import { RoomCompletion } from './RoomCompletion';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
 import { RoomDraftReview } from './RoomDraftReview';
+import { RoomDesktopLayout } from './RoomDesktopLayout';
 import { RoomMemberPanel } from './RoomMemberPanel';
 import { RoomMessageDialog } from './RoomMessageDialog';
 import { RoomStopBanner } from './RoomStopBanner';
@@ -182,15 +183,21 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
       )}
 
       <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        <RoomRoster
-          memberIds={room.memberIds}
-          members={members}
-          selectedId={selectedId}
-          onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
-          className="hidden @min-[900px]/panel:flex"
-        />
-
-        {selected ? (
+        <RoomDesktopLayout
+          roster={(
+            <RoomRoster
+              memberIds={room.memberIds}
+              members={members}
+              selectedId={selectedId}
+              onSelect={(memberId) => setSelectedId(memberId === selectedId ? null : memberId)}
+              className="w-full border-r-0"
+            />
+          )}
+          details={shownView === 'timeline' && !selected ? (
+            <RoomSidePanel room={room} names={names} members={members} className="w-full border-l-0" />
+          ) : undefined}
+        >
+          {selected ? (
           <RoomMemberPanel
             // Each member gets its own panel state: a half-typed answer or an
             // opened fold must not follow the user to the next member.
@@ -222,12 +229,10 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
             live={live}
             onOpen={setSelectedId}
           />
-        ) : (
-          <>
+          ) : (
             <RoomActivity events={events} members={members} />
-            <RoomSidePanel room={room} names={names} members={members} className="hidden @min-[1200px]/panel:flex" />
-          </>
-        )}
+          )}
+        </RoomDesktopLayout>
 
         {/* The drawer the top-bar Brief control opens below 1200px. Its Team
             tab exists only below 900px, where the roster rail is gone too. */}

@@ -258,6 +258,10 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
 .room-bar .acts{margin-left:auto;display:flex;gap:7px}
 .room-body{display:grid;grid-template-columns:264px minmax(0,1fr) 320px;flex:1;min-height:0}
 .roster-rail{border-right:1px solid var(--line);padding:13px 10px;overflow:hidden}
+.room-body>.roster-rail,.room-body>.room-side{position:relative}
+.room-body>.roster-rail::after,.room-body>.room-side::before{content:"";position:absolute;z-index:2;top:0;bottom:0;width:5px;cursor:col-resize}
+.room-body>.roster-rail::after{right:-2px}.room-body>.room-side::before{left:-2px}
+.room-body>.roster-rail:hover::after,.room-body>.room-side:hover::before{background:rgba(52,211,153,.18)}
 .rail-title{height:26px;padding:0 8px;display:flex;align-items:center;color:var(--text-4);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .rail-title span{margin-left:auto;letter-spacing:0}
 .mrow{display:flex;align-items:center;gap:9px;padding:9px;border-radius:7px;margin-bottom:2px;border:1px solid transparent}
@@ -888,7 +892,7 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
   <!-- ═══ 8 ═══════════════════════════════════════════════ -->
   <section class="state">
     <h2>8 · The live Room</h2>
-    <p class="note">Three regions: who is on the team and what state each one is in, what has actually happened, and the current Room brief. The brief is built by the coordinator from Room records after structural progress — it is not a transcript summary, and no member ever reads the whole Room history. The Conductor may add a short situation note, which is labelled as its own and cannot change any computed field.</p>
+    <p class="note">Three regions: who is on the team and what state each one is in, what has actually happened, and the current Room brief. The two dividers resize the side regions and remember their positions. The activity region keeps a useful minimum width. The brief is built by the coordinator from Room records after structural progress — it is not a transcript summary, and no member ever reads the whole Room history. The Conductor may add a short situation note, which is labelled as its own and cannot change any computed field.</p>
     <div class="app tall">
       <header class="top">
         <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
