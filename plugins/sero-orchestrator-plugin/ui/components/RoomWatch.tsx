@@ -2,21 +2,24 @@
  * Watching the whole team work (prototype screen 9).
  *
  * The activity timeline records what HAS happened. This answers the other
- * question: what is each member doing right now. Each pane shows its member's
- * current turn — the text as it arrived and the tool in flight — and a member
- * that is waiting or idle says so plainly instead of showing a stale last line
- * as though it were live.
+ * question: what is each member doing right now. Every tile is a fixed 214px —
+ * head, current-tool strip, streaming body with its bottom fade, footer — so
+ * the grid holds still while members stream instead of jumping with their
+ * text. A member that is waiting or idle says so plainly and dims, rather than
+ * showing a stale last line as though it were live.
  *
  * Watching changes nothing. It holds no turn, and a member nobody watches
  * behaves identically (NFR-017).
  */
 
 import { Button } from '@sero-ai/ui';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
-import { formatCost, formatRelative } from '../lib/format';
+import { formatCost, formatElapsed, formatTimer } from '../lib/format';
+import { memberGlyph } from '../lib/member-glyph';
 import { memberPaneText } from '../lib/room-view';
-import { MEMBER_DOT_CLASS } from './RoomRoster';
+import { Face, LivePill } from './room-kit';
 
 interface RoomWatchProps {
   memberIds: string[];
@@ -29,7 +32,7 @@ export function RoomWatch({ memberIds, members, live, onOpen }: RoomWatchProps) 
   return (
     <div
       aria-label="What every member is doing"
-      className="grid min-w-0 flex-1 auto-rows-min gap-3 overflow-auto p-3 md:grid-cols-2 xl:grid-cols-3"
+      className="grid min-w-0 flex-1 auto-rows-min gap-3 overflow-y-auto p-3.5 @min-[1000px]/panel:grid-cols-2"
     >
       {memberIds.map((memberId) => {
         const member = members.get(memberId);
@@ -46,6 +49,32 @@ export function RoomWatch({ memberIds, members, live, onOpen }: RoomWatchProps) 
   );
 }
 
+/** The head pill: live with the turn number, or why nothing is streaming. */
+function panePill(member: RoomMember, midTurn: boolean) {
+  if (midTurn) return <LivePill>Live · turn {member.usage.turns}</LivePill>;
+  if (member.status === 'waiting' || member.status === 'blocked') {
+    return <LivePill idle>Waiting {formatElapsed(Date.now() - new Date(member.statusAt).getTime())}</LivePill>;
+  }
+  if (member.status === 'completed' || member.status === 'retired') return <LivePill idle>Finished</LivePill>;
+  if (member.status === 'offline' || member.status === 'starting') return <LivePill idle>Not started</LivePill>;
+  return <LivePill idle>{member.status}</LivePill>;
+}
+
+/** The current-tool strip's icon + line: what is happening this second. */
+function paneNow(member: RoomMember, snapshot: MemberLiveSnapshot | null): { icon: string; what: string; elapsed: string } {
+  const tool = snapshot?.toolInFlight;
+  if (tool) {
+    return {
+      icon: '⌨',
+      what: `${tool.toolName} ${tool.summary}`.trim(),
+      elapsed: formatTimer(Date.now() - new Date(tool.startedAt).getTime()),
+    };
+  }
+  if (snapshot?.turnId) return { icon: '✎', what: 'thinking — no tool running', elapsed: '—' };
+  if (member.status === 'completed' || member.status === 'retired') return { icon: '✓', what: member.statusDetail, elapsed: '—' };
+  return { icon: '◷', what: member.statusDetail, elapsed: '—' };
+}
+
 function WatchPane({
   member,
   snapshot,
@@ -56,34 +85,43 @@ function WatchPane({
   onOpen: () => void;
 }) {
   const midTurn = snapshot?.turnId != null;
+  const now = paneNow(member, snapshot);
 
   return (
     <section
       aria-label={member.displayName}
-      className={`flex flex-col gap-2 rounded-md border p-3 ${midTurn ? 'border-emerald-500/30' : 'border-border'}`}
+      className={cn(
+        'flex h-[214px] flex-col overflow-hidden rounded-[10px] border bg-room-surface',
+        midTurn ? 'border-brand-primary-border' : 'border-room-line',
+        !midTurn && member.status !== 'working' && 'opacity-70',
+      )}
     >
-      <div className="flex items-center gap-2">
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT_CLASS[member.status]}`} />
-        <b className="truncate text-sm">{member.displayName}</b>
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-          {midTurn ? `Live · turn ${member.usage.turns}` : member.statusDetail}
-        </span>
+      <div className="flex shrink-0 items-center gap-[9px] border-b border-room-line px-3 py-2.5">
+        <Face size={24} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
+        <b className="min-w-0 truncate text-xs font-medium text-room-text">{member.displayName}</b>
+        <span className="ml-auto shrink-0">{panePill(member, midTurn)}</span>
       </div>
 
-      {snapshot?.toolInFlight && (
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {snapshot.toolInFlight.toolName} · {snapshot.toolInFlight.summary}
-          <span className="ml-1">{formatRelative(snapshot.toolInFlight.startedAt)}</span>
+      <div className="flex shrink-0 items-center gap-[9px] border-b border-room-line bg-room-sunken px-3 py-2">
+        <span aria-hidden className="grid size-[18px] shrink-0 place-items-center rounded-[5px] bg-room-muted text-[9px] text-room-text3">
+          {now.icon}
+        </span>
+        <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text2">{now.what}</span>
+        <span className="room-mono-micro shrink-0 text-room-text4">{now.elapsed}</span>
+      </div>
+
+      {/* The stream clips at the tile, faded at the bottom — never grows it. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden px-3 py-2.5 after:absolute after:inset-x-0 after:bottom-0 after:h-[26px] after:bg-linear-to-b after:from-transparent after:to-room-surface">
+        <p className={cn('text-[11px] leading-[1.6] whitespace-pre-wrap', midTurn ? 'text-room-text3' : 'text-room-text4')}>
+          {memberPaneText(member.status, snapshot)}
         </p>
-      )}
+      </div>
 
-      <p className="max-h-32 overflow-hidden whitespace-pre-wrap text-xs text-muted-foreground">
-        {memberPaneText(member.status, snapshot)}
-      </p>
-
-      <div className="mt-auto flex items-center gap-2 text-xs text-muted-foreground">
-        {formatCost(member.usage.costUsd)} · {member.usage.turns} turn(s)
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={onOpen}>Open session</Button>
+      <div className="room-mono-micro flex shrink-0 items-center gap-2 border-t border-room-line px-3 py-2 text-room-text4">
+        {formatCost(member.usage.costUsd)} · {member.usage.turns} {member.usage.turns === 1 ? 'turn' : 'turns'}
+        <Button variant="outline" className="ml-auto h-6 px-2 text-[10px]" onClick={onOpen}>
+          Open session
+        </Button>
       </div>
     </section>
   );

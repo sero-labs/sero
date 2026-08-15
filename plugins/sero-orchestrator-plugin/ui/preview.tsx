@@ -53,19 +53,27 @@ import { RoomTopBar } from './components/RoomTopBar';
 import { RoomRoster } from './components/RoomRoster';
 import { RoomActivity } from './components/RoomActivity';
 import { RoomSidePanel } from './components/RoomSidePanel';
+import { RoomWatch } from './components/RoomWatch';
+import { RoomMemberPanel } from './components/RoomMemberPanel';
 import { MEMBER_DOT, memberGlyph } from './lib/member-glyph';
 import {
   FIXTURE_BLUEPRINT,
+  FIXTURE_LIVE,
   FIXTURE_LIVE_MEMBERS,
   FIXTURE_LIVE_ROOM,
   FIXTURE_LOOPS,
+  FIXTURE_MEMBER_DISPATCH,
+  FIXTURE_OPEN_MEMBER,
   FIXTURE_PROPOSAL,
   FIXTURE_PROPOSAL_REVISED,
   FIXTURE_ROOMS,
   FIXTURE_TIMELINE,
   NOOP,
 } from './preview-fixtures';
+
 import './preview-harness.css';
+
+const LIVE_MEMBERS_MAP = new Map(FIXTURE_LIVE_MEMBERS.map((member) => [member.id, member]));
 
 // ── Theme plumbing ───────────────────────────────────────────
 
@@ -204,6 +212,7 @@ const CAP_WHY = 'cap6.jpg';
 const CAP_ADVANCED = 'cap7.jpg';
 const CAP_LIVE = 'cap8.jpg';
 const CAP_WATCH = 'cap9.jpg';
+const CAP_MEMBER = 'cap10.jpg';
 
 const ALL_STATUSES: MemberStatus[] = ['working', 'waiting', 'idle', 'blocked', 'done', 'suspended'];
 
@@ -307,6 +316,68 @@ function LiveRoomPreview() {
 }
 
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 12 — Watch',
+    crops: [
+      { file: CAP_WATCH, x: 0, y: 104, w: 2584, h: 1410, label: 'watch — full' },
+    ],
+    render: () => (
+      <div className="flex h-[820px] flex-col">
+        <RoomTopBar
+          room={FIXTURE_LIVE_ROOM}
+          view="watch"
+          busy={false}
+          panelOpen={false}
+          onTogglePanel={NOOP}
+          onBack={NOOP}
+          onView={NOOP}
+          onMessage={NOOP}
+          onPause={NOOP}
+          onResume={NOOP}
+          onStop={NOOP}
+        />
+        <RoomWatch
+          memberIds={FIXTURE_LIVE_ROOM.memberIds}
+          members={LIVE_MEMBERS_MAP}
+          live={FIXTURE_LIVE}
+          onOpen={NOOP}
+        />
+      </div>
+    ),
+  },
+  {
+    title: 'Phase 12 — Inside one member’s session',
+    crops: [
+      { file: CAP_MEMBER, x: 0, y: 104, w: 2584, h: 1410, label: 'member session — full' },
+    ],
+    render: () => (
+      <div className="flex h-[820px] flex-col">
+        <div className="flex min-h-0 flex-1">
+          <RoomRoster
+            memberIds={FIXTURE_LIVE_ROOM.memberIds}
+            members={LIVE_MEMBERS_MAP}
+            selectedId="implementer-1"
+            onSelect={NOOP}
+            className="hidden @min-[900px]/panel:flex"
+          />
+          <RoomMemberPanel
+            roomId="room-live"
+            member={FIXTURE_OPEN_MEMBER}
+            live={FIXTURE_LIVE.get('implementer-1') ?? null}
+            maxCostUsd={1.5}
+            busy={false}
+            dispatch={FIXTURE_MEMBER_DISPATCH}
+            onWake={NOOP}
+            onMessage={NOOP}
+            onAnswer={NOOP}
+            onRelease={NOOP}
+            onTell={NOOP}
+            onClose={NOOP}
+          />
+        </div>
+      </div>
+    ),
+  },
   {
     title: 'Phase 11 — The live Room',
     crops: [

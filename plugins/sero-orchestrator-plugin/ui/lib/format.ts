@@ -54,6 +54,12 @@ export function formatTokens(n?: number): string {
 }
 
 /** Elapsed working time at minute resolution — `41m`, `1h 12m` (prototype meta). */
+/** A running tool's stopwatch — `0:03`, `1:12`. */
+export function formatTimer(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
+}
+
 export function formatElapsed(ms: number): string {
   const mins = Math.floor(ms / 60_000);
   if (mins < 1) return '<1m';

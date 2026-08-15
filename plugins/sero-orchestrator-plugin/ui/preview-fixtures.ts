@@ -4,6 +4,8 @@
  */
 
 import type { LoopSummary } from '../shared/types';
+import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
+import type { MemberLiveSnapshot } from '../shared/room-live-types';
 import type { MemberStatus, PersistedRoom, RoomMember, RoomSummary } from '../shared/room-types';
 import type { RoomTimelineEvent } from '../shared/room-message-types';
 import type { BlueprintMember, RoomBlueprint, RoomProposalSummary } from '../shared/room-blueprint-types';
@@ -452,3 +454,77 @@ export const FIXTURE_TIMELINE: RoomTimelineEvent[] = [
   liveEvent(10, 'compaction', null, 'Sero compacted the Security reviewer’s session at a safe turn boundary.'),
   liveEvent(8, 'work', 'implementer-1', 'Implementer 1 published a checkpoint commit.', { ref: 'a41f0c2 · rotate the session identifier after a successful authentication' }),
 ];
+
+// ── Watch and the member session (phase 12, captures 9 and 10) ──
+
+function liveSnapshot(memberId: string, input: Partial<MemberLiveSnapshot>): MemberLiveSnapshot {
+  return {
+    roomId: 'room-live',
+    memberId,
+    turnId: null,
+    text: '',
+    truncated: false,
+    toolInFlight: null,
+    lastTurnStatus: null,
+    watching: true,
+    updatedAt: minsAgo(0),
+    ...input,
+  };
+}
+
+const secsAgo = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
+
+export const FIXTURE_LIVE: Map<string, MemberLiveSnapshot> = new Map([
+  ['conductor', liveSnapshot('conductor', {
+    turnId: 'turn-12',
+    text: 'Both branches are moving. Implementer 2 is blocked on a question only Implementer 1 can answer, so the useful thing I can do now is get the Tester ready rather than leave it idle — it can write the test against the reviewer’s finding without waiting for either branch',
+  })],
+  ['implementer-1', liveSnapshot('implementer-1', {
+    turnId: 'turn-9',
+    text: 'Rotation is in place at line 118. I am moving the regenerate call to after the credential check rather than before it, so a failed login cannot burn a fresh identifier',
+    toolInFlight: { toolName: 'edit', summary: 'src/auth/session.ts', startedAt: secsAgo(3) },
+  })],
+  ['tester', liveSnapshot('tester', {
+    turnId: 'turn-1',
+    text: 'Starting from the reviewer’s finding rather than either branch. If the test is written against the fix it will pass for the wrong reason, so I want it failing on the current code first',
+    toolInFlight: { toolName: 'read', summary: 'tests/auth/login.test.ts', startedAt: secsAgo(1) },
+  })],
+]);
+
+/** Implementer 1's session file, turns 1–8, newest first as the feed returns it. */
+const HISTORY_OLDEST_FIRST: PersistentSessionHistoryEntry[] = [
+  ...[1, 2, 3, 4, 5].flatMap((turn): PersistentSessionHistoryEntry[] => [
+    { turnIndex: turn, timestamp: minsAgo(40 - turn * 2), role: 'assistant', text: `Working through the login path, step ${turn}.` },
+    { turnIndex: turn, timestamp: minsAgo(40 - turn * 2), role: 'tool', text: `read src/auth/session.ts` },
+  ]),
+  { turnIndex: 6, timestamp: minsAgo(28), role: 'user', text: 'Brief updated. The reviewer confirmed the risk at src/auth/session.ts:118. Your mandate is unchanged: rotate the identifier on the login path only.' },
+  { turnIndex: 7, timestamp: minsAgo(25), role: 'assistant', text: 'I have the rotation in place. Before I commit I want to be sure the downstream cache is not keyed on the session object itself — if it is, rotating the identifier is not enough on its own.', compactionBoundary: true },
+  { turnIndex: 7, timestamp: minsAgo(25), role: 'tool', text: 'sero-cli room ask --to implementer-2 "Does the downstream cache key on the session object or the identifier?"' },
+  { turnIndex: 8, timestamp: minsAgo(23), role: 'user', text: 'Reply from Implementer 2: it keys on the identifier, not the object. Rotating is sufficient.' },
+  { turnIndex: 8, timestamp: minsAgo(22), role: 'assistant', text: 'Good. Committing the rotation and handing the branch to the tester.' },
+  { turnIndex: 8, timestamp: minsAgo(22), role: 'tool', text: 'git commit -m "rotate the session identifier after a successful authentication"' },
+];
+
+export const FIXTURE_HISTORY: PersistentSessionHistoryEntry[] = HISTORY_OLDEST_FIRST.toReversed();
+
+/** A canned feed for the harness: real shapes, no IPC. */
+export const FIXTURE_MEMBER_DISPATCH = async (params: Record<string, unknown>) => {
+  if (params.action === 'history') return { entries: FIXTURE_HISTORY };
+  if (params.action === 'context') return { usage: { usedTokens: 94_000, maxTokens: 200_000 } };
+  return null;
+};
+
+/** Implementer 1 as the open member of screen 10: worktree + kept session. */
+export const FIXTURE_OPEN_MEMBER: RoomMember = {
+  ...FIXTURE_LIVE_MEMBERS[2],
+  session: {
+    ...FIXTURE_LIVE_MEMBERS[2].session,
+    sessionId: 'sess-impl-1',
+    sessionPath: 'rooms/auth-hardening/impl-1.jsonl',
+    compactionCount: 1,
+    lastCompactedAt: minsAgo(25),
+  },
+  usage: { ...FIXTURE_LIVE_MEMBERS[2].usage, turns: 9 },
+  worktreePath: '/workspaces/auth/worktrees/impl-1',
+  worktreeBranch: 'room/auth-hardening/impl-1',
+};

@@ -13,28 +13,10 @@
 
 import { openSeroApp } from '@sero-ai/app-runtime';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { MemberStatus, RoomMember } from '../../shared/room-types';
+import type { RoomMember } from '../../shared/room-types';
 import { formatCost, formatElapsed } from '../lib/format';
 import { MEMBER_DOT, MEMBER_STATUS_LABEL, memberGlyph } from '../lib/member-glyph';
 import { Face } from './room-kit';
-
-/**
- * The old class-based dot map, kept ONLY for RoomWatch and RoomMemberPanel
- * until phase 12 restyles them onto the kit's StatusDot.
- */
-export const MEMBER_DOT_CLASS: Record<MemberStatus, string> = {
-  starting: 'bg-brand-primary/50',
-  idle: 'bg-room-text4',
-  working: 'bg-brand-primary',
-  waiting: 'bg-status-warning',
-  blocked: 'bg-status-warning',
-  suspended: 'bg-room-text4',
-  retiring: 'bg-room-text4',
-  retired: 'bg-room-text4/70',
-  completed: 'bg-status-info',
-  failed: 'bg-status-error',
-  offline: 'bg-room-text4/70',
-};
 
 interface RoomRosterProps {
   memberIds: string[];

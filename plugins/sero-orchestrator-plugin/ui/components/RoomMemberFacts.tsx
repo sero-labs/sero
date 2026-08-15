@@ -8,10 +8,13 @@
  * equally editable from outside and are not.
  */
 
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { PersistentSessionContextUsage } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
-import { formatCost, formatRelative, formatTime, formatTokens } from '../lib/format';
+import { formatClock, formatCost, formatRelative, formatTokens } from '../lib/format';
+import { ToolLiveCard } from './RoomMemberTranscript';
+import { Eyebrow, NoteBlock } from './room-kit';
 
 export type MemberTab = 'session' | 'mandate' | 'context' | 'worktree' | 'cost';
 
@@ -30,34 +33,46 @@ interface FactsProps {
   maxCostUsd: number;
 }
 
-/** The "doing right now" rail that sits beside the transcript. */
-export function MemberLiveRail({ member, live, context }: Omit<FactsProps, 'maxCostUsd'>) {
+/** The "doing right now" rail that sits beside the transcript (330px). */
+export function MemberLiveRail({
+  member,
+  live,
+  context,
+  className,
+}: Omit<FactsProps, 'maxCostUsd'> & { className?: string }) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-3 overflow-auto border-l border-border p-3">
-      <Eyebrow>Doing right now</Eyebrow>
+    <aside className={cn('w-[330px] shrink-0 flex-col overflow-y-auto border-l border-room-line bg-room-sunken p-3.5', className)}>
+      <Eyebrow tone="brand">Doing right now</Eyebrow>
       {live?.toolInFlight ? (
-        <p className="break-words font-mono text-xs">
-          {live.toolInFlight.toolName} · {live.toolInFlight.summary}
-        </p>
+        <ToolLiveCard tool={live.toolInFlight} className="mt-[9px]" />
       ) : (
-        <p className="text-xs text-muted-foreground">{member.statusDetail}</p>
+        <p className="mt-[9px] text-[11px] text-room-text4">{member.statusDetail}</p>
       )}
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-[9px] text-[10px] leading-[1.55] text-room-text4">
         Streamed from the session itself as it happens — the same output the member is producing, not a summary
         of it.
       </p>
 
+      <div aria-hidden className="my-3.5 h-px bg-room-line" />
+
       <ContextMeter context={context} member={member} />
 
-      <Fact label="Turns" value={`${member.usage.turns}`} />
-      <Fact label="Cost" value={formatCost(member.usage.costUsd)} />
-      {member.worktreePath && <Fact label="Worktree" value={member.worktreeBranch ?? member.worktreePath} mono />}
+      <div className="mt-[11px]">
+        <Kv label="Compactions">
+          {member.session.compactionCount}
+          {member.session.lastCompactedAt && ` · ${formatClock(member.session.lastCompactedAt)}`}
+        </Kv>
+        {member.session.sessionPath && <Kv label="Session file" mono>{member.session.sessionPath}</Kv>}
+        {member.worktreePath && <Kv label="Worktree" mono>{member.worktreeBranch ?? member.worktreePath}</Kv>}
+        <Kv label="Turns">{member.usage.turns}</Kv>
+        <Kv label="Cost">{formatCost(member.usage.costUsd)}</Kv>
+      </div>
 
-      <p className="rounded-md border border-border p-2 text-xs leading-relaxed text-muted-foreground">
-        <b className="text-foreground">This is a real session, not a chat.</b> It lives in this Room's session
+      <NoteBlock tone="info" className="mt-3">
+        <b className="font-semibold">This is a real session, not a chat.</b> It lives in this Room's session
         folder, so it never appears in your chat history, and it stays readable for as long as the Room exists —
         including after the member retires.
-      </p>
+      </NoteBlock>
     </aside>
   );
 }
@@ -75,8 +90,8 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
         {mandate.priorities.length > 0 && <Fact label="Priorities" value={mandate.priorities.join(' · ')} />}
         <Fact label="Working instructions" value={mandate.workingInstructions} />
         <Fact label="Revision" value={`${mandate.revision} · ${formatRelative(mandate.updatedAt)}`} />
-        <p className="rounded-md border border-border p-2 text-xs leading-relaxed text-muted-foreground">
-          <b className="text-foreground">A mandate change is instructions only.</b> Giving this member a new
+        <p className="rounded-lg border border-room-line px-[11px] py-2.5 text-[10px] leading-[1.55] text-room-text4">
+          <b className="text-room-text3">A mandate change is instructions only.</b> Giving this member a new
           tool, model, skill or permission is a configuration change — validated against the envelope, applied at
           a safe turn boundary, and it needs your approval when it widens access.
         </p>
@@ -88,12 +103,12 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
     return (
       <TabPanel tab={tab}>
         <ContextMeter context={context} member={member} />
-        <Fact label="Compactions" value={`${session.compactionCount}${session.lastCompactedAt ? ` · ${formatTime(session.lastCompactedAt)}` : ''}`} />
+        <Fact label="Compactions" value={`${session.compactionCount}${session.lastCompactedAt ? ` · ${formatClock(session.lastCompactedAt)}` : ''}`} />
         <Fact label="Model" value={`${configuration.model} · ${configuration.thinking}`} />
         <Fact label="Tools" value={configuration.tools.join(', ') || 'none'} />
         <Fact label="Skills" value={configuration.skills.join(', ') || 'none'} />
         <Fact label="Access" value={configuration.permissions} />
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-[10px] leading-[1.55] text-room-text4">
           Compaction happens at a safe turn boundary. The member's checkpoint, mandate and the part of the Room
           brief that concerns it are carried across; its session history is unchanged.
         </p>
@@ -108,13 +123,13 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
           <>
             <Fact label="Branch" value={member.worktreeBranch ?? '—'} mono />
             <Fact label="Path" value={member.worktreePath} mono />
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <p className="text-[10px] leading-[1.55] text-room-text4">
               This member edits in its own checkout, so nothing it does touches another member's files. Its work
               is collected when the Room finishes.
             </p>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">This member has no checkout of its own.</p>
+          <p className="text-xs text-room-text4">This member has no checkout of its own.</p>
         )}
       </TabPanel>
     );
@@ -139,18 +154,19 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
 /** Each tab's body is the panel its tab controls, and says so. */
 function TabPanel({ tab, children }: { tab: MemberTab; children: React.ReactNode }) {
   return (
-    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-auto p-3">
+    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-y-auto px-[18px] py-3.5">
       {children}
     </div>
   );
 }
 
+/** The 6px context track with its legend (prototype `.ctx-meter`). */
 function ContextMeter({ context, member }: { context: PersistentSessionContextUsage | null; member: RoomMember }) {
   if (!context) {
     return (
       <div>
         <Eyebrow>Context</Eyebrow>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-[10px] leading-[1.55] text-room-text4">
           {member.session.sessionId
             ? 'The session is closed, so it holds no context window. Its history is still readable.'
             : 'This member has not started a session yet.'}
@@ -162,28 +178,36 @@ function ContextMeter({ context, member }: { context: PersistentSessionContextUs
   return (
     <div>
       <Eyebrow>Context</Eyebrow>
-      <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-muted">
+      <span className="mt-[9px] block h-1.5 w-full overflow-hidden rounded-[3px] bg-room-muted">
         <span
-          className={`block h-full rounded-full ${pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+          className={cn('block h-full', pct >= 80 ? 'bg-status-warning' : 'bg-brand-primary')}
           style={{ width: `${pct}%` }}
         />
       </span>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="room-mono-micro mt-[7px] text-room-text4">
         {formatTokens(context.usedTokens)} of {formatTokens(context.maxTokens)} used
       </p>
     </div>
   );
 }
 
-function Eyebrow({ children }: { children: string }) {
-  return <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</p>;
+/** A `.kv` row: label left, value right, hairline above. */
+function Kv({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-t border-room-line py-2 text-[11px]">
+      <small className="mr-auto shrink-0 text-[11px] text-room-text4">{label}</small>
+      <span className={cn('min-w-0 truncate text-right', mono ? 'room-tabular text-[10px] text-room-text3' : 'font-medium text-room-text2')}>
+        {children}
+      </span>
+    </div>
+  );
 }
 
 function Fact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-sm ${mono ? 'break-all font-mono text-xs' : ''}`}>{value}</p>
+      <p className="room-mono-micro uppercase tracking-[0.07em] text-room-text4">{label}</p>
+      <p className={cn('mt-1 text-xs text-room-text2', mono && 'room-tabular break-all text-[10px] text-room-text3')}>{value}</p>
     </div>
   );
 }

@@ -14,12 +14,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Textarea } from '@sero-ai/ui';
-import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { X } from 'lucide-react';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
-import { formatCost, formatTime } from '../lib/format';
-import { toSessionTurns, type SessionTurn } from '../lib/room-view';
+import { formatClock, formatCost, formatTimer } from '../lib/format';
+import { memberGlyph } from '../lib/member-glyph';
+import { toSessionTurns } from '../lib/room-view';
 import { useMemberContext, useMemberHistory, type RoomFeedDispatch } from '../lib/use-room-feed';
 import {
   MEMBER_TAB_LABEL,
@@ -27,10 +28,14 @@ import {
   MemberTabPanel,
   type MemberTab,
 } from './RoomMemberFacts';
-import { MEMBER_DOT_CLASS } from './RoomRoster';
+import { CollapsedHistory, LiveTurn, ToolLiveCard, TurnBlock, TurnStrip } from './RoomMemberTranscript';
+import { Face, LivePill } from './room-kit';
 
 /** Turns shown before the early history is folded away. */
 const RECENT_TURNS = 6;
+
+/** The prototype's small .btn (26px, 11px type). */
+const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
 
 interface RoomMemberPanelProps {
   roomId: string;
@@ -69,6 +74,8 @@ export function RoomMemberPanel({
   const [tab, setTab] = useState<MemberTab>('session');
   const [follow, setFollow] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  // The facts rail becomes a drawer below 1000px (F3 — toggled from the header).
+  const [railOpen, setRailOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
 
   // The member's own turn count is what makes its history and its context
@@ -78,7 +85,7 @@ export function RoomMemberPanel({
   const context = useMemberContext(roomId, member.id, dispatch, signal);
   const turns = useMemo(() => toSessionTurns(history.entries), [history.entries]);
   const shown = expanded ? turns : turns.slice(-RECENT_TURNS);
-  const hidden = turns.length - shown.length;
+  const folded = expanded ? [] : turns.slice(0, turns.length - shown.length);
 
   // Following the live turn is a scroll position, which only the DOM holds.
   useEffect(() => {
@@ -91,35 +98,66 @@ export function RoomMemberPanel({
     requestAnimationFrame(() => document.getElementById(`turn-${member.id}-${index}`)?.scrollIntoView({ block: 'start' }));
   };
 
+  const liveNow = live?.toolInFlight
+    ? `turn ${member.usage.turns} · ${live.toolInFlight.toolName} ${live.toolInFlight.summary} · running ${formatTimer(Date.now() - new Date(live.toolInFlight.startedAt).getTime())}`
+    : live?.turnId
+      ? `turn ${member.usage.turns} · thinking — no tool running`
+      : member.statusDetail;
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
-        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${MEMBER_DOT_CLASS[member.status]}`} />
-        <b className="text-sm">{member.displayName}</b>
-        <span className="text-xs text-muted-foreground">
-          {member.configuration.model} · {member.configuration.thinking} · {member.usage.turns} turn(s) ·{' '}
-          {formatCost(member.usage.costUsd)}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onMessage}>Message</Button>
-          {/* Blocked is included: waking it is the user saying "start it anyway". */}
-          {(member.status === 'waiting' || member.status === 'idle' || member.status === 'blocked') && (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={onWake}>Wake</Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={onClose}><X className="h-3.5 w-3.5" /></Button>
-        </div>
-        <div role="tablist" aria-label="Member detail" className="flex w-full gap-1">
-          {(Object.keys(MEMBER_TAB_LABEL) as MemberTab[]).map((option) => (
+      <div className="shrink-0 px-[18px] pt-[15px]">
+        <div className="flex items-center gap-3">
+          <Face size={36} tone={member.isConductor ? 'conductor' : 'member'} label={memberGlyph(member.displayName, member.isConductor)} />
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold tracking-[-0.02em] text-room-text">{member.displayName}</h3>
+            <p className="mt-1 truncate text-[11px] text-room-text4">
+              {member.configuration.model} · {member.configuration.thinking}
+              {member.session.lastOpenedAt && <> · started {formatClock(member.session.lastOpenedAt)}</>}
+              {' · '}{member.usage.turns} {member.usage.turns === 1 ? 'turn' : 'turns'} · {formatCost(member.usage.costUsd)}
+            </p>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-[7px]">
+            <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
+              Send a message
+            </Button>
+            {/* Blocked is included: waking it is the user saying "start it anyway". */}
+            {(member.status === 'waiting' || member.status === 'idle' || member.status === 'blocked') && (
+              <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onWake}>
+                Wake
+              </Button>
+            )}
+            {/* F3: the facts rail collapses below 1000px; this reopens it. */}
             <Button
+              variant="outline"
+              aria-pressed={railOpen}
+              className={cn(SMALL_BTN, 'hidden @max-[1000px]/panel:inline-flex')}
+              onClick={() => setRailOpen((open) => !open)}
+            >
+              Facts
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Close" className="size-[26px] text-room-text3" onClick={onClose}>
+              <X className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div role="tablist" aria-label="Member detail" className="mt-3.5 flex gap-[3px] border-b border-room-line">
+          {(Object.keys(MEMBER_TAB_LABEL) as MemberTab[]).map((option) => (
+            <button
               key={option}
-              size="sm"
+              type="button"
               role="tab"
               aria-selected={tab === option}
-              variant={tab === option ? 'secondary' : 'ghost'}
               onClick={() => setTab(option)}
+              className={cn(
+                'flex h-8 items-center px-[13px] text-xs',
+                tab === option
+                  ? 'text-room-text shadow-[inset_0_-2px_0_var(--brand-primary)]'
+                  : 'text-room-text4 hover:text-room-text3',
+              )}
             >
               {MEMBER_TAB_LABEL[option]}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
@@ -135,41 +173,25 @@ export function RoomMemberPanel({
       {tab !== 'session' ? (
         <MemberTabPanel tab={tab} member={member} live={live} context={context} maxCostUsd={maxCostUsd} />
       ) : (
-        <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="flex min-h-0 flex-1">
+        <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="relative flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
-              <span className={live?.turnId ? 'text-emerald-400' : 'text-muted-foreground'}>
-                {live?.turnId ? 'Live' : member.statusDetail}
-              </span>
-              {live?.toolInFlight && (
-                <span className="truncate font-mono text-muted-foreground">{live.toolInFlight.summary}</span>
-              )}
-              <Button
-                size="sm"
-                aria-pressed={follow}
-                variant={follow ? 'secondary' : 'ghost'}
-                className="ml-auto"
-                onClick={() => setFollow(!follow)}
-              >
-                Follow
-              </Button>
+            <div className="flex shrink-0 items-center gap-[9px] border-b border-room-line bg-room-sunken px-[18px] py-2">
+              <LivePill idle={!live?.turnId}>{live?.turnId ? 'Live' : member.status}</LivePill>
+              <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text2">{liveNow}</span>
+              <FollowToggle on={follow} onToggle={() => setFollow(!follow)} />
             </div>
 
-            <TurnStrip turns={turns} onJump={jumpTo} />
+            <TurnStrip turns={turns} liveTurn={live?.turnId != null} onJump={jumpTo} />
 
-            <div ref={scroller} className="flex flex-1 flex-col gap-3 overflow-auto p-3">
+            <div ref={scroller} className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-[18px] py-[15px]">
               {history.olderCursor && expanded && (
-                <Button size="sm" variant="ghost" disabled={history.loadingOlder} onClick={history.loadOlder}>
+                <Button variant="outline" className={SMALL_BTN} disabled={history.loadingOlder} onClick={history.loadOlder}>
                   {history.loadingOlder ? 'Reading…' : 'Load earlier turns'}
                 </Button>
               )}
-              {hidden > 0 && (
-                <Button size="sm" variant="ghost" onClick={() => setExpanded(true)}>
-                  Show {hidden} earlier turn(s)
-                </Button>
-              )}
+              {folded.length > 0 && <CollapsedHistory turns={folded} onShow={() => setExpanded(true)} />}
               {turns.length === 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-room-text4">
                   {member.session.sessionId ? 'Reading this session…' : 'This member has not started yet.'}
                 </p>
               )}
@@ -179,19 +201,41 @@ export function RoomMemberPanel({
               {/* Only mid-turn: the retained text outlives the turn, and the
                   finished turn arrives in the transcript above from the session
                   file itself. */}
-              {live?.turnId && live.text && (
-                <div className="rounded-md border border-emerald-500/30 p-2.5">
-                  <p className="text-xs text-emerald-400">In progress</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{live.text}</p>
-                </div>
+              {live?.turnId && (live.text || live.toolInFlight) && (
+                <LiveTurn text={live.text} tool={live.toolInFlight} turnIndex={member.usage.turns} />
               )}
             </div>
           </div>
 
-          <MemberLiveRail member={member} live={live} context={context} />
+          <MemberLiveRail member={member} live={live} context={context} className="hidden @min-[1000px]/panel:flex" />
+          {railOpen && (
+            <MemberLiveRail
+              member={member}
+              live={live}
+              context={context}
+              className="absolute inset-y-0 right-0 z-10 flex w-[300px] max-w-full bg-room-bg shadow-xl @min-[1000px]/panel:hidden"
+            />
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/** The prototype's 30×17 Follow switch — a real toggle, not a button pair. */
+function FollowToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onToggle} className="flex shrink-0 items-center gap-[7px] text-[11px] text-room-text3">
+      <span className={cn('relative h-[17px] w-[30px] rounded-[9px]', on ? 'bg-brand-primary-subtle' : 'bg-room-muted')}>
+        <span
+          className={cn(
+            'absolute top-0.5 size-[13px] rounded-full transition-[left]',
+            on ? 'left-[15px] bg-brand-primary' : 'left-0.5 bg-room-text4',
+          )}
+        />
+      </span>
+      Follow
+    </button>
   );
 }
 
@@ -219,9 +263,9 @@ function WaitingStrip({
   const [answering, setAnswering] = useState(false);
 
   return (
-    <div className="flex flex-col gap-2 border-b border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
-      <p className="text-sm">{detail}</p>
-      <p className="text-xs text-muted-foreground">
+    <div className="flex shrink-0 flex-col gap-2 border-b border-status-warning-border bg-status-warning-muted px-[18px] py-2.5">
+      <p className="text-xs text-room-ink-warn">{detail}</p>
+      <p className="text-[11px] leading-relaxed text-room-text4">
         Nothing is needed from you. This costs nothing: its turn ended and its slot went back to the team, and it
         starts again the moment the answer lands, in the same session, with everything it already knew.
       </p>
@@ -231,13 +275,14 @@ function WaitingStrip({
           onChange={(event) => setBody(event.target.value)}
           rows={2}
           autoFocus
+          className="border-room-line-strong bg-room-sunken text-[13px] text-room-text2"
           placeholder="Answer in place of the member it asked…"
         />
       )}
       <div className="flex gap-2">
         {answering ? (
           <Button
-            size="sm"
+            className={SMALL_BTN}
             disabled={busy || body.trim().length === 0}
             onClick={() => {
               onAnswer(body.trim());
@@ -248,11 +293,13 @@ function WaitingStrip({
             Send answer
           </Button>
         ) : (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setAnswering(true)}>
+          <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={() => setAnswering(true)}>
             Answer it yourself
           </Button>
         )}
-        <Button size="sm" variant="ghost" disabled={busy} onClick={onRelease}>Cancel the question</Button>
+        <Button variant="ghost" className={cn(SMALL_BTN, 'text-room-text3')} disabled={busy} onClick={onRelease}>
+          Cancel the question
+        </Button>
       </div>
     </div>
   );
@@ -277,19 +324,20 @@ function AttentionStrip({
   const [body, setBody] = useState('');
 
   return (
-    <div className="flex flex-col gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-2">
-      <p className="text-sm font-medium">This member needs you</p>
-      <p className="whitespace-pre-wrap text-sm text-muted-foreground">{detail}</p>
+    <div className="flex shrink-0 flex-col gap-2 border-b border-status-warning-border bg-status-warning-muted px-[18px] py-2.5">
+      <p className="text-xs font-medium text-room-ink-warn">This member needs you</p>
+      <p className="whitespace-pre-wrap text-xs text-room-text3">{detail}</p>
       <Textarea
         value={body}
         onChange={(event) => setBody(event.target.value)}
         rows={2}
         autoFocus
+        className="border-room-line-strong bg-room-sunken text-[13px] text-room-text2"
         placeholder="Tell it what it needs to know…"
       />
       <div>
         <Button
-          size="sm"
+          className={SMALL_BTN}
           disabled={busy || body.trim().length === 0}
           onClick={() => {
             onTell(body.trim());
@@ -299,64 +347,6 @@ function AttentionStrip({
           Send and continue
         </Button>
       </div>
-    </div>
-  );
-}
-
-/**
- * The whole session at a glance: one mark per turn, compactions marked in
- * place. A user can jump anywhere in the history, including before a
- * compaction — the file kept it, so the panel must be able to reach it.
- */
-function TurnStrip({ turns, onJump }: { turns: SessionTurn[]; onJump: (index: number) => void }) {
-  if (turns.length === 0) return null;
-  const compactions = turns.filter((turn) => turn.compacted).length;
-
-  return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-3 py-1.5">
-      <span className="shrink-0 text-xs text-muted-foreground">Turns</span>
-      {turns.map((turn) => (
-        <button
-          key={turn.index}
-          type="button"
-          title={`Turn ${turn.index} · ${formatTime(turn.at)}`}
-          aria-label={`Go to turn ${turn.index}${turn.compacted ? ', compacted' : ''}`}
-          onClick={() => onJump(turn.index)}
-          className={`h-3 w-1.5 shrink-0 rounded-sm ${turn.compacted ? 'bg-sky-500' : 'bg-muted-foreground/40'} hover:bg-foreground`}
-        />
-      ))}
-      {compactions > 0 && (
-        <span className="ml-2 shrink-0 text-xs text-muted-foreground">{compactions} compaction(s)</span>
-      )}
-    </div>
-  );
-}
-
-function TurnBlock({ memberId, turn }: { memberId: string; turn: SessionTurn }) {
-  return (
-    <div id={`turn-${memberId}-${turn.index}`} className="flex flex-col gap-1.5">
-      <p className="text-xs text-muted-foreground">
-        Turn {turn.index} · {formatTime(turn.at)}
-      </p>
-      {turn.compacted && (
-        <p className="text-xs text-sky-400">
-          Context compacted here. The checkpoint, mandate and Room brief were carried across.
-        </p>
-      )}
-      {turn.entries.map((entry, position) => (
-        <p
-          key={`${entry.timestamp}:${position}`}
-          className={`whitespace-pre-wrap rounded-md p-2 text-sm ${
-            entry.role === 'assistant'
-              ? 'bg-accent/40'
-              : entry.role === 'tool'
-                ? 'bg-muted/40 font-mono text-xs'
-                : 'border border-border'
-          }`}
-        >
-          {entry.text}
-        </p>
-      ))}
     </div>
   );
 }
