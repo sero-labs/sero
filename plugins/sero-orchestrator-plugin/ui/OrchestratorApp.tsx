@@ -6,7 +6,7 @@ import { LoopList } from './components/LoopList';
 import { RoomsOverview } from './components/RoomsOverview';
 import { RoomCreateFlow } from './components/RoomCreateFlow';
 import { RoomDetail } from './components/RoomDetail';
-import type { RoomApprovalDecision } from './components/AttentionQueue';
+import { attentionCount, type RoomApprovalDecision } from './components/AttentionQueue';
 import { useRoomIndex } from './lib/use-room-index';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryView } from './components/LibraryView';
@@ -228,17 +228,15 @@ export function OrchestratorApp() {
     const res = await dispatch({ action: 'reflect_workspace' });
     const details = res?.details as { workspaceReflection?: { reflected: number; suggestionCount: number } } | null;
     const summary = details?.workspaceReflection;
-    if (summary) setReflectSummary(`Reflected ${summary.reflected} loop(s) · ${summary.suggestionCount} suggestion(s) to review.`);
+    if (summary) setReflectSummary(`Reflected ${summary.reflected} workflow(s) · ${summary.suggestionCount} suggestion(s) to review.`);
   };
 
   const openLoop = useCallback((loopId: string) => setView({ mode: 'detail', loopId }), []);
   const openCreate = useCallback(() => setView({ mode: 'create' }), []);
 
   const activeTab = tabOf(view);
-  // The Home badge mirrors HomeView's "Needs you" count.
-  const needsCount =
-    index.loops.filter((l) => l.attention?.input || l.attention?.suggestions?.length).length
-    + roomIndex.rooms.filter((r) => r.attention).length;
+  // The Home badge mirrors HomeView's "Needs you" count, row for row.
+  const needsCount = attentionCount(index.loops, roomIndex.rooms);
 
   const onSelectTab = (tab: ShellTab) => {
     if (tab === 'home') setView({ mode: 'home' });

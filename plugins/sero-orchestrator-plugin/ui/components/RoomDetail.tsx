@@ -167,7 +167,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
       )}
 
       {approvals.length > 0 && summary && (
-        <div className="grid gap-3 border-b border-border p-3 md:grid-cols-2">
+        <div className="grid gap-3 border-b border-room-line p-3 @min-[900px]/panel:grid-cols-2">
           {approvals.map((approval) => (
             <RoomApprovalCard
               key={approval.approvalId}

@@ -7,6 +7,7 @@ import type { AppRuntimeContext } from '@sero-ai/common';
 import { createRoomStore } from '../rooms/room-store';
 import { MESSAGE_PAGE_SIZE } from '../rooms/room-messages';
 import { DEFAULT_ROOM_RETENTION, ROOM_SCHEMA_VERSION, type RoomRecord } from '../rooms/room-state';
+import { migrateRoomRecord } from '../rooms/room-migrations';
 import type { RoomMember } from '../../shared/room-types';
 import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../../shared/room-blueprint-types';
 
@@ -117,6 +118,14 @@ describe('room store', () => {
       'rooms/room-a/room.json',
       'rooms/index.json',
     ]);
+  });
+
+  it('migrates a v2 record: statusAt backfilled from createdAt', () => {
+    const v2Room = roomFixture('room-a');
+    for (const m of v2Room.members) delete (m as Partial<RoomMember>).statusAt;
+    const migrated = migrateRoomRecord(v2Room, 2);
+    expect(migrated.members.map((m) => m.statusAt)).toEqual(v2Room.members.map((m) => m.createdAt));
+    expect(ROOM_SCHEMA_VERSION).toBe(3);
   });
 
   it('stamps statusAt when a member changes status, and only then', async () => {

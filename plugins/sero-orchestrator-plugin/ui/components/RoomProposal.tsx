@@ -98,6 +98,10 @@ export function RoomProposal({
   const [adjusting, setAdjusting] = useState(revised);
   const [showWhy, setShowWhy] = useState(false);
   const [instruction, setInstruction] = useState(initialInstruction);
+  // An instruction typed but not recomputed: Start must not launch the OLD
+  // proposal while the user believes their change applies (the consent
+  // surface is only ever the computed summary on screen).
+  const pendingAdjust = adjusting && instruction.trim() !== initialInstruction.trim();
   const working = proposal.teamSize - proposal.conductorCount;
   const access = accessTile(proposal.access);
   const diff = previous ? proposalDiff(previous, proposal) : null;
@@ -236,7 +240,12 @@ export function RoomProposal({
       )}
 
       <div className="mt-[22px] flex flex-wrap items-center gap-2.5">
-        <Button className="h-[38px] px-[18px] text-[13px]" disabled={busy} onClick={onStart}>
+        <Button
+          className="h-[38px] px-[18px] text-[13px]"
+          disabled={busy || pendingAdjust}
+          title={pendingAdjust ? 'Rethink the team first — the change you typed has not been applied' : undefined}
+          onClick={onStart}
+        >
           Start room
         </Button>
         {!adjusting && (

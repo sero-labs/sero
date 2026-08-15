@@ -37,6 +37,28 @@ interface AttentionQueueProps {
   onOpenRoom?: (roomId: string) => void;
 }
 
+/**
+ * Exactly the rows the band below renders, so the Home tab badge and the
+ * "Needs you" band can never disagree. Change the item construction and this
+ * together.
+ */
+export function attentionCount(loops: LoopSummary[], rooms: RoomSummary[]): number {
+  return (
+    rooms.reduce(
+      (n, room) =>
+        n
+        + (room.attention?.pause ? 1 : 0)
+        + (room.attention?.approvals?.length ?? 0)
+        + (room.attention?.requests?.length ?? 0),
+      0,
+    )
+    + loops.reduce(
+      (n, loop) => n + (loop.attention?.input ? 1 : 0) + (loop.attention?.suggestions?.length ?? 0),
+      0,
+    )
+  );
+}
+
 interface QueueItem {
   key: string;
   status: MemberStatus;
