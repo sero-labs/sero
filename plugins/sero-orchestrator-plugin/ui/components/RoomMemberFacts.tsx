@@ -14,7 +14,7 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatClock, formatCost, formatRelative, formatTokens } from '../lib/format';
 import { ToolLiveCard } from './RoomMemberTranscript';
-import { Eyebrow, NoteBlock } from './room-kit';
+import { Eyebrow } from './room-kit';
 
 export type MemberTab = 'session' | 'mandate' | 'context' | 'worktree' | 'cost';
 
@@ -33,46 +33,80 @@ interface FactsProps {
   maxCostUsd: number;
 }
 
+/** The useful fallback when a completed member has no readable transcript. */
+export function MemberCompletedOutcome({ member }: { member: RoomMember }) {
+  return (
+    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <div className="max-w-4xl">
+        <Eyebrow tone="brand">Outcome</Eyebrow>
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-room-text2">{member.statusDetail}</p>
+
+        <div className="mt-6 grid border-t border-room-line sm:grid-cols-2">
+          <OutcomeFact label="Finished" value={formatClock(member.session.lastClosedAt ?? member.statusAt)} />
+          <OutcomeFact label="Turns" value={String(member.usage.turns)} />
+          <OutcomeFact label="Cost" value={formatCost(member.usage.costUsd)} />
+          <OutcomeFact label="Compactions" value={String(member.session.compactionCount)} />
+          {member.worktreePath && (
+            <OutcomeFact label="Worktree" value={member.worktreeBranch ?? member.worktreePath} mono />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OutcomeFact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0 border-b border-room-line py-2.5 sm:odd:pr-6 sm:even:pl-6">
+      <span className="text-xs uppercase tracking-[0.12em] text-room-text4">{label}</span>
+      <p className={cn('mt-1 break-words text-xs text-room-text2', mono && 'room-mono')}>{value}</p>
+    </div>
+  );
+}
+
 /** The "doing right now" rail that sits beside the transcript (330px). */
 export function MemberLiveRail({
   member,
   live,
   context,
+  hasTranscript,
   className,
-}: Omit<FactsProps, 'maxCostUsd'> & { className?: string }) {
+}: Omit<FactsProps, 'maxCostUsd'> & { hasTranscript: boolean; className?: string }) {
+  const completed = member.status === 'completed';
+
   return (
     <aside className={cn('w-[330px] shrink-0 flex-col overflow-y-auto border-l border-room-line bg-room-sunken p-3.5', className)}>
-      <Eyebrow tone="brand">Doing right now</Eyebrow>
-      {live?.toolInFlight ? (
+      <Eyebrow tone="brand">{completed && hasTranscript ? 'Session details' : completed ? 'Outcome' : 'Doing right now'}</Eyebrow>
+      {completed ? (
+        !hasTranscript && <p className="mt-[9px] text-[11px] leading-[1.55] text-room-text3">{member.statusDetail}</p>
+      ) : live?.toolInFlight ? (
         <ToolLiveCard tool={live.toolInFlight} className="mt-[9px]" />
       ) : (
         <p className="mt-[9px] text-[11px] text-room-text4">{member.statusDetail}</p>
       )}
-      <p className="mt-[9px] text-[10px] leading-[1.55] text-room-text4">
-        Streamed from the session itself as it happens — the same output the member is producing, not a summary
-        of it.
-      </p>
+      {!completed && (
+        <p className="mt-[9px] text-[10px] leading-[1.55] text-room-text4">
+          Streamed from the session itself as it happens — the same output the member is producing, not a summary
+          of it.
+        </p>
+      )}
 
-      <div aria-hidden className="my-3.5 h-px bg-room-line" />
+      {(!completed || !hasTranscript) && <div aria-hidden className="my-3.5 h-px bg-room-line" />}
 
-      <ContextMeter context={context} member={member} />
+      {!completed && <ContextMeter context={context} member={member} />}
 
       <div className="mt-[11px]">
+        {completed && <Kv label="Finished">{formatClock(member.session.lastClosedAt ?? member.statusAt)}</Kv>}
         <Kv label="Compactions">
           {member.session.compactionCount}
           {member.session.lastCompactedAt && ` · ${formatClock(member.session.lastCompactedAt)}`}
         </Kv>
-        {member.session.sessionPath && <Kv label="Session file" mono>{member.session.sessionPath}</Kv>}
+        {!completed && member.session.sessionPath && <Kv label="Session file" mono>{member.session.sessionPath}</Kv>}
         {member.worktreePath && <Kv label="Worktree" mono>{member.worktreeBranch ?? member.worktreePath}</Kv>}
         <Kv label="Turns">{member.usage.turns}</Kv>
         <Kv label="Cost">{formatCost(member.usage.costUsd)}</Kv>
       </div>
 
-      <NoteBlock tone="info" className="mt-3">
-        <b className="font-semibold">This is a real session, not a chat.</b> It lives in this Room's session
-        folder, so it never appears in your chat history, and it stays readable for as long as the Room exists —
-        including after the member retires.
-      </NoteBlock>
     </aside>
   );
 }

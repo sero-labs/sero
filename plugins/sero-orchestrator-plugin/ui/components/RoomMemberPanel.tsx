@@ -24,11 +24,12 @@ import { toSessionTurns } from '../lib/room-view';
 import { useMemberContext, useMemberHistory, type RoomFeedDispatch } from '../lib/use-room-feed';
 import {
   MEMBER_TAB_LABEL,
+  MemberCompletedOutcome,
   MemberLiveRail,
   MemberTabPanel,
   type MemberTab,
 } from './RoomMemberFacts';
-import { CollapsedHistory, LiveTurn, ToolLiveCard, TurnBlock, TurnStrip } from './RoomMemberTranscript';
+import { CollapsedHistory, LiveTurn, TurnBlock, TurnStrip } from './RoomMemberTranscript';
 import { Face, LivePill } from './room-kit';
 
 /** Turns shown before the early history is folded away. */
@@ -86,6 +87,8 @@ export function RoomMemberPanel({
   const turns = useMemo(() => toSessionTurns(history.entries), [history.entries]);
   const shown = expanded ? turns : turns.slice(-RECENT_TURNS);
   const folded = expanded ? [] : turns.slice(0, turns.length - shown.length);
+  const completed = member.status === 'completed';
+  const outcomeOnly = completed && !history.loading && turns.length === 0;
 
   // Following the live turn is a scroll position, which only the DOM holds.
   useEffect(() => {
@@ -118,9 +121,11 @@ export function RoomMemberPanel({
             </p>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-[7px]">
-            <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
-              Send a message
-            </Button>
+            {!completed && (
+              <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
+                Send a message
+              </Button>
+            )}
             {/* Blocked is included: waking it is the user saying "start it anyway". */}
             {(member.status === 'waiting' || member.status === 'idle' || member.status === 'blocked') && (
               <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onWake}>
@@ -172,13 +177,19 @@ export function RoomMemberPanel({
 
       {tab !== 'session' ? (
         <MemberTabPanel tab={tab} member={member} live={live} context={context} maxCostUsd={maxCostUsd} />
+      ) : outcomeOnly ? (
+        <MemberCompletedOutcome member={member} />
       ) : (
         <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="relative flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 items-start gap-[9px] border-b border-room-line bg-room-sunken px-[18px] py-2">
-              <LivePill idle={!live?.turnId}>{live?.turnId ? 'Live' : member.status}</LivePill>
-              <span className="room-tabular min-w-0 flex-1 break-words text-[10px] leading-relaxed text-room-text2">{liveNow}</span>
-              <FollowToggle on={follow} onToggle={() => setFollow(!follow)} />
+              <LivePill idle={!live?.turnId}>{completed ? 'Completed' : live?.turnId ? 'Live' : member.status}</LivePill>
+              <span className="room-tabular min-w-0 flex-1 break-words text-[10px] leading-relaxed text-room-text2">
+                {completed
+                  ? `Finished ${formatClock(member.session.lastClosedAt ?? member.statusAt)}`
+                  : liveNow}
+              </span>
+              {!completed && <FollowToggle on={follow} onToggle={() => setFollow(!follow)} />}
             </div>
 
             <TurnStrip turns={turns} liveTurn={live?.turnId != null} onJump={jumpTo} />
@@ -211,12 +222,13 @@ export function RoomMemberPanel({
             </div>
           </div>
 
-          <MemberLiveRail member={member} live={live} context={context} className="hidden @min-[1000px]/panel:flex" />
+          <MemberLiveRail member={member} live={live} context={context} hasTranscript={turns.length > 0} className="hidden @min-[1000px]/panel:flex" />
           {railOpen && (
             <MemberLiveRail
               member={member}
               live={live}
               context={context}
+              hasTranscript={turns.length > 0}
               className="absolute inset-y-0 right-0 z-10 flex w-[300px] max-w-full bg-room-bg shadow-xl @min-[1000px]/panel:hidden"
             />
           )}

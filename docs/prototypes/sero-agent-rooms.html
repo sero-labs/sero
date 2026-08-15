@@ -1065,8 +1065,70 @@ h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
               <div class="kv"><small>Worktree</small><span class="mono">room/auth-hardening/impl-1</span></div>
               <div class="kv"><small>Turns</small><b>9</b></div>
               <div class="kv"><small>Cost</small><b>$0.83 of $1.50</b></div>
-              <div class="notice"><b>This is a real session, not a chat.</b> It lives in this Room’s session folder, so it does not appear in your chat history. Its full history stays readable here for as long as the Room exists — including after the member retires.</div>
               <div class="locked" style="margin-top:10px"><b>A mandate change is instructions only.</b> Giving this member a new tool, model, skill or permission is a configuration change — validated against the envelope, applied at a safe turn boundary, and it needs your approval when it widens access.</div>
+            </aside>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ═══ 10b ══════════════════════════════════════════════ -->
+  <section class="state">
+    <h2>10b · Inside one member’s session — completed</h2>
+    <p class="note">Once a member finishes, this view becomes a record of its work. The transcript stays primary. Live controls and live context disappear; the final outcome and a small set of useful facts remain.</p>
+    <div class="app tall">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Orchestrator</div>
+        <nav class="tabs"><div class="tab">Home</div><div class="tab">Workflows <span class="badge">7</span></div><div class="tab active">Rooms <span class="badge">1</span></div><div class="tab">Library</div><div class="tab">Catalog</div></nav>
+        <div class="top-actions"><span class="avatar"></span></div>
+      </header>
+      <div class="shell"><div class="insp">
+        <aside class="roster-rail">
+          <div class="rail-title">Auth hardening <span>3</span></div>
+          <div class="mrow"><span class="mf c">◎<span class="st done"></span></span><span class="mi"><b>Conductor</b><span>Finished</span></span></div>
+          <div class="mrow on"><span class="mf">R<span class="st done"></span></span><span class="mi"><b>Security reviewer</b><span>Finished · 8 turns</span></span></div>
+          <div class="mrow"><span class="mf">T<span class="st done"></span></span><span class="mi"><b>Tester</b><span>Finished · 5 turns</span></span></div>
+        </aside>
+        <div class="insp-main">
+          <div class="insp-head">
+            <div class="insp-id">
+              <span class="mface">R</span>
+              <div><h3>Security reviewer</h3><p class="sub">Claude Sonnet 4.5 · high · 8 turns · $0.94</p></div>
+              <div class="acts"><button type="button" class="btn">Close</button></div>
+            </div>
+            <div class="insp-tabs"><span class="itab on">Session</span><span class="itab">Mandate</span><span class="itab">Context</span><span class="itab">Worktree</span><span class="itab">Cost</span></div>
+          </div>
+          <div class="follow-bar">
+            <span class="live-pill idle"><i></i>Completed</span>
+            <span class="now">Finished 14:11</span>
+          </div>
+          <div class="hist-nav">
+            <span class="lbl">Turns</span>
+            <span class="tmark"></span><span class="tmark t"></span><span class="tmark"></span><span class="tmark c"></span><span class="tmark"></span><span class="tmark t"></span><span class="tmark"></span><span class="tmark"></span>
+            <span class="jump"><span class="pill">Compactions 1</span><span class="pill">Room messages 2</span><span class="pill">Tool calls 14</span></span>
+          </div>
+          <div class="insp-body">
+            <div class="transcript scroll-fade">
+              <div class="collapsed-hist">Turns 1–5 · 13:46 to 14:03 · 9 tool calls<button type="button" class="btn">Show</button></div>
+              <div class="turn"><div class="turn-head">Turn 6 · 14:05<span class="line"></span></div>
+                <div class="bub">The login path rotates the session identifier after the credential check. I am checking the fallback path for the same guarantee.</div>
+                <div class="bub tool">read src/auth/session.ts</div></div>
+              <div class="turn"><div class="turn-head">Turn 7 · 14:08<span class="line"></span></div>
+                <div class="bub room"><b>Room</b> — The implementer confirmed the downstream cache keys on the identifier.</div>
+                <div class="bub">The fallback path is safe. The remaining concern is test coverage for failed authentication.</div></div>
+              <div class="turn"><div class="turn-head">Turn 8 · 14:11<span class="line"></span></div>
+                <div class="bub">Review complete. Identifier rotation happens only after successful authentication, failed login cannot burn a fresh identifier, and the cache follows the rotated value. I found no remaining blocker.</div></div>
+            </div>
+            <aside class="insp-side">
+              <div class="eyebrow em">Outcome</div>
+              <p style="margin-top:9px;color:var(--text-3);font-size:11px;line-height:1.55">Review complete. No remaining blocker.</p>
+              <div class="hr"></div>
+              <div class="kv"><small>Finished</small><b>14:11</b></div>
+              <div class="kv"><small>Turns</small><b>8</b></div>
+              <div class="kv"><small>Cost</small><b>$0.94</b></div>
+              <div class="kv"><small>Compactions</small><b>1</b></div>
+              <div class="kv"><small>Worktree</small><span class="mono">room/auth-hardening/reviewer</span></div>
             </aside>
           </div>
         </div>
