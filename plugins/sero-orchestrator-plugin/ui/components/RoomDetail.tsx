@@ -98,7 +98,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
     });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <RoomTopBar
         room={room}
         view={shownView}
@@ -181,7 +181,7 @@ export function RoomDetail({ roomId, summary, busy, dispatch, onApproval, onBack
         </div>
       )}
 
-      <div className="relative flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <RoomRoster
           memberIds={room.memberIds}
           members={members}

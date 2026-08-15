@@ -86,7 +86,7 @@ export function RoomTopBar({
   ];
 
   return (
-    <div className="flex h-[50px] shrink-0 items-center gap-3.5 border-b border-room-line px-[18px]">
+    <div className="flex h-[50px] min-w-0 shrink-0 items-center gap-3.5 overflow-hidden border-b border-room-line px-[18px]">
       <Button variant="ghost" size="icon" aria-label="Back to Rooms" className="-ml-2 size-[26px] shrink-0 text-room-text3" onClick={onBack}>
         <ArrowLeft className="size-3.5" />
       </Button>

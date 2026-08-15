@@ -35,12 +35,12 @@ interface FactsProps {
 /** The useful fallback when a completed member has no readable transcript. */
 export function MemberCompletedOutcome({ member }: { member: RoomMember }) {
   return (
-    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="min-h-0 flex-1 overflow-y-auto p-[18px]">
-      <div className="w-full">
+    <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.session} className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-[18px]">
+      <div className="min-w-0 w-full">
         <Eyebrow tone="brand">Outcome</Eyebrow>
-        <p className="mt-3 max-w-5xl whitespace-pre-wrap text-sm leading-relaxed text-room-text2">{member.statusDetail}</p>
+        <p className="mt-3 max-w-5xl whitespace-pre-wrap break-words text-sm leading-relaxed text-room-text2">{member.statusDetail}</p>
 
-        <section className="mt-6 rounded-lg border border-room-line bg-room-surface p-3.5">
+        <section className="mt-6 min-w-0 overflow-hidden rounded-lg border border-room-line bg-room-surface p-3.5">
           <Eyebrow tone="brand">Session details</Eyebrow>
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-room-line pt-3 sm:grid-cols-4">
             <CostStat label="Finished" value={formatClock(member.session.lastClosedAt ?? member.statusAt)} />
@@ -50,9 +50,9 @@ export function MemberCompletedOutcome({ member }: { member: RoomMember }) {
           </div>
           {member.worktreePath && (
             <TooltipProvider>
-              <div className="mt-3 border-t border-room-line pt-3">
+              <div className="mt-3 min-w-0 border-t border-room-line pt-3">
                 <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">Worktree</p>
-                <div className="room-tabular mt-1 max-w-full text-xs text-room-text3">
+                <div className="room-tabular mt-1 min-w-0 max-w-full text-xs text-room-text3">
                   <WorktreeValue value={member.worktreePath} openable />
                 </div>
               </div>
@@ -196,13 +196,13 @@ function WorktreeValue({ value, openable = false }: { value: string; openable?: 
   const valueNode = canOpen ? (
     <button
       type="button"
-      className="block max-w-full truncate text-left underline decoration-room-text4 underline-offset-2 hover:text-room-text"
+      className="block w-full max-w-full truncate text-left underline decoration-room-text4 underline-offset-2 hover:text-room-text"
       onClick={() => void showItemInFolder(value)}
     >
       {value}
     </button>
   ) : (
-    <span className="block max-w-full truncate">{value}</span>
+    <span className="block w-full max-w-full truncate">{value}</span>
   );
 
   return (

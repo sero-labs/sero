@@ -246,7 +246,7 @@ export function OrchestratorApp() {
   };
 
   return (
-    <div className="@container/panel flex h-full flex-col bg-room-bg text-room-text">
+    <div className="@container/panel flex h-full min-w-0 flex-col overflow-hidden bg-room-bg text-room-text">
       <ShellTopBar
         active={activeTab}
         workflowCount={index.loops.length}
