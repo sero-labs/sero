@@ -13,6 +13,7 @@ import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../.
 
 let dir: string;
 let writes: string[];
+let failWrite: string | null;
 
 function makeCtx(): AppRuntimeContext {
   const appState = {
@@ -21,7 +22,12 @@ function makeCtx(): AppRuntimeContext {
       return JSON.parse(await readFile(file, 'utf8'));
     },
     update: async (file: string, updater: (current: unknown) => unknown) => {
-      writes.push(path.relative(dir, file));
+      const relative = path.relative(dir, file);
+      writes.push(relative);
+      if (relative === failWrite) {
+        failWrite = null;
+        throw new Error('injected write failure');
+      }
       const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(updater(current)), 'utf8');
@@ -87,6 +93,7 @@ const draft = (from: string, to: string[], body: string, commandId: string) => (
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'room-store-'));
   writes = [];
+  failWrite = null;
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
@@ -106,15 +113,36 @@ describe('room store', () => {
     expect(index.rooms[0].memberCount).toBe(2);
   });
 
+  it('replays a split-file transaction after an interrupted write', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((state) => ({ ...state, rooms: [roomFixture('room-a')] }));
+    failWrite = 'rooms/room-a/members/m2.json';
+
+    await expect(store.updateRoom('room-a', (room) => ({
+      ...room,
+      members: room.members.map((entry) => ({ ...entry, statusDetail: 'committed together' })),
+    }))).rejects.toThrow('injected write failure');
+    expect(existsSync(path.join(dir, 'rooms/transaction.json'))).toBe(true);
+
+    const recovered = await createRoomStore(makeCtx()).readRoom('room-a');
+    expect(recovered?.members.map((entry) => entry.statusDetail)).toEqual([
+      'committed together',
+      'committed together',
+    ]);
+    expect(existsSync(path.join(dir, 'rooms/transaction.json'))).toBe(false);
+  });
+
   it('a member write touches only that member file, and the index only when the summary moves', async () => {
     const store = createRoomStore(makeCtx());
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a'), roomFixture('room-b')] }));
     writes = [];
     await store.updateMember('room-a', 'm2', (m) => ({ ...m, status: 'working', statusDetail: 'x' }));
-    expect(writes).toEqual(['rooms/room-a/members/m2.json']);
+    expect(writes).toEqual(['rooms/transaction.json', 'rooms/room-a/members/m2.json']);
     await store.updateRoom('room-a', (r) => ({ ...r, runtime: { ...r.runtime, activeMemberIds: ['m2'] } }));
     expect(writes).toEqual([
+      'rooms/transaction.json',
       'rooms/room-a/members/m2.json',
+      'rooms/transaction.json',
       'rooms/room-a/room.json',
       'rooms/index.json',
     ]);

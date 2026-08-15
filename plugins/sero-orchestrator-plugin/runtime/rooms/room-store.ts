@@ -17,12 +17,10 @@
  * rebuilt from the timeline (FR-030).
  */
 
-import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { RoomMessage, RoomRevision, RoomTimelineEvent } from '../../shared/room-message-types';
-import type { RoomIndex, RoomMember } from '../../shared/room-types';
-import { migrateRoomRecord } from './room-migrations';
+import type { RoomMember } from '../../shared/room-types';
 import {
   addressesMember,
   assignSequences,
@@ -36,17 +34,11 @@ import {
   type RoomMessageDraft,
 } from './room-messages';
 import { createRoomPaths } from './room-paths';
+import { createRoomPersistence } from './room-persistence';
 import {
   DEFAULT_ROOM_RETENTION,
-  buildRoomIndex,
-  composeRoomState,
-  diffMembers,
-  diffRoomState,
-  reassembleRoom,
-  stripRoomForPersist,
   withAppliedCommand,
   withMemberCursors,
-  type PersistedRoom,
   type RoomRecord,
   type RoomRetention,
   type RoomState,
@@ -157,76 +149,11 @@ export function createRoomStore(
   const readJson = <T>(file: string) => ctx.host.appState.read<T>(file);
   // Atomic write that also triggers the file watcher the UI subscribes to.
   const writeJson = <T>(file: string, data: T) => ctx.host.appState.update<T>(file, () => data);
-
-  /** Writes every file for a Room (initial create, migration, or full rewrite). */
-  async function persistRoomFull(record: RoomRecord): Promise<void> {
-    const roomId = record.definition.id;
-    for (const member of record.members) await writeJson(paths.member(roomId, member.id), member);
-    if (record.revisions.length) await writeJson(paths.revisions(roomId), record.revisions);
-    // room.json last: it carries the roster order, so a reader that sees a
-    // member id can always resolve the member file it points at.
-    await writeJson(paths.room(roomId), stripRoomForPersist(record));
-  }
-
-  /** Writes only the parts of a Room that actually changed since `prev`. */
-  async function persistRoomDiff(prev: RoomRecord | undefined, next: RoomRecord): Promise<void> {
-    if (!prev) return persistRoomFull(next);
-    const roomId = next.definition.id;
-    const members = diffMembers(prev.members, next.members);
-    for (const member of members.changed) await writeJson(paths.member(roomId, member.id), member);
-    for (const memberId of members.removedIds) await rm(paths.member(roomId, memberId), { force: true });
-    if (JSON.stringify(prev.revisions) !== JSON.stringify(next.revisions)) {
-      await writeJson(paths.revisions(roomId), next.revisions);
-    }
-    const persisted = stripRoomForPersist(next);
-    if (JSON.stringify(stripRoomForPersist(prev)) !== JSON.stringify(persisted)) {
-      await writeJson(paths.room(roomId), persisted);
-    }
-  }
-
-  async function persistDiff(prev: RoomState, next: RoomState): Promise<void> {
-    const { changed, removedIds, indexChanged } = diffRoomState(prev, next);
-    const prevById = new Map(prev.rooms.map((room) => [room.definition.id, room]));
-    for (const record of changed) await persistRoomDiff(prevById.get(record.definition.id), record);
-    for (const roomId of removedIds) {
-      await rm(paths.roomDir(roomId), { recursive: true, force: true });
-      timeline.forget(roomId);
-    }
-    if (indexChanged) await writeJson(paths.index, buildRoomIndex(next));
-  }
-
-  async function load(): Promise<RoomState> {
-    const index = await readJson<RoomIndex>(paths.index);
-    if (!index?.rooms) return composeRoomState([]);
-    const rooms: RoomRecord[] = [];
-    for (const summary of index.rooms) {
-      const persisted = await readJson<PersistedRoom>(paths.room(summary.id));
-      if (!persisted) continue;
-      const members: RoomMember[] = [];
-      for (const memberId of persisted.memberIds) {
-        const member = await readJson<RoomMember>(paths.member(summary.id, memberId));
-        if (member) members.push(member);
-      }
-      const revisions = (await readJson<RoomRevision[]>(paths.revisions(summary.id))) ?? [];
-      const record = reassembleRoom(persisted, members, revisions);
-      const migrated = migrateRoomRecord(record, index.schemaVersion);
-      if (migrated !== record) await persistRoomFull(migrated);
-      rooms.push(migrated);
-    }
-    const state = composeRoomState(rooms);
-    // The index is a projection of the records, and it is what the home inbox
-    // and the Rooms list read. Rebuilding it here — and writing only when it
-    // actually differs — means a Room written by an older build cannot leave a
-    // stale summary on screen for ever: a paused Room that needed the user
-    // stayed out of the inbox until something happened to touch its record.
-    const rebuilt = buildRoomIndex(state);
-    if (JSON.stringify(rebuilt) !== JSON.stringify(index)) await writeJson(paths.index, rebuilt);
-    return state;
-  }
+  const persistence = createRoomPersistence(paths, { readJson, writeJson });
 
   async function ensureLoaded(): Promise<RoomState> {
     if (cache) return cache;
-    loadPromise ??= load();
+    loadPromise ??= persistence.load();
     cache = await loadPromise;
     return cache;
   }
@@ -264,7 +191,11 @@ export function createRoomStore(
       ...next,
       rooms: next.rooms.map((room) => withMemberCursors(withStatusStamps(room, prev))),
     };
-    await persistDiff(prev, normalized);
+    await persistence.commit(prev, normalized);
+    const currentIds = new Set(normalized.rooms.map((room) => room.definition.id));
+    for (const room of prev.rooms) {
+      if (!currentIds.has(room.definition.id)) timeline.forget(room.definition.id);
+    }
     cache = normalized;
   }
 

@@ -568,14 +568,14 @@ Objective: Make Room mode safe and reliable for general use.
 - [ ] Add long-running soak tests with repeated wait, wake, dispose, reopen and compaction.
 - [ ] Add mixed-model, mixed-provider, throttle and network-failure tests.
 - [ ] Add storage failure, crash recovery and low-disk tests.
-- [ ] Make a store transaction crash-atomic ACROSS files. Each file write is
+- [x] Make a store transaction crash-atomic ACROSS files. Each file write is
       atomic on its own, but one transaction writes several (member files, the
       revision list, room.json, the index) and a crash can land some of them.
       room.json is written last and carries the applied-command key, so an
       interrupted transaction is retried rather than half-claimed — but the
       record a reload builds from a partial set can still mix old and new.
-      Needs a journal with a commit marker, or one file per Room. Raised by the
-      phase 5/6 review; deferred here as a durability change, not a phase 5/6 fix.
+      Implemented with a compact redo journal that records the changed file
+      operations and replays them before state loads after a restart.
 - [ ] Add budget, cancellation, revision and delivery race tests.
 - [ ] Add worktree conflict and cleanup recovery tests.
 - [ ] Add prompt-injection, authority-expansion and forged-approval security tests.

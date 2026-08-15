@@ -15,6 +15,7 @@ import path from 'node:path';
 export interface RoomPaths {
   root: string;
   index: string;
+  transaction: string;
   roomDir(roomId: string): string;
   room(roomId: string): string;
   member(roomId: string, memberId: string): string;
@@ -44,6 +45,7 @@ export function createRoomPaths(stateDir: string): RoomPaths {
   return {
     root,
     index: path.join(root, 'index.json'),
+    transaction: path.join(root, 'transaction.json'),
     roomDir,
     room: (roomId) => path.join(roomDir(roomId), 'room.json'),
     member: (roomId, memberId) => `${child(path.join(roomDir(roomId), 'members'), memberId)}.json`,
