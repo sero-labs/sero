@@ -332,7 +332,37 @@ const FIXTURE_PROPOSAL: RoomProposalSummary = {
     'Session fixation is cheap to misdiagnose and expensive to get wrong, so the first job is confirming it exists rather than assuming it. The fix itself touches two separate concerns — the login path and everything downstream that reads the old session — which is why the work splits across two implementers in separate branches instead of one agent making a wide change. A dedicated tester keeps the proof honest: the test has to fail on the current code before it is allowed to pass on the fix.',
 };
 
+/** The revised proposal after the screen-5 fixture instruction. */
+const FIXTURE_PROPOSAL_REVISED: RoomProposalSummary = {
+  ...FIXTURE_PROPOSAL,
+  teamSize: 4,
+  maxCostUsd: 2,
+  access: [{ label: 'read-workspace' }, { label: 'edit-workspace' }],
+  warnings: [],
+  roles: FIXTURE_PROPOSAL.roles.filter((role) => role.displayName !== 'Implementer 2'),
+};
+
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 8 — Adjust (revised proposal)',
+    crops: [
+      { file: CAP_ADJUST, x: 540, y: 120, w: 1520, h: 1300, label: 'adjust — column' },
+    ],
+    render: () => (
+      <RoomProposal
+        proposal={FIXTURE_PROPOSAL_REVISED}
+        clamps={[]}
+        busy={false}
+        onStart={NOOP}
+        onAdjust={NOOP}
+        onDiscard={NOOP}
+        onOpenAdvanced={NOOP}
+        previous={FIXTURE_PROPOSAL}
+        initialInstruction="Use one implementer instead of two, keep the cost under $2, and don't let anything push to GitHub."
+        onDismissRevision={NOOP}
+      />
+    ),
+  },
   {
     title: 'Phase 7 — The proposal',
     crops: [

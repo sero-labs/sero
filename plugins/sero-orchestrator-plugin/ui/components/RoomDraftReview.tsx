@@ -17,6 +17,7 @@ import { Button } from '@sero-ai/ui';
 import { ArrowLeft } from 'lucide-react';
 import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { HumanQuestion } from '../../shared/human-input-types';
+import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
 import { computeProposalSummary } from '../../shared/room-proposal';
 import { useRoom } from '../lib/use-room-index';
 import { RoomProposal } from './RoomProposal';
@@ -64,16 +65,26 @@ export function RoomDraftReview({
   // opened this screen stay on show until there is a newer answer.
   const [revised, setRevised] = useState<BlueprintClamp[] | null>(null);
   const [questions, setQuestions] = useState<HumanQuestion[]>([]);
+  // The pre-adjust proposal, snapshotted in component state before the
+  // dispatch — the recompute diff (screen 5) is measured against it, never
+  // against planner prose (ux-refit-plan.md 6c).
+  const [previous, setPrevious] = useState<RoomProposalSummary | null>(null);
+  const [lastInstruction, setLastInstruction] = useState('');
   const room = useRoom(roomId);
 
   const adjust = async (instruction: string) => {
+    const snapshot = room ? computeProposalSummary(room.definition.blueprint) : null;
     setRethinking(true);
     const details = await dispatch({ action: 'adjust', roomId, instruction });
     setRethinking(false);
     setQuestions(details?.needsInput ? details.questions ?? [] : []);
     // A refused adjustment leaves the Room as it was, so the proposal on screen
     // is still the right one — it is recomputed from the record either way.
-    if (details?.ok) setRevised(details.clamps ?? []);
+    if (details?.ok) {
+      setRevised(details.clamps ?? []);
+      setPrevious(snapshot);
+      setLastInstruction(instruction);
+    }
   };
 
   const start = async () => {
@@ -131,6 +142,7 @@ export function RoomDraftReview({
       )}
 
       <RoomProposal
+        key={previous ? 'revised' : 'plain'}
         proposal={computeProposalSummary(room.definition.blueprint)}
         clamps={revised ?? clamps}
         busy={busy}
@@ -138,6 +150,9 @@ export function RoomDraftReview({
         onAdjust={adjust}
         onDiscard={discard}
         onOpenAdvanced={() => setShowAdvanced(true)}
+        previous={previous}
+        initialInstruction={lastInstruction}
+        onDismissRevision={() => setPrevious(null)}
       />
     </div>
   );
