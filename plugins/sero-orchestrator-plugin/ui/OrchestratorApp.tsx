@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
-import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles, Users } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
@@ -13,6 +13,7 @@ import { useRoomIndex } from './lib/use-room-index';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryView } from './components/LibraryView';
 import { HomeView } from './components/HomeView';
+import { ShellTopBar, type ShellTab } from './components/ShellTopBar';
 import { CreateLoopWizard } from './components/CreateLoopWizard';
 import type { CreateLoopSubmit } from './components/CreateLoopForm';
 import { actionToParams } from './lib/action-params';
@@ -24,9 +25,19 @@ type View =
   | { mode: 'home' }
   | { mode: 'detail'; loopId: string | null }
   | { mode: 'create' }
-  | { mode: 'library' }
+  | { mode: 'library'; tab: 'mine' | 'catalog' }
   | { mode: 'rooms'; roomId: string | null }
   | { mode: 'room-create' };
+
+/** Which top-bar tab a view highlights. */
+function tabOf(view: View): ShellTab {
+  switch (view.mode) {
+    case 'home': return 'home';
+    case 'detail': case 'create': return 'workflows';
+    case 'rooms': case 'room-create': return 'rooms';
+    case 'library': return view.tab === 'catalog' ? 'catalog' : 'library';
+  }
+}
 
 /** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
 interface OrchestratorLaunchParams extends Record<string, unknown> {
@@ -182,13 +193,13 @@ export function OrchestratorApp() {
     }
   }, [dispatch]);
 
-  const openLibrary = async () => {
+  const openLibrary = async (tab: 'mine' | 'catalog') => {
     if (libraryDir === null) {
       const res = await dispatch({ action: 'library_list' });
       const details = res?.details as { libraryDir?: string } | null;
       if (details?.libraryDir) setLibraryDir(details.libraryDir);
     }
-    setView({ mode: 'library' });
+    setView({ mode: 'library', tab });
   };
 
   const onLoadFromLibrary = async (entryId: string, version?: number) => {
@@ -225,37 +236,30 @@ export function OrchestratorApp() {
   const openLoop = useCallback((loopId: string) => setView({ mode: 'detail', loopId }), []);
   const openCreate = useCallback(() => setView({ mode: 'create' }), []);
 
+  const activeTab = tabOf(view);
+  // The Home badge mirrors HomeView's "Needs you" count.
+  const needsCount =
+    index.loops.filter((l) => l.attention?.input || l.attention?.suggestions?.length).length
+    + roomIndex.rooms.filter((r) => r.attention).length;
+
+  const onSelectTab = (tab: ShellTab) => {
+    if (tab === 'home') setView({ mode: 'home' });
+    else if (tab === 'workflows') setView({ mode: 'detail', loopId: null });
+    else if (tab === 'rooms') setView({ mode: 'rooms', roomId: null });
+    else void openLibrary(tab === 'catalog' ? 'catalog' : 'mine');
+  };
+
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <InfinityIcon className="h-5 w-5" />
-        <h1 className="text-base font-semibold">Sero Orchestrator</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant={view.mode === 'home' ? 'secondary' : 'ghost'} onClick={() => setView({ mode: 'home' })} title="Home — what needs you">
-            <Home className="mr-1 h-3.5 w-3.5" /> Home
-          </Button>
-          <Button
-            size="sm"
-            variant={view.mode === 'rooms' ? 'secondary' : 'ghost'}
-            onClick={() => setView({ mode: 'rooms', roomId: null })}
-            title="Rooms — a team per problem"
-          >
-            <Users className="mr-1 h-3.5 w-3.5" /> Rooms
-            {roomIndex.rooms.length > 0 && (
-              <span className="ml-1 text-xs text-muted-foreground">{roomIndex.rooms.length}</span>
-            )}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setView({ mode: 'create' })} title="Create a new loop">
-            <Plus className="mr-1 h-3.5 w-3.5" /> New
-          </Button>
-          <Button size="sm" variant="ghost" onClick={openLibrary} title="Browse and load saved loops">
-            <Library className="mr-1 h-3.5 w-3.5" /> Library
-          </Button>
-          <Button size="sm" variant="ghost" disabled={busy || index.loops.length === 0} onClick={reflectAll} title="Learn from every loop's past runs and suggest improvements">
-            <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect all
-          </Button>
-        </div>
-      </header>
+    <div className="@container/panel flex h-full flex-col bg-room-bg text-room-text">
+      <ShellTopBar
+        active={activeTab}
+        workflowCount={index.loops.length}
+        roomCount={roomIndex.rooms.length}
+        needsCount={needsCount}
+        onSelect={onSelectTab}
+        onNew={activeTab === 'rooms' ? openRoomCreate : openCreate}
+        actions={[{ label: 'Reflect all', onSelect: () => void reflectAll(), disabled: busy || index.loops.length === 0 }]}
+      />
 
       {reflectSummary && (
         <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-2 text-xs">
@@ -325,6 +329,8 @@ export function OrchestratorApp() {
         )}
         {view.mode === 'library' && (
           <LibraryView
+            key={view.tab}
+            initialTab={view.tab}
             libraryDir={libraryDir}
             libraryIndex={libraryIndex}
             busy={busy}

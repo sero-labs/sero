@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Button, Input } from '@sero-ai/ui';
 import { Plus, Search } from 'lucide-react';
+import { WORKFLOWS_LABEL } from '../../shared/labels';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
 import { AttentionQueue, type RoomApprovalDecision } from './AttentionQueue';
@@ -86,7 +87,7 @@ export function HomeView({
                 : `${counts.join(' · ')} across ${needing} item${needing === 1 ? '' : 's'}`}
             </p>
           </div>
-          <Button size="sm" onClick={onNew}><Plus className="mr-1 h-4 w-4" /> New loop</Button>
+          <Button size="sm" onClick={onNew}><Plus className="mr-1 h-4 w-4" /> New workflow</Button>
         </div>
         <AttentionQueue
           loops={loops}
@@ -103,7 +104,7 @@ export function HomeView({
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Loops</h2>
+          <h2 className="text-base font-semibold">{WORKFLOWS_LABEL}</h2>
           {showSearch && (
             <div className="relative w-56">
               <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -111,13 +112,13 @@ export function HomeView({
                 className="pl-7"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search loops…"
+                placeholder="Search workflows…"
               />
             </div>
           )}
         </div>
         {query.trim() && filtered.length === 0 ? (
-          <p className="text-base text-muted-foreground">No loops match your search.</p>
+          <p className="text-base text-muted-foreground">No workflows match your search.</p>
         ) : (
           <LoopsOverview loops={filtered} onOpenLoop={onOpenLoop} />
         )}

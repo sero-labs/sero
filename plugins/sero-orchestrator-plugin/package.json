@@ -30,7 +30,7 @@
           {
             "id": "loops",
             "extensionPoint": "ui.dashboard.widget",
-            "name": "Loops",
+            "name": "Workflows",
             "component": "LoopsWidget",
             "description": "Running, blocked and active loops at a glance",
             "defaultSize": { "w": 2, "h": 2 },

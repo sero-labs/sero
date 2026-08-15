@@ -48,17 +48,17 @@ export function LoopList({ loops, libraryIndex = DEFAULT_LIBRARY_INDEX, selected
             className="pl-7"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search loops…"
+            placeholder="Search workflows…"
           />
         </div>
-        <Button size="icon" variant="outline" onClick={onNew} title="New loop">
+        <Button size="icon" variant="outline" onClick={onNew} title="New workflow">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
       <div className="flex flex-1 flex-col gap-1 overflow-auto">
         {visible.length === 0 && (
-          <p className="px-1 py-4 text-xs text-muted-foreground">No loops yet. Create one to get started.</p>
+          <p className="px-1 py-4 text-xs text-muted-foreground">No workflows yet. Create one to get started.</p>
         )}
         {visible.map((loop) => (
           <button

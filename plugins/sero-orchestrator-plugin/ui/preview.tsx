@@ -43,6 +43,7 @@ import {
   TokenChip,
   type MemberStatus,
 } from './components/room-kit';
+import { ShellTopBar } from './components/ShellTopBar';
 import './preview-harness.css';
 
 // ── Theme plumbing ───────────────────────────────────────────
@@ -187,6 +188,34 @@ const ALL_STATUSES: MemberStatus[] = ['working', 'waiting', 'idle', 'blocked', '
 const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
 
 const SECTIONS: Section[] = [
+  {
+    title: 'Phase 3 — shell top bar',
+    crops: [
+      { file: CAP_HOME, x: 0, y: 0, w: 2584, h: 106, label: 'top bar — home' },
+    ],
+    render: () => (
+      <div className="flex flex-col">
+        <ShellTopBar
+          active="home"
+          workflowCount={7}
+          roomCount={2}
+          needsCount={0}
+          onSelect={() => {}}
+          onNew={() => {}}
+          actions={[{ label: 'Reflect all', onSelect: () => {} }]}
+        />
+        <ShellTopBar
+          active="rooms"
+          workflowCount={7}
+          roomCount={2}
+          needsCount={3}
+          onSelect={() => {}}
+          onNew={() => {}}
+          actions={[{ label: 'Reflect all', onSelect: () => {} }]}
+        />
+      </div>
+    ),
+  },
   {
     title: 'identity — Face / FaceStack / StatusDot / LivePill',
     crops: [
@@ -565,6 +594,9 @@ function PreviewApp() {
             className={theme.mode === 'dark' ? 'dark' : undefined}
             style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', ...vars } as CSSProperties}
           >
+            {/* Scoped utilities never match the scope root itself; the panel
+                container lives one level in, as it does under the Sero shell. */}
+            <div className="@container/panel">
             {SECTIONS.map((section) => (
               <section key={section.title} className="border-b border-room-line pb-5 last:border-b-0">
                 <div className="room-mono-micro px-4 pt-4 uppercase tracking-[0.08em] text-room-text3">
@@ -586,6 +618,7 @@ function PreviewApp() {
                 )}
               </section>
             ))}
+            </div>
           </div>
         </div>
       </div>

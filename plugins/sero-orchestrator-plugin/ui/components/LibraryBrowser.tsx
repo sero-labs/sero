@@ -57,7 +57,7 @@ export function LibraryBrowser({ libraryDir, busy, onLoad, initialQuery }: Libra
         <p className="px-1 py-6 text-center text-xs text-muted-foreground">Loading the library…</p>
       ) : visible.length === 0 ? (
         <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-          {query ? 'No matching saved loops.' : 'No saved loops yet. Save a loop from its detail view to add it here.'}
+          {query ? 'No matching saved workflows.' : 'No saved workflows yet. Save a workflow from its detail view to add it here.'}
         </p>
       ) : (
         <div className="flex flex-col gap-2">

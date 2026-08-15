@@ -109,7 +109,7 @@ export function LoopsWidget() {
 
         <DataBoundary
           state={loops.length === 0 ? 'empty' : 'ready'}
-          empty={<EmptyState icon={InfinityIcon} title="No loops yet" />}
+          empty={<EmptyState icon={InfinityIcon} title="No workflows yet" />}
         >
           <Stack gap="none" scroll>
             <ActivityList overflowCount={Math.max(0, loops.length - SHOWN)}>

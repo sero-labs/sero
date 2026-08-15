@@ -55,7 +55,7 @@ function LoopContextDialog({
         void save([...presets, next]);
       }}
       onDeletePreset={(id) => void save(presets.filter((p) => p.id !== id))}
-      title="Loop context"
+      title="Workflow context"
       description="System prompt and skills for this loop's background subagents. Tools are chosen per step in the plan."
       systemPromptCopy={LOOP_PROMPT_COPY}
       applyLabel="Save context"

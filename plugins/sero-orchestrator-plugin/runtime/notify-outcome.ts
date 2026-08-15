@@ -9,6 +9,7 @@
  * state never goes through here, so it never re-notifies.
  */
 
+import { WORKFLOW_LABEL } from '../shared/labels';
 import type { Loop } from '../shared/types';
 import type { OrchestratorHost } from './host';
 
@@ -26,11 +27,11 @@ export function outcomeNotification(loop: Loop): OutcomeNotification | null {
   if (loop.status === 'complete') {
     const receipt = loop.runtime.completion?.receipt;
     const delivered = receipt ? ` Delivered: ${receipt.summary} (${receipt.ref}).` : '';
-    return { message: `Loop "${loop.title}" finished.${delivered}`, level: 'info' };
+    return { message: `${WORKFLOW_LABEL} "${loop.title}" finished.${delivered}`, level: 'info' };
   }
   if (loop.status === 'blocked') {
     const reason = loop.runtime.block?.reason?.trim();
-    return { message: `Loop "${loop.title}" is blocked${reason ? ` — ${reason}` : ''}.`, level: 'warning' };
+    return { message: `${WORKFLOW_LABEL} "${loop.title}" is blocked${reason ? ` — ${reason}` : ''}.`, level: 'warning' };
   }
   return null;
 }

@@ -29,7 +29,7 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
   }, [loops]);
 
   if (loops.length === 0) {
-    return <p className="text-base text-muted-foreground">No loops yet. Create one to get started.</p>;
+    return <p className="text-base text-muted-foreground">No workflows yet. Create one to get started.</p>;
   }
 
   return (
