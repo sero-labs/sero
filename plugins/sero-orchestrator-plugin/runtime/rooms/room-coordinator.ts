@@ -58,6 +58,7 @@ import { RoomSignalBook, quietMark } from './room-signals';
 import { handleIdleLimit, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
+import type { RoomRuntimeTelemetry } from './room-telemetry';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 
 export type { RoomActionResult, RoomCoordinatorEvent } from './room-lifecycle';
@@ -78,6 +79,7 @@ export interface RoomCoordinatorDeps {
   briefSources?(roomId: string): Promise<BriefSources>;
   /** Placement and checkpoints. Defaulted below, so production cannot omit it. */
   workspaces?: RoomWorkspaces;
+  telemetry?: RoomRuntimeTelemetry;
 }
 
 export class RoomCoordinator {
@@ -196,6 +198,7 @@ export class RoomCoordinator {
    * the scheduler drops the signal and the reply is lost.
    */
   async wake(roomId: string, memberId: string, reason: WakeReason): Promise<void> {
+    this.deps.telemetry?.markWake(roomId, memberId, this.host.now());
     const member = await this.deps.store.readMember(roomId, memberId);
     if (!member) return;
     if (WAIT_ENDING_REASONS.includes(reason) && (member.status === 'waiting' || member.status === 'blocked')) {
@@ -337,6 +340,7 @@ export class RoomCoordinator {
    * turn should SAY and the message lease it commits.
    */
   private async promptMember(roomId: string, memberId: string): Promise<MemberTurnResult> {
+    this.deps.telemetry?.markTurnStart(roomId, memberId, this.host.now());
     const record = await this.deps.store.readRoom(roomId);
     const member = record?.members.find((candidate) => candidate.id === memberId);
     if (!record || !member) return { turnId: null, status: 'error', detail: 'the member is gone', usage: null };

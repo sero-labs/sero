@@ -26,7 +26,7 @@ function makeCtx(): AppRuntimeContext {
       writes.push(relative);
       if (relative === failWrite) {
         failWrite = null;
-        throw new Error('injected write failure');
+        throw new Error('ENOSPC: injected write failure');
       }
       const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
       await mkdir(path.dirname(file), { recursive: true });
@@ -121,7 +121,7 @@ describe('room store', () => {
     await expect(store.updateRoom('room-a', (room) => ({
       ...room,
       members: room.members.map((entry) => ({ ...entry, statusDetail: 'committed together' })),
-    }))).rejects.toThrow('injected write failure');
+    }))).rejects.toThrow('ENOSPC');
     expect(existsSync(path.join(dir, 'rooms/transaction.json'))).toBe(true);
 
     const recovered = await createRoomStore(makeCtx()).readRoom('room-a');

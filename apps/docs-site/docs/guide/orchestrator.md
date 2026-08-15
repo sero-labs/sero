@@ -16,6 +16,39 @@ the steps come from the model, not a fixed template.
 Sero is in **public beta**. Treat loops as helpful local automation, not a
 guaranteed job runner.
 
+## Workflows and Rooms
+
+Orchestrator has two modes:
+
+- **Workflows** run a planned graph of steps. Use them for repeatable jobs,
+  schedules, and event-driven work.
+- **Rooms** create a temporary team for one problem. A Conductor coordinates
+  persistent members, questions, approvals, artifacts, and delivery.
+
+Room mode is a gated preview. Start Sero with `SERO_ROOMS=1` to show it.
+
+### Run a Room
+
+1. Open **Orchestrator** and select **Rooms**.
+2. Select **New Room** and describe the problem.
+3. Review the proposed team, time, spend, and access.
+4. Use **Adjust** if you want a different plan. Then select **Start**.
+5. Use the Room view to watch work, read member sessions, answer questions, and
+   approve protected actions.
+
+You can pause, resume, or cancel a Room at any time. A paused Room keeps its
+sessions and work. After a restart, open the Room and select **Resume** if it did
+not continue automatically. Uncommitted member work stays in its managed
+worktree.
+
+When the Conductor finishes, the Room shows the result, artifacts, unresolved
+items, duration, and cost. A Room started from chat returns one result to that
+chat. External delivery needs your approval.
+
+Archive a finished Room to keep its record with less retained activity. Delete
+it when you no longer need the Room record. The old collaboration and debate
+chat buttons are removed; start these tasks from **Orchestrator → Rooms**.
+
 ![The Orchestrator panel — your loops and anything waiting on you](../assets/images/orchestrator-home.jpg)
 
 ## The idea in one minute

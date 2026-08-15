@@ -20,6 +20,7 @@ import { createRoomClaims, type RoomClaims } from './room-claims';
 import { RoomCoordinator } from './room-coordinator';
 import { createRoomObservation } from './room-observation';
 import { createRoomStore } from './room-store';
+import { createRoomRuntimeTelemetry } from './room-telemetry';
 import { createRoomCommandRouter, type RoomCommandRouter } from './room-command-router';
 import { requestDeliveryApproval } from './room-delivery';
 import { applyRevisionToRoom } from './room-revision-mutate';
@@ -85,6 +86,7 @@ export function createRoomRuntime(
   const coordinator = new RoomCoordinator(host, {
     store,
     sessions,
+    telemetry: createRoomRuntimeTelemetry((message) => host.log(message)),
     // The SAME instance the runtime exposes, so placement, checkpoints and
     // commit collection all act on one view of the Room's checkouts.
     workspaces,

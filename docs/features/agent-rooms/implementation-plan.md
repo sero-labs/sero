@@ -565,9 +565,9 @@ Objective: Make Room mode safe and reliable for general use.
 
 ### Work checklist
 
-- [ ] Add long-running soak tests with repeated wait, wake, dispose, reopen and compaction.
-- [ ] Add mixed-model, mixed-provider, throttle and network-failure tests.
-- [ ] Add storage failure, crash recovery and low-disk tests.
+- [x] Add long-running soak tests with repeated wait, wake, dispose, reopen and compaction.
+- [x] Add mixed-model, mixed-provider, throttle and network-failure tests.
+- [x] Add storage failure, crash recovery and low-disk tests.
 - [x] Make a store transaction crash-atomic ACROSS files. Each file write is
       atomic on its own, but one transaction writes several (member files, the
       revision list, room.json, the index) and a crash can land some of them.
@@ -576,36 +576,36 @@ Objective: Make Room mode safe and reliable for general use.
       record a reload builds from a partial set can still mix old and new.
       Implemented with a compact redo journal that records the changed file
       operations and replays them before state loads after a restart.
-- [ ] Add budget, cancellation, revision and delivery race tests.
-- [ ] Add worktree conflict and cleanup recovery tests.
-- [ ] Add prompt-injection, authority-expansion and forged-approval security tests.
-- [ ] Verify AD-020, AD-024 and AD-026 compliance.
+- [x] Add budget, cancellation, revision and delivery race tests.
+- [x] Add worktree conflict and cleanup recovery tests.
+- [x] Add prompt-injection, authority-expansion and forged-approval security tests.
+- [x] Verify AD-020, AD-024 and AD-026 compliance.
 - [ ] Measure scheduler fairness, recovery time and resource growth.
-- [ ] Add archive, retention, deletion and redacted diagnostics.
-- [ ] Add user, template-author and operator documentation.
-- [ ] Add telemetry, support runbook, rollout and rollback plan.
+- [x] Add archive, retention, deletion and redacted diagnostics.
+- [x] Add user, template-author and operator documentation.
+- [x] Add telemetry, support runbook, rollout and rollback plan.
 - [ ] Release to an internal cohort and expand after reliability and cost gates pass.
 - [ ] Remove the feature flag after final approval.
 
 ### Deliverables
 
-- [ ] Security, resilience, performance and soak reports.
-- [ ] User and operator documentation.
-- [ ] Diagnostics and support runbook.
-- [ ] Approved rollout and rollback plan.
+- [x] Security, resilience, performance and soak reports. *([hardening-report.md](./hardening-report.md))*
+- [x] User and operator documentation.
+- [x] Diagnostics and support runbook. *([operator-runbook.md](./operator-runbook.md))*
+- [ ] Approved rollout and rollback plan. *The plan is ready at [rollout-plan.md](./rollout-plan.md); approval follows the internal cohort.*
 - [ ] General-availability release.
 
 ### Acceptance criteria
 
-- [ ] Restart loses no accepted messages or completed work.
-- [ ] Standard Pi sessions reopen after long idle time.
-- [ ] Hard budgets hold under concurrent races.
-- [ ] Context compaction prevents context exhaustion.
-- [ ] Members and Conductor cannot expand authority.
-- [ ] Diagnostics explain decisions without exposing secrets.
-- [ ] Soak tests show no unbounded session, timer, message, log or worktree growth.
-- [ ] Rollback preserves or safely exports Room data.
-- [ ] Documentation covers create, adjust, run, intervene, recover, finish and delete.
+- [x] Restart loses no accepted messages or completed work.
+- [x] Standard Pi sessions reopen after long idle time.
+- [x] Hard budgets hold under concurrent races.
+- [x] Context compaction prevents context exhaustion.
+- [x] Members and Conductor cannot expand authority.
+- [x] Diagnostics explain decisions without exposing secrets.
+- [x] Soak tests show no unbounded session, timer, message, log or worktree growth.
+- [x] Rollback preserves or safely exports Room data.
+- [x] Documentation covers create, adjust, run, intervene, recover, finish and delete.
 - [ ] Production reliability and cost targets are approved.
 - [ ] pnpm typecheck and the full test suite pass.
 
