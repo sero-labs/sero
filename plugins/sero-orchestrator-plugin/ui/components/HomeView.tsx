@@ -26,7 +26,7 @@ interface HomeViewProps {
   /** Starts the Room create flow (the Room mode card). */
   onNewRoom: () => void;
   /** Rooms from the watched Room index — their pending approvals join the same queue. */
-  rooms?: RoomSummary[];
+  rooms: RoomSummary[];
   onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
   onRoomAnswer?: (roomId: string, memberId: string, body: string) => void;
   onRoomResume?: (roomId: string) => void;
@@ -44,7 +44,7 @@ export function HomeView({
   onOpenLoop,
   onNew,
   onNewRoom,
-  rooms = [],
+  rooms,
   onRoomApproval,
   onRoomAnswer,
   onRoomResume,

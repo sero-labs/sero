@@ -228,8 +228,8 @@ export function RoomProposal({
       {clamps.length > 0 && (
         <NoteBlock tone="info" title={`Your limits changed ${clamps.length} thing${clamps.length === 1 ? '' : 's'}`} className="mt-3">
           <ul className="flex list-disc flex-col gap-1 pl-4">
-            {clamps.map((clamp, index) => (
-              <li key={`${clamp.kind}-${index}`}>{clamp.detail}</li>
+            {clamps.map((clamp) => (
+              <li key={`${clamp.kind}-${clamp.detail}`}>{clamp.detail}</li>
             ))}
           </ul>
         </NoteBlock>

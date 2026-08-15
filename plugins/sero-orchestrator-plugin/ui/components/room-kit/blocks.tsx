@@ -43,7 +43,7 @@ export function EventCard({ tone = 'neutral', title, pill, actions, className, c
 }
 
 export interface AuthorityCell {
-  label: ReactNode;
+  label: string;
   value: ReactNode;
   /** Small line under the value — `hard stop`, `then it pauses for you`. */
   sub?: ReactNode;
@@ -95,9 +95,9 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
           !brand && 'gap-2.5 px-[15px] py-[13px]',
         )}
       >
-        {cells.map((cell, i) => (
+        {cells.map((cell) => (
           <div
-            key={i}
+            key={cell.label}
             className={cn(
               brand
                 && 'border-brand-primary-muted px-[15px] py-[13px] not-last:border-b @min-[600px]/panel:nth-[odd]:border-r @min-[600px]/panel:nth-[3]:border-b-0 @min-[900px]/panel:not-last:border-r @min-[900px]/panel:border-b-0',
