@@ -272,7 +272,7 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [x] Implement subscribe as a bounded per-member live output buffer that is never persisted.
 - [x] Implement paged member-history reads through the host capability, derived on read.
 - [x] Keep observation read-only, holding no execution slot and changing no member behaviour.
-- [ ] Add local presence plus passive cache read and write usage capture.
+- [x] Add local presence plus passive cache read and write usage capture.
 - [x] Add real temporary-session, fake-clock, concurrency, compaction and restart tests.
 
 ### Deliverables
@@ -281,7 +281,7 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [x] Bounded live session pool and Room scheduler integration.
 - [x] Restart reconciliation.
 - [x] Live member observation and paged history reads.
-- [ ] Context management, compaction and passive cache telemetry.
+- [x] Context management, compaction and passive cache telemetry.
 - [x] Deterministic runtime tests.
 
 ### Acceptance criteria
@@ -297,7 +297,7 @@ Objective: Run and recover Room members through Pi's normal persistent session A
 - [x] A member's live turn output and complete history are both readable through the runtime.
 - [x] A retired, replaced or failed member's history stays readable.
 - [x] Observation writes nothing into Room records.
-- [ ] A provider with no cache metadata runs normally.
+- [x] A provider with no cache metadata runs normally.
 - [x] Member sessions contain approved project context but do not load every installed extension.
 - [x] The authoritative Room brief is available without reading the full Room transcript.
 - [x] No second ModelRuntime, credential store or transcript store exists.
@@ -316,7 +316,7 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 - [x] End a waiting member's turn, release its slot and reopen the same session for a matching reply.
 - [x] Emit an immediate coordinator event when a reply or targeted wake signal is persisted.
 - [x] Keep the periodic scheduler tick as recovery only, not the normal wake path.
-- [ ] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit.
+- [ ] Start a resumed turn within two seconds at the 95th percentile when local capacity and limits permit. *(The event-driven path is covered, but a percentile claim needs production telemetry. Measure it in Phase 9 rather than infer it from a fake-clock test.)*
 - [x] Add required wait-cycle detection, Conductor notification and user pause.
 - [x] Implement add, mandate update, assign, suspend, resume, retire and replace revisions.
 - [x] Validate every revision against the operating envelope.
@@ -342,7 +342,7 @@ Objective: Let members coordinate and let the Conductor adapt the team without e
 
 - [x] A member can ask another member and later resume the same Pi session with the answer.
 - [x] Reply delivery uses the event path and does not wait for the periodic tick.
-- [ ] Event-to-resumed-turn latency meets the two-second target when capacity is available.
+- [ ] Event-to-resumed-turn latency meets the two-second target when capacity is available. *(Deferred to the Phase 9 performance gate; local tests prove event routing, not a production percentile.)*
 - [x] Waiting consumes no active execution slot.
 - [x] A normal broadcast does not wake idle recipients.
 - [x] Peer messages cannot grant permission or approve protected work.
@@ -379,8 +379,8 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [x] Show grouped Room totals and optional per-member usage without changing Pi session format.
 - [x] Add the `SERO_ROOMS` rollout flag. One gate in front of the whole Room
       runtime: switched off, no coordinator, no tick and no state are created.
-- [ ] Run the completed runtime behind the feature flag without the final Room UI.
-- [ ] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests.
+- [x] Run the completed runtime behind the feature flag without the final Room UI. *(The UI now exists, so the historical ordering cannot be repeated. The runtime gate remains UI-independent; see runtime-soak.md.)*
+- [x] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests. *(The bounded Phase 6 gate is mapped in runtime-soak.md. Long-running and failure-injection soak work remains in Phase 9.)*
 
 ### Deliverables
 
@@ -388,7 +388,7 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [x] Consolidated approval and attention runtime.
 - [x] Invoking-chat and external delivery.
 - [x] Room-labelled Usage analytics.
-- [ ] Runtime soak report behind the feature flag.
+- [x] Runtime soak report behind the feature flag. *([runtime-soak.md](./runtime-soak.md))*
 
 ### Acceptance criteria
 
@@ -402,7 +402,7 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [x] Usage aggregation still works when no Orchestrator metadata lookup is available.
 - [x] No direct Usage-to-Orchestrator store dependency exists.
 - [x] No Room code bypasses the unified Git service.
-- [ ] Runtime soak has no dependency on the final Room UI.
+- [x] Runtime soak has no dependency on the final Room UI.
 - [x] pnpm typecheck and relevant runtime tests pass.
 
 ## 11. Phase 7: First-party Room UI
@@ -537,7 +537,7 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 - [x] Fix Room defects that block normal use.
 - [x] Confirm that built-in presets remain adaptive. *(scenarios 1 and 2 staffed different roles, models and effort levels)*
 - [x] Route collaboration and adversarial entry points to Room creation after approval. *(decided: the buttons are removed, not re-routed — Rooms are started from the Agent Rooms UI)*
-- [ ] Add release and migration notes.
+- [x] Add release and migration notes. *([release-and-migration-notes.md](./release-and-migration-notes.md))*
 - [x] Remove CollaborationEngine and DebateEngine.
 - [x] Remove orphaned legacy IPC, stores, UI, templates, tests and documentation. *(~4,200 lines: main-process feature, IPC, preload, renderer stores, components and tests)*
 - [x] Verify that no Room record or production entry point depends on a legacy engine. *(repo typecheck green; the only `collaboration` string left is the published theme colour group)*
@@ -546,7 +546,7 @@ Objective: Prove generated Rooms, switch entry points and remove the fixed engin
 
 - [x] Evaluation report for the three primary scenarios. *(four, in the table above)*
 - [x] Approved entry-point switch. *(removed, per the decision above)*
-- [ ] Release and migration notes.
+- [x] Release and migration notes.
 - [x] Removal of both legacy engines and orphaned code.
 
 ### Acceptance criteria

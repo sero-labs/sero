@@ -320,6 +320,38 @@ describe('member turns', () => {
     // Usage still lands: the turn happened, whatever the member did with it.
     expect(stored?.usage.turns).toBe(1);
   });
+
+  it('captures passive cache usage and accepts providers with no cache metadata', async () => {
+    const room = await seedRoom();
+    const lead = memberOf(room, 'lead');
+    const handle = await startMember(deps, room, lead);
+    const session = host.persistentSessions.sessions.get('lead');
+    if (!session) throw new Error('lead session was not created');
+
+    session.usage = {
+      inputTokens: 120,
+      outputTokens: 30,
+      cacheReadTokens: 80,
+      cacheWriteTokens: 20,
+      costUsd: 0.04,
+      turns: 1,
+    };
+    await runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Use the cached prefix.' });
+    expect((await store.readMember('room-a', 'lead'))?.usage).toMatchObject({
+      cacheReadTokens: 80,
+      cacheWriteTokens: 20,
+    });
+
+    // The host projects absent provider fields as zero. Zero is valid usage,
+    // not a signal that the turn failed or that active cache work is needed.
+    session.usage = { ...session.usage, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const outcome = await runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Use this provider.' });
+    expect(outcome.status).toBe('completed');
+    expect((await store.readMember('room-a', 'lead'))?.usage).toMatchObject({
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+  });
 });
 
 describe('live session pool', () => {
