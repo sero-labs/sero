@@ -11,7 +11,7 @@
  */
 
 import type { PersistedRoom, RoomMember } from '../../shared/room-types';
-import { resolveArtifactPath } from '../lib/artifact-path';
+import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
 import { formatCost, formatDuration, formatTime } from '../lib/format';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { RoomArtifactLink } from './RoomArtifactLink';
@@ -78,7 +78,9 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
                 <span className="ml-2 text-xs text-muted-foreground">
                   {artifact.kind} · {members.get(artifact.producedByMemberId)?.displayName ?? artifact.producedByMemberId}
                 </span>
-                <span className="block break-all font-mono text-xs text-muted-foreground">{artifact.ref}</span>
+                <span className="block font-mono text-xs text-muted-foreground transition-colors group-hover:text-room-text2">
+                  {artifactFileName(artifact.ref)}
+                </span>
               </RoomArtifactLink>
             ))}
           </div>

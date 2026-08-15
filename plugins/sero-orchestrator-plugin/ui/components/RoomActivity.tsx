@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
-import { resolveArtifactPath } from '../lib/artifact-path';
+import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
 import { formatClock } from '../lib/format';
 import { memberGlyph } from '../lib/member-glyph';
 import { EventCard, Face, type EventCardTone } from './room-kit';
@@ -123,7 +123,7 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
           <EventCard tone={tone} title={<span className="min-w-0">{event.summary}</span>}>
             {artifactRef ? (
               <RoomArtifactLink workspaceId={workspaceId} path={resolveArtifactPath(artifactRef, member ?? undefined)} className="room-tabular break-all text-room-text3 hover:text-room-text2">
-                {artifactRef}
+                {artifactFileName(artifactRef)}
               </RoomArtifactLink>
             ) : event.details?.ref != null ? (
               <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>

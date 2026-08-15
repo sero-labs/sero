@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { PathClaim, RoomRevision } from '../../shared/room-message-types';
 import type { PersistedRoom, RoomMember } from '../../shared/room-types';
-import { resolveArtifactPath } from '../lib/artifact-path';
+import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
 import { formatRelative } from '../lib/format';
 import { claimOverlaps } from '../lib/room-view';
 import { useStateDir } from '../lib/use-orchestrator-index';
@@ -135,7 +135,7 @@ export function RoomSidePanel({ room, names, members, className }: RoomSidePanel
                 className="rounded-lg hover:ring-1 hover:ring-room-line"
               >
                 <Entry title={artifact.title} note={`${artifact.kind} · ${who(artifact.producedByMemberId)}`}>
-                  {artifact.ref}
+                  {artifactFileName(artifact.ref)}
                 </Entry>
               </RoomArtifactLink>
             )))}
@@ -261,7 +261,7 @@ function Entry({ title, note, children }: { title: string; note: string; childre
     <div className="rounded-lg border border-room-line bg-room-surface p-3">
       <p className="text-[11px] font-medium text-room-text2">{title}</p>
       <p className="mt-0.5 text-[10px] text-room-text4">{note}</p>
-      {children && <p className="mt-1.5 break-words text-[11px] leading-relaxed text-room-text4">{children}</p>}
+      {children && <p className="mt-1.5 break-words text-[11px] leading-relaxed text-room-text4 transition-colors group-hover:text-room-text2">{children}</p>}
     </div>
   );
 }

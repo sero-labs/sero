@@ -49,7 +49,7 @@ export function MemberCompletedOutcome({ member }: { member: RoomMember }) {
             <CostStat label="Compactions" value={String(member.session.compactionCount)} />
           </div>
           {member.worktreePath && (
-            <TooltipProvider>
+            <TooltipProvider delayDuration={500}>
               <div className="mt-3 min-w-0 border-t border-room-line pt-3">
                 <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">Worktree</p>
                 <div className="room-tabular mt-1 min-w-0 max-w-full text-xs text-room-text3">
@@ -151,7 +151,7 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
           <section className="rounded-lg border border-room-line bg-room-surface p-3.5">
             <Eyebrow tone="brand">Worktree</Eyebrow>
             {member.worktreePath ? (
-              <TooltipProvider>
+              <TooltipProvider delayDuration={500}>
                 <div className="mt-2">
                   <Kv label="Branch" mono>
                     <WorktreeValue value={member.worktreeBranch ?? '—'} />
