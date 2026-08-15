@@ -238,9 +238,32 @@ export function createRoomStore(
     return result;
   }
 
-  /** Cursor upkeep is the one normalization every write path shares. */
+  /**
+   * `statusAt` upkeep: a member entering a new status gets stamped here, at
+   * the one seam every write shares — no write site can forget it. Staying in
+   * a status keeps the stamp; new members keep what their creation site set.
+   */
+  function withStatusStamps(room: RoomRecord, prev: RoomState): RoomRecord {
+    const prevRoom = prev.rooms.find((candidate) => candidate.definition.id === room.definition.id);
+    if (!prevRoom || prevRoom.members === room.members) return room;
+    const before = new Map(prevRoom.members.map((member) => [member.id, member]));
+    return {
+      ...room,
+      members: room.members.map((member) => {
+        const was = before.get(member.id);
+        return !was || was.status === member.status
+          ? member
+          : { ...member, statusAt: new Date().toISOString() };
+      }),
+    };
+  }
+
+  /** The normalizations every write path shares: cursors, then statusAt. */
   async function commit(prev: RoomState, next: RoomState): Promise<void> {
-    const normalized = { ...next, rooms: next.rooms.map(withMemberCursors) };
+    const normalized = {
+      ...next,
+      rooms: next.rooms.map((room) => withMemberCursors(withStatusStamps(room, prev))),
+    };
     await persistDiff(prev, normalized);
     cache = normalized;
   }

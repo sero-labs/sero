@@ -13,6 +13,13 @@ const MIGRATIONS: RoomMigration[] = [
   // v1 -> v2: `timelineSequence` tells a watcher that the timeline moved. An
   // existing Room restarts the count; the panel only compares it with itself.
   (record) => ({ ...record, runtime: { ...record.runtime, timelineSequence: 0 } }),
+  // v2 -> v3: `statusAt` says when a member entered its current status. An
+  // existing member's true transition time is unknown; its creation time is
+  // the honest floor ("waiting since at most then").
+  (record) => ({
+    ...record,
+    members: record.members.map((member) => ({ ...member, statusAt: member.createdAt })),
+  }),
 ];
 
 /** Applies backward-compatible upgrades when a persisted Room is loaded. */

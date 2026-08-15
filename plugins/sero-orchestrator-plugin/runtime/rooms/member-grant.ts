@@ -311,6 +311,7 @@ export function toMemberRecord(
     responsibility: blueprintMember.responsibility,
     status: 'starting',
     statusDetail: 'Waiting for its first turn.',
+    statusAt: now,
     mandate: {
       role: blueprintMember.role,
       responsibilities: blueprintMember.responsibility,

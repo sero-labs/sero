@@ -18,7 +18,7 @@ const usage = (usedTokens: number, maxTokens: number): PersistentSessionContextU
 function member(status: MemberStatus, liveHandleId: string | null = 'h1'): RoomMember {
   return {
     id: 'm1', roomId: 'room-a', displayName: 'Ada', isConductor: false, responsibility: 'Implements',
-    status, statusDetail: '',
+    status, statusDetail: '', statusAt: '2026-01-01T00:00:00.000Z',
     mandate: {
       role: 'implementer', responsibilities: 'code', currentTask: 'Fix the parser',
       priorities: [], workingInstructions: 'Work in small commits.', revision: 3, updatedAt: 't',

@@ -44,7 +44,7 @@ const proposal = { teamSize: 1 } as unknown as RoomProposalSummary;
 function member(id: string): RoomMember {
   return {
     id, roomId: 'room-a', displayName: id, isConductor: id === 'm1', responsibility: 'r',
-    status: 'idle', statusDetail: '',
+    status: 'idle', statusDetail: '', statusAt: '2026-01-01T00:00:00.000Z',
     mandate: { role: 'r', responsibilities: '', currentTask: '', priorities: [], workingInstructions: '', revision: 1, updatedAt: 't' },
     configuration: { model: 'm', thinking: 'off', promptAdditions: [], tools: [], skills: [], permissions: 'read-only', needsWorktree: false, revision: 1 },
     session: { subject: id, sessionId: null, sessionPath: null, workspaceId: 'w', liveHandleId: null, lastOpenedAt: null, lastClosedAt: null, compactionCount: 0, lastCompactedAt: null },
@@ -117,6 +117,18 @@ describe('room store', () => {
       'rooms/room-a/room.json',
       'rooms/index.json',
     ]);
+  });
+
+  it('stamps statusAt when a member changes status, and only then', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
+    const fixtureStamp = '2026-01-01T00:00:00.000Z';
+    await store.updateMember('room-a', 'm1', (m) => ({ ...m, statusDetail: 'thinking' }));
+    expect((await store.readMember('room-a', 'm1'))?.statusAt).toBe(fixtureStamp);
+    await store.updateMember('room-a', 'm1', (m) => ({ ...m, status: 'working' }));
+    const stamped = (await store.readMember('room-a', 'm1'))?.statusAt;
+    expect(stamped).not.toBe(fixtureStamp);
+    expect(Date.parse(stamped ?? '')).not.toBeNaN();
   });
 
   it('reloads from disk with members, cursors and revisions intact', async () => {

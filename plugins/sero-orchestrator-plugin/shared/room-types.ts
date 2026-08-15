@@ -139,6 +139,8 @@ export interface RoomMember {
   status: MemberStatus;
   /** Plain-English reason for the current status, shown in the UI. */
   statusDetail: string;
+  /** When the member entered its current status — "Waiting 3m" reads from this. */
+  statusAt: string;
   mandate: MemberMandate;
   configuration: MemberConfiguration;
   session: MemberSessionRef;
@@ -335,4 +337,4 @@ export interface RoomIndex {
  * It lives with the shape it describes, so the renderer can state the version
  * of an empty index without importing runtime code.
  */
-export const ROOM_SCHEMA_VERSION = 2;
+export const ROOM_SCHEMA_VERSION = 3;
