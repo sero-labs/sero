@@ -5,19 +5,19 @@
 - [x] Preview harness (§7)
 - [x] Phase 1 — token layer
 - [x] Phase 2 — room-kit primitives (gate passed: kit approved 2026-08-15)
-- [ ] Phase 3 — app shell
-- [ ] Phase 4 — Home
-- [ ] Phase 5 — Create a Room
-- [ ] Phase 6 — Preparing
-- [ ] Phase 7 — The proposal
-- [ ] Phase 8 — Adjust
-- [ ] Phase 9 — Why this team? (needs 6a rationale)
-- [ ] Phase 10 — Advanced settings
-- [ ] Phase 11 — The live Room (needs 6b statusAt)
-- [ ] Phase 12 — Watch and the member session
-- [ ] Data 6(a) — per-member rationale
-- [ ] Data 6(b) — RoomMember.statusAt
-- [ ] Final: harness out of the repo, second review round
+- [x] Phase 3 — app shell
+- [x] Phase 4 — Home
+- [x] Phase 5 — Create a Room
+- [x] Phase 6 — Preparing
+- [x] Phase 7 — The proposal
+- [x] Phase 8 — Adjust
+- [x] Phase 9 — Why this team? (needs 6a rationale)
+- [x] Phase 10 — Advanced settings
+- [x] Phase 11 — The live Room (needs 6b statusAt)
+- [x] Phase 12 — Watch and the member session
+- [x] Data 6(a) — per-member rationale
+- [x] Data 6(b) — RoomMember.statusAt
+- [x] Final: harness out of the repo, second review round
 
 The Rooms UI has the right structure but the wrong surface. Every screen in
 `docs/prototypes/agent-rooms/` is recognisable in the shipped app, and none of
