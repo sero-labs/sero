@@ -34,6 +34,7 @@ export { PersistentSessionHost } from './host';
 
 /** One store per profile — grants outlive any single runtime instance. */
 let sharedGrantStore: GrantStore | null = null;
+let sharedGrantStorePromise: Promise<GrantStore> | null = null;
 
 function grantStateFile(): string {
   return path.join(SERO_HOME, 'apps', 'persistent-sessions', 'grants.json');
@@ -45,6 +46,7 @@ function grantStateFile(): string {
  */
 export async function getGrantStore(): Promise<GrantStore> {
   if (sharedGrantStore) return sharedGrantStore;
+  if (sharedGrantStorePromise) return sharedGrantStorePromise;
 
   const file = grantStateFile();
   const store = new GrantStore({
@@ -55,9 +57,21 @@ export async function getGrantStore(): Promise<GrantStore> {
     now: () => new Date().toISOString(),
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
   });
-  await store.initialize();
-  sharedGrantStore = store;
-  return store;
+  const initialization = store.initialize().then(() => store);
+  sharedGrantStorePromise = initialization;
+
+  try {
+    const initializedStore = await initialization;
+    if (sharedGrantStorePromise === initialization) sharedGrantStore = initializedStore;
+    return initializedStore;
+  } finally {
+    if (sharedGrantStorePromise === initialization) sharedGrantStorePromise = null;
+  }
+}
+
+export function resetGrantStoreForTests(): void {
+  sharedGrantStore = null;
+  sharedGrantStorePromise = null;
 }
 
 export interface PersistentSessionWiring {
