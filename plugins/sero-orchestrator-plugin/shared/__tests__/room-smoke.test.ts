@@ -117,6 +117,18 @@ describe('validateRoomBlueprint', () => {
     expect(result.errors.map((error) => error.code)).not.toContain('tool-unknown');
   });
 
+  it('rejects a command tool for a read-only member', () => {
+    const result = validateRoomBlueprint(
+      blueprint({ members: [member({ tools: ['read', 'bash', 'sero-cli'] })] }),
+      catalogue,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      errors: [expect.objectContaining({ code: 'read-only-command', path: 'members[0].tools' })],
+    });
+  });
+
   it('rejects an unapproved shared working tree', () => {
     const result = validateRoomBlueprint(
       blueprint({ workspacePolicy: { mode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),

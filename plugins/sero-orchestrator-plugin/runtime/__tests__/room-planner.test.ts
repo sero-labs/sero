@@ -284,6 +284,18 @@ describe('planRoom', () => {
     });
   });
 
+  it('repairs a read-only command request before it can reach approval', async () => {
+    const host = roomHost();
+    host.modelResponses.push(
+      { response: reply(blueprint({ members: [member({ tools: ['read', 'bash', 'sero-cli'] }), worker('impl')] })) },
+      { response: reply(blueprint()) },
+    );
+    const outcome = planned(await planRoom(host, planRequest()));
+    expect(host.modelCalls).toHaveLength(2);
+    expect(host.modelCalls[1].task).toContain('read-only, so it cannot use the command tool bash');
+    expect(outcome.blueprint.members[0]).toMatchObject({ permissions: 'read-only', tools: ['read', 'sero-cli'] });
+    expect(outcome.proposal.access.map((entry) => entry.label)).not.toContain('run-commands');
+  });
   it('refuses an invented model, tool or skill and names each one in the repair prompt', async () => {
     const host = roomHost();
     host.modelResponses.push({
