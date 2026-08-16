@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { GrantStore } from '@electron/features/apps/runtime/capabilities/persistent-sessions/grant-store';
 
 import {
   createFiles,
@@ -44,6 +45,27 @@ describe('GrantStore — issue', () => {
     expect(grant.sessionPaths).toEqual({});
     expect(grant.pending).toEqual({});
     expect(storedGrant(fake, grant.grantId)).toEqual(grant);
+  });
+});
+
+describe('GrantStore — deletion', () => {
+  it('removes a revoked grant and its complete session directory', async () => {
+    const fake = createPersistence();
+    const removed: string[] = [];
+    const store = new GrantStore({
+      persistence: fake.persistence,
+      now: () => NOW,
+      newId: () => 'grant-1',
+      removeSessionDir: (dir) => removed.push(dir),
+    });
+    const grant = await store.issue('orchestrator', () => SESSION_DIR, 'approval-1', proposal());
+    await store.markRevoked(grant.grantId);
+
+    await store.deleteRevoked(grant.grantId);
+
+    expect(store.get(grant.grantId)).toBeNull();
+    expect(removed).toEqual([SESSION_DIR]);
+    expect(fake.stored()?.[grant.grantId]).toBeUndefined();
   });
 });
 

@@ -34,6 +34,15 @@ The deterministic runtime suite covers:
   the Room stuck in `pausing` until a restart;
 - cleanup a restart interrupted. A finished Room that still holds a grant had
   its preservation and revocation cut short, so recovery finishes both;
+- concurrent Start calls, cancellation during Start, and restart recovery for
+  durable `starting` and `adjusting` claims;
+- an adjustment that finishes after Start is refused and cannot replace the
+  live Room record;
+- capability removal suspends the member, closes its live handle, and commits
+  the narrower configuration before the revision reports success;
+- Room deletion preserves live work, revokes authority, and removes the host
+  grant record and its transcript directory;
+- restart lookup of an open question more than 500 messages behind the head;
 - two members claiming the same path at once under the blocking policy, and one
   member's concurrent claims against its own cap;
 - a member session that finishes building after its grant was revoked. The
@@ -52,6 +61,10 @@ paths, subject binding, resource filtering, model and permission limits,
 Conductor-only commands, actor identity, authority-expansion approval, and
 single-use delivery approval bindings. Peer text is message content only; it is
 not parsed as approval or authority.
+
+Permission-profile tests prove that read-only members receive no shell and
+that unknown tools fail closed. Blueprint validation rejects command tools on
+read-only members before approval.
 
 Room commands use the AD-020 CLI bridge. Worktrees use the AD-024 unified Git
 service. Models resolve through the AD-026 host ModelRuntime. Room code has no

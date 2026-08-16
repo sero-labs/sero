@@ -131,6 +131,11 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     this.deps.grantStore.clearLive(grantId);
   }
 
+  async deleteGrant(grantId: string): Promise<void> {
+    await this.revokeGrant(grantId);
+    await this.deps.grantStore.deleteRevoked(grantId);
+  }
+
   async create(request: PersistentSessionRequest): Promise<PersistentSessionHandle> {
     const validation = await this.validate({ ...request, operation: 'create' });
 

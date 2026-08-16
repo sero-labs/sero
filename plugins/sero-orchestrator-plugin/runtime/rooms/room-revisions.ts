@@ -59,9 +59,22 @@ export interface RevisionDeps {
   store: RoomStore;
   /** Applies the accepted change to the record. Injected so this file stays about authority. */
   mutate(room: Room, proposal: RoomRevisionProposal, now: string): Room;
+  /** Closes a member's live handle before a capability-removal is committed. */
+  releaseMemberSession(roomId: string, memberId: string): Promise<void>;
   /** Tells affected members what changed, through the durable mailbox. */
   notify?(roomId: string, memberIds: string[], summary: string): Promise<void>;
 }
+
+interface ConfigurationClaim {
+  memberId: string;
+  marker: string;
+  status: RoomMember['status'];
+  detail: string;
+}
+
+type ConfigurationClaimResult =
+  | { duplicate: true }
+  | { duplicate: false; claim: ConfigurationClaim | null };
 
 const refused = (reason: string): RoomTransaction<RevisionResult> => ({
   record: null,
@@ -137,8 +150,70 @@ export async function applyRoomRevision(
   if (!record) return { outcome: 'refused', reason: `unknown room: ${input.roomId}` };
 
   const now = deps.host.now();
+  let configurationClaim: ConfigurationClaim | null = null;
+  if (input.proposal.kind === 'change-configuration') {
+    const memberId = input.proposal.memberId;
+    const marker = `Updating configuration (${deps.host.newId('cfg')}).`;
+    const outcome = await deps.store.transact<ConfigurationClaimResult>(input.roomId, null, (current) => {
+      if (current.runtime.appliedCommandIds.includes(input.commandId)) {
+        return { record: null, result: { duplicate: true as const } };
+      }
+      const member = current.members.find((candidate) => candidate.id === memberId);
+      const actor = current.members.find((candidate) => candidate.id === input.actorMemberId);
+      const plan = planRoomRevision(current, input.proposal, input.actorMemberId);
+      const canClaim = Boolean(
+        member && actor?.isConductor && plan.verdict === 'apply'
+        && !member.statusDetail.startsWith('Updating configuration ('),
+      );
+      return {
+        record: canClaim
+          ? {
+              ...current,
+              members: current.members.map((candidate) => candidate.id === memberId
+                ? { ...candidate, status: 'suspended' as const, statusDetail: marker }
+                : candidate),
+            }
+          : null,
+        result: {
+          duplicate: false as const,
+          claim: canClaim && member
+            ? { memberId, marker, status: member.status, detail: member.statusDetail }
+            : null,
+        },
+      };
+    });
+    if (outcome.duplicate || outcome.result.duplicate) return { outcome: 'duplicate' };
+    if (!outcome.result.claim) {
+      return { outcome: 'refused', reason: 'The member configuration changed before it could be applied.' };
+    }
+    configurationClaim = outcome.result.claim;
+    const released = await deps.releaseMemberSession(input.roomId, memberId).then(() => true, () => false);
+    if (!released) {
+      await deps.store.updateMember(input.roomId, memberId, (member) =>
+        member.statusDetail === marker
+          ? { ...member, status: configurationClaim?.status ?? member.status, statusDetail: configurationClaim?.detail ?? member.statusDetail }
+          : member);
+      return { outcome: 'refused', reason: 'The member session could not be closed, so its configuration was not changed.' };
+    }
+  }
   const outcome = await deps.store.transact(input.roomId, input.commandId, (current) =>
-    decideRevision(deps, input, current, now));
+    {
+      if (configurationClaim) {
+        const claimed = current.members.find((member) => member.id === configurationClaim.memberId);
+        if (claimed?.statusDetail !== configurationClaim.marker) return refused('The member configuration changed before it could be applied.');
+      }
+      const decision = decideRevision(deps, input, current, now);
+      if (!configurationClaim || !decision.record) return decision;
+      return {
+        ...decision,
+        record: {
+          ...decision.record,
+          members: decision.record.members.map((member) => member.id === configurationClaim.memberId
+            ? { ...member, status: configurationClaim.status, statusDetail: configurationClaim.detail }
+            : member),
+        },
+      };
+    });
   if (outcome.duplicate) return { outcome: 'duplicate' };
   const result = outcome.result;
 

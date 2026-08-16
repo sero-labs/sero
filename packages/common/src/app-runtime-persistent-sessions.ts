@@ -170,6 +170,8 @@ export interface PersistentSessionsApi {
   requestGrant(proposal: PersistentSessionGrantProposal): Promise<PersistentSessionGrantHandle>;
   /** Aborts in-flight turns, disposes live sessions, and fails every later request. Idempotent. */
   revokeGrant(grantId: string): Promise<void>;
+  /** Revokes the grant, then removes its transcripts and durable metadata. Idempotent. */
+  deleteGrant(grantId: string): Promise<void>;
 
   create(request: PersistentSessionRequest): Promise<PersistentSessionHandle>;
   open(request: PersistentSessionRequest): Promise<PersistentSessionHandle>;

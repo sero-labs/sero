@@ -20,6 +20,7 @@ import {
   disposeHarness,
   draftRoomIn,
   envelopeWith,
+  member,
   memberIn,
   waitFor,
 } from './room-harness';
@@ -40,6 +41,43 @@ beforeEach(async () => {
 afterEach(() => disposeHarness(dir));
 
 describe('stopping a Room', () => {
+  it('lets only one concurrent Start obtain a grant', async () => {
+    const roomId = await draftRoom();
+
+    const [first, second] = await Promise.all([
+      coordinator.startRoom(roomId),
+      coordinator.startRoom(roomId),
+    ]);
+
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+    expect(host.persistentSessions.proposals).toHaveLength(1);
+    expect((await store.readRoom(roomId))?.definition.grantId).toBe('grant-1');
+  });
+
+  it('revokes a grant approved after Delete invalidated Start', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    const requestGrant = api.requestGrant.bind(api);
+    let entered = (): void => undefined;
+    let finish = (): void => undefined;
+    const approvalEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const approvalGate = new Promise<void>((resolve) => { finish = resolve; });
+    api.requestGrant = async (proposal) => {
+      entered();
+      await approvalGate;
+      return requestGrant(proposal);
+    };
+
+    const starting = coordinator.startRoom(roomId);
+    await approvalEntered;
+    await coordinator.deleteRoom(roomId);
+    finish();
+
+    expect((await starting).ok).toBe(false);
+    expect(api.revoked).toContain('grant-1');
+    expect(await store.readRoom(roomId)).toBeNull();
+  });
+
   it('lets a running turn finish, then pauses and closes the sessions', async () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;
@@ -96,6 +134,24 @@ describe('stopping a Room', () => {
     expect((await store.readRoom(roomId))?.runtime.status).toBe('cancelled');
     expect(api.revoked).toEqual(['grant-1']);
     expect(api.aborted).toEqual(['lead']);
+  });
+
+  it('preserves live work and deletes grant history when the Room is deleted', async () => {
+    const roomId = await draftRoom(
+      envelopeWith({
+        workspacePolicy: { mode: 'worktree-per-member', sharedTreeApproved: false, claimPolicy: 'warn' },
+      }),
+      [member(), member({
+        key: 'impl', displayName: 'Implementer', role: 'Implementer', isConductor: false,
+        tools: ['read', 'write'], permissions: 'edit-workspace', needsWorktree: true,
+      })],
+    );
+    await coordinator.startRoom(roomId);
+    await coordinator.deleteRoom(roomId);
+
+    expect(host.checkpoints.length).toBeGreaterThan(0);
+    expect(host.persistentSessions.deleted).toEqual(['grant-1']);
+    expect(await store.readRoom(roomId)).toBeNull();
   });
 
   it('starts nothing when the Room is stopped while a pass is deciding', async () => {
@@ -328,6 +384,21 @@ describe('stopping a Room', () => {
     const record = await store.readRoom(roomId);
     expect(record?.definition.grantId).toBeNull();
     expect(api.revoked).toEqual(['grant-1']);
+  });
+
+  it('revokes authority and returns an interrupted Start to draft on restart', async () => {
+    const roomId = await draftRoom();
+    await store.updateRoom(roomId, (current) => ({
+      ...withRoomStatus(current, 'starting', host.now(), null),
+      definition: { ...current.definition, grantId: 'grant-1', historyGrantId: 'grant-1' },
+    }));
+
+    await coordinator.reconcileRooms({ resume: false });
+
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.status).toBe('draft');
+    expect(record?.definition.grantId).toBeNull();
+    expect(host.persistentSessions.revoked).toEqual(['grant-1']);
   });
 
   it('lets only one of two concurrent completions deliver', async () => {

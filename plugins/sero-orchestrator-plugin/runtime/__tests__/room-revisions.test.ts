@@ -65,7 +65,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'room-revisions-'));
   host = createFakeHost();
   store = createRoomStore(makeCtx());
-  deps = { host, store, mutate: applyRevisionToRoom };
+  deps = { host, store, mutate: applyRevisionToRoom, releaseMemberSession: async () => undefined };
   await store.updateState((state) => ({ ...state, rooms: [roomFixture(envelopeWith(), MEMBERS)] }));
 });
 
@@ -75,6 +75,41 @@ afterEach(async () => {
 });
 
 describe('deciding against the record that is written', () => {
+  it('closes a live member session before it reports a narrower configuration', async () => {
+    await store.updateMember(ROOM, 'scout', (member) => ({ ...member, status: 'idle', statusDetail: 'Ready.' }));
+    let statusAtRelease: string | null = null;
+    deps.releaseMemberSession = async (_roomId, memberId) => {
+      statusAtRelease = (await store.readMember(ROOM, memberId))?.status ?? null;
+    };
+
+    const result = await propose({
+      kind: 'change-configuration',
+      memberId: 'scout',
+      configuration: { tools: [] },
+    }, 'cmd-config');
+
+    expect(result.outcome).toBe('applied');
+    expect(statusAtRelease).toBe('suspended');
+    expect((await store.readMember(ROOM, 'scout'))?.configuration.tools).toEqual([]);
+    expect((await store.readMember(ROOM, 'scout'))?.status).toBe('idle');
+  });
+
+  it('does not apply a narrower configuration when the live session cannot close', async () => {
+    await store.updateMember(ROOM, 'scout', (member) => ({ ...member, status: 'idle', statusDetail: 'Ready.' }));
+    deps.releaseMemberSession = async () => { throw new Error('dispose failed'); };
+
+    const result = await propose({
+      kind: 'change-configuration',
+      memberId: 'scout',
+      configuration: { tools: [] },
+    }, 'cmd-config-failed');
+
+    expect(result.outcome).toBe('refused');
+    expect((await store.readMember(ROOM, 'scout'))?.configuration.tools).toEqual(['read', 'web_fetch']);
+    expect((await store.readMember(ROOM, 'scout'))?.status).toBe('idle');
+    expect(await revisionsOf()).toHaveLength(0);
+  });
+
   it('will not let a revision planned before a lowering put the limit back', async () => {
     // Both are proposed against a Room whose ceiling is still 20. The first
     // lowers it to 5; the second was a lowering when it was proposed and is a

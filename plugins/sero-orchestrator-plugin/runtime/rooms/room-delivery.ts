@@ -108,7 +108,12 @@ export async function resolveApprovalForUser(
   }
   // The real mutation hook: approving a revision applies it, so a stub here
   // would be the hollow success this path exists to avoid.
-  const deciding = { host: deps.host, store: deps.store, mutate: applyRevisionToRoom };
+  const deciding = {
+    host: deps.host,
+    store: deps.store,
+    mutate: applyRevisionToRoom,
+    releaseMemberSession: async () => undefined,
+  };
   return resolveRoomApproval(deciding, roomId, approvalId, decision);
 }
 

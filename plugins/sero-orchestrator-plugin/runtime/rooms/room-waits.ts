@@ -78,6 +78,19 @@ export function createWaitIndex(store: RoomStore): WaitIndex {
   async function find(record: RoomRecord, questionId: string): Promise<RoomMessage | null> {
     const index = indexOf(record.definition.id);
     if (!index.has(questionId)) await rescan(record);
+    if (!index.has(questionId)) {
+      let after = 0;
+      while (after < record.runtime.messageSequence) {
+        const messages = await store.readMessages(record.definition.id, after, QUESTION_SCAN);
+        if (messages.length === 0) break;
+        for (const message of messages) {
+          if (message.kind === 'question' && message.questionId === questionId) index.set(questionId, message);
+          if (message.inReplyToQuestionId === questionId) index.delete(questionId);
+          if (message.kind === 'cancel' && message.questionId === questionId) index.delete(questionId);
+        }
+        after = messages[messages.length - 1].sequence;
+      }
+    }
     return index.get(questionId) ?? null;
   }
 

@@ -26,6 +26,8 @@ import { Meter, Pill, StatusDot, type PillProps } from './room-kit';
 
 /** Room lifecycle → the pill's accent (prototype `.pill em` while running). */
 const STATUS_PILL_TONE: Record<RoomStatus, PillProps['tone']> = {
+  adjusting: 'neutral',
+  starting: 'brand',
   running: 'brand',
   completing: 'brand',
   pausing: 'warn',

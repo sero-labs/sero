@@ -76,6 +76,31 @@ describe('the user Room surface', () => {
     expect(outcome.error).toContain('revision');
   });
 
+  it('refuses an adjustment whose Room started during the model call', async () => {
+    const roomId = await draftRoom();
+    const record = await store.readRoom(roomId);
+    if (!record) throw new Error('no room');
+    let entered = (): void => undefined;
+    let finish = (): void => undefined;
+    const modelEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const modelGate = new Promise<void>((resolve) => { finish = resolve; });
+    host.runStructured = async () => {
+      entered();
+      await modelGate;
+      return { response: JSON.stringify(record.definition.blueprint) };
+    };
+
+    const adjustment = app.adjust(roomId, 'Keep the same team.');
+    await modelEntered;
+    const started = await coordinator.startRoom(roomId);
+    finish();
+    const adjusted = await adjustment;
+
+    expect(started.ok).toBe(true);
+    expect(adjusted.ok).toBe(false);
+    expect((await store.readRoom(roomId))?.definition.grantId).toBe('grant-1');
+  });
+
   it('tells the Room as the Room, and wakes who it reached', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

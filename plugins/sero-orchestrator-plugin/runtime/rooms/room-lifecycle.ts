@@ -28,7 +28,7 @@ import {
   withRoomStatus,
   type CreateRoomRequest,
 } from './room-actions';
-import type { RoomRecord, RoomState } from './room-state';
+import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
 import type { RoomWorkspaces } from './room-workspace';
 
@@ -90,7 +90,7 @@ export async function createRoom(ctx: RoomLifecycleContext, request: CreateRoomR
 export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
-  if (record.runtime.status !== 'draft' && record.runtime.status !== 'ready') {
+  if (record.runtime.status !== 'draft' && record.runtime.status !== 'ready' && record.runtime.status !== 'adjusting') {
     return fail(`This Room is "${record.runtime.status}", so it cannot be started.`);
   }
   const conductor = record.members.find((member) => member.isConductor);
@@ -106,6 +106,12 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     );
   }
 
+  const claim = await claimTransition(ctx, roomId, (current, status) =>
+    status === 'draft' || status === 'ready' || status === 'adjusting'
+      ? withRoomStatus(current, 'starting', ctx.host.now(), null)
+      : null).catch(() => ({ won: false, status: 'failed' as const }));
+  if (!claim.won) return fail(`This Room is "${claim.status}", so it cannot be started.`);
+
   // Placement comes FIRST. A grant subject is pinned to the directory its member
   // may work in, so an editing member with no worktree yet would either be
   // pinned to the shared tree — the exact reach a worktree exists to prevent —
@@ -115,12 +121,23 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     ctx.host.log(`room ${roomId}: workspace preparation failed: ${String(error)}`);
     return null;
   });
-  if (!placements) return fail('This Room could not prepare a workspace for its members, so it did not start.');
+  if (!placements) {
+    await claimTransition(ctx, roomId, (current, status) =>
+      status === 'starting' ? withRoomStatus(current, 'draft', ctx.host.now(), null) : null).catch(() => undefined);
+    return fail('This Room could not prepare a workspace for its members, so it did not start.');
+  }
+  if ((await ctx.store.readRoom(roomId))?.runtime.status !== 'starting') {
+    await ctx.workspaces.releaseRoom(roomId, 'Start was cancelled.');
+    return fail('This Room changed while it was starting, so Start was cancelled.');
+  }
 
   // Placement wrote `worktreePath` for each editing member, so the grant is
   // requested against the re-read record rather than the stale one.
   const placedRecord = await ctx.store.readRoom(roomId);
-  if (!placedRecord) return fail(`Room not found: ${roomId}`);
+  if (!placedRecord) {
+    await ctx.workspaces.releaseRoom(roomId, 'Start was cancelled.');
+    return fail(`Room not found: ${roomId}`);
+  }
 
   // The user can decline, and the host denies anything outside their authority.
   // Both arrive as a rejection, and both mean no session is ever created.
@@ -132,30 +149,39 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     ctx.host.log(`room ${roomId}: grant refused: ${requested.error}`);
     // The reason matters: "nobody answered" and "you said no" need different
     // things from the user, and a bare refusal tells them neither.
+    await claimTransition(ctx, roomId, (current, status) =>
+      status === 'starting' ? withRoomStatus(current, 'draft', ctx.host.now(), null) : null).catch(() => undefined);
+    await ctx.workspaces.releaseRoom(roomId, 'Start was refused.');
     return fail(`This Room was not allowed to start: ${requested.error ?? 'the request was refused.'}`);
   }
   const grant = requested.grant;
 
   const now = ctx.host.now();
-  await ctx.store.updateRoom(roomId, (current) =>
-    withRoomStatus(
-      {
-        ...current,
-        definition: { ...current.definition, grantId: grant.grantId, historyGrantId: grant.grantId },
-        // Idle, not starting: a member without a session yet holds no execution
-        // slot, and its session opens on its first turn.
-        members: current.members.map((member) => withMemberStatus(member, 'idle', 'Ready.')),
-      },
-      'ready',
-      now,
-      null,
-    ),
-  );
+  const installed = await claimTransition(ctx, roomId, (current, status) =>
+    status === 'starting'
+      ? {
+          ...current,
+          definition: { ...current.definition, grantId: grant.grantId, historyGrantId: grant.grantId, updatedAt: now },
+          members: current.members.map((member) => withMemberStatus(member, 'idle', 'Ready.')),
+        }
+      : null).catch(() => ({ won: false, status: 'failed' as const }));
+  if (!installed.won) {
+    await requirePersistentSessions(ctx.host).revokeGrant(grant.grantId);
+    await ctx.workspaces.releaseRoom(roomId, 'Start was cancelled.');
+    return fail('This Room changed while authority was being approved, so Start was cancelled.');
+  }
 
   const started = await startConductor(ctx, roomId, conductor);
   if (!started.ok) return started;
 
-  await ctx.store.appendTimeline(roomId, [timelineEvent(ctx.host, roomId, 'room-status', null, 'Room started.')]);
+  if ((await ctx.store.readRoom(roomId))?.runtime.status !== 'ready') {
+    return fail('This Room changed while it was starting, so Start was cancelled.');
+  }
+  const recorded = await ctx.store.appendTimeline(
+    roomId,
+    [timelineEvent(ctx.host, roomId, 'room-status', null, 'Room started.')],
+  ).then(() => true, () => false);
+  if (!recorded) return fail('This Room changed while it was starting, so Start was cancelled.');
   ctx.emit({ roomId, kind: 'room-status', memberId: null, detail: 'Room started.' });
   return ok(await reread(ctx, roomId, record));
 }
@@ -174,7 +200,14 @@ async function startConductor(
         (error: unknown) => ({ session: null, error: error instanceof Error ? error.message : String(error) }),
       )
     : { session: null, error: 'the Conductor is no longer on the roster' };
-  if (opened.session) return ok(record);
+  if (opened.session) {
+    const activated = await claimTransition(ctx, roomId, (current, status) =>
+      status === 'starting' ? withRoomStatus(current, 'ready', ctx.host.now(), null) : null)
+      .catch(() => ({ won: false, status: 'failed' as const }));
+    if (activated.won) return ok(await reread(ctx, roomId, record));
+    await ctx.sessions.release(roomId, conductor.id);
+    return fail('This Room changed while its Conductor was opening, so Start was cancelled.');
+  }
   ctx.host.log(`room ${roomId}: the Conductor's session failed: ${opened.error}`);
 
   // No fallback Conductor in the first release: the Room pauses for the user
@@ -190,14 +223,13 @@ async function startConductor(
   const memberDetail = opened.error
     ? `Its session could not be opened: ${opened.error}`
     : 'Its session could not be opened.';
-  await ctx.store.updateRoom(roomId, (current) =>
-    withRoomStatus(
-      withMember(current, conductor.id, (entry) => withMemberStatus(entry, 'failed', memberDetail)),
-      'paused',
-      now,
-      { kind: 'conductor-failed', detail, at: now },
-    ),
-  );
+  await claimTransition(ctx, roomId, (current, status) =>
+    status === 'starting'
+      ? withRoomStatus(
+          withMember(current, conductor.id, (entry) => withMemberStatus(entry, 'failed', memberDetail)),
+          'paused', now, { kind: 'conductor-failed', detail, at: now },
+        )
+      : null).catch(() => undefined);
   return fail(detail);
 }
 
@@ -426,34 +458,6 @@ export async function completeRoom(
   return ok(await reread(ctx, roomId, record));
 }
 
-/**
- * Cleanup a crash interrupted, finished on restart.
- *
- * A finished Room gives up its grant LAST, so one that is terminal and still
- * holds a grant stopped partway: its members' work may never have been
- * checkpointed and their sessions may still be authorised. The held grant is
- * the marker — no extra state is needed, because `releaseAuthority` clearing it
- * is what "cleanup finished" means.
- *
- * Safe to repeat: preservation commits whatever is uncommitted, and revocation
- * is idempotent.
- */
-export async function finishInterruptedCleanup(ctx: RoomLifecycleContext, state: RoomState): Promise<void> {
-  const stranded = state.rooms.filter(
-    (room) => TERMINAL_ROOM_STATUSES.includes(room.runtime.status) && room.definition.grantId,
-  );
-  for (const room of stranded) {
-    const roomId = room.definition.id;
-    const detail = room.runtime.stopReason?.detail ?? 'The Room finished.';
-    ctx.host.log(`room ${roomId}: finishing cleanup a restart interrupted.`);
-    await ctx.workspaces.preserveRoom(roomId, detail).catch((error: unknown) => {
-      ctx.host.log(`room ${roomId}: could not preserve member work during recovery: ${String(error)}`);
-      return [];
-    });
-    await releaseAuthority(ctx, roomId, detail);
-  }
-}
-
 /** Closes every session and gives up the grant. Only ever called for a Room that is finished. */
 export async function releaseAuthority(ctx: RoomLifecycleContext, roomId: string, detail: string): Promise<void> {
   const record = await ctx.store.readRoom(roomId);
@@ -475,8 +479,16 @@ export async function releaseAuthority(ctx: RoomLifecycleContext, roomId: string
 export async function deleteRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
-  ctx.abortTurns(roomId);
-  await releaseAuthority(ctx, roomId, 'Room deleted.');
+  if (!TERMINAL_ROOM_STATUSES.includes(record.runtime.status) && record.runtime.status !== 'draft') {
+    const cancelled = await cancelRoom(ctx, roomId, 'Room deleted.');
+    if (!cancelled.ok) return cancelled;
+  } else {
+    ctx.abortTurns(roomId);
+    await releaseAuthority(ctx, roomId, 'Room deleted.');
+  }
+  if (record.definition.historyGrantId) {
+    await requirePersistentSessions(ctx.host).deleteGrant(record.definition.historyGrantId);
+  }
   await ctx.store.deleteRoom(roomId);
   return ok();
 }

@@ -107,6 +107,7 @@ export function createRoomRuntime(
           host,
           store,
           mutate: applyRevisionToRoom,
+          releaseMemberSession: (roomId, memberId) => sessions.release(roomId, memberId),
           // A system message, not a peer message: the Room is telling a member
           // what changed, and nothing about it can be answered or argued with.
           notify: async (roomId, memberIds, summary) => {

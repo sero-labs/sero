@@ -45,7 +45,6 @@ import {
   completeRoom,
   createRoom,
   deleteRoom,
-  finishInterruptedCleanup,
   pauseRoom,
   resumeRoom,
   settlePause,
@@ -54,6 +53,7 @@ import {
   type RoomActionResult,
   type RoomCoordinatorEvent,
 } from './room-lifecycle';
+import { finishInterruptedCleanup } from './room-lifecycle-recovery';
 import { reconcileAllRooms } from './room-reconcile';
 import { scheduleRoomTurns, type ReadySignal, type WakeReason } from './room-scheduler';
 import { RoomSignalBook, quietMark } from './room-signals';

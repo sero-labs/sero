@@ -111,6 +111,8 @@ export interface GrantStoreDeps {
   removeSessionFile?(sessionPath: string): void;
   /** Session files currently in a grant's directory. Injected for tests. */
   listSessionFiles?(sessionDir: string): string[];
+  /** Removes a revoked grant's complete session directory. */
+  removeSessionDir?(sessionDir: string): void;
 }
 
 export class GrantStore {
@@ -417,6 +419,18 @@ export class GrantStore {
       grant.revokedAt = this.deps.now();
       await this.deps.persistence.write(this.grants);
       return grant;
+    });
+  }
+
+  /** Deletes only revoked authority. Revocation must be durable before retention cleanup. */
+  async deleteRevoked(grantId: string): Promise<void> {
+    await this.serialize(async () => {
+      const grant = this.grants[grantId];
+      if (!grant) return;
+      if (grant.status !== 'revoked') throw new Error(`grant ${grantId} must be revoked before deletion`);
+      (this.deps.removeSessionDir ?? ((target: string) => rmSync(target, { recursive: true, force: true })))(grant.sessionDir);
+      delete this.grants[grantId];
+      await this.deps.persistence.write(this.grants);
     });
   }
 

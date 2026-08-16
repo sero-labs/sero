@@ -38,6 +38,7 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   requests: PersistentSessionRequest[];
   prompts: { handleId: string; content: ExtensionRuntimeContent }[];
   revoked: string[];
+  deleted: string[];
   aborted: string[];
   compacted: string[];
   /** Handle ids passed to `dispose`, in order. */
@@ -91,6 +92,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     requests: [],
     prompts: [],
     revoked: [],
+    deleted: [],
     aborted: [],
     compacted: [],
     disposed: [],
@@ -118,6 +120,11 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
 
     async revokeGrant(grantId) {
       api.revoked.push(grantId);
+    },
+
+    async deleteGrant(grantId) {
+      await api.revokeGrant(grantId);
+      api.deleted.push(grantId);
     },
 
     async create(request): Promise<PersistentSessionHandle> {

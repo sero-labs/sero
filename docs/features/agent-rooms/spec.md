@@ -99,6 +99,9 @@ Code computes:
 The LLM can write role one-liners, the approach summary and Why this team? rationale. It cannot write or override the authority summary that the user approves.
 
 Sero validates a revised blueprint and recomputes the proposal after every natural-language adjustment.
+An adjustment holds a durable planning claim. Start or Delete invalidates that
+claim, and the completed model plan is refused instead of replacing newer Room
+state.
 
 ### 2.9 Existing Pi machinery, new host authority boundary
 
@@ -536,6 +539,9 @@ The mutable mandate contains its current role, responsibilities, task, prioritie
 A mandate changes instructions only. It cannot add a model, tool, skill, permission, workspace or delivery capability.
 
 Capability changes travel only through a validated Room configuration revision and the host authority boundary.
+Removing a tool or skill first makes the member unschedulable and closes its
+live session. The revision is recorded as applied only after the narrower
+configuration is durable. The next turn reopens the session with that setup.
 
 A fundamental identity or base-prompt change creates a replacement member session. The old member produces or receives a handover summary and becomes retired. History is retained.
 
@@ -559,9 +565,9 @@ SessionManager.inMemory is not allowed for active Room members.
 
 ### 14.2 Session namespace
 
-Room sessions are stored in a Room-specific namespace under the normal Sero session root, for example:
+Room sessions are stored in a host-owned grant namespace under the normal Sero session root, for example:
 
-    <SERO_SESSION_DIR>/rooms/<roomId>/
+    <SERO_SESSION_DIR>/<appId>/<grantId>/
 
 This keeps Room members out of the normal chat history by default while retaining standard Pi storage and tooling.
 
@@ -608,6 +614,11 @@ The Orchestrator sends a session request. It does not construct a session direct
 - tool and skill selection;
 - permission profile; and
 - resource-loading policy.
+
+Permission profiles fail closed. A read-only profile receives only named read
+tools and the Room protocol tool. It never receives an unrestricted shell, and
+an unknown tool is denied. Blueprint validation also refuses command tools on
+a read-only member.
 
 A grant is issued from a host-stored approval, never from the plugin's request. The plugin submits a proposal; the host clamps it to current user authority and the workspace catalogue, presents the clamped set for approval, and stores exactly what was approved. The consent summary the user approves and the grant the host stores are projections of the same clamped set.
 
@@ -790,6 +801,10 @@ The normal wait flow is:
 7. A new turn starts in the same session with the reply and current Room context.
 
 Reply persistence emits an immediate coordinator event. The normal wait and wake path does not poll for the next scheduler tick.
+
+The waiting question ID is durable authority for lookup. A bounded tail scan is
+only an optimisation. After restart, lookup continues through retained message
+pages until it finds the named question or proof that it was settled.
 
 Wait-cycle detection is required. It notifies the Conductor when members form a dependency cycle or when no member can make progress. Continued deadlock pauses the Room for the user.
 
@@ -1338,8 +1353,8 @@ Architecture decisions AD-028 and AD-029 are recorded in
 
 ### 34.3 Sessions and usage
 
-- **D-11** Room sessions live at
-  `<SERO_SESSION_DIR>/rooms/<roomId>/<memberId>.jsonl`.
+- **D-11** Room sessions live in the host-owned
+  `<SERO_SESSION_DIR>/<appId>/<grantId>/` directory. Pi names each session file.
 - **D-12** Archiving keeps session files. Deleting a Room revokes the grant,
   then removes both the session and state directories. A retired member keeps
   its session file for the Room's lifetime.

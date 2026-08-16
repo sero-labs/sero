@@ -77,6 +77,8 @@ export const STEP_STATUS_STYLE: Record<StepStatus, StatusStyle> = {
  */
 export const ROOM_STATUS_STYLE: Record<RoomStatus, StatusStyle> = {
   draft: { label: 'Draft', dot: 'bg-muted-foreground/50', badge: 'border-border text-muted-foreground', tint: '' },
+  adjusting: { label: 'Adjusting', dot: 'bg-amber-500/70', badge: 'border-amber-500/40 text-amber-400', tint: '' },
+  starting: { label: 'Starting', dot: 'bg-emerald-500/70', badge: 'border-emerald-500/40 text-emerald-400', tint: '' },
   ready: { label: 'Ready', dot: 'bg-sky-500/70', badge: 'border-sky-500/40 text-sky-400', tint: '' },
   running: { label: 'Running', dot: 'bg-emerald-500', badge: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400', tint: '' },
   pausing: { label: 'Pausing', dot: 'bg-amber-500/70', badge: 'border-amber-500/40 bg-amber-500/10 text-amber-400', tint: '' },

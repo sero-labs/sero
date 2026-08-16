@@ -178,6 +178,8 @@ export const ORCHESTRATOR_ROOM_INDEX_FILE = '.sero/apps/orchestrator/rooms/index
 
 export type OrchestratorRoomStatus =
   | 'draft'
+  | 'adjusting'
+  | 'starting'
   | 'ready'
   | 'running'
   | 'pausing'

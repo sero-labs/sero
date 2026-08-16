@@ -511,9 +511,9 @@ plugin lifecycle hook.
 
 ## 6. Session namespace and retention
 
-Room sessions use the normal Sero session root with a Room namespace:
+Room sessions use the normal Sero session root with a host-owned grant namespace:
 
-    <SERO_SESSION_DIR>/rooms/<roomId>/<memberId>.jsonl
+    <SERO_SESSION_DIR>/<appId>/<grantId>/<pi-session>.jsonl
 
 where `SERO_SESSION_DIR` is `<SERO_AGENT_DIR>/sessions`. This keeps Room
 members out of normal chat history — which lists the session root's own files —
@@ -524,10 +524,10 @@ The member record stores the session ID, file path, directory, workspace ID,
 current configuration revision, and last open and close times. It never stores
 the transcript.
 
-**Retention.** Archiving a Room keeps its session files. Deleting a Room
-deletes `rooms/<roomId>/` in both the session root and the Orchestrator state
-directory, after revoking the grant. A retired member keeps its session file for
-the Room's lifetime, so its history stays inspectable.
+**Retention.** Archiving a Room keeps its session files. Deleting a Room removes
+the host-owned grant directory and grant record, plus the Room's Orchestrator
+state directory, after durable revocation. A retired member keeps its session
+file for the Room's lifetime, so its history stays inspectable.
 
 ## 7. Deterministic consent summary
 

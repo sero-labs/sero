@@ -256,6 +256,20 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         };
       }
 
+      const claimed = await store.transact(roomId, null, (current) => {
+        const canAdjust = PLANNABLE.includes(current.runtime.status)
+          && current.definition.updatedAt === record.definition.updatedAt;
+        return {
+          record: canAdjust
+            ? { ...current, runtime: { ...current.runtime, status: 'adjusting' as const } }
+            : null,
+          result: canAdjust,
+        };
+      }).catch(() => null);
+      if (!claimed || claimed.duplicate || !claimed.result) {
+        return { ok: false, error: 'This Room changed before the adjustment started. Make a new plan from its current state.' };
+      }
+
       const outcome = await adjustRoom(host, {
         blueprint: record.definition.blueprint,
         instruction: asked,
@@ -264,7 +278,15 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         // it and never above it, whatever the instruction asks for.
         envelope: record.definition.envelope,
       });
-      if (!outcome.ok) return { ok: false, error: outcome.errors.join('; ') };
+      if (!outcome.ok) {
+        await store.transact(roomId, null, (current) => ({
+          record: current.runtime.status === 'adjusting'
+            ? { ...current, runtime: { ...current.runtime, status: record.runtime.status } }
+            : null,
+          result: null,
+        })).catch(() => undefined);
+        return { ok: false, error: outcome.errors.join('; ') };
+      }
 
       // A draft holds no runtime state — no messages, no work, no usage — so the
       // record is rebuilt from the new blueprint through the same function that
@@ -279,10 +301,18 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         originSessionId: record.delivery.originSessionId,
         deliveryParams: record.delivery.params,
       });
-      await store.updateRoom(roomId, (current) => ({
-        ...rebuilt,
-        definition: { ...rebuilt.definition, createdAt: current.definition.createdAt },
-      }));
+      const committed = await store.transact(roomId, null, (current) => ({
+        record: current.runtime.status === 'adjusting'
+          ? {
+              ...rebuilt,
+              definition: { ...rebuilt.definition, createdAt: current.definition.createdAt },
+            }
+          : null,
+        result: current.runtime.status === 'adjusting',
+      })).catch(() => null);
+      if (!committed || committed.duplicate || !committed.result) {
+        return { ok: false, error: 'This Room changed while the adjustment was planned. Make a new plan from its current state.' };
+      }
       return { ok: true, roomId, proposal: outcome.proposal, clamps: outcome.clamps };
     },
 

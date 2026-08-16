@@ -84,6 +84,16 @@ describe('validateRoomBlueprint', () => {
     expect(validateRoomBlueprint(blueprint(), catalogue)).toEqual({ ok: true });
   });
 
+  it('rejects an unrestricted command tool on a read-only member', () => {
+    const result = validateRoomBlueprint(
+      blueprint({ members: [member({ tools: ['read', 'bash', 'sero-cli'] })] }),
+      catalogue,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: 'read-only-command' }));
+  });
+
   it('rejects two conductors, duplicate keys and an over-cap roster', () => {
     const result = validateRoomBlueprint(
       blueprint({ members: [member({}), member({}), member({ key: 'a', isConductor: false }), member({ key: 'b', isConductor: false }), member({ key: 'c', isConductor: false })] }),

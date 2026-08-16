@@ -31,6 +31,8 @@ import type {
 
 export type RoomStatus =
   | 'draft'
+  | 'adjusting'
+  | 'starting'
   | 'ready'
   | 'running'
   | 'pausing'

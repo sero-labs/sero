@@ -86,9 +86,10 @@ async function makeRoom(): Promise<void> {
   };
   const work = createRoomWork({ host, store });
   const claims = createRoomClaims({ host, store });
+  const sessions = createMemberSessionPool({ host, store });
   coordinator = new RoomCoordinator(host, {
     store,
-    sessions: createMemberSessionPool({ host, store }),
+    sessions,
     briefSources: (id) => work.briefSources(id),
   });
   const created = await coordinator.createRoom({
@@ -121,7 +122,9 @@ async function makeRoom(): Promise<void> {
     claims,
     work,
     applyRevision: (input) =>
-      applyRoomRevision({ host, store, mutate: applyRevisionToRoom }, input),
+      applyRoomRevision({
+        host, store, mutate: applyRevisionToRoom, releaseMemberSession: (id, memberId) => sessions.release(id, memberId),
+      }, input),
     workspaces: createRoomWorkspaces({ host, store }),
     requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
     completeRoom: (id, summary, receipt) => coordinator.completeRoom(id, summary, receipt),

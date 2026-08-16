@@ -13,6 +13,8 @@ import { Pill, StatusDot, type MemberStatus } from './room-kit';
 
 /** Room lifecycle → the dot vocabulary the kit draws. */
 export const ROOM_DOT: Record<RoomStatus, MemberStatus> = {
+  adjusting: 'waiting',
+  starting: 'working',
   running: 'working',
   pausing: 'waiting',
   paused: 'waiting',

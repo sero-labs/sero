@@ -79,9 +79,10 @@ async function roomFromChat(): Promise<void> {
 
   const work = createRoomWork({ host, store });
   const claims = createRoomClaims({ host, store });
+  const sessions = createMemberSessionPool({ host, store });
   coordinator = new RoomCoordinator(host, {
     store,
-    sessions: createMemberSessionPool({ host, store }),
+    sessions,
     briefSources: (id) => work.briefSources(id),
   });
   const created = await coordinator.createRoom({
@@ -100,7 +101,9 @@ async function roomFromChat(): Promise<void> {
     mailbox: coordinator.mailbox,
     claims,
     work,
-    applyRevision: (input) => applyRoomRevision({ host, store, mutate: applyRevisionToRoom }, input),
+    applyRevision: (input) => applyRoomRevision({
+      host, store, mutate: applyRevisionToRoom, releaseMemberSession: (roomId, memberId) => sessions.release(roomId, memberId),
+    }, input),
     workspaces: createRoomWorkspaces({ host, store }),
     requestDeliveryApproval: (request) => requestDeliveryApproval({ host, store }, request),
     completeRoom: (id, summary, receipt) => coordinator.completeRoom(id, summary, receipt),
