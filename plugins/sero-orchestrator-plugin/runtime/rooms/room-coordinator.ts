@@ -48,6 +48,7 @@ import {
   pauseRoom,
   resumeRoom,
   settlePause,
+  settlePendingPause,
   startRoom,
   type RoomActionResult,
   type RoomCoordinatorEvent,
@@ -394,10 +395,7 @@ export class RoomCoordinator {
         openApp: true,
       });
     }
-    if (record.runtime.status === 'pausing' && !this.hasTurnsInFlight(roomId)) {
-      const stopReason = record.runtime.stopReason ?? { kind: 'user-paused' as const, detail: 'Paused.', at: now };
-      await settlePause(this.ctx, record, stopReason, now);
-    }
+    await settlePendingPause(this.ctx, roomId, now);
   }
 
   /**

@@ -140,7 +140,10 @@ export function withRoomStatus(
   now: string,
   stopReason: RoomStopReason | null = record.runtime.stopReason,
 ): RoomRecord {
-  const ended = status === 'completed' || status === 'failed' || status === 'cancelled';
+  // `completing` counts as ended: the Room stopped working when completion
+  // began, and delivery reads the duration while the Room is still in that
+  // state. Written once — the `??` below keeps the first stamp.
+  const ended = status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'completing';
   return {
     ...record,
     definition: { ...record.definition, updatedAt: now },

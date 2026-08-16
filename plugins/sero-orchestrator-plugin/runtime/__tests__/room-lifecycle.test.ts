@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BlueprintMember, OperatingEnvelope } from '../../shared/room-blueprint-types';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
 import type { RoomStore } from '../rooms/room-store';
+import { withRoomStatus } from '../rooms/room-actions';
 import type { FakeHost } from './fake-host';
 import {
   MEMBERS,
@@ -183,6 +184,97 @@ describe('stopping a Room', () => {
     expect(cancelled.ok).toBe(false);
     expect(paused.ok).toBe(false);
     expect((await store.readRoom(roomId))?.runtime.status).toBe('completed');
+  });
+
+  it('stays "completing" until the result is out and the grant is gone', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // Revocation is the last thing completion does before it clears the marker,
+    // and it runs after delivery. Marking the Room `completed` any earlier would
+    // make a crash in here indistinguishable from a Room that finished cleanly,
+    // and recovery would never know the result had not gone out.
+    const api = host.persistentSessions;
+    let statusAtRevoke: string | null = null;
+    const revokeGrant = api.revokeGrant.bind(api);
+    api.revokeGrant = async (grantId: string) => {
+      statusAtRevoke ??= (await store.readRoom(roomId))?.runtime.status ?? null;
+      return revokeGrant(grantId);
+    };
+
+    await coordinator.completeRoom(roomId, 'Done.');
+    api.revokeGrant = revokeGrant;
+
+    expect(statusAtRevoke).toBe('completing');
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.status).toBe('completed');
+    // The marker is only cleared once the grant has gone too.
+    expect(record?.definition.grantId).toBeNull();
+    expect(host.persistentSessions.revoked).toEqual(['grant-1']);
+    // Ending the work is what stamps the clock, not clearing the marker.
+    expect(record?.runtime.endedAt).not.toBeNull();
+  });
+
+  it('does not abort or checkpoint when the cancel loses the race', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    // A turn is left running, so there is something for a losing cancel to
+    // wrongly abort. Without one the test could not tell the two orders apart.
+    api.mode = 'manual';
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
+
+    // A completion that has claimed the Room and is still finishing — the state
+    // a cancel can actually lose to while the Room is still live.
+    await store.updateRoom(roomId, (current) => withRoomStatus(current, 'completing', host.now(), null));
+
+    const abortedBefore = [...api.aborted];
+    const checkpointsBefore = host.checkpoints.length;
+
+    // A refused cancel must be a no-op. Aborting turns and running a second
+    // checkpoint pass across the same worktrees would interrupt the completion
+    // that won and race its own preservation.
+    const cancelled = await coordinator.cancelRoom(roomId);
+
+    expect(cancelled.ok).toBe(false);
+    expect(api.aborted).toEqual(abortedBefore);
+    expect(host.checkpoints).toHaveLength(checkpointsBefore);
+  });
+
+  it('settles a pause even when the turn that ended read a stale Room', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
+
+    // The pause lands while the turn is still running, so it records `pausing`
+    // and waits for that turn to settle it.
+    await coordinator.pauseRoom(roomId);
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('pausing');
+
+    // The record the ending turn will read: the Room as it was BEFORE the pause.
+    // Deciding the settle on this, the turn sees `running`, does nothing, and
+    // the Room is left in `pausing` with nothing left to move it.
+    const live = await store.readRoom(roomId);
+    if (!live) throw new Error('no room');
+    const stale = { ...live, runtime: { ...live.runtime, status: 'running' as const } };
+    const readRoom = store.readRoom.bind(store);
+    let served = false;
+    store.readRoom = async (id: string) => {
+      if (id === roomId && !served) {
+        served = true;
+        return stale;
+      }
+      return readRoom(id);
+    };
+
+    api.endTurn('lead');
+    await waitFor(async () => (await readRoom(roomId))?.runtime.status === 'paused', 'the pause to settle');
+    store.readRoom = readRoom;
+
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
   });
 
   it('lets only one of two concurrent completions deliver', async () => {

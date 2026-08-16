@@ -26,7 +26,12 @@ The deterministic runtime suite covers:
 - lifecycle races: a completion that read the Room before a cancel landed, a
   cancel or pause arriving after the Room finished, and two completions at
   once. A finished Room keeps the ending it reached, and only one caller
-  delivers;
+  delivers. A refused cancel stops before it aborts turns or checkpoints work;
+- the Room stays `completing` until the result is delivered, work is preserved
+  and the grant is revoked, so a crash during any of that is recoverable rather
+  than looking like a clean finish;
+- a pause that lands as the last turn ends still settles, instead of leaving
+  the Room stuck in `pausing` until a restart;
 - two members claiming the same path at once under the blocking policy, and one
   member's concurrent claims against its own cap;
 - a member session that finishes building after its grant was revoked. The

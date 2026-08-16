@@ -703,6 +703,13 @@ Room states are:
 - failed; and
 - cancelled.
 
+A Room enters `completing` when its work ends and stays there until the result
+is delivered, uncommitted work is preserved and the grant is revoked. Only then
+does it become `completed`. Holding the state across all of that is what lets
+recovery tell an interrupted delivery from a clean finish, so a result is never
+sent twice and never silently dropped. `completing` also claims the ending: a
+cancel, a pause or a second completion is refused while it is held.
+
 Member states are:
 
 - starting;

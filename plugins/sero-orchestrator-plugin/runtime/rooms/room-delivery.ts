@@ -454,7 +454,9 @@ export function formatRoomResult(record: RoomRecord, finalResult: string, proble
 
 function completionState(record: RoomRecord): string {
   const { status, stopReason } = record.runtime;
-  if (status === 'completed') return 'finished';
+  // Delivery runs while the Room is still `completing` — that is what keeps the
+  // crash marker up until the result is out — and to the reader it has finished.
+  if (status === 'completed' || status === 'completing') return 'finished';
   return stopReason ? `stopped — ${stopReason.detail}` : `stopped (${status})`;
 }
 
