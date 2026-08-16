@@ -288,8 +288,8 @@ test.beforeAll(async () => {
   ({ app, page } = await launchSeroApp({
     seroHome,
     runtime: 'host',
-    // The rollout gate. Without it the runtime refuses every Room action.
-    env: { SERO_ROOMS: '1', ...(REAL_HOME ? {} : getLlmLaunchEnv()) },
+    // Rooms are enabled by default. This launch only supplies the model test environment.
+    env: { ...(REAL_HOME ? {} : getLlmLaunchEnv()) },
   }));
 
   // What the app itself said, kept beside the screenshots. A Room that refuses

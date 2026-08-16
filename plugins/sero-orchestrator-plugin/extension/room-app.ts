@@ -312,7 +312,7 @@ export async function executeRoomAppTool(
   if (!ctx?.cwd) return failure('No workspace context (cwd) available for this invocation.');
   const app = resolveApp(ctx.cwd);
   if (!app) {
-    return failure('Room mode is not running for this workspace. It is switched on with SERO_ROOMS=1.');
+    return failure('Room mode is not available for this workspace. Check that this Sero build supports persistent agent sessions.');
   }
   return run(app, params, originSessionId);
 }

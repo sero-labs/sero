@@ -1,9 +1,8 @@
 /**
  * The Room rollout gate (phase 6).
  *
- * Room mode ships dark, so the property under test is not that the flag parses
- * but that a switched-off Sero builds NOTHING: no store, no coordinator, no
- * tick — the host capability is not even looked at.
+ * Room mode is on by default. Its emergency kill switch still builds NOTHING:
+ * no store, no coordinator, and no tick. The host capability is not even read.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -36,25 +35,26 @@ afterEach(() => {
 });
 
 describe('the Room rollout gate', () => {
-  it('builds nothing while it is off', () => {
+  it('builds nothing when the kill switch is set', () => {
+    process.env.SERO_ROOMS = '0';
     const { ctx, capabilityReads } = watchedCtx();
     expect(createRoomRuntime(ctx, noHost)).toBeNull();
     expect(capabilityReads()).toBe(0);
   });
 
-  it('reaches the capability check once it is on', () => {
-    process.env.SERO_ROOMS = '1';
+  it('reaches the capability check by default', () => {
     const { ctx, capabilityReads } = watchedCtx();
-    // Still null here — this host has no persistent sessions — but the gate let
-    // it through, which is what separates "switched off" from "unsupported".
+    // Still null here because this host has no persistent-session capability.
     expect(createRoomRuntime(ctx, noHost)).toBeNull();
     expect(capabilityReads()).toBe(1);
   });
 
-  it('takes 1 or true, and nothing else', () => {
+  it('accepts explicit on values and only disables on 0 or false', () => {
     expect(roomModeEnabled({ SERO_ROOMS: '1' })).toBe(true);
     expect(roomModeEnabled({ SERO_ROOMS: ' True ' })).toBe(true);
     expect(roomModeEnabled({ SERO_ROOMS: '0' })).toBe(false);
-    expect(roomModeEnabled({})).toBe(false);
+    expect(roomModeEnabled({ SERO_ROOMS: ' false ' })).toBe(false);
+    expect(roomModeEnabled({ SERO_ROOMS: 'preview' })).toBe(true);
+    expect(roomModeEnabled({})).toBe(true);
   });
 });

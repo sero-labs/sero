@@ -34,10 +34,8 @@ import type { OrchestratorHost } from '../host';
  * the user approved. Network does not — see `permissionProfileFor`.
  */
 const PERMISSION_PROFILES: Record<MemberPermissionLevel, PersistentSessionPermissionProfile> = {
-  // A reviewer has to read the tree and inspect history to say anything useful,
-  // so it reads files, runs read-only commands and reads VCS. It cannot write a
-  // file, run an arbitrary command or commit — the three ways a "review" quietly
-  // becomes a change.
+  // A reviewer reads files and VCS through approved read tools. It receives no
+  // shell tool, cannot write a file, and cannot commit.
   'read-only': { filesystem: 'read', commands: 'readOnly', network: 'none', vcs: 'read' },
   // An implementer edits files and commits in its own working copy. Push stays
   // out: publishing work to a remote is the step the access map warns about, and

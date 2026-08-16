@@ -77,7 +77,7 @@ describe('the rooms tool', () => {
   it('says so when Room mode is not running here', async () => {
     const result = await executeRoomAppTool({ action: 'start', roomId: 'room-1' }, ctx, () => undefined, notAMember);
     expect(result.details.ok).toBe(false);
-    expect(result.text).toContain('SERO_ROOMS=1');
+    expect(result.text).toContain('persistent agent sessions');
   });
 
   it('carries the user limits into the plan, with minutes as milliseconds', async () => {

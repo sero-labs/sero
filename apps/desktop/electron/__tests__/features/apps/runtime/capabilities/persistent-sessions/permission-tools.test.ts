@@ -49,6 +49,20 @@ describe('persistent-session permission tools', () => {
     expect(result).toEqual({ allowed: ['read', 'bash', 'write'], removed: [] });
   });
 
+  it('keeps the Git plugin tool only for a profile with push authority', () => {
+    const readOnly = applyPermissionProfile(
+      ['git_manager'],
+      { filesystem: 'read', commands: 'readOnly', network: 'none', vcs: 'read' },
+    );
+    const editing = applyPermissionProfile(
+      ['git_manager'],
+      { filesystem: 'write', commands: 'all', network: 'none', vcs: 'push' },
+    );
+
+    expect(readOnly).toEqual({ allowed: [], removed: ['git_manager'] });
+    expect(editing).toEqual({ allowed: ['git_manager'], removed: [] });
+  });
+
   it('describes command authority only when the approved tools can run commands', () => {
     const readOnly = describeGrantAuthority(grant(
       ['read', 'sero-cli'],

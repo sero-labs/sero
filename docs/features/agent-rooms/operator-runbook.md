@@ -2,9 +2,9 @@
 
 ## Enable or disable Room mode
 
-Set `SERO_ROOMS=1` before Sero starts to enable Room mode. Remove the variable
-or set it to `0` to disable it. When disabled, Sero creates no coordinator,
-scheduler tick, or new Room state. Existing Room files stay on disk.
+Room mode is enabled by default. Set `SERO_ROOMS=0` or `false` before Sero
+starts to disable it. When disabled, Sero creates no coordinator, scheduler
+tick, or new Room state. Existing Room files stay on disk.
 
 ## Diagnose a Room
 
@@ -33,8 +33,6 @@ message bodies, credentials, or approval content.
 
 ## Roll back
 
-Disable `SERO_ROOMS` and restart Sero. This stops Room execution without
-changing Workflow behavior or deleting Room data. Export or back up the
-profile's `rooms/` data and Room member session files before destructive
-maintenance.
-
+Set `SERO_ROOMS=0` and restart Sero. This stops Room execution without changing
+Workflow behavior or deleting Room data. Export or back up the profile's
+`rooms/` data and Room member session files before destructive maintenance.

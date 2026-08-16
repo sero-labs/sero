@@ -1132,13 +1132,15 @@ Room member cost must not appear as an unexplained ordinary chat. Usage grouping
 
 ## 28. Legacy engine replacement
 
-CollaborationEngine and DebateEngine remain available while Room mode is behind a feature flag.
+The acceptance gate passed. CollaborationEngine and DebateEngine, their entry
+points, and their orphaned state and UI are removed. Room mode is enabled by
+default and keeps `SERO_ROOMS=0` as an emergency kill switch.
 
 Room mode is proven through real Room scenarios. Sero does not build a large dual-runtime parity or compatibility framework.
 
-After the acceptance gate:
+The completed replacement:
 
-- existing collaboration entry points move to Room creation;
+- removes the fixed collaboration and debate entry points; Rooms start from the Orchestrator UI;
 - optional presets can preserve useful collaboration or adversarial intent;
 - release notes explain the change;
 - old engine code, IPC, stores and UI are removed; and

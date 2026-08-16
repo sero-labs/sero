@@ -65,7 +65,7 @@ export async function clampAndApprove(
   const authority = describeGrantAuthority(clamped);
   const memberCount = Object.keys(clamped.subjects).length;
   const droppedNote = notes.length > 0
-    ? `\n\nNot available here, so removed: ${notes.map((note) => note.dropped.join(', ')).join('; ')}`
+    ? `\n\nNot available under this approval, so removed: ${notes.map((note) => note.dropped.join(', ')).join('; ')}`
     : '';
 
   const choice = await requestChoice({

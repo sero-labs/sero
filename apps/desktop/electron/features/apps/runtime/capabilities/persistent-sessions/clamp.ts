@@ -20,6 +20,7 @@ import type {
   PersistentSessionPermissionProfile,
   PersistentSessionSubjectPolicy,
 } from '@sero-ai/common';
+import { applyPermissionProfile } from './permission-tools';
 
 /** Host maxima. A caller may ask for less; it can never obtain more. */
 export const PERSISTENT_SESSION_CAPS = {
@@ -117,8 +118,14 @@ function clampSubject(
   const models = keepKnown(policy.allowedModels, inputs.availableModels);
   if (models.dropped.length > 0) notes.push({ subject, field: 'allowedModels', dropped: models.dropped });
 
-  const tools = keepKnown(policy.allowedTools, inputs.availableTools);
-  if (tools.dropped.length > 0) notes.push({ subject, field: 'allowedTools', dropped: tools.dropped });
+  const permissionProfile = capProfile(policy.permissionProfile, inputs.permissionCeiling);
+  const knownTools = keepKnown(policy.allowedTools, inputs.availableTools);
+  if (knownTools.dropped.length > 0) notes.push({ subject, field: 'allowedTools', dropped: knownTools.dropped });
+
+  // Apply the same profile filter before approval that session construction
+  // applies at runtime. Approval and execution must describe one tool set.
+  const tools = applyPermissionProfile(knownTools.kept, permissionProfile);
+  if (tools.removed.length > 0) notes.push({ subject, field: 'allowedTools', dropped: tools.removed });
 
   const skills = keepKnown(policy.allowedSkills, inputs.availableSkills);
   if (skills.dropped.length > 0) notes.push({ subject, field: 'allowedSkills', dropped: skills.dropped });
@@ -129,10 +136,10 @@ function clampSubject(
   return {
     allowedCwds: cwds,
     allowedModels: models.kept,
-    allowedTools: tools.kept,
+    allowedTools: tools.allowed,
     allowedSkills: skills.kept,
     allowedThinkingLevels: thinking.kept,
-    permissionProfile: capProfile(policy.permissionProfile, inputs.permissionCeiling),
+    permissionProfile,
     maxSystemPromptAdditionBytes: Math.min(
       Math.max(0, policy.maxSystemPromptAdditionBytes),
       PERSISTENT_SESSION_CAPS.maxSystemPromptAdditionBytes,

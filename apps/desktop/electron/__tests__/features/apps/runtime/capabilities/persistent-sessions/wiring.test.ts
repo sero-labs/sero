@@ -26,7 +26,13 @@ vi.mock('@electron/features/workspace/manager', () => ({
 
 vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
   warmSubagentToolCatalog: async () => undefined,
-  getSubagentToolCatalog: () => [{ name: 'read' }],
+  getSubagentToolCatalog: () => [
+    { name: 'read' },
+    { name: 'bash' },
+    { name: 'gh' },
+    { name: 'git_manager' },
+    { name: 'sero-cli' },
+  ],
 }));
 
 vi.mock('@electron/ipc/agent/handlers/subagent-context', () => ({
@@ -90,5 +96,23 @@ describe('persistent session wiring', () => {
     expect(fakes.choices[0].body).toContain('Read and edit files in this workspace');
     expect(fakes.choices[0].body).toContain('Run commands');
     expect(fakes.choices[0].body).toContain('normal-disabled');
+  });
+
+  it('removes tools the approved permission profile cannot provide', async () => {
+    const proposal = skillBearingProposal();
+    proposal.subjects.implementer.allowedTools = ['read', 'bash', 'gh', 'git_manager', 'sero-cli'];
+    proposal.subjects.implementer.permissionProfile = {
+      filesystem: 'read',
+      commands: 'readOnly',
+      network: 'none',
+      vcs: 'read',
+    };
+
+    const decision = await clampAndApprove('ws-1', proposal);
+
+    expect(decision?.approved.subjects.implementer.allowedTools).toEqual(['read', 'sero-cli']);
+    expect(fakes.choices[0].body).toContain('Tools: read, sero-cli');
+    expect(fakes.choices[0].body).not.toContain('Run commands');
+    expect(fakes.choices[0].body).toContain('Not available under this approval, so removed: bash, gh, git_manager');
   });
 });

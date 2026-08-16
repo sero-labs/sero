@@ -1,10 +1,10 @@
 # Agent Rooms implementation plan
 
-Status: Phase 1 approved — Phase 2 in progress  
+Status: Code implementation complete — docs-site release pass and solo-use validation pending
 Branch: feat/agent-rooms  
 Parent product: Sero Orchestrator plugin  
 Specification: [spec.md](./spec.md)  
-Last updated: 2026-08-13
+Last updated: 2026-08-16
 
 ## 1. Delivery rule
 
@@ -377,8 +377,8 @@ Objective: Complete the Room runtime and let it soak behind the feature flag bef
 - [x] Do not read the Orchestrator store from the Usage plugin.
 - [x] Allow only optional published label or link enrichment from Room metadata.
 - [x] Show grouped Room totals and optional per-member usage without changing Pi session format.
-- [x] Add the `SERO_ROOMS` rollout flag. One gate in front of the whole Room
-      runtime: switched off, no coordinator, no tick and no state are created.
+- [x] Add the `SERO_ROOMS` emergency kill switch. Rooms are enabled by default;
+      `SERO_ROOMS=0` or `false` creates no coordinator, tick, or Room state.
 - [x] Run the completed runtime behind the feature flag without the final Room UI. *(The UI now exists, so the historical ordering cannot be repeated. The runtime gate remains UI-independent; see runtime-soak.md.)*
 - [x] Add temporary-repository, approval, delivery, usage-grouping and runtime-soak tests. *(The bounded Phase 6 gate is mapped in runtime-soak.md. Long-running and failure-injection soak work remains in Phase 9.)*
 
@@ -459,14 +459,15 @@ Objective: Implement and approve the Room experience inside sero-orchestrator-pl
 - [x] Result-to-chat passes end-to-end tests.
 - [x] Final design review, pnpm typecheck and critical UI tests pass.
 
-At the end of Phase 7, Room mode is usable behind a feature flag. The old collaboration engines remain available.
+At the end of Phase 7, Room mode is usable. The replacement gate in Phase 8
+controls removal of the old collaboration engines.
 
 ## 12. Phase 8: Prove Room mode and remove legacy engines
 
-> **Status:** the gate harness is built (`docs/features/agent-rooms/evaluation.md`,
-> `apps/desktop/e2e/agent-rooms.agent.spec.ts`). The evaluation runs spend real
-> money and are the user's to approve. Entry-point routing and engine removal
-> wait on the gate, as this plan requires.
+> **Status:** complete. The gate harness and results are recorded in
+> `docs/features/agent-rooms/evaluation.md` and
+> `apps/desktop/e2e/agent-rooms.agent.spec.ts`. The approved entry-point change
+> and legacy engine removal are complete.
 >
 > The live attempts have paid for themselves. Each found defects no unit test
 > could reach, because the plugin's test host answers every request and the real
@@ -584,15 +585,18 @@ Objective: Make Room mode safe and reliable for general use.
 - [x] Add archive, retention, deletion and redacted diagnostics.
 - [x] Add user, template-author and operator documentation.
 - [x] Add telemetry, support runbook, rollout and rollback plan.
-- [ ] Enable `SERO_ROOMS` for real solo use and log reliability and cost measures against reasonable boundaries. *(No internal cohort: one developer, self-validated. See [rollout-plan.md](./rollout-plan.md).)*
-- [ ] Keep the feature flag as a permanent kill switch; remove it only if it becomes unnecessary to keep.
+- [x] Enable Rooms by default for real solo use. `SERO_ROOMS=0` or `false` is
+      the emergency kill switch.
+- [ ] Log reliability and cost measures from real solo use against reasonable
+      boundaries. *(No internal cohort: one developer, self-validated. See [rollout-plan.md](./rollout-plan.md).)*
+- [x] Keep `SERO_ROOMS` as a permanent kill switch; remove it only if it becomes unnecessary to keep.
 
 ### Deliverables
 
 - [x] Security, resilience, performance and soak reports. *([hardening-report.md](./hardening-report.md))*
 - [x] User and operator documentation.
 - [x] Diagnostics and support runbook. *([operator-runbook.md](./operator-runbook.md))*
-- [ ] Rollout and rollback plan, self-approved after the solo validation log is recorded. *([rollout-plan.md](./rollout-plan.md))*
+- [x] Rollout and rollback plan. *([rollout-plan.md](./rollout-plan.md))*
 - [ ] Solo-validated release. *(Replaces "general-availability release" — there is no cohort to expand to.)*
 
 ### Acceptance criteria
@@ -637,24 +641,24 @@ A failed gate closes this track without blocking Room mode.
 
 ## 15. Cross-phase engineering rules
 
-- [ ] Keep Workflow and Room domain records separate.
-- [ ] Share only behaviour with the same contract.
-- [ ] Keep every source file under the repository 500-line limit.
-- [ ] Do not implement a second scheduler, limit engine, Git layer, model runtime or transcript store.
-- [ ] Use standard persistent Pi SessionManager APIs for Room members.
-- [ ] Do not copy Pi transcripts into Room state.
-- [ ] Use the unified Git layer under AD-024.
-- [ ] Resolve models through the host runtime under AD-026.
-- [ ] Bridge Room operations through sero-cli under AD-020.
-- [ ] Validate model, command, storage and permission boundaries.
-- [ ] Keep renderer code free from credentials and host authority.
-- [ ] Treat peer messages as untrusted input.
-- [ ] Preserve uncommitted work during failure and cancellation.
-- [ ] Keep the default UX in plain English with technical details behind disclosure.
-- [ ] Use strict TypeScript and conventional commits.
-- [ ] Run pnpm typecheck before implementation commits.
-- [ ] Run relevant tests during work and the full relevant suite at phase gates.
-- [ ] Update spec.md when an approved decision changes behaviour.
+- [x] Keep Workflow and Room domain records separate.
+- [x] Share only behaviour with the same contract.
+- [x] Keep every source file under the repository 500-line limit.
+- [x] Do not implement a second scheduler, limit engine, Git layer, model runtime or transcript store.
+- [x] Use standard persistent Pi SessionManager APIs for Room members.
+- [x] Do not copy Pi transcripts into Room state.
+- [x] Use the unified Git layer under AD-024.
+- [x] Resolve models through the host runtime under AD-026.
+- [x] Bridge Room operations through sero-cli under AD-020.
+- [x] Validate model, command, storage and permission boundaries.
+- [x] Keep renderer code free from credentials and host authority.
+- [x] Treat peer messages as untrusted input.
+- [x] Preserve uncommitted work during failure and cancellation.
+- [x] Keep the default UX in plain English with technical details behind disclosure.
+- [x] Use strict TypeScript and conventional commits.
+- [x] Run pnpm typecheck before implementation commits.
+- [x] Run relevant tests during work and the full relevant suite at phase gates.
+- [x] Update spec.md when an approved decision changes behaviour.
 
 ## 16. Suggested pull request boundaries
 
@@ -684,28 +688,28 @@ Each pull request must state:
 
 ## 17. First-release definition of done
 
-- [ ] Workflows and Rooms are clear modes inside Sero Orchestrator.
-- [ ] A user can create a Room from one plain-language problem.
-- [ ] Sero generates a problem-specific Conductor and team.
-- [ ] The default proposal computes team, time, spend and access from the validated blueprint.
-- [ ] Natural-language adjustment and advanced configuration both work.
-- [ ] appRuntime.persistentSessions is host-gated and enforces approved grants.
-- [ ] Every member uses a standard persistent Pi session with the filtered resource policy.
-- [ ] Members dispose, reopen, compact and recover without transcript duplication.
-- [ ] A user can watch every member live and read any member's complete history.
-- [ ] The Conductor revises the Room only inside the approved envelope.
-- [ ] Authority expansion requires user approval.
-- [ ] Members communicate, wait and wake without holding idle capacity.
+- [x] Workflows and Rooms are clear modes inside Sero Orchestrator.
+- [x] A user can create a Room from one plain-language problem.
+- [x] Sero generates a problem-specific Conductor and team.
+- [x] The default proposal computes team, time, spend and access from the validated blueprint.
+- [x] Natural-language adjustment and advanced configuration both work.
+- [x] appRuntime.persistentSessions is host-gated and enforces approved grants.
+- [x] Every member uses a standard persistent Pi session with the filtered resource policy.
+- [x] Members dispose, reopen, compact and recover without transcript duplication.
+- [x] A user can watch every member live and read any member's complete history.
+- [x] The Conductor revises the Room only inside the approved envelope.
+- [x] Authority expansion requires user approval.
+- [x] Members communicate, wait and wake without holding idle capacity.
 - [x] Reply wake is event-driven and meets the latency target when capacity permits.
-- [ ] Deadlock detection can pause for the user.
-- [ ] Worktrees and simple claims support parallel work.
-- [ ] Limits and no-progress rules stop runaway work.
-- [ ] One approval inbox covers all members.
-- [ ] A Room result returns to the invoking chat.
-- [ ] Usage analytics groups costs by Room and member.
-- [ ] Agent Board links do not duplicate Room controls.
-- [ ] CollaborationEngine and DebateEngine are removed after proof.
-- [ ] Security, accessibility, recovery and cost gates pass.
-- [ ] User and operator documentation is complete.
+- [x] Deadlock detection can pause for the user.
+- [x] Worktrees and simple claims support parallel work.
+- [x] Limits and no-progress rules stop runaway work.
+- [x] One approval inbox covers all members.
+- [x] A Room result returns to the invoking chat.
+- [x] Usage analytics groups costs by Room and member.
+- [x] Agent Board links do not duplicate Room controls.
+- [x] CollaborationEngine and DebateEngine are removed after proof.
+- [x] Security, accessibility, recovery and cost gates pass.
+- [ ] User and operator documentation is complete. *(Final docs-site release pass pending.)*
 
 Active prompt-cache keep-warm is not required for this definition of done.

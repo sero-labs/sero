@@ -40,8 +40,9 @@ env -u ELECTRON_RUN_AS_NODE \
   sandbox closes the window seconds after it opens — run it with the sandbox
   off, as the other agent specs are run.
 
-The spec launches with `SERO_ROOMS=1`, creates a scratch git workspace, and
-leaves screenshots and `evaluation.json` in `e2e/screenshots/agent-rooms/`.
+The original evaluation launched with `SERO_ROOMS=1`. Rooms are now enabled by
+default. The spec creates a scratch git workspace and leaves screenshots and
+`evaluation.json` in `e2e/screenshots/agent-rooms/`.
 
 ## The four scenarios
 

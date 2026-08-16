@@ -52,7 +52,7 @@ The deterministic runtime suite covers:
 
 The four live evaluation Rooms add 24.9 minutes of mixed-model runtime coverage.
 The longest run was 14.1 minutes. This report does not replace watching real
-solo use once `SERO_ROOMS` is on for daily work.
+solo use now that Rooms are enabled for daily work by default.
 
 ## Security
 
