@@ -45,6 +45,7 @@ import {
   completeRoom,
   createRoom,
   deleteRoom,
+  finishInterruptedCleanup,
   pauseRoom,
   resumeRoom,
   settlePause,
@@ -441,6 +442,7 @@ export class RoomCoordinator {
    */
   async reconcileRooms(options: { resume?: boolean } = {}): Promise<void> {
     const resumable = await reconcileAllRooms({ host: this.host, store: this.deps.store });
+    await finishInterruptedCleanup(this.ctx, await this.deps.store.readState());
     if (options.resume === false) return;
     for (const { roomId, replayMemberIds, settledWaitMemberIds } of resumable) {
       const record = await this.deps.store.readRoom(roomId);

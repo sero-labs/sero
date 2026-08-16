@@ -710,6 +710,13 @@ recovery tell an interrupted delivery from a clean finish, so a result is never
 sent twice and never silently dropped. `completing` also claims the ending: a
 cancel, a pause or a second completion is refused while it is held.
 
+Cancellation has no such intermediate state, so the held grant is the marker
+instead: a Room gives up its grant last, and one that is finished but still
+holds a grant stopped partway through its cleanup. Recovery finishes that
+cleanup on restart — preserving member work, then revoking — which is safe to
+repeat because preservation commits only what is uncommitted and revocation is
+idempotent.
+
 Member states are:
 
 - starting;

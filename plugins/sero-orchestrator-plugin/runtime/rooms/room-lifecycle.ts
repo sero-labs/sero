@@ -28,7 +28,7 @@ import {
   withRoomStatus,
   type CreateRoomRequest,
 } from './room-actions';
-import type { RoomRecord } from './room-state';
+import type { RoomRecord, RoomState } from './room-state';
 import type { RoomStore } from './room-store';
 import type { RoomWorkspaces } from './room-workspace';
 
@@ -264,19 +264,27 @@ export async function settlePause(
   //
   // A Room that finished or started delivering while this pause was being
   // decided keeps that ending: pausing it now would resurrect it.
-  let settled: 'pausing' | 'paused' = 'paused';
   const claim = await claimTransition(ctx, roomId, (current, status) => {
     if (TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing') return null;
-    settled = ctx.hasTurnsInFlight(roomId) ? 'pausing' : 'paused';
-    return withRoomStatus(current, settled, now, stopReason);
+    return withRoomStatus(current, ctx.hasTurnsInFlight(roomId) ? 'pausing' : 'paused', now, stopReason);
   });
   if (!claim.won) return fail(refusalFor(claim.status));
+
+  // What actually landed, read back rather than assumed.
+  const settled = (await ctx.store.readRoom(roomId))?.runtime.status;
 
   // Releasing closes the live sessions; every file stays, so a resume reopens
   // the same history rather than starting a new session (§14.3).
   if (settled === 'paused') await ctx.sessions.releaseRoom(roomId);
   await ctx.store.appendTimeline(roomId, [timelineEvent(ctx.host, roomId, 'room-status', null, stopReason.detail)]);
   ctx.emit({ roomId, kind: 'room-status', memberId: null, detail: stopReason.detail });
+
+  // The last turn can release its controller while the write above is still
+  // reaching disk, and a reader in that window still sees `running` — so the
+  // turn does not settle the pause and neither did we. Re-checked here, where
+  // the write is durable, this cannot leave a `pausing` Room with nothing left
+  // to move it. Settling to `paused` finds no turns, so it does not come back.
+  if (settled === 'pausing') await settlePendingPause(ctx, roomId, now);
   return ok(await reread(ctx, roomId, record));
 }
 
@@ -416,6 +424,34 @@ export async function completeRoom(
   await claimTransition(ctx, roomId, (current, status) =>
     status === 'completing' ? withRoomStatus(current, 'completed', ctx.host.now(), null) : null);
   return ok(await reread(ctx, roomId, record));
+}
+
+/**
+ * Cleanup a crash interrupted, finished on restart.
+ *
+ * A finished Room gives up its grant LAST, so one that is terminal and still
+ * holds a grant stopped partway: its members' work may never have been
+ * checkpointed and their sessions may still be authorised. The held grant is
+ * the marker — no extra state is needed, because `releaseAuthority` clearing it
+ * is what "cleanup finished" means.
+ *
+ * Safe to repeat: preservation commits whatever is uncommitted, and revocation
+ * is idempotent.
+ */
+export async function finishInterruptedCleanup(ctx: RoomLifecycleContext, state: RoomState): Promise<void> {
+  const stranded = state.rooms.filter(
+    (room) => TERMINAL_ROOM_STATUSES.includes(room.runtime.status) && room.definition.grantId,
+  );
+  for (const room of stranded) {
+    const roomId = room.definition.id;
+    const detail = room.runtime.stopReason?.detail ?? 'The Room finished.';
+    ctx.host.log(`room ${roomId}: finishing cleanup a restart interrupted.`);
+    await ctx.workspaces.preserveRoom(roomId, detail).catch((error: unknown) => {
+      ctx.host.log(`room ${roomId}: could not preserve member work during recovery: ${String(error)}`);
+      return [];
+    });
+    await releaseAuthority(ctx, roomId, detail);
+  }
 }
 
 /** Closes every session and gives up the grant. Only ever called for a Room that is finished. */

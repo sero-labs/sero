@@ -277,6 +277,59 @@ describe('stopping a Room', () => {
     expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
   });
 
+  it('settles a pause when the last turn ends during the pause write', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
+
+    // The invariant, not one interleaving: however a pause and the end of the
+    // last turn overlap, the Room must not be left in `pausing` with nothing
+    // able to move it. The turn is ended as soon as the pause has sampled it.
+    //
+    // The store updates its cache only after the write reaches disk, so a reader
+    // inside that window still sees `running`. `settlePause` re-checks once its
+    // own write is durable to cover that; this test does not isolate that window
+    // on its own, and guards the surrounding behaviour instead.
+    const transact = store.transact.bind(store);
+    let armed = true;
+    store.transact = (id, commandId, decide) =>
+      transact(id, commandId, (current) => {
+        const decision = decide(current);
+        if (id === roomId && armed) {
+          armed = false;
+          api.endTurn('lead');
+        }
+        return decision;
+      });
+    await coordinator.pauseRoom(roomId);
+    store.transact = transact;
+
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'paused', 'the pause to settle');
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
+  });
+
+  it('finishes cleanup a restart interrupted after a cancel', async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+
+    // A crash between claiming `cancelled` and finishing the cleanup: the Room
+    // reads as terminal, but its work was never checkpointed and its grant is
+    // still live. Holding a grant is what says the cleanup never finished.
+    await store.updateRoom(roomId, (current) =>
+      withRoomStatus({ ...current, definition: { ...current.definition, grantId: 'grant-1' } }, 'cancelled', host.now()));
+    api.revoked.length = 0;
+
+    await coordinator.reconcileRooms({ resume: false });
+
+    const record = await store.readRoom(roomId);
+    expect(record?.definition.grantId).toBeNull();
+    expect(api.revoked).toEqual(['grant-1']);
+  });
+
   it('lets only one of two concurrent completions deliver', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);

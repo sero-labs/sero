@@ -32,6 +32,8 @@ The deterministic runtime suite covers:
   than looking like a clean finish;
 - a pause that lands as the last turn ends still settles, instead of leaving
   the Room stuck in `pausing` until a restart;
+- cleanup a restart interrupted. A finished Room that still holds a grant had
+  its preservation and revocation cut short, so recovery finishes both;
 - two members claiming the same path at once under the blocking policy, and one
   member's concurrent claims against its own cap;
 - a member session that finishes building after its grant was revoked. The
