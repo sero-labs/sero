@@ -7,33 +7,7 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { LoopStatus } from '../../shared/types';
-import type { RoomStatus } from '../../shared/room-types';
 import { Pill, StatusDot, type MemberStatus } from './room-kit';
-
-/** Room lifecycle → the dot vocabulary the kit draws. */
-export const ROOM_DOT: Record<RoomStatus, MemberStatus> = {
-  adjusting: 'waiting',
-  starting: 'working',
-  running: 'working',
-  pausing: 'waiting',
-  paused: 'waiting',
-  completing: 'working',
-  ready: 'idle',
-  draft: 'idle',
-  completed: 'done',
-  failed: 'blocked',
-  cancelled: 'idle',
-};
-
-/** Loop lifecycle → the same dot vocabulary (blocked stays amber, as before). */
-export const LOOP_DOT: Record<LoopStatus, MemberStatus> = {
-  active: 'working',
-  blocked: 'waiting',
-  draft: 'idle',
-  complete: 'done',
-  disabled: 'idle',
-};
 
 export interface ListRowProps {
   status: MemberStatus;

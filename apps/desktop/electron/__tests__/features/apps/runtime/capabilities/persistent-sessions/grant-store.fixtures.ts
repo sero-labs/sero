@@ -38,9 +38,10 @@ export function createPersistence(): FakePersistence {
   // file, so this drops exactly what a restart drops. `structuredClone` would
   // keep `undefined` and `Date`s that never survive the real file, and the fake
   // would stop matching the thing it stands in for.
-  // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone
-  const clone = (grants: Record<string, StoredGrant>): Record<string, StoredGrant> =>
-    JSON.parse(JSON.stringify(grants)) as Record<string, StoredGrant>;
+  const clone = (grants: Record<string, StoredGrant>): Record<string, StoredGrant> => {
+    // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone
+    return JSON.parse(JSON.stringify(grants)) as Record<string, StoredGrant>;
+  };
 
   return {
     persistence: {

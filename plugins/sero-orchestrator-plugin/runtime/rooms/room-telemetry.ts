@@ -35,7 +35,7 @@ export function createRoomRuntimeTelemetry(log: (message: string) => void): Room
     },
     snapshot() {
       if (latencies.length === 0) return { wakeSamples: 0, wakeLatencyP95Ms: null };
-      const sorted = [...latencies].sort((a, b) => a - b);
+      const sorted = latencies.toSorted((a, b) => a - b);
       const index = Math.ceil(sorted.length * 0.95) - 1;
       return { wakeSamples: latencies.length, wakeLatencyP95Ms: sorted[index] };
     },

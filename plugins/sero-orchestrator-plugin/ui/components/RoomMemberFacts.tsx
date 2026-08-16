@@ -15,15 +15,9 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatClock, formatCost, formatTokens } from '../lib/format';
 import { canShowItemInFolder, showItemInFolder } from '../lib/host-files';
+import { MEMBER_TAB_LABEL, type MemberTab } from '../lib/member-tabs';
 import { ToolLiveCard } from './RoomMemberTranscript';
 import { Eyebrow } from './room-kit';
-
-export type MemberTab = 'session' | 'info';
-
-export const MEMBER_TAB_LABEL: Record<MemberTab, string> = {
-  session: 'Session',
-  info: 'Info',
-};
 
 interface FactsProps {
   member: RoomMember;

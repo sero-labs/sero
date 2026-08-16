@@ -135,11 +135,6 @@ export function useMemberHistory(
   const [loadingOlder, setLoadingOlder] = useState(false);
 
   useEffect(() => {
-    setEntries([]);
-    setTail({ cursor: null, exhausted: false, loading: true });
-  }, [roomId, memberId]);
-
-  useEffect(() => {
     if (!roomId || !memberId) return;
     let current = true;
     void dispatch({ action: 'history', roomId, memberId })

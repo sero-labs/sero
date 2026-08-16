@@ -11,8 +11,9 @@ import type { OrchestratorScheduleSummary } from '@sero-ai/common';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { formatCost, formatRelative } from '../lib/format';
 import { loopCardStatus } from '../lib/loop-card';
+import { LOOP_DOT } from '../lib/list-row-status';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
-import { ListRow, LOOP_DOT } from './ListRow';
+import { ListRow } from './ListRow';
 import { SectionHead } from './room-kit';
 
 const STATUS_ORDER: LoopStatus[] = ['active', 'blocked', 'draft', 'complete', 'disabled'];

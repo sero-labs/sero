@@ -84,6 +84,104 @@
           "react-doctor/js-index-maps",
           "react-doctor/js-flatmap-filter"
         ]
+      },
+      {
+        // Room blueprints, rosters, tool lists, and timeline filters are small,
+        // bounded collections. The canonical rule guidance requires profile
+        // evidence before replacing their readable array operations. Keep the
+        // rules active elsewhere, where a large or hot collection can justify
+        // the extra Set or loop machinery.
+        "files": [
+          "shared/room-access-map.ts",
+          "shared/room-clamp.ts",
+          "shared/room-diff.ts",
+          "shared/room-locks.ts",
+          "shared/room-member-ref.ts",
+          "shared/room-validation.ts",
+          "ui/components/RoomActivity.tsx",
+          "ui/components/RoomAdvancedSettings.tsx",
+          "ui/components/RoomMessageDialog.tsx",
+          "ui/lib/proposal-diff.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-access-map.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-clamp.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-diff.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-locks.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-member-ref.ts",
+          "plugins/sero-orchestrator-plugin/shared/room-validation.ts",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomActivity.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomAdvancedSettings.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomMessageDialog.tsx",
+          "plugins/sero-orchestrator-plugin/ui/lib/proposal-diff.ts"
+        ],
+        "rules": [
+          "react-doctor/js-combine-iterations",
+          "react-doctor/js-set-map-lookups",
+          "react-doctor/js-tosorted-immutable"
+        ]
+      },
+      {
+        // `room-kit` is the public component surface for this Vite plugin.
+        // Vite tree-shakes its pure local re-exports, so direct imports add
+        // coupling without reducing the shipped bundle.
+        "files": [
+          "ui/components/AttentionLoopCards.tsx",
+          "ui/components/AttentionQueue.tsx",
+          "ui/components/HomeView.tsx",
+          "ui/components/ListRow.tsx",
+          "ui/components/LoopsOverview.tsx",
+          "ui/components/RoomActivity.tsx",
+          "ui/components/RoomAdvancedSettings.tsx",
+          "ui/components/RoomApprovalCard.tsx",
+          "ui/components/RoomAttentionCards.tsx",
+          "ui/components/RoomBriefForm.tsx",
+          "ui/components/RoomDetail.tsx",
+          "ui/components/RoomMemberFacts.tsx",
+          "ui/components/RoomMemberPanel.tsx",
+          "ui/components/RoomMemberTranscript.tsx",
+          "ui/components/RoomPlanning.tsx",
+          "ui/components/RoomProposal.tsx",
+          "ui/components/RoomRoster.tsx",
+          "ui/components/RoomSidePanel.tsx",
+          "ui/components/RoomTopBar.tsx",
+          "ui/components/RoomWatch.tsx",
+          "ui/components/RoomsOverview.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/AttentionLoopCards.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/AttentionQueue.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/HomeView.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/ListRow.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/LoopsOverview.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomActivity.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomAdvancedSettings.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomApprovalCard.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomAttentionCards.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomBriefForm.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomDetail.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomMemberFacts.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomMemberPanel.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomMemberTranscript.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomPlanning.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomProposal.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomRoster.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomSidePanel.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomTopBar.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomWatch.tsx",
+          "plugins/sero-orchestrator-plugin/ui/components/RoomsOverview.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-barrel-import"
+        ]
+      },
+      {
+        // This hook synchronizes external shell navigation with the plugin's
+        // durable state. The effects do not send child-owned render data to a
+        // parent; they react to host history and launch events.
+        "files": [
+          "ui/lib/orchestrator-navigation.ts",
+          "plugins/sero-orchestrator-plugin/ui/lib/orchestrator-navigation.ts"
+        ],
+        "rules": [
+          "react-doctor/no-pass-data-to-parent"
+        ]
       }
     ]
   }

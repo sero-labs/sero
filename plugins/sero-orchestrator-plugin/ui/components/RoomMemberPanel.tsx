@@ -20,14 +20,13 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatClock, formatCost, formatTimer } from '../lib/format';
 import { memberGlyph } from '../lib/member-glyph';
+import { MEMBER_TAB_LABEL, type MemberTab } from '../lib/member-tabs';
 import { toSessionTurns } from '../lib/room-view';
 import { useMemberContext, useMemberHistory, type RoomFeedDispatch } from '../lib/use-room-feed';
 import {
-  MEMBER_TAB_LABEL,
   MemberCompletedOutcome,
   MemberLiveRail,
   MemberTabPanel,
-  type MemberTab,
 } from './RoomMemberFacts';
 import { CollapsedHistory, LiveTurn, TurnBlock, TurnStrip } from './RoomMemberTranscript';
 import { Face, LivePill } from './room-kit';

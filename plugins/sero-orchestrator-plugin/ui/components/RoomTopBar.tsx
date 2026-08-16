@@ -21,7 +21,7 @@ import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
-import { ROOM_DOT } from './ListRow';
+import { ROOM_DOT } from '../lib/list-row-status';
 import { Meter, Pill, StatusDot, type PillProps } from './room-kit';
 
 /** Room lifecycle → the pill's accent (prototype `.pill em` while running). */

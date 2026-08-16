@@ -10,8 +10,9 @@ import { Button } from '@sero-ai/ui';
 import { Users } from 'lucide-react';
 import type { RoomStatus, RoomSummary } from '../../shared/room-types';
 import { formatCost, formatElapsed, formatRelative } from '../lib/format';
+import { ROOM_DOT } from '../lib/list-row-status';
 import { memberGlyph } from '../lib/member-glyph';
-import { ListRow, ROOM_DOT } from './ListRow';
+import { ListRow } from './ListRow';
 import { FaceStack, SectionHead } from './room-kit';
 
 /** Running Rooms first, then the ones that need a decision, then the settled ones. */

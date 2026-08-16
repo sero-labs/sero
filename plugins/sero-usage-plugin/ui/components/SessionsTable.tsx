@@ -50,9 +50,18 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
   const [sortKey, setSortKey] = useState<SortKey>('cost');
   const [openRooms, setOpenRooms] = useState<string[]>([]);
   const canReveal = canRevealInFolder();
+  const openRoomIds = new Set(openRooms);
+
+  const toggleRoom = (sessionId: string) => {
+    setOpenRooms((current) => (
+      current.includes(sessionId)
+        ? current.filter((id) => id !== sessionId)
+        : [...current, sessionId]
+    ));
+  };
 
   const sorted = useMemo(
-    () => [...sessions].sort((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey)),
+    () => sessions.toSorted((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey)),
     [sessions, sortKey],
   );
 
@@ -90,12 +99,8 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
                   {session.room ? (
                     <RoomLabel
                       session={session}
-                      open={openRooms.includes(session.id)}
-                      onToggle={() => setOpenRooms((current) => (
-                        current.includes(session.id)
-                          ? current.filter((id) => id !== session.id)
-                          : [...current, session.id]
-                      ))}
+                      open={openRoomIds.has(session.id)}
+                      onToggle={() => toggleRoom(session.id)}
                     />
                   ) : (
                     session.label
@@ -121,7 +126,7 @@ export const SessionsTable = memo(function SessionsTable({ sessions }: { session
                   </TableCell>
                 )}
               </TableRow>,
-              ...(openRooms.includes(session.id)
+              ...(openRoomIds.has(session.id)
                 ? (session.room?.members ?? []).map((member) => (
                     <TableRow key={member.id} className="text-muted-foreground">
                       <TableCell className="max-w-64 truncate pl-8" title={member.label}>

@@ -220,7 +220,7 @@ export function RoomDetail({
           <RoomMemberPanel
             // Each member gets its own panel state: a half-typed answer or an
             // opened fold must not follow the user to the next member.
-            key={selected.id}
+            key={`${roomId}:${selected.id}`}
             roomId={roomId}
             member={selected}
             live={live.get(selected.id) ?? null}
