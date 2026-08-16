@@ -184,34 +184,37 @@ describe('starting a Room whose members edit', () => {
     expect(impl?.worktreePath).not.toBe(fixer?.worktreePath);
   });
 
-  it('commits uncommitted member work when the Room is cancelled, and removes nothing', async () => {
+  it('commits uncommitted member work and releases its worktrees when the Room is cancelled', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
     const started = await store.readRoom(roomId);
     const implTree = started?.members.find((entry) => entry.id === 'impl')?.worktreePath ?? '';
+    const fixerTree = started?.members.find((entry) => entry.id === 'fixer')?.worktreePath ?? '';
 
     await coordinator.cancelRoom(roomId, 'You cancelled this Room.');
 
     // Cancelling is the last moment a member's edits can be saved: after it the
     // grant is gone and no session can ever commit them.
-    expect(host.checkpoints.map((entry) => entry.worktreePath)).toContain(implTree);
-    // Preserve never removes. A worktree is the only place the work exists.
-    expect(host.worktreesRemoved).toEqual([]);
+    expect(host.checkpoints.map((entry) => entry.worktreePath).sort()).toEqual([implTree, fixerTree].sort());
+    expect(host.worktreesRemoved.sort()).toEqual([`room-${roomId}-fixer`, `room-${roomId}-impl`]);
+    expect((await store.readRoom(roomId))?.members.every((entry) => entry.worktreePath === null)).toBe(true);
   });
 
-  it('commits uncommitted member work when the Room completes normally', async () => {
+  it('commits uncommitted member work and releases its worktrees when the Room completes normally', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
     const started = await store.readRoom(roomId);
     const implTree = started?.members.find((entry) => entry.id === 'impl')?.worktreePath ?? '';
+    const fixerTree = started?.members.find((entry) => entry.id === 'fixer')?.worktreePath ?? '';
 
     await coordinator.completeRoom(roomId, 'The Room finished its work.');
 
     // Finishing is the ordinary ending, so it strands work more often than
     // cancelling does. Releasing the grant closes every session, and after that
     // nothing in the Room can commit what a member left behind.
-    expect(host.checkpoints.map((entry) => entry.worktreePath)).toContain(implTree);
-    expect(host.worktreesRemoved).toEqual([]);
+    expect(host.checkpoints.map((entry) => entry.worktreePath).sort()).toEqual([implTree, fixerTree].sort());
+    expect(host.worktreesRemoved.sort()).toEqual([`room-${roomId}-fixer`, `room-${roomId}-impl`]);
+    expect((await store.readRoom(roomId))?.members.every((entry) => entry.worktreePath === null)).toBe(true);
   });
 
   it('pins each editing subject to its own tree, never to the shared workspace', async () => {
