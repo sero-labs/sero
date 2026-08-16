@@ -103,6 +103,8 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       originWorkspaceId: request.originSessionId ? request.workspaceId : null,
       deliveredAt: null,
       deliveryRef: null,
+      originReturnedAt: null,
+      originReturnRef: null,
     },
     archivedAt: null,
     revisions: [],

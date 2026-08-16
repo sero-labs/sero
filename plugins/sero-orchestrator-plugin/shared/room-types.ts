@@ -223,6 +223,9 @@ export interface RoomDelivery {
   originWorkspaceId: string | null;
   deliveredAt: string | null;
   deliveryRef: string | null;
+  /** Return to the chat that invoked the Room, independent of its declared destination. */
+  originReturnedAt: string | null;
+  originReturnRef: string | null;
 }
 
 /**

@@ -117,7 +117,11 @@ export function reassembleRoom(
     definition: persisted.definition,
     runtime: persisted.runtime,
     brief: persisted.brief,
-    delivery: persisted.delivery,
+    delivery: {
+      ...persisted.delivery,
+      originReturnedAt: persisted.delivery.originReturnedAt ?? null,
+      originReturnRef: persisted.delivery.originReturnRef ?? null,
+    },
     archivedAt: persisted.archivedAt,
     readCursors: persisted.readCursors,
     // `?? []` rather than a migration step: these lists were added to a shape

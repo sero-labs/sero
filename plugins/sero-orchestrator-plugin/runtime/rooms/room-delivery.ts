@@ -1,29 +1,3 @@
-/**
- * The Room approval inbox and the return to the invoking chat (spec §22, §23,
- * FR-026, FR-029).
- *
- * Two jobs that belong together because both are about the boundary between a
- * Room and its user:
- *
- *  1. **Approvals.** `room-revisions.ts` already decides what needs the user and
- *     records it. This file SURFACES those records — one queue covering every
- *     member of every Room, in the same watched-index payload the Workflow
- *     inbox reads — and owns the one rule the record cannot enforce on its own:
- *     only the USER resolves an approval. A member (including the Conductor)
- *     answering its own request would make the approval a formality (§22).
- *
- *  2. **Delivery.** A Room that started from a chat owes that chat one result.
- *     The runtime composes it from the Room's own computed records and sends it
- *     through the existing session seam. An external destination stays under
- *     the Workflow rule: the send is the agent's, and the runtime accepts it
- *     only with a `DeliveryReceipt` naming an APPROVED external-write approval
- *     that is BOUND to this payload and this destination, and is spent by the
- *     delivery that used it (`room-delivery-binding.ts`).
- *
- * Nothing here writes a Room record directly: every write goes through the
- * store, which is the single writer.
- */
-
 import {
   deliveryDestinationInfo,
   isDeliveryDestinationId,
@@ -234,9 +208,16 @@ export interface RoomDeliveryOutcome {
  * send, so exactly one caller can.
  */
 type DeliveryClaim =
-  | { state: 'already'; problems: string[]; ref: string | null; sessionId?: undefined }
-  | { state: 'nothing'; problems: string[]; ref: null; sessionId?: undefined }
-  | { state: 'won'; problems: string[]; ref: string | null; sessionId: string | null };
+  | { state: 'already'; problems: string[]; ref: string | null }
+  | { state: 'nothing'; problems: string[]; ref: null }
+  | {
+      state: 'won';
+      problems: string[];
+      ref: string | null;
+      sessionId: string | null;
+      destinationClaimed: boolean;
+      originClaimed: boolean;
+    };
 
 export async function deliverRoomResult(
   deps: RoomDeliveryDeps,
@@ -244,30 +225,36 @@ export async function deliverRoomResult(
 ): Promise<RoomDeliveryOutcome> {
   const now = deps.host.now();
 
-  // Validate and CLAIM in one serialized decision. Reading, validating and then
-  // writing let two concurrent finishes both see no delivery and the same
-  // usable approval, and both accept it — one approval authorising two sends,
-  // which is precisely what binding an approval to one payload is for.
+  // Validate and claim in one serialized decision, so one approval cannot
+  // authorize two concurrent sends.
   const claim = await deps.store.transact<DeliveryClaim>(request.roomId, null, (current) => {
-    if (current.delivery.deliveredAt) {
+    const delivery = current.delivery;
+    const invokingChat = delivery.destination === INVOKING_CHAT_DESTINATION;
+    if (delivery.deliveredAt && !delivery.deliveryRef) {
       return {
         record: null,
-        result: { state: 'already' as const, problems: [], ref: current.delivery.deliveryRef },
+        result: { state: 'already' as const, problems: [], ref: null },
       };
     }
-    // The result IS the payload: what the destination receives and what the
-    // approval was bound to are the same text, so a swapped payload is a
-    // different final answer and fails the binding.
-    const problems = receiptProblems(current, request.receipt, request.finalResult);
-    const accepted = problems.length > 0
-      ? null
-      : request.receipt?.ref
-        ?? (current.delivery.destination === WORKSPACE_DESTINATION ? WORKSPACE_DELIVERY_REF : null);
-    const sessionId = current.delivery.originSessionId;
+    // The result is the payload that the approval binds.
+    const destinationAlreadyDelivered = delivery.deliveredAt !== null;
+    const problems = destinationAlreadyDelivered ? [] : receiptProblems(current, request.receipt, request.finalResult);
+    const accepted = destinationAlreadyDelivered
+      ? delivery.deliveryRef
+      : problems.length > 0
+        ? null
+        : request.receipt?.ref
+          ?? (delivery.destination === WORKSPACE_DESTINATION ? WORKSPACE_DELIVERY_REF : null);
+    const sessionId = delivery.originSessionId;
+    const claimDestination = !destinationAlreadyDelivered && (accepted !== null || (invokingChat && sessionId !== null));
+    const claimOrigin = !invokingChat && sessionId !== null && !delivery.originReturnedAt;
     // Nothing to claim: the destination was refused with no chat to fall back
     // on, or the Room keeps its result. Writing nothing leaves the Room free to
     // finish again with a corrected receipt.
-    if (!accepted && !sessionId) {
+    if (!claimDestination && !claimOrigin) {
+      if (destinationAlreadyDelivered) {
+        return { record: null, result: { state: 'already' as const, problems: [], ref: delivery.deliveryRef } };
+      }
       return { record: null, result: { state: 'nothing' as const, problems, ref: null } };
     }
 
@@ -277,14 +264,28 @@ export async function deliverRoomResult(
     return {
       record: {
         ...current,
-        approvals: accepted ? withApprovalConsumed(current.approvals, request.receipt?.approvalId, now) : current.approvals,
-        delivery: { ...current.delivery, deliveredAt: now, deliveryRef: accepted },
+        approvals: claimDestination && accepted
+          ? withApprovalConsumed(current.approvals, request.receipt?.approvalId, now)
+          : current.approvals,
+        delivery: {
+          ...delivery,
+          deliveredAt: claimDestination ? now : delivery.deliveredAt,
+          deliveryRef: claimDestination ? accepted : delivery.deliveryRef,
+          originReturnedAt: claimOrigin ? now : delivery.originReturnedAt,
+          originReturnRef: claimOrigin ? null : delivery.originReturnRef,
+        },
       },
-      result: { state: 'won' as const, problems, ref: accepted, sessionId },
+      result: {
+        state: 'won' as const,
+        problems,
+        ref: claimDestination ? accepted : delivery.deliveryRef,
+        sessionId: claimDestination && invokingChat || claimOrigin ? sessionId : null,
+        destinationClaimed: claimDestination,
+        originClaimed: claimOrigin,
+      },
     };
   });
 
-  // `transact` reports duplicates by command key; this call passes none.
   const outcome = claim.duplicate ? null : claim.result;
   if (!outcome) return { ok: false, problems: ['This delivery was already recorded.'], returnedToChat: false, ref: null };
   if (outcome.state === 'already') {
@@ -314,23 +315,35 @@ export async function deliverRoomResult(
       ? await returnToInvokingChat(deps, record, sessionId, request.finalResult, outcome.problems)
       : false;
 
-  const ref = outcome.ref ?? (returnedToChat && sessionId ? `session:${sessionId}` : null);
-  if (ref !== outcome.ref) {
+  const chatRef = returnedToChat && sessionId ? `session:${sessionId}` : null;
+  const invokingChat = record?.delivery.destination === INVOKING_CHAT_DESTINATION;
+  if (invokingChat && chatRef) {
     await deps.store.updateRoom(request.roomId, (current) => ({
       ...current,
-      delivery: { ...current.delivery, deliveryRef: ref },
+      delivery: { ...current.delivery, deliveryRef: chatRef },
     }));
-  } else if (!ref) {
-    // The claim was taken and nothing was delivered: the chat send failed and no
-    // external receipt was accepted. Releasing it lets the Room finish again
-    // rather than record a delivery that never happened. Safe precisely because
-    // nothing landed — an accepted receipt always leaves a ref, and the approval
-    // it spends is consumed in the same write that sets one.
+  } else if (outcome.originClaimed && chatRef) {
     await deps.store.updateRoom(request.roomId, (current) => ({
       ...current,
-      delivery: { ...current.delivery, deliveredAt: null },
+      delivery: { ...current.delivery, originReturnRef: chatRef },
+    }));
+  } else if (!chatRef && (invokingChat || outcome.originClaimed)) {
+    // Release only the send that failed. An accepted declared destination stays
+    // delivered, while a refused destination stays retryable.
+    await deps.store.updateRoom(request.roomId, (current) => ({
+      ...current,
+      delivery: invokingChat
+        ? { ...current.delivery, deliveredAt: null }
+        : { ...current.delivery, originReturnedAt: null },
     }));
   }
+  const ref = outcome.ref ?? chatRef;
+  const timelineRef = outcome.destinationClaimed && outcome.ref ? outcome.ref : chatRef;
+  const timelineDestination = outcome.destinationClaimed && outcome.ref
+    ? record?.delivery.destination ?? request.roomId
+    : chatRef
+      ? INVOKING_CHAT_DESTINATION
+      : record?.delivery.destination ?? request.roomId;
   await deps.store.appendTimeline(request.roomId, [{
     id: deps.host.newId('tl'),
     roomId: request.roomId,
@@ -339,10 +352,10 @@ export async function deliverRoomResult(
     memberId: null,
     // A claimed delivery whose send then failed leaves no ref. Recording that
     // as "delivered" would put a false line in the audit timeline.
-    summary: ref
-      ? `Result delivered to ${record?.delivery.destination ?? request.roomId}.`
-      : `Result could not be delivered to ${record?.delivery.destination ?? request.roomId}.`,
-    details: ref ? { ref } : {},
+    summary: timelineRef
+      ? `Result delivered to ${timelineDestination}.`
+      : `Result could not be delivered to ${timelineDestination}.`,
+    details: timelineRef ? { ref: timelineRef } : {},
   }]);
   return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat, ref };
 }
