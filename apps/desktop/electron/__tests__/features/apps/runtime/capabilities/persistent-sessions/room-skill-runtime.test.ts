@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DefaultResourceLoader, SettingsManager } from '@earendil-works/pi-coding-agent';
+import { SettingsManager } from '@earendil-works/pi-coding-agent';
 import {
   SERO_PLUGIN_RUNTIME_ABI,
   withDisabledModelSkills,
@@ -88,7 +88,7 @@ describe('Room skill catalogue and member loading', () => {
     tempRoot = null;
   });
 
-  it('keeps the generic loader and catalogue aligned, then narrows Room skills fail-closed', async () => {
+  it('keeps hidden generic skills loaded but narrows the Room production chain fail-closed', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-room-skills-'));
     const cwd = path.join(tempRoot, 'workspace');
     const agentDir = path.join(tempRoot, 'agent');
@@ -134,21 +134,26 @@ describe('Room skill catalogue and member loading', () => {
     vi.doMock('@electron/features/subagent/runtime/loader', () => ({
       createSubagentExtensionFactory: vi.fn(() => vi.fn()),
     }));
-    const [
-      { createRoomSkillOverride },
-      { createMemberResourceLoader },
-      { createSubagentResourceLoader },
-      { createSubagentSkillOverride },
-    ] = await Promise.all([
-      import('@electron/features/apps/extensions/room-skills'),
-      import('@electron/features/apps/runtime/capabilities/persistent-sessions/resource-profile'),
-      import('@electron/features/subagent/runtime/resource-loader'),
-      import('@electron/features/subagent/runtime/skill-pipeline'),
-    ]);
     const settingsManager = SettingsManager.inMemory(withDisabledModelSkills({}, [
       'normal-disabled',
       'plugin-disabled',
     ]));
+    vi.doMock('@electron/shared/infra/shared-infra', () => ({
+      ensureInfra: async () => ({ settingsManager }),
+    }));
+    vi.doMock('@electron/features/workspace/manager', () => ({
+      workspaceManager: { getPath: () => cwd },
+    }));
+    vi.doMock('electron', () => ({ ipcMain: { handle: vi.fn() } }));
+    const [
+      { createAppRuntimeHost },
+      { createMemberResourceLoader },
+      { createSubagentResourceLoader },
+    ] = await Promise.all([
+      import('@electron/features/apps/runtime/capabilities/create-host'),
+      import('@electron/features/apps/runtime/capabilities/persistent-sessions/resource-profile'),
+      import('@electron/features/subagent/runtime/resource-loader'),
+    ]);
     const genericLoader = createSubagentResourceLoader({
       cwd,
       workspaceManager: {} as never,
@@ -164,30 +169,10 @@ describe('Room skill catalogue and member loading', () => {
     expect(genericByName.get('plugin-disabled')?.disableModelInvocation).toBe(true);
     expect(genericByName.has('plugin-incompatible')).toBe(false);
 
-    const catalogueLoader = new DefaultResourceLoader({
-      cwd,
-      agentDir,
-      settingsManager,
-      skillsOverride: createSubagentSkillOverride(settingsManager),
-    });
-    await catalogueLoader.reload();
-    const catalogueSkills = catalogueLoader.getSkills().skills;
-    expect(catalogueSkills.map(({ name, disableModelInvocation }) => ({
-      name,
-      disableModelInvocation,
-    }))).toEqual(genericSkills.map(({ name, disableModelInvocation }) => ({
-      name,
-      disableModelInvocation,
-    })));
-
-    const roomCatalogueLoader = new DefaultResourceLoader({
-      cwd,
-      agentDir,
-      settingsManager,
-      skillsOverride: createRoomSkillOverride(settingsManager),
-    });
-    await roomCatalogueLoader.reload();
-    const offered = roomCatalogueLoader.getSkills().skills.map((skill) => skill.name).sort();
+    const host = createAppRuntimeHost({} as never);
+    const offered = (await host.subagents.listSkillCatalog('ws-1'))
+      .map((skill) => skill.name)
+      .sort();
 
     expect(offered).toEqual(expect.arrayContaining(['normal-enabled', 'plugin-enabled']));
     expect(offered).not.toEqual(expect.arrayContaining([

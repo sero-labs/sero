@@ -20,7 +20,7 @@ import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool 
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
-import { getSubagentAvailableContext } from '@electron/ipc/agent/handlers/subagent-context';
+import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
 import { clampProposal, describeGrantAuthority } from './clamp';
 import { applyPermissionProfile } from './permission-tools';
@@ -40,11 +40,11 @@ export async function clampAndApprove(
   proposal: PersistentSessionGrantProposal,
 ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null> {
   const { modelRuntime } = await ensureAiInfra();
-  const [models, workspaces, toolCatalog, context] = await Promise.all([
+  const [models, workspaces, toolCatalog, skills] = await Promise.all([
     modelRuntime.getAvailable(),
     workspaceManager.list(),
     warmSubagentToolCatalog().then(() => getSubagentToolCatalog()),
-    getSubagentAvailableContext(workspaceId),
+    getRoomSkillCatalog(workspaceId),
   ]);
 
   // Every field is verified against something real. A proposal field the host
@@ -56,7 +56,7 @@ export async function clampAndApprove(
     availableTools: new Set(toolCatalog.map((tool) => tool.name)),
     // Use the same workspace catalogue that planning receives. A skill that
     // can be selected there must survive approval here and load in the member.
-    availableSkills: new Set(context.skills.map((skill) => skill.name)),
+    availableSkills: new Set(skills.map((skill) => skill.name)),
     // The ceiling this build permits a managed session. Nothing here can grant
     // authority the user does not already hold in the workspace.
     permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },

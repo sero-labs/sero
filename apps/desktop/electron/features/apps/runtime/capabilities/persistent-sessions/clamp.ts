@@ -197,7 +197,7 @@ export function describeGrantAuthority(proposal: PersistentSessionGrantProposal)
   if (filesystem === 'write') lines.push('Read and edit files in this workspace');
   else if (filesystem === 'read') lines.push('Read files in this workspace');
 
-  if (strongest('commands') !== 'none') lines.push('Run commands');
+  if (strongest('commands') === 'all') lines.push('Run commands');
   if (strongest('network') !== 'none') lines.push('Reach the internet');
 
   const vcs = strongest('vcs');

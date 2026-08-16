@@ -30,13 +30,9 @@ vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
 }));
 
 vi.mock('@electron/ipc/agent/handlers/subagent-context', () => ({
-  getSubagentAvailableContext: async () => ({
-    systemPrompt: '',
-    tools: [],
-    skills: [{ name: 'sero-plugin', description: 'Build a Sero plugin.', filePath: '/skills/sero-plugin/SKILL.md' }],
-    agents: [],
-    overrides: null,
-  }),
+  getRoomSkillCatalog: async () => [
+    { name: 'sero-plugin', description: 'Build a Sero plugin.', filePath: '/skills/sero-plugin/SKILL.md' },
+  ],
 }));
 
 vi.mock('@electron/cli', () => ({
@@ -69,7 +65,7 @@ function skillBearingProposal(): PersistentSessionGrantProposal {
         allowedCwds: ['/workspace'],
         allowedModels: ['anthropic/sonnet'],
         allowedTools: ['read'],
-        allowedSkills: ['sero-plugin'],
+        allowedSkills: ['sero-plugin', 'normal-disabled'],
         allowedThinkingLevels: ['high'],
         permissionProfile: { filesystem: 'write', commands: 'all', network: 'none', vcs: 'commit' },
         maxSystemPromptAdditionBytes: 1_000,
@@ -93,5 +89,6 @@ describe('persistent session wiring', () => {
     expect(fakes.choices).toHaveLength(1);
     expect(fakes.choices[0].body).toContain('Read and edit files in this workspace');
     expect(fakes.choices[0].body).toContain('Run commands');
+    expect(fakes.choices[0].body).toContain('normal-disabled');
   });
 });

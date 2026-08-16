@@ -12,7 +12,11 @@
 
 import path from 'path';
 import { ipcMain } from 'electron';
-import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
+import {
+  DefaultResourceLoader,
+  type LoadSkillsResult,
+  type SettingsManager,
+} from '@earendil-works/pi-coding-agent';
 import type { AvailableContext, ContextAgentInfo, ContextSkillInfo } from '@sero-ai/common';
 import { IpcChannels } from '@/types/ipc-channels';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
@@ -21,6 +25,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { createSubagentSkillOverride } from '@electron/features/subagent/runtime/skill-pipeline';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
+import { createRoomSkillOverride } from '@electron/features/apps/extensions/room-skills';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 
@@ -29,14 +34,21 @@ async function listWorkspaceAgents(): Promise<ContextAgentInfo[]> {
   return agents.map((a) => ({ name: a.name, description: a.description }));
 }
 
-async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInfo[]> {
+type SkillOverrideFactory = (
+  settingsManager: Pick<SettingsManager, 'getGlobalSettings'>,
+) => (base: LoadSkillsResult) => LoadSkillsResult;
+
+async function listWorkspaceSkills(
+  workspaceId: string,
+  createSkillOverride: SkillOverrideFactory,
+): Promise<ContextSkillInfo[]> {
   const infra = await ensureInfra();
   const cwd = workspaceManager.getPath(workspaceId) ?? process.cwd();
   const loader = new DefaultResourceLoader({
     cwd,
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
-    skillsOverride: createSubagentSkillOverride(infra.settingsManager),
+    skillsOverride: createSkillOverride(infra.settingsManager),
   });
   await loader.reload();
   return loader.getSkills().skills.map((s) => ({
@@ -46,13 +58,23 @@ async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInf
   }));
 }
 
+/** Skills that Room planning can offer and a Room member can load. */
+export async function getRoomSkillCatalog(workspaceId: string): Promise<ContextSkillInfo[]> {
+  try {
+    return await listWorkspaceSkills(workspaceId, createRoomSkillOverride);
+  } catch (err) {
+    console.warn('[subagent-context] Room skill enumeration failed:', err);
+    return [];
+  }
+}
+
 export async function getSubagentAvailableContext(workspaceId: string): Promise<AvailableContext> {
   // Ensure the catalog is published before first use (no-op once warmed).
   await warmSubagentToolCatalog();
 
   let skills: ContextSkillInfo[] = [];
   try {
-    skills = await listWorkspaceSkills(workspaceId);
+    skills = await listWorkspaceSkills(workspaceId, createSubagentSkillOverride);
   } catch (err) {
     console.warn('[subagent-context] skill enumeration failed:', err);
   }

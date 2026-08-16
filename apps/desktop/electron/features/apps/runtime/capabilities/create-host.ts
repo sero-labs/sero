@@ -9,7 +9,7 @@ import { focusMainWindow } from '@electron/platform/desktop/notifications';
 import { showNotification } from '@electron/platform/desktop/notifications';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
-import { getSubagentAvailableContext } from '@electron/ipc/agent/handlers/subagent-context';
+import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { startManagedDevServer } from '@electron/features/workspace/runtime/start-managed-dev-server';
@@ -119,8 +119,8 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         await warmSubagentToolCatalog();
         return getSubagentToolCatalog();
       },
-      async listSkillCatalog(workspaceId) {
-        return (await getSubagentAvailableContext(workspaceId)).skills;
+      listSkillCatalog(workspaceId) {
+        return getRoomSkillCatalog(workspaceId);
       },
       async listAgentCatalog(_workspaceId) {
         // Named agent roles live in the profile-global agents dir (workspace-independent).
