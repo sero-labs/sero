@@ -23,6 +23,14 @@ The deterministic runtime suite covers:
 - mixed member models and provider failures;
 - retries, cancellation, hard budgets, revision races, delivery races, message
   storms, deadlocks, and worktree conflicts;
+- lifecycle races: a completion that read the Room before a cancel landed, a
+  cancel or pause arriving after the Room finished, and two completions at
+  once. A finished Room keeps the ending it reached, and only one caller
+  delivers;
+- two members claiming the same path at once under the blocking policy, and one
+  member's concurrent claims against its own cap;
+- a member session that finishes building after its grant was revoked. The
+  session is disposed instead of being registered under a dead grant;
 - bounded message pages, timeline rotations, applied-command keys, live output,
   wake metrics, and session-pool size.
 

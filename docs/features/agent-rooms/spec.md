@@ -611,7 +611,7 @@ The Orchestrator sends a session request. It does not construct a session direct
 
 A grant is issued from a host-stored approval, never from the plugin's request. The plugin submits a proposal; the host clamps it to current user authority and the workspace catalogue, presents the clamped set for approval, and stores exactly what was approved. The consent summary the user approves and the grant the host stores are projections of the same clamped set.
 
-Capabilities are held **per session subject**, not grant-wide, so one subject cannot use another subject's tools, models or permissions. `open` takes no caller-supplied path — the host resolves it from its own immutable subject-to-path registry. The session-count check, the subject binding and the counter increment are one atomic reservation taken before construction.
+Capabilities are held **per session subject**, not grant-wide, so one subject cannot use another subject's tools, models or permissions. `open` takes no caller-supplied path — the host resolves it from its own immutable subject-to-path registry. The session-count check, the subject binding and the counter increment are one atomic reservation taken before construction, and both `create` and `open` commit that reservation afterwards against a re-read grant. A session whose grant is revoked while it is being built is disposed rather than registered: revocation tears down the sessions it can see, and a session still under construction is not yet one of them.
 
 The host validates the request against that subject's policy: session and working-directory paths after symlink resolution, model availability through the one host ModelRuntime, tools, skills, permissions, prompt-addition size, session count, grant validity and revocation state. It then constructs or opens the Pi session.
 
@@ -1298,7 +1298,11 @@ Architecture decisions AD-028 and AD-029 are recorded in
 - **D-38** `open` takes no caller-supplied path. The host resolves it from an
   immutable subject-to-path registry created at `create`.
 - **D-39** The count check, subject binding and counter increment are one atomic
-  reservation before construction.
+  reservation before construction. Both `create` and `open` commit that
+  reservation after construction, in the same serialized turn that re-reads the
+  grant. Revocation cannot dispose a session that is not registered yet, so a
+  session whose grant was revoked while it was being built is disposed by the
+  caller and never registered.
 - **D-40** Built-in gating is canonical path equality against a host-derived
   bundled root plus an app-ID-to-directory allowlist. Dev-session and
   `settings.packages` sources are rejected. `isInstalledPluginPackagePath` alone
