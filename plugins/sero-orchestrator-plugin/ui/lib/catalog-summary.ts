@@ -60,9 +60,9 @@ export function readaptPrompt(loop: Loop): string {
     }
   }
   return [
-    'This loop just switched to a newer curated catalog version, which may still contain generic placeholders ("your repo", "your team channel").',
-    'Re-adapt the plan to this workspace: replace generic placeholders with the concrete values this loop already uses, and keep the new version\'s structure and intent unchanged.',
-    pairs.length > 0 ? `The user answered these questions when the loop was set up:\n${pairs.join('\n')}` : '',
+    'This Workflow just switched to a newer curated catalog version, which may still contain generic placeholders ("your repo", "your team channel").',
+    'Re-adapt the plan to this workspace: replace generic placeholders with the concrete values this Workflow already uses, and keep the new version\'s structure and intent unchanged.',
+    pairs.length > 0 ? `The user answered these questions when the Workflow was set up:\n${pairs.join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n\n');

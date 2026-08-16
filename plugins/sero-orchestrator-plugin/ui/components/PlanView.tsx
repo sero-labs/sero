@@ -46,7 +46,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   if (plan.steps.length === 0) {
     return (
       <Card className="p-3 text-base text-muted-foreground">
-        No plan generated yet. Creating a loop asks the model to author the steps for your prompt.
+        No plan generated yet. Creating a Workflow asks the model to write the steps for your prompt.
       </Card>
     );
   }

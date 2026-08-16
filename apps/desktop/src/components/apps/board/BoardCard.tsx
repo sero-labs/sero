@@ -379,7 +379,7 @@ function shortModel(model: string): string {
 // ── Drilldown ───────────────────────────────────────────────
 
 const OPEN_LABEL: Record<BoardCardModel['kind'], string> = {
-  loop: 'Open loop',
+  loop: 'Open workflow',
   issue: 'Open issue',
   room: 'Open Room',
   session: 'Open session',

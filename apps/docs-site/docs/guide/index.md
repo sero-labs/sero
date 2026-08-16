@@ -28,6 +28,9 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Subagents and Collaboration](/guide/subagents) — delegate work to specialist agents and review their results.
 - [Memory](/guide/memory) — use durable context and memory tools.
 - [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
+- [Orchestrator](/guide/orchestrator) — choose between planned Workflows and collaborative Rooms.
+- [Workflows](/guide/workflows) — create planned work that runs once, on a schedule, or after an event.
+- [Rooms](/guide/rooms) — create and supervise a temporary team for one problem.
 - [Running Evals](/guide/running-evals) — run snapshot or live-provider evals and inspect results.
 
 ## App and integration tasks

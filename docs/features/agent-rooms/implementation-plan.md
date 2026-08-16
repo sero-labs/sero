@@ -1,6 +1,6 @@
 # Agent Rooms implementation plan
 
-Status: Code implementation complete — docs-site release pass and solo-use validation pending
+Status: Implementation complete — post-merge solo-use validation remains
 Branch: feat/agent-rooms  
 Parent product: Sero Orchestrator plugin  
 Specification: [spec.md](./spec.md)  
@@ -710,6 +710,6 @@ Each pull request must state:
 - [x] Agent Board links do not duplicate Room controls.
 - [x] CollaborationEngine and DebateEngine are removed after proof.
 - [x] Security, accessibility, recovery and cost gates pass.
-- [ ] User and operator documentation is complete. *(Final docs-site release pass pending.)*
+- [x] User and operator documentation is complete. *(Rooms and Workflows now have separate user guides and reference pages in `apps/docs-site`.)*
 
 Active prompt-cache keep-warm is not required for this definition of done.

@@ -49,7 +49,7 @@ You can use Scheduler from a few surfaces:
   checking status.
 - **Agent tools** — `current_time`, `cron`, and `reminder`.
 
-The app's main tabs are **Jobs**, **Reminders**, **Loops**, and **History**. The
+The app's main tabs are **Jobs**, **Reminders**, **Workflows**, and **History**. The
 app defaults to the Reminders view and includes a top status area for scheduler
 state, autostart, and notification settings.
 
@@ -66,28 +66,28 @@ explicit. Review these fields carefully before enabling a job.
 
 ![Cron jobs editor](../assets/images/cron-jobs-editor.jpg)
 
-## Scheduled Orchestrator loops
+## Scheduled Orchestrator Workflows
 
-The **Loops** tab lists the active workspace's Orchestrator loops that run on a
-schedule, plus loops with a pending snoozed retry. Loops are created and managed
+The **Workflows** tab lists the active workspace's Orchestrator Workflows that
+run on a schedule, plus Workflows with a pending snoozed retry. Workflows are created and managed
 in the Orchestrator app — this tab is a window into them:
 
-- **Edit schedule** changes the loop's cron schedule (evaluated in UTC).
-- **Pause / Resume** stops or re-arms only the schedule. A loop that also runs
+- **Edit schedule** changes the Workflow's cron schedule (evaluated in UTC).
+- **Pause / Resume** stops or re-arms only the schedule. A Workflow that also runs
   on events (shown with an **Events** badge) keeps firing on those events while
   its schedule is paused.
-- **Open in Orchestrator** jumps to the loop's details.
+- **Open in Orchestrator** jumps to the Workflow's details.
 
-A loop delayed from an uncommitted-changes confirmation shows a **Snoozed**
+A Workflow delayed from an uncommitted-changes confirmation shows a **Snoozed**
 badge and the retry time. Snoozing delays the pending Orchestrator run; it does
-not change the loop's cron schedule. A manually snoozed event-only loop also
-appears here as a one-off retry without schedule-edit controls. Manage the loop
+not change the Workflow's cron schedule. A manually snoozed event-only Workflow
+also appears here as a one-off retry without schedule-edit controls. Manage the Workflow
 itself in Orchestrator.
 
 A schedule that has reached its run limit shows **Run limit reached** and can no
-longer be edited or resumed — restart the loop in Orchestrator to run it again.
+longer be edited or resumed — restart the Workflow in Orchestrator to run it again.
 
-Loop schedules are fired by Orchestrator, not by the cron scheduler — they run
+Workflow schedules are fired by Orchestrator, not by the cron scheduler — they run
 even when the scheduler here is stopped.
 
 ## Start, stop, and check status with `/cron`

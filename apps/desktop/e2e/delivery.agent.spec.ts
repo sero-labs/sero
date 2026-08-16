@@ -241,7 +241,7 @@ test('a saved-artifact loop delivers a report with a receipt verified against th
   await expect(panel().getByText('Saved report').first()).toBeVisible();
   await shot('01-review-saved-artifact.png');
 
-  await panel().getByRole('button', { name: 'Activate loop' }).click();
+  await panel().getByRole('button', { name: 'Activate workflow' }).click();
   await expect(panel().getByText('Attempt history')).toBeVisible({ timeout: 20_000 });
 
   // The loop may only complete WITH a receipt (contract enforced end-to-end).
@@ -276,7 +276,7 @@ test('an external webhook loop parks for approval with the draft attached', asyn
   // FR-D4 plan shape: the plan carries an approval gate step.
   expect(loopFile(approveLoopId)?.plan.steps.some((s) => s.gate === 'approval')).toBe(true);
 
-  await panel().getByRole('button', { name: 'Activate loop' }).click();
+  await panel().getByRole('button', { name: 'Activate workflow' }).click();
   await expect(panel().getByText('Attempt history')).toBeVisible({ timeout: 20_000 });
 
   // The loop must park on an approval question — with the draft attached.
@@ -328,7 +328,7 @@ test('rejecting the approval provably sends nothing', async () => {
     'webhook-post',
     { 'https://…': `http://127.0.0.1:${listenerPort}/reject-hook` },
   );
-  await panel().getByRole('button', { name: 'Activate loop' }).click();
+  await panel().getByRole('button', { name: 'Activate workflow' }).click();
   await expect(panel().getByText('Attempt history')).toBeVisible({ timeout: 20_000 });
 
   await expect

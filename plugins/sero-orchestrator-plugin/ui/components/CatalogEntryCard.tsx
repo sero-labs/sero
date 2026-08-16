@@ -67,7 +67,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
               >
                 In your library ✓
               </button>
-              <Button size="xs" variant="ghost" disabled={busy} onClick={onInstall} title="Create another draft loop from the installed version">
+              <Button size="xs" variant="ghost" disabled={busy} onClick={onInstall} title="Create another draft Workflow from the installed version">
                 New draft
               </Button>
             </>

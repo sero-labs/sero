@@ -36,11 +36,11 @@ export function LoopsTab({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center animate-cron-fade-in">
         <InfinityIcon className="mb-4 size-10 text-muted-foreground" />
-        <h2 className="text-base font-medium text-foreground">No scheduled or snoozed loops</h2>
+        <h2 className="text-base font-medium text-foreground">No scheduled or snoozed Workflows</h2>
         <p className="mt-1.5 max-w-[260px] text-xs leading-relaxed text-muted-foreground">
           {hasWorkspace
-            ? 'Orchestrator loops with a schedule or pending snooze show up here.'
-            : 'Open a workspace to see its scheduled loops.'}
+            ? 'Orchestrator Workflows with a schedule or pending snooze show up here.'
+            : 'Open a workspace to see its scheduled Workflows.'}
         </p>
         {hasWorkspace && (
           <Button size="sm" className="mt-4" onClick={onOpenOrchestrator}>

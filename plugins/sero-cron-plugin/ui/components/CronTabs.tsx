@@ -20,7 +20,7 @@ const TAB_LABELS: Array<{ key: CronAppTab; label: (counts: Omit<CronTabsProps, '
   },
   {
     key: 'loops',
-    label: ({ totalLoops }) => `Loops (${totalLoops})`,
+    label: ({ totalLoops }) => `Workflows (${totalLoops})`,
   },
   {
     key: 'history',

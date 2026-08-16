@@ -181,7 +181,7 @@ test('a plain-English prompt produces a github issue-labelled trigger', async ()
   await panel.locator('#loop-allow-dirty').click();
   await panel.getByRole('button', { name: 'Generate plan' }).click();
   await expect(panel.getByText("Here's the plan the AI wrote")).toBeVisible({ timeout: 300_000 });
-  await panel.getByRole('button', { name: 'Activate loop' }).click();
+  await panel.getByRole('button', { name: 'Activate workflow' }).click();
   await expect(panel.getByText('Attempt history')).toBeVisible({ timeout: 20_000 });
 
   await expect

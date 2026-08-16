@@ -34,12 +34,12 @@ export function LibraryLinkSection({ loop, status, busy, onAction }: LibraryLink
   return (
     <Card className="flex flex-col gap-2 p-3 text-base">
       {sourceRemoved && (
-        <span className="text-xs text-amber-400">The library entry this loop came from was removed. It stays on its current plan.</span>
+        <span className="text-xs text-amber-400">The library entry for this Workflow was removed. The current plan is unchanged.</span>
       )}
 
       {diverged && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">This loop’s steps differ from v{version}.</span>
+          <span className="text-xs text-muted-foreground">This Workflow’s steps differ from v{version}.</span>
           <Button
             size="xs"
             disabled={busy}

@@ -84,7 +84,7 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {confirmingDelete ? (
           <>
-            <span className="text-xs text-muted-foreground">Delete this loop and its config?</span>
+            <span className="text-xs text-muted-foreground">Delete this Workflow and its settings?</span>
             {hasBranch && (
               <div className="flex items-center gap-1.5">
                 <Checkbox

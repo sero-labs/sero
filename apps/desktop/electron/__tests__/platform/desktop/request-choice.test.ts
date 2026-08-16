@@ -36,7 +36,7 @@ describe('requestChoice', () => {
       timeoutMs: 30_000,
       fallbackLabel: 'run isolated',
       context: { source: 'Sero Orchestrator', workspaceId: 'ws-1', trigger: 'Scheduled loop' },
-      openTarget: { appId: 'orchestrator', workspaceId: 'ws-1', params: { loopId: 'loop-1' }, label: 'Open loop' },
+      openTarget: { appId: 'orchestrator', workspaceId: 'ws-1', params: { loopId: 'loop-1' }, label: 'Open workflow' },
       choices: [
         { id: 'isolated', label: 'Run isolated', emphasis: 'primary' },
         { id: 'one-hour', label: '1 hour', menu: 'Snooze' },

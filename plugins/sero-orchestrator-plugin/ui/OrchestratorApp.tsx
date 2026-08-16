@@ -327,7 +327,7 @@ export function OrchestratorApp() {
             {selected ? (
               <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
             ) : (
-              <div className="flex flex-1 items-center justify-center text-base text-muted-foreground">Select a loop from the list.</div>
+              <div className="flex flex-1 items-center justify-center text-base text-muted-foreground">Select a Workflow from the list.</div>
             )}
           </>
         )}

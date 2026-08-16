@@ -86,7 +86,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
 
       {runtime.snoozedUntil && (
         <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
-          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the loop runs.
+          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
         </Card>
       )}
 
@@ -151,12 +151,12 @@ function BlockNotice({ loop }: { loop: Loop }) {
       {blockedStep ? (
         <span>
           <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
-          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the loop.
+          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the Workflow.
         </span>
       ) : (
         <span>
           <span className="font-medium text-destructive">Blocked ({block.kind}): </span>
-          {block.reason} — <span className="font-medium">Restart</span> the loop or <span className="font-medium">Refine</span> the plan.
+          {block.reason} — <span className="font-medium">Restart</span> the Workflow or <span className="font-medium">Refine</span> the plan.
         </span>
       )}
     </Card>

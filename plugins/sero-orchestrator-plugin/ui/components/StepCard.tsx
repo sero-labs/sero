@@ -11,21 +11,14 @@ import { Badge, Button, Card } from '@sero-ai/ui';
 import { ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { LoopStepDefinition, StepGuard, StepRuntimeState } from '../../shared/types';
+import type { LoopStepDefinition, StepRuntimeState } from '../../shared/types';
+import { guardLabel } from '../lib/guard-label';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
 import { StepStatusPill } from './StatusBadge';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
 import { StepAgentControl } from './StepAgentControl';
-
-const routeText = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value));
-
-/** Human-readable guard, e.g. "only if route = simple / standard" or "route: default branch". */
-export function guardLabel(when: StepGuard): string {
-  if (when.default) return `${when.var}: default branch`;
-  return `only if ${when.var} = ${(when.in ?? []).map(routeText).join(' / ')}`;
-}
 
 const PROBLEM_STATUSES = new Set(['failed', 'blocked', 'needs-revision']);
 
@@ -115,7 +108,7 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
       )}
 
       {onRetry && (
-        <Button size="xs" variant="outline" className="self-start" onClick={onRetry} title="Reset this step and run the loop on from here (keeps finished work)">
+        <Button size="xs" variant="outline" className="self-start" onClick={onRetry} title="Reset this step and run the Workflow from here (keeps finished work)">
           <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
         </Button>
       )}

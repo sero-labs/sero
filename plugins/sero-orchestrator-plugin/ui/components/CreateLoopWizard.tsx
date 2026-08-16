@@ -87,7 +87,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
           <div className="flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
             <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
-              Activate loop →
+              Activate workflow →
             </Button>
           </div>
         </div>
