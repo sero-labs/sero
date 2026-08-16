@@ -14,6 +14,7 @@ import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
 import type { LoadExtensionsResult, SettingsManager } from '@earendil-works/pi-coding-agent';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { createRoomSkillOverride } from '@electron/features/apps/extensions/room-skills';
 
 /** The SDK does not export its options type, so derive it from the constructor. */
 type LoaderOptions = ConstructorParameters<typeof DefaultResourceLoader>[0];
@@ -62,8 +63,6 @@ export interface MemberResourceProfileInput {
 export async function createMemberResourceLoader(
   input: MemberResourceProfileInput,
 ): Promise<DefaultResourceLoader> {
-  const allowedSkills = new Set(input.allowedSkills);
-
   const loader = new DefaultResourceLoader({
     cwd: input.cwd,
     agentDir: SERO_AGENT_DIR,
@@ -80,10 +79,7 @@ export async function createMemberResourceLoader(
     // Project context files stay ON: a member that cannot read AGENTS.md would
     // ignore the repository's own rules.
     noContextFiles: false,
-    skillsOverride: (base) => ({
-      ...base,
-      skills: base.skills.filter((skill) => allowedSkills.has(skill.name)),
-    }),
+    skillsOverride: createRoomSkillOverride(input.settingsManager, input.allowedSkills),
     extensionsOverride: (base: LoadExtensionsResult) => input.bridgeExtensions(base),
   });
 

@@ -18,9 +18,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
-import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
-import { filterCompatiblePluginSkills } from '@electron/features/plugins/resource-compatibility';
+import { createRoomSkillOverride } from '@electron/features/apps/extensions/room-skills';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
 
@@ -34,14 +32,11 @@ async function listWorkspaceAgents(): Promise<ContextAgentInfo[]> {
 async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInfo[]> {
   const infra = await ensureInfra();
   const cwd = workspaceManager.getPath(workspaceId) ?? process.cwd();
-  const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
   const loader = new DefaultResourceLoader({
     cwd,
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
-    skillsOverride: (base) => withAgentPluginSkills(
-      filterCompatiblePluginSkills(skillVisibilityOverride(base)),
-    ),
+    skillsOverride: createRoomSkillOverride(infra.settingsManager),
   });
   await loader.reload();
   return loader.getSkills().skills.map((s) => ({
