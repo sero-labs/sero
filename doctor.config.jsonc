@@ -25,8 +25,8 @@
           "apps/*/scripts/**",
           "packages/*/scripts/**"
         ],
-        // `await` in a loop is the point in this code, not an oversight. These
-        // files write records to disk one at a time on purpose:
+        // Sequential `await` is the point in this code, not an oversight.
+        // These files write records to disk one at a time on purpose:
         //
         //  - Order is the durability rule. A job's terminal state is written
         //    before the target that points at it, and the files of a revision
@@ -44,7 +44,46 @@
         // Where a loop genuinely has independent work and the concurrency is
         // worth having, it is written with `Promise.all` already (see
         // `reindex` in the design library's store).
-        "rules": ["react-doctor/async-await-in-loop"]
+        //
+        // The other two rules here flag the same pattern outside a loop: two
+        // awaits that look independent but are not. A Room writes a member's
+        // checkpoint before it compacts that member's context, because the
+        // transcript the checkpoint describes is gone afterwards; recovery
+        // wakes the Conductor before the members it coordinates. Running
+        // either pair together loses the order that makes it correct.
+        "rules": [
+          "react-doctor/async-await-in-loop",
+          "react-doctor/server-sequential-independent-await",
+          "react-doctor/async-defer-await"
+        ]
+      },
+      {
+        // Same Node-side code, different reason. These four rules trade a
+        // readable pass over a collection for a faster one: build a Set or a
+        // Map instead of `includes`/`find`, fold `.filter().map()` into one
+        // `.reduce()`. That is worth it in a render path, which is what they
+        // were written for. It is not worth it here, where the collections are
+        // a Room's roster, one member's tool allowlist, or the content blocks
+        // of a single message — tens of items at most, read while the process
+        // is waiting on a disk write. The rewrite costs readability and buys
+        // nothing measurable, so the plain form stays.
+        "files": [
+          "runtime/**",
+          "extension/**",
+          "electron/**",
+          "scripts/**",
+          "plugins/*/runtime/**",
+          "plugins/*/extension/**",
+          "apps/*/electron/**",
+          "apps/*/scripts/**",
+          "packages/*/scripts/**"
+        ],
+        "rules": [
+          "react-doctor/js-combine-iterations",
+          "react-doctor/js-set-map-lookups",
+          "react-doctor/js-index-maps",
+          "react-doctor/js-flatmap-filter"
+        ]
       }
     ]
   }

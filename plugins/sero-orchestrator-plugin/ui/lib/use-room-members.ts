@@ -20,6 +20,11 @@ export function useRoomMembers(roomId: string | null, memberIds: string[]): Map<
   // The roster identity, so re-rendering with an equal list does not resubscribe.
   const roster = memberIds.join(',');
 
+  // The cleanup below does unsubscribe and unwatch every path, but it builds
+  // those calls in a loop over `byPath`, which the rule cannot follow back to
+  // the loop that made them. See `use-watched-json.ts` for the same effect with
+  // one path, which the rule reads correctly.
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
     if (!roomId || !stateDir || !roster) {
       setMembers(new Map());

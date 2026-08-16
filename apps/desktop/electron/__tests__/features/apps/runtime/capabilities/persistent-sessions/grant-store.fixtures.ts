@@ -34,6 +34,11 @@ export interface FakePersistence {
 export function createPersistence(): FakePersistence {
   let snapshot: Record<string, StoredGrant> | null = null;
   let writes = 0;
+  // A JSON round-trip on purpose: the real store writes these grants to a JSON
+  // file, so this drops exactly what a restart drops. `structuredClone` would
+  // keep `undefined` and `Date`s that never survive the real file, and the fake
+  // would stop matching the thing it stands in for.
+  // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone
   const clone = (grants: Record<string, StoredGrant>): Record<string, StoredGrant> =>
     JSON.parse(JSON.stringify(grants)) as Record<string, StoredGrant>;
 
