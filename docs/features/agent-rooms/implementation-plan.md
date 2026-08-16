@@ -584,16 +584,16 @@ Objective: Make Room mode safe and reliable for general use.
 - [x] Add archive, retention, deletion and redacted diagnostics.
 - [x] Add user, template-author and operator documentation.
 - [x] Add telemetry, support runbook, rollout and rollback plan.
-- [ ] Release to an internal cohort and expand after reliability and cost gates pass.
-- [ ] Remove the feature flag after final approval.
+- [ ] Enable `SERO_ROOMS` for real solo use and log reliability and cost measures against reasonable boundaries. *(No internal cohort: one developer, self-validated. See [rollout-plan.md](./rollout-plan.md).)*
+- [ ] Keep the feature flag as a permanent kill switch; remove it only if it becomes unnecessary to keep.
 
 ### Deliverables
 
 - [x] Security, resilience, performance and soak reports. *([hardening-report.md](./hardening-report.md))*
 - [x] User and operator documentation.
 - [x] Diagnostics and support runbook. *([operator-runbook.md](./operator-runbook.md))*
-- [ ] Approved rollout and rollback plan. *The plan is ready at [rollout-plan.md](./rollout-plan.md); approval follows the internal cohort.*
-- [ ] General-availability release.
+- [ ] Rollout and rollback plan, self-approved after the solo validation log is recorded. *([rollout-plan.md](./rollout-plan.md))*
+- [ ] Solo-validated release. *(Replaces "general-availability release" — there is no cohort to expand to.)*
 
 ### Acceptance criteria
 
@@ -606,7 +606,7 @@ Objective: Make Room mode safe and reliable for general use.
 - [x] Soak tests show no unbounded session, timer, message, log or worktree growth.
 - [x] Rollback preserves or safely exports Room data.
 - [x] Documentation covers create, adjust, run, intervene, recover, finish and delete.
-- [ ] Production reliability and cost targets are approved.
+- [ ] Reliability and cost measures from real solo use are logged and sit within reasonable boundaries.
 - [x] pnpm typecheck and the full test suite pass.
 
 ## 14. Deferred prompt-cache keep-warm track
