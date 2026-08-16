@@ -41,6 +41,19 @@ function fakeSession() {
   return { subscribe: () => () => undefined, dispose: () => undefined };
 }
 
+/** A session that records whether the host disposed it. */
+function trackedSession() {
+  const tracked = {
+    subscribe: () => () => undefined,
+    disposed: false,
+    dispose: () => {
+      tracked.disposed = true;
+      return undefined;
+    },
+  };
+  return tracked;
+}
+
 const MODEL = 'anthropic/claude-opus-5';
 
 function policy(cwd: string): PersistentSessionSubjectPolicy {
@@ -111,7 +124,23 @@ async function hostWithGrant() {
     sessionName: 'Room — implementer',
   });
 
-  return { buildSessionInputs, grantId: grant.grantId, created };
+  return { buildSessionInputs, grantId: grant.grantId, created, host, cwd };
+}
+
+/** The same request `hostWithGrant` created with, for reopening that subject. */
+function openRequest(cwd: string, grantId: string) {
+  return {
+    grantId,
+    subject: 'implementer',
+    operation: 'open' as const,
+    cwd,
+    model: MODEL,
+    thinking: 'low',
+    tools: ['read', 'write', 'sero-cli'],
+    skills: [],
+    systemPromptAdditions: [],
+    sessionName: 'Room — implementer',
+  };
 }
 
 describe('member session assembly', () => {
@@ -135,5 +164,45 @@ describe('member session assembly', () => {
     expect(buildSessionInputs).toHaveBeenCalledWith(
       expect.objectContaining({ grantId, subject: 'implementer' }),
     );
+  });
+});
+
+describe('reopening while the grant is revoked', () => {
+  beforeEach(() => {
+    createAgentSession.mockClear();
+    createAgentSession.mockImplementation(async () => ({ session: fakeSession() }));
+  });
+
+  it('disposes a session that finished building after its grant was revoked', async () => {
+    const { host, cwd, grantId, created } = await hostWithGrant();
+    // Free the live slot so the next call really reopens instead of handing
+    // back the session that is already open for this subject.
+    await host.dispose(created.handleId);
+
+    // Hold construction open, so revocation lands while the session is being
+    // built — the window where it is in neither the live set nor the store.
+    const building = trackedSession();
+    let finishBuild = (): void => undefined;
+    let buildStarted = (): void => undefined;
+    const underConstruction = new Promise<void>((resolve) => { buildStarted = resolve; });
+    createAgentSession.mockImplementation(async () => {
+      buildStarted();
+      return new Promise((resolve) => {
+        finishBuild = () => resolve({ session: building });
+      });
+    });
+
+    const reopening = host.open(openRequest(cwd, grantId));
+    // Revoking only proves anything once construction is genuinely under way:
+    // revoked any earlier and `open` refuses at the reservation instead.
+    await underConstruction;
+
+    await host.revokeGrant(grantId);
+    finishBuild();
+
+    // Revocation could not dispose a session that was not registered yet, so
+    // `open` must dispose it rather than add it under a revoked grant.
+    await expect(reopening).rejects.toThrow(/grant-revoked/);
+    expect(building.disposed).toBe(true);
   });
 });

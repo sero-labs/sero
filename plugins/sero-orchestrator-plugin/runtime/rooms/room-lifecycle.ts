@@ -14,7 +14,7 @@
  */
 
 import type { DeliveryReceipt } from '../../shared/delivery-types';
-import type { RoomMember, RoomStopReason } from '../../shared/room-types';
+import type { RoomMember, RoomStatus, RoomStopReason } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { requestRoomGrant, requirePersistentSessions } from './member-grant';
@@ -201,6 +201,38 @@ async function startConductor(
   return fail(detail);
 }
 
+/**
+ * Claims a status transition in the SAME serialized turn that checks it.
+ *
+ * Every transition here used to validate a snapshot and then write
+ * unconditionally. Two that overlapped therefore both believed they had won,
+ * and the later write replaced the earlier ending — a cancel could be overwritten
+ * by a completion that then delivered the result of a Room the user had stopped,
+ * and a late pause could resurrect a finished Room as `paused`. Deciding and
+ * writing together means exactly one caller wins and the losers do nothing.
+ *
+ * `null` from `next` refuses the transition without a write.
+ */
+async function claimTransition(
+  ctx: RoomLifecycleContext,
+  roomId: string,
+  next: (current: RoomRecord, status: RoomStatus) => RoomRecord | null,
+): Promise<{ won: boolean; status: RoomStatus }> {
+  const outcome = await ctx.store.transact(roomId, null, (current) => {
+    const status = current.runtime.status;
+    const record = next(current, status);
+    return { record, result: { won: record !== null, status } };
+  });
+  // `commandId` is null, so this transaction is never a replay.
+  return outcome.duplicate ? { won: false, status: 'failed' } : outcome.result;
+}
+
+/** What a status may not be moved out of by a pause, a resume or a cancel. */
+function refusalFor(status: RoomStatus): string {
+  if (status === 'completing') return 'This Room is delivering its result, so it cannot be changed now.';
+  return 'This Room has already finished.';
+}
+
 export async function pauseRoom(
   ctx: RoomLifecycleContext,
   roomId: string,
@@ -226,7 +258,14 @@ export async function settlePause(
 ): Promise<RoomActionResult> {
   const roomId = record.definition.id;
   const pausing = ctx.hasTurnsInFlight(roomId);
-  await ctx.store.updateRoom(roomId, (current) => withRoomStatus(current, pausing ? 'pausing' : 'paused', now, stopReason));
+  // A Room that finished or started delivering while this pause was being
+  // decided keeps that ending: pausing it now would resurrect it.
+  const claim = await claimTransition(ctx, roomId, (current, status) =>
+    TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing'
+      ? null
+      : withRoomStatus(current, pausing ? 'pausing' : 'paused', now, stopReason));
+  if (!claim.won) return fail(refusalFor(claim.status));
+
   // Releasing closes the live sessions; every file stays, so a resume reopens
   // the same history rather than starting a new session (§14.3).
   if (!pausing) await ctx.sessions.releaseRoom(roomId);
@@ -238,9 +277,12 @@ export async function settlePause(
 export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
-  if (record.runtime.status !== 'paused') return fail(`This Room is "${record.runtime.status}", so it cannot be resumed.`);
   if (!record.definition.grantId) return fail('This Room lost its authority to run and must be started again.');
-  await ctx.store.updateRoom(roomId, (current) => withRoomStatus(current, 'running', ctx.host.now(), null));
+  // Only a Room that is STILL paused resumes. Checked in the writing turn, so a
+  // Room cancelled since the read cannot be restarted as `running`.
+  const claim = await claimTransition(ctx, roomId, (current, status) =>
+    status === 'paused' ? withRoomStatus(current, 'running', ctx.host.now(), null) : null);
+  if (!claim.won) return fail(`This Room is "${claim.status}", so it cannot be resumed.`);
   return ok(await reread(ctx, roomId, record));
 }
 
@@ -266,14 +308,20 @@ export async function cancelRoom(
   });
 
   const now = ctx.host.now();
-  await ctx.store.updateRoom(roomId, (current) =>
-    withRoomStatus(
-      { ...current, members: current.members.map((member) => withMemberStatus(member, 'completed', detail)) },
-      'cancelled',
-      now,
-      { kind: 'user-cancelled', detail, at: now },
-    ),
-  );
+  // Claimed, not assumed. A Room that finished or began delivering while the
+  // work above was running has already chosen its ending, and rewriting it
+  // `cancelled` here would contradict a result the user may have received.
+  const claim = await claimTransition(ctx, roomId, (current, status) =>
+    TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing'
+      ? null
+      : withRoomStatus(
+          { ...current, members: current.members.map((member) => withMemberStatus(member, 'completed', detail)) },
+          'cancelled',
+          now,
+          { kind: 'user-cancelled', detail, at: now },
+        ));
+  if (!claim.won) return fail(refusalFor(claim.status));
+
   await releaseAuthority(ctx, roomId, detail);
   return ok(await reread(ctx, roomId, record));
 }
@@ -294,9 +342,21 @@ export async function completeRoom(
 ): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
-  if (TERMINAL_ROOM_STATUSES.includes(record.runtime.status)) return fail('This Room has already finished.');
   const now = ctx.host.now();
-  await ctx.store.updateRoom(roomId, (current) => withRoomStatus(current, 'completing', now, null));
+
+  // `completing` is the claim AND the crash marker. Winning it is what makes
+  // this caller the one that delivers: a cancel can no longer take the Room,
+  // and a second completion is refused rather than delivering twice. It stays
+  // two writes on purpose — a restart that finds `completing` knows delivery
+  // was interrupted and must not be repeated (§16, room-reconcile).
+  const claim = await claimTransition(ctx, roomId, (current, status) =>
+    TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing'
+      ? null
+      : withRoomStatus(current, 'completing', now, null));
+  if (!claim.won) {
+    return fail(claim.status === 'completing' ? 'This Room is already finishing.' : 'This Room has already finished.');
+  }
+
   await ctx.store.updateRoom(roomId, (current) =>
     withRoomStatus(
       { ...current, members: current.members.map((member) => withMemberStatus(member, 'completed', summary)) },

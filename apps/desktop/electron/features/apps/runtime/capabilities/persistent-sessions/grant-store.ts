@@ -361,6 +361,25 @@ export class GrantStore {
     });
   }
 
+  /**
+   * Phase two for `open`, and the mirror of `commitReservation`.
+   *
+   * Revocation disposes the sessions it can see, then clears the live set. A
+   * session still being constructed is in neither place — it is not registered
+   * yet, so revocation cannot dispose it, and adding it afterwards would leave a
+   * live session under a revoked grant that nothing will ever close. A handle
+   * that is no longer tracked here means revocation won, and the caller must
+   * dispose what it built.
+   */
+  async commitLive(grantId: string, handleId: string): Promise<CommitResult> {
+    return this.serialize(async () => {
+      const grant = this.grants[grantId];
+      if (grant?.status === 'active' && this.live.get(grantId)?.has(handleId)) return { ok: true as const };
+      this.releaseLive(grantId, handleId);
+      return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+    });
+  }
+
   private trackLive(grantId: string, handleId: string, subject: string): void {
     const handles = this.live.get(grantId) ?? new Set<string>();
     handles.add(handleId);

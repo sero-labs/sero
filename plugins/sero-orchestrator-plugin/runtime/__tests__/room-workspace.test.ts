@@ -17,7 +17,7 @@ import type { AppRuntimeContext } from '@sero-ai/common';
 import type { BlueprintMember, OperatingEnvelope, RoomBlueprint } from '../../shared/room-blueprint-types';
 import { computeProposalSummary } from '../../shared/room-proposal';
 import { createMemberSessionPool } from '../rooms/member-session';
-import { createRoomClaims, type RoomClaims } from '../rooms/room-claims';
+import { createRoomClaims, MAX_ACTIVE_CLAIMS_PER_MEMBER, type RoomClaims } from '../rooms/room-claims';
 import { RoomCoordinator } from '../rooms/room-coordinator';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import { createRoomWork, type RoomWork } from '../rooms/room-work';
@@ -229,6 +229,44 @@ describe('advisory path claims', () => {
     expect(blocked.message).toContain('API');
     // Nothing partial: the unblocked path in the same request is not recorded.
     expect((await claims.active(roomId)).map((claim) => claim.memberId)).toEqual(['api']);
+  });
+
+  it('lets only one of two concurrent claims take the same path under block', async () => {
+    const roomId = await draftRoom(
+      envelopeWith({ workspacePolicy: { mode: 'worktree-per-member', sharedTreeApproved: false, claimPolicy: 'block' } }),
+    );
+
+    // Both members ask for the same path with nothing between the two calls.
+    // Decided on a snapshot and written afterwards, both would find the path
+    // free and both would take it — the policy says exactly one may.
+    const [first, second] = await Promise.all([
+      claims.claim(roomId, 'api', ['src/server/app.ts'], 'fixing the crash'),
+      claims.claim(roomId, 'ui', ['src/server/app.ts'], 'moving the handler'),
+    ]);
+
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+    const refused = first.ok ? second : first;
+    if (refused.ok) throw new Error('expected one refusal');
+    expect(refused.code).toBe('blocked-by-claim');
+
+    const active = await claims.active(roomId);
+    expect(active).toHaveLength(1);
+    expect(active[0].pattern).toBe('src/server/app.ts');
+  });
+
+  it('counts concurrent claims by one member against its cap', async () => {
+    const roomId = await draftRoom();
+    const patterns = Array.from({ length: MAX_ACTIVE_CLAIMS_PER_MEMBER }, (_, index) => `src/f${index}.ts`);
+
+    // The cap is read in the same turn that appends, so two requests that
+    // overlap cannot both pass a check made before either of them wrote.
+    await Promise.all([
+      claims.claim(roomId, 'api', patterns, 'the first batch'),
+      claims.claim(roomId, 'api', ['src/extra.ts'], 'one more'),
+    ]);
+
+    const mine = (await claims.active(roomId)).filter((claim) => claim.memberId === 'api');
+    expect(mine.length).toBeLessThanOrEqual(MAX_ACTIVE_CLAIMS_PER_MEMBER);
   });
 
   it('releases a member\'s claims when it retires', async () => {

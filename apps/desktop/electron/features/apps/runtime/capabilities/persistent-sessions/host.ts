@@ -199,6 +199,14 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     try {
       const sessionManager = SessionManager.open(sessionPath, grant.sessionDir, validation.cwd);
       const session = await this.buildSession(request, validation, sessionManager);
+      const commit = await this.deps.grantStore.commitLive(request.grantId, handleId);
+      if (!commit.ok) {
+        // Revocation won the race while this session was being built. It could
+        // not dispose a session that was not registered yet, so disposing it is
+        // ours to do — same rule as `create`.
+        session.dispose();
+        throw new Error('Cannot open session: grant-revoked.');
+      }
       const sessionId = sessionManager.getSessionId();
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
       return { handleId, subject: request.subject, sessionId, sessionPath };

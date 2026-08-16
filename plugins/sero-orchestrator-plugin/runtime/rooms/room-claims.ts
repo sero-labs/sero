@@ -28,7 +28,7 @@ import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
-import type { RoomStore } from './room-store';
+import type { RoomStore, RoomTransaction } from './room-store';
 
 /**
  * Claims one member may hold at once. A member that claims the whole tree a
@@ -156,6 +156,86 @@ function describeOverlaps(record: RoomRecord, overlaps: PathClaimOverlap[]): str
     .join('; ');
 }
 
+/**
+ * The whole claim decision, made against the one record the transaction holds.
+ *
+ * Healing, the status and roster checks, the per-member cap and the overlap
+ * test all read the SAME record the new claims are appended to. Read the record
+ * first and append later and two members can both find a path free and both
+ * take it — which is precisely what `block` promises cannot happen.
+ *
+ * Healing is persisted even when the claim is refused: a released dead claim is
+ * true regardless of what the caller asked for.
+ */
+function decideClaim(
+  host: OrchestratorHost,
+  current: RoomRecord,
+  memberId: string,
+  wanted: string[],
+  reason: string,
+  now: string,
+): RoomTransaction<ClaimResult> {
+  const record = withGoneClaimsReleased(current, now);
+  const healed = record === current ? null : record;
+  const refuse = (result: ClaimDenied): RoomTransaction<ClaimResult> => ({ record: healed, result });
+
+  if (TERMINAL_ROOM_STATUSES.includes(record.runtime.status)) {
+    return refuse(denied('room-finished', 'This Room has finished, so it takes no more claims.'));
+  }
+  const member = record.members.find((candidate) => candidate.id === memberId);
+  if (!member || member.status === 'retired') {
+    return refuse(denied('not-a-member', `${memberId} is not an active member of this Room.`));
+  }
+
+  const live = activeClaimsOf(record);
+  const mine = live.filter((claim) => claim.memberId === memberId);
+  const fresh = wanted.filter((pattern) => !mine.some((claim) => claim.pattern === pattern));
+  if (mine.length + fresh.length > MAX_ACTIVE_CLAIMS_PER_MEMBER) {
+    return refuse(
+      denied(
+        'too-many-claims',
+        `${member.displayName} can hold ${MAX_ACTIVE_CLAIMS_PER_MEMBER} claims at once. Release some first.`,
+      ),
+    );
+  }
+
+  const policy = record.definition.workspacePolicy.claimPolicy;
+  const overlaps = wanted
+    .map((pattern) => findClaimOverlap(live, memberId, pattern, policy))
+    .filter((overlap) => overlap.memberIds.length > 0);
+
+  // Block refuses the WHOLE request: a half-applied claim set would leave the
+  // member believing it holds paths it does not.
+  if (policy === 'block' && overlaps.length > 0) {
+    return refuse(
+      denied(
+        'blocked-by-claim',
+        `Already claimed by another member: ${describeOverlaps(record, overlaps)}. Ask them, or work elsewhere.`,
+        overlaps,
+      ),
+    );
+  }
+
+  const claims: PathClaim[] = fresh.map((pattern) => ({
+    id: host.newId('claim'),
+    roomId: record.definition.id,
+    memberId,
+    pattern,
+    reason: reason.trim().slice(0, 300),
+    status: 'active',
+    createdAt: now,
+    releasedAt: null,
+  }));
+  const warning =
+    overlaps.length > 0
+      ? `These paths are already claimed: ${describeOverlaps(record, overlaps)}. Claims are advisory — agree who edits what.`
+      : null;
+  return {
+    record: claims.length > 0 ? { ...record, claims: [...record.claims, ...claims] } : healed,
+    result: { ok: true, claims, overlaps, warning },
+  };
+}
+
 export function createRoomClaims(ctx: RoomClaimsContext): RoomClaims {
   const { host, store } = ctx;
 
@@ -200,67 +280,25 @@ export function createRoomClaims(ctx: RoomClaimsContext): RoomClaims {
 
   return {
     async claim(roomId, memberId, patterns, reason) {
-      const record = await readLive(roomId);
-      if (!record) return denied('unknown-room', `There is no Room ${roomId}.`);
-      if (TERMINAL_ROOM_STATUSES.includes(record.runtime.status)) {
-        return denied('room-finished', 'This Room has finished, so it takes no more claims.');
-      }
-      const member = record.members.find((candidate) => candidate.id === memberId);
-      if (!member || member.status === 'retired') {
-        return denied('not-a-member', `${memberId} is not an active member of this Room.`);
-      }
       const wanted = [...new Set(patterns.map(normalizeClaimPattern).filter((pattern) => pattern.length > 0))];
       if (wanted.length === 0) return denied('no-patterns', 'A claim needs at least one path.');
+      const record = await store.readRoom(roomId);
+      if (!record) return denied('unknown-room', `There is no Room ${roomId}.`);
 
-      const live = activeClaimsOf(record);
-      const mine = live.filter((claim) => claim.memberId === memberId);
-      const fresh = wanted.filter((pattern) => !mine.some((claim) => claim.pattern === pattern));
-      if (mine.length + fresh.length > MAX_ACTIVE_CLAIMS_PER_MEMBER) {
-        return denied(
-          'too-many-claims',
-          `${member.displayName} can hold ${MAX_ACTIVE_CLAIMS_PER_MEMBER} claims at once. Release some first.`,
-        );
-      }
+      const outcome = await store.transact(roomId, null, (current) =>
+        decideClaim(host, current, memberId, wanted, reason, host.now()));
+      if (outcome.duplicate) return denied('unknown-room', `There is no Room ${roomId}.`);
 
-      const policy = record.definition.workspacePolicy.claimPolicy;
-      const overlaps = wanted
-        .map((pattern) => findClaimOverlap(live, memberId, pattern, policy))
-        .filter((overlap) => overlap.memberIds.length > 0);
-
-      // Block refuses the WHOLE request: a half-applied claim set would leave the
-      // member believing it holds paths it does not.
-      if (policy === 'block' && overlaps.length > 0) {
-        return denied(
-          'blocked-by-claim',
-          `Already claimed by another member: ${describeOverlaps(record, overlaps)}. Ask them, or work elsewhere.`,
-          overlaps,
-        );
-      }
-
-      const now = host.now();
-      const claims: PathClaim[] = fresh.map((pattern) => ({
-        id: host.newId('claim'),
-        roomId,
-        memberId,
-        pattern,
-        reason: reason.trim().slice(0, 300),
-        status: 'active',
-        createdAt: now,
-        releasedAt: null,
-      }));
-      if (claims.length > 0) {
-        await store.updateRoom(roomId, (current) => ({ ...current, claims: [...current.claims, ...claims] }));
+      const result = outcome.result;
+      if (result.ok && result.claims.length > 0) {
+        const name = record.members.find((candidate) => candidate.id === memberId)?.displayName ?? memberId;
         await store.appendTimeline(roomId, [
-          timelineEvent(host, roomId, 'claim', memberId, `${member.displayName} claimed ${claims.length} path(s).`, {
-            patterns: claims.map((claim) => claim.pattern).join(', '),
+          timelineEvent(host, roomId, 'claim', memberId, `${name} claimed ${result.claims.length} path(s).`, {
+            patterns: result.claims.map((claim) => claim.pattern).join(', '),
           }),
         ]);
       }
-      const warning =
-        overlaps.length > 0
-          ? `These paths are already claimed: ${describeOverlaps(record, overlaps)}. Claims are advisory — agree who edits what.`
-          : null;
-      return { ok: true, claims, overlaps, warning };
+      return result;
     },
 
     release(roomId, memberId, patterns) {
