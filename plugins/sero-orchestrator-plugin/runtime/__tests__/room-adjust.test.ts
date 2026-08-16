@@ -204,6 +204,28 @@ describe('adjustRoom', () => {
     expect(result.proposal.warnings).toEqual([]);
   });
 
+  it('retains the user-approved envelope when the model silently lowers a limit', async () => {
+    const previous = blueprint();
+    const lowered = blueprint({
+      approach: 'Same team, clearer wording.',
+      envelope: { ...envelope, maxTurnsPerMember: 2 },
+    });
+    const host = createFakeHost();
+    host.modelResponses = [reply(lowered)];
+
+    const result = await adjustRoom(host, {
+      blueprint: previous,
+      instruction: 'Say the approach more simply.',
+      parentSessionId: 'sess-1',
+      catalogue,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.blueprint.envelope.maxTurnsPerMember).toBe(envelope.maxTurnsPerMember);
+    expect(result.blueprint.envelope).toEqual(previous.envelope);
+  });
+
   it('accepts a reply in exactly the shape the prompt asks for', async () => {
     const previous = blueprint();
     // The prompt describes no schemaVersion, so a model that follows it exactly

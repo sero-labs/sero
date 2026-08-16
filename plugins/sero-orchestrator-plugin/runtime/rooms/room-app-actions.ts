@@ -30,7 +30,7 @@ import { INVOKING_CHAT_DESTINATION } from './room-delivery';
 import type { RoomMessageDraft } from './room-messages';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
-const PLANNABLE: readonly RoomStatus[] = ['draft', 'ready'];
+const PLANNABLE: readonly RoomStatus[] = ['draft'];
 
 /**
  * Member states a wake can actually move. `waiting` and `blocked` are cleared

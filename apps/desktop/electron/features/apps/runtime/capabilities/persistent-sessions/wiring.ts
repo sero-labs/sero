@@ -20,6 +20,7 @@ import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool 
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
+import { getSubagentAvailableContext } from '@electron/ipc/agent/handlers/subagent-context';
 
 import { clampProposal, describeGrantAuthority } from './clamp';
 import { applyPermissionProfile } from './permission-tools';
@@ -34,15 +35,16 @@ import type { AppRuntimeTarget } from '../../types';
  * the thing they see and the thing the host stores are the same object. A
  * proposal is an input to this decision, never a source of authority.
  */
-async function clampAndApprove(
-  target: AppRuntimeTarget,
+export async function clampAndApprove(
+  workspaceId: string,
   proposal: PersistentSessionGrantProposal,
 ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null> {
   const { modelRuntime } = await ensureAiInfra();
-  const [models, workspaces, toolCatalog] = await Promise.all([
+  const [models, workspaces, toolCatalog, context] = await Promise.all([
     modelRuntime.getAvailable(),
     workspaceManager.list(),
     warmSubagentToolCatalog().then(() => getSubagentToolCatalog()),
+    getSubagentAvailableContext(workspaceId),
   ]);
 
   // Every field is verified against something real. A proposal field the host
@@ -52,7 +54,9 @@ async function clampAndApprove(
     // The same provider-qualified identity the caller names a model by.
     availableModels: new Set(models.map((model) => modelKey(model.provider, model.id))),
     availableTools: new Set(toolCatalog.map((tool) => tool.name)),
-    availableSkills: new Set<string>(),
+    // Use the same workspace catalogue that planning receives. A skill that
+    // can be selected there must survive approval here and load in the member.
+    availableSkills: new Set(context.skills.map((skill) => skill.name)),
     // The ceiling this build permits a managed session. Nothing here can grant
     // authority the user does not already hold in the workspace.
     permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },
@@ -106,7 +110,7 @@ export async function installPersistentSessions(
     appId: target.manifest.id,
     packagePath: target.manifest.packagePath,
     workspaceId: target.workspace.id,
-    approveGrant: (proposal) => clampAndApprove(target, proposal),
+    approveGrant: (proposal) => clampAndApprove(target.workspace.id, proposal),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())

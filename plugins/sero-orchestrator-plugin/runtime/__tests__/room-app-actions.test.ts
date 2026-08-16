@@ -76,6 +76,29 @@ describe('the user Room surface', () => {
     expect(outcome.error).toContain('revision');
   });
 
+  it('refuses to adjust a ready Room without losing its grant or worktrees', async () => {
+    const roomId = await draftRoom();
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      definition: { ...record.definition, grantId: 'grant-ready' },
+      runtime: { ...record.runtime, status: 'ready' },
+      members: record.members.map((member, index) => index === 0 ? member : {
+        ...member,
+        worktreePath: '/workspace/member-worktree',
+        worktreeBranch: 'room/member-worktree',
+      }),
+    }));
+
+    const outcome = await app.adjust(roomId, 'Use fewer agents.');
+    const preserved = await store.readRoom(roomId);
+
+    expect(outcome.ok).toBe(false);
+    expect(preserved?.definition.grantId).toBe('grant-ready');
+    expect(preserved?.members[1].worktreePath).toBe('/workspace/member-worktree');
+    expect(preserved?.members[1].worktreeBranch).toBe('room/member-worktree');
+    expect(host.modelCalls).toHaveLength(0);
+  });
+
   it('refuses an adjustment whose Room started during the model call', async () => {
     const roomId = await draftRoom();
     const record = await store.readRoom(roomId);

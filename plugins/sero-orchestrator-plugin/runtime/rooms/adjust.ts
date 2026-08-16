@@ -181,7 +181,11 @@ function settleReply(
   );
   if (!parsed.ok) return parsed;
 
-  const clamped = clampBlueprintToLocks(withRoomSurface(parsed.value), approvedEnvelope(request), locks);
+  // The envelope is the user's approved authority and budget, not planner
+  // output. An adjustment may change the blueprint inside it, but it may not
+  // silently lower the limits the user approved for the Room.
+  const approved = { ...parsed.value, envelope: approvedEnvelope(request) };
+  const clamped = clampBlueprintToLocks(withRoomSurface(approved), approvedEnvelope(request), locks);
   const validation = validateRoomBlueprint(clamped.blueprint, catalogue);
   if (!validation.ok) {
     return { ok: false, errors: validation.errors.map((error) => `${error.path}: ${error.message}`) };
