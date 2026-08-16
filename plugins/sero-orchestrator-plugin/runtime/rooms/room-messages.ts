@@ -92,6 +92,23 @@ export function withLease(record: RoomRecord, memberId: string, lease: MessageLe
   };
 }
 
+/** Repairs a lease written before its pending-count baseline was persisted. */
+export function withLegacyLeaseBaseline(
+  record: RoomRecord,
+  memberId: string,
+  pendingCountAtLease: number,
+): RoomRecord {
+  return {
+    ...record,
+    readCursors: record.readCursors.map((cursor) => {
+      const lease = cursor.lease;
+      return cursor.memberId === memberId && lease && lease.pendingCountAtLease === undefined
+        ? { ...cursor, lease: { ...lease, pendingCountAtLease } }
+        : cursor;
+    }),
+  };
+}
+
 /**
  * The oldest sequence still owed to somebody, and so the point retention may
  * not prune past.
@@ -110,7 +127,11 @@ export function undeliveredFloor(record: RoomRecord, latestSequence: number): nu
 }
 
 /** Commits the lease without consuming messages that arrived after it opened. */
-export function withAcknowledgedLease(record: RoomRecord, memberId: string): RoomRecord {
+export function withAcknowledgedLease(
+  record: RoomRecord,
+  memberId: string,
+  legacyPendingCountAtLease?: number,
+): RoomRecord {
   const lease = record.readCursors.find((cursor) => cursor.memberId === memberId)?.lease;
   if (!lease) return record;
   const readCursors = record.readCursors.map((cursor) =>
@@ -120,7 +141,10 @@ export function withAcknowledgedLease(record: RoomRecord, memberId: string): Roo
           lastReadSequence: lease.throughSequence,
           pendingCount:
             lease.pendingCount
-            + Math.max(0, cursor.pendingCount - (lease.pendingCountAtLease ?? cursor.pendingCount)),
+            + Math.max(
+              0,
+              cursor.pendingCount - (lease.pendingCountAtLease ?? legacyPendingCountAtLease ?? cursor.pendingCount),
+            ),
           lease: null,
         }
       : cursor,

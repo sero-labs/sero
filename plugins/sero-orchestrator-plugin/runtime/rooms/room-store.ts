@@ -30,6 +30,7 @@ import {
   withAcknowledgedLease,
   withAdvancedCursor,
   withAppendedMessages,
+  withLegacyLeaseBaseline,
   withLease,
   type RoomMessageDraft,
 } from './room-messages';
@@ -342,8 +343,24 @@ export function createRoomStore(
         const open = cursor.lease;
         if (open) {
           // A batch nobody acknowledged. The cursor never moved, so reading the
-          // same window returns the same messages — this is the replay.
-          const held = await messages.read(roomId, cursor.lastReadSequence, open.throughSequence, limit, reaches);
+          // same window returns the same messages — this is the replay. Read the
+          // complete leased window rather than the retry's limit: its message
+          // count also recovers the baseline omitted by old persisted leases.
+          const held = await messages.read(
+            roomId,
+            cursor.lastReadSequence,
+            open.throughSequence,
+            Number.MAX_SAFE_INTEGER,
+            reaches,
+          );
+          if (open.pendingCountAtLease === undefined) {
+            await commit(
+              prev,
+              mapRoom(prev, roomId, (room) =>
+                withLegacyLeaseBaseline(room, memberId, open.pendingCount + held.length),
+              ),
+            );
+          }
           return { messages: held, throughSequence: open.throughSequence };
         }
 
@@ -373,7 +390,21 @@ export function createRoomStore(
         const record = requireRoom(prev, roomId);
         const cursor = record.readCursors.find((candidate) => candidate.memberId === memberId);
         if (cursor?.lease?.throughSequence !== throughSequence) return;
-        await commit(prev, mapRoom(prev, roomId, (room) => withAcknowledgedLease(room, memberId)));
+        let legacyPendingCountAtLease: number | undefined;
+        if (cursor.lease.pendingCountAtLease === undefined) {
+          const held = await messages.read(
+            roomId,
+            cursor.lastReadSequence,
+            cursor.lease.throughSequence,
+            Number.MAX_SAFE_INTEGER,
+            (message) => addressesMember(message, memberId),
+          );
+          legacyPendingCountAtLease = cursor.lease.pendingCount + held.length;
+        }
+        await commit(
+          prev,
+          mapRoom(prev, roomId, (room) => withAcknowledgedLease(room, memberId, legacyPendingCountAtLease)),
+        );
       }),
 
     hasAppliedCommand: async (roomId, commandId) =>

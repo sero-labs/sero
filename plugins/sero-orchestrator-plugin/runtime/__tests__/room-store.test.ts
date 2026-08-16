@@ -232,6 +232,55 @@ describe('room store', () => {
       .toEqual(['arrived later']);
   });
 
+  it('retains later messages when replaying a persisted legacy lease', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((state) => ({ ...state, rooms: [roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [
+      draft('m1', ['m2'], 'legacy one', 'c1'),
+      draft('m1', ['m2'], 'legacy two', 'c2'),
+    ]);
+    const leased = await store.leaseMessagesFor('room-a', 'm2', 10);
+
+    const roomFile = path.join(dir, 'rooms/room-a/room.json');
+    const persisted = JSON.parse(await readFile(roomFile, 'utf8'));
+    delete persisted.readCursors.find((cursor: { memberId: string }) => cursor.memberId === 'm2')
+      .lease.pendingCountAtLease;
+    await writeFile(roomFile, JSON.stringify(persisted), 'utf8');
+
+    const restarted = createRoomStore(makeCtx());
+    await restarted.appendMessages('room-a', [
+      draft('m1', ['m2'], 'later one', 'c3'),
+      draft('m1', ['m2'], 'later two', 'c4'),
+    ]);
+    const replayed = await restarted.leaseMessagesFor('room-a', 'm2', 1);
+    expect(replayed.messages.map((message) => message.body)).toEqual(['legacy one', 'legacy two']);
+    await restarted.acknowledgeMessages('room-a', 'm2', leased.throughSequence);
+
+    const cursor = (await restarted.readRoom('room-a'))?.readCursors.find((entry) => entry.memberId === 'm2');
+    expect(cursor?.pendingCount).toBe(2);
+    expect((await restarted.leaseMessagesFor('room-a', 'm2', 10)).messages.map((message) => message.body))
+      .toEqual(['later one', 'later two']);
+  });
+
+  it('retains later messages when directly acknowledging a persisted legacy lease', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((state) => ({ ...state, rooms: [roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'legacy', 'c1')]);
+    const leased = await store.leaseMessagesFor('room-a', 'm2', 10);
+
+    const roomFile = path.join(dir, 'rooms/room-a/room.json');
+    const persisted = JSON.parse(await readFile(roomFile, 'utf8'));
+    delete persisted.readCursors.find((cursor: { memberId: string }) => cursor.memberId === 'm2')
+      .lease.pendingCountAtLease;
+    await writeFile(roomFile, JSON.stringify(persisted), 'utf8');
+
+    const restarted = createRoomStore(makeCtx());
+    await restarted.appendMessages('room-a', [draft('m1', ['m2'], 'later', 'c2')]);
+    await restarted.acknowledgeMessages('room-a', 'm2', leased.throughSequence);
+    expect((await restarted.leaseMessagesFor('room-a', 'm2', 10)).messages.map((message) => message.body))
+      .toEqual(['later']);
+  });
+
   it('ignores an acknowledgement for a position the member is not holding', async () => {
     const store = createRoomStore(makeCtx());
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
