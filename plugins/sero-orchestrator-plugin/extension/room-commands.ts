@@ -30,7 +30,7 @@ import type {
   RoomCommandOutcome,
   RoomCommandRouter,
 } from '../runtime/rooms/room-command-router';
-import type { RoomRevisionProposal } from '../shared/room-revision-types';
+import { parseRoomRevisionProposal } from '../shared/room-revision-parse';
 import { resolveRoomRouterForCaller } from '../runtime/registry';
 
 const ROOM_COMMAND_IDS = ROOM_COMMANDS.map((command) => command.id);
@@ -128,16 +128,17 @@ function list(value: string | undefined): string[] | undefined {
 export function buildRoomCommandInput(
   params: RoomToolParamsShape,
 ): RoomCommandInput | { error: string } {
-  let proposal: RoomRevisionProposal | undefined;
+  let proposal: RoomCommandInput['proposal'];
   if (params.proposalJson !== undefined) {
+    let parsed: unknown;
     try {
-      proposal = JSON.parse(params.proposalJson) as RoomRevisionProposal;
+      parsed = JSON.parse(params.proposalJson);
     } catch {
       return { error: 'proposalJson is not valid JSON' };
     }
-    if (typeof proposal !== 'object' || proposal === null || typeof proposal.kind !== 'string') {
-      return { error: 'proposalJson must be an object with a "kind"' };
-    }
+    const result = parseRoomRevisionProposal(parsed);
+    if ('error' in result) return { error: `proposalJson is invalid: ${result.error}` };
+    proposal = result.proposal;
   }
   return {
     command: params.command,
