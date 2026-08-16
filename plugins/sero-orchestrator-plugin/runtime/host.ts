@@ -16,6 +16,7 @@ import type {
   AppRuntimeSubagentRepair,
   AppRuntimeWorktreeRemoveOptions,
   ContextAgentInfo,
+  ContextSkillInfo,
   ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
@@ -201,6 +202,8 @@ export interface OrchestratorHost {
    * list). Published once at startup and refreshed from real runs.
    */
   listToolCatalog(): Promise<ContextToolInfo[]>;
+  /** The canonical workspace skills that persistent-session approval also uses. */
+  listSkillCatalog(): Promise<ContextSkillInfo[]>;
   /**
    * The named agent roles available in this workspace, so the planner and the
    * per-step agent picker choose from the real catalog. Background steps may run

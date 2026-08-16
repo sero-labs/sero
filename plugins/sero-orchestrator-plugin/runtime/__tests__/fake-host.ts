@@ -7,6 +7,7 @@ import type {
   AppRuntimeCommandResult,
   AppRuntimePullRequestSummary,
   ContextAgentInfo,
+  ContextSkillInfo,
   ContextToolInfo,
   ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
@@ -49,6 +50,8 @@ export interface FakeHost extends OrchestratorHost {
   availableModels: SharedAvailableModelGroup[];
   /** Tool catalog returned by listToolCatalog (empty by default). */
   toolCatalog: ContextToolInfo[];
+  /** Skill catalog returned by listSkillCatalog (empty by default). */
+  skillCatalog: ContextSkillInfo[];
   /** Agent-role catalog returned by listAgentCatalog (empty by default). */
   agentCatalog: ContextAgentInfo[];
   /** In-memory artifact store keyed by reference. */
@@ -117,6 +120,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     modelCalls: [],
     availableModels: [],
     toolCatalog: [],
+    skillCatalog: [],
     agentCatalog: [],
     artifacts: new Map<string, string>(),
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
@@ -174,6 +178,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async listToolCatalog() {
       return this.toolCatalog;
+    },
+    async listSkillCatalog() {
+      return this.skillCatalog;
     },
     async listAgentCatalog() {
       return this.agentCatalog;

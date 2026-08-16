@@ -66,6 +66,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
 
     listToolCatalog: () => ctx.host.subagents.listToolCatalog(ctx.workspaceId),
 
+    listSkillCatalog: () => ctx.host.subagents.listSkillCatalog(ctx.workspaceId),
+
     listAgentCatalog: () => ctx.host.subagents.listAgentCatalog(ctx.workspaceId),
 
     writeArtifact: async (relativePath, content) => {

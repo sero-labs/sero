@@ -75,12 +75,6 @@ export interface RoomPlanRequest {
   limits?: RoomUserLimits;
   /** A template or built-in preset to adapt (spec §11). */
   preset?: RoomPresetSeed;
-  /**
-   * Skills members may hold. Supplied by the caller because `OrchestratorHost`
-   * has no skill-catalogue seam yet; an empty list simply means no member can
-   * hold a skill.
-   */
-  skills?: ContextSkillInfo[];
   /** Answers to the planner's earlier clarifying questions, folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
   model?: string;
@@ -203,8 +197,12 @@ function pinned(host: OrchestratorHost, variable: string, available: string[]): 
   return available;
 }
 
-async function loadCatalogue(host: OrchestratorHost, skills: ContextSkillInfo[]): Promise<RoomCatalogue> {
-  const [groups, tools] = await Promise.all([host.listAvailableModels(), host.listToolCatalog()]);
+async function loadCatalogue(host: OrchestratorHost): Promise<RoomCatalogue> {
+  const [groups, tools, skills] = await Promise.all([
+    host.listAvailableModels(),
+    host.listToolCatalog(),
+    host.listSkillCatalog(),
+  ]);
   const models = flattenModelGroups(groups).map((model) => ({
     id: modelKey(model.provider, model.modelId),
     label: model.name,
@@ -278,7 +276,7 @@ function promptCatalogue(catalogue: RoomCatalogue, envelope: OperatingEnvelope):
 // ── Planning ────────────────────────────────────────────────
 
 export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest): Promise<RoomPlanOutcome> {
-  const catalogue = await loadCatalogue(host, request.skills ?? []);
+  const catalogue = await loadCatalogue(host);
   if (catalogue.models.length === 0) {
     return { ok: false, errors: ['no models are available in this workspace, so a Room cannot be staffed'], modelResponses: [] };
   }

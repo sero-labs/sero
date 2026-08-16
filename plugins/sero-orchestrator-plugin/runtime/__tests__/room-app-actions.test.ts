@@ -7,6 +7,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { modelKey } from '@sero-ai/common';
+import type { RoomBlueprint } from '../../shared/room-blueprint-types';
+import { requestRoomGrant } from '../rooms/member-grant';
 import { createRoomAppActions, limitsForOrigin, type RoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
 import type { RoomStore } from '../rooms/room-store';
@@ -62,6 +65,53 @@ describe('the user Room surface', () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok || outcome.needsInput) throw new Error('expected a refusal');
     expect(outcome.error).toContain('not-a-preset');
+  });
+
+  it('plans with an installed workspace skill and carries it into grant approval', async () => {
+    const model = modelKey('anthropic', 'sonnet');
+    host.availableModels = [{
+      provider: 'anthropic', displayName: 'Anthropic', logo: '',
+      models: [{ provider: 'anthropic', modelId: 'sonnet', name: 'Sonnet', reasoning: true }],
+    }];
+    host.toolCatalog = [{ name: 'read', description: 'Read files' }];
+    host.skillCatalog = [{ name: 'installed-review', description: 'Review this repository' }];
+    const authored: RoomBlueprint = {
+      schemaVersion: 1,
+      title: 'Review the change',
+      approach: 'Use the installed review process.',
+      objective: 'Find defects in the change.',
+      successCriteria: ['Every finding has evidence.'],
+      roomInstructions: 'Report only verified findings.',
+      members: [{
+        key: 'verifier', displayName: 'Verifier', role: 'Verifier',
+        responsibility: 'Reviews the change.', mandate: 'Use the installed review process.',
+        reasonForInclusion: 'The review needs one specialist.', isConductor: true,
+        model, thinking: 'medium', promptAdditions: [], tools: ['read'],
+        skills: ['installed-review'], permissions: 'read-only', needsWorktree: false,
+      }],
+      teamRationale: 'One verifier is enough.',
+      collaborationStrategy: 'Work directly.',
+      workspacePolicy: { mode: 'read-only-shared', sharedTreeApproved: false, claimPolicy: 'warn' },
+      envelope: envelopeWith({
+        allowedModels: [model], allowedTools: ['read'], allowedSkills: ['installed-review'],
+        allowedThinkingLevels: ['medium'], allowedDeliveryDestinations: ['saved-artifact'],
+      }),
+      estimatedDurationMs: 60_000,
+      estimatedCostUsd: 0.1,
+      deliveryDestination: 'saved-artifact',
+      openAssumptions: [],
+    };
+    host.modelResponses.push({ response: JSON.stringify(authored) });
+
+    const planned = await app.prepare({ problem: 'Review this change.', limits: { access: 'read-only' } });
+    expect(planned.ok).toBe(true);
+    if (!planned.ok) throw new Error('Room was not planned');
+    expect(host.modelCalls[0].task).toContain('installed-review');
+    const room = await store.readRoom(planned.roomId);
+    if (!room) throw new Error('Room was not stored');
+
+    const approved = await requestRoomGrant(host, room);
+    expect(approved.subjects.verifier.allowedSkills).toEqual(['installed-review']);
   });
 
   it('refuses to re-plan a Room that has already started', async () => {

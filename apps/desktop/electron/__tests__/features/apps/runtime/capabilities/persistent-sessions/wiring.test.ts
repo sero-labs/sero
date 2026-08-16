@@ -71,7 +71,7 @@ function skillBearingProposal(): PersistentSessionGrantProposal {
         allowedTools: ['read'],
         allowedSkills: ['sero-plugin'],
         allowedThinkingLevels: ['high'],
-        permissionProfile: { filesystem: 'read', commands: 'readOnly', network: 'none', vcs: 'read' },
+        permissionProfile: { filesystem: 'write', commands: 'all', network: 'none', vcs: 'commit' },
         maxSystemPromptAdditionBytes: 1_000,
       },
     },
@@ -91,5 +91,7 @@ describe('persistent session wiring', () => {
 
     expect(decision?.approved.subjects.implementer.allowedSkills).toEqual(['sero-plugin']);
     expect(fakes.choices).toHaveLength(1);
+    expect(fakes.choices[0].body).toContain('Read and edit files in this workspace');
+    expect(fakes.choices[0].body).toContain('Run commands');
   });
 });

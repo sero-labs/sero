@@ -205,8 +205,8 @@ export const SOFTWARE_DELIVERY_TEMPLATE: RoomTemplate = {
   planningStrategy:
     'Staff one member for each stage the change actually needs: planning, building, reviewing and verifying. '
     + 'Small changes merge stages — one builder who also verifies is a complete team. Larger changes split the build '
-    + 'across members by area, never by file. Only members that write code get edit permission; the reviewer and the '
-    + 'Conductor read. Size the team to the change, not to the stage list.',
+    + 'across members by area, never by file. Members that write code or run verification commands get edit permission '
+    + 'and their own worktree; the reviewer and the Conductor read. Size the team to the change, not to the stage list.',
   preferredConstraints: {
     permissionCeiling: 'edit-and-push',
     preferredTools: ['read', 'grep', 'write', 'edit', 'bash', 'gh'],
@@ -218,7 +218,7 @@ export const SOFTWARE_DELIVERY_TEMPLATE: RoomTemplate = {
     { role: 'Conductor', responsibility: 'Splits the work, tracks the stages and decides when the change is ready.', editsWorkspace: false, isConductor: true },
     { role: 'Implementer', responsibility: 'Writes the change in its own worktree.', editsWorkspace: true, isConductor: false },
     { role: 'Reviewer', responsibility: 'Reads the change and reports what must be fixed.', editsWorkspace: false, isConductor: false },
-    { role: 'Verifier', responsibility: 'Runs the tests and the type check, and reports the result.', editsWorkspace: false, isConductor: false },
+    { role: 'Verifier', responsibility: 'Runs the tests and the type check in its own worktree, and reports the result.', editsWorkspace: true, isConductor: false },
   ],
   collaborationInstructions:
     'Work moves forward one stage at a time. The reviewer reads the implementer\'s branch and the implementer answers '

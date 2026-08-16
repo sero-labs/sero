@@ -12,4 +12,13 @@ describe('persistent-session permission tools', () => {
     expect(result.allowed).toEqual(['read', 'grep', 'sero-cli']);
     expect(result.removed).toEqual(['bash', 'shell', 'mystery_tool']);
   });
+
+  it('keeps an approved shell only for a profile that discloses full commands', () => {
+    const result = applyPermissionProfile(
+      ['read', 'bash', 'write'],
+      { filesystem: 'write', commands: 'all', network: 'none', vcs: 'commit' },
+    );
+
+    expect(result).toEqual({ allowed: ['read', 'bash', 'write'], removed: [] });
+  });
 });

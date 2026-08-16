@@ -131,6 +131,18 @@ describe('member grant proposal', () => {
     expect(proposal.subjects.scout.permissionProfile.filesystem).toBe('read');
   });
 
+  it('gives a verifier command execution only with edit authority and its own worktree', async () => {
+    const verifier = { ...MEMBERS[1], displayName: 'Verifier', role: 'Verifier', tools: ['read', 'bash'] };
+    const room = await seedRoom(envelopeWith({ allowedTools: ['read', 'bash'] }), [MEMBERS[0], verifier]);
+    const [proposal] = host.persistentSessions.proposals;
+
+    expect(proposal.subjects.impl.permissionProfile).toMatchObject({
+      filesystem: 'write', commands: 'all', vcs: 'commit',
+    });
+    expect(proposal.subjects.impl.allowedTools).toContain('bash');
+    expect(proposal.subjects.impl.allowedCwds).toEqual([memberOf(room, 'impl').worktreePath]);
+  });
+
   it('refuses to grant a worktree member that has no worktree', async () => {
     const record = roomFixture(envelopeWith(), MEMBERS);
     const implementer = record.members.find((member) => member.id === 'impl');

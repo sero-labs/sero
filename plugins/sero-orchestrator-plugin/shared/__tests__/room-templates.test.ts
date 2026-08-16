@@ -97,6 +97,10 @@ describe('built-in presets', () => {
   it('differ in shape, not only in wording', () => {
     expect(SOFTWARE_DELIVERY_TEMPLATE.workspaceDefaults.mode).toBe('worktree-per-member');
     expect(SOFTWARE_DELIVERY_TEMPLATE.preferredConstraints.deliveryDestination).toBe('pr');
+    expect(SOFTWARE_DELIVERY_TEMPLATE.exampleRoles.find((role) => role.role === 'Verifier')).toMatchObject({
+      editsWorkspace: true,
+      responsibility: expect.stringContaining('own worktree'),
+    });
 
     // Adversarial analysis reads only and delivers a report.
     expect(ADVERSARIAL_ANALYSIS_TEMPLATE.workspaceDefaults.mode).toBe('read-only-shared');

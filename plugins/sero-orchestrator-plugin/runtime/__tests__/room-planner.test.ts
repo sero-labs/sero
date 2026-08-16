@@ -74,6 +74,7 @@ function roomHost(): FakeHost {
   const host = createFakeHost();
   host.availableModels = MODEL_GROUPS;
   host.toolCatalog = TOOL_CATALOG;
+  host.skillCatalog = SKILLS;
   return host;
 }
 
@@ -139,7 +140,7 @@ function reply(value: RoomBlueprint, extra: Record<string, unknown> = {}): strin
 }
 
 function planRequest(overrides: Partial<RoomPlanRequest> = {}): RoomPlanRequest {
-  return { problem: PROBLEM, parentSessionId: PARENT_SESSION, limits: LIMITS, skills: SKILLS, ...overrides };
+  return { problem: PROBLEM, parentSessionId: PARENT_SESSION, limits: LIMITS, ...overrides };
 }
 
 /** A built-in template reaches the planner as a seed, never as a roster. */
@@ -253,7 +254,7 @@ describe('planRoom', () => {
     expect(outcome.blueprint.envelope.allowedTools).toContain('sero-cli');
   });
 
-  it('plans the built-in Software delivery Verifier as read-only with command access', async () => {
+  it('plans the built-in Software delivery Verifier with disclosed command authority', async () => {
     const template = BUILT_IN_ROOM_TEMPLATES.find((candidate) => candidate.name === 'Software delivery');
     if (!template) throw new Error('missing Software delivery template');
     const host = roomHost();
@@ -266,8 +267,8 @@ describe('planRoom', () => {
             role: 'Verifier',
             responsibility: 'Runs the tests and the type check, and reports the result.',
             tools: ['read', 'bash', 'sero-cli'],
-            permissions: 'read-only',
-            needsWorktree: false,
+            permissions: 'edit-workspace',
+            needsWorktree: true,
           }),
         ],
       })),
@@ -277,7 +278,8 @@ describe('planRoom', () => {
 
     expect(outcome.blueprint.members[1]).toMatchObject({
       key: 'verifier',
-      permissions: 'read-only',
+      permissions: 'edit-workspace',
+      needsWorktree: true,
       tools: ['read', 'bash', 'sero-cli'],
     });
   });
