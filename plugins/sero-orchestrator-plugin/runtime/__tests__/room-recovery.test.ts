@@ -18,6 +18,7 @@ import {
   disposeHarness,
   draftRoomIn,
   envelopeWith,
+  member,
   memberIn,
   restartCoordinator,
   waitFor,
@@ -239,6 +240,7 @@ describe('restart recovery', () => {
   it('does not repeat an interrupted delivery', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
     await store.updateRoom(roomId, (record) => ({
       ...record,
       runtime: { ...record.runtime, status: 'completing' },
@@ -248,5 +250,52 @@ describe('restart recovery', () => {
     const record = await store.readRoom(roomId);
     expect(record?.runtime.status).toBe('completing');
     expect(record?.runtime.stopReason?.kind).toBe('awaiting-approval');
+  });
+
+  it('lets the user cancel a recovered completion without delivering it', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      runtime: { ...record.runtime, status: 'completing' },
+    }));
+    const artifactsBefore = host.artifacts.size;
+
+    const restarted = restartCoordinator(host, store);
+    await restarted.reconcileRooms({ resume: false });
+    const cancelled = await restarted.cancelRoom(roomId);
+
+    const record = await store.readRoom(roomId);
+    expect(cancelled.ok).toBe(true);
+    expect(record?.runtime.status).toBe('cancelled');
+    expect(record?.definition.grantId).toBeNull();
+    expect(host.persistentSessions.revoked).toEqual(['grant-1']);
+    expect(host.artifacts.size).toBe(artifactsBefore);
+  });
+
+  it('deletes a recovered completion after revoking its grant and releasing its worktree', async () => {
+    const roomId = await draftRoomIn(
+      coordinator,
+      envelopeWith({ workspacePolicy: { mode: 'worktree-per-member', sharedTreeApproved: false, claimPolicy: 'warn' } }),
+      [member({ tools: ['read', 'write'], permissions: 'edit-workspace', needsWorktree: true })],
+    );
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      runtime: { ...record.runtime, status: 'completing' },
+    }));
+    const artifactsBefore = host.artifacts.size;
+
+    const restarted = restartCoordinator(host, store);
+    await restarted.reconcileRooms({ resume: false });
+    const deleted = await restarted.deleteRoom(roomId);
+
+    expect(deleted.ok).toBe(true);
+    expect(host.persistentSessions.revoked).toContain('grant-1');
+    expect(host.worktreesRemoved).toEqual([`room-${roomId}-lead`]);
+    expect(host.artifacts.size).toBe(artifactsBefore);
+    expect(await store.readRoom(roomId)).toBeNull();
   });
 });

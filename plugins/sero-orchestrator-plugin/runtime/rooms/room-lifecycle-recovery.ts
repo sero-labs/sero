@@ -13,10 +13,10 @@ export async function finishInterruptedCleanup(ctx: RoomLifecycleContext, state:
     const roomId = room.definition.id;
     ctx.host.log(`room ${roomId}: resetting an interrupted ${room.runtime.status}.`);
     if (room.definition.grantId) {
-      await ctx.workspaces.preserveRoom(roomId, 'Start was interrupted.').catch(() => []);
       await releaseAuthority(ctx, roomId, 'Interrupted Start cleaned up.');
+    } else {
+      await ctx.workspaces.releaseRoom(roomId, 'Start was interrupted.');
     }
-    await ctx.workspaces.releaseRoom(roomId, 'Start was interrupted.');
     await ctx.store.transact(roomId, null, (current) => {
       const status = current.runtime.status;
       return {
@@ -39,10 +39,6 @@ export async function finishInterruptedCleanup(ctx: RoomLifecycleContext, state:
     const roomId = room.definition.id;
     const detail = room.runtime.stopReason?.detail ?? 'The Room finished.';
     ctx.host.log(`room ${roomId}: finishing cleanup a restart interrupted.`);
-    await ctx.workspaces.preserveRoom(roomId, detail).catch((error: unknown) => {
-      ctx.host.log(`room ${roomId}: could not preserve member work during recovery: ${String(error)}`);
-      return [];
-    });
     await releaseAuthority(ctx, roomId, detail);
   }
 }

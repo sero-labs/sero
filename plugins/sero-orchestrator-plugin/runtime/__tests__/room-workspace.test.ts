@@ -356,21 +356,15 @@ describe('work records and artifacts', () => {
 });
 
 describe('preserving uncommitted work', () => {
-  it('leaves uncommitted work in place when the Room is cancelled', async () => {
+  it('preserves uncommitted work before cancellation releases its checkout', async () => {
     const roomId = await draftRoom();
     const placements = await workspaces.prepare(roomId);
     const apiTree = placements.find((placement) => placement.memberId === 'api')?.cwd ?? '';
 
     const cancelled = await coordinator.cancelRoom(roomId, 'You cancelled this Room.');
     expect(cancelled.ok).toBe(true);
-    // The guarantee: cancelling reaches no removal at all.
-    expect(host.worktreesRemoved).toEqual([]);
-    expect((await memberOf(roomId, 'api')).worktreePath).toBe(apiTree);
-
-    // And the work in those checkouts can still be made durable afterwards.
-    const preserved = await workspaces.preserveRoom(roomId, 'cancelled');
-    expect(preserved.map((entry) => entry.memberId).sort()).toEqual(['api', 'ui']);
-    expect(preserved.every((entry) => entry.commit && !entry.error)).toBe(true);
+    expect(host.worktreesRemoved.sort()).toEqual([`room-${roomId}-api`, `room-${roomId}-ui`]);
+    expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
     expect(host.checkpoints.map((checkpoint) => checkpoint.worktreePath)).toContain(apiTree);
   });
 

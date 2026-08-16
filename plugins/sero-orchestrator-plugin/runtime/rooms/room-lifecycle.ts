@@ -355,13 +355,12 @@ export async function cancelRoom(
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
 
-  // Claimed FIRST, before anything is torn down. A cancel that lost to a
-  // completion must not abort the turns that completion is finishing, nor run a
-  // second checkpoint pass across the same worktrees while the winner is
-  // running its own.
+  // Claimed FIRST, before anything is torn down. Only a recovered completion
+  // can be cancelled; a live completion still owns its terminal transition.
   const now = ctx.host.now();
   const claim = await claimTransition(ctx, roomId, (current, status) =>
-    TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing'
+    TERMINAL_ROOM_STATUSES.includes(status)
+      || (status === 'completing' && current.runtime.stopReason?.kind !== 'awaiting-approval')
       ? null
       : withRoomStatus(
           { ...current, members: current.members.map((member) => withMemberStatus(member, 'completed', detail)) },
@@ -374,16 +373,6 @@ export async function cancelRoom(
   // Cancellation is the one path that does stop work mid-turn: the user asked
   // for it, so the tokens already spent are the price of stopping now.
   ctx.abortTurns(roomId);
-
-  // Commit whatever the members had not committed, BEFORE the grant goes. After
-  // `releaseAuthority` no member session can ever run again, so edits left
-  // uncommitted here would be stranded in a worktree with nothing in the Room
-  // able to finish them. This preserves; it removes nothing (§10, and the rule
-  // that cancelling never silently loses member work).
-  await ctx.workspaces.preserveRoom(roomId, detail).catch((error: unknown) => {
-    ctx.host.log(`room ${roomId}: could not preserve member work on cancel: ${String(error)}`);
-    return [];
-  });
 
   await releaseAuthority(ctx, roomId, detail);
   return ok(await reread(ctx, roomId, record));
@@ -440,16 +429,6 @@ export async function completeRoom(
     });
   }
 
-  // Same reason as cancellation, and a likelier case: finishing is the NORMAL
-  // ending, so a member that left edits uncommitted loses them here unless they
-  // are checkpointed before the grant goes. The Conductor is meant to collect
-  // commits first, but a Room that completes without doing so must still not
-  // strand work.
-  await ctx.workspaces.preserveRoom(roomId, summary).catch((error: unknown) => {
-    ctx.host.log(`room ${roomId}: could not preserve member work on completion: ${String(error)}`);
-    return [];
-  });
-
   await releaseAuthority(ctx, roomId, summary);
 
   // Last: the Room is done with, so the marker can go.
@@ -463,6 +442,12 @@ export async function releaseAuthority(ctx: RoomLifecycleContext, roomId: string
   const record = await ctx.store.readRoom(roomId);
   if (!record) return;
   await ctx.sessions.releaseRoom(roomId);
+  // releaseRoom checkpoints first and keeps any checkout whose checkpoint
+  // fails. Grant revocation must still continue so cleanup cannot retain power.
+  await ctx.workspaces.releaseRoom(roomId, detail).catch((error: unknown) => {
+    ctx.host.log(`room ${roomId}: could not release member worktrees: ${String(error)}`);
+    return [];
+  });
   if (record.definition.grantId) {
     await requirePersistentSessions(ctx.host).revokeGrant(record.definition.grantId);
     await ctx.store.updateRoom(roomId, (current) => ({
@@ -485,6 +470,10 @@ export async function deleteRoom(ctx: RoomLifecycleContext, roomId: string): Pro
   } else {
     ctx.abortTurns(roomId);
     await releaseAuthority(ctx, roomId, 'Room deleted.');
+  }
+  const cleaned = await ctx.store.readRoom(roomId);
+  if (cleaned?.members.some((member) => member.worktreePath)) {
+    return fail('This Room kept work that could not be preserved. Fix the worktree and retry Delete.');
   }
   if (record.definition.historyGrantId) {
     await requirePersistentSessions(ctx.host).deleteGrant(record.definition.historyGrantId);
