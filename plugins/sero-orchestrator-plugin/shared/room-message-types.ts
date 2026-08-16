@@ -56,6 +56,8 @@ export interface MessageLease {
   throughSequence: number;
   /** The pending count that goes with that position. */
   pendingCount: number;
+  /** Pending messages before this batch was leased, used to retain later arrivals. */
+  pendingCountAtLease?: number;
 }
 
 /** Per-member read position. A member reads forward from here on its next turn. */

@@ -64,18 +64,23 @@ export async function handleStall(
   // the no-progress clock ran out.
   const owed = await strandedQuestion(ctx, record);
   if (owed) {
-    const turns = record.members.find((member) => member.id === owed.memberId)?.usage.turns ?? 0;
-    if (ctx.signals.claimQuietWake(roomId, owed.memberId, quietMark(record, owed.memberId))) {
-      ctx.signals.noteReminder(roomId, owed.memberId, turns);
-      await remindAnswerer(ctx, record, owed.question, owed.memberId);
+    if (owed.kind === 'unavailable') {
+      await freeAsker(ctx, record, owed.question, owed.memberId);
+      return;
+    }
+    const memberId = owed.memberId;
+    const turns = record.members.find((member) => member.id === memberId)?.usage.turns ?? 0;
+    if (ctx.signals.claimQuietWake(roomId, memberId, quietMark(record, memberId))) {
+      ctx.signals.noteReminder(roomId, memberId, turns);
+      await remindAnswerer(ctx, record, owed.question, memberId);
       return;
     }
     // Chased, given a turn, and still no answer. The answer is not coming, and
     // only the member waiting for it can be freed — otherwise the Room burns its
     // no-progress clock on a question nobody will ever settle, and lands on the
     // user for something it could resolve itself.
-    if (ctx.signals.answerIgnored(roomId, owed.memberId, turns)) {
-      await freeAsker(ctx, record, owed.question, owed.memberId);
+    if (ctx.signals.answerIgnored(roomId, memberId, turns)) {
+      await freeAsker(ctx, record, owed.question, memberId);
       return;
     }
   }
@@ -159,16 +164,24 @@ export async function handleIdleLimit(
 /** The longest a repeated question stays readable in a reminder. */
 const QUESTION_QUOTE_CHARS = 400;
 
-/** An open question whose answer is owed by a member that is doing nothing. */
+const UNAVAILABLE_ANSWERER_STATUSES = new Set(['retired', 'suspended', 'blocked', 'failed']);
+
+/** An open question owed by an idle member, or by nobody who can answer. */
 async function strandedQuestion(
   ctx: StallContext,
   record: RoomRecord,
-): Promise<{ question: RoomMessage; memberId: string } | null> {
+): Promise<{
+  question: RoomMessage;
+  kind: 'idle' | 'unavailable';
+  memberId: string;
+} | null> {
   for (const question of await ctx.openQuestions(record.definition.id)) {
-    const idle = record.members.find(
-      (member) => question.toMemberIds.includes(member.id) && member.status === 'idle',
-    );
-    if (idle) return { question, memberId: idle.id };
+    const answerers = record.members.filter((member) => question.toMemberIds.includes(member.id));
+    const idle = answerers.find((member) => member.status === 'idle');
+    if (idle) return { question, kind: 'idle', memberId: idle.id };
+    if (answerers.length > 0 && answerers.every((member) => UNAVAILABLE_ANSWERER_STATUSES.has(member.status))) {
+      return { question, kind: 'unavailable', memberId: answerers[0].id };
+    }
   }
   return null;
 }

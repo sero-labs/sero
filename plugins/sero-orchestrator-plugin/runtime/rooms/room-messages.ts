@@ -85,7 +85,9 @@ export function withLease(record: RoomRecord, memberId: string, lease: MessageLe
   return {
     ...record,
     readCursors: record.readCursors.map((cursor) =>
-      cursor.memberId === memberId ? { ...cursor, lease } : cursor,
+      cursor.memberId === memberId
+        ? { ...cursor, lease: { ...lease, pendingCountAtLease: cursor.pendingCount } }
+        : cursor,
     ),
   };
 }
@@ -107,13 +109,20 @@ export function undeliveredFloor(record: RoomRecord, latestSequence: number): nu
     : Math.min(...cursors.map((cursor) => cursor.lastReadSequence));
 }
 
-/** Commits the lease: the cursor jumps to it, and nothing is left outstanding. */
+/** Commits the lease without consuming messages that arrived after it opened. */
 export function withAcknowledgedLease(record: RoomRecord, memberId: string): RoomRecord {
   const lease = record.readCursors.find((cursor) => cursor.memberId === memberId)?.lease;
   if (!lease) return record;
   const readCursors = record.readCursors.map((cursor) =>
     cursor.memberId === memberId
-      ? { ...cursor, lastReadSequence: lease.throughSequence, pendingCount: lease.pendingCount, lease: null }
+      ? {
+          ...cursor,
+          lastReadSequence: lease.throughSequence,
+          pendingCount:
+            lease.pendingCount
+            + Math.max(0, cursor.pendingCount - (lease.pendingCountAtLease ?? cursor.pendingCount)),
+          lease: null,
+        }
       : cursor,
   );
   return { ...record, readCursors };

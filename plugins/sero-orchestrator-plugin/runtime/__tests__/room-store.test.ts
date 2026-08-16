@@ -217,6 +217,21 @@ describe('room store', () => {
     expect((await settled.readRoom('room-a'))?.readCursors.find((c) => c.memberId === 'm2')?.lease).toBeNull();
   });
 
+  it('keeps messages appended while an earlier batch is leased', async () => {
+    const store = createRoomStore(makeCtx());
+    await store.updateState((state) => ({ ...state, rooms: [roomFixture('room-a')] }));
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'leased', 'c1')]);
+    const leased = await store.leaseMessagesFor('room-a', 'm2', 10);
+
+    await store.appendMessages('room-a', [draft('m1', ['m2'], 'arrived later', 'c2')]);
+    await store.acknowledgeMessages('room-a', 'm2', leased.throughSequence);
+
+    const cursor = (await store.readRoom('room-a'))?.readCursors.find((entry) => entry.memberId === 'm2');
+    expect(cursor?.pendingCount).toBe(1);
+    expect((await store.leaseMessagesFor('room-a', 'm2', 10)).messages.map((message) => message.body))
+      .toEqual(['arrived later']);
+  });
+
   it('ignores an acknowledgement for a position the member is not holding', async () => {
     const store = createRoomStore(makeCtx());
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
