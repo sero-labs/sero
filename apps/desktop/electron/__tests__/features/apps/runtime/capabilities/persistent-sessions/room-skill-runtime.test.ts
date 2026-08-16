@@ -3,7 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DefaultResourceLoader, SettingsManager } from '@earendil-works/pi-coding-agent';
-import { withDisabledModelSkills, type PersistentSessionGrantProposal } from '@sero-ai/common';
+import {
+  SERO_PLUGIN_RUNTIME_ABI,
+  withDisabledModelSkills,
+  type PersistentSessionGrantProposal,
+} from '@sero-ai/common';
 
 import { clampProposal } from '@electron/features/apps/runtime/capabilities/persistent-sessions/clamp';
 
@@ -21,6 +25,34 @@ async function writeSkill(root: string, name: string, locked = false): Promise<s
     `# ${name}`,
   ].join('\n'));
   return filePath;
+}
+
+async function writePluginPackage(
+  agentDir: string,
+  pluginId: string,
+  skillNames: Array<{ name: string; locked?: boolean }>,
+  minSeroVersion?: string,
+): Promise<Array<{ name: string; filePath: string; valid: true }>> {
+  const pluginRoot = path.join(agentDir, 'agent-plugins', pluginId);
+  await fs.mkdir(pluginRoot, { recursive: true });
+  await fs.writeFile(path.join(pluginRoot, 'package.json'), JSON.stringify({
+    name: pluginId,
+    version: '1.0.0',
+    sero: {
+      plugin: {
+        category: 'utilities',
+        tags: ['test'],
+        runtimeAbi: SERO_PLUGIN_RUNTIME_ABI,
+        ...(minSeroVersion ? { minSeroVersion } : {}),
+      },
+    },
+  }));
+
+  return Promise.all(skillNames.map(async ({ name, locked }) => ({
+    name,
+    filePath: await writeSkill(path.join(pluginRoot, 'skills'), name, locked),
+    valid: true as const,
+  })));
 }
 
 function proposal(cwd: string, skillNames: string[]): PersistentSessionGrantProposal {
@@ -51,11 +83,12 @@ describe('Room skill catalogue and member loading', () => {
   afterEach(async () => {
     vi.resetModules();
     vi.doUnmock('@electron/platform/env');
+    vi.doUnmock('@electron/features/subagent/runtime/loader');
     if (tempRoot) await fs.rm(tempRoot, { recursive: true, force: true });
     tempRoot = null;
   });
 
-  it('offers, approves, and loads only compatible model-visible skills', async () => {
+  it('keeps the generic loader and catalogue aligned, then narrows Room skills fail-closed', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-room-skills-'));
     const cwd = path.join(tempRoot, 'workspace');
     const agentDir = path.join(tempRoot, 'agent');
@@ -64,20 +97,32 @@ describe('Room skill catalogue and member loading', () => {
     await writeSkill(path.join(agentDir, 'skills'), 'normal-enabled');
     await writeSkill(path.join(agentDir, 'skills'), 'normal-disabled');
     await writeSkill(path.join(agentDir, 'skills'), 'frontmatter-locked', true);
-    const pluginSkillRoot = path.join(agentDir, 'agent-plugins', 'test-plugin', 'skills');
-    const enabledPluginPath = await writeSkill(pluginSkillRoot, 'plugin-enabled');
-    const disabledPluginPath = await writeSkill(pluginSkillRoot, 'plugin-disabled');
+    const compatibleSkills = await writePluginPackage(agentDir, 'compatible-plugin', [
+      { name: 'plugin-enabled' },
+      { name: 'plugin-disabled' },
+    ]);
+    const incompatibleSkills = await writePluginPackage(
+      agentDir,
+      'incompatible-plugin',
+      [{ name: 'plugin-incompatible' }],
+      '9.9.9',
+    );
     await fs.writeFile(path.join(agentDir, 'agent-plugins.json'), JSON.stringify({
       version: 1,
-      plugins: [{
-        id: 'test-plugin',
-        enabled: true,
-        manifest: { name: 'test-plugin' },
-        skills: [
-          { name: 'plugin-enabled', filePath: enabledPluginPath, valid: true },
-          { name: 'plugin-disabled', filePath: disabledPluginPath, valid: true },
-        ],
-      }],
+      plugins: [
+        {
+          id: 'compatible-plugin',
+          enabled: true,
+          manifest: { name: 'compatible-plugin' },
+          skills: compatibleSkills,
+        },
+        {
+          id: 'incompatible-plugin',
+          enabled: true,
+          manifest: { name: 'incompatible-plugin' },
+          skills: incompatibleSkills,
+        },
+      ],
     }));
 
     vi.doMock('@electron/platform/env', () => ({
@@ -86,27 +131,69 @@ describe('Room skill catalogue and member loading', () => {
       SERO_FIXED_ROOT: tempRoot,
       SERO_HOST_ARTIFACTS_ROOT: tempRoot,
     }));
-    const [{ createRoomSkillOverride }, { createMemberResourceLoader }] = await Promise.all([
+    vi.doMock('@electron/features/subagent/runtime/loader', () => ({
+      createSubagentExtensionFactory: vi.fn(() => vi.fn()),
+    }));
+    const [
+      { createRoomSkillOverride },
+      { createMemberResourceLoader },
+      { createSubagentResourceLoader },
+      { createSubagentSkillOverride },
+    ] = await Promise.all([
       import('@electron/features/apps/extensions/room-skills'),
       import('@electron/features/apps/runtime/capabilities/persistent-sessions/resource-profile'),
+      import('@electron/features/subagent/runtime/resource-loader'),
+      import('@electron/features/subagent/runtime/skill-pipeline'),
     ]);
     const settingsManager = SettingsManager.inMemory(withDisabledModelSkills({}, [
       'normal-disabled',
       'plugin-disabled',
     ]));
+    const genericLoader = createSubagentResourceLoader({
+      cwd,
+      workspaceManager: {} as never,
+      workspaceId: 'ws-1',
+      sessionId: 'session-1',
+      settingsManager,
+    });
+    await genericLoader.reload();
+    const genericSkills = genericLoader.getSkills().skills;
+    const genericByName = new Map(genericSkills.map((skill) => [skill.name, skill]));
+
+    expect(genericByName.get('plugin-enabled')?.disableModelInvocation).toBe(false);
+    expect(genericByName.get('plugin-disabled')?.disableModelInvocation).toBe(true);
+    expect(genericByName.has('plugin-incompatible')).toBe(false);
+
     const catalogueLoader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager,
+      skillsOverride: createSubagentSkillOverride(settingsManager),
+    });
+    await catalogueLoader.reload();
+    const catalogueSkills = catalogueLoader.getSkills().skills;
+    expect(catalogueSkills.map(({ name, disableModelInvocation }) => ({
+      name,
+      disableModelInvocation,
+    }))).toEqual(genericSkills.map(({ name, disableModelInvocation }) => ({
+      name,
+      disableModelInvocation,
+    })));
+
+    const roomCatalogueLoader = new DefaultResourceLoader({
       cwd,
       agentDir,
       settingsManager,
       skillsOverride: createRoomSkillOverride(settingsManager),
     });
-    await catalogueLoader.reload();
-    const offered = catalogueLoader.getSkills().skills.map((skill) => skill.name).sort();
+    await roomCatalogueLoader.reload();
+    const offered = roomCatalogueLoader.getSkills().skills.map((skill) => skill.name).sort();
 
     expect(offered).toEqual(expect.arrayContaining(['normal-enabled', 'plugin-enabled']));
     expect(offered).not.toEqual(expect.arrayContaining([
       'normal-disabled',
       'plugin-disabled',
+      'plugin-incompatible',
       'frontmatter-locked',
     ]));
 

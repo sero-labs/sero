@@ -12,15 +12,13 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
-import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import {
   filterCompatiblePluginAgentsFiles,
   filterCompatiblePluginExtensions,
   filterCompatiblePluginPrompts,
-  filterCompatiblePluginSkills,
   filterCompatiblePluginThemes,
 } from '@electron/features/plugins/resource-compatibility';
+import { createSubagentSkillOverride } from './skill-pipeline';
 
 export interface SubagentResourceLoaderOptions {
   /** Working directory the child session runs from (may be a worktree). */
@@ -53,7 +51,7 @@ export function createSubagentResourceLoader(
   options: SubagentResourceLoaderOptions,
 ): DefaultResourceLoader {
   const disabledSkills = new Set(options.disabledSkills ?? []);
-  const skillVisibilityOverride = createSkillVisibilityOverride(options.settingsManager);
+  const loadSubagentSkills = createSubagentSkillOverride(options.settingsManager);
 
   return new DefaultResourceLoader({
     cwd: options.cwd,
@@ -69,9 +67,7 @@ export function createSubagentResourceLoader(
       ),
     ],
     skillsOverride: (base) => {
-      const filtered = withAgentPluginSkills(
-        filterCompatiblePluginSkills(skillVisibilityOverride(base)),
-      );
+      const filtered = loadSubagentSkills(base);
       if (disabledSkills.size === 0) return filtered;
       return {
         ...filtered,

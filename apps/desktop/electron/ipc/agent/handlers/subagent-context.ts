@@ -18,7 +18,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { createRoomSkillOverride } from '@electron/features/apps/extensions/room-skills';
+import { createSubagentSkillOverride } from '@electron/features/subagent/runtime/skill-pipeline';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
 
@@ -36,7 +36,7 @@ async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInf
     cwd,
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
-    skillsOverride: createRoomSkillOverride(infra.settingsManager),
+    skillsOverride: createSubagentSkillOverride(infra.settingsManager),
   });
   await loader.reload();
   return loader.getSkills().skills.map((s) => ({

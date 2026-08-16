@@ -1,8 +1,6 @@
 import type { LoadSkillsResult, SettingsManager } from '@earendil-works/pi-coding-agent';
 
-import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
-import { filterCompatiblePluginSkills } from '@electron/features/plugins/resource-compatibility';
-import { createSkillVisibilityOverride } from './skill-visibility';
+import { createSubagentSkillOverride } from '@electron/features/subagent/runtime/skill-pipeline';
 
 /**
  * Build the skill surface that a Room can offer and restore.
@@ -15,11 +13,11 @@ export function createRoomSkillOverride(
   settingsManager: Pick<SettingsManager, 'getGlobalSettings'>,
   approvedNames?: readonly string[],
 ): (base: LoadSkillsResult) => LoadSkillsResult {
-  const applyVisibility = createSkillVisibilityOverride(settingsManager);
+  const loadSubagentSkills = createSubagentSkillOverride(settingsManager);
   const approved = approvedNames === undefined ? null : new Set(approvedNames);
 
   return (base) => {
-    const visible = applyVisibility(filterCompatiblePluginSkills(withAgentPluginSkills(base)));
+    const visible = loadSubagentSkills(base);
     return {
       ...visible,
       skills: visible.skills.filter((skill) => (
