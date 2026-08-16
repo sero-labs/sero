@@ -253,6 +253,35 @@ describe('planRoom', () => {
     expect(outcome.blueprint.envelope.allowedTools).toContain('sero-cli');
   });
 
+  it('plans the built-in Software delivery Verifier as read-only with command access', async () => {
+    const template = BUILT_IN_ROOM_TEMPLATES.find((candidate) => candidate.name === 'Software delivery');
+    if (!template) throw new Error('missing Software delivery template');
+    const host = roomHost();
+    host.modelResponses.push({
+      response: reply(blueprint({
+        members: [
+          member(),
+          worker('verifier', {
+            displayName: 'Verifier',
+            role: 'Verifier',
+            responsibility: 'Runs the tests and the type check, and reports the result.',
+            tools: ['read', 'bash', 'sero-cli'],
+            permissions: 'read-only',
+            needsWorktree: false,
+          }),
+        ],
+      })),
+    });
+
+    const outcome = planned(await planRoom(host, planRequest({ preset: seedFrom(template) })));
+
+    expect(outcome.blueprint.members[1]).toMatchObject({
+      key: 'verifier',
+      permissions: 'read-only',
+      tools: ['read', 'bash', 'sero-cli'],
+    });
+  });
+
   it('refuses an invented model, tool or skill and names each one in the repair prompt', async () => {
     const host = roomHost();
     host.modelResponses.push({

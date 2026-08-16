@@ -47,6 +47,7 @@ import type {
   SoftLimitField,
 } from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
+import { isSafeRoomMemberKey } from '../../shared/room-validation';
 import { checkRosterGrowth } from './room-limits';
 
 /** What the user would be asked. Every field is computed from Room records. */
@@ -173,6 +174,7 @@ function planRosterAddition(
   applied: string,
   approvalTitle: string,
 ): RevisionPlan {
+  if (!isSafeRoomMemberKey(member.key)) return refuse(`${member.key} is not a safe member key.`);
   if (findMember(room, member.key)) return refuse(`${member.key} is already a member of this Room.`);
   if (member.isConductor) return refuse('A Room has one Conductor, and a joining member cannot be it.');
   const growth = checkRosterGrowth(room, growthKind);

@@ -75,6 +75,17 @@ afterEach(async () => {
 });
 
 describe('deciding against the record that is written', () => {
+  it('refuses an unsafe key when a roster revision adds a member', async () => {
+    const result = await propose({
+      kind: 'add-member',
+      member: blueprintMember({ key: '../outside', displayName: 'Outside', isConductor: false }),
+    }, 'cmd-unsafe-member');
+
+    expect(result).toMatchObject({ outcome: 'refused', reason: '../outside is not a safe member key.' });
+    expect((await store.readRoom(ROOM))?.members).toHaveLength(MEMBERS.length);
+    expect(await revisionsOf()).toHaveLength(0);
+  });
+
   it('closes a live member session before it reports a narrower configuration', async () => {
     await store.updateMember(ROOM, 'scout', (member) => ({ ...member, status: 'idle', statusDetail: 'Ready.' }));
     let statusAtRelease: string | null = null;

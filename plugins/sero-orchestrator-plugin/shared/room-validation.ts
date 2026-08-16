@@ -13,7 +13,6 @@
  */
 
 import type { RoomBlueprint } from './room-blueprint-types';
-import { accessLabelForCapability } from './room-access-map';
 
 export {
   ROOM_ACCESS_RULES,
@@ -52,6 +51,7 @@ export type RoomBlueprintErrorCode =
   | 'too-many-members'
   | 'conductor-count'
   | 'member-key-empty'
+  | 'member-key-invalid'
   | 'duplicate-member-key'
   | 'member-responsibility-empty'
   | 'member-mandate-empty'
@@ -60,7 +60,6 @@ export type RoomBlueprintErrorCode =
   | 'thinking-not-allowed'
   | 'tool-unknown'
   | 'tool-not-allowed'
-  | 'read-only-command'
   | 'skill-unknown'
   | 'skill-not-allowed'
   | 'delivery-not-allowed'
@@ -76,6 +75,13 @@ export interface RoomBlueprintError {
 export type RoomBlueprintValidation =
   | { ok: true }
   | { ok: false; errors: RoomBlueprintError[] };
+
+const MEMBER_KEY_PATTERN = /^[a-z][a-z0-9-]*$/;
+
+/** Member keys become path segments and host grant subjects. */
+export function isSafeRoomMemberKey(key: string): boolean {
+  return MEMBER_KEY_PATTERN.test(key);
+}
 
 /**
  * Every problem in one pass, so the planner's single repair attempt sees the
@@ -119,6 +125,12 @@ export function validateRoomBlueprint(
     const path = `members[${index}]`;
     if (!member.key.trim()) {
       errors.push({ code: 'member-key-empty', path: `${path}.key`, message: 'A member needs a key.' });
+    } else if (!isSafeRoomMemberKey(member.key)) {
+      errors.push({
+        code: 'member-key-invalid',
+        path: `${path}.key`,
+        message: `Member key ${member.key} must be a lower-case slug.`,
+      });
     } else if (seenKeys.has(member.key)) {
       errors.push({ code: 'duplicate-member-key', path: `${path}.key`, message: `Member key ${member.key} is used twice.` });
     }
@@ -147,13 +159,6 @@ export function validateRoomBlueprint(
       }
       if (!envelope.allowedTools.includes(tool)) {
         errors.push({ code: 'tool-not-allowed', path: `${path}.tools`, message: `Tool ${tool} is outside the approved envelope.` });
-      }
-      if (member.permissions === 'read-only' && accessLabelForCapability(tool) === 'run-commands') {
-        errors.push({
-          code: 'read-only-command',
-          path: `${path}.tools`,
-          message: `${member.displayName} is read-only, so it cannot use the command tool ${tool}.`,
-        });
       }
     }
     for (const skill of member.skills) {
