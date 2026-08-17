@@ -55,9 +55,14 @@ jobs:
             head="${{ github.sha }}"
           fi
 
-          if [[ -n "$base" && "$base" != "0000000000000000000000000000000000000000" ]]; then
+          # A force-push leaves github.event.before pointing at a commit the
+          # rewritten branch no longer has. Fall back to the full file list
+          # rather than failing the gate on a missing base.
+          if [[ -n "$base" && "$base" != "0000000000000000000000000000000000000000" ]] \
+            && git cat-file -e "$base^{commit}" 2>/dev/null; then
             changed_files="$(git diff --name-only "$base" "$head")"
           else
+            echo "No usable base commit ($base) — treating every tracked file as changed."
             changed_files="$(git ls-files)"
           fi
 
