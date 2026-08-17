@@ -262,7 +262,9 @@ export function createSeroExtensionFactory(
 
     // Re-implement PI CLI built-ins for SDK mode and register Git checkpoint hooks.
     registerSeroBuiltinCommands(pi, currentWorkspaceId);
-    registerGitCheckpointFeatures(pi, currentWorkspaceId);
+    // A private registry means this session holds only its own app's commands,
+    // so the shared `sero git` commands are not among them.
+    registerGitCheckpointFeatures(pi, currentWorkspaceId, !options?.cliRegistry);
 
     // ── Subagent tools (main sessions only) ──────────────────
     if (options?.enableAgentManagementTools && options.subagentManager) {

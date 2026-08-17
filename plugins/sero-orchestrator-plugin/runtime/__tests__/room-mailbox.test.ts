@@ -224,6 +224,25 @@ describe('durable delivery', () => {
     expect(refusal).toContain('scout');
   });
 
+  it('points a member addressing the user at request-attention', async () => {
+    // The user is not on the roster, so `ask --to user` can only be refused. A
+    // Conductor that reads "there is no member user" and stops there blocks the
+    // whole Room on a question nobody can deliver.
+    const roomId = await startRoom();
+
+    const asked = await coordinator.mailbox.ask(roomId, {
+      commandId: 'cmd-user',
+      fromMemberId: 'lead',
+      toMemberIds: ['user'],
+      body: 'which rounding rule should we use?',
+      waitForReply: true,
+    });
+
+    expect(asked).toMatchObject({ ok: false, code: 'unknown-recipient' });
+    const refusal = asked.ok ? '' : asked.message;
+    expect(refusal).toContain('request-attention');
+  });
+
   it('treats a repeated command id as the same logical message', async () => {
     const roomId = await startRoom();
     const request = {

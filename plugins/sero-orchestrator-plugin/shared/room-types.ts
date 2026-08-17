@@ -109,6 +109,15 @@ export interface MemberConfiguration {
 export interface MemberSessionRef {
   /** Subject id handed to the persistent-session capability. Equals memberId. */
   subject: string;
+  /**
+   * The tools the host actually granted this subject, read back from the issued
+   * grant. A session must ask for exactly these: the host clamps the proposal to
+   * what the permission profile allows, and a request for anything it removed is
+   * denied outright, which stops the member before its first turn.
+   *
+   * Null until the grant is installed, and on Rooms started by an older build.
+   */
+  grantedTools: string[] | null;
   sessionId: string | null;
   sessionPath: string | null;
   workspaceId: string;

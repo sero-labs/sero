@@ -28,7 +28,7 @@ function member(status: MemberStatus, liveHandleId: string | null = 'h1'): RoomM
       permissions: 'edit-workspace', needsWorktree: false, revision: 2,
     },
     session: {
-      subject: 'm1', sessionId: 's1', sessionPath: '/s/m1.jsonl', workspaceId: 'w',
+      subject: 'm1', grantedTools: null, sessionId: 's1', sessionPath: '/s/m1.jsonl', workspaceId: 'w',
       liveHandleId, lastOpenedAt: 't', lastClosedAt: null, compactionCount: 1, lastCompactedAt: null,
     },
     usage: { costUsd: 1.5, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 4, retries: 0, consecutiveFailures: 0 },

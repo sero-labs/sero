@@ -126,7 +126,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
           onAction={onAction}
         />
         {REFINABLE.has(loop.status) && (
-          <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}
       </CollapsibleSection>
 

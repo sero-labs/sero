@@ -30,7 +30,9 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
 - [Orchestrator](/guide/orchestrator) — choose between planned Workflows and collaborative Rooms.
 - [Workflows](/guide/workflows) — create planned work that runs once, on a schedule, or after an event.
+- [Workflows in Practice](/guide/workflows-advanced) — schedules, recovery, per-step tuning, Library and Catalog.
 - [Rooms](/guide/rooms) — create and supervise a temporary team for one problem.
+- [Rooms in Practice](/guide/rooms-advanced) — claims, access escalation, and changing a team while it works.
 - [Running Evals](/guide/running-evals) — run snapshot or live-provider evals and inspect results.
 
 ## App and integration tasks

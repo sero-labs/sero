@@ -1,262 +1,234 @@
 # Workflows
 
-Use a Workflow when you can describe a result and let Sero plan the steps. A
-Workflow can run once, on a schedule, or after an event such as a file change or
-a failed CI check. It keeps its plan and run history after Sero restarts.
+A Workflow is for work you can describe as a result: "check every level is
+solvable and open a pull request when they all pass." You write the goal, Sero
+writes the steps, and you decide whether the plan is right before anything runs.
 
-You do not need to design the steps. Describe the result, review the plan, and
-activate it. Sero can run independent steps at the same time and can stop for
-your answer when it needs a decision.
+This page follows one workflow from a sentence to an open pull request.
+It uses a small demo project called Lattice — a puzzle game with a folder of
+levels, a solver, and a script that checks each level can be finished. The
+[setup steps](#set-up-lattice) are at the end, and the whole walkthrough takes
+about ten minutes.
 
-Use a [Room](/guide/rooms) instead when several agents need to discuss one
-problem, divide the work, and change their approach while they work. For a short
-comparison, see [Orchestrator](/guide/orchestrator).
+Use a [Room](/guide/rooms) instead when several agents need to talk to each
+other while they work. [Orchestrator](/guide/orchestrator) compares the two.
 
 Sero is in public beta. Check important results before you use or publish them.
 
-## How a Workflow works
+## What you are about to build
 
-A **workflow** is three things:
+Lattice has six levels. Three are fine. Three are broken, each for a different
+reason: one cannot be solved at all, one is finished in three moves, one takes
+fifty. The project's rule is that a level must be solvable and must land between
+8 and 40 moves.
 
-- **your goal** — the prompt you wrote ("review open issues and fix the simple
-  ones");
-- **a step plan** — the steps Sero wrote to reach that goal, and how they
-  connect;
-- **its history** — every run, what each step did, and any decisions you made.
+The workflow you write will check each level on its own, repair only the broken
+ones, ask you before it touches the solver, re-check its own repairs, and open a
+pull request. You will not draw any of that. You describe the result and Sero
+plans the steps.
 
-You describe the goal. Sero writes the plan, runs the steps in order — some can
-run at the same time — and stops to ask you whenever a step needs a decision
-only you should make. It finishes only when the plan says the work is genuinely
-done; it never just guesses that it's finished.
+## 1. Describe the goal
 
-The two examples below use a test project. The
-[setup steps](#set-up-the-demo-project) are at the end.
+Open the Orchestrator panel, select **Workflows**, and click **New**. The first
+screen asks what you want done.
 
-## Create your first Workflow
+![The New workflow screen, with the goal typed into the description box](../assets/images/orchestrator-lattice-describe.jpg)
 
-We'll start small: read a project's README and write a short changelog from it.
+Type this:
 
-**1. Open the panel and click New.** The first step of the wizard asks what you
-want done.
+> Check the levels in levels/ — there are only a handful, so check each one
+> separately, at most ten, and record for each whether it is solvable and whether
+> it lands inside the difficulty band. Fix only the levels that failed and leave
+> the passing ones alone. src/solver.js is off limits without my approval: stop
+> and ask me before you change it. After a fix, re-run the check; if it still
+> fails, loop back to the repair step and try again, at most three times round.
+> Open a pull request when every level passes. Keep the plan tight — six or seven
+> steps, not more. This is a long job: allow up to 2 million tokens and 60
+> minutes for the whole run.
 
-![Describe what you want done](../assets/images/orchestrator-new-describe.jpg)
+Three things in that description are worth noticing, because each one becomes a
+part of the plan you will see in a moment.
 
-Type your goal in plain English:
+- "check each one separately" asks for one run per level, rather than one run
+  that looks at all six.
+- "stop and ask me before you change it" asks Sero to pause and wait for you.
+- "allow up to 2 million tokens and 60 minutes" sets the run's limits. Sero reads
+  them from this description. Left unsaid, it picks its own — and a first attempt
+  at this workflow ran out of tokens halfway through the level checks.
 
-> Read README.md, then write a concise CHANGELOG.md summarising the project, and
-> verify the file was created.
+Leave **Run in a managed worktree** on. A **worktree** is a second copy of your
+repository on its own branch, so the workflow edits that copy and your own files
+are never touched. Leave **Deliver results to** on **Automatic**,
+which opens a pull request for a worktree workflow. Click **Generate plan →**.
 
-Leave **Run in a managed worktree** turned on. This runs the workflow on its own
-copy of your files (its own branch), so your working files are never touched
-while it works.
+## 2. Read the plan
 
-**Deliver results to** decides where the finished work goes. **Automatic**
-matches the placement — a worktree workflow opens a pull request, a workspace-root
-workflow leaves the files in place. You can instead pick a saved report file, a
-Gmail draft, or an outward send (email, chat message, webhook). Outward sends
-always show you the exact content first and wait for your approval before
-anything leaves the machine. Leave it on **Automatic** here and click
-**Generate plan →**.
+Sero turns the sentence into steps and shows them as a map.
 
-**2. Review the plan.** Sero turns your sentence into steps.
+![The generated plan as a map of seven connected steps](../assets/images/orchestrator-plan-map-draft.jpg)
 
-![Sero wrote the steps for you](../assets/images/orchestrator-new-review.jpg)
+Each box is a **step**. Each arrow means the step at the point of the arrow waits
+for the one behind it. Nothing has run yet — every step reads `pending`.
 
-Each box is one step. The line joining them means the second step waits for the
-first to finish. You can adjust anything here in plain English using the box at
-the bottom of the plan — but this plan is fine, so click **Activate workflow →**.
+The seven steps are the shape of the sentence you wrote: discover the levels,
+check each one, diagnose the failures, ask about the solver, repair, re-check,
+then commit and open the pull request.
 
-**3. Watch it run.** The workflow opens and starts working. A green strip shows what
-it's doing right now, with a live count of time and tokens used.
+The strip above the map is the workflow's own summary: the worktree, the delivery
+destination, the trigger, and the limits it will run under.
 
-![The workflow running](../assets/images/orchestrator-loop-running.jpg)
+### The marks on a step
 
-**4. Done.** When the last step finishes, the workflow reports that it's complete and
-every step shows as finished. The **Attempt history** below records this run.
+A step carries small marks that say how it behaves. They matter more than they
+look, because they are the difference between a list of instructions and a plan
+that can make decisions.
 
-![The workflow finished](../assets/images/orchestrator-loop-complete.jpg)
+![The first steps of the plan, zoomed in, showing the decision and fan-out marks](../assets/images/orchestrator-plan-map-badges.jpg)
 
-## When a workflow finds uncommitted changes
+- The **branch mark** means the step records a decision. Step 1 records what it
+  found in `levels/`; later steps read that decision and act on it.
+- **×10** is a **fan-out**: the step runs once per item it finds, up to ten times.
+  This is "check each one separately" — six levels, six independent checks.
 
-A workflow set to work directly in the workspace checks for uncommitted changes
-before it edits files. If it finds any, the confirmation names the workflow and
-workspace and shows what will happen if you do not answer.
+![Step 4, Obtain protected solver approval, carrying the shield badge](../assets/images/orchestrator-plan-map-badges-gate.jpg)
 
-**Run isolated** is the safe default: the workflow uses a separate worktree and
-leaves your changes alone. Use **Run here** to work alongside the changes, allow
-that behavior for this workflow, or stash the changes first. **Skip this run** waits
-for the workflow's next normal trigger.
+- The **shield** on step 4 is an **approval gate**. The step will not start until
+  you say yes. This is "ask me before you change the solver".
 
-For a scheduled or manually started run, **Snooze** can retry in 15 minutes, 1
-hour, 4 hours, or at 9:00 AM the next day. The snooze survives a Sero restart,
-and Sero checks the workspace again before starting. Event-fired runs do not
-offer snooze because their event payload cannot be discarded. **Open workflow**
-takes you to the correct workspace and workflow without answering the confirmation.
+![The last steps, with the violet dashed route looping from the re-check back to the repair](../assets/images/orchestrator-plan-map-badges-end.jpg)
 
-The workflow's **Attempt history** records the result as **Skipped** or **Snoozed**,
-including the reason and retry time. These are separate from **Waiting**, which
-means a run is parked on input or has no runnable step.
+- The **violet dashed arrow** curving backwards is a **feedback route**, and the
+  matching badge is on the step it leaves from. If the re-check finds a level
+  still broken, the plan returns to the repair step and tries again. It carries a
+  counter, so a loop that cannot converge stops rather than running forever —
+  here, at most three times round.
 
-## Create a Workflow with conditional steps
+One badge is missing from this plan: a **circle**, which marks a step that runs
+on one route only. Sero decided it did not need one here — the repair step reads
+the list of failures and does nothing when the list is empty, rather than being
+routed around. The [Workflows reference](/reference/workflows) lists every badge,
+including the ones this plan does not use.
 
-Now a workflow that has to make choices. We'll point it at the demo project's
-`issues/` folder, which holds a mix of work: one simple typo fix and two that
-need code changes.
+### Ways to read the same plan
 
-Click **New**, and in **Describe** type:
+The map has three controls, all in the strip above it.
 
-> Review all the open issues in the issues/ folder in one run, working on the
-> independent ones at the same time. For each issue: if it's a simple typo or
-> docs fix, draft the change directly; if it's a code change, write a short plan
-> first and ask me before making any edits. When you're done, summarise what you
-> did. Run this only when I trigger it.
+**Auto / Horizontal / Vertical** sets the direction. Auto chooses for you.
+Vertical is the one to reach for on a narrow screen or a long plan, because a
+single column stays readable however many steps there are.
 
-![Describing a bigger, multi-issue goal](../assets/images/orchestrator-issues-describe.jpg)
+![The same plan drawn as a single vertical column](../assets/images/orchestrator-plan-map-vertical.jpg)
 
-**Sometimes Sero asks first.** If your goal is missing a detail it needs, the
-workflow is created but not started — it shows the planner's questions, you answer
-them, and it builds the plan. For a clear goal like this one it goes straight to
-the plan.
+**Zoom** and **Fit** are on the right, with the current percentage between them.
+Fit scales the whole plan to the panel; zoom takes you closer when you want to
+read a particular step.
 
-**The plan chooses steps from what it finds.** Sero's first step classifies the
-issues. The plan then uses a condition to choose the docs-fix steps, the
-code-change steps, or both.
+![The zoom control with the plan enlarged past its fitted size](../assets/images/orchestrator-plan-map-zoom.jpg)
 
-![The plan branches on the issue type](../assets/images/orchestrator-plan-branch.jpg)
+**Click a step** to open its detail underneath the map — what the step is told to
+do, and what it is expected to produce.
 
-**Independent work runs at the same time.** Because the demo has both kinds of
-issue, both arms of the branch are taken — and Sero runs them together instead of
-one after another. The live view shows both steps *running* side by side.
+![A selected step, with its detail open below the map](../assets/images/orchestrator-plan-map-selected.jpg)
 
-![Two steps running in parallel](../assets/images/orchestrator-plan-parallel.jpg)
+**Map / Details** switches the whole presentation. Details is the same plan as a
+list, with every instruction in full. Use the map to see the shape and Details to
+read the words.
 
-You do not need to draw this plan. To change its structure, describe the change
-in the **Refine** box.
+![The same plan as a detailed list of steps](../assets/images/orchestrator-plan-details.jpg)
 
-**It pauses to ask you.** Your goal said "ask me before making any edits" for code
-changes. When the workflow reaches that point it stops and shows a **Needs your input**
-card — the question, quick-pick buttons, and a box for your own answer — and waits
-as long as it takes (there's no timeout). It continues the moment you answer, and
-your answer is saved with the workflow.
+### If a step is missing
 
-**You can configure one step.** Every step has a **Tune** control. Open
-it to override, for that step alone, which **model** it uses and any extra **tools**
-it may use — the defaults the planner chose are usually fine.
+You do not edit the plan by hand. Describe the change in the **Refine** box under
+the map and Sero rewrites the steps.
 
-![Tune a single step's model and tools](../assets/images/orchestrator-tune-step.jpg)
+![The Refine box, with a change described in plain English](../assets/images/orchestrator-refine.jpg)
 
-**Custom agent roles.** You can also run a step as one of your workspace's named
-**agents** — a specialist role with its own instructions and default model — when
-one suits the step better than the default.
+"Add an approval gate before the solver is changed" and "loop back to the repair
+step if the re-check still fails" are both ordinary requests. The planner is not
+perfectly consistent — the same goal sometimes produces a plan without the gate —
+so read the marks before you activate, and ask for whatever is missing.
 
-![Choosing a specialist agent role for a step](../assets/images/orchestrator-tune-step2.jpg)
+## 3. Activate and watch
 
-**You can rewrite the plan in plain English.** The **Refine** box changes the plan,
-its schedule, or its stop condition — just describe what you want and Sero
-re-writes the steps.
+Click **Activate workflow →**. The workflow opens and starts working.
 
-![Refine the plan in plain English](../assets/images/orchestrator-refine.jpg)
+![The workflow running, with one step lit and the others waiting](../assets/images/orchestrator-lattice-running.jpg)
 
-When every step is done, the workflow summarises what it did and marks itself complete
-— here it reviewed all three issues, made the fixes it was allowed to, and opened a
-pull request.
+A running step is lit and the strip at the top counts time and tokens as they are
+spent. Independent steps run at the same time where the plan allows it.
 
-![The finished multi-step workflow](../assets/images/orchestrator-issues-complete.jpg)
+You do not have to keep the panel open. Sero notifies you when a workflow
+finishes or gets stuck.
 
-## When a workflow gets stuck
+## 4. Answer the gate
 
-A workflow **blocks** when it hits a problem it can't get past on its own. It stops,
-tells you why, and waits — it never fails silently or repeats forever. You have two
-ways out:
+The run reaches the solver step and stops.
 
-- **Retry step** — the button on the blocked step itself. It resets *that* step
-  and runs the workflow on from there, keeping all the finished work. Use it once
-  you've fixed whatever caused the block.
-- **Restart** — a workflow-level button that re-runs the *whole plan from the first
-  step*, discarding this run's progress (anything already committed is kept). Use
-  it for a clean start — for example to make a different choice this time.
+![The approval gate waiting, with the question and its answer buttons](../assets/images/orchestrator-gate-waiting.jpg)
 
-Retrying won't help if nothing has changed — the step will reach the same
-conclusion and block again. In that case, Restart and choose differently, or
-**Refine** the plan. A blocked workflow is never a dead end.
+This is the shield mark doing its job. The workflow explains what it wants to
+change and waits — there is no timeout, and it waits as long as you need. Answer
+with one of the offered buttons or type your own reply, then press **Send
+answer**. Your answer is kept with the workflow.
 
-## Clearing your "Needs you" list
+The same question also appears on **Home**, in a single **Needs you** list that
+gathers every workflow waiting on you, so you can clear several at once without
+opening each one.
 
-The panel opens on **Home**, with a single **Needs you** list that gathers every
-workflow waiting on you — questions to answer and suggested improvements to approve —
-so you can clear them in one place without opening each workflow. Below it is an
-overview of all your workflows, grouped by status.
+![The Needs you list on Home, with the waiting question](../assets/images/orchestrator-needs-you.jpg)
 
-You don't have to keep the panel open. When a workflow **finishes** or **blocks**
-while you're away, Sero sends you a notification with the workflow's name and what
-happened.
+## 5. Read the result
 
-## Improving a workflow over time
+When the last step finishes, the workflow marks itself complete. Each step
+records what it actually did, not just that it ran.
 
-A workflow keeps a short record of each run. **Reflect** (on a workflow) reads that
-history and suggests how the workflow could run better next time — a clearer step, a
-missing check. **Reflect all** (top of the panel) does the same across every
-workflow that has run.
+![The finished workflow, with each step's outcome and the run history](../assets/images/orchestrator-lattice-complete.jpg)
 
-Each suggestion waits for you: **Approve** applies it to the plan, **Reject**
-keeps a one-line reason so the same idea isn't suggested again. Nothing changes
-on its own, and reflection only ever runs when you ask.
+For this run: levels 03, 04 and 06 were repaired, all six now pass inside the
+8–40 move band, `src/solver.js` was left unchanged, and the work was delivered as
+a pull request.
 
-## Saving and reusing workflows
+**Attempt history**, at the bottom, keeps every run — how long it took, what it
+cost, and which steps it went through. It is the fastest way to see why one run
+behaved differently from another.
 
-Build a workflow once and reuse it anywhere with the **Workflow Library** — a shared
-collection that follows you across every workspace in your Sero profile.
+Back on **Home**, all your workflows are grouped by status.
 
-On a workflow, open **Library → Save to Library**. The first save creates an entry;
-later saves add a new **version** with an optional "what changed" note. Saving
-stores the workflow's plan, schedule, limits, and context — never its run history.
+![The Home overview, with workflows grouped by status](../assets/images/orchestrator-home-overview.jpg)
 
-Click **Library** in the panel header to browse what you've saved. **Load** an
-entry to drop a fresh copy into the current workspace, then review and activate
-it like any new workflow. When a newer version is saved from anywhere, a loaded workflow
-offers to **Update** to it.
+## What you have learned
 
-### Install a ready-made workflow from the Catalog
+You described a result, read the plan Sero wrote for it, and approved one
+decision while it ran. The plan branched, ran six checks in parallel, waited for
+you, and delivered a pull request — and you wrote one paragraph.
 
-Next to My Library is the **Catalog** tab. It contains curated workflows from the
-official Sero catalog (marked **Verified**), plus any catalog repos you add —
-a private company repo works as a team catalog. Press **Install** on an entry
-and the planner adapts it to your workspace, asking first when it needs a
-detail only you know (like which repo to watch). The result is an ordinary
-draft: review the plan, then activate. When the catalog publishes an improved
-version, your installed workflow shows a version-available badge. Select
-**Update & re-adapt** to update it for the current workspace.
+Next:
 
-## Set up the demo project
+- [Workflows in practice](/guide/workflows-advanced) — schedules and event
+  triggers, blocked runs, uncommitted changes, saving to the Library, and
+  installing from the Catalog.
+- [Workflows reference](/reference/workflows) — every command, trigger, delivery
+  option, limit, and storage path.
 
-The walkthroughs above use a small throwaway project so nothing real is touched.
-Open an empty folder as a workspace, start a chat, and paste this to the agent —
-it builds the seed files for you:
+## Set up Lattice
 
-> Set up a small throwaway demo project in this workspace, then run `git init`,
-> stage everything, and commit it. Create:
+The walkthrough uses a throwaway project so nothing real is touched. Open an
+empty folder as a workspace, start a chat, and paste this to the agent:
+
+> Set up a small throwaway puzzle-game project in this workspace, then run
+> `git init`, stage everything, and commit it. Create:
 >
-> - **README.md** — a "Tip Calculator" CLI that splits a restaurant bill and tip
->   across a group: a one-line description, a usage example
->   (`node src/tip.js --bill 84.50 --tip 18 --people 3`), and a status note that
->   it's an early prototype. In the description, deliberately misspell the
->   word "calculates".
-> - **src/tip.js** — a `splitBill(bill, tipPercent, people)` function that adds
->   the tip and divides by people **without rounding to whole cents**, with a top
->   `// TODO` noting the rounding is naive (see issues/002).
-> - **issues/001-readme-typo.md** — a simple docs fix: one word in the README
->   description is misspelled.
-> - **issues/002-fix-rounding.md** — a code change: `splitBill()` never rounds, so
->   odd splits lose a cent; plan the approach before editing.
-> - **issues/003-add-currency-flag.md** — a code change: add an optional
->   `--currency` flag (default "USD") that formats each share.
->
-> Don't create a CHANGELOG.md — a later workflow writes that.
+> - **levels/01.json** … **levels/06.json** — each a small grid puzzle with a
+>   start, a goal, and some walls. Levels 01, 02 and 05 must be solvable in
+>   between 8 and 40 moves. Level 03 must be impossible. Level 04 must be
+>   solvable in 3 moves. Level 06 must need about 50 moves.
+> - **src/solver.js** — a breadth-first solver exporting `solve(level)`, which
+>   returns the shortest move list or null.
+> - **scripts/check.js** — checks one level: prints whether it is solvable and
+>   how many moves the solution takes, and fails if it is unsolvable or outside
+>   8–40 moves.
+> - **README.md** — states the rule: every level must be solvable and land
+>   between 8 and 40 moves.
 
-The `issues/` folder has one simple fix and two code changes. This gives the
-second example both routes to run.
-
-## Find exact settings and commands
-
-See the [Workflows reference](/reference/workflows) for commands, triggers,
-delivery options, limits, recovery rules, and storage paths.
+Three levels pass and three fail, each for a different reason. That mix is what
+gives the plan something to decide.

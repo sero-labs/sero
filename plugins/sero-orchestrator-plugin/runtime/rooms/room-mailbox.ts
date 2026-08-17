@@ -23,7 +23,7 @@
 import type { RoomMessage } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
-import { memberRefHelp } from '../../shared/room-member-ref';
+import { memberRefHelp, refersToUser } from '../../shared/room-member-ref';
 import { timelineEvent, withMember, withMemberStatus, withRoomStatus } from './room-actions';
 import {
   DEFAULT_MAILBOX_LIMITS,
@@ -212,6 +212,10 @@ export function createRoomMailbox(ctx: RoomMailboxContext): RoomMailbox {
 
 /** A refusal that also says what the caller could have written instead. */
 function unknownRecipient(record: RoomRecord, ref: string): string {
+  if (refersToUser(ref)) {
+    return 'The user is not a member of this Room, so you cannot address a message to them.'
+      + ' Ask them with request-attention instead: sero room request-attention --body "<your question>".';
+  }
   return `There is no member ${ref} in this Room.${memberRefHelp(record.members)}`;
 }
 

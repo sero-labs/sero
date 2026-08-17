@@ -129,6 +129,27 @@ describe('validateRoomBlueprint', () => {
     });
   });
 
+  it('rejects a push-capable tool below the edit-and-push permission', () => {
+    const result = validateRoomBlueprint(
+      blueprint({ members: [member({ tools: ['read', 'gh', 'sero-cli'], permissions: 'edit-workspace' })] }),
+      catalogue,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      errors: [expect.objectContaining({ code: 'push-tool-without-push-permission', path: 'members[0].tools' })],
+    });
+  });
+
+  it('accepts the same tool once the member may push', () => {
+    const result = validateRoomBlueprint(
+      blueprint({ members: [member({ tools: ['read', 'gh', 'sero-cli'], permissions: 'edit-and-push' })] }),
+      catalogue,
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
   it('rejects an unapproved shared working tree', () => {
     const result = validateRoomBlueprint(
       blueprint({ workspacePolicy: { mode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),
@@ -170,12 +191,16 @@ describe('computeProposalSummary', () => {
     expect(summary.access.map((entry) => entry.label)).toContain('other-tools');
   });
 
-  it('raises GitHub write from push permission and keeps gh alone as read', () => {
-    const readOnly = computeProposalSummary(blueprint({ members: [member({ tools: ['gh'] })] }));
+  it('raises GitHub write from push permission, and from a push-capable tool alone', () => {
+    const readOnly = computeProposalSummary(blueprint({ members: [member({ tools: ['octokit'] })] }));
     expect(readOnly.access.map((entry) => entry.label)).toContain('read-github');
-    const pushes = computeProposalSummary(blueprint({ members: [member({ tools: ['gh'], permissions: 'edit-and-push' })] }));
+    const pushes = computeProposalSummary(blueprint({ members: [member({ tools: ['octokit'], permissions: 'edit-and-push' })] }));
     expect(pushes.access.map((entry) => entry.label)).toContain('github-write');
     expect(pushes.access.map((entry) => entry.label)).not.toContain('read-github');
+    // The host treats `gh` as push-capable, so the tile must say so even when
+    // no member asks for push permission.
+    const tool = computeProposalSummary(blueprint({ members: [member({ tools: ['gh'] })] }));
+    expect(tool.access.map((entry) => entry.label)).toContain('github-write');
   });
 });
 

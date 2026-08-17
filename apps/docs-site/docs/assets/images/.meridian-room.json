@@ -1,0 +1,81 @@
+{
+  "roomId": "room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124",
+  "status": "completed",
+  "captured": [
+    "running",
+    "member",
+    "claims",
+    "question",
+    "orchestrator-rooms-running",
+    "orchestrator-rooms-brief-tab",
+    "orchestrator-rooms-work",
+    "orchestrator-rooms-claims-tab",
+    "orchestrator-rooms-artifacts",
+    "orchestrator-rooms-changes",
+    "orchestrator-rooms-activity-all",
+    "orchestrator-rooms-decisions",
+    "orchestrator-rooms-watch",
+    "orchestrator-rooms-member"
+  ],
+  "missing": [
+    "approval"
+  ],
+  "costUsd": 1.6266675999999998,
+  "turns": 29,
+  "delivered": true,
+  "deliveryRef": "workspace",
+  "artifacts": [
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_4b05ef8e-e534-44ed-b7a7-10e475a110ab.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_7a77b9c9-7f67-4f9c-bd5c-578580a48771.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_23288546-642b-4852-bb48-1e27d4a3fad8.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_254f4311-7f44-4108-b01e-7793ee44d0b9.md"
+    },
+    {
+      "kind": "patch",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_22b3820a-fdad-4799-a495-03cab6f1b8c5.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_da7a3c6d-45fa-4f56-a453-c5a94a6b7254.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_fecd8d87-86f1-4fcd-b534-b264f863ce8f.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_6967c294-7f67-4e3c-807a-57ce405b7f09.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_a14c992b-57be-49a2-bc89-73de71a6a49e.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_70295c5b-0375-480f-82ed-1c940f1cba42.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_e855ab5e-0bb9-4c87-b7f7-ef9ac7d3c5ea.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_68faea9e-58a6-4aae-b941-897237c2f496.md"
+    },
+    {
+      "kind": "report",
+      "ref": "/Users/danielcarter/Documents/Dev/projects/sero/demos/meridian-run4/.sero/apps/orchestrator/rooms/room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124/artifacts/artifact_f84ad971-042b-4c04-a089-4c1192c9c70a.md"
+    }
+  ]
+}

@@ -31,7 +31,9 @@ const agentsAutomation = [
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
   { text: 'Orchestrator', link: '/guide/orchestrator' },
   { text: 'Workflows', link: '/guide/workflows' },
+  { text: 'Workflows in Practice', link: '/guide/workflows-advanced' },
   { text: 'Rooms', link: '/guide/rooms' },
+  { text: 'Rooms in Practice', link: '/guide/rooms-advanced' },
   { text: 'Running Evals', link: '/guide/running-evals' }
 ];
 

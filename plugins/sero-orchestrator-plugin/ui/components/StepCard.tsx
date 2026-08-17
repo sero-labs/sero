@@ -49,7 +49,7 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
   const canTune = step.execution.type !== 'active-session';
 
   return (
-    <Card className={`flex flex-col gap-1.5 p-3 ${tint}${skipped ? ' opacity-60' : ''}`}>
+    <Card className={`flex flex-col gap-1.5 p-3 ${tint || 'border-border/75'}${skipped ? ' opacity-60' : ''}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {showNumber && <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>}

@@ -62,6 +62,7 @@ export type RoomBlueprintErrorCode =
   | 'tool-unknown'
   | 'tool-not-allowed'
   | 'read-only-command'
+  | 'push-tool-without-push-permission'
   | 'skill-unknown'
   | 'skill-not-allowed'
   | 'delivery-not-allowed'
@@ -167,6 +168,18 @@ export function validateRoomBlueprint(
           code: 'read-only-command',
           path: `${path}.tools`,
           message: `${member.displayName} is read-only, so it cannot use the command tool ${tool}.`,
+        });
+      }
+      // The host grants a remote-reaching tool only at `edit-and-push`. Left to
+      // stand, this pair is approved and then fails: the host removes the tool
+      // from the policy, the member's session still asks for it, and the member
+      // is denied before its first turn. Refusing it here keeps the proposal a
+      // promise the host can keep.
+      if (member.permissions !== 'edit-and-push' && accessLabelForCapability(tool) === 'github-write') {
+        errors.push({
+          code: 'push-tool-without-push-permission',
+          path: `${path}.tools`,
+          message: `${member.displayName} needs the edit-and-push permission to use ${tool}.`,
         });
       }
     }

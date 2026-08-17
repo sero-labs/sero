@@ -64,7 +64,7 @@ export function LibraryBrowser({ libraryDir, busy, onLoad, initialQuery }: Libra
           {visible.map((entry) => {
             const open = expanded === entry.id;
             return (
-              <Card key={entry.id} className="flex flex-col gap-2 p-3">
+              <Card key={entry.id} className="flex flex-col gap-2 border-border/75 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-base font-medium">{entry.name}</div>

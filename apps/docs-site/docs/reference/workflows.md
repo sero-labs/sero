@@ -73,6 +73,54 @@ Catalog commands:
   steps. Supports per-step model, agent role, and extra tools.
 - `human` — pauses the workflow for your input.
 
+## Reading a plan
+
+A plan is shown in one of two presentations, chosen with the **Map / Details**
+toggle above it. **Map** is the default while the workflow is a draft;
+**Details** is the default once it is active.
+
+### Map controls
+
+| Control | Values | Behaviour |
+| --- | --- | --- |
+| Direction | `Auto`, `Horizontal`, `Vertical` | `Auto` draws top-to-bottom when the panel is narrower than 760 px, and left-to-right otherwise. The current direction is named in the map's top-left corner. |
+| Zoom out / Zoom in | — | Each press changes the scale by 15 percentage points. The percentage between them is the current scale. |
+| Fit map | — | Returns to the fitted scale. Disabled when already fitted. |
+
+The map opens at the scale that fits the whole plan into the panel. That fitted
+scale is never above 100% and never below 25%. Zooming out stops at 70% of the
+fitted scale; zooming in stops at 190%.
+
+Selecting a node opens a detail strip below the map with that step's execution
+type, its instructions, its route condition, and its fan-out maximum.
+Selecting the same node again closes the strip.
+
+### Node badges
+
+Each node carries a badge for every routing field set on its step.
+
+| Badge | Field | Meaning |
+| --- | --- | --- |
+| Branch icon | `produces` | The step records one or more routing variables. |
+| Circle | `when` | The step runs on one route only. |
+| Shield | `gate` | The step waits for your approval. |
+| `×N` | `fanOut` | One run per item found, `N` at most. |
+| `↩` (violet) | `feedback` | The plan can return from here to an earlier step. |
+
+A node is dimmed when its step was skipped, which includes a route the run did
+not take. A feedback route is drawn as a violet dashed edge, and brightens once
+the run has taken it at least once.
+
+### Step routing fields
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `produces` | `string[]` | Names the routing variables the step records in its outcome. Advisory: the runtime trusts what the step actually recorded, and uses this to validate guards and mark the branch point. |
+| `when` | `{ var, in?, default? }` | The step runs only when `var` holds one of the `in` values. A guard marked `default` is taken when no sibling guard on the same variable matched. A step with no `when` is on the main line and always runs. |
+| `gate` | `'approval'` | The step presents the exact content to be delivered as an approval question and parks the workflow for your decision. Required on a pre-final step for an external destination. |
+| `feedback` | `{ id, toStepId, when, maxTraversalsPerRun }` | A bounded return to one earlier step the current step depends on, taken when `when` matches. `maxTraversalsPerRun` caps how many times one run may take it. |
+| `fanOut` | see [Run one step for each item](#run-one-step-for-each-item) | One activation per item in a list an earlier step recorded. |
+
 ## Per-step overrides (Tune)
 
 The planner picks each step's model, agent, and tools. **Tune** overrides them

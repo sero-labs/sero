@@ -83,7 +83,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
             </Card>
           )}
           <PlanPresentation loop={loop} onAction={onAction} />
-          <RefinePlan busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
             <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>

@@ -54,6 +54,28 @@ describe('stopping a Room', () => {
     expect((await store.readRoom(roomId))?.definition.grantId).toBe('grant-1');
   });
 
+  it('asks for the tools the grant gave, not the ones the proposal asked for', async () => {
+    // The host removes a tool the member's permission level does not allow. A
+    // session that keeps asking for it is denied, and the Room pauses with no
+    // turns taken — so the granted set is what the request must carry.
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    const requestGrant = api.requestGrant.bind(api);
+    api.requestGrant = async (proposal) => requestGrant({
+      ...proposal,
+      subjects: Object.fromEntries(Object.entries(proposal.subjects).map(([subject, policy]) => [
+        subject,
+        { ...policy, allowedTools: policy.allowedTools.filter((tool) => tool !== 'read') },
+      ])),
+    });
+
+    expect((await coordinator.startRoom(roomId)).ok).toBe(true);
+    const opened = api.requests.filter((request) => request.subject === 'lead');
+    expect(opened.length).toBeGreaterThan(0);
+    expect(opened[0].tools).not.toContain('read');
+    expect(opened[0].tools).toContain('sero-cli');
+  });
+
   it('revokes a grant approved after Delete invalidated Start', async () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;

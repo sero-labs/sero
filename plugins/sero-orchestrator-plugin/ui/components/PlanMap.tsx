@@ -31,7 +31,7 @@ interface PlanMapProps {
 }
 
 const NODE_STATUS_CLASS: Record<StepStatus, string> = {
-  pending: 'border-border bg-card',
+  pending: 'border-border/75 bg-card',
   ready: 'border-emerald-500/40 bg-emerald-500/[0.04]',
   running: 'border-emerald-400/70 bg-emerald-500/[0.08] shadow-[0_0_18px_rgba(52,211,153,0.12)]',
   succeeded: 'border-emerald-500/35 bg-emerald-500/[0.04]',

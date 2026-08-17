@@ -54,7 +54,7 @@ function member(id: string): RoomMember {
     status: 'idle', statusDetail: '', statusAt: '2026-01-01T00:00:00.000Z',
     mandate: { role: 'r', responsibilities: '', currentTask: '', priorities: [], workingInstructions: '', revision: 1, updatedAt: 't' },
     configuration: { model: 'm', thinking: 'off', promptAdditions: [], tools: [], skills: [], permissions: 'read-only', needsWorktree: false, revision: 1 },
-    session: { subject: id, sessionId: null, sessionPath: null, workspaceId: 'w', liveHandleId: null, lastOpenedAt: null, lastClosedAt: null, compactionCount: 0, lastCompactedAt: null },
+    session: { subject: id, grantedTools: null, sessionId: null, sessionPath: null, workspaceId: 'w', liveHandleId: null, lastOpenedAt: null, lastClosedAt: null, compactionCount: 0, lastCompactedAt: null },
     usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 0, retries: 0, consecutiveFailures: 0 },
     worktreePath: null, worktreeBranch: null, waitingOnQuestionId: null, replacedByMemberId: null,
     createdAt: 't', retiredAt: null,

@@ -86,14 +86,30 @@ export const ROOM_ACCESS_RULES: readonly AccessRule[] = [
   {
     label: 'read-github',
     group: 'github',
-    names: ['gh', 'github', 'github_cli', 'octokit'],
+    // `gh` is deliberately absent: the host counts it as push-capable, so it is
+    // named on the github-write rule below.
+    names: ['github', 'github_cli', 'octokit'],
     tokens: ['github', 'pull_request', 'issue_'],
     facts: [],
   },
   {
+    // Kept in step with the host's VCS-write tool group
+    // (persistent-sessions/permission-tools.ts). The host grants these only to a
+    // member with `vcs: 'push'`, so a Room below `edit-and-push` never receives
+    // them. When this table disagreed, the planner offered `git_manager` to an
+    // `edit-workspace` team, the proposal promised it, the host removed it at
+    // approval, and the session still asked for it — which denied the Conductor
+    // its session and paused the whole Room before its first turn.
+    //
+    // `gh` also lands here rather than on read-GitHub: the host treats it as
+    // push-capable, and a label the host will strip is a promise the proposal
+    // cannot keep. A later rule wins, so naming it here supersedes read-github.
     label: 'github-write',
     group: 'github',
-    names: ['gh_pr_create', 'create_pull_request', 'merge_pull_request'],
+    names: [
+      'gh_pr_create', 'create_pull_request', 'merge_pull_request',
+      'gh', 'git_manager', 'git_push', 'create_pr',
+    ],
     tokens: ['push', 'merge', 'pr_create', 'create_pull_request'],
     facts: ['push-permission'],
     warning: 'Can push branches and open pull requests.',

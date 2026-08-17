@@ -17,7 +17,7 @@ import type { DeliveryReceipt } from '../../shared/delivery-types';
 import type { RoomMember, RoomStatus, RoomStopReason } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
-import { requestRoomGrant, requirePersistentSessions } from './member-grant';
+import { memberTools, requestRoomGrant, requirePersistentSessions } from './member-grant';
 import { deliverRoomResult, INVOKING_CHAT_DESTINATION } from './room-delivery';
 import type { MemberSessionPool } from './member-session';
 import {
@@ -31,6 +31,20 @@ import {
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
 import type { RoomWorkspaces } from './room-workspace';
+
+/**
+ * Records what the host actually granted a member, so its session asks for
+ * exactly that.
+ *
+ * The proposal is what the Room asked for; the grant is what it got. Where the
+ * permission profile removed a tool the two differ, and a session that keeps
+ * asking for the proposal is denied — which is how a Room used to pause with no
+ * turns taken and nothing spent.
+ */
+function withGrantedTools(member: RoomMember, granted: string[] | undefined): RoomMember {
+  if (!granted) return member;
+  return { ...member, session: { ...member.session, grantedTools: [...granted] } };
+}
 
 export interface RoomActionResult {
   ok: boolean;
@@ -155,6 +169,15 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     return fail(`This Room was not allowed to start: ${requested.error ?? 'the request was refused.'}`);
   }
   const grant = requested.grant;
+  // A removal is not fatal any more, but it is never nothing: the team was
+  // designed around a tool one of its members will not have.
+  for (const member of placedRecord.members) {
+    const granted = grant.subjects[member.id]?.allowedTools ?? [];
+    const removed = memberTools(member).filter((tool) => !granted.includes(tool));
+    if (removed.length > 0) {
+      ctx.host.log(`room ${roomId}: ${member.id} was not granted ${removed.join(', ')}; its permission level does not allow them`);
+    }
+  }
 
   const now = ctx.host.now();
   const installed = await claimTransition(ctx, roomId, (current, status) =>
@@ -162,7 +185,10 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
       ? {
           ...current,
           definition: { ...current.definition, grantId: grant.grantId, historyGrantId: grant.grantId, updatedAt: now },
-          members: current.members.map((member) => withMemberStatus(member, 'idle', 'Ready.')),
+          members: current.members.map((member) => withGrantedTools(
+            withMemberStatus(member, 'idle', 'Ready.'),
+            grant.subjects[member.id]?.allowedTools,
+          )),
         }
       : null).catch(() => ({ won: false, status: 'failed' as const }));
   if (!installed.won) {

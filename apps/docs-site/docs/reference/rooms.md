@@ -76,6 +76,50 @@ delivery authority. Replacing the Conductor also needs user approval.
 `worktree-per-member` is the normal mode for editing teams. Read-only members
 do not need a worktree.
 
+## Path claims
+
+A claim is coordination between members, never a lock. Two members holding
+overlapping claims still cannot corrupt each other's work, because each editing
+member has its own checkout and Git handles the conflict. What a claim buys is
+the chance to say "I am already in that file" before two members each spend a
+turn on the same change.
+
+| Field | Meaning |
+| --- | --- |
+| `pattern` | a path, a directory, or a glob |
+| `reason` | why the member wants it |
+| `status` | `active` or `released` |
+| `createdAt`, `releasedAt` | when it was taken and given up |
+
+Overlap is tested against other members' active claims only. A member that
+re-claims its own pattern is not in conflict with itself.
+
+The Room's claim policy decides what an overlap does:
+
+| Policy | Result |
+| --- | --- |
+| `warn` | the claim is recorded, and names the other members already there |
+| `block` | the whole request is refused, so a partly applied claim set never exists |
+
+A member may hold 50 active claims at once. The released tail is kept for the
+audit trail and trimmed oldest-first past 200.
+
+A claim never outlives its owner. Retiring a member and ending the Room both
+release that member's claims, and every claim read re-checks the roster, so a
+claim whose owner has already gone cannot keep warning the rest of the Room.
+
+## Artifacts
+
+An artifact is a result a member recorded, so the Room can point at it later.
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | one of `plan`, `decision`, `branch`, `commit`, `patch`, `test-result`, `review`, `report`, `pull-request`, `final-answer` |
+| `title` | what it is, in the member's words |
+| `ref` | a host artifact reference, or an external URL |
+| `producedByMemberId` | the member that recorded it |
+| `relatedWorkId` | the work item it came from, when there is one |
+
 ## Scheduling and limits
 
 Rooms have limits for maximum cost, working time, team size, active member

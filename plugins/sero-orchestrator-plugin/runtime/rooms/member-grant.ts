@@ -284,7 +284,10 @@ export function memberSessionRequest(
     cwd: memberCwdRoots(host, member)[0],
     model: member.configuration.model,
     thinking: member.configuration.thinking,
-    tools: memberTools(member),
+    // The granted set, not the configured one. They differ whenever the host's
+    // permission profile removed a tool, and asking for a removed tool is
+    // denied — which pauses the Room before anyone takes a turn.
+    tools: member.session.grantedTools ?? memberTools(member),
     skills: [...member.configuration.skills],
     systemPromptAdditions: buildMemberPromptAdditions(room, member),
     sessionName: memberSessionName(room, member),
@@ -334,6 +337,7 @@ export function toMemberRecord(
     },
     session: {
       subject: blueprintMember.key,
+      grantedTools: null,
       sessionId: null,
       sessionPath: null,
       workspaceId,
