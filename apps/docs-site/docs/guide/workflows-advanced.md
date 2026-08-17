@@ -1,134 +1,161 @@
-# Workflows in practice
+# Manage Workflows
 
-This page covers the parts of Workflows you reach for once you have built a few:
-running them on a schedule or an event, configuring a single step, recovering a
-blocked run, and reusing a workflow across workspaces.
+This guide explains how to improve a Workflow from its run history, run it
+automatically, change one step, recover from an error, and reuse it in another
+workspace.
 
-It assumes you have been through the [Workflows tutorial](/guide/workflows). For
-exact commands, limits, and storage paths, see the
-[Workflows reference](/reference/workflows).
+Start with [Create a Workflow](/guide/workflows) if you have not made one yet.
+See the [Workflows reference](/reference/workflows) for all commands, limits,
+and storage paths.
 
-## Run a workflow on a schedule or an event
+## Improve a Workflow with Reflect
 
-A workflow does not have to wait for you to press a button. Say when it should
-run as part of the description, or ask for it later in **Refine**:
+**Reflect** uses the results of earlier runs to suggest changes to a Workflow.
+It can find instructions that need more detail, checks that should be added, or
+steps that often cause a run to fail.
 
-- "run this every weekday at 9am"
-- "run this whenever a file in `src/` changes"
-- "run this when CI fails on main"
+The **Reflect** button appears after the Workflow has run at least once.
 
-A scheduled or event-fired run behaves exactly like a manual one, including its
-approval gates — it will still stop and wait for you, and Sero will still notify
-you that it is waiting.
+To reflect on one Workflow:
 
-Two things are worth deciding up front. A workflow that runs on a file change can
-fire often, so give it a narrow path. And a workflow that runs while you are away
-should either work in a managed worktree or be allowed to run in the workspace,
-which is the subject of the next section.
+1. Open the Workflow.
+2. Select **Reflect**.
+3. Review each item in **Suggestions**. It shows why Sero recommends the change,
+   its confidence, and which steps will change.
+4. Select **Approve** to apply a suggestion to the plan. Select **Reject** to
+   keep the current plan.
 
-## When a workflow finds uncommitted changes
+When you reject a suggestion, you can record a reason. Sero keeps that reason so
+it does not propose the same change again.
 
-A workflow set to work directly in the workspace checks for uncommitted changes
-before it edits anything. If it finds some, it asks first. The confirmation names
-the workflow and the workspace, and says what happens if you do not answer.
+Approved suggestions become plan revisions. They do not change the results of
+earlier runs. Review the updated plan before you run the Workflow again.
 
-- **Run isolated** is the safe default: the workflow uses a separate worktree and
-  leaves your changes alone.
-- **Run here** works alongside your changes. You can also allow that for this
-  workflow from now on, or stash the changes first.
-- **Skip this run** waits for the workflow's next normal trigger.
+The **What reflection has learned** section keeps useful findings from earlier
+reflections. Select **Reflect** again after more runs to include the new results.
 
-A scheduled or manual run can also **Snooze** — 15 minutes, 1 hour, 4 hours, or
-9:00 AM tomorrow. A snooze survives a restart, and Sero checks the workspace
-again before it starts. Event-fired runs cannot snooze, because their event
-payload cannot be held.
+Select **Reflect all** at the top of Orchestrator to review every Workflow in
+the current workspace that has run. Sero adds the suggestions to each Workflow
+for you to approve or reject.
 
-The result is recorded in **Attempt history** as **Skipped** or **Snoozed**, with
-the reason and the retry time. Both are different from **Waiting**, which means a
-run is parked on your input or has no step it can run yet.
+Reflect is most useful for recurring Workflows. It lets you improve the plan
+from real run results instead of waiting for the same problem to happen again.
 
-## Configure a single step
+## Run a Workflow automatically
 
-Most of the time the planner's choices are right. When they are not, every step
-has a **Tune** control that overrides them for that step alone.
+A Workflow can run on a schedule or when a specified event occurs. Add this to
+the description when you create the Workflow, or use **Refine** later.
+
+For example:
+
+- "Run every weekday at 9:00 AM."
+- "Run when a file in `src/` changes."
+- "Run when the continuous integration check fails on the main branch."
+
+Use a specific folder or file pattern for file-change events. A broad pattern
+can start the Workflow more often than you expect.
+
+An automatic run follows the same plan as a manual run. If a step needs your
+approval, the Workflow pauses and Sero notifies you.
+
+Use a managed worktree for an automatic Workflow that can change files. This
+keeps its changes separate from the files in your open workspace.
+
+## Protect work that you have not committed
+
+Before a Workflow changes files in your open workspace, Sero checks for
+uncommitted changes. If it finds any, it asks how to continue.
+
+- **Run isolated** creates a managed worktree and leaves your changes alone. If
+  you do not answer within 60 seconds, Sero selects this option.
+- **Run here once** lets this run use the workspace without moving your changes.
+- **Always run here for this workflow** saves that choice for later runs.
+- **Stash changes and run here** creates a Git stash before the run starts.
+- **Skip this run** cancels this run and waits for the next schedule or event.
+
+A manual or scheduled run can also use **Snooze**. You can delay it for 15
+minutes, 1 hour, 4 hours, or until 9:00 AM the next day. The delay remains after
+Sero restarts. Sero checks the workspace again before it starts the run.
+
+You cannot snooze a run that started because of an event. Sero cannot keep the
+event data for a delayed run.
+
+**Attempt history** records a delayed run as **Snoozed** and a cancelled run as
+**Skipped**. **Waiting** means that the Workflow needs your input or has no step
+that it can start.
+
+## Change the model, agent, or tools for one step
+
+Select **Tune** on a step to change how that step runs. The change does not
+affect the other steps.
 
 ![Tune a single step's model and tools](../assets/images/orchestrator-tune-step.jpg)
 
-You can change which **model** the step uses and which extra **tools** it may
-reach for. Use it to give one expensive step a stronger model, or one narrow step
-a tool the rest of the plan does not need.
+You can change:
 
-A step can also run as one of your workspace's named **agents** — a specialist
-role with its own instructions and default model.
+- **Model** — select a different model for work that needs more or less
+  capability.
+- **Tools** — give the step an additional tool that the rest of the plan does
+  not need.
+- **Agent** — use a named agent with its own instructions and default model.
 
 ![Choosing a specialist agent role for a step](../assets/images/orchestrator-tune-step2.jpg)
 
-This is the better option when the difference is about *how* the step should
-work, not just which model runs it. A "reviewer" agent brings its own standing
-instructions; a model override does not.
+Use a named agent when the step needs a specific role, such as a reviewer. Use a
+model change when only the model capability needs to change.
 
-## When a run gets stuck
+## Continue after an error
 
-A workflow **blocks** when it meets something it cannot get past on its own. It
-stops, says why, and waits. It never fails silently, and it never repeats forever.
+A Workflow has the **Blocked** status when it cannot continue. Open the Workflow
+and read the reason before you select an action.
 
-You have two ways out, and they are not interchangeable.
+- **Retry step** runs the failed step again and keeps all completed steps. Fix
+  the cause first, such as a missing sign-in, failed check, or missing file.
+- **Restart** starts the plan again from its first step. It discards the current
+  run's progress, but it does not remove commits or pull requests that already
+  exist.
+- **Refine** changes the plan. Use it when the current instructions or steps
+  cannot complete the task.
 
-- **Retry step** resets that one step and continues from there, keeping every
-  finished step. Use it once you have fixed whatever caused the block — a missing
-  credential, a broken test, a file that was not there.
-- **Restart** re-runs the whole plan from the first step and discards this run's
-  progress. Anything already committed stays committed. Use it when you want to
-  make a different choice this time.
+Do not retry a step without fixing the cause. The same error will usually occur
+again.
 
-Retrying changes nothing on its own. If the cause is still there, the step
-reaches the same conclusion and blocks again. When that happens, either fix the
-cause, restart and answer differently, or **Refine** the plan so the step is no
-longer asked for something impossible.
+## Reuse a Workflow in another workspace
 
-## Improve a workflow from its own history
+The **Workflow Library** stores Workflows in your Sero profile. A saved Workflow
+is available in all your workspaces.
 
-Every workflow keeps a record of its runs. **Reflect** reads that history and
-suggests how the workflow could run better — a clearer instruction, a check that
-should have been there. **Reflect all**, at the top of the panel, does the same
-across every workflow that has run.
+To save one:
 
-Suggestions wait for you. **Approve** applies one to the plan; **Reject** keeps a
-one-line reason so the same idea is not offered again. Nothing changes on its
-own, and reflection only runs when you ask for it.
+1. Open the Workflow.
+2. Select **Library**, then **Save to Library**.
+3. Add an optional note that describes the version.
 
-## Save a workflow and use it elsewhere
+The saved version contains the plan, schedule, limits, and context. It does not
+contain run history.
 
-The **Workflow Library** is a collection that follows you across every workspace
-in your Sero profile.
+To use it elsewhere, open **Library** in the destination workspace and select
+**Load**. Sero creates a new draft. Review the draft and adapt it to the new
+workspace before you activate it.
 
-On a workflow, open **Library → Save to Library**. The first save creates an
-entry; later saves add a **version** with an optional note about what changed. A
-save stores the plan, schedule, limits, and context — never the run history.
+If someone saves a newer version, the loaded Workflow shows an **Update**
+option.
 
-Click **Library** in the panel header to browse what you have saved. **Load**
-drops a fresh copy into the current workspace as a draft, which you review and
-activate like any other. When a newer version is saved from anywhere, a loaded
-workflow offers to **Update** to it.
+## Install a Workflow from the Catalog
 
-## Install a ready-made workflow
+The **Catalog** contains Workflows that you can install instead of creating from
+an empty description. Official Sero entries have a **Verified** badge. You can
+also add another catalog repository, including a private company repository.
 
-Next to My Library is the **Catalog**: curated workflows from the official Sero
-catalog, marked **Verified**, plus any catalog repositories you add. A private
-company repository works as a team catalog.
+Select **Install** on an entry. Sero creates a draft and adapts it to the current
+workspace. It asks for information that it cannot determine, such as the branch
+to watch. Review the plan before you activate it.
 
-Press **Install** and the planner adapts the workflow to your workspace, asking
-first when it needs something only you know — which repository to watch, which
-branch is yours. The result is an ordinary draft: read the plan, then activate.
+When a new catalog version is available, select **Update & re-adapt** to install
+it and adapt it to the current workspace.
 
-When the catalog publishes a better version, your installed workflow shows a
-version badge. **Update & re-adapt** brings in the new version and re-fits it to
-this workspace.
+## Related guides
 
-## Where next
-
-- [Workflows tutorial](/guide/workflows) — the walkthrough, if you skipped it.
-- [Workflows reference](/reference/workflows) — commands, triggers, delivery
-  options, limits, recovery rules, and storage paths.
-- [Rooms](/guide/rooms) — for work that needs several agents talking to each
-  other rather than one plan running to completion.
+- [Create a Workflow](/guide/workflows)
+- [Workflows reference](/reference/workflows)
+- [Create a Room](/guide/rooms)

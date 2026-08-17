@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sero Humanize"
+  short_description: "Remove AI slop from Sero documentation"
+  default_prompt: "Use $sero-humanize to edit this Sero documentation for direct, precise, human writing."

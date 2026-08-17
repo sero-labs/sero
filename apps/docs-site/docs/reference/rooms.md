@@ -78,18 +78,17 @@ do not need a worktree.
 
 ## Path claims
 
-A claim is coordination between members, never a lock. Two members holding
-overlapping claims still cannot corrupt each other's work, because each editing
-member has its own checkout and Git handles the conflict. What a claim buys is
-the chance to say "I am already in that file" before two members each spend a
-turn on the same change.
+A claim records that a member intends to work on a path or named resource. It is
+not a lock. Each editing member has a separate checkout, and Git handles
+conflicts when the changes are combined. Claims help members prevent duplicate
+work.
 
 | Field | Meaning |
 | --- | --- |
 | `pattern` | a path, a directory, or a glob |
-| `reason` | why the member wants it |
+| `reason` | why the member needs the claim |
 | `status` | `active` or `released` |
-| `createdAt`, `releasedAt` | when it was taken and given up |
+| `createdAt`, `releasedAt` | when the claim was created and released |
 
 Overlap is tested against other members' active claims only. A member that
 re-claims its own pattern is not in conflict with itself.
@@ -98,27 +97,27 @@ The Room's claim policy decides what an overlap does:
 
 | Policy | Result |
 | --- | --- |
-| `warn` | the claim is recorded, and names the other members already there |
+| `warn` | record the claim and identify members with overlapping claims |
 | `block` | the whole request is refused, so a partly applied claim set never exists |
 
-A member may hold 50 active claims at once. The released tail is kept for the
-audit trail and trimmed oldest-first past 200.
+A member can hold up to 50 active claims. Sero keeps up to 200 released claims
+for the audit trail and removes the oldest entries first.
 
-A claim never outlives its owner. Retiring a member and ending the Room both
-release that member's claims, and every claim read re-checks the roster, so a
-claim whose owner has already gone cannot keep warning the rest of the Room.
+Sero releases a member's claims when the member retires or the Room ends. It
+also checks the roster when it reads claims and ignores claims from members that
+are no longer active.
 
 ## Artifacts
 
-An artifact is a result a member recorded, so the Room can point at it later.
+An artifact is a result recorded by a Room member.
 
 | Field | Meaning |
 | --- | --- |
 | `kind` | one of `plan`, `decision`, `branch`, `commit`, `patch`, `test-result`, `review`, `report`, `pull-request`, `final-answer` |
-| `title` | what it is, in the member's words |
+| `title` | the member's title for the artifact |
 | `ref` | a host artifact reference, or an external URL |
 | `producedByMemberId` | the member that recorded it |
-| `relatedWorkId` | the work item it came from, when there is one |
+| `relatedWorkId` | the related work item, if present |
 
 ## Scheduling and limits
 

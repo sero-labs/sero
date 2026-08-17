@@ -1,147 +1,161 @@
-# Rooms in practice
+# Manage a Room
 
-This page covers what you do once a Room is running: keeping two members out of
-each other's files, granting access it did not start with, changing the team
-while it works, and getting the result out.
+This guide explains how Sero keeps member changes separate, how to respond to
+access requests, how to change a team, and how to recover a stopped Room.
 
-It assumes you have been through the [Rooms tutorial](/guide/rooms). For exact
-statuses, fields, and limits, see the [Rooms reference](/reference/rooms).
+Start with [Create a Room](/guide/rooms) if you have not run one yet. See the
+[Rooms reference](/reference/rooms) for all statuses, fields, and limits.
 
-## Keep members out of each other's way
+## Keep file changes separate
 
-### Give each editor its own copy of the repository
+When a Room can edit a Git repository, Sero normally gives each editing member
+a separate worktree. A worktree is another copy of the repository on its own
+branch.
 
-A member that edits normally gets a **worktree** — its own copy of the
-repository, on its own branch. Two members can then work on the same repository
-at the same time without either one seeing the other's half-finished changes.
+Separate worktrees let several members edit the same project without changing
+the files in your open workspace or seeing another member's unfinished work.
+Sero combines their changes later.
 
-The proposal names which arrangement it chose:
+A read-only member does not need a separate worktree. A Room can also use the
+open workspace directly, but this needs your approval because members can
+change files that you have open.
 
-| Mode | Use it when |
-| --- | --- |
-| `worktree-per-member` | anyone edits files. This is the normal choice |
-| `read-only-shared` | nobody edits — an investigation or a review |
-| `shared-working-tree` | you specifically want the members working in your own files |
+### Check which member is changing a file
 
-`shared-working-tree` needs your explicit approval, because the members change
-the files you have open. Prefer a worktree unless you have a reason not to.
+Members use **claims** to tell the team which files they intend to change. A
+claim can name one file, a folder, or a pattern such as `src/*.js`.
 
-### Claim a file before you work on it
+A claim is a coordination notice. It does not lock the file. If two claims
+overlap, the members can discuss who should do the work. Their separate
+worktrees protect their working copies while they decide.
 
-A **claim** is a member saying "I am already in this file". It is a courtesy, not
-a lock: each editing member has its own copy of the repository, so overlapping
-work cannot corrupt anything — Git sorts it out later. What a claim prevents is
-two members each spending a turn on the same change.
+Open the **Claims** tab to review active claims. If two members continue to work
+on the same file, send them a message with clear ownership instructions.
 
-A claim names a file, a folder, or a pattern such as `src/*.js`, and a reason.
-The Room decides what happens when two claims overlap:
+See [Path claims](/reference/rooms#path-claims) for overlap policies and limits.
 
-- **warn** records the claim and tells the member who else is already there. The
-  two of them sort it out through the Room.
-- **block** refuses the whole request, so a half-applied set of claims never
-  exists.
+## Respond to an access request
 
-Overlaps are only tested against *other* members' active claims. A member
-re-claiming its own path is not in conflict with itself, and a member that
-retires releases everything it held.
+Each member starts with an access level that you approved:
 
-When you see two members claiming the same file, you rarely need to intervene —
-that is the mechanism working. Step in when they are still both there a turn
-later.
+- **Read only** lets the member inspect the workspace.
+- **Edit workspace** lets the member change files and run commands.
+- **Edit and push** also lets the member use version-control actions that
+  publish changes.
 
-## Grant access the Room did not start with
+If a member needs more access, the Room pauses and shows an approval request.
+Read which member made the request, why it needs the access, and which tools the
+change will add.
 
-Access levels decide which Sero tools a member holds. **Edit workspace** gives it
-the file tools; **edit and push** adds the ones that publish. When a member needs
-a level it was not given, it asks, and the Room waits.
+Select **Approve** to grant the requested access to that member. Select
+**Reject** to keep its current access. A rejected member can continue with the
+tools it already has or report that it cannot complete its task.
 
-Approving raises the access for that member. Rejecting keeps the current limits —
-the Room carries on with what it has, and the member has to deliver another way.
-The same applies to more time, more money, more members, and a new delivery
-destination.
+The same approval process applies when the Room requests more time, a higher
+cost limit, more members, or a different delivery destination. Members,
+including the Conductor, cannot approve their own requests.
 
-Two rules never bend. A member cannot approve its own request, not even the
-Conductor. And a member can never give itself or anyone else more access.
+### Understand the access limit
 
-### Access is not a sandbox
+Access settings control which Sero tools a member receives. They are not a
+security sandbox. A member with shell, or command-line, access can run any
+command that your account can run, including `git push` or `gh`.
 
-An access level selects tools. It does not confine the member. A member that
-holds the shell can run any command your account can run, including `git push`
-and `gh`, whatever its access level says. Treat the level as a statement of
-intent, and give a Room the shell only in a repository you are willing to let it
-change.
+Run a Room only in a project that you permit it to change. Review the proposed
+tools before you start the Room or approve more access.
 
-## Change the team while it works
+## Change a running team
 
-The Conductor can adjust the team inside the limits you approved: change what a
-member is working on, its priorities and instructions, and add, retire, suspend,
-or resume members.
+The Conductor can change the team within the limits that you approved. It can
+change a member's task, priorities, or instructions. It can also add, suspend,
+resume, or retire a member.
 
-- **Suspend** stops a member taking turns but keeps its session, so it can be
-  resumed with its memory intact.
-- **Retire** ends a member's part in the Room and releases its claims.
-- **Add** brings in a new member — allowed while the team-size and cost limits
-  permit it.
+- **Suspend** stops new turns for a member but keeps its session and context.
+- **Resume** lets a suspended member continue.
+- **Retire** ends the member's work and releases its file claims.
+- **Add** creates another member when the approved team-size and cost limits
+  allow it.
 
-Anything that costs more than you approved comes to you as an approval. So does
-replacing the Conductor, because that is the member deciding when the work is
-done.
+Replacing the Conductor needs your approval because the Conductor decides how
+to coordinate the team and when the Room is complete.
 
-## Send direction to a running team
+Open **Changes** to review changes that the Conductor made to the team.
 
-Use a message when the team is heading the wrong way, or when you know something
-they do not.
+## Send instructions while the Room runs
 
-- **Now** wakes or interrupts the named members. Use it to stop work you can see
-  is wrong.
-- **Next turn** adds your message to the member's next turn without starting one.
-  Use it for context that can wait — it costs nothing until the member works
-  again.
+Send a message when the team needs new information or direction. Choose when
+the member receives it:
 
-Watching a Room costs nothing. Only a turn costs money.
+- **Now** wakes or interrupts the selected member. Use it to stop incorrect
+  work or give urgent information.
+- **Next turn** adds the message to the member's next turn. Use it for
+  information that can wait.
 
-## When a Room stops
+Watching a Room does not use model tokens. A new agent turn can add to the Room
+cost.
 
-The Room says why. The usual reasons are that it reached its time or cost limit,
-it is waiting on your answer or approval, members are waiting on each other, the
-Conductor could not continue, or Sero restarted while members were working.
+## Pause or stop a Room
 
-Read the notice before you resume. Resuming without changing anything usually
-reproduces the same stop.
+Select **Pause** to prevent new member turns from starting. Active turns finish
+or stop before the Room has the **Paused** status. Select **Resume** when the
+team can continue.
 
-After a restart, Sero checks the saved Room against its member sessions and their
-copies of the repository, and clears any turn that was cut short. The Conductor
-works out what still needs doing. Nothing is lost: what the members said and what
-they committed both survive.
+Select **Cancel** when you do not want the Room to continue. Cancellation ends
+the Room and cannot be resumed.
 
-## Get the result out
+## Continue a Room that stopped
 
-The proposal fixes one delivery destination. A pull request is the usual choice
-for code; a Room started from chat also returns one final answer to that chat.
+The Room shows why it stopped. Common causes include:
 
-Delivery to anywhere outside Sero needs your approval, and Sero records a
-reference — a pull request URL, for instance — when the destination gives one.
+- the Room reached its time or cost limit;
+- a question or approval needs your response;
+- members are waiting for each other;
+- the Conductor could not continue;
+- Sero restarted during an active turn.
 
-A finished Room shows its result, its artifacts, anything left unfinished, and
-what it cost. **Artifacts** are what the members wrote down as results: plans,
-patches, test runs, reviews, the pull request. Read the unfinished items before
-you use the result — a Room reports what it could not do rather than quietly
-dropping it.
+Read the notice and resolve its cause before you select **Resume**. For example,
+answer the question, approve or reject the request, raise a limit, or send new
+instructions.
 
-## Keep or remove a finished Room
+After Sero restarts, it checks the saved Room, member sessions, and worktrees.
+It clears interrupted turns, then the Conductor decides which work still needs
+to run. Saved messages and commits remain available.
 
-**Archive** keeps the Room in the list and drops older retained activity. Use it
-once you have taken what you need but want the record.
+## Review the delivered result
 
-**Delete** removes the Room record permanently. The members' sessions are kept
-for as long as Sero keeps any session, so deleting the Room does not delete what
-its members did.
+The proposal sets one delivery destination. A Room can leave changes in the
+workspace, create a pull request, save a report, or use another available
+destination. A Room started from chat also returns its final answer to that
+chat.
 
-Check the result and the artifacts before either. Deletion cannot be undone.
+Sero asks for your approval before it sends a result outside the workspace. If
+the destination provides a reference, such as a pull request URL, Sero records
+it with the result.
 
-## Where next
+A finished Room shows:
 
-- [Rooms tutorial](/guide/rooms) — the walkthrough, if you skipped it.
-- [Rooms reference](/reference/rooms) — statuses, access levels, claim fields,
-  artifact kinds, tool actions, and storage paths.
-- [Workflows](/guide/workflows) — for work that can be planned in advance.
+- the final result;
+- saved artifacts, such as reports, test output, patches, and reviews;
+- work that the team did not complete;
+- the final time and cost.
+
+Review unfinished work and artifacts before you use the result. Run important
+checks yourself.
+
+## Archive or delete a finished Room
+
+Select **Archive** to keep the Room in the list and remove older retained
+message activity.
+
+Select **Delete** to remove the Room record permanently. Deleting a Room does
+not immediately delete its member sessions. Sero keeps them according to the
+normal session retention rules.
+
+Check the result and artifacts before you archive or delete the Room. You cannot
+undo deletion.
+
+## Related guides
+
+- [Create a Room](/guide/rooms)
+- [Rooms reference](/reference/rooms)
+- [Create a Workflow](/guide/workflows)

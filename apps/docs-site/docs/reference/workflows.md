@@ -75,9 +75,8 @@ Catalog commands:
 
 ## Reading a plan
 
-A plan is shown in one of two presentations, chosen with the **Map / Details**
-toggle above it. **Map** is the default while the workflow is a draft;
-**Details** is the default once it is active.
+Use the **Map / Details** control to change the plan view. **Map** is the default
+for a draft Workflow. **Details** is the default for an active Workflow.
 
 ### Map controls
 
@@ -91,13 +90,12 @@ The map opens at the scale that fits the whole plan into the panel. That fitted
 scale is never above 100% and never below 25%. Zooming out stops at 70% of the
 fitted scale; zooming in stops at 190%.
 
-Selecting a node opens a detail strip below the map with that step's execution
-type, its instructions, its route condition, and its fan-out maximum.
-Selecting the same node again closes the strip.
+Select a node to show its execution type, instructions, route condition, and
+fan-out maximum below the map. Select the node again to close the details.
 
 ### Node badges
 
-Each node carries a badge for every routing field set on its step.
+Each node shows the badges for its routing fields.
 
 | Badge | Field | Meaning |
 | --- | --- | --- |
@@ -107,9 +105,9 @@ Each node carries a badge for every routing field set on its step.
 | `×N` | `fanOut` | One run per item found, `N` at most. |
 | `↩` (violet) | `feedback` | The plan can return from here to an earlier step. |
 
-A node is dimmed when its step was skipped, which includes a route the run did
-not take. A feedback route is drawn as a violet dashed edge, and brightens once
-the run has taken it at least once.
+A skipped step has a dimmed node. This includes steps on routes that the run did
+not use. A feedback route is a violet dashed edge. It becomes brighter after the
+run uses the route.
 
 ### Step routing fields
 

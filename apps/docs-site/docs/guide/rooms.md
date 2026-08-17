@@ -1,263 +1,230 @@
 # Rooms
 
-A Room is for a problem you cannot yet write the steps for. You describe what is
-wrong, Sero designs a small team, you approve who is in it and what each of them
-may touch, and they work on it together — dividing the files, telling each other
-what they find, and asking you when a decision is yours to make.
+A Room gives one task to a temporary team of Sero agents. Each member has a
+role. Members can work at the same time, share findings, and change how they
+divide the task.
 
-This page follows one Room from an empty list to a finished fix. It uses a demo
-project called Meridian: a small orders API whose totals are wrong, for three
-unrelated reasons.
-
-Use a [Workflow](/guide/workflows) instead when you can describe the result and
-let Sero plan the steps. [Orchestrator](/guide/orchestrator) compares the two.
+Use a Room when a task needs several roles or points of view. Use a
+[Workflow](/guide/workflows) when Sero can follow a plan of steps instead.
+[Orchestrator](/guide/orchestrator) explains the difference.
 
 Sero is in public beta. Check important results before you use or publish them.
 
-## The problem
+## Before you start
 
-Meridian's test suite fails four times. The failures look like one bug and are
-not:
+This tutorial uses
+[Meridian](https://github.com/monobyte/meridian-orders-demo), a small example
+project for processing orders and payments. Its tests reproduce three separate
+problems:
 
-- a cent goes missing when an order total is split across lines;
-- two payments arriving together overwrite each other, so one is lost;
-- a retried payment charges the customer more than once.
+- splitting an order total can lose one cent;
+- two payments at the same time can overwrite each other;
+- retrying a failed payment can charge the customer more than once.
 
-Three different files, three different causes, and the right rounding rule is a
-decision about the business, not the code. Nobody can write a step plan for that
-before the first cause is understood — which is what makes it a Room.
+Before you continue:
 
-## 1. Describe the problem
+1. [Install and open Sero](/guide/getting-started).
+2. [Configure a model](/guide/models-and-providers).
+3. Make sure Git and Node.js are available.
+4. Clone the example project:
 
-Open the Orchestrator panel, select **Rooms**, and click **New**.
+   ```bash
+   git clone https://github.com/monobyte/meridian-orders-demo.git
+   ```
 
-![The empty Rooms list](../assets/images/orchestrator-rooms-empty.jpg)
+5. Open the cloned `meridian-orders-demo` folder as a workspace in Sero.
+6. Open a terminal in the workspace and run:
 
-The first screen asks what you want the team to accomplish. Describe the problem
-and what a good result looks like — you do not pick agents, models or tools.
+   ```bash
+   npm test
+   ```
+
+Four tests fail. This is the expected starting state. Make sure the Git working
+tree has no changes before you continue.
+
+The Room will investigate the three problems, repair them, and leave the changes
+in the workspace. It must ask you to choose the rounding rule for order totals.
+
+## 1. Describe the task
+
+Open Orchestrator from the app bar, select **Rooms**, then select **New**.
 
 ![The new Room screen, with the problem described and the four limits below it](../assets/images/orchestrator-rooms-brief.jpg)
 
-Type this:
+Enter this description:
 
-> Order totals in this repo are wrong. `npm test` fails four times and the causes
-> are not the same: one is in the rounding helper, one is a lost update when
-> payments arrive at the same time, and one is a retry that charges the customer
-> more than once. Work out each cause separately, fix them, and open a pull
-> request. Ask me before you settle on a rounding rule — that is a decision about
-> the books, not about the code.
+> The order and payment tests in this repository fail for three separate
+> reasons. Investigate the rounding error, the lost payment update, and the
+> repeated charge separately. Repair all three problems and run the complete
+> test suite. Ask me to choose the rounding rule before you change it. Leave the
+> completed changes in this workspace.
 
-Four controls sit under the box, and they are the limits the team will run
-inside:
+Set the Room limits:
 
-- **Maximum spend** — a hard stop, not a target.
-- **Maximum time** — after which the Room pauses for you.
-- **Access** — how much the team may do to your workspace.
-- **Deliver to** — where the result goes.
+- **Maximum spend** sets the highest model cost.
+- **Maximum time** sets how long the team can work.
+- **Access** sets which files and tools the team can use.
+- **Deliver to** sets where Sero puts the result.
 
-Leave them at $5.00, 1 hour, **This workspace**, and **Workspace files**.
+For this tutorial, use a maximum spend of $5.00, a maximum time of 1 hour,
+**This workspace** access, and **Workspace files** delivery.
 
-**Access** decides which Sero tools each member holds, and **Deliver to** decides
-where the Room writes its result. Neither is a sandbox. A member that holds the
-shell can run any command your account can run, so give a Room the shell only in
-a repository you are willing to let it change.
+Access settings are not a security sandbox. A member with shell, or
+command-line, access can run any command that your account can run. Use a Room
+only in a project that you permit it to change.
 
-Below that are three presets — Software delivery, Adversarial analysis, Parallel
-issues — which fill the box with a shape that already works. Ignore them here;
-the description above is specific enough.
+The presets below the form provide example descriptions for common tasks. Do
+not select one for this tutorial.
 
-Click **Design the team →**.
+Select **Design the team →**.
 
-## 2. Read the proposal
+## 2. Review the proposed team
 
-Sero works through five things — your problem and limits, what this workspace can
-do, the roles and how they fit together, the plan against your limits, and the
-access the team needs. It says plainly that no session exists yet and nothing has
-been spent.
+Sero reviews the task, workspace, limits, and access before it proposes a team.
+It does not create agent sessions or incur model costs during this stage.
 
 ![Designing the team, with its five steps and the time remaining](../assets/images/orchestrator-rooms-designing.jpg)
 
-When it lands, the proposal is the whole agreement in one screen.
+The proposal shows each member, its role, and the access it needs.
 
-![The proposal — roster, approval summary, and the access it lowered](../assets/images/orchestrator-rooms-proposal.jpg)
+![The proposal with the team and approval summary](../assets/images/orchestrator-rooms-proposal.jpg)
 
-**The team.** Four members, each with a job in one line. Ada leads as the
-**Conductor** — the member that coordinates the others, puts their work together,
-and decides when the job is done. Grace, Leslie and Barbara take one fault each.
-Sero names members after the fault they own, so the names read oddly out of
-context: Barbara's "idempotency" simply means a payment retried twice must charge
-only once.
+One member is the **Conductor**. The Conductor gives work to the other members,
+combines their findings, and decides when the task is complete.
 
-**What you are approving.** How many members, for how long, for how much, and how
-much they may touch. These are read from the plan Sero just made, not written
-freehand.
+In this example, Ada is the Conductor. Grace, Leslie, and Barbara each
+investigate one problem.
 
-**What your limits changed.** Here it says Ada was lowered from **edit and push**
-to **edit workspace**, because that is the access you chose. Anything the design
-wanted but your limits do not allow is listed here rather than quietly kept.
+Review:
 
-Two links sit at the bottom right: **Why this team?** explains the shape, and
-**Advanced settings** shows every tool each member will hold.
+- each member's role and instructions;
+- the number of members;
+- the time and cost limits;
+- the files and tools that each member can use;
+- any requested access that exceeds the limits you selected.
 
-## 3. Change it in plain English
+Select **Why this team?** to read why Sero chose these roles. Select **Advanced
+settings** to see the tools available to each member.
 
-The proposal is a draft. Press **Adjust** and describe what you want differently.
+## 3. Change the team
+
+Select **Adjust** if you want a different team. Describe the change in plain
+language.
 
 ![Adjust, with a change described in plain English](../assets/images/orchestrator-rooms-adjust.jpg)
 
-Type:
+For this tutorial, enter:
 
-> Add a reviewer who checks the three fixes together before the pull request is
-> opened.
+> Add a reviewer who checks all three repairs together before the Room finishes.
 
-Press **Rethink the team**. Sero redesigns the roster and shows the new proposal.
+Select **Rethink the team**, then review the new proposal.
 
 ![The revised proposal, now with a reviewer](../assets/images/orchestrator-rooms-adjusted.jpg)
 
-You are not editing a form. Anything you can say about the team — a member fewer,
-a stricter reviewer, a different split of the work — goes in that box.
+You can also ask for fewer members, different roles, stricter review, or another
+division of the task.
 
-When the proposal is right, press **Start room**. Sero asks once for permission
-to open the agent sessions. That is the point where the Room becomes real, and
-the point where spending starts.
+When the team is correct, select **Start room**. Sero asks for permission to
+create the agent sessions. Model costs start after the Room starts.
 
-## 4. Watch it work
+## 4. Follow the work
 
-The Room screen has three parts, and they stay in the same place for the whole
-run.
+The Room screen shows the limits, team, and activity.
 
-**The header** carries the limits you set, counting up: time used against your
-hour, money spent against your $5.00, and how many members are working right now
-out of the number allowed to work at the same time.
-
-**The team list**, on the left, is every member and what it is doing — working,
-idle, waiting for another member, waiting for you, or finished. Click one to open
-its own panel.
-
-**The activity feed** is what has happened. It opens on **Highlights**, which
-keeps the turning points and hides the routine entries. Four other filters sit
-beside it: **All** shows everything, **Decisions** keeps only the choices that
-were made, **Messages** keeps what the members said to each other, and **Work**
-keeps changes to the task board.
+- The header shows elapsed time, cost, and the number of active members.
+- The team list shows what each member is doing.
+- The activity feed shows decisions, messages, and changes to the work.
 
 ![The activity feed on the All filter, with the team list beside it](../assets/images/orchestrator-rooms-activity-all.jpg)
 
-**Decisions** is the filter to reach for first. It answers "what did this team
-settle?" without you reading the whole run.
+The feed opens on **Highlights**. Select **All** for the complete activity,
+**Decisions** for choices made by the team, **Messages** for communication
+between members, or **Work** for changes to assigned tasks.
 
 ![The Decisions filter, with three entries](../assets/images/orchestrator-rooms-decisions.jpg)
 
-The buttons at the right of the header switch the view. **Watch** replaces the
-feed with one card per member, each showing its latest line, how many turns it
-has taken and what it has cost.
+Select **Watch** to show one status card for each member. A card shows the
+member's latest message, number of turns, and cost.
 
-![The Watch view — a card for each of the five members](../assets/images/orchestrator-rooms-watch.jpg)
+![The Watch view with a card for each member](../assets/images/orchestrator-rooms-watch.jpg)
 
-### Inside one member
+### Review one member
 
-Click a member to see what it is doing and what it was told to do.
+Select a member to open its details.
 
-**Session** is everything it did, turn by turn, with its totals beside it.
+**Session** shows the member's work, one turn at a time, with its usage totals.
 
 ![Ada's session, with the turn list and the session details](../assets/images/orchestrator-rooms-member.jpg)
 
-**Info** is its instructions: the role it holds, what it is responsible for, and
-how it is meant to work. Sero wrote this when it designed the team, and it
-explains most of what the member then does.
+**Info** shows the member's role, responsibilities, and instructions.
 
 ![Ada's Info tab, showing role, responsibilities and working instructions](../assets/images/orchestrator-rooms-member-info.jpg)
 
-## 5. Answer the question
+## 5. Answer a question
 
-The brief told the team not to guess the rounding rule. About ten minutes in, Ada
-stops and asks.
+The Room pauses when it needs you to choose the rounding rule.
 
 ![The Room paused, with a member's question at the top](../assets/images/orchestrator-rooms-question.jpg)
 
-The Room pauses. A banner names the member and repeats the question — here, three
-possible rounding rules, and whether amounts with more than two decimal places
-are allowed. The team list shows Ada as **needs you** and everybody else as idle,
-because they have nothing to do until this is settled.
+The question appears in a banner above the activity feed. It identifies the
+member that asked and explains the available choices. The member also has the
+**Needs you** state in the team list.
 
-Answer in the banner. The Room carries on from where it stopped. It does not
-start again, and you do not pay twice for the work already done.
+Enter your answer in the banner. The Room continues from the same point. It does
+not repeat completed work.
 
-This is the biggest difference between a Room and a Workflow. A Workflow stops at
-a point you marked in advance. A Room stops when it finds something only you can
-decide — at a point nobody knew about beforehand.
+A Room can ask a question whenever its investigation finds a decision that
+needs your input. The question does not need to be known before the Room starts.
 
-## 6. Read the shared record
+## 6. Review the team's records
 
-The **Brief** button opens five tabs. They are the team's own record, not a
-summary written for you.
+Select **Brief** to open the records shared by all members.
 
-**Brief** is the goal, the work under way, and the conditions the team has to
-meet before it can call the job done.
+**Brief** shows the goal, current work, and conditions for completion.
 
-![The Brief tab — objective, active work, success criteria](../assets/images/orchestrator-rooms-brief-tab.jpg)
+![The Brief tab with the objective, active work, and success criteria](../assets/images/orchestrator-rooms-brief-tab.jpg)
 
-**Work** is the task board: each task, how far it has got, and the member that
-owns it.
+**Work** shows each task, its state, and its owner.
 
 ![The Work tab, with each task, its owner and its state](../assets/images/orchestrator-rooms-work.jpg)
 
-**Claims** is who is working in which file. Read what the tab itself says: a
-claim is a note to the other members, not a lock. What really stops two members
-overwriting each other is that each one works in its own copy of the repository.
+**Claims** shows which files each member intends to change. A claim tells other
+members about planned work. It does not lock the file.
 
 ![The Claims tab, with two claimed files](../assets/images/orchestrator-rooms-claims-tab.jpg)
 
-**Artifacts** is what the members wrote for each other — what they found, the
-evidence for it, and their review notes. When a specialist tells the Conductor
-"here is the cause", the working is in one of these.
+**Artifacts** contains results that members save for the team, such as findings,
+test output, and review notes.
 
 ![The Artifacts tab, listing six published reports](../assets/images/orchestrator-rooms-artifacts.jpg)
 
-**Changes** is what the Conductor changed about the team, and what it is not
-allowed to change. It can add members, retire them and move work between them,
-up to the team size you approved. It cannot give the team more access, more
-money, more time, or somewhere else to deliver. Those come back to you.
+**Changes** shows changes that the Conductor made to the team or its assigned
+work. The Conductor cannot increase access, time, cost, or the number of members
+beyond the limits that you approved.
 
 ![The Changes tab, with the roster-change budget and the assignments made](../assets/images/orchestrator-rooms-changes.jpg)
 
-## 7. The finish
+## 7. Check the result
 
-Twenty-one minutes and $1.63 after the start, the Room finishes.
+When the Room finishes, its final result appears at the top of the activity
+feed.
 
 ![The finished Room, with its result at the top of the feed](../assets/images/orchestrator-rooms-complete.jpg)
 
-The last entry is the result in one paragraph: the rounding rule you chose is in
-place, payments that arrive together no longer overwrite each other, a retried
-payment charges once, all eleven tests pass, the reviewer approved the three
-fixes together, and a pull request is open.
+Before you accept the result:
 
-Below it, every member has handed its copy of the repository back. The sessions
-are closed but kept, so you can open any member and read what it did.
+1. Read the final summary and any unfinished items.
+2. Review the files changed in the workspace.
+3. Open the review artifact and check the reviewer's findings.
+4. Run `npm test` yourself and confirm that all tests pass.
 
-## What actually happened
+The member sessions remain available after the Room closes. Open a member if you
+need to check how it reached a result.
 
-Five members, twenty-nine turns, twenty-one minutes, $1.63 — inside limits of one
-hour and $5.00.
+## Next steps
 
-Three specialists worked at the same time on three unrelated causes, each in its
-own copy of the repository. Ada held the decisions that crossed all three, and
-stopped the whole team when one of them was yours. Margaret read the three fixes
-together and sent one back — a rounding change that would have broken existing
-behaviour — and Grace corrected it before the pull request was opened.
-
-None of that order was written down in advance. It is what a team does when
-nobody knows the causes when the work starts.
-
-## Check it before you trust it
-
-The Room writes its own report. Read the pull request, run the tests yourself,
-and read the reviewer's note rather than only the Conductor's summary.
-
-## Next
-
-- [Rooms in Practice](/guide/rooms-advanced) — presets, access levels, delivery
-  destinations, and what to do when a Room stalls.
-- [Rooms reference](/reference/rooms) — every field, tool action and status, for
-  looking one fact up.
-- [Workflows](/guide/workflows) — the other half of Orchestrator, for work whose
-  steps you can describe up front.
+- [Manage a Room](/guide/rooms-advanced) — file coordination, access requests,
+  team changes, and recovery.
+- [Rooms reference](/reference/rooms) — controls, statuses, access, and storage
+  paths.
+- [Create a Workflow](/guide/workflows) — use a plan instead of a team.
