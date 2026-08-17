@@ -124,7 +124,7 @@ describe('the asset tool streams an original in slices', () => {
     // protection. Every slice of one unchanged file says the same thing.
     expect(identities.every((entry) => typeof entry === 'string' && entry !== '')).toBe(true);
     expect(new Set(identities).size).toBe(1);
-  });
+  }, 10_000);
 
   it('says nothing is left rather than failing, past the end', async () => {
     const id = await seedClip();

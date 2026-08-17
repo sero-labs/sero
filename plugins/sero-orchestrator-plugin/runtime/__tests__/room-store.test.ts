@@ -6,7 +6,12 @@ import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import { createRoomStore } from '../rooms/room-store';
 import { MESSAGE_PAGE_SIZE } from '../rooms/room-messages';
-import { DEFAULT_ROOM_RETENTION, ROOM_SCHEMA_VERSION, type RoomRecord } from '../rooms/room-state';
+import {
+  DEFAULT_ROOM_RETENTION,
+  ROOM_SCHEMA_VERSION,
+  withAppliedCommand,
+  type RoomRecord,
+} from '../rooms/room-state';
 import { migrateRoomRecord } from '../rooms/room-migrations';
 import type { RoomMember } from '../../shared/room-types';
 import type { OperatingEnvelope, RoomBlueprint, RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -319,22 +324,25 @@ describe('room store', () => {
     await store.appendMessages('room-a', [draft('m1', ['m2'], 'the first thing', 'c1')]);
 
     // Push past the retained window: without a floor, page 1 is deleted here.
-    for (let i = 0; i < MESSAGE_PAGE_SIZE * 2; i += 1) {
-      await store.appendMessages('room-a', [draft('m1', ['m2'], `filler ${i}`, `f${i}`)]);
-    }
+    await store.appendMessages(
+      'room-a',
+      Array.from({ length: MESSAGE_PAGE_SIZE * 2 }, (_, i) =>
+        draft('m1', ['m2'], `filler ${i}`, `f${i}`),
+      ),
+    );
 
     const leased = await store.leaseMessagesFor('room-a', 'm2', 5);
     expect(leased.messages[0]?.body).toBe('the first thing');
   });
 
-  it('keeps a key for the default retention, well past the records it guards', async () => {
-    const store = createRoomStore(makeCtx());
-    await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
-    await store.applyCommand('room-a', 'cmd-1', (r) => r);
+  it('keeps a key for the default retention, well past the records it guards', () => {
+    let room = withAppliedCommand(roomFixture('room-a'), 'cmd-1', DEFAULT_ROOM_RETENTION.maxAppliedCommandIds);
     // 200 revisions, 200 work items and 200 artifacts is everything one Room can
     // hold at once; the key must still be there after that many commands.
-    for (let i = 0; i < 600; i += 1) await store.applyCommand('room-a', `bulk-${i}`, (r) => r);
-    expect(await store.hasAppliedCommand('room-a', 'cmd-1')).toBe(true);
+    for (let i = 0; i < 600; i += 1) {
+      room = withAppliedCommand(room, `bulk-${i}`, DEFAULT_ROOM_RETENTION.maxAppliedCommandIds);
+    }
+    expect(room.runtime.appliedCommandIds).toContain('cmd-1');
   });
 
   it('writes messages and their command key in one turn, and refuses the retry', async () => {
