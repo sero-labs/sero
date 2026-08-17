@@ -39,20 +39,20 @@ catalog:
   "@types/react": "^19.2.13"
   "@types/react-dom": "^19.2.3"
   jsdom: "^26.1.0"
-  "@types/node": "^22.19.11"
+  "@types/node": "^18.19.130"
 
   # Pi SDK
-  "@earendil-works/pi-agent-core": "0.83.0"
-  "@earendil-works/pi-ai": "0.83.0"
-  "@earendil-works/pi-coding-agent": "0.83.0"
-  "@earendil-works/pi-tui": "0.83.0"
+  "@earendil-works/pi-agent-core": "0.84.1"
+  "@earendil-works/pi-ai": "0.84.1"
+  "@earendil-works/pi-coding-agent": "0.84.1"
+  "@earendil-works/pi-tui": "0.84.1"
 
   # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.4.3"
 
   # Shared libraries
   "@sinclair/typebox": "^0.34.52"
-  typebox: "^1.3.10"
+  typebox: "^1.3.11"
   lucide-react: "^1.28.0"
   motion: "^12.43.0"
   streamdown: "^2.5.0"
@@ -61,7 +61,7 @@ catalog:
 
   # Diff rendering — pinned exactly; the desktop app and the git plugin must
   # not render diffs with two different versions of it.
-  "@pierre/diffs": "1.3.1"
+  "@pierre/diffs": "1.3.5"
   "@pierre/trees": "1.0.0-beta.5"
 
 # ── Named catalogs ─────────────────────────────────────────────
