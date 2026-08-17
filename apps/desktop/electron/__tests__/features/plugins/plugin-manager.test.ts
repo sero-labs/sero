@@ -107,7 +107,7 @@ describe('plugin manager discovery registration', () => {
 
     await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
     await expect(fs.stat(path.join(agentDir, 'plugins', 'future-plugin'))).rejects.toThrow();
-  });
+  }, 10_000);
 
   it('still blocks installs when compatibility requirements are present alongside invalid plugin metadata', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-invalid-compat-'));

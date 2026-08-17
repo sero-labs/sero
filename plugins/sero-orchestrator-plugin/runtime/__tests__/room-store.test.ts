@@ -456,9 +456,10 @@ describe('room store', () => {
       ...DEFAULT_ROOM_RETENTION, maxMessagePages: 1, maxRevisions: 10, maxTimelineBytes: 1000,
     });
     await store.updateState((s) => ({ ...s, rooms: [roomFixture('room-a')] }));
-    for (let i = 0; i < 205; i += 1) {
-      await store.appendMessages('room-a', [draft('m1', ['m2'], `b${i}`, `c${i}`)]);
-    }
+    await store.appendMessages(
+      'room-a',
+      Array.from({ length: 205 }, (_, i) => draft('m1', ['m2'], `b${i}`, `c${i}`)),
+    );
     expect(existsSync(path.join(dir, 'rooms/room-a/messages/2.json'))).toBe(true);
     // Still there while the Room runs: m2 has read none of it, and retention
     // does not get to consume an undelivered message.
