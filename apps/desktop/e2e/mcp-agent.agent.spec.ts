@@ -4,7 +4,6 @@ import {
   assistantTextFromEvents,
   closeApp,
   configureAgentModel,
-  createOpenAgentSession,
   createTempSeroHome,
   createWorkspaceDir,
   disableAllToolsExcept,
@@ -99,8 +98,10 @@ test.afterAll(async () => {
 
 test('uses the MCP bridge tool to call the local echo fixture', async () => {
   const workspacePath = createWorkspaceDir(home.path, 'agent mcp workspace');
-  const { workspace, session } = await createOpenAgentSession(page, workspacePath, 'Agent MCP Workspace');
-  await configureOrSkip(session.id);
+  const workspace = await page.evaluate(
+    ({ folderPath, name }) => window.sero.workspace.addFolder(folderPath, name),
+    { folderPath: workspacePath, name: 'Agent MCP Workspace' },
+  );
 
   const saved = await invokeMcp(workspace.id, 'mcp_manager', {
     action: 'save_raw_config',
@@ -110,6 +111,15 @@ test('uses the MCP bridge tool to call the local echo fixture', async () => {
 
   const connected = await invokeMcp(workspace.id, 'mcp', { action: 'connect', serverName });
   expect(connected.text).toMatch(/connected|Connected/);
+
+  // Open the agent session after MCP activation so its extension tools are
+  // present when Sero creates the session-scoped CLI command registry.
+  const session = await page.evaluate(async ({ workspaceId }) => {
+    const created = await window.sero.sessions.create(workspaceId);
+    await window.sero.agent.open(created.id, created.path, workspaceId);
+    return created;
+  }, { workspaceId: workspace.id });
+  await configureOrSkip(session.id);
 
   const cliCommand = `mcp call ${serverName} echo '{"message":"phase-4-agent"}'`;
   const tools = await disableAllToolsExcept(
@@ -126,9 +136,13 @@ test('uses the MCP bridge tool to call the local echo fixture', async () => {
     `Use sero-cli to run exactly this command: ${cliCommand}. Then answer with the exact echoed text.`,
   );
 
-  expect(toolStarts(turn.events, 'sero-cli')).not.toHaveLength(0);
-  expect(toolEnds(turn.events, 'sero-cli').some((event) => {
+  const cliStarts = toolStarts(turn.events, 'sero-cli');
+  const cliEnds = toolEnds(turn.events, 'sero-cli');
+  const cliDiagnostics = JSON.stringify({ starts: cliStarts, ends: cliEnds }, null, 2);
+
+  expect(cliStarts, `sero-cli did not start. Events:\n${cliDiagnostics}`).not.toHaveLength(0);
+  expect(cliEnds.some((event) => {
     return event.isError === false && event.details?.exitCode === 0;
-  })).toBe(true);
+  }), `sero-cli did not succeed. Events:\n${cliDiagnostics}`).toBe(true);
   expect(assistantTextFromEvents(turn.events)).toContain('phase-4-agent');
 });

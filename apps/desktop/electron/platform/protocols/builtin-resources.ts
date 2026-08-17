@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import { isBuiltinPackageDir } from './builtin-package-detection.js';
+import { resolvePrebuiltPluginPath } from './e2e-prebuilt-plugins.js';
 
 const BUNDLED_PACKAGES_DIR = path.resolve(__dirname, 'builtin/packages');
 const BUNDLED_PLUGINS_DIR = path.resolve(__dirname, 'builtin/plugins');
@@ -74,8 +75,9 @@ export function discoverBuiltinPluginPaths(): string[] {
   const pluginsDir = resolveBuiltinPluginsDir();
   if (!pluginsDir) return [];
 
+  let pluginPaths: string[];
   try {
-    return readdirSync(pluginsDir)
+    pluginPaths = readdirSync(pluginsDir)
       .filter((entry) => entry.startsWith('sero-') && entry.endsWith('-plugin'))
       .map((entry) => path.join(pluginsDir, entry))
       .filter(isBuiltinPackageDir)
@@ -83,4 +85,10 @@ export function discoverBuiltinPluginPaths(): string[] {
   } catch {
     return [];
   }
+
+  // Test-only: a stale build must fail loudly, so this stays out of the catch.
+  if (process.env.SERO_E2E_PREBUILT_PLUGINS === '1') {
+    return pluginPaths.map(resolvePrebuiltPluginPath);
+  }
+  return pluginPaths;
 }

@@ -9,8 +9,9 @@ import {
   workspace,
   type TempSeroHome,
 } from './helpers';
+import type { SeroAppManifest } from '../src/types/ipc';
 
-const uiPluginApps = ['admin', 'cron', 'git', 'mcp', 'userfeedback', 'web'];
+const uiPluginApps = ['admin', 'cron', 'git', 'mcp', 'orchestrator', 'userfeedback', 'web'];
 const forbiddenPanelText = [
   'No UI module registered',
   'No workspace selected',
@@ -60,7 +61,12 @@ test.describe('Built-in plugin UI workflow smoke', () => {
       const opened = await page.evaluate((id) => Boolean(window.__appControl?.openApp(id)), appId);
       expect(opened).toBe(true);
 
-      await expect(page.locator(`[data-app="${appId}"]`).first()).toBeVisible({ timeout: 20_000 });
+      const manifest = await page.evaluate((id) => window.sero.apps.discover()
+        .then((apps: SeroAppManifest[]) => apps.find((candidate: SeroAppManifest) => candidate.id === id) ?? null), appId);
+      await expect(
+        page.locator(`[data-app="${appId}"]`).first(),
+        JSON.stringify(manifest, null, 2),
+      ).toBeVisible({ timeout: 20_000 });
       const panel = page.locator(layout.activeAppPanel).first();
       await expect(panel).toBeVisible();
       for (const text of forbiddenPanelText) {

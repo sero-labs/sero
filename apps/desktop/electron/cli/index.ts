@@ -245,7 +245,12 @@ export function bridgeExtensionTools(
       const cliBridge = getCustomToolCliBridge(registered.definition);
       const canOverrideBuiltin = existing?.source === 'builtin' && cliBridge?.overrideBuiltin === true;
 
-      if (existing && existing.source !== 'app' && !canOverrideBuiltin) {
+      if (
+        existing
+        && existing.source !== 'app'
+        && existing.source !== 'agent-plugin'
+        && !canOverrideBuiltin
+      ) {
         ext.tools.delete(name);
         continue;
       }

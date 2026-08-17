@@ -210,4 +210,33 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('mcp')).toBeTruthy();
     expect(getCliRegistry().get('mcp_manager')).toBeFalsy();
   });
+
+  it('keeps a session tool as fallback for a transient Agent Plugin command', async () => {
+    const pluginDir = path.join(tmpDir, 'plugin-fallback');
+    const extensionPath = path.join(pluginDir, 'extension', 'index.js');
+    await mkdir(path.dirname(extensionPath), { recursive: true });
+    await writeFile(extensionPath, 'export default {}\n', 'utf8');
+    await writeFile(
+      path.join(pluginDir, 'package.json'),
+      JSON.stringify({
+        name: '@test/plugin-fallback',
+        version: '1.0.0',
+        sero: { plugin: { category: 'utilities', tags: [], bridgeTools: ['shared_tool'] } },
+      }),
+      'utf8',
+    );
+
+    const registry = getCliRegistry();
+    registry.replaceAgentPluginCommands([{
+      name: 'shared_tool',
+      summary: 'Transient command',
+      source: 'agent-plugin',
+      execute: async () => ({ output: 'transient' }),
+    }]);
+    const base = createLoadExtensionsResult(extensionPath, ['shared_tool']);
+    bridgeExtensionTools(base, { sessionId: 'session-1' });
+    registry.replaceAgentPluginCommands([]);
+
+    expect(registry.get('shared_tool', { sessionId: 'session-1' })?.source).toBe('app');
+  });
 });

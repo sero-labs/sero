@@ -99,6 +99,37 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 ## Styling
  - Don't use specific tailwind font-sizes, use utilities like `text-sm`,`text-base`, etc.
 
+## Test Rules (CRITICAL)
+
+**Test behaviour deterministically. A live model in a test is a last resort, not a default.**
+
+Before writing any test that calls a real model, answer in the PR or commit body:
+*which property does this prove that a deterministic test cannot?* If you cannot
+answer it in one sentence, write the deterministic test instead.
+
+- **Stub the model, test the contract.** Parsing, validation, repair, gates,
+  tokens, receipts, and state machines take a canned model reply as input. These
+  run in milliseconds. See `runtime/__tests__/approval-gate.test.ts` and
+  `trigger-extractor.test.ts` for the pattern.
+- **A live-model test may only assert provider integration** — that the real
+  provider authenticates, streams, calls a tool, and keeps session context.
+  It must never be the guard on a safety property; back the property with a
+  deterministic test and let that be the guard.
+- **Never re-prove a mechanism through the model.** If a run needs a plan, a
+  gate, or an event to exist, seed the state directly. Driving the whole app
+  through a planner to reach one assertion is the anti-pattern.
+- **No multi-minute polls.** A single `expect.poll` timeout above 120s needs an
+  inline comment justifying it. Timeouts must sit above the *measured* tail, not
+  a guess — a timeout below the real tail is a flake, not a test.
+- **When a live e2e finds a bug, back-fill the fix as a deterministic test and
+  delete or shrink the e2e.** The e2e has already paid for itself at that point;
+  keeping it running re-buys the same finding every night.
+- **Beware the LLM gate.** Specs gated on model credentials skip whole files
+  locally, hiding ordinary UI and selector breakage until CI. Keep deterministic
+  setup assertions out of gated specs.
+- Delete any test whose cost (wall-clock, spend, flake rate) exceeds the unique
+  coverage it provides. Duplicated coverage is not a reason to keep a slow test.
+
 ## File Size Rules (CRITICAL)
 
 **Never exceed 500 LOC in any source file** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
