@@ -3,6 +3,7 @@ import type {
   AppRuntimeContext,
   AppRuntimeHost,
   AppRuntimeModule,
+  PersistentSessionsApi,
 } from '@sero-ai/common';
 import type { SeroAppManifest } from '@/types/ipc';
 
@@ -46,6 +47,12 @@ export interface AppRuntimeManagerDeps {
     options?: LoadAppRuntimeModuleOptions,
   ) => Promise<AppRuntimeModule>;
   createHost: (target: AppRuntimeTarget) => AppRuntimeHost;
+  /**
+   * Installs the gated persistent-session capability, or returns null when the
+   * app is not a permitted bundled plugin. Optional so a test can construct a
+   * manager without it.
+   */
+  installPersistentSessions?: (target: AppRuntimeTarget) => Promise<PersistentSessionsApi | null>;
 }
 
 export interface ReconcileAppRuntimeOptions {

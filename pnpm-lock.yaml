@@ -1257,6 +1257,12 @@ importers:
 
   plugins/sero-orchestrator-plugin:
     dependencies:
+      '@dicebear/bottts-neutral':
+        specifier: 9.4.2
+        version: 9.4.2(@dicebear/core@9.4.2)
+      '@dicebear/core':
+        specifier: 9.4.2
+        version: 9.4.2
       '@earendil-works/pi-ai':
         specifier: catalog:peer
         version: 0.83.0(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3)
@@ -2384,6 +2390,16 @@ packages:
 
   '@date-fns/tz@1.4.1':
     resolution: {integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==}
+
+  '@dicebear/bottts-neutral@9.4.2':
+    resolution: {integrity: sha512-kFNwWt6j+gzZ5n5Pz7WVwePubREAQOF8ZwWA9ztwVYDVMLnOChWbAofy5FED4j5md2MXFH2EgLCFCMr5K2BmIA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@dicebear/core': ^9.0.0
+
+  '@dicebear/core@9.4.2':
+    resolution: {integrity: sha512-MF0042+Z3s8PGZKZLySfhft28bUa3B1iq0e5NSjCvY8gfMi5aIH/iRJGRJa1N9Jz1BNkxYb4yvJ/N9KO8Z6Y+w==}
+    engines: {node: '>=18.0.0'}
 
   '@discordjs/builders@1.14.1':
     resolution: {integrity: sha512-gSKkhXLqs96TCzk66VZuHHl8z2bQMJFGwrXC0f33ngK+FLNau4hU1PYny3DNJfNdSH+gVMzE85/d5FQ2BpcNwQ==}
@@ -15919,6 +15935,14 @@ snapshots:
       kuler: 2.0.0
 
   '@date-fns/tz@1.4.1': {}
+
+  '@dicebear/bottts-neutral@9.4.2(@dicebear/core@9.4.2)':
+    dependencies:
+      '@dicebear/core': 9.4.2
+
+  '@dicebear/core@9.4.2':
+    dependencies:
+      '@types/json-schema': 7.0.15
 
   '@discordjs/builders@1.14.1':
     dependencies:

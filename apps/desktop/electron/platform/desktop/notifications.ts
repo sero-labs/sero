@@ -13,7 +13,7 @@
  *   Set style to "Alerts" for notifications that stay until dismissed.
  */
 
-import { Notification } from 'electron';
+import { BrowserWindow, Notification } from 'electron';
 
 export type NotificationType = 'info' | 'warning' | 'error';
 
@@ -33,6 +33,8 @@ export interface NotificationOptions {
    * Subtitle line (macOS only), displayed between title and body.
    */
   subtitle?: string;
+  /** Run when the user clicks the notification. */
+  onClick?: () => void;
 }
 
 const TYPE_PREFIXES: Record<NotificationType, string> = {
@@ -87,5 +89,19 @@ export function showNotification(
     ...(soundName ? { sound: soundName } : {}),
   });
 
+  if (opts.onClick) notification.on('click', opts.onClick);
   notification.show();
+}
+
+/**
+ * Bring Sero to the front. A notification click must land the user in the
+ * window, otherwise opening an app behind everything else looks like nothing
+ * happened.
+ */
+export function focusMainWindow(): void {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
 }

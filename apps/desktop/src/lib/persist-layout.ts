@@ -41,8 +41,6 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     favouriteApps: partial.favouriteApps ?? app.favouriteApps,
     mainSidebarSizePct: partial.mainSidebarSizePct ?? app.mainSidebarSizePct,
     chatPanelSizePct: partial.chatPanelSizePct ?? app.chatPanelSizePct,
-    chatCollaborationSizePct:
-      partial.chatCollaborationSizePct ?? app.chatCollaborationSizePct,
     theme: partial.theme ?? app.theme,
     activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
     themeEditorAutoSave: partial.themeEditorAutoSave ?? app.themeEditorAutoSave,
@@ -51,6 +49,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,
     activeApp: partial.activeApp ?? app.activeApp,
+    appViewIds: partial.appViewIds ?? app.appViewIds,
     chromeShortcuts: partial.chromeShortcuts ?? app.chromeShortcuts,
     zoomFactor: partial.zoomFactor ?? useZoomStore.getState().factor,
     activeSessionId: partial.activeSessionId !== undefined

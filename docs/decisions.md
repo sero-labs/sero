@@ -539,3 +539,136 @@ plugins, Pi packages, or sidebar apps.
   two exact v1 placeholders in `args`, `env` values, and `cwd`.
 - Invalid skills and MCP entries fail independently. A fatal manifest error is
   the only portable error that blocks all components.
+
+## AD-028: Agent Rooms Are a Mode of Sero Orchestrator
+
+**Problem:** Sero has single chats, transient subagent fan-out, and two fixed
+collaboration engines (`CollaborationEngine`, `DebateEngine`). None of them give
+a durable team that keeps long-running sessions, communicates while work
+continues, waits without holding an execution slot, and survives a restart.
+Building that as a separate runtime would duplicate the Orchestrator's
+scheduler, limits, recovery, worktrees, artifacts, and delivery.
+
+**Decision:** Agent Rooms are a second **mode** inside
+`sero-orchestrator-plugin`, not a new plugin, app, or host runtime.
+
+- The product has two modes: **Workflow** (the current LLM-authored step graph)
+  and **Room** (a persistent Conductor-led team).
+- Both modes share the plugin's management infrastructure — coordinator,
+  limits, locks, reconcile, split store, workspace placement, artifacts,
+  attention, delivery.
+- Their **domain records stay separate**. Workflow records are plans, steps,
+  activations, and attempts. Room records are blueprints, members, mandates,
+  messages, and revisions. A shared interface must not force one mode to carry
+  a field only the other mode uses.
+- A Room is never encoded as a Workflow graph, and a Workflow never becomes a
+  Room.
+
+**Rules:**
+
+- Room code lives under `runtime/rooms/` and `shared/room-*`. It does not grow
+  `runtime/coordinator.ts` (already at the 500-line limit).
+- Room mode does not add a second scheduler, limit engine, Git layer, model
+  runtime, or transcript store.
+- The internal `Loop` naming for Workflow records stays for now. The
+  user-facing terms are **Workflow** and **Room**. The rename is tracked debt,
+  not a prerequisite — see AD-028 naming note in
+  `docs/features/agent-rooms/architecture.md`.
+- The Conductor coordinates within a user-approved operating envelope. It
+  cannot raise permissions, spend, team size, workspace authority, or delivery
+  authority. It can only request those from the user.
+- `CollaborationEngine` and `DebateEngine` are removed only after Room mode is
+  proven on real scenarios. Sero does not build a dual-runtime parity
+  framework.
+
+**References:** `docs/features/agent-rooms/spec.md`,
+`docs/features/agent-rooms/architecture.md`.
+
+## AD-029: Host-Issued Persistent Agent Sessions
+
+**Problem:** Room members need normal persistent Pi sessions — created once,
+reopened after idle time or a restart, compacted in place. Pi already provides
+all of that through `SessionManager.create` / `SessionManager.open`. What does
+not exist is a way for a plugin runtime to ask for one. Today a background
+runtime can only run a transient structured subagent
+(`host.subagents.runStructured`), and every real session is constructed inside
+Electron main. Letting a plugin construct sessions itself would hand it the
+model runtime, the credential store, and unchecked filesystem authority.
+
+**Decision:** The host gains one narrow, generic capability —
+`appRuntime.persistentSessions` — that creates and drives persistent Pi
+sessions **on behalf of** a plugin runtime, under a **host-issued grant**.
+
+- The capability is **generic**. Its identifiers — `owner`, `scope`, `subject`
+  — are opaque strings. It does not import, parse, or depend on any Room domain
+  type. Room mode passes its Room ID and member ID as values; another product
+  could pass anything else.
+- The plugin **never constructs a session**. It sends a request; the host
+  validates and constructs.
+- Every request carries a `grantId`. The host resolves the grant from its own
+  store. It never trusts an envelope supplied only by the request.
+- The host validates, per request: grant exists, is live, and belongs to the
+  calling plugin; session path resolves inside the grant's approved directory;
+  working directory is an approved workspace or worktree; the model is
+  available through the one host `ModelRuntime` (AD-026); tools, skills, and
+  permissions are a subset of the grant; the live session count is within the
+  grant's cap.
+- Operations are `create`, `open`, `prompt`, `steer`, `abort`, `subscribe`,
+  `compact`, `getContextUsage`, `getSessionUsage`, `dispose`.
+- Grants are **revocable**. Revoking a grant aborts and disposes its live
+  sessions and fails every later request against it.
+- Member sessions use a **filtered resource profile** — project context files,
+  the approved prompt and mandate, selected skills, approved platform tools,
+  the AD-020 `sero-cli` bridge, and only the plugin extensions that supply an
+  approved capability. Third-party session-lifecycle hooks are off. The host
+  enforces the profile from the grant; the plugin cannot widen it.
+
+**Authority source.** A grant is issued from a **host-stored approval**, never
+from the plugin's request. The plugin submits a proposal; the host clamps it to
+the user's authority and the workspace catalogue, presents the clamped set for
+approval, and stores exactly what was approved. In Room mode the consent summary
+the user approves and the grant the host stores are projections of the same
+clamped set, so they cannot disagree. Widening needs a new approval.
+
+**Gating:** The first release is **built-in plugins only**, enforced by
+canonical path equality, not by manifest declaration and not by a
+not-installed test.
+
+- `SERO_HOST_CAPABILITIES` is a *compatibility* list. It tells a plugin whether
+  this host build supports a capability. It grants nothing. Adding
+  `appRuntime.persistentSessions` there does **not** authorise anyone.
+- `isInstalledPluginPackagePath()` alone is **not** sufficient: an app
+  discovered from an arbitrary `settings.packages` entry or from a plugin dev
+  session returns `false` from it, while claiming any app ID it likes.
+- The real gate: the host derives one canonical bundled-plugin root, an
+  allowlist maps each permitted app ID to its expected directory name under
+  that root, and `realpath(packagePath)` must **equal** that resolved path
+  exactly. Plugin-dev-session and `settings.packages` sources are rejected
+  outright.
+- Installing an external plugin — from npm, git, or a local path — can never
+  obtain this capability, whatever its manifest declares.
+
+**Rules:**
+
+- Renderer code never receives the capability, a grant, a session handle, or
+  credentials.
+- `SessionManager.inMemory` is not used for a persistent-session subject.
+- Session files stay in the normal Pi JSONL format under the normal Sero
+  session root. Sero does not copy, rebuild, or replay their transcripts.
+- The capability adds no second `ModelRuntime`, credential store, or session
+  persistence system.
+- Capabilities are **per session subject**, not grant-wide, so one subject
+  cannot use another's tools, models or permissions.
+- `open` takes no caller-supplied path. The host resolves it from its own
+  immutable subject→path registry.
+- The session-count check, the subject binding and the counter increment are one
+  atomic reservation taken before construction.
+- A **defective** built-in plugin must not be able to exceed its grant. Every
+  deny path is tested.
+- The capability does **not** contain a *compromised* bundled runtime. Runtime
+  modules run in Electron main with full Node authority, so tampered bundled
+  code bypasses the capability rather than misusing it. Containing that needs an
+  isolated runtime process with a capability-only facade — a host-wide change,
+  out of scope here, recorded as a known limit.
+
+**References:** `docs/features/agent-rooms/architecture.md` §3–§5, including the threat model in §3.0 and the known limit in §4.1.

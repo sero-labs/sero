@@ -16,6 +16,7 @@ import {
   GitPullRequest,
   ExternalLink,
   MessageSquare,
+  Users,
 } from 'lucide-react';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -33,6 +34,7 @@ import {
   type BoardCard as BoardCardModel,
   type BoardIssueCard,
   type BoardLoopCard,
+  type BoardRoomCard,
   type BoardSessionCard,
 } from './board-model';
 import { BoardCardActions } from './BoardCardActions';
@@ -76,6 +78,7 @@ export const BoardCard = memo(function BoardCard({ card, columnId, nowMs }: Boar
         {card.kind === 'loop' && <LoopCardBody card={card} columnId={columnId} nowMs={nowMs} />}
         {card.kind === 'issue' && <IssueCardBody card={card} nowMs={nowMs} />}
         {card.kind === 'session' && <SessionCardBody card={card} />}
+        {card.kind === 'room' && <RoomCardBody card={card} nowMs={nowMs} />}
       </div>
     </m.article>
   );
@@ -256,6 +259,47 @@ function SessionCardBody({ card }: { card: BoardSessionCard }) {
   );
 }
 
+// ── Room cards ──────────────────────────────────────────────
+
+/**
+ * A Room's card. It reports where the team stands and opens the Room; it holds
+ * no controls of its own, because pausing or stopping a team from two places
+ * invites the two to disagree.
+ */
+function RoomCardBody({ card, nowMs }: { card: BoardRoomCard; nowMs: number }) {
+  const { room } = card;
+  const working = room.activeMemberCount > 0;
+
+  return (
+    <>
+      <div className="flex items-start gap-2">
+        {working ? <PulsingDot tone="var(--status-success)" /> : null}
+        <h3 className="min-w-0 flex-1 truncate text-base font-medium leading-snug text-[var(--text-primary)]">
+          {room.title}
+        </h3>
+        <OpenCardButton card={card} />
+        <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+          {formatAge(room.updatedAt, nowMs)}
+        </span>
+      </div>
+
+      <WorkspaceLine name={card.workspaceName} />
+
+      <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+        <Users className="size-3 shrink-0" />
+        {room.activeMemberCount} of {room.memberCount} member(s) working ·{' '}
+        {formatCost(room.costUsd)} of {formatCost(room.maxCostUsd)}
+      </p>
+
+      {room.attentionCount > 0 ? (
+        <p className="text-xs text-status-warning">
+          {room.attentionCount} thing(s) need you — open the Room to answer.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 // ── Shared bits ─────────────────────────────────────────────
 
 function WorkspaceLine({ name, branch }: { name: string; branch?: string }) {
@@ -334,8 +378,15 @@ function shortModel(model: string): string {
 
 // ── Drilldown ───────────────────────────────────────────────
 
-function OpenCardButton({ card }: { card: BoardLoopCard | BoardIssueCard }) {
-  const label = card.kind === 'loop' ? 'Open loop' : 'Open issue';
+const OPEN_LABEL: Record<BoardCardModel['kind'], string> = {
+  loop: 'Open workflow',
+  issue: 'Open issue',
+  room: 'Open Room',
+  session: 'Open session',
+};
+
+function OpenCardButton({ card }: { card: BoardLoopCard | BoardIssueCard | BoardRoomCard }) {
+  const label = OPEN_LABEL[card.kind];
   return (
     <button
       type="button"
@@ -366,6 +417,10 @@ function openCard(card: BoardCardModel): void {
   }
   if (card.kind === 'issue') {
     openInBrowser(card.workspaceId, card.issue.url);
+    return;
+  }
+  if (card.kind === 'room') {
+    void openSeroApp(ORCHESTRATOR_APP_ID, { roomId: card.room.id });
     return;
   }
   const info = useSessionStore.getState().sessions.find((s) => s.id === card.sessionId);

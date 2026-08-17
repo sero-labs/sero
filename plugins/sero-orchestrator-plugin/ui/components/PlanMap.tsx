@@ -20,8 +20,8 @@ import {
   type PlanMapOrientation,
 } from '../lib/plan-map-layout';
 import { mapEdgeState, mapRouteState } from '../lib/plan-map-state';
+import { guardLabel } from '../lib/guard-label';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
-import { guardLabel } from './StepCard';
 
 export type PlanMapOrientationSetting = PlanMapOrientation | 'auto';
 
@@ -31,7 +31,7 @@ interface PlanMapProps {
 }
 
 const NODE_STATUS_CLASS: Record<StepStatus, string> = {
-  pending: 'border-border bg-card',
+  pending: 'border-border/75 bg-card',
   ready: 'border-emerald-500/40 bg-emerald-500/[0.04]',
   running: 'border-emerald-400/70 bg-emerald-500/[0.08] shadow-[0_0_18px_rgba(52,211,153,0.12)]',
   succeeded: 'border-emerald-500/35 bg-emerald-500/[0.04]',
@@ -94,7 +94,7 @@ export function PlanMap({ loop, orientation }: PlanMapProps) {
   if (loop.plan.steps.length === 0) {
     return (
       <Card className="p-3 text-base text-muted-foreground">
-        No plan generated yet. Creating a loop asks the model to author the steps for your prompt.
+        No plan generated yet. Creating a Workflow asks the model to write the steps for your prompt.
       </Card>
     );
   }

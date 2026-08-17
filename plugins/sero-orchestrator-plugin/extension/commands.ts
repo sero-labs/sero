@@ -13,7 +13,7 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { Loop } from '../shared/types';
-import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId } from '../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATION_IDS, isLoopDeliveryDestinationId } from '../shared/delivery-types';
 import { executeOrchestratorTool, ORCHESTRATOR_ACTIONS, type OrchestratorToolParamsShape } from './tools';
 
 const HELP = `Usage:
@@ -88,13 +88,13 @@ export function parseCommand(args: string): ParsedCommand {
       // Optional leading destination flag; the prompt is everything after it.
       const flagged = remainder.match(/^--deliver\s+(\S+)\s+([\s\S]+)$/);
       if (!flagged) return { action, prompt: remainder };
-      if (!isDeliveryDestinationId(flagged[1])) return { error: `Unknown destination "${flagged[1]}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      if (!isLoopDeliveryDestinationId(flagged[1])) return { error: `Unknown destination "${flagged[1]}". Destinations: ${LOOP_DELIVERY_DESTINATION_IDS.join(', ')}` };
       return { action, prompt: flagged[2], deliveryDestination: flagged[1] };
     }
     case 'set_delivery': {
       const [loopId, destination] = rest;
       if (!loopId || !destination) return { error: 'set_delivery requires a loopId and a destination' };
-      if (!isDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      if (!isLoopDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${LOOP_DELIVERY_DESTINATION_IDS.join(', ')}` };
       return { action, loopId, deliveryDestination: destination };
     }
     case 'set_schedule': {

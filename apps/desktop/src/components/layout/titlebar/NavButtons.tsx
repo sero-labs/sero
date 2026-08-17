@@ -2,6 +2,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { isAppEntrySupported } from '@/stores/app/shared';
 import { findNavigationTarget, useNavigationStore, type NavEntry } from '@/stores/navigation';
 import { navigateBack, navigateForward } from '@/lib/open-app';
@@ -11,12 +12,17 @@ export function NavButtons() {
   const entries = useNavigationStore((s) => s.entries);
   const index = useNavigationStore((s) => s.index);
   const apps = useAppStore((s) => s.apps);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const appIds = new Set<string>();
+  for (const app of apps) {
+    if (isAppEntrySupported(app)) appIds.add(app.id);
+  }
+  const workspaceIds = new Set(workspaces.map((workspace) => workspace.id));
 
   const labelFor = (entry: NavEntry | undefined) =>
     apps.find((app) => app.id === entry?.appId)?.label;
   const canUse = (entry: NavEntry) => {
-    const app = apps.find((candidate) => candidate.id === entry.appId);
-    return app !== undefined && isAppEntrySupported(app);
+    return appIds.has(entry.appId) && (!entry.workspaceId || workspaceIds.has(entry.workspaceId));
   };
 
   const backTarget = findNavigationTarget(entries, index, -1, canUse);

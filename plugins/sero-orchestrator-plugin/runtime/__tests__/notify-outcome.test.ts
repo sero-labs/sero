@@ -13,21 +13,21 @@ function loopWith(status: Loop['status'], block?: { reason?: string }): Loop {
 describe('outcomeNotification', () => {
   it('reports a completed loop as info with its title', () => {
     expect(outcomeNotification(loopWith('complete'))).toEqual({
-      message: 'Loop "Nightly cleanup" finished.',
+      message: 'Workflow "Nightly cleanup" finished.',
       level: 'info',
     });
   });
 
   it('reports a blocked loop as a warning that includes the block reason', () => {
     expect(outcomeNotification(loopWith('blocked', { reason: 'cost limit reached' }))).toEqual({
-      message: 'Loop "Nightly cleanup" is blocked — cost limit reached.',
+      message: 'Workflow "Nightly cleanup" is blocked — cost limit reached.',
       level: 'warning',
     });
   });
 
   it('still warns when a block has no reason', () => {
     expect(outcomeNotification(loopWith('blocked'))).toEqual({
-      message: 'Loop "Nightly cleanup" is blocked.',
+      message: 'Workflow "Nightly cleanup" is blocked.',
       level: 'warning',
     });
   });

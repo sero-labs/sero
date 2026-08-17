@@ -6,15 +6,8 @@ import {
   ConversationScrollButton,
 } from '@sero-ai/ui/ai-elements/conversation';
 import { useAgentStore } from '@/stores/agent';
-import {
-  useFocusedAgent,
-  useFocusedCollaborationMode,
-  useFocusedCollaborationResult,
-  useFocusedCollaborationStatus,
-  useFocusedCollaborationStrategy,
-} from '@/stores/agent-selectors';
+import { useFocusedAgent } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
-import { useAppStore } from '@/stores/app';
 import { SessionBadge } from '@/components/layout/SessionBadge';
 import {
   groupMessages,
@@ -25,19 +18,12 @@ import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { CheckpointRestoreDialog } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
-import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from '@/components/layout/ClickableFilePath';
 import { PendingQuestionCard } from '@/components/layout/PendingQuestionCard';
 import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from '@/components/layout/QuestionnaireNotice';
 import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
-import { CollaborationDetails } from '@/components/layout/CollaborationResponse';
-import { CollaborationActivityPanel } from '@/components/layout/CollaborationActivityPanel';
-import {
-  ChatPanelCollaborationLayout,
-  isCollaborationSectionVisible,
-} from '@/components/layout/ChatPanelCollaborationLayout';
 import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
 
@@ -62,15 +48,6 @@ export function ChatPanel() {
   // Initialize user-feedback IPC listeners (question/questionnaire tools)
   useUserFeedbackInit();
 
-  const collaborationMode = useFocusedCollaborationMode();
-  const collaborationStrategy = useFocusedCollaborationStrategy();
-  const collaborationStatus = useFocusedCollaborationStatus();
-  const collaborationResult = useFocusedCollaborationResult();
-  const chatCollaborationSizePct = useAppStore((s) => s.chatCollaborationSizePct);
-  const setChatCollaborationSizePct = useAppStore(
-    (s) => s.setChatCollaborationSizePct,
-  );
-
   const messages = focused?.messages ?? EMPTY_MESSAGES;
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
@@ -81,25 +58,6 @@ export function ChatPanel() {
   );
   const clearComposerPrefill = useAgentStore((s) => s.clearComposerPrefill);
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
-
-  const updateCollaborationSize = useCallback(
-    (pct: number) => setChatCollaborationSizePct(Math.round(pct * 10) / 10),
-    [setChatCollaborationSizePct],
-  );
-  const persistCollaborationSize = useDebouncedCallback(
-    updateCollaborationSize,
-    300,
-  );
-
-  const handleCollaborationResize = useCallback(
-    ({ asPercentage }: { inPixels: number; asPercentage: number }) => {
-      if (asPercentage <= 0) return;
-      persistCollaborationSize(asPercentage);
-    },
-    [persistCollaborationSize],
-  );
-
-  const collaborationVisible = isCollaborationSectionVisible(collaborationStatus);
 
   // Stable callback ref for ChatMessageItem memo
   const stableRestoreHandler = useMemo(
@@ -243,12 +201,6 @@ export function ChatPanel() {
     </Conversation>
   );
 
-  const collaboration = (
-    <div className="flex h-full min-h-0 flex-col p-2">
-      <CollaborationActivityPanel />
-    </div>
-  );
-
   return (
     <div className="flex h-full flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)]">
       {/* ── Header ──────────────────────────────────────────── */}
@@ -265,27 +217,10 @@ export function ChatPanel() {
             {sessionLabel}
           </span>
         )}
-        {collaborationMode && (
-          <span className="rounded bg-[var(--collab-primary-subtle)] px-1.5 py-0.5 text-sm font-medium text-[var(--collab-primary)]">
-            {collaborationStrategy === 'debate' ? 'Debate' : '4-Agent'}
-          </span>
-        )}
         {sessionId && <SessionBadge sessionId={sessionId} />}
       </div>
 
-      <ChatPanelCollaborationLayout
-        collaborationVisible={collaborationVisible}
-        collaborationDefaultSizePct={chatCollaborationSizePct}
-        onCollaborationResize={handleCollaborationResize}
-        conversation={conversation}
-        collaboration={collaboration}
-      />
-
-      {!collaborationVisible && collaborationResult && (
-        <div className="shrink-0 px-2 pb-2">
-          <CollaborationDetails />
-        </div>
-      )}
+      {conversation}
 
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />

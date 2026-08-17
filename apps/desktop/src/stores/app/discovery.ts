@@ -17,6 +17,7 @@ import {
   type AppEntry,
 } from './shared';
 import { useNavigationStore } from '@/stores/navigation';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { useAppStore } from './state';
 
 function reconcileDiscoveredApps(discovered: AppEntry[]): void {
@@ -45,6 +46,22 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
     favouriteApps: nextFavouriteApps,
     chromeShortcuts: nextChromeShortcuts,
   });
+
+  const navigation = useNavigationStore.getState();
+  const currentNavigation = navigation.entries[navigation.index];
+  if (nextActiveApp === activeApp && !pendingApp && currentNavigation?.appId === activeApp) {
+    const activeEntry = nextApps.find((app) => app.id === nextActiveApp);
+    const globalApp = activeEntry?.builtin === true || activeEntry?.manifest?.scope === 'global';
+    const workspaceId = globalApp
+      ? undefined
+      : useWorkspaceStore.getState().activeWorkspaceId ?? undefined;
+    const scopeId = workspaceId ?? 'global';
+    navigation.replaceCurrent({
+      appId: nextActiveApp,
+      viewId: useAppStore.getState().appViewIds[nextActiveApp]?.[scopeId],
+      workspaceId,
+    });
+  }
 
   if (nextActiveApp !== activeApp) {
     persistLayout({ activeApp: nextActiveApp });

@@ -407,14 +407,6 @@ export const IpcChannels = {
     /** Main → renderer push channel for artifact events. */
     event: 'sero:artifacts:event',
   },
-  collaboration: {
-    /** Send a prompt through the 4-agent collaboration framework. */
-    prompt: 'sero:collaboration:prompt',
-    /** Get the latest collaboration runtime snapshot for a session. */
-    getState: 'sero:collaboration:get-state',
-    /** Main → renderer push channel for collaboration lifecycle events. */
-    event: 'sero:collaboration:event',
-  },
   gateway: gatewayIpcChannels,
   plugins: pluginIpcChannels,
   agentPlugins: agentPluginIpcChannels,

@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@sero-ai/ui';
 import type { DeliveryDestinationId, Loop, OrchestratorAction } from '../../shared/types';
-import { DELIVERY_DESTINATIONS, deliveryDestinationInfo, effectiveDelivery } from '../../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATIONS, deliveryDestinationInfo, effectiveDelivery } from '../../shared/delivery-types';
 
 export function LoopDeliveryControl({
   loop,
@@ -58,7 +58,7 @@ export function LoopDeliveryControl({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Where this loop's results ship">
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Where this Workflow's results go">
         <Send className="mr-1 h-3.5 w-3.5" />
         Delivery
         {loop.delivery && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
@@ -68,7 +68,7 @@ export function LoopDeliveryControl({
           <DialogHeader>
             <DialogTitle>Delivery</DialogTitle>
             <DialogDescription>
-              Where this loop's results ship. Externally visible destinations always ask you to approve the exact
+              Where this Workflow's results go. Externally visible destinations always ask you to approve the exact
               content before anything is sent.
             </DialogDescription>
           </DialogHeader>
@@ -78,7 +78,7 @@ export function LoopDeliveryControl({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DELIVERY_DESTINATIONS.map((d) => (
+                {LOOP_DELIVERY_DESTINATIONS.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.label}
                   </SelectItem>

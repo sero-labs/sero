@@ -5,7 +5,7 @@
  */
 
 import type { CatalogEntry, CatalogEntryMeta, CatalogIndex } from './catalog-types';
-import { isDeliveryDestinationId } from './delivery-types';
+import { isLoopDeliveryDestinationId } from './delivery-types';
 import type { LibraryEntry, LibraryVersion } from './library-types';
 
 /** The baked-in official catalog repo (spec 14). Non-removable. */
@@ -59,7 +59,7 @@ export function catalogEntryMetaProblems(value: unknown): string[] {
   for (const field of ['recommendedTrigger', 'limitations'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'string') problems.push(`${field} must be a string`);
   }
-  if (value.delivery !== undefined && !isDeliveryDestinationId(value.delivery)) problems.push('unknown delivery destination');
+  if (value.delivery !== undefined && !isLoopDeliveryDestinationId(value.delivery)) problems.push('unknown delivery destination');
   if (value.costBand !== undefined && !['low', 'medium', 'high'].includes(value.costBand as string)) {
     problems.push('costBand must be low | medium | high');
   }

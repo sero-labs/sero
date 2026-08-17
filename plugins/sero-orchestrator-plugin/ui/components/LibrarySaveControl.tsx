@@ -49,7 +49,7 @@ export function LibrarySaveControl({
 
   return (
     <>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)} title="Save this loop to the Library">
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)} title="Save this Workflow to the Library">
         <BookmarkPlus className="mr-1 h-3.5 w-3.5" />
         Library
         {linked && <span className="ml-1 text-sm font-medium">v{linked.version}</span>}
@@ -62,7 +62,7 @@ export function LibrarySaveControl({
             <DialogDescription>
               {linked
                 ? `Linked to a library entry (currently v${linked.version}). Saving a new version lets other loaded copies update to it.`
-                : 'Saves this loop’s plan, triggers, limits, and context to the shared Library. Run history is never saved.'}
+                : 'Saves this Workflow’s plan, triggers, limits, and context to the shared Library. Run history is never saved.'}
             </DialogDescription>
           </DialogHeader>
 

@@ -61,7 +61,7 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
     if (details.catalogContents) setContents(details.catalogContents);
     if (details.catalogRefresh) setFetchIssues(details.catalogRefresh.filter((r) => r.reason));
     const applied = (details.catalogUpdates ?? []).filter((u) => u.libraryVersion !== undefined);
-    if (applied.length > 0) setUpdatesNote(`${applied.length} installed loop(s) got a new version — see their "v available" badge.`);
+    if (applied.length > 0) setUpdatesNote(`${applied.length} installed workflow(s) got a new version — see their "v available" badge.`);
   };
 
   // Opening the tab IS the on-demand pull: show the cache instantly, then one
@@ -133,7 +133,7 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
               {repo.official ? 'Official' : repo.key}
               {issue && <span className="text-amber-400">{issue.stale ? '(stale copy)' : '(unreachable)'}</span>}
               {!repo.official && (
-                <button type="button" title="Remove this catalog (installed loops are kept)" onClick={() => void removeRepo(repo.key)}>
+                <button type="button" title="Remove this catalog (installed workflows are kept)" onClick={() => void removeRepo(repo.key)}>
                   <X className="h-3 w-3" />
                 </button>
               )}
@@ -162,7 +162,7 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
 
       {visible.length === 0 ? (
         <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-          {fetching ? 'Fetching catalogs…' : query ? 'No matching catalog loops.' : 'No catalog entries yet. Refresh, or add a catalog repo.'}
+          {fetching ? 'Fetching catalogs…' : query ? 'No matching catalog workflows.' : 'No catalog entries yet. Refresh, or add a catalog repo.'}
         </p>
       ) : (
         <div className="flex flex-col gap-2">

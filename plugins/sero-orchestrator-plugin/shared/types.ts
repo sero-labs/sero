@@ -22,6 +22,7 @@ import type { LoopRunStatus } from './run-status-types';
 import type { FeedbackRuntimeState, StepActivation, StepFeedbackTransition } from './activation-types';
 import type { FanOutDefinition, FanOutRuntimeState } from './fanout-types';
 import type { StepExecutionTarget } from './execution-types';
+import type { OrchestratorUiState } from './ui-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 export type { FeedbackContext, FeedbackRuntimeState, StepActivation, StepActivationStatus, StepFeedbackTransition } from './activation-types';
@@ -107,6 +108,7 @@ export type {
 export interface OrchestratorState {
   version: 1;
   loops: Loop[];
+  ui?: OrchestratorUiState;
   /**
    * Ring of recently delivered event keys (`source#dedupeKey`), so a source
    * adapter restart never re-fires an event it already delivered. Only events

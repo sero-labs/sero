@@ -28,7 +28,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: null,
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -44,13 +43,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
 
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
@@ -98,7 +91,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: 'session-1',
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -114,13 +106,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
 
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
@@ -167,7 +153,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: 'session-1',
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -183,13 +168,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
       state = { ...state, ...updater(state) };

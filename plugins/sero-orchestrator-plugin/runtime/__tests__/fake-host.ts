@@ -7,10 +7,13 @@ import type {
   AppRuntimeCommandResult,
   AppRuntimePullRequestSummary,
   ContextAgentInfo,
+  ContextSkillInfo,
   ContextToolInfo,
+  ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog';
+import { createFakePersistentSessions, type FakePersistentSessions } from './fake-persistent-sessions';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
@@ -47,6 +50,8 @@ export interface FakeHost extends OrchestratorHost {
   availableModels: SharedAvailableModelGroup[];
   /** Tool catalog returned by listToolCatalog (empty by default). */
   toolCatalog: ContextToolInfo[];
+  /** Skill catalog returned by listSkillCatalog (empty by default). */
+  skillCatalog: ContextSkillInfo[];
   /** Agent-role catalog returned by listAgentCatalog (empty by default). */
   agentCatalog: ContextAgentInfo[];
   /** In-memory artifact store keyed by reference. */
@@ -62,7 +67,15 @@ export interface FakeHost extends OrchestratorHost {
   worktreesRemoved: string[];
   /** Full removeWorktree calls, including the options passed. */
   worktreeRemovals: { loopId: string; deleteBranch?: boolean; deleteMergedBranch?: boolean; force?: boolean }[];
-  notifications: { message: string; type?: string }[];
+  /** Checkpoint commits taken, in order. A path in `checkpointFailures` throws instead. */
+  checkpoints: { worktreePath: string; message: string }[];
+  /** Worktree paths whose checkpoint must fail, mapped to the failure reason. */
+  checkpointFailures: Map<string, string>;
+  /** Worktree paths with nothing to commit — createCheckpoint returns null for these. */
+  cleanWorktrees: Set<string>;
+  /** `git diff --name-status` output per worktree path (empty string by default). */
+  diffSummaries: Map<string, string>;
+  notifications: { message: string; type?: string; subtitle?: string; openApp?: boolean }[];
   choiceRequests: ChoiceRequest[];
   stashes: string[];
   /** Open PRs returned by listPullRequests (empty by default). */
@@ -77,6 +90,10 @@ export interface FakeHost extends OrchestratorHost {
   turnResult: TurnResult;
   /** Records active-session sends. */
   sessionSends: { sessionId: string; kind: 'steer' | 'context' }[];
+  /** The context messages themselves, for callers that assert on the content. */
+  contextMessages: ExtensionRuntimeMessage[];
+  /** Set to make the next context send reject — a closed or unreachable chat. */
+  failNextContextSend: string | null;
   /** In-memory Loop Library state (profile-global store stand-in). */
   libraryEntries: Map<string, LibraryEntry>;
   libraryVersions: Map<string, LibraryVersion>;
@@ -86,6 +103,8 @@ export interface FakeHost extends OrchestratorHost {
   catalogRepos: CatalogRepoRef[];
   /** Cached contents by repo key; absent ⇒ never fetched. */
   catalogContents: Map<string, CatalogRepoContents>;
+  /** Always present here; on a real host the capability is usually absent. */
+  persistentSessions: FakePersistentSessions;
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -101,6 +120,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     modelCalls: [],
     availableModels: [],
     toolCatalog: [],
+    skillCatalog: [],
     agentCatalog: [],
     artifacts: new Map<string, string>(),
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
@@ -109,6 +129,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     worktreeCreates: [],
     worktreesRemoved: [],
     worktreeRemovals: [],
+    checkpoints: [],
+    checkpointFailures: new Map<string, string>(),
+    cleanWorktrees: new Set<string>(),
+    diffSummaries: new Map<string, string>(),
     notifications: [],
     choiceRequests: [],
     stashes: [],
@@ -118,12 +142,15 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
+    contextMessages: [],
+    failNextContextSend: null,
     libraryEntries: new Map<string, LibraryEntry>(),
     libraryVersions: new Map<string, LibraryVersion>(),
     libraryIndex: structuredClone(DEFAULT_LIBRARY_INDEX),
     libraryWatching: false,
     catalogRepos: [{ key: OFFICIAL_CATALOG_KEY, url: OFFICIAL_CATALOG_URL, official: true }],
     catalogContents: new Map<string, CatalogRepoContents>(),
+    persistentSessions: createFakePersistentSessions(),
 
     async readState() {
       return structuredClone(this.state);
@@ -151,6 +178,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async listToolCatalog() {
       return this.toolCatalog;
+    },
+    async listSkillCatalog() {
+      return this.skillCatalog;
     },
     async listAgentCatalog() {
       return this.agentCatalog;
@@ -181,6 +211,15 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         force: options?.force,
       });
     },
+    async createCheckpoint(worktreePath, message) {
+      const failure = this.checkpointFailures.get(worktreePath);
+      if (failure) throw new Error(failure);
+      this.checkpoints.push({ worktreePath, message });
+      return this.cleanWorktrees.has(worktreePath) ? null : `commit_${this.checkpoints.length}`;
+    },
+    async getDiffSummary(worktreePath) {
+      return this.diffSummaries.get(worktreePath) ?? '';
+    },
     async getWorkspaceStatus() {
       return this.workspaceStatus;
     },
@@ -195,8 +234,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.commands.push(command);
       return this.commandResults.shift() ?? { stdout: '', stderr: '', exitCode: 0 };
     },
-    notify(message, type) {
-      this.notifications.push({ message, type });
+    notify(message, type, options) {
+      this.notifications.push({ message, type, subtitle: options?.subtitle, openApp: options?.openApp });
     },
     async requestChoice(request) {
       this.choiceRequests.push(request);
@@ -213,8 +252,14 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         host.sessionSends.push({ sessionId, kind: 'steer' });
         return { turnId: host.turnResult.turnId };
       },
-      async sendContextMessage(sessionId, _message, options) {
+      async sendContextMessage(sessionId, message, options) {
+        const failure = host.failNextContextSend;
+        if (failure) {
+          host.failNextContextSend = null;
+          throw new Error(failure);
+        }
         host.sessionSends.push({ sessionId, kind: 'context' });
+        host.contextMessages.push(message);
         return { turnId: options.triggerTurn ? host.turnResult.turnId : null };
       },
       onTurnComplete(_sessionId, cb) {

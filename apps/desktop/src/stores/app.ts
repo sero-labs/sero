@@ -9,4 +9,4 @@ export {
 } from './app/shared';
 export { loadLayout } from './app/layout-hydration';
 export { discoverAndRegisterApps, handlePluginChange } from './app/discovery';
-export { listenForNewApps } from './app/listeners';
+export { listenForAppNavigationWorkspace, listenForNewApps } from './app/listeners';

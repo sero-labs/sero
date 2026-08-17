@@ -41,39 +41,18 @@ describe('useActiveSessionSync', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
 
-  const getState = vi.fn(async () => null);
   const openSession = vi.fn(async () => {});
   const focusSession = vi.fn();
   const clearFocus = vi.fn();
-  const hydrateCollaborationState = vi.fn();
 
   beforeEach(() => {
-    getState.mockClear();
     openSession.mockClear();
     focusSession.mockClear();
     clearFocus.mockClear();
-    hydrateCollaborationState.mockClear();
 
     useAgentStore.setState(initialAgentState, true);
     useSessionStore.setState(initialSessionState, true);
     useWorkspaceStore.setState(initialWorkspaceState, true);
-
-    Object.defineProperty(window, 'sero', {
-      configurable: true,
-      writable: true,
-      value: {
-        collaboration: {
-          prompt: vi.fn(async () => ({
-            finalResponse: '',
-            specialistOutputs: [],
-            totalDurationMs: 0,
-            hasErrors: false,
-          })),
-          getState,
-          onEvent: vi.fn(() => () => {}),
-        },
-      } as unknown as typeof window.sero,
-    });
 
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -88,7 +67,6 @@ describe('useActiveSessionSync', () => {
     }
     root = null;
     container.remove();
-    Reflect.deleteProperty(window, 'sero');
     useAgentStore.setState(initialAgentState, true);
     useSessionStore.setState(initialSessionState, true);
     useWorkspaceStore.setState(initialWorkspaceState, true);
@@ -131,7 +109,6 @@ describe('useActiveSessionSync', () => {
       openSession,
       focusSession,
       clearFocus,
-      hydrateCollaborationState,
     });
 
     await act(async () => {
@@ -139,11 +116,9 @@ describe('useActiveSessionSync', () => {
     });
 
     await vi.waitFor(() => {
-      expect(getState).toHaveBeenCalledTimes(1);
+      expect(focusSession).toHaveBeenCalledTimes(1);
     });
-    expect(focusSession).toHaveBeenCalledTimes(1);
     expect(openSession).not.toHaveBeenCalled();
-    expect(hydrateCollaborationState).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       useSessionStore.setState({
@@ -160,9 +135,8 @@ describe('useActiveSessionSync', () => {
       await Promise.resolve();
     });
 
-    expect(getState).toHaveBeenCalledTimes(1);
     expect(focusSession).toHaveBeenCalledTimes(1);
-    expect(hydrateCollaborationState).toHaveBeenCalledTimes(1);
+    expect(openSession).not.toHaveBeenCalled();
   });
 
   it('reopens the active session when the workspace runtime backend changes', async () => {
@@ -202,7 +176,6 @@ describe('useActiveSessionSync', () => {
       openSession,
       focusSession,
       clearFocus,
-      hydrateCollaborationState,
     });
 
     await act(async () => {

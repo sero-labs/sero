@@ -44,7 +44,6 @@ import { registerLocalModelsHandlers } from './agent/handlers/local-models';
 import { registerSubagentHandlers } from './subagent/subagent';
 import { registerSkillHandlers } from './agent/handlers/skills';
 import { registerPromptHandlers } from './agent/handlers/prompts';
-import { registerCollaborationHandlers } from './collaboration/collaboration';
 import { registerAppControlHandlers } from './apps/app-control';
 import { registerPluginHandlers } from './integrations/plugins';
 import { registerAgentPluginHandlers } from './integrations/agent-plugins';
@@ -92,7 +91,6 @@ export function registerAllIpcHandlers(): void {
   registerSubagentHandlers();
   registerSkillHandlers();
   registerPromptHandlers();
-  registerCollaborationHandlers();
   registerAppControlHandlers();
   registerPluginHandlers();
   registerAgentPluginHandlers();

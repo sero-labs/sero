@@ -61,7 +61,7 @@ Click **Cron** (🕐) in the Sero sidebar. The dashboard has four tabs:
 |-----|---------------|
 | **Reminders** | All reminders with status filters, snooze, and management |
 | **Jobs** | Configured cron jobs with status, schedule, and actions |
-| **Loops** | The workspace's scheduled Orchestrator loops — edit/pause their schedule or jump to the loop |
+| **Workflows** | The workspace's scheduled Orchestrator Workflows — edit or pause their schedule, or open the Workflow in Orchestrator |
 | **History** | Recent cron job execution results with expandable output |
 
 ---

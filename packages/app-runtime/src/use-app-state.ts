@@ -14,7 +14,7 @@ import { getSeroApi, type SeroWindowAppStateBridge } from './sero-bridge';
  * File-backed reactive state hook.
  *
  * @param defaultState — returned while the file is being read (or if missing)
- * @returns [state, updateState] — updateState accepts an updater function
+ * @returns [state, updateState, ready]
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -59,14 +59,19 @@ export function applyDefaultState<T>(defaultState: T, current: unknown): T {
   return normalizeStateValue(defaultState, current) as T;
 }
 
-export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void] {
+export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void, boolean] {
   const ctx = use(AppContext);
   if (!ctx) {
     throw new Error('useAppState must be used inside an <AppProvider>');
   }
 
   const { stateFilePath } = ctx;
-  const [state, setState] = useState<T>(defaultState);
+  const [snapshot, setSnapshot] = useState<{ filePath: string; value: T }>({
+    filePath: stateFilePath,
+    value: defaultState,
+  });
+  const state = snapshot.filePath === stateFilePath ? snapshot.value : defaultState;
+  const [readyPath, setReadyPath] = useState<string | null>(null);
   const defaultStateRef = useRef<T>(defaultState);
   const stateRef = useRef<T>(defaultState);
   const latestWriteIdRef = useRef(0);
@@ -76,8 +81,8 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
 
   const applyState = useCallback((nextState: T) => {
     stateRef.current = nextState;
-    setState(nextState);
-  }, []);
+    setSnapshot({ filePath: stateFilePath, value: nextState });
+  }, [stateFilePath]);
 
   const recoverFromWriteFailure = useCallback(
     async (api: SeroWindowAppStateBridge, writeId: number, fallbackState: T) => {
@@ -104,17 +109,22 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
       applyState(nextState);
     };
 
-    applyState(defaultStateRef.current);
-
     const unsubscribe = api.appState.onChange<T | null>((filePath, data) => {
-      if (filePath !== stateFilePath || data == null) return;
+      if (!isActive || filePath !== stateFilePath || data == null) return;
       applyIfActive(applyDefaultState(defaultStateRef.current, data));
     });
 
-    void api.appState.watch<T | null>(stateFilePath).then((current) => {
-      if (current == null) return;
-      applyIfActive(applyDefaultState(defaultStateRef.current, current));
-    });
+    void api.appState.watch<T | null>(stateFilePath).then(
+      (current) => {
+        if (current != null) {
+          applyIfActive(applyDefaultState(defaultStateRef.current, current));
+        }
+        if (isActive) setReadyPath(stateFilePath);
+      },
+      () => {
+        if (isActive) setReadyPath(stateFilePath);
+      },
+    );
 
     return () => {
       isActive = false;
@@ -127,6 +137,7 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
     (updater: (prev: T) => T) => {
       const previous = stateRef.current;
       const next = updater(previous);
+      if (Object.is(next, previous)) return;
       const writeId = latestWriteIdRef.current + 1;
       latestWriteIdRef.current = writeId;
       applyState(next);
@@ -141,5 +152,5 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
     [applyState, recoverFromWriteFailure, stateFilePath],
   );
 
-  return [state, updateState];
+  return [state, updateState, readyPath === stateFilePath];
 }

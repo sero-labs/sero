@@ -191,7 +191,7 @@ test('a plain-English prompt produces an event-triggered loop', async () => {
   await expect(panel.getByText(/webhook:[a-z][a-z0-9-]*/).first()).toBeVisible({ timeout: 10_000 });
   await shot('02-create-review-with-event-trigger.png');
 
-  await panel.getByRole('button', { name: 'Activate loop' }).click();
+  await panel.getByRole('button', { name: 'Activate workflow' }).click();
   await expect(panel.getByText('Attempt history')).toBeVisible({ timeout: 20_000 });
 
   // Cross-check the persisted state: an event trigger with a webhook source.

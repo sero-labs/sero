@@ -224,7 +224,7 @@ async function resolveDirty(host: OrchestratorHost, loop: Loop, summary: string,
       appId: 'orchestrator',
       workspaceId: host.workspaceId,
       params: { loopId: loop.id },
-      label: 'Open loop',
+      label: 'Open workflow',
     },
   });
 

@@ -40,7 +40,6 @@ export interface LayoutState {
   /** Persisted panel size percentages (0–100). */
   mainSidebarSizePct?: number;
   chatPanelSizePct?: number;
-  chatCollaborationSizePct?: number;
   /** UI theme mode preference ('light' | 'dark' | 'system'). Backward compat: also accepts legacy 'dark'/'light'. */
   theme?: string;
   /** Active theme preset ID. */
@@ -53,6 +52,8 @@ export interface LayoutState {
   activeWorkspaceId?: string | null;
   /** Last active app tab. */
   activeApp?: string;
+  /** Last internal view published by each app and workspace scope. */
+  appViewIds?: Record<string, Record<string, string>>;
   /** App ids pinned as shortcut chips in the title bar. */
   chromeShortcuts?: string[];
   /** Page zoom factor (chrome bars counter-scale and stay constant). */

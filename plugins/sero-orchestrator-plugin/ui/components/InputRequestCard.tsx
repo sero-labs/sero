@@ -86,7 +86,7 @@ export function InputRequestCard({ loop, busy, onAction }: InputRequestCardProps
         <span className="text-sm text-muted-foreground">
           {fromPlanner
             ? 'Your answers go back to the planner to build the plan.'
-            : 'The step runs again with your answer. The loop waits until you answer.'}
+            : 'The step runs again with your answer. The Workflow waits until you answer.'}
         </span>
         <Button size="sm" disabled={busy || !allAnswered} onClick={submit}>
           {fromPlanner ? 'Submit answers & build the plan' : 'Send answer & continue'}

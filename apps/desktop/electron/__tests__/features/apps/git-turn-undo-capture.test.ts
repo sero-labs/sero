@@ -46,6 +46,35 @@ describe('registerGitTurnUndoCapture', () => {
     mocks.isLikelyReadOnlyBash.mockClear();
   });
 
+  /**
+   * A blocked git command must only ever name a way out this session has.
+   *
+   * Telling a Room member to run `sero git checkpoint` sent it round a loop of
+   * "Unknown command: git" and stopped two members dead in a live Room, asking
+   * the user how to commit — a question the user cannot answer.
+   */
+  it.each([
+    { hasGitCommands: true, names: true },
+    { hasGitCommands: false, names: false },
+  ])('names sero git only when the session has it (hasGitCommands=$hasGitCommands)', async ({ hasGitCommands, names }) => {
+    mocks.hasMutatingGit.mockReturnValue(true);
+    const handlers = new Map<string, Function>();
+    const pi = { on: vi.fn((event: string, handler: Function) => { handlers.set(event, handler); }) };
+    const entries = { appendWorkspaceLink: vi.fn(), appendTurnUndoEntry: vi.fn() };
+
+    const { registerGitTurnUndoCapture } = await import('@electron/features/apps/extensions/git-turn-undo-capture');
+    registerGitTurnUndoCapture(pi as never, 'ws-1', entries as never, hasGitCommands);
+
+    const result = await handlers.get('tool_call')?.({
+      toolCallId: 'c1', toolName: 'bash', input: { command: 'git commit -m "fix"' },
+    });
+
+    expect(result?.block).toBe(true);
+    expect(String(result?.reason).includes('sero git checkpoint')).toBe(names);
+    if (!names) expect(String(result?.reason)).toContain('committed for you when your turn ends');
+    mocks.hasMutatingGit.mockReturnValue(false);
+  });
+
   it('invalidates Git refresh after recording a mutating turn undo snapshot', async () => {
     const handlers = new Map<string, Function>();
     const pi = {

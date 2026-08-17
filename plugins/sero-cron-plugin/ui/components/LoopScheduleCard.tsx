@@ -54,7 +54,7 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
             )
           ))}
           {row.kind === 'schedule' && row.firesOnEvents && (
-            <Badge variant="outline" className="border-primary/30 text-sm text-primary" title="This loop also runs when its events fire">
+            <Badge variant="outline" className="border-primary/30 text-sm text-primary" title="This Workflow also runs when its events fire">
               Events
             </Badge>
           )}

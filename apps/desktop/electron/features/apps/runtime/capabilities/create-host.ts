@@ -4,9 +4,12 @@ import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/featu
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import { appControlHostService } from '@electron/features/apps/app-control/host-service';
+import { focusMainWindow } from '@electron/platform/desktop/notifications';
 import { showNotification } from '@electron/platform/desktop/notifications';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
+import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { startManagedDevServer } from '@electron/features/workspace/runtime/start-managed-dev-server';
@@ -84,6 +87,10 @@ async function runtimeFromServerId(serverId: string) {
 }
 
 export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost {
+  // `persistentSessions` is deliberately NOT set here. It is installed by the
+  // manager after the built-in gate runs (AD-029), so a runtime that is not a
+  // permitted bundled plugin simply has no such property — declaring the
+  // capability in a manifest produces nothing.
   return {
     appState: {
       read: async <T = unknown>(filePath: string) => appStateManager.read(filePath) as T | null,
@@ -111,6 +118,9 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         // ignores workspaceId; warm ensures it is published before first use.
         await warmSubagentToolCatalog();
         return getSubagentToolCatalog();
+      },
+      listSkillCatalog(workspaceId) {
+        return getRoomSkillCatalog(workspaceId);
       },
       async listAgentCatalog(_workspaceId) {
         // Named agent roles live in the profile-global agents dir (workspace-independent).
@@ -215,7 +225,18 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     notifications: {
       notify: (options) => {
-        showNotification(options);
+        const target = options.openTarget;
+        showNotification({
+          ...options,
+          // A notification that says something needs the user must be able to
+          // take them there; without this the click does nothing.
+          onClick: target
+            ? () => {
+                focusMainWindow();
+                void appControlHostService.open(target.appId);
+              }
+            : undefined,
+        });
       },
       requestChoice,
     },

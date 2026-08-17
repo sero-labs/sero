@@ -9,6 +9,7 @@
  * blocked-attention, blue = complete / suggestions, neutral = draft/disabled/idle.
  */
 
+import type { RoomStatus } from '../../shared/room-types';
 import type { LoopStatus, StepStatus } from '../../shared/types';
 
 export interface StatusStyle {
@@ -67,6 +68,25 @@ export const STEP_STATUS_STYLE: Record<StepStatus, StatusStyle> = {
   failed: { label: 'failed', dot: 'bg-rose-500', badge: 'border-rose-500/40 bg-rose-500/10 text-rose-400', tint: 'border-rose-500/30 bg-rose-500/5' },
   'needs-revision': { label: 'recovering', dot: 'bg-amber-500', badge: 'border-amber-500/40 bg-amber-500/10 text-amber-400', tint: 'border-amber-500/30 bg-amber-500/5' },
   skipped: { label: 'skipped', dot: 'bg-muted-foreground/30', badge: 'border-border text-muted-foreground/60', tint: '' },
+};
+
+/**
+ * Room status, in the same visual language. A Room has more states than a loop
+ * because a team can be mid-stop as well as stopped, and the two must not look
+ * the same: `pausing` is still spending, `paused` is not.
+ */
+export const ROOM_STATUS_STYLE: Record<RoomStatus, StatusStyle> = {
+  draft: { label: 'Draft', dot: 'bg-muted-foreground/50', badge: 'border-border text-muted-foreground', tint: '' },
+  adjusting: { label: 'Adjusting', dot: 'bg-amber-500/70', badge: 'border-amber-500/40 text-amber-400', tint: '' },
+  starting: { label: 'Starting', dot: 'bg-emerald-500/70', badge: 'border-emerald-500/40 text-emerald-400', tint: '' },
+  ready: { label: 'Ready', dot: 'bg-sky-500/70', badge: 'border-sky-500/40 text-sky-400', tint: '' },
+  running: { label: 'Running', dot: 'bg-emerald-500', badge: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400', tint: '' },
+  pausing: { label: 'Pausing', dot: 'bg-amber-500/70', badge: 'border-amber-500/40 bg-amber-500/10 text-amber-400', tint: '' },
+  paused: { label: 'Paused', dot: 'bg-amber-500', badge: 'border-amber-500/40 bg-amber-500/10 text-amber-400', tint: 'border-amber-500/30 bg-amber-500/5' },
+  completing: { label: 'Finishing', dot: 'bg-sky-500', badge: 'border-sky-500/40 bg-sky-500/10 text-sky-400', tint: '' },
+  completed: { label: 'Completed', dot: 'bg-sky-500', badge: 'border-sky-500/40 bg-sky-500/10 text-sky-400', tint: '' },
+  failed: { label: 'Failed', dot: 'bg-rose-500', badge: 'border-rose-500/40 bg-rose-500/10 text-rose-400', tint: 'border-rose-500/30 bg-rose-500/5' },
+  cancelled: { label: 'Cancelled', dot: 'bg-muted-foreground/40', badge: 'border-border text-muted-foreground/70', tint: '' },
 };
 
 /** Needs-you signals are independent of status (wireframe: `?N` and `✦N`). */

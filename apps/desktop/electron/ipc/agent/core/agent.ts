@@ -41,7 +41,7 @@ const pool = new Map<string, PoolEntry>();
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
-/** Get a pool entry by session ID (used by collaboration handler). */
+/** Get a pool entry by session ID. */
 export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
 }

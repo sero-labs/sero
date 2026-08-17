@@ -8,6 +8,12 @@ export interface AppRuntimeNotificationOptions {
   source?: string;
   sound?: string | boolean;
   subtitle?: string;
+  /**
+   * Where clicking the notification takes the user. Without it a click does
+   * nothing, which reads as a broken notification — the user was told something
+   * needs them and given no way to reach it.
+   */
+  openTarget?: UserFeedbackOpenTarget;
 }
 
 export interface AppRuntimeNotificationChoice {

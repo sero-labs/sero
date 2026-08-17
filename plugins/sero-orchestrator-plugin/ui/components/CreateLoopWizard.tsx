@@ -52,7 +52,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
   return (
     <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
       <header className="flex items-center gap-2">
-        <h1 className="text-lg font-semibold">New loop</h1>
+        <h1 className="text-lg font-semibold">New workflow</h1>
         <Stepper stage={stage} />
       </header>
 
@@ -83,11 +83,11 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
             </Card>
           )}
           <PlanPresentation loop={loop} onAction={onAction} />
-          <RefinePlan busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
             <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
-              Activate loop →
+              Activate workflow →
             </Button>
           </div>
         </div>

@@ -9,6 +9,7 @@ import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
   OrchestratorBoardLoopView,
+  OrchestratorBoardRoomView,
 } from '@sero-ai/common';
 import type { BoardColumnId, WorkspaceBoardSlice } from '@/types/board';
 
@@ -46,6 +47,20 @@ export interface BoardIssueCard {
   issue: AppRuntimeIssueSummary;
 }
 
+/**
+ * A Room on the board. Rooms are the Orchestrator's other mode — a team on one
+ * problem — so they share the columns rather than getting a board of their own,
+ * and the card's only action is to open the Room. Room controls stay in the
+ * Room: two places to pause the same team is one place too many.
+ */
+export interface BoardRoomCard {
+  kind: 'room';
+  key: string;
+  workspaceId: string;
+  workspaceName: string;
+  room: OrchestratorBoardRoomView;
+}
+
 export interface BoardSessionCard {
   kind: 'session';
   key: string;
@@ -55,7 +70,7 @@ export interface BoardSessionCard {
   title: string;
 }
 
-export type BoardCard = BoardLoopCard | BoardIssueCard | BoardSessionCard;
+export type BoardCard = BoardLoopCard | BoardIssueCard | BoardSessionCard | BoardRoomCard;
 
 export type BoardColumns = Record<BoardColumnId, BoardCard[]>;
 
@@ -113,6 +128,17 @@ export function loopColumn(loop: OrchestratorBoardLoopView, nowMs: number): Boar
   return 'active';
 }
 
+/**
+ * Which column a Room belongs to. A Room the user must answer outranks whatever
+ * else it is doing, exactly as a blocked loop does.
+ */
+export function roomColumn(room: OrchestratorBoardRoomView): BoardColumnId {
+  if (room.attentionCount > 0 || room.status === 'paused') return 'attention';
+  if (room.status === 'draft' || room.status === 'ready') return 'backlog';
+  if (room.status === 'completed' || room.status === 'failed' || room.status === 'cancelled') return 'done';
+  return 'active';
+}
+
 function toLoopCard(
   loop: OrchestratorBoardLoopView,
   workspace: BoardWorkspace,
@@ -147,11 +173,16 @@ function toLoopCard(
 }
 
 function updatedAtOf(card: BoardCard): number {
-  return card.kind === 'loop'
-    ? Date.parse(card.loop.updatedAt) || 0
-    : card.kind === 'issue'
-      ? Date.parse(card.issue.updatedAt) || 0
-      : Number.MAX_SAFE_INTEGER; // live sessions float to the top
+  switch (card.kind) {
+    case 'loop':
+      return Date.parse(card.loop.updatedAt) || 0;
+    case 'issue':
+      return Date.parse(card.issue.updatedAt) || 0;
+    case 'room':
+      return Date.parse(card.room.updatedAt) || 0;
+    default:
+      return Number.MAX_SAFE_INTEGER; // live sessions float to the top
+  }
 }
 
 function byUpdatedAtDesc(a: BoardCard, b: BoardCard): number {
@@ -195,6 +226,16 @@ export function buildBoardColumns(
       const card = toLoopCard(loop, workspace, slice.openPrs, nowMs);
       for (const n of card.issueNumbers) claimed.add(n);
       columns[column].push(card);
+    }
+
+    for (const room of slice.rooms?.rooms ?? []) {
+      columns[roomColumn(room)].push({
+        kind: 'room',
+        key: `${workspace.id}:room:${room.id}`,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        room,
+      });
     }
 
     for (const issue of slice.issues) {

@@ -8,6 +8,7 @@
  * the envelope shape and applies the recorded answer.
  */
 
+import { WORKFLOW_LABEL } from '../shared/labels';
 import type {
   AnsweredInput,
   HumanChoice,
@@ -83,7 +84,7 @@ export function parseHumanQuestions(raw: unknown): HumanQuestion[] | null {
 
 function notifyAsked(host: OrchestratorHost, loop: Loop, count: number): void {
   const label = count === 1 ? 'a question' : `${count} questions`;
-  host.notify(`Loop "${loop.title}" is waiting on you to answer ${label}.`, 'info');
+  host.notify(`${WORKFLOW_LABEL} "${loop.title}" is waiting on you to answer ${label}.`, 'info');
 }
 
 /** Sets a step-raised pending question on the loop and nudges the user. */

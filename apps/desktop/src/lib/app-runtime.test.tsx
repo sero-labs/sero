@@ -69,6 +69,47 @@ describe('app-runtime shared seams', () => {
     expect(() => getSeroApi()).toThrow('[app-runtime] window.sero not available — must run inside Sero shell');
   });
 
+  it('reports when the initial app-state read is complete', async () => {
+    let ready = false;
+    let updateState: ((updater: (prev: { count: number }) => { count: number }) => void) | null = null;
+    let finishWatch: ((value: { count: number } | null) => void) | null = null;
+    const appState = {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => undefined),
+      watch: vi.fn(() => new Promise<{ count: number } | null>((resolve) => {
+        finishWatch = resolve;
+      })),
+      unwatch: vi.fn(async () => undefined),
+      onChange: vi.fn(() => () => undefined),
+    };
+    installSeroBridge(appState);
+
+    function Probe() {
+      const [, setState, stateReady] = useAppState({ count: 0 });
+      ready = stateReady;
+      updateState = setState;
+      return null;
+    }
+
+    await act(async () => {
+      root?.render(
+        <AppProvider value={{ appId: 'runtime-test', workspaceId: 'global', workspacePath: '/tmp', stateFilePath: '/tmp/state.json' }}>
+          <Probe />
+        </AppProvider>,
+      );
+    });
+    expect(ready).toBe(false);
+
+    await act(async () => {
+      finishWatch?.(null);
+      await Promise.resolve();
+    });
+    expect(ready).toBe(true);
+
+    await act(async () => updateState?.((previous) => ({ count: previous.count + 1 })));
+    expect(appState.write).toHaveBeenCalledWith('/tmp/state.json', { count: 1 });
+  });
+
   it('reconciles optimistic app-state writes back to disk on write failure', async () => {
     let latestState = 0;
     let updateState: ((updater: (prev: { count: number }) => { count: number }) => void) | null = null;
@@ -103,6 +144,11 @@ describe('app-runtime shared seams', () => {
 
     expect(latestState).toBe(0);
     expect(appState.watch).toHaveBeenCalledWith('/tmp/state.json');
+
+    await act(async () => {
+      updateState?.((previous) => previous);
+    });
+    expect(appState.write).not.toHaveBeenCalled();
 
     await act(async () => {
       updateState?.((prev) => ({ count: prev.count + 1 }));

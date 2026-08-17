@@ -30,6 +30,10 @@ const agentsAutomation = [
   { text: 'Memory', link: '/guide/memory' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
   { text: 'Orchestrator', link: '/guide/orchestrator' },
+  { text: 'Workflows', link: '/guide/workflows' },
+  { text: 'Manage Workflows', link: '/guide/workflows-advanced' },
+  { text: 'Rooms', link: '/guide/rooms' },
+  { text: 'Manage a Room', link: '/guide/rooms-advanced' },
   { text: 'Running Evals', link: '/guide/running-evals' }
 ];
 
@@ -55,7 +59,9 @@ const referenceRuntime = [
   { text: 'models.json', link: '/reference/models-json' },
   { text: 'Agent Definitions', link: '/reference/agent-definitions' },
   { text: 'Agent Plugins', link: '/reference/agent-plugins' },
-  { text: 'Orchestrator', link: '/reference/orchestrator' }
+  { text: 'Orchestrator', link: '/reference/orchestrator' },
+  { text: 'Workflows', link: '/reference/workflows' },
+  { text: 'Rooms', link: '/reference/rooms' }
 ];
 
 const referenceAuthors = [
