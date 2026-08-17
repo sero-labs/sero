@@ -14,9 +14,10 @@ on:
       provider:
         description: LLM provider
         required: true
-        default: anthropic
+        default: openrouter
         type: choice
         options:
+          - openrouter
           - anthropic
           - openai
           - google
@@ -42,13 +43,14 @@ env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
   SERO_E2E_LLM_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}
-  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'anthropic' }}
+  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'openrouter' }}
   SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
   SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || '' }}
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
 jobs:
   agent:
@@ -80,6 +82,9 @@ jobs:
         shell: bash
         run: |
           case "$SERO_E2E_LLM_PROVIDER" in
+            openrouter)
+              test -n "$OPENROUTER_API_KEY" || { echo "::error::Missing OPENROUTER_API_KEY secret for agent e2e"; exit 1; }
+              ;;
             anthropic)
               test -n "$ANTHROPIC_API_KEY" || { echo "::error::Missing ANTHROPIC_API_KEY secret for agent e2e"; exit 1; }
               ;;

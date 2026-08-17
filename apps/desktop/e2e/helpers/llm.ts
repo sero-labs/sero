@@ -4,17 +4,19 @@ import path from 'node:path';
 export type LlmMode = 'off' | 'cheap' | 'full';
 
 const VALID_MODES: ReadonlyArray<LlmMode> = ['off', 'cheap', 'full'];
-const DEFAULT_PROVIDER = 'anthropic';
+const DEFAULT_PROVIDER = 'openrouter';
 const ENV_FILE = path.resolve(__dirname, '..', '.env.test');
 const CREDENTIAL_ENV_VARS: Record<string, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY'],
   openai: ['OPENAI_API_KEY'],
   google: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEY'],
 };
 const DEFAULT_MODELS: Record<string, Record<Exclude<LlmMode, 'off'>, string>> = {
   anthropic: { cheap: 'claude-haiku-4-5', full: 'claude-sonnet-4-6' },
   openai: { cheap: 'gpt-5.4-mini', full: 'gpt-5.5' },
   google: { cheap: 'gemini-3-flash-preview', full: 'gemini-3-pro-preview' },
+  openrouter: { cheap: 'openai/gpt-5.6-luna', full: 'minimax/minimax-m3' },
 };
 
 const loadedEnvFiles = new Map<string, Record<string, string>>();
