@@ -298,12 +298,72 @@ Merge the 71 files under 40 LOC and the 61 single-test files into the
 sibling file for the same module. This removes import and environment boot
 cost without removing a single assertion.
 
-Respect the 500 LOC file limit from `AGENTS.md`. Note that 4 test files
-already exceed it and several sit at 499. Split those by behaviour, not by
-line count.
+This phase needs the file-size rule changed first. See section 5.1.
 
 **Acceptance:** desktop test file count falls well below 374. Wall clock
 falls with it, because the saving is in per-file overhead.
+
+### 5.1 Change the file-size rule for tests
+
+The `AGENTS.md` rule caps every source file at 500 LOC. Change how the rule
+applies to tests. Do not simply raise the number.
+
+**The cap is not what fragmented the suite.** The size distribution shows
+this. The median test file is 116 LOC and the mean is 152. Only 20 of 769
+files (2.6%) sit between 450 and 500 LOC. The 71 files under 40 LOC and the
+61 single-test files are nowhere near the cap. They were written small; the
+rule did not split them.
+
+| Size | Files |
+| --- | ---: |
+| under 40 | 71 |
+| 40-100 | 243 |
+| 100-200 | 260 |
+| 200-400 | 152 |
+| 400-450 | 19 |
+| 450-500 | 20 |
+| over 500 | 4 |
+
+So relaxing the cap is **an enabler for Phase 5, not a win on its own.**
+A simulation of the merge confirms this: grouping the small files by
+directory absorbs 274 files into 56, and only 6 of those 56 groups would
+exceed 500 LOC.
+
+**Where the cap does bind, it binds badly.** The clearest case is
+`sero-orchestrator-plugin/runtime/__tests__/room-*.test.ts`: 25 files and
+7,036 LOC for one subsystem, with five files at 493-506 LOC. That module
+was split by line count, not by behaviour. One of them
+(`room-mailbox.test.ts`, 506 LOC) already breaks the rule.
+
+**Why a line cap is the wrong metric for a test file.** For source, 500 LOC
+is a good proxy for "this file has too many responsibilities". For tests,
+line count is dominated by fixtures, setup and mock declarations, not by
+responsibility count. Splitting a test file does not reduce complexity. It
+duplicates the setup and adds a new import graph and a new environment boot.
+
+That cost is measured. A fresh `jsdom` environment costs about 333ms per
+file across the 86 renderer test files. That cost is close to linear,
+because every file gets its own environment. Merging the renderer tests
+from 86 files to about 30 saves roughly 19 seconds of pure boot time and
+removes no assertion.
+
+**Proposed rule.** Replace the LOC cap for test files with:
+
+> One test file per module under test. Split a test file only when the
+> module it covers is split. A test file over **800 LOC** is a review
+> prompt, not a failure: check that it still covers one module, then leave
+> it alone if it does.
+
+Keep the 500 LOC hard cap for source files. It is doing its job there.
+
+**Why 800 as the review trigger.** It is above every plausible merged
+module file except the orchestrator room cluster, which needs a real
+behavioural split regardless. It is high enough that no test is split for
+line count alone, and low enough to still catch a file that has quietly
+grown to cover four unrelated modules.
+
+**Update `AGENTS.md`** in the File Size Rules section to state the source
+cap and the test rule separately.
 
 ### Phase 6 — Prevent regrowth
 
@@ -327,7 +387,7 @@ These are hypotheses to confirm in Phase 3, not promises.
 | Measure | Now | Target | Basis |
 | --- | ---: | ---: | --- |
 | Desktop typecheck | 39.5s | ~20s | Measured in Phase 1. |
-| Test files | 769 | ~450 | Merge 132 fragments; delete tautologies. |
+| Test files | 769 | ~450 | Merge fragments (274 -> 56 in one simulation); delete tautologies. |
 | Test LOC | 117,192 | ~70,000 | Delete and rewrite by category. |
 | Desktop test wall clock | 66s | ~40s | Per-file overhead falls with file count. |
 | Assertions | 20,845 | ~18,000 | Most assertions are real. Keep them. |
