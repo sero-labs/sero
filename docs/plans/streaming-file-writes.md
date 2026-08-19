@@ -3,7 +3,8 @@
 Evaluation of how to show a file appearing in real time while the model writes
 it, instead of only showing the finished artifact.
 
-Status: evaluation / design. No code changed yet.
+Status: implemented. This document is the design; see the commits on this branch
+for the code.
 
 ## 1. Why nothing streams today
 
@@ -162,13 +163,14 @@ One derived read in `useEditorDocumentState`. No new tab type, no new component,
 no new persistence key — `saveState({ openTabs, activeTab })` is unchanged
 because the overlay never outlives the turn.
 
-This is also strictly better than a separate tab, because it fixes a bug that
-exists today: the editor caches file content in `contentMapRef` and the only
-watcher, `useWorkspaceFileWatch`, refreshes the **file tree**, not open
-documents. So right now, if the agent writes a file you have open, your tab
-shows stale content until you close and reopen it. Routing agent writes through
-the open tab gives you the live view *and* the correct final content from one
-mechanism.
+This composes with what the editor already does. `useEditorRuntimeSync` watches
+the file tree and re-reads any open, non-dirty tab whose directory changed, so a
+finished agent write already lands in the tab. (An earlier draft of this
+document claimed open tabs went stale — that was wrong; the watcher handles it.)
+The overlay covers the gap that watcher cannot: the seconds *while* the file is
+being written, before anything reaches disk. When the write lands the overlay
+clears and the watcher supplies the real content, so there is one path in and no
+reconciliation step.
 
 Three rules make "all tabs live" safe:
 
@@ -180,24 +182,25 @@ Three rules make "all tabs live" safe:
   history and cursor position, so typing into a buffer that is about to be
   replaced must not be possible. On `tool_input_end` the overlay is dropped and
   the tab re-reads from disk, restoring a normal editable document.
-- **Auto-open is a preview tab, not a pin.** An agent touching twelve files must
-  not leave twelve tabs. Open the file being written as an ephemeral tab that the
-  next one replaces and that closes if untouched — the standard preview-tab
-  behaviour, which Sero does not have yet and which is useful on its own. Add
-  `streaming?: boolean` to `EditorTab` as a flag; `tabs` stays `string[]`.
+- **Nothing auto-opens.** A tab already open goes live; the editor never opens
+  one on the agent's behalf. `requestOpenFile` also switches the active app to
+  the explorer, so auto-opening would yank the user out of chat once per file
+  written — twelve files, twelve interruptions. The tool card already shows every
+  write, and ctrl+clicking its path opens the file, which is then live. A pulsing
+  dot on the tab marks a streaming file; `EditorTab` gains `streaming?: boolean`
+  as a flag and `tabs` stays `string[]`.
 
 ## 5. Scope
 
 | Phase | Work | Files |
 | --- | --- | --- |
 | 1 | Streaming input plumbing + live pane in the tool card | `agent-subscription.ts`, `types/ipc.ts`, `agent-utils.ts`, `ToolCallProgress.tsx` |
-| 2 | Overlay read in the editor + preview-tab behaviour | `useEditorDocumentState.ts`, `EditorTabBar.tsx`, `useExplorerEditorState.ts` |
+| 2 | Overlay read in the editor + streaming tab marker | `streaming-writes.ts`, `EditorPanel.tsx`, `EditorTabBar.tsx` |
 | 3 | Web remote parity | `gateway-client.ts`, `web-remote/src/stores/chat.ts` |
 
-Phase 1 is the whole user-visible win and is small. Phase 2 is now mostly the
-preview-tab behaviour, since the live content itself is one derived read. Phase 3
-is a separate job: the gateway push union does not forward `tool_update` today
-either, so web remote has no partial tool channel at all.
+Phase 1 is the whole user-visible win and is small. Phase 2 is one derived read
+plus a tab marker. Phase 3 needs three new event types on the gateway push union,
+which today forwards no partial tool channel at all.
 
 ## 6. Tests
 
@@ -229,4 +232,4 @@ array of `AssistantMessageEvent` values is the input.
 | Placeholder leaks on abort | Sweep pending placeholders at `agent_end` |
 | Corrupt files | Preview is memory-only; disk write stays atomic at tool end |
 | Losing unsaved user edits | Dirty tabs are marked, never taken over |
-| Tab spam on a multi-file turn | Auto-open uses one replaceable preview tab |
+| Tab spam / focus stealing on a multi-file turn | Nothing auto-opens; only tabs the user opened go live |

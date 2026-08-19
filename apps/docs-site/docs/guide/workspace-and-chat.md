@@ -182,6 +182,11 @@ For detailed attachment behavior, model controls, prompt steering, abort states,
 queued follow-ups, context presets, workspace snapshots, slash commands, and
 voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
 
+When the agent writes a file, its tool card shows the file filling in line by
+line rather than only the finished result. The card carries the path and a live
+line count while the write is in progress. If the same file is open in an
+Explorer tab, it streams there too.
+
 The chat panel stays available across app switches so the current agent session
 can remain in view while you inspect files, plugins, or settings.
 

@@ -5,6 +5,8 @@
  * with typed request/response/push messages.
  */
 
+export * from './protocol-events';
+
 // ── Client → Gateway requests ───────────────────────────────
 
 export interface GatewayConnectRequest {
@@ -169,82 +171,6 @@ export interface GatewayErrorResponse {
 }
 
 export type GatewayResponse = GatewayOkResponse | GatewayErrorResponse;
-
-// ── Gateway → Client push events (streaming) ────────────────
-
-export interface GatewayAgentStartEvent {
-  type: 'agent_start';
-  sessionId: string;
-}
-
-export interface GatewayAgentEndEvent {
-  type: 'agent_end';
-  sessionId: string;
-}
-
-export interface GatewayTextDeltaEvent {
-  type: 'text_delta';
-  sessionId: string;
-  delta: string;
-}
-
-export interface GatewayThinkingDeltaEvent {
-  type: 'thinking_delta';
-  sessionId: string;
-  delta: string;
-}
-
-export interface GatewayToolStartEvent {
-  type: 'tool_start';
-  sessionId: string;
-  toolName: string;
-  toolCallId: string;
-  /** Tool input parameters for display (optional). */
-  input?: Record<string, unknown>;
-}
-
-export interface GatewayToolEndEvent {
-  type: 'tool_end';
-  sessionId: string;
-  toolCallId: string;
-  output: string | null;
-  isError: boolean;
-  /** Images returned by this tool call (e.g. screenshots). */
-  images?: Array<{ data: string; mimeType: string; description?: string }>;
-}
-
-export interface GatewayArtifactEvent {
-  type: 'artifact_added';
-  sessionId: string;
-  artifactId: string;
-  artifactType: string;
-  title: string;
-}
-
-/**
- * Dev server lifecycle event. The `server` shape mirrors `DevServer`
- * from the IPC types but is treated as opaque JSON here so the protocol
- * stays decoupled from the host registry.
- */
-export interface GatewayDevServerChangedEvent {
-  type: 'dev_server_changed';
-  /** The workspace the affected server belongs to. Used for scope filtering. */
-  workspaceId: string;
-  change:
-    | { type: 'registered'; server: Record<string, unknown> }
-    | { type: 'unregistered'; serverId: string }
-    | { type: 'status_changed'; serverId: string; status: 'running' | 'stopped' | 'starting' | 'failed' };
-}
-
-export type GatewayPushEvent =
-  | GatewayAgentStartEvent
-  | GatewayAgentEndEvent
-  | GatewayTextDeltaEvent
-  | GatewayThinkingDeltaEvent
-  | GatewayToolStartEvent
-  | GatewayToolEndEvent
-  | GatewayArtifactEvent
-  | GatewayDevServerChangedEvent;
 
 // ── Validation ──────────────────────────────────────────────
 

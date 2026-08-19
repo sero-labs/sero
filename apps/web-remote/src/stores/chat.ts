@@ -23,7 +23,9 @@ export interface ToolCall {
   toolCallId: string;
   toolName: string;
   input?: Record<string, unknown>;
-  state: 'running' | 'done' | 'error';
+  state: 'streaming' | 'running' | 'done' | 'error';
+  /** True while the model is still streaming this call's arguments. */
+  isStreamingInput?: boolean;
   output?: string;
   /** Images returned by this tool call (e.g. screenshots). */
   images?: Array<{ data: string; mimeType: string; description?: string }>;
@@ -256,14 +258,77 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         break;
       }
 
-      case 'tool_start': {
+      case 'tool_input_start': {
+        // The card appears before the tool runs, keyed by the stream until the
+        // real tool call id arrives.
         const toolCall: ToolCall = {
-          toolCallId: pushMsg.toolCallId as string,
+          toolCallId: pushMsg.streamKey as string,
+          toolName: pushMsg.toolName as string,
+          input: {},
+          state: 'streaming',
+          isStreamingInput: true,
+        };
+        set((s) => ({ toolCalls: [...s.toolCalls, toolCall] }));
+        get()._rebuildRenderItems();
+        break;
+      }
+
+      case 'tool_input_delta': {
+        const streamKey = pushMsg.streamKey as string;
+        const delta = pushMsg.delta as string;
+        const replace = pushMsg.replace as boolean;
+        const path = pushMsg.path as string | null;
+
+        set((s) => ({
+          toolCalls: s.toolCalls.map((tc) => {
+            if (tc.toolCallId !== streamKey) return tc;
+            const previous = typeof tc.input?.content === 'string' ? tc.input.content : '';
+            return {
+              ...tc,
+              input: {
+                ...tc.input,
+                ...(path ? { path } : {}),
+                content: replace ? delta : previous + delta,
+              },
+            };
+          }),
+        }));
+        get()._rebuildRenderItems();
+        break;
+      }
+
+      case 'tool_input_end': {
+        const streamKey = pushMsg.streamKey as string;
+        const toolCallId = pushMsg.toolCallId as string;
+        set((s) => ({
+          toolCalls: s.toolCalls.map((tc) =>
+            tc.toolCallId === streamKey ? { ...tc, toolCallId, isStreamingInput: false } : tc,
+          ),
+        }));
+        get()._rebuildRenderItems();
+        break;
+      }
+
+      case 'tool_start': {
+        const toolCallId = pushMsg.toolCallId as string;
+        const toolCall: ToolCall = {
+          toolCallId,
           toolName: pushMsg.toolName as string,
           input: pushMsg.input as Record<string, unknown> | undefined,
           state: 'running',
         };
-        set((s) => ({ toolCalls: [...s.toolCalls, toolCall] }));
+        // The card may already exist from the argument stream.
+        set((s) => (
+          s.toolCalls.some((tc) => tc.toolCallId === toolCallId)
+            ? {
+                toolCalls: s.toolCalls.map((tc) =>
+                  tc.toolCallId === toolCallId
+                    ? { ...tc, ...toolCall, isStreamingInput: false }
+                    : tc,
+                ),
+              }
+            : { toolCalls: [...s.toolCalls, toolCall] }
+        ));
         get()._rebuildRenderItems();
         break;
       }

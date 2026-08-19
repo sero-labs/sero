@@ -7,6 +7,7 @@ import {
 } from '../ToolCallProgress';
 import { getCollapsedToolSummary, toolStatusDot } from '../ToolCallState';
 import { ToolSummaryText } from './ToolSummaryText';
+import { StreamingFileWrite } from './StreamingFileWrite';
 
 export function ToolLine({
   tool,
@@ -26,19 +27,26 @@ export function ToolLine({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15, delay: index * 0.03 }}
-      className="flex items-center gap-2 px-3 py-1 text-xs"
+      className="px-3 py-1 text-xs"
     >
-      {toolStatusDot(tool.state)}
-      <span className="shrink-0 font-medium text-[var(--text-muted)]">
-        {effectiveToolName}
-      </span>
-      {summary ? (
-        <ToolSummaryText
-          summary={summary}
-          toolName={tool.toolName}
-          workspaceId={workspaceId}
-          hasLiveProgress={!!progressModel}
-        />
+      <div className="flex items-center gap-2">
+        {toolStatusDot(tool.state)}
+        <span className="shrink-0 font-medium text-[var(--text-muted)]">
+          {effectiveToolName}
+        </span>
+        {summary ? (
+          <ToolSummaryText
+            summary={summary}
+            toolName={tool.toolName}
+            workspaceId={workspaceId}
+            hasLiveProgress={!!progressModel}
+          />
+        ) : null}
+      </div>
+      {tool.isStreamingInput ? (
+        <div className="mt-1.5">
+          <StreamingFileWrite tool={tool} />
+        </div>
       ) : null}
     </motion.div>
   );

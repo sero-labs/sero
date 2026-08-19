@@ -43,7 +43,11 @@ function toVirtualChildPath(prefix: string, rootPath: string, filePath: string):
   return relative ? `${prefix}/${relative}` : prefix;
 }
 
-function toEditorPath(workspaceId: string, filePath: string): string {
+/**
+ * Map a host or runtime file path onto the editor's virtual path
+ * (`/<rootId>/<relative>`), which is what tabs are keyed by.
+ */
+export function toEditorPath(workspaceId: string, filePath: string): string {
   const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId);
   if (!workspace) return filePath;
 

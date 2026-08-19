@@ -25,11 +25,17 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const statusIcon = {
+    streaming: <Loader2 className="size-3.5 animate-spin text-blue-500" />,
     running: <Loader2 className="size-3.5 animate-spin text-yellow-500" />,
     done: <Check className="size-3.5 text-green-500" />,
     error: <X className="size-3.5 text-destructive" />,
   }[tc.state];
 
+  // While arguments stream, the file being written is the interesting content —
+  // the tool has not run, so there is no output yet.
+  const streamedContent =
+    tc.isStreamingInput && typeof tc.input?.content === 'string' ? tc.input.content : null;
+  const streamedPath = typeof tc.input?.path === 'string' ? tc.input.path : null;
   const hasOutput = (tc.output && tc.output.length > 0) || (tc.images && tc.images.length > 0);
   const hasImages = tc.images && tc.images.length > 0;
 
@@ -45,7 +51,16 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
           {statusIcon}
           <Wrench className="size-3 shrink-0" />
           <span className="font-mono text-xs truncate">{tc.toolName}</span>
+          {streamedPath && (
+            <span className="font-mono text-xs truncate text-muted-foreground/70">{streamedPath}</span>
+          )}
         </CollapsibleTrigger>
+
+        {streamedContent !== null && (
+          <pre className="mt-1 ml-6 flex max-h-[200px] flex-col justify-end overflow-hidden whitespace-pre rounded bg-background p-2 text-xs text-muted-foreground">
+            {streamedContent.split('\n').slice(-40).join('\n')}
+          </pre>
+        )}
 
         {/* Tool result images, always visible, click to open lightbox */}
         {hasImages && (
@@ -96,7 +111,9 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({
 }: ToolCallDisplayProps) {
   if (toolCalls.length === 0) return null;
 
-  const running = toolCalls.filter((tc) => tc.state === 'running').length;
+  const running = toolCalls.filter(
+    (tc) => tc.state === 'running' || tc.state === 'streaming',
+  ).length;
   const done = toolCalls.filter((tc) => tc.state === 'done').length;
   const errors = toolCalls.filter((tc) => tc.state === 'error').length;
 

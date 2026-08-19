@@ -17,6 +17,7 @@ import { ToolDetail } from './ToolDetail';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';
+import { StreamingFileWrite } from './StreamingFileWrite';
 
 export function SingleToolCall({
   tool,
@@ -32,6 +33,7 @@ export function SingleToolCall({
   const hasImages = !!tool.images?.length;
   const hasFileLinks = Array.isArray(tool.details?.imagePaths) && tool.details.imagePaths.length > 0;
   const progressModel = buildToolProgressModel(tool);
+  const isStreamingInput = !!tool.isStreamingInput;
   const [expanded, setExpanded] = useState(() => isRunning);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -46,7 +48,7 @@ export function SingleToolCall({
       transition={{ duration: 0.2 }}
       className={cn(
         'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
-        isRunning
+        isRunning || isStreamingInput
           ? 'border-status-info-border bg-status-info-faint'
           : status === 'error'
             ? 'border-status-error-border bg-status-error-faint'
@@ -79,12 +81,18 @@ export function SingleToolCall({
             hasLiveProgress={!!progressModel}
           />
         ) : null}
-        {progressModel ? (
+        {progressModel || isStreamingInput ? (
           <span className="rounded-full bg-status-info-subtle px-1.5 py-0.5 text-sm font-medium uppercase tracking-wide text-status-info">
             Live
           </span>
         ) : null}
       </button>
+
+      {isStreamingInput ? (
+        <div className="border-t border-[var(--border-subtle)] p-3">
+          <StreamingFileWrite tool={tool} />
+        </div>
+      ) : null}
 
       {!expanded && progressModel ? (
         <div className="border-t border-[var(--border-subtle)] p-3">
