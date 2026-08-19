@@ -19,6 +19,7 @@ import {
   buildTurnUndoMapByTurn,
 } from './agent-helpers';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
+import { ToolInputStreams } from './tool-input-stream';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
 import { emitTurnComplete, getCliActiveTurnId, noteCliTurnEnd, noteCliTurnStart } from '@electron/cli/bridges';
 
@@ -44,6 +45,10 @@ export function subscribeToSession(
   getEntry: () => SubscriptionPoolEntry | undefined,
   sendEvent: (event: AgentStreamEvent) => void,
 ): () => void {
+  // Argument streams are scoped to one assistant message, so this tracker is
+  // reset at every message boundary.
+  const toolInputStreams = new ToolInputStreams();
+
   return session.subscribe((event) => {
     const entry = getEntry();
     if (!entry) return;
@@ -87,6 +92,7 @@ export function subscribeToSession(
       }
 
       case 'message_start': {
+        toolInputStreams.reset();
         if (event.message.role === 'assistant') {
           const chatMsg: ChatAssistantMessage = {
             type: 'assistant',
@@ -138,11 +144,34 @@ export function subscribeToSession(
             messageId: entry.currentAssistantId,
             delta: ame.delta,
           });
+        } else if (ame.type === 'toolcall_start') {
+          const started = toolInputStreams.start(ame.partial, ame.contentIndex);
+          if (started) sendEvent({ type: 'tool_input_start', sessionId, ...started });
+        } else if (ame.type === 'toolcall_delta') {
+          const chunk = toolInputStreams.advance(ame.partial, ame.contentIndex);
+          if (chunk) sendEvent({ type: 'tool_input_delta', sessionId, ...chunk });
+        } else if (ame.type === 'toolcall_end') {
+          const finished = toolInputStreams.end(ame.toolCall, ame.contentIndex);
+          if (finished) {
+            sendEvent({
+              type: 'tool_input_delta',
+              sessionId,
+              streamKey: finished.streamKey,
+              ...finished.final,
+            });
+            sendEvent({
+              type: 'tool_input_end',
+              sessionId,
+              streamKey: finished.streamKey,
+              toolCallId: finished.toolCallId,
+            });
+          }
         }
         break;
       }
 
       case 'message_end': {
+        toolInputStreams.reset();
         if (event.message.role === 'assistant' && entry.currentAssistantId) {
           const textParts = event.message.content.filter(
             (c): c is { type: 'text'; text: string } => c.type === 'text',

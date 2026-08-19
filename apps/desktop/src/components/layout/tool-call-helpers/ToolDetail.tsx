@@ -15,6 +15,7 @@ import {
 import { mapToolState } from '../ToolCallState';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
+import { StreamingFileWrite } from './StreamingFileWrite';
 
 export function ToolDetail({
   tool,
@@ -31,7 +32,7 @@ export function ToolDetail({
 
   return (
     <Tool
-      defaultOpen={isComplete || tool.state === 'running'}
+      defaultOpen={isComplete || tool.state === 'running' || tool.isStreamingInput}
       className="mb-2 border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30"
     >
       <ToolHeader
@@ -41,10 +42,14 @@ export function ToolDetail({
         className="border-b border-[var(--border-subtle)]/60 p-1.5"
       />
       <ToolContent className="max-h-[min(52vh,30rem)] space-y-0 overflow-y-auto overscroll-contain p-0 [scrollbar-gutter:stable]">
-        <ToolInput
-          input={tool.input}
-          className="rounded-none border border-[var(--border-subtle)]/60 bg-[var(--bg-surface)]/60 p-2.5 [&_[data-language]]:border-[var(--border-subtle)]/60 [&_[data-language]]:bg-[var(--bg-elevated)]/40"
-        />
+        {tool.isStreamingInput ? (
+          <StreamingFileWrite tool={tool} />
+        ) : (
+          <ToolInput
+            input={tool.input}
+            className="rounded-none border border-[var(--border-subtle)]/60 bg-[var(--bg-surface)]/60 p-2.5 [&_[data-language]]:border-[var(--border-subtle)]/60 [&_[data-language]]:bg-[var(--bg-elevated)]/40"
+          />
+        )}
         {isComplete && tool.images?.length ? (
           <ToolImages images={tool.images} workspaceId={workspaceId} />
         ) : null}

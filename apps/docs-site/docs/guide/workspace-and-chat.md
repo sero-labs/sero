@@ -182,6 +182,10 @@ For detailed attachment behavior, model controls, prompt steering, abort states,
 queued follow-ups, context presets, workspace snapshots, slash commands, and
 voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
 
+When the agent writes a file, its tool card shows the path and a live status.
+The card does not show each content delta by default. If the same file is open
+in an Explorer tab, its content streams there.
+
 The chat panel stays available across app switches so the current agent session
 can remain in view while you inspect files, plugins, or settings.
 

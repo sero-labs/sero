@@ -135,6 +135,10 @@ function toolDisplayFieldsEqual(a: ChatToolCallMessage, b: ChatToolCallMessage):
     && a.state === b.state
     && a.output === b.output
     && a.isPartialOutput === b.isPartialOutput
+    // A streaming write changes only its input, so comparing the rest would
+    // freeze the live view after its first frame. The store replaces `input`
+    // per delta, making this a cheap reference check.
+    && a.input === b.input
     && a.details === b.details
     && a.images === b.images;
 }

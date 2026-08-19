@@ -21,6 +21,8 @@ import { FileIcon } from '@/components/apps/explorer/file-tree/file-icons';
 export interface EditorTab {
   path: string;
   dirty: boolean;
+  /** True while the agent is streaming this file's content into the tab. */
+  streaming?: boolean;
 }
 
 interface Props {
@@ -69,6 +71,9 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onCloseOthers, on
           <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
           {tab.dirty && <span className="text-xs text-[var(--accent-primary)] ml-0.5 shrink-0">●</span>}
+          {tab.streaming && (
+            <span className="ml-0.5 shrink-0 animate-pulse text-xs text-status-info" title="Agent is writing this file">●</span>
+          )}
           <button type="button"
             className={cn(
               'flex items-center justify-center size-4 border-none bg-transparent',

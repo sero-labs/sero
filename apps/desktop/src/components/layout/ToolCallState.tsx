@@ -108,6 +108,12 @@ function summarizeToolOutput(output: string | null): string | null {
 }
 
 export function getCollapsedToolSummary(tool: ChatToolCallMessage): string {
+  // While arguments stream, `input` is a partial parse: the path may not exist
+  // yet, and the generic fallback below would show the file's contents instead.
+  if (tool.isStreamingInput) {
+    return typeof tool.input.path === 'string' ? tool.input.path : '';
+  }
+
   const progressHeader = getToolProgressHeaderText(tool);
   if (progressHeader) return progressHeader;
 

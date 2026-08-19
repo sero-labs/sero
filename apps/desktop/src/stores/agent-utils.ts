@@ -6,6 +6,14 @@ import type {
   ChatToolCallMessage,
 } from '@/types/ipc';
 import type { AgentInstance, AgentState } from '@/stores/agent-types';
+import {
+  bufferToolInputDelta,
+  clearBufferedSessionToolInput,
+  createStreamingToolMessage,
+  applyToolInputEnd,
+  applyToolStart,
+  hasBufferedToolInput,
+} from '@/stores/agent-tool-input';
 import { useContainerStore } from '@/stores/container';
 import { useSessionStore } from '@/stores/sessions';
 
@@ -92,7 +100,7 @@ function scheduleDeltaFlush(flushFn: () => void) {
 function clearBufferedSessionDeltas(sessionId: string): void {
   buf.text.delete(sessionId);
   buf.thinking.delete(sessionId);
-  if (buf.rafId !== null && buf.text.size === 0 && buf.thinking.size === 0) {
+  if (buf.rafId !== null && buf.text.size === 0 && buf.thinking.size === 0 && !hasBufferedToolInput()) {
     cancelAnimationFrame(buf.rafId);
     buf.rafId = null;
   }
@@ -118,6 +126,9 @@ const pendingMemoryContext = new Map<string, string>();
 
 export function clearAgentSessionBuffers(sessionId: string): void {
   pendingMemoryContext.delete(sessionId);
+  // Tool input first: the delta clear cancels the pending frame only once every
+  // buffer is empty.
+  clearBufferedSessionToolInput(sessionId);
   clearBufferedSessionDeltas(sessionId);
 }
 
@@ -212,7 +223,7 @@ export function handleAgentStreamEvent(
         if (!agent) return state;
         const messages = agent.messages.map((message) =>
           message.type === 'tool' && (message.state === 'pending' || message.state === 'running')
-            ? { ...message, state: 'cancelled' as const }
+            ? { ...message, state: 'cancelled' as const, isStreamingInput: false }
             : message,
         );
         return {
@@ -319,13 +330,51 @@ export function handleAgentStreamEvent(
       }));
       break;
 
+    case 'tool_input_start':
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: [
+              ...state.agents[sid].messages,
+              createStreamingToolMessage(event.streamKey, event.toolName),
+            ],
+          },
+        },
+      }));
+      break;
+
+    case 'tool_input_delta':
+      bufferToolInputDelta(sid, event.streamKey, event.delta, event.replace, event.path);
+      scheduleDeltaFlush(flushDeltas);
+      break;
+
+    case 'tool_input_end':
+      // Flush first so the trailing deltas land before the key is rewritten.
+      flushDeltas();
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: applyToolInputEnd(
+              state.agents[sid].messages,
+              event.streamKey,
+              event.toolCallId,
+            ),
+          },
+        },
+      }));
+      break;
+
     case 'tool_start':
       set((state) => ({
         agents: {
           ...state.agents,
           [sid]: {
             ...state.agents[sid],
-            messages: [...state.agents[sid].messages, { ...event.tool, isPartialOutput: false }],
+            messages: applyToolStart(state.agents[sid].messages, event.tool),
           },
         },
       }));
@@ -369,6 +418,7 @@ export function handleAgentStreamEvent(
                     isError: event.isError,
                     state: event.isError ? 'error' : 'completed',
                     isPartialOutput: false,
+                    isStreamingInput: false,
                     images: event.images,
                   } as ChatToolCallMessage)
                 : message,

@@ -12,6 +12,7 @@ import {
   drainDeltaBuffer,
   handleAgentStreamEvent,
 } from '@/stores/agent-utils';
+import { applyToolInputDelta, drainToolInputBuffer } from '@/stores/agent-tool-input';
 import { notifyPreviousSessionSwitch } from '@/stores/agent-focus';
 
 // Deduplicate concurrent opens for the same session so every caller waits for
@@ -294,7 +295,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Flush buffered text/thinking deltas into the store in one batch.
     const flushDeltas = () => {
       const { text, thinking } = drainDeltaBuffer();
-      if (text.size === 0 && thinking.size === 0) return;
+      const toolInput = drainToolInputBuffer();
+      if (text.size === 0 && thinking.size === 0 && toolInput.size === 0) return;
       set((s) => {
         let agents = s.agents;
         for (const [sessionId, msgMap] of text) {
@@ -310,6 +312,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               ...m, thinking: (m.thinking ?? '') + delta,
             }));
           }
+        }
+        for (const [sessionId, streamMap] of toolInput) {
+          const agent = agents[sessionId];
+          if (!agent) continue;
+          let messages = agent.messages;
+          for (const [streamKey, pending] of streamMap) {
+            messages = applyToolInputDelta(messages, streamKey, pending);
+          }
+          agents = { ...agents, [sessionId]: { ...agent, messages } };
         }
         return { agents };
       });

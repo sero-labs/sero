@@ -99,6 +99,13 @@ product.
 The editor view is the normal path for reading and changing text files in the
 active workspace.
 
+When the agent writes a file you already have open, the tab shows the content
+appearing line by line while the agent writes, marked with a pulsing dot. The
+tab is read-only for those few seconds and becomes editable again once the write
+finishes. A tab with unsaved changes is never taken over — your edits stay on
+screen. Explorer does not open tabs on the agent's behalf; open the file (for
+example by ctrl+clicking its path in a tool card) and it streams from then on.
+
 ![Explorer editor](../assets/images/explorer-editor.jpg)
 
 Diff tabs are for reviewing changes and revisions before asking the agent or Git
