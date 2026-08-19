@@ -144,19 +144,62 @@ broken source, and leaves corrupt files if the turn aborts. The preview must be
 in-memory only. The existing atomic write at `tool_execution_end` stays the sole
 writer.
 
-## 4. Scope
+## 4. The editor: every tab is live
+
+There is no "live tab". A tab in the explorer editor is already just a path —
+`tabs: string[]` in `useEditorDocumentState.ts`, and `EditorTab` is
+`{ path, dirty }`. A second tab *kind* would duplicate the document state,
+the tab bar, the Monaco bridge and the preview registry to show the same file.
+
+The streaming content is an **overlay on the path**, not a new surface:
+
+```
+streamingWrites: Map<path, string>     // in the agent store, current turn only
+content = streamingWrites.get(activeTab) ?? contentMapRef.current.get(activeTab)
+```
+
+One derived read in `useEditorDocumentState`. No new tab type, no new component,
+no new persistence key — `saveState({ openTabs, activeTab })` is unchanged
+because the overlay never outlives the turn.
+
+This is also strictly better than a separate tab, because it fixes a bug that
+exists today: the editor caches file content in `contentMapRef` and the only
+watcher, `useWorkspaceFileWatch`, refreshes the **file tree**, not open
+documents. So right now, if the agent writes a file you have open, your tab
+shows stale content until you close and reopen it. Routing agent writes through
+the open tab gives you the live view *and* the correct final content from one
+mechanism.
+
+Three rules make "all tabs live" safe:
+
+- **Dirty tabs are never taken over.** If `dirtyPaths.has(path)`, keep the
+  user's buffer on screen and mark the tab instead. Their unsaved work is not
+  something to overwrite for a preview, and a conflict prompt at the end is the
+  honest outcome.
+- **A streaming buffer is read-only.** Coalesced `setValue` calls destroy undo
+  history and cursor position, so typing into a buffer that is about to be
+  replaced must not be possible. On `tool_input_end` the overlay is dropped and
+  the tab re-reads from disk, restoring a normal editable document.
+- **Auto-open is a preview tab, not a pin.** An agent touching twelve files must
+  not leave twelve tabs. Open the file being written as an ephemeral tab that the
+  next one replaces and that closes if untouched — the standard preview-tab
+  behaviour, which Sero does not have yet and which is useful on its own. Add
+  `streaming?: boolean` to `EditorTab` as a flag; `tabs` stays `string[]`.
+
+## 5. Scope
 
 | Phase | Work | Files |
 | --- | --- | --- |
 | 1 | Streaming input plumbing + live pane in the tool card | `agent-subscription.ts`, `types/ipc.ts`, `agent-utils.ts`, `ToolCallProgress.tsx` |
-| 2 | Live tab in the explorer editor, driven by the same store state | `apps/desktop/src/components/apps/explorer/editor/` |
+| 2 | Overlay read in the editor + preview-tab behaviour | `useEditorDocumentState.ts`, `EditorTabBar.tsx`, `useExplorerEditorState.ts` |
 | 3 | Web remote parity | `gateway-client.ts`, `web-remote/src/stores/chat.ts` |
 
-Phase 1 is the whole user-visible win and is small. Phase 3 is a separate job:
-the gateway push union does not forward `tool_update` today either, so web
-remote has no partial tool channel at all.
+Phase 1 is the whole user-visible win and is small. Phase 2 is now mostly the
+preview-tab behaviour, since the live content itself is one derived read. Phase 3
+is a separate job: the gateway push union does not forward `tool_update` today
+either, so web remote has no partial tool channel at all.
 
-## 5. Tests
+## 6. Tests
 
 All deterministic, per the repo test rules. No live model needed — a canned
 array of `AssistantMessageEvent` values is the input.
@@ -171,8 +214,12 @@ array of `AssistantMessageEvent` values is the input.
 - Feed two interleaved tool calls in one assistant message and assert each
   `contentIndex` lands on its own card.
 - Store test: `tool_input_start` then `tool_start` produces one message, not two.
+- Editor test: a streaming overlay on a dirty path does not replace the user's
+  buffer; the same overlay on a clean path does.
+- Editor test: the overlay is dropped at `tool_input_end` and the tab re-reads
+  from disk.
 
-## 6. Risks
+## 7. Risks
 
 | Risk | Mitigation |
 | --- | --- |
@@ -181,3 +228,5 @@ array of `AssistantMessageEvent` values is the input.
 | Provider without argument streaming | Table-driven; falls back to today's behaviour |
 | Placeholder leaks on abort | Sweep pending placeholders at `agent_end` |
 | Corrupt files | Preview is memory-only; disk write stays atomic at tool end |
+| Losing unsaved user edits | Dirty tabs are marked, never taken over |
+| Tab spam on a multi-file turn | Auto-open uses one replaceable preview tab |
