@@ -132,4 +132,10 @@ answer it in one sentence, write the deterministic test instead.
 
 ## File Size Rules (CRITICAL)
 
-**Never exceed 500 LOC in any source file** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
+**Source files: never exceed 500 LOC** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
+
+**Test files: the 500 LOC cap does not apply.** Line count is the wrong metric for a test — test length is driven by fixtures and setup, not by responsibility count. Splitting a test file does not reduce complexity: it duplicates the setup and buys another import graph and another environment boot (a fresh `jsdom` costs ~333ms per file). The rule instead is:
+
+> **One test file per module under test.** Split a test file only when the module it covers is split.
+
+A test file over **800 LOC** is a review prompt, not a failure — check it still covers one module, then leave it alone if it does. Never split a test file to satisfy a line count, and never create a new test file for a module that already has one.

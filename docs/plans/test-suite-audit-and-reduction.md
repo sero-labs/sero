@@ -362,8 +362,8 @@ behavioural split regardless. It is high enough that no test is split for
 line count alone, and low enough to still catch a file that has quietly
 grown to cover four unrelated modules.
 
-**Update `AGENTS.md`** in the File Size Rules section to state the source
-cap and the test rule separately.
+**Applied.** `AGENTS.md` File Size Rules now states the source cap and the
+test rule separately. Phase 5 is unblocked.
 
 ### Phase 6 — Prevent regrowth
 
