@@ -1,84 +1,65 @@
 # Graphify
 
-> Status: **built-in plugin**. Ships with Sero and is available in every profile.
+Graphify builds a local knowledge graph for selected workspaces. It also merges those graphs so that you and the agent can search across projects.
 
-## Overview
+## Index your first workspace
 
-Graphify builds a knowledge graph of your code across every workspace you opt in to, then merges them into one profile-wide graph your agent can search across. After the first build, updates happen automatically in the background — no rescanning, no manual triggers.
+When you create a workspace, **Enable Graphify indexing** is on by default. Turn it off before you create the workspace if its code must not go to the configured Graphify provider.
 
-## Getting started
+For an existing workspace:
 
-When you create, clone, or import a workspace, **Enable Graphify indexing** is
-on by default if Graphify is available. Turn it off in the workspace form if
-you do not want to index that workspace.
+1. Open **Graphify**.
+2. Turn on the switch for the workspace. To enable all listed workspaces, select **Index all**.
+3. Wait until the workspace status is **indexed**.
+4. Enter a question in **Search across all indexed workspaces…** and select the search button.
 
-For a workspace that is already registered:
+The first build uses Graphify's configured AI backend. The default backend is Claude, with its default model and token budget. Graphify also supports OpenAI, Gemini, DeepSeek, Kimi, and Ollama in its state configuration. The current Graphify panel does not have controls for these settings.
 
-1. Open **Graphify** from the sidebar.
-2. Toggle on the workspaces you want indexed, or click **Index all**.
-3. Wait for the first build to finish — this is the only step that uses your AI provider.
-4. Ask the agent questions that span your projects: *"What calls into the auth module?"*, *"How does the payment flow connect to the user profile?"*
+Graphify installs its Python tools in Sero's shared machine tool area. It does not install them in the active profile.
 
-The first build can take a few minutes depending on workspace size. After that, incremental updates run quietly after each coding session — no cost, no wait.
+![Graph search](../assets/images/graphify.jpg)
 
-## What the agent can do
+## Check and update the graph
 
-Once a workspace is indexed, the agent has six new tools it uses automatically:
+Each workspace card shows its state and, after a build, its node, edge, and community counts. It also shows token use when the build reports it. Use the **Rebuild** icon on a card after you change Graphify settings or when a graph is not correct.
 
-| Tool | What it does |
+Graphify queues a low-cost AST update after an agent edits files in an enabled workspace. It also runs an update when Sero starts, so it can include changes made while Sero was closed. These updates do not run the full AI build.
+
+Turning off a workspace stops its updates but keeps its graph files. Turning the workspace on again starts a full rebuild. If you remove the workspace from the profile, Graphify removes its graph files and rebuilds the profile graph.
+
+## Ask the agent about code
+
+The agent can use these tools:
+
+| Tool | Use |
 | --- | --- |
-| `graphify_search` | Search across all indexed workspaces at once |
-| `graphify_query` | Explore the current workspace's graph — broad or trace mode |
-| `graphify_path` | Find the shortest connection between two concepts |
-| `graphify_explain` | Get a plain-language description of how something fits in |
-| `graphify_status` | See which workspaces are indexed and graph sizes |
-| `graphify_index` | Enable, disable, rebuild, or refresh any workspace |
+| `graphify_search` | Search the merged profile graph. |
+| `graphify_query` | Search the current workspace graph, with fallback to the profile graph. |
+| `graphify_path` | Find the shortest connection between two concepts. |
+| `graphify_explain` | Show the connections for one concept. |
+| `graphify_status` | Show provisioning, graph, and workspace states. |
+| `graphify_index` | Enable, disable, rebuild, refresh, or synchronize indexing. |
 
-You don't need to invoke these manually — the agent picks them up when relevant.
+For example, ask, `What calls the authentication module?` Then check the file paths and relationships in the result against the source. A graph can be out of date while an update is queued or after a failed build.
 
-## Global search
+Graphify can also add graph context to an agent session. Session orientation and search-result augmentation are on by default. Automatic query augmentation is off by default.
 
-You can search the profile-wide graph yourself, from anywhere in Sero:
+## Storage and recovery
 
-- Click the search icon next to the session search field in the main sidebar, or
-- Press **⌘K** and choose **Global Search**.
+Graphify stores profile data under `<SERO_HOME>/apps/graphify/`:
 
-Type a question and press Enter — results come from every indexed workspace.
+- `state.json` contains settings, workspace state, and queued requests.
+- `graphs/<workspace-id>/graphify-out/` contains each workspace graph.
+- `profile/graph.json` contains the merged graph.
 
-## Auto-context
+The app manifest also declares `.sero/apps/graphify/state.json` as its host state file. Do not edit either state file while Sero is running.
 
-Graphify quietly enriches every session in an indexed workspace:
-
-- **Session start** — the agent reads a brief orientation from your workspace's graph before the first message.
-- **Search hints** — when you run a broad search, graph context is appended to help the agent navigate.
-
-Both behaviours are on by default and can be turned off in Graphify's settings.
-
-## Settings
-
-| Setting | Default | Notes |
-| --- | --- | --- |
-| AI backend | Your configured provider | Claude, OpenAI, Gemini, DeepSeek, Kimi, or Ollama |
-| Model override | Backend default | Leave blank to use the provider's default model |
-| Token budget | Unlimited | Cap this if you want to limit build cost |
-| Exclude patterns | `node_modules`, `dist`, and common build artefacts | Add any paths you don't want indexed |
-| Auto-context on session start | On | Session orientation from `GRAPH_REPORT.md` |
-| Graph hints in search results | On | Appends graph context to broad searches |
-
-## Privacy and data
-
-- Your code is read **once** during the initial build, using your own provider credentials — nothing is sent to Sero.
-- Routine updates (file structure and AST changes) run with no LLM calls.
-- Graph files are stored locally at `~/.sero/apps/graphify/` and never inside your repos.
-- Turning a workspace **off** keeps its graph so re-enabling is instant. **Deleting** the workspace removes its graph automatically — no manual cleanup, no leftover files.
-- Container sessions only need read access to the graph directory — your code stays inside its container.
-
-If something goes wrong: check workspace toggle state in the Graphify panel, confirm your provider credentials are set, then restart Sero. Collect redacted logs only — do not include API keys, workspace paths, or private code content in support reports.
+If indexing fails, read the error on the workspace card. Confirm that the selected backend has valid credentials, then select **Rebuild**. If provisioning fails, the Graphify header shows **failed** and the panel shows the provisioning error. Do not delete the graph folders as a first recovery step because **Rebuild** replaces the affected graph safely.
 
 ## Related docs
 
 - [Plugin Catalog](/plugins/catalog)
 - [Agent Sessions and Context](/guide/agent-sessions-and-context)
-- [Memory](/guide/memory)
 - [Models and Providers](/guide/models-and-providers)
+- [State and Folders](/reference/state-and-folders)
 - [Security / Privacy](/reference/security-privacy)

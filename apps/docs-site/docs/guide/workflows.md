@@ -6,8 +6,6 @@ steps that Sero creates, and approve the plan before work starts.
 Use a [Room](/guide/rooms) instead when several agents need to work as a team.
 [Orchestrator](/guide/orchestrator) explains the difference.
 
-Sero is in public beta. Check important results before you use or publish them.
-
 ## Before you start
 
 This tutorial uses [Lattice](https://github.com/monobyte/lattice-levels-demo), a

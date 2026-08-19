@@ -4,9 +4,8 @@ Sero has a built-in **Git** app for working in a repository. It gives you and th
 agent the same view of branches, changes, commits, diffs and stashes, and it can
 carry out most everyday Git operations.
 
-Sero is in **public beta**. Treat the Git app as a practical workspace tool, not
-a replacement for understanding Git. Anything that changes the repository does so
-for real, in the active workspace.
+The Git app changes the active repository. Review a diff before you stage,
+commit, discard, merge, or push changes.
 
 ![The Git app](../assets/images/git-app.jpg)
 
@@ -56,10 +55,12 @@ Git app, or everything in the list in the title-bar panel.
 
 ### Pull requests
 
-With a GitHub remote connected, the right-hand pane becomes a pull request
-composer: pick the source and target branches, and draft a title and description
-from the changes. If the repository has no remote yet, the same slot offers to
-publish it to GitHub instead.
+Sign in to GitHub with the button in the Git app top bar before you open a pull
+request or publish a repository. With a GitHub remote connected, select **Pull
+request** in the top bar. The right-hand pane becomes a pull request composer:
+pick the source and target branches, and draft a title and description from the
+changes. If the repository has no remote, select **Publish to GitHub** in the
+top bar instead.
 
 ## When a merge stops
 

@@ -83,11 +83,16 @@ Examples:
 /agent explain the current plan before editing files.
 ```
 
-Exact command availability can change with focused app, installed plugins, and beta runtime state.
+Command availability depends on the focused app and installed plugins.
 
 ## Steering, stopping, and queued follow-ups
 
-While a turn is streaming, you can intervene:
+While a turn is streaming, a normal submit steers the active turn. On macOS,
+hold Command when you submit to queue the message as a follow-up. On Windows or
+Linux, hold Control when you submit. Sero sends the next queued message after
+streaming stops. You can remove a queued message before Sero sends it.
+
+You can also intervene:
 
 - Stop/abort if the agent is clearly off track.
 - Send a short steering message when you need to redirect the active turn.

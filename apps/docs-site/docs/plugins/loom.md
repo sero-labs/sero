@@ -1,6 +1,6 @@
 # Loom
 
-> Status: **external plugin**. Loom does not ship with Sero. Its source is maintained in [the Loom repository](https://github.com/sero-labs/sero-loom-plugin).
+Loom is maintained in [the Loom repository](https://github.com/sero-labs/sero-loom-plugin).
 
 Loom is an infinite generative-art studio where you describe an idea and Sero creates a living shader artwork. It can inspect the rendered result, make a refinement when needed, and give the finished piece a small set of controls that suit that particular artwork.
 
@@ -8,8 +8,7 @@ Loom is an infinite generative-art studio where you describe an idea and Sero cr
 
 ## Install from the App Store (recommended)
 
-The default way to install Loom is through Sero's **App Store**. The App Store
-finds Loom on GitHub and installs the plugin directly from its repository.
+Install Loom from Sero's **App Store**. Sero gets the source from GitHub and builds it locally.
 
 1. Open the **App Store** from Sero's sidebar.
 2. Select **Discover**, then search for `Loom`.

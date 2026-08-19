@@ -1,106 +1,89 @@
 # Plugins
 
-Sero supports both built-in and external plugins. Use the
-[Plugin Catalog](/plugins/catalog) for the source-checked list of built-in and
-external/local packages.
+A Sero plugin can provide Pi tools and commands, a React app, and an optional
+background runtime. It can also contribute components or standard controls to
+host-owned extension points.
 
-A plugin can provide:
-- a React UI loaded via Module Federation
-- a Pi extension with tools, commands, and hooks
-- optional runtime/background behavior
-- optional provider metadata for model integration
-- optional components and host-rendered controls contributed to named extension points
+New authors should start with [Plugin Quickstart](/reference/plugin-quickstart).
+Users who only want to install an app should use
+[App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
-Plugins that use Pi SDK types must declare Pi packages as peers with a minimum
-version of `0.83.0`. Use Pi `0.83.0` as the development version. Keep Pi
-packages external in extension bundles so the plugin uses the host's canonical
-runtime.
+## Install a plugin
 
-## Distribution modes
+Open **App Store** to browse installed apps or discover community plugins. The
+installer accepts these source forms:
 
-Plugins can be installed from:
-- npm
-- git repositories
-- local paths
-
-For source-based installs, Sero may run local build steps. Only install source
-plugins from repositories you trust.
-
-## Local plugin development
-
-Sero also supports running a plugin checkout directly in production Sero through
-its local plugin development flow. That is distinct from both installed plugins
-and attached folders.
-
-| Concept | What it means |
+| Source | Exact form |
 | --- | --- |
-| Installed plugin | A package installed into the active profile from npm, git, or a local path. |
-| Local plugin development | A source checkout activated from **Admin → Plugins → Local Plugin Development** for the active profile. |
-| Attached folder | A workspace-visible folder/reference; it does not activate a plugin. |
+| npm | `npm:@scope/package@version` |
+| Git | `git:https://github.com/owner/repository.git` |
+| Local folder | `/absolute/path/to/plugin` |
+
+Git and local installs can install dependencies and build source. They support
+npm and pnpm package managers. A source package must not contain unresolved
+`workspace:` or `catalog:` dependency versions. Install source only when you
+trust the repository.
+
+An npm UI package must include `dist/ui/remoteEntry.js`. A Git or local source
+package with a UI needs a build script unless it declares a prebuilt package.
+
+## Develop a local checkout
+
+Use **Admin → Plugins → Local Plugin Development**. This flow activates a
+source checkout in the current profile. It is not the same as an installed
+plugin or a folder attached to a workspace.
+
+For a UI plugin, Sero:
+
+1. validates the manifest and host compatibility;
+2. reads `scripts.dev` and `sero.app.devPort`;
+3. starts the development command on the host;
+4. checks the loopback `mf-manifest.json` and confirms the remote name;
+5. uses the live UI when it is ready;
+6. uses built `dist/ui` output as a fallback when it is available.
+
+Sero owns this development server process. If another process uses the port,
+stop it and let Sero start the server. UI edits refresh the plugin surface.
+Edits to extension, runtime, shared, resource, or manifest files refresh the
+development session.
+
+The page can report these states: **Starting**, **Active**,
+**Needs attention**, and **Broken**. Use the shown error and redacted logs to
+correct a failed session.
 
 ![Local plugin development sessions and attached folders](../assets/images/local-plugin-preview.jpg)
 
-Use this Admin plugin surface when you want to run a local plugin checkout for
-the active profile. Use attached folders only when you also want the source tree
-visible/editable in the current workspace.
+## Federated UI contract
 
-### Dev session states
+Current UI plugins must:
 
-| State | Meaning | Recovery |
-| --- | --- | --- |
-| Starting | Sero is validating the checkout and resolving UI/runtime entries. | Wait, then inspect logs if it does not settle. |
-| Active | The checkout is available to the profile. Live UI may come from the dev server when configured. | Use normally; keep the dev server running if relying on live UI. |
-| Needs attention | Sero found the package but a dev server, build output, or capability is missing. | Start the plugin dev server or build the UI. |
-| Broken | Manifest, install, runtime, or remote-entry resolution failed. | Fix the checkout, restart the session, and use redacted logs. |
+- declare `sero.plugin.runtimeAbi` as `2`;
+- declare `sero.app.styleIsolation` as `"scope"`;
+- use `seroPluginCssScope()` from `@sero-ai/plugin-vite`;
+- use `base: './'` for production;
+- expose each module as `./<Component>` in Vite;
+- use `<Component>` without `./` in the app manifest;
+- default-export a React component from each exposed source module;
+- import the plugin stylesheet from each exposed entry.
 
-UI resolution prefers a live dev server at the manifest `devPort` when the plugin
-has a `dev` script, then falls back to built UI output such as
-`dist/ui/mf-manifest.json` where supported. Backend-only plugins can be active
-without a UI surface.
+The current package versions in this repository are
+`@sero-ai/app-runtime@0.4.0` and `@sero-ai/plugin-vite@0.1.1`. External plugins
+must use published versions instead of monorepo `workspace:` versions.
 
-Do not present `SERO_DEV_PLUGINS` as the normal plugin-author workflow. It is a
-maintainer/dev aid; the product flow is the Admin local plugin development
-surface.
+## Compatibility checks
 
-## Beta guidance
+Sero checks `sero.plugin.minSeroVersion` and
+`sero.plugin.requiredHostCapabilities`. It also checks the runtime ABI for a
+plugin that has a federated UI. A UI plugin with a missing or different ABI is
+inactive. An extension-only plugin has no federated UI ABI check.
 
-During beta:
-- treat third-party plugins as trusted-source only
-- expect plugin/runtime contracts to continue evolving
-- keep packaging metadata and compatibility requirements explicit
+State can remain on disk when a plugin is inactive. Do not use activation as a
+signal that plugin-owned data was deleted.
 
-## Starter author path
+## Author references
 
-The canonical starter example is the external **Daily Quote** plugin:
-- `https://github.com/sero-labs/sero-daily-quote-plugin`
-
-Treat it as a **small complete reference plugin**, not a visually minimal one.
-Its structure is the main thing to copy: manifest shape, extension entry,
-shared types, UI entry, and Vite federation config.
-
-For the end-user App Store and sidebar flow, see
-[App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
-
-For the shortest author-oriented path through manifests, app-runtime hooks,
-file-backed state, host capabilities, and Module Federation, see
-[Plugin Author Quick Path](/reference/plugin-author-quick-path). For the compact
-hook/API table, see [App Runtime Reference](/reference/app-runtime).
-
-For the canonical manifest contract for Search, Explorer, title bar,
-Dashboard, and workspace creation, see
-[Plugin Extension Points](/reference/plugin-extension-points).
-
-For the published starter walkthrough, see
-[Plugin Quickstart](/reference/plugin-quickstart).
-
-If you need the smallest example that shows **UI + extension + background
-runtime** together, see
-[Plugin End-to-End Example](/reference/plugin-end-to-end-example).
-
-## See also
-
-Current detailed source material:
-- [`docs/plugins/quickstart.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/quickstart.md)
-- [`docs/plugins/guide.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/guide.md)
-- [`docs/plugins/host-compatibility.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/host-compatibility.md)
-- [`docs/features/local-plugin-development.md`](https://github.com/sero-labs/sero/blob/main/docs/features/local-plugin-development.md)
+- [Plugin Author Quick Path](/reference/plugin-author-quick-path)
+- [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
+- [App Runtime Reference](/reference/app-runtime)
+- [Plugin Extension Points](/reference/plugin-extension-points)
+- [Plugin Catalog](/plugins/catalog)

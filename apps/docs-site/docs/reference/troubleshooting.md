@@ -13,7 +13,7 @@ If Sero opens:
 1. Press <kbd>⌘K</kbd> on macOS or <kbd>Ctrl+K</kbd> elsewhere.
 2. Choose **Diagnostics → Environment Doctor**.
 3. Run the full check.
-4. Export or copy the report before changing anything else.
+4. Select **Export** or **Copy JSON** before you change anything else.
 
 If Sero does not open, run Doctor in safe mode from the built app or Electron command you normally use:
 
@@ -33,13 +33,7 @@ A failing Doctor result is usually the best next action. Fix the failed row, rer
 
 1. Run Environment Doctor in safe mode.
 2. Check whether Doctor reports native module, profile, provider, or plugin failures.
-3. Stop stale development processes and retry:
-
-```bash
-pkill -f "vite"
-pkill -f "electron"
-```
-
+3. If you started a development process in a terminal, stop it in the same terminal. Do not use a broad process-name kill command.
 4. If you are running from a source checkout, retry the normal source-build path:
 
 ```bash
@@ -47,7 +41,8 @@ pnpm build
 pnpm dev
 ```
 
-Useful logs:
+Source-development logs are in `~/.sero-ui/logs/`, unless `$SERO_LOG_DIR` sets
+another location. These compatibility links point to the current log files:
 
 - `/tmp/sero-vite.log`
 - `/tmp/sero-electron.log`
@@ -66,12 +61,7 @@ If macOS warns that it "could not verify Sero is free of malware" or says Sero i
 the installed app, download the latest DMG from the releases page, and reinstall.
 
 If the latest release still fails, report the release filename and your macOS
-version. As a last resort you can clear the download quarantine flag and open it
-manually:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Sero.app
-```
+version. Do not bypass Gatekeeper or clear the quarantine attribute.
 
 ## Terminals or memory features fail after install
 
@@ -143,7 +133,7 @@ Host browser automation is ready only when a browser pack is available for your 
 
 Host and container runtimes do not provide identical behavior.
 
-Use Host for normal local development, direct workspace paths, and `localhost` workflows. Switch the workspace to Apple Container or Docker / Podman when you need:
+Use Host for normal local development, direct workspace paths, and loopback preview workflows. Switch the workspace to Apple Container or Docker / Podman when you need:
 
 - container-provided tools or compiler stacks
 - Linux/container parity
@@ -159,7 +149,7 @@ First identify the workspace runtime.
 ### Host preview checks
 
 - Start the dev server normally in the real project folder.
-- Open the same `localhost` URL in your normal browser.
+- Open the reported `127.0.0.1` URL in your normal browser.
 - Register the server if Sero does not know about it:
 
 ```bash
@@ -184,7 +174,7 @@ sero devserver register --name "Web app" --port 3000 --command "npm run dev -- -
 sero devserver list
 ```
 
-If a URL worked before a container restart, run `sero devserver list` again. Preview URLs can change when the runtime restarts or the in-memory registry is rebuilt.
+The registry is in memory. If the entry is gone after an app restart, register the server again. Always use the URL that `sero devserver list` reports. Do not use a container IP.
 
 For the full dev-server guide, see [Preview Dev Servers](/guide/containers-dev-servers).
 
@@ -219,7 +209,11 @@ See [Checkpoints and Undo](/guide/checkpoints-and-undo).
 
 Sometimes the correct fix is to change platform or runtime.
 
-The current public beta does not support macOS Intel or Windows arm64. It also does not promise full Host/container parity, stable internal plugin/runtime APIs, automatic updates for every beta release, or a hardened multi-tenant security boundary.
+Sero does not support macOS Intel or Windows arm64. Automatic
+updates are limited to macOS ZIP, Linux AppImage, and Windows Setup EXE builds.
+Linux DEB installs require a manual update. Sero also does not promise full
+Host/container parity, stable internal plugin/runtime APIs, or a hardened
+multi-tenant security boundary.
 
 If your workflow depends on container-provided tools, container networking, or browser automation without Host browser packs, choose Apple Container or Docker / Podman on a supported platform.
 
@@ -231,12 +225,12 @@ Include the smallest reproducible signal and the support fields maintainers need
 - CPU architecture
 - Node and pnpm versions
 - runtime mode: Host (`host`), Apple Container (`apple-container`), or Docker / Podman (`docker`)
-- install path: packaged beta artifact or source build
+- install path: packaged artifact or source build
 - packaged artifact type or release tag when relevant
 - source build branch and commit SHA when relevant
 - exact command or workflow that failed
 - Environment Doctor result or exported report
-- relevant redacted log excerpts from `/tmp/sero-*.log`
+- relevant redacted log excerpts from `~/.sero-ui/logs/` or `$SERO_LOG_DIR`
 - whether browser automation used a Host browser pack or a container runtime
 
 Before sharing logs, redact tokens, auth headers, provider keys, private repository names when needed, and private local paths.

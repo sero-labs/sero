@@ -40,7 +40,7 @@ For the default profile, that is usually `~/.sero-ui/agent/models.json`. Sero re
 | --- | --- | --- |
 | `baseUrl` | string | Base URL for the provider API, such as `http://localhost:1234/v1`. |
 | `api` | string | Supported values: `openai-completions`, `openai-responses`, `anthropic-messages`, `google-generative-ai`. |
-| `apiKey` | string | Literal key, environment variable name, or command form supported by Sero's resolver. Use `none` when the local server should not receive an auth header. |
+| `apiKey` | string | Literal key, `$NAME` or `${NAME}` environment template, or a command that starts with `!`. Use `none` for a local server that does not need a key. |
 | `headers` | object | Extra request headers. Values use the same resolver behavior as `apiKey`. |
 | `compat` | object | OpenAI-compatibility flags from the Pi SDK type used by Sero. The UI currently exposes `supportsDeveloperRole` and `supportsReasoningEffort`. |
 | `authHeader` | boolean | For OpenAI-compatible APIs, controls whether Sero attaches `Authorization: Bearer <apiKey>`. Defaults to true when an API key is present and not `none`. |
@@ -56,6 +56,7 @@ For the default profile, that is usually `~/.sero-ui/agent/models.json`. Sero re
 | `api` | string | Optional per-model API shape; same values as provider `api`. |
 | `baseUrl` | string | Optional per-model base URL. |
 | `reasoning` | boolean | Whether Sero should treat the model as reasoning-capable. |
+| `thinkingLevelMap` | object | Optional mapping from Sero thinking levels to provider values. |
 | `input` | array | Supported input types: `text`, `image`. |
 | `contextWindow` | number | Context window size when known. |
 | `maxTokens` | number | Max output tokens when known. |
@@ -89,11 +90,26 @@ Model overrides can use partial cost objects, so only the fields you need to ove
 
 ## Resolver behavior for keys and headers
 
-For `apiKey` and `headers` values:
+The Pi resolver handles `apiKey` and header values as follows:
 
-- an empty value is ignored
-- a value starting with `!` is executed as a shell command and the trimmed stdout is used
-- otherwise Sero first checks `process.env[value]`; if no environment variable exists, the literal value is used
+- A value that starts with `!` runs as a shell command with your Sero user
+  privileges. Use this resolver only in a trusted profile file. Pi uses the
+  command's trimmed standard output and caches the result for the process
+  lifetime.
+- `$NAME` and `${NAME}` insert the named environment variable. Resolution fails if a referenced variable is not set.
+- `$$` inserts a literal `$`, and `$!` inserts a literal `!`.
+- Other text is a literal value. A bare name such as `LOCAL_MODEL_KEY` is not an environment reference.
+
+For example:
+
+```json
+{
+  "apiKey": "$LOCAL_MODEL_KEY",
+  "headers": {
+    "X-Team": "${MODEL_TEAM}"
+  }
+}
+```
 
 Treat command-based and environment-backed values as sensitive. Do not commit private `models.json` files.
 
@@ -118,7 +134,7 @@ Treat command-based and environment-backed values as sensitive. Do not commit pr
 }
 ```
 
-Supported override fields are `name`, `reasoning`, `input`, `cost`, `contextWindow`, `maxTokens`, `headers`, and `compat`.
+Supported override fields are `name`, `reasoning`, `thinkingLevelMap`, `input`, `cost`, `contextWindow`, `maxTokens`, `headers`, and `compat`.
 
 ## Validation and recovery
 
@@ -128,7 +144,8 @@ Recovery steps:
 
 1. Back up `<SERO_HOME>/agent/models.json`.
 2. Validate it as JSON.
-3. Remove fields not listed on this page.
+3. Use the registry error to find and correct the invalid entry. Keep fields
+   that are valid for your provider or Pi SDK version.
 4. Reopen the model manager or restart Sero.
 5. Test connection and fetch models again.
 

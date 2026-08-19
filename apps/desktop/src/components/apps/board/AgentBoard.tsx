@@ -8,6 +8,13 @@
 import { memo, useEffect, useMemo } from 'react';
 import { domMax, LazyMotion, LayoutGroup, m } from 'motion/react';
 import { Columns3, RefreshCw } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@sero-ai/ui/components/ui/select';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
@@ -110,7 +117,7 @@ export const AgentBoard = memo(function AgentBoard() {
         </m.div>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <WorkspaceFilterChips
+          <WorkspaceFilterSelect
             workspaces={workspaces.flatMap((workspace) =>
               workspace.path ? [{ id: workspace.id, name: workspace.name }] : [],
             )}
@@ -149,44 +156,39 @@ export const AgentBoard = memo(function AgentBoard() {
   );
 });
 
-interface WorkspaceFilterChipsProps {
+interface WorkspaceFilterSelectProps {
   workspaces: { id: string; name: string }[];
   selected: string | null;
   onSelect: (id: string | null) => void;
 }
 
-function WorkspaceFilterChips({ workspaces, selected, onSelect }: WorkspaceFilterChipsProps) {
+const ALL_WORKSPACES_VALUE = '__all__';
+
+function WorkspaceFilterSelect({ workspaces, selected, onSelect }: WorkspaceFilterSelectProps) {
   if (workspaces.length < 2) return null;
-  const chips: { id: string | null; name: string }[] = [
-    { id: null, name: 'All' },
-    ...workspaces,
-  ];
+
   return (
-    <div className="flex max-w-[40vw] items-center gap-1 overflow-x-auto">
-      {chips.map((chip) => {
-        const active = selected === chip.id;
-        return (
-          <button
-            key={chip.id ?? 'all'}
-            type="button"
-            onClick={() => onSelect(chip.id)}
-            className={`relative shrink-0 rounded-full px-2.5 py-1 text-xs transition-colors ${
-              active
-                ? 'text-[var(--text-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            {active && (
-              <m.span
-                layoutId="board-filter-pill"
-                className="absolute inset-0 rounded-full bg-[var(--bg-overlay)] ring-1 ring-[var(--border-default)]"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-              />
-            )}
-            <span className="relative">{chip.name}</span>
-          </button>
-        );
-      })}
-    </div>
+    <Select
+      value={selected ?? ALL_WORKSPACES_VALUE}
+      onValueChange={(value) => onSelect(value === ALL_WORKSPACES_VALUE ? null : value)}
+    >
+      <SelectTrigger
+        size="sm"
+        aria-label="Filter by workspace"
+        className="w-44 max-w-[40vw] text-xs shadow-none"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="end">
+        <SelectItem value={ALL_WORKSPACES_VALUE} className="text-xs">
+          All workspaces
+        </SelectItem>
+        {workspaces.map((workspace) => (
+          <SelectItem key={workspace.id} value={workspace.id} className="text-xs">
+            {workspace.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

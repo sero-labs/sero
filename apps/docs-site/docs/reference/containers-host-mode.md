@@ -19,7 +19,7 @@ Host is appropriate for:
 - core agent chat and coding tasks
 - file browsing and editing
 - normal host terminal workflows
-- running and registering localhost dev servers
+- running and registering loopback dev servers
 - onboarding and provider setup
 
 Host does not provide:
@@ -27,7 +27,7 @@ Host does not provide:
 - container isolation
 - Linux/container networking semantics
 - image-provided compiler stacks or toolchains
-- browser automation unless a published browser pack is available and Environment Doctor confirms it launches
+- browser-agent tools unless an installed browser pack passes its launch check
 
 In Host, shell commands run from the actual host workspace directory. Use relative paths such as `src/App.tsx` or real host paths in terminal commands. `/workspace` is reserved for container runtimes and Sero API compatibility aliases; it is not a Host shell path to rely on.
 
@@ -137,9 +137,9 @@ Rebuild `sero-node:latest` and recreate affected workspace containers. Existing 
 
 Check whether the feature requires browser automation, containerized language servers, image-provided tools, or container networking. If Host browser automation is relevant, confirm your platform has an available browser pack and that Environment Doctor reports it ready.
 
-## Caveats
+## Boundaries
 
-During the current beta, do not treat container runtimes as:
+Do not treat container runtimes as:
 
 - a hardened multi-tenant security boundary
 - identical behavior on every operating system

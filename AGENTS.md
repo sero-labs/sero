@@ -4,6 +4,11 @@ Sero is special because it provides a self-improving, plugin based architecture 
 We are building the application together and I like to aim for the simplest solution and to reduce complexity wherever possible.
 Below is some useful information and some of my coding preferences.
 
+**Product positioning:** **Grow your own Agent.** Sero gives an AI agent a
+workspace, memory, skills, and plugins so it becomes fitted to how each person
+works. Use this message at key product entry points. Do not force it into every
+page or imply that Sero retrains the model.
+
 ## Structure
 
 ```
@@ -94,7 +99,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
 - UX prototypes should be saved in `docs/prototypes`. Always create a prototype when developing a new feature or component. Prototypes should be static unless stated (see existing examples).
 - When the user asks about pi itself (its SDK, extensions, themes, skills, TUI, or other internals), use the `pi-docs` skill — it maps every topic to the bundled pi documentation and examples.
-- If your 
+- You do not have to validate/lint markdown files
 
 ## Styling
  - Don't use specific tailwind font-sizes, use utilities like `text-sm`,`text-base`, etc.
@@ -102,33 +107,9 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 ## Test Rules (CRITICAL)
 
 **Test behaviour deterministically. A live model in a test is a last resort, not a default.**
-
 Before writing any test that calls a real model, answer in the PR or commit body:
 *which property does this prove that a deterministic test cannot?* If you cannot
 answer it in one sentence, write the deterministic test instead.
-
-- **Stub the model, test the contract.** Parsing, validation, repair, gates,
-  tokens, receipts, and state machines take a canned model reply as input. These
-  run in milliseconds. See `runtime/__tests__/approval-gate.test.ts` and
-  `trigger-extractor.test.ts` for the pattern.
-- **A live-model test may only assert provider integration** — that the real
-  provider authenticates, streams, calls a tool, and keeps session context.
-  It must never be the guard on a safety property; back the property with a
-  deterministic test and let that be the guard.
-- **Never re-prove a mechanism through the model.** If a run needs a plan, a
-  gate, or an event to exist, seed the state directly. Driving the whole app
-  through a planner to reach one assertion is the anti-pattern.
-- **No multi-minute polls.** A single `expect.poll` timeout above 120s needs an
-  inline comment justifying it. Timeouts must sit above the *measured* tail, not
-  a guess — a timeout below the real tail is a flake, not a test.
-- **When a live e2e finds a bug, back-fill the fix as a deterministic test and
-  delete or shrink the e2e.** The e2e has already paid for itself at that point;
-  keeping it running re-buys the same finding every night.
-- **Beware the LLM gate.** Specs gated on model credentials skip whole files
-  locally, hiding ordinary UI and selector breakage until CI. Keep deterministic
-  setup assertions out of gated specs.
-- Delete any test whose cost (wall-clock, spend, flake rate) exceeds the unique
-  coverage it provides. Duplicated coverage is not a reason to keep a slow test.
 
 ## File Size Rules (CRITICAL)
 

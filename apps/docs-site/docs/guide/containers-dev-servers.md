@@ -28,7 +28,7 @@ Register the port and command Sero should show:
 sero devserver register --name "Web app" --port 3000 --command "npm run dev" --framework vite
 ```
 
-Open the registered `localhost` URL from Explorer's dev-server panel, or ask the agent to preview it.
+Open the registered `127.0.0.1` URL from **Dev Servers** in Explorer, or ask the agent to preview it.
 
 ## Start and register a container dev server
 
@@ -44,7 +44,7 @@ Register the same port and command:
 sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
 ```
 
-Open the forwarded preview URL from Explorer's dev-server panel, or ask the agent to preview the registered URL.
+Open the forwarded loopback URL from **Dev Servers** in Explorer, or ask the agent to preview the registered URL. Do not use a container IP.
 
 ## List and stop registered servers
 
@@ -57,7 +57,7 @@ sero devserver stop <id>
 | --- | --- |
 | `sero devserver list` | List registered servers for the current workspace. |
 | `sero devserver register --name <name> --port <port> --command <cmd> [--framework <name>]` | Add a server entry with the command Sero can show or restart. |
-| `sero devserver stop <id>` | Stop the registered server through the active workspace runtime. |
+| `sero devserver stop <id>` | Stop the entry through the active workspace runtime. For a Host server that you started outside Sero, this marks the entry stopped but does not kill your process. |
 
 The registry is in memory. Re-register servers after restarting the app if the entry is gone or the URL changed.
 
@@ -65,7 +65,7 @@ The registry is in memory. Re-register servers after restarting the app if the e
 
 Use one of these paths:
 
-- Open the server from Explorer's dev-server panel.
+- Open the server from **Dev Servers** in Explorer.
 - Run `sero devserver list` and open the current URL.
 - Ask the agent to preview the registered URL.
 - Use the CLI preview command when you already have a URL:
@@ -77,9 +77,9 @@ sero app preview <registered-url>
 ## Troubleshooting quick checks
 
 - **Server works in the terminal but preview fails in a container:** restart it with a `0.0.0.0` bind option if your framework requires one.
-- **Host preview fails:** confirm the same `localhost` URL opens in your normal browser on the host.
+- **Host preview fails:** confirm the reported `127.0.0.1` URL opens in your normal browser.
 - **URL stopped working after a restart:** run `sero devserver list`, then open the fresh URL or register the server again.
-- **Stop does nothing:** copy the exact server id from `sero devserver list` and run `sero devserver stop <id>`.
+- **A Host process continues after stop:** stop it in the terminal where you started it. Sero does not kill a Host process that it only registered.
 - **Selected container runtime is unavailable:** fix Apple Container, Docker, or Podman, or explicitly choose another supported runtime. Sero does not silently switch a selected container workspace to Host.
 
 ## Related docs

@@ -1,176 +1,93 @@
 # State and Folders
 
-This page maps where Sero stores profile state, app state, auth files, and debug
-artifacts during the public beta. Use it when troubleshooting, filing issues, or
-checking what should be redacted from screenshots and logs.
+Sero keeps profile data on the local machine. Use this map when you back up a profile, inspect state, or remove private data from a support report.
 
-Sero is local-first, but local state can still be sensitive. Treat the active
-profile directory as private developer-machine data. For the user-facing setup
-flow, see [Profiles and Onboarding](/guide/profiles-and-onboarding).
+## Profile roots
 
-## Core path model
-
-Sero has one fixed root for the profile registry:
+The fixed Sero root is:
 
 ```text
-~/.sero-ui/profiles.json
+~/.sero-ui/
 ```
 
-Each profile points at an active profile root. In docs, that root is written as:
+The profile registry is always `~/.sero-ui/profiles.json`. Each registry entry points to a profile root. This page writes the active profile root as `<SERO_HOME>`.
 
-```text
-<SERO_HOME>
-```
-
-For the default profile, `<SERO_HOME>` is usually `~/.sero-ui/`. Custom profiles
-can use another folder.
-
-Inside the active profile, Sero uses an agent directory:
+Sero uses this agent directory for the active profile:
 
 ```text
 <SERO_HOME>/agent/
 ```
 
-Sero sets `PI_CODING_AGENT_DIR` to this path so Pi uses Sero's profile-scoped
-agent directory instead of a separate non-Sero agent directory.
+For the default profile, the exact agent directory is `~/.sero-ui/agent/`. Sero sets `PI_CODING_AGENT_DIR` to this directory. Do not use `~/.pi/agent/` for Sero state.
 
 ```text
-~/.sero-ui/
-├── profiles.json
-└── <SERO_HOME>/
-    ├── agent/
-    │   ├── auth.json
-    │   ├── settings.json
-    │   ├── layout.json
-    │   ├── models.json
-    │   ├── workspaces.json
-    │   ├── plugins/
-    │   ├── extensions/
-    │   ├── agents/
-    │   ├── skills/
-    │   └── prompts/
-    ├── apps/
-    │   └── <app-id>/state.json
-    ├── workspaces/
-    │   ├── global/
-    │   │   ├── MEMORY.md
-    │   │   ├── IDENTITY.md
-    │   │   └── memory/daily/YYYY-MM-DD.md
-    │   └── <workspace-id>/
-    ├── themes/
-    └── debug/
-        └── memory/
+<SERO_HOME>/
+├── agent/
+│   ├── auth.json
+│   ├── settings.json
+│   ├── layout.json
+│   ├── models.json
+│   ├── workspaces.json
+│   ├── plugins/
+│   ├── extensions/
+│   ├── agents/
+│   ├── skills/
+│   └── prompts/
+├── apps/
+├── workspaces/
+├── themes/
+└── debug/
 ```
 
 ![Sero profile state and folder map](../assets/generated/img8.jpg)
 
-## Important profile files
+## Profile files
 
 | Path | Purpose |
 | --- | --- |
-| `~/.sero-ui/profiles.json` | Fixed profile registry and active profile ID |
-| `<SERO_HOME>/agent/auth.json` | Pi-managed provider auth/OAuth store |
-| `<SERO_HOME>/agent/settings.json` | Profile-scoped settings and package/plugin config |
-| `<SERO_HOME>/agent/layout.json` | Shell layout, theme, active workspace/session, dashboard widget layout/browser state |
-| `<SERO_HOME>/agent/.env` | Profile-local environment variables and local secret config |
-| `<SERO_HOME>/agent/models.json` | Local/custom model provider configuration |
-| `<SERO_HOME>/agent/workspaces.json` | Workspace registry for the active profile |
-| `<SERO_HOME>/agent/github-auth.json` | GitHub device-flow auth token store |
-| `<SERO_HOME>/agent/gateway-token` | Gateway master token |
-| `<SERO_HOME>/agent/gateway-config.json` | Gateway config and limits |
-| `<SERO_HOME>/agent/gateway-web-tokens.json` | Scoped web/gateway tokens |
-| `<SERO_HOME>/agent/plugins/` | Installed optional plugins |
-| `<SERO_HOME>/agent/extensions/` | Additional extension packages/resources |
-| `<SERO_HOME>/agent/agents/` | Subagent definition Markdown files; see [Agent Definitions](/reference/agent-definitions) |
-| `<SERO_HOME>/agent/skills/` | Installed skills |
-| `<SERO_HOME>/agent/prompts/` | Prompt templates |
-| `<SERO_HOME>/themes/` | User theme presets |
-| `<SERO_HOME>/debug/memory/` | Memory plugin debug logs |
+| `~/.sero-ui/profiles.json` | Profile registry and active profile ID. |
+| `<SERO_HOME>/agent/auth.json` | Pi provider credentials and OAuth data. |
+| `<SERO_HOME>/agent/settings.json` | Profile settings and package configuration. |
+| `<SERO_HOME>/agent/.env` | Profile environment variables. |
+| `<SERO_HOME>/agent/layout.json` | Shell layout, theme, active workspace and session, browser state, and dashboard layout. |
+| `<SERO_HOME>/agent/models.json` | Local and custom model configuration. |
+| `<SERO_HOME>/agent/workspaces.json` | Workspace registry. |
+| `<SERO_HOME>/agent/github-auth.json` | GitHub authentication data. Sero uses Electron safe storage when operating-system encryption is available. |
+| `<SERO_HOME>/agent/gateway-token` | Gateway master token. |
+| `<SERO_HOME>/agent/gateway-config.json` | Gateway configuration. |
+| `<SERO_HOME>/agent/gateway-web-tokens.json` | Remote web tokens. |
+| `<SERO_HOME>/agent/plugins/` | Installed optional plugins. |
+| `<SERO_HOME>/agent/extensions/` | Additional extension resources. |
+| `<SERO_HOME>/agent/agents/` | Subagent definitions. |
+| `<SERO_HOME>/agent/skills/` | Installed skills. |
+| `<SERO_HOME>/agent/prompts/` | Prompt templates. |
+| `<SERO_HOME>/themes/` | User theme presets. |
 
-Older notes may mention paths such as `~/.sero-ui/layout.json` or
-`~/.sero-ui/github-auth.json`. For current Sero beta docs, prefer the
-profile-scoped `<SERO_HOME>/agent/...` paths above unless a page is explicitly
-describing legacy migration behavior.
+These files are durable profile state. A custom profile keeps them under its own `<SERO_HOME>`.
 
-## Workspaces
+## Workspaces and app state
 
-Sero keeps profile-owned workspaces under:
+Sero-managed workspaces are under `<SERO_HOME>/workspaces/`. The built-in global workspace is `<SERO_HOME>/workspaces/global/`.
+
+A workspace can contain `.sero-workspace.json` for its runtime and workspace metadata. Workspace-scoped plugins store data under:
 
 ```text
-<SERO_HOME>/workspaces/
+<workspace>/.sero/apps/<app-id>/
 ```
 
-The built-in global workspace is:
+Global plugins store data under:
 
 ```text
-<SERO_HOME>/workspaces/global/
+<SERO_HOME>/apps/<app-id>/
 ```
 
-Each real workspace directory can also contain:
+The plugin controls the files inside its directory. A common file is `state.json`, but this name is not required for all plugins.
 
-```text
-<workspace>/.sero-workspace.json
-```
+Sero adds `.sero/` and `.sero-workspace.json` patterns to the clone's `.git/info/exclude`. It does not edit the repository's `.gitignore`. Git can still report a Sero file if you force-add or already track it.
 
-That file stores workspace-level metadata and runtime configuration.
+## Memory files
 
-## App state
-
-Sero apps and plugins can store state in one of two places.
-
-### Global app state
-
-Global-scoped apps use:
-
-```text
-<SERO_HOME>/apps/<app-id>/state.json
-```
-
-For example, Scheduler/Reminders state is currently documented as:
-
-```text
-<SERO_HOME>/apps/cron/state.json
-```
-
-Some plugin code can fall back to a workspace-relative `.sero/apps/...` path
-when running outside the normal Sero desktop environment. Public Sero docs should
-prefer the active-profile path when `SERO_HOME` is present.
-
-### Workspace app state
-
-Workspace-scoped app state lives inside the workspace:
-
-```text
-<workspace>/.sero/apps/<app-id>/state.json
-```
-
-Examples from the current guides:
-
-| App | State path |
-| --- | --- |
-| Web | `<workspace>/.sero/apps/web/state.json` |
-| Git | `<workspace>/.sero/apps/git/state.json` |
-
-An app may keep other files alongside its state. Git saves how you left the app
-laid out — which panels are folded, how tall the history is — in
-`<workspace>/.sero/apps/git/view.json`, so it is remembered per repository
-rather than globally.
-
-Sero keeps its own files out of the repositories you work in, so they never show
-up as changes to commit:
-
-```text
-**/.sero/
-**/.sero-workspace.json
-```
-
-These are written to `.git/info/exclude`, which is local to the clone — Sero
-never edits a project's `.gitignore`. Because that only governs *untracked*
-files, anything you deliberately track (`git add -f`) keeps being reported.
-
-## Memory storage
-
-Memory uses the global workspace under the active profile:
+Memory uses the global workspace:
 
 ```text
 <SERO_HOME>/workspaces/global/MEMORY.md
@@ -179,102 +96,31 @@ Memory uses the global workspace under the active profile:
 <SERO_HOME>/workspaces/global/memory/daily/YYYY-MM-DD.md
 ```
 
-Memory debug logs live at:
+Memory debug output is under `<SERO_HOME>/debug/memory/`. See [Memory](/guide/memory) for the user workflow.
+
+## Logs and temporary files
+
+Source-development logs are under `~/.sero-ui/logs/`, unless `SERO_LOG_DIR` sets another location. Compatibility links at `/tmp/sero-*.log` point to current log files. These logs are not durable profile state.
+
+Container workspaces have a log guide at `/workspace/.sero/logs/README.md`. It points to files such as:
 
 ```text
-<SERO_HOME>/debug/memory/
+/workspace/.sero/logs/dev/sero-electron.log
+/workspace/.sero/logs/dev/sero-vite.log
+/workspace/.sero/logs/dev/sero-remote-<app-id>.log
 ```
 
-For the user-facing overview, see [Memory](/guide/memory).
+Logs can contain paths, prompts, errors, and project details.
 
-## Agent definitions and dashboard layout
+## Protect private state
 
-Subagent definitions live in:
+Do not share raw credentials, `.env` files, gateway tokens, model configuration, layout state, workspace registries, agent definitions, memory files, or plugin state. Review logs before you attach them to an issue.
 
-```text
-<SERO_HOME>/agent/agents/
-```
+Profile storage is an organization boundary, not a cryptographic boundary. A process that can read the profile can read many of these files.
 
-The default profile path is usually `~/.sero-ui/agent/agents/`. Definitions can
-include private workflow instructions and model preferences, so redact them like
-prompt templates. For the exact format, see [Agent Definitions](/reference/agent-definitions).
+## See also
 
-Dashboard widget placement and instances are part of profile layout state:
-
-```text
-<SERO_HOME>/agent/layout.json
-```
-
-See [Dashboard and Widgets](/guide/dashboard-widgets) for the user workflow.
-
-## Local/custom model configuration
-
-Local and custom model providers are configured in:
-
-```text
-<SERO_HOME>/agent/models.json
-```
-
-This file can include local endpoints, API keys, environment variable names,
-command-backed secret lookups, headers, model IDs, and model metadata. Treat it
-as sensitive when it contains private endpoints or credentials. For the exact
-supported schema, see [`models.json` Reference](/reference/models-json).
-
-## Temporary runtime logs
-
-Some development/runtime logs are written outside the profile tree under `/tmp/`:
-
-```text
-/tmp/sero-vite.log
-/tmp/sero-electron.log
-/tmp/sero-web-remote-watch.log
-/tmp/sero-remote-<plugin>.log
-```
-
-These are local developer-machine artifacts, not durable profile state. They can
-still include private paths, errors, or workflow details, so redact before
-sharing.
-
-## What to redact before sharing
-
-Redact or avoid sharing raw copies of:
-
-- `~/.sero-ui/profiles.json`
-- `<SERO_HOME>/agent/auth.json`
-- `<SERO_HOME>/agent/.env`
-- `<SERO_HOME>/agent/github-auth.json`
-- `<SERO_HOME>/agent/models.json`
-- `<SERO_HOME>/agent/gateway-token`
-- `<SERO_HOME>/agent/gateway-config.json`
-- `<SERO_HOME>/agent/gateway-web-tokens.json`
-- `<SERO_HOME>/agent/layout.json`
-- `<SERO_HOME>/agent/workspaces.json`
-- `<SERO_HOME>/agent/agents/`
-- memory files under `<SERO_HOME>/workspaces/global/`
-- app state under `<SERO_HOME>/apps/` or `<workspace>/.sero/apps/`
-- debug/runtime logs that include private paths, prompts, tokens, or project data
-
-## Local vs remote behavior
-
-These are local/profile-scoped by default:
-
-- profiles and profile registry
-- agent settings/auth/plugins/prompts/skills
-- workspaces and workspace metadata
-- memory files and debug logs
-- app state files
-
-These may talk to remote systems, while still storing state locally:
-
-- model/provider auth and API calls
-- GitHub auth and repository access
-- gateway remote-control clients when enabled
-- plugin installs from npm, git, or local source paths
-- App Store discovery and installed-plugin management
-- third-party plugin integrations
-
-For security posture and remote-control caveats, see
-[Security / Privacy](/reference/security-privacy),
-[Profiles and Onboarding](/guide/profiles-and-onboarding), and
-[Remote Control](/guide/remote-control), [Agent Definitions](/reference/agent-definitions),
-and [Dashboard and Widgets](/guide/dashboard-widgets).
+- [Profiles and Onboarding](/guide/profiles-and-onboarding)
+- [`models.json` Reference](/reference/models-json)
+- [Security / Privacy](/reference/security-privacy)
+- [Agent Definitions](/reference/agent-definitions)

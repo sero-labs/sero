@@ -1,37 +1,33 @@
 # Weight Tracker Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+The Weight Tracker is an external plugin for personal weight records. Install it from its owner with this source:
 
-## Overview
+```text
+git:https://github.com/monobyte/sero-weight-tracker.git
+```
 
-Personal weight-tracking app with trend charts, goal tracking, `/weight`, and `weight` tool actions.
+The app records a weight, date, and optional note. It shows a trend chart, changes over time, and progress towards a goal. The `weight` tool supports `log`, `list`, `remove`, `goal`, `status`, and `clear`. The `/weight` command shows the same records in an agent session.
 
-## Try it first
+## Store and delete health data
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+In Sero, this global plugin stores its state as plain JSON at:
 
-Create fake entries such as `70.0 kg`, set a demo goal, and inspect the chart.
+```text
+~/.sero-ui/apps/weight-tracker/state.json
+```
 
-## Surfaces from the manifest/source
+The state includes every entry, note, unit, and goal. It is not encrypted by the plugin. Any agent that can use the `weight` tool can list or change this data.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-weight-tracker` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+Remove one entry in the app or use the tool's `remove` action with its numeric ID. Use `clear` to remove all entries. `clear` also removes the goal and resets the unit to `kg`. Removing the plugin is not documented as a data-deletion method. Check the state file if you must confirm deletion.
 
-## Privacy, secrets, and recovery
+Use made-up values in screenshots and public support reports. Weight records and notes can contain health information.
 
-Weight logs are health/personal data. Use fake/demo values in screenshots and public support reports.
+## Other runtimes
 
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+The package manifest requires Sero 0.1.0 or later and runtime ABI 2. When the package runs in Pi CLI without Sero, it uses `workspace-root/.sero/apps/weight-tracker/state.json` instead of the global Sero path.
 
 ## Related docs
 
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

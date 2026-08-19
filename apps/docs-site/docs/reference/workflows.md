@@ -21,8 +21,12 @@ The `orchestrator` tool and `/orchestrator` command route every action through a
 single per-workspace coordinator. Only the coordinator starts steps or mutates
 workflow runtime state.
 
-Actions: `create`, `list`, `show`, `activate`, `pause`, `resume`, `stop`,
-`run_next`, `revise`, `choose_recovery`.
+Actions: `create`, `list`, `show`, `activate`, `disable`, `enable`, `run_next`,
+`run_again`, `retry`, `retry_step`, `revise`, `choose_recovery`,
+`set_step_model`, `set_step_tools`, `set_step_agent`, `set_loop_context`,
+`set_delivery`, `set_schedule`, `reflect`, `reflect_workspace`,
+`choose_suggestion`, `answer_input`, the `library_*` and `catalog_*` actions,
+and `delete`.
 
 ## `/orchestrator` commands
 
@@ -38,6 +42,7 @@ Actions: `create`, `list`, `show`, `activate`, `pause`, `resume`, `stop`,
 /orchestrator enable <loopId>
 /orchestrator run_next <loopId>
 /orchestrator run_again <loopId>
+/orchestrator retry <loopId>
 /orchestrator retry_step <loopId> <stepId>
 /orchestrator reflect <loopId>
 /orchestrator reflect_workspace
@@ -50,10 +55,11 @@ Library commands:
 
 ```text
 /orchestrator library_list
-/orchestrator library_save <loopId> <version-note>
+/orchestrator library_save <loopId> <new-version|new-entry> [note]
 /orchestrator library_load <entryId> [version]
 /orchestrator library_set_version <loopId> <version>
 /orchestrator library_unlink <loopId>
+/orchestrator library_delete <entryId>
 ```
 
 Catalog commands:

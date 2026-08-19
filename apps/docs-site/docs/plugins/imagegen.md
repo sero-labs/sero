@@ -1,37 +1,28 @@
 # ImageGen Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+ImageGen creates images with the Google Gemini API. Open **ImageGen** to generate an image, browse the **Gallery**, or view a result at full size.
 
-## Overview
+## Configure a provider
 
-Gemini-powered image generation app with gallery widget, montage/ImageViewer flows, and chat-context attachment support described by README.
+Set `GEMINI_API_KEY`, or add a Google API key with `/login`. Generation sends the prompt and all reference images to Google. The provider can charge for requests. Check your Google account limits and prices before you generate many images.
 
-## Try it first
+## Generate and reuse images
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+Enter a prompt and select the generation options in the app. You can attach up to four reference images for an edit or remix. The `generate_image` tool accepts the same type of request.
 
-Use a harmless demo prompt, generate one image, view it in the gallery, and attach only non-sensitive outputs to chat context.
+The plugin saves gallery metadata and image files in the workspace:
 
-## Surfaces from the manifest/source
+```text
+<workspace>/.sero/apps/imagegen/state.json
+<workspace>/.sero/apps/imagegen/images/
+```
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-imagegen` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+The gallery tool can read or delete a managed image. Deletion removes the image file and its gallery record. It does not delete copies that you exported, attached elsewhere, or sent to the provider.
 
-## Privacy, secrets, and recovery
-
-Requires Gemini/provider setup as described by the plugin source. Generated images and prompts may be sensitive; verify storage paths in the plugin before sharing files.
-
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+If generation fails, first confirm that the API key is available to Sero. Then retry with a small prompt and no attachments. Do not publish prompts, reference images, API keys, or generated images that contain private information.
 
 ## Related docs
 
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
+- [Models and Providers](/guide/models-and-providers)
 - [Security / Privacy](/reference/security-privacy)

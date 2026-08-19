@@ -1,62 +1,39 @@
-# Start Here
+# Grow your own Agent
 
-Sero is a desktop app for working on local software projects with an AI coding
-agent. It brings project workspaces, chat, terminals, previews, files, source
-control, and plugins into one local shell.
+Sero gives an AI coding agent its own desktop workspace. It can work with your
+project files, run commands, open previews, use a browser, and call tools while
+you inspect and steer the work as it runs.
 
-Sero is available as a public beta desktop release. Most users should download
-the packaged installer for their platform from GitHub Releases; developers and
-contributors can still build from source. This is still beta software: support
-is best effort, updates are manual unless release notes say otherwise, and
-plugin/runtime APIs may change.
+Add your instructions, memory, skills, and plugins. The agent keeps useful
+context and gains new capabilities as you add them. That is what we mean by
+"grow your own Agent."
 
-## What Sero helps you do
+Sero is available as a public beta desktop release. It runs on your computer,
+not in a hosted cloud IDE. Sero is built on the open-source Pi coding agent.
 
-Sero is designed for agent-assisted development work where the agent needs more
-than a chat box.
+## Make it yours
 
-Use Sero when you want to:
+A Sero profile holds your agent setup and instructions. Each workspace gives
+it project context. Memory keeps useful facts across sessions. Skills provide
+reusable instructions, while plugins add tools, apps, external services, and
+background jobs.
 
-- open a project workspace and keep the agent near the files, terminals, and
-  previews it needs
-- ask an AI coding agent to work with local project context
-- inspect app previews and browser-like workflows in the same desktop shell
-- add workflow-specific tools through plugins
-- keep project state local unless you choose to connect external services
+You choose the model and provider. You can inspect the agent's work, steer it
+while it runs, and use checkpoints when you need to undo a change.
 
-Sero is built on Pi, an open-source coding agent platform. You do not need to
-understand Pi internals to start using Sero.
-
-## Who the beta is for
-
-The public beta is a good fit if you are:
-
-- using a supported packaged desktop target listed in [Support Scope](/reference/support-scope)
-- an early adopter who is comfortable with beta-quality workflows
-- a developer or contributor who wants to build from source
-- okay with changing plugin/runtime contracts
-
-It is probably not the right fit yet if you need:
-
-- stable commercial polish
-- production-stable workflows
-- a hosted cloud IDE
-- fully stable plugin APIs
-- identical capabilities on every operating system
-
-## What to do first
+## Start using Sero
 
 1. Check [Support Scope](/reference/support-scope) for the current platform and
    workspace runtime support contract.
 2. Follow [Get Sero Running](/guide/getting-started) to install the packaged
-   beta, or use the source-build path if you are developing Sero.
+   app, or use the source-build path if you are developing Sero.
 3. When you open or configure a workspace, use the default runtime if you are
    unsure. Read [Choose a Workspace Runtime](/guide/choose-workspace-runtime) if
    you need container behavior or want to switch later.
 4. Set up your profile and providers with [Profiles and Onboarding](/guide/profiles-and-onboarding)
    and [Models and Providers](/guide/models-and-providers).
 
-## Learn the workspace after first launch
+## Find your way around
 
 After Sero opens, these pages explain the main surfaces:
 
@@ -71,7 +48,7 @@ After Sero opens, these pages explain the main surfaces:
 - [Plugin Catalog](/plugins/catalog) — built-in and external/local plugins at a
   glance.
 
-## Look up exact facts
+## Reference and help
 
 Use reference pages when you need a precise answer:
 

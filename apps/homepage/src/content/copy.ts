@@ -6,12 +6,12 @@ import type { ImageMetadata } from "astro";
 import seroChat from "@docs-images/sero-chat.jpg";
 import explorerBrowser from "@docs-images/explorer-browser.jpg";
 import explorerDevServers from "@docs-images/explorer-dev-servers.jpg";
-import gitResolveAi from "@docs-images/git-resolve-ai.jpg";
-import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
+import designLib from "@docs-images/design-library-2.jpg";
+import cronJobs from "@docs-images/cron.jpg";
 import research from "@docs-images/research.jpg";
-import kanban from "@docs-images/kanban.jpg";
+import agentBoard from "@docs-images/agent-board.jpg";
 import memory from "@docs-images/memory.jpg";
-import cronJobsEditor from "@docs-images/cron-jobs-editor-crop.jpg";
+import room from "@docs-images/room.jpg";
 import gitApp from "@docs-images/git-app.jpg";
 import mcpManager from "@docs-images/mcp.jpg";
 import adminAgents from "@docs-images/admin-agents.jpg";
@@ -41,12 +41,12 @@ export const images = {
 	seroChat,
 	explorerBrowser,
 	explorerDevServers,
-	gitResolveAi,
+	designLib,
 	cronJobs,
 	research,
-	kanban,
+	agentBoard,
 	memory,
-	cronJobsEditor,
+	room,
 	gitApp,
 	mcpManager,
 	adminAgents,
@@ -154,7 +154,7 @@ export const become: BecomePanel[] = [
 			"Local runtimes: Apple Container, Docker/Podman, or Host",
 		],
 		mineExample: "“Add a release-checklist app for this monorepo.”",
-		image: images.gitResolveAi,
+		image: images.designLib,
 	},
 	{
 		id: "assistant",
@@ -174,11 +174,11 @@ export const become: BecomePanel[] = [
 	},
 	{
 		id: "ops",
-		title: "Operations console",
+		title: "Agent Board",
 		tagline: "Dashboards, monitors, routines, external APIs, jobs.",
 		defaults: ["Plugin UIs + widgets", "Background runtimes", "Provider plugins"],
 		mineExample: "“Make a deploy console that pings my staging cluster.”",
-		image: images.kanban,
+		image: images.agentBoard,
 	},
 ];
 
@@ -223,7 +223,7 @@ export const features: Feature[] = [
 
 export const builtins = [
 	{ name: "Memory", desc: "Identity, profile, long-term facts, daily logs.", img: images.memory },
-	{ name: "Scheduler", desc: "Recurring prompts and reminders.", img: images.cronJobsEditor },
+	{ name: "Rooms", desc: "A Room allows a team of Sero agents to work on a task", img: images.room },
 	{ name: "Web", desc: "Search, fetch, code lookup, bookmarks.", img: images.research },
 	{ name: "Git", desc: "Branches, staging, commits, diffs, history.", img: images.gitApp },
 	{ name: "MCP", desc: "Connect external MCP tools and resources.", img: images.mcpManager },

@@ -1,41 +1,29 @@
 # Signal Desk Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+Signal Desk collects RSS and Atom feeds, groups related items into stories, and keeps briefings, insights, and follow-up actions.
 
-## Overview
+## Start with demo data
 
-RSS-first personal intelligence desk for Sero. Signal Desk tracks sources and watchlists, clusters feed items into stories, and turns high-signal changes into briefings, saved insights, and follow-up actions.
+Open **Signal Desk** and select **Seed demo**. Refresh the demo sources, open a story, and create a briefing. This test uses public sample sources and does not expose private feed URLs.
 
-## Try it first
+When you add your own source, Signal Desk requests its URL over the network. Feed operators can see the request. Feed content can also contain untrusted text, so check source links before you act on a briefing.
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open Signal Desk from the sidebar/App Store if the manifest exposes a UI.
-3. Click **Seed demo** before adding private feeds.
-4. Refresh sources, select a story, and ask Sero for a concise briefing or follow-up action.
+The `signal_desk` tool can manage sources and watchlists, refresh feeds, list articles and clusters, create briefings, save insights, and manage follow-up actions. `/open-signal-desk-briefing` opens the briefing workflow in chat.
 
-A safe first smoke test is: seed the AI tools demo, refresh the demo feeds, then ask Sero to summarize the highest-signal story and save it as an insight.
+## Refresh and scheduling
 
-## Surfaces from the manifest/source
+A manual **Refresh** fetches enabled sources and updates local articles and clusters. You can set the refresh interval to five minutes or more, but the interval does not fetch feeds. Use **Refresh** when you need current data.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-signal-desk` |
-| Status | external/local |
-| App ID | `signal-desk` |
-| App state | `.sero/apps/signal-desk/state.json` |
-| UI | Federated `SignalDeskApp` remote |
-| Tool | Bridged `signal_desk` tool for sources, watchlists, refreshes, clusters, briefings, insights, and actions |
-| Runtime | Background runtime is declared for workspace reconciliation/scheduling behavior |
+If Sero restarts during a refresh, the runtime marks that run as an error with a recovery message. Start a new manual refresh.
 
-## Privacy, secrets, and recovery
+## Storage and recovery
 
-Feeds can reveal private research interests, customer names, repos, launches, or security concerns. Use public/demo feeds in screenshots and support reports. Do not paste private feed URLs, internal article text, customer names, or workspace paths into public issues.
+Signal Desk is workspace-scoped at `<workspace>/.sero/apps/signal-desk/state.json`. This file contains source URLs, watchlists, article metadata, saved briefings, insights, and actions. Removing a source does not remove the original content from its publisher.
 
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. If the state file is malformed, repair or restore `.sero/apps/signal-desk/state.json` before running write actions.
+If the state file has malformed JSON, write actions stop instead of replacing it. Restore or repair the file before you make more changes. Remove private feed URLs, customer names, and internal topics from support reports.
 
 ## Related docs
 
+- [Research Plugin](/plugins/research)
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

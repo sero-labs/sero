@@ -1,34 +1,21 @@
 # Security / Privacy
 
-Sero is a local-first developer tool in a **public beta** stage. It
-runs on your machine, stores profile state locally, and can optionally connect
+Sero is a local-first developer tool. It runs on your machine,
+stores profile state locally, and can optionally connect
 to remote services such as model providers, GitHub, plugin registries, Discord,
 Tailscale, or the Sero gateway.
 
-This page is practical guidance, not a claim of hardened isolation. During the
-beta, treat Sero like a powerful local automation environment: protect the
+This page is practical guidance, not a claim of hardened isolation. Treat Sero
+like a powerful local automation environment: protect the
 profile directory, review what plugins and remote clients can reach, and report
 security issues privately.
 
-## Public beta security posture
+## Security reports
 
-Security reports are accepted for:
-
-- the latest `main` branch
-- current public beta releases, best effort
-- the desktop app, auth/token handling, local secret handling, gateway and
-  remote-control surfaces, workspace/container execution boundaries, core plugin
-  loading, and docs or examples that encourage unsafe behavior
-
-Older commits, local forks, heavily modified builds, and third-party plugins
-outside this monorepo are not supported security-report targets unless they
-expose a vulnerability in Sero itself.
-
-Please **do not** open public GitHub issues or public PRs for suspected security
-problems. Use private reporting instead:
-
-1. GitHub private vulnerability reporting / security advisories, if enabled.
-2. Email `security@sero-ai.dev` with subject `[Sero Security]`.
+Do not put sensitive details in a public GitHub issue or pull request. If the
+repository enables GitHub private vulnerability reporting or security
+advisories, use that feature. Otherwise, contact the maintainers through a
+verified private channel.
 
 Include impact, reproduction steps, commit/build context, and whether the issue
 requires local access, profile access, network access, or a malicious plugin or
@@ -56,7 +43,8 @@ Common sensitive paths include:
 | workspace registry | `<SERO_HOME>/agent/workspaces.json` |
 | global memory files | `<SERO_HOME>/workspaces/global/` |
 | app state | `<SERO_HOME>/apps/` and `<workspace>/.sero/apps/` |
-| runtime logs | `/tmp/sero-*.log` |
+| source-development logs | `~/.sero-ui/logs/` or `$SERO_LOG_DIR` |
+| compatibility log links | `/tmp/sero-*.log` |
 
 Before sharing diagnostics:
 
@@ -104,7 +92,13 @@ Remote integrations can expand what an attacker can do with a stolen token,
 profile file, or malicious plugin. Enable them intentionally and remove or
 rotate credentials you no longer need.
 
-## Renderer and browser safeguards
+## Stored-secret and renderer safeguards
+
+Sero exposes Electron safe storage to plugins that need to store a secret. When operating-system encryption is available, Electron encrypts the value before Sero stores it. If encryption is not available, Sero uses base64 encoding and shows a security warning. Base64 does not protect a secret. Do not assume that all profile credentials use safe storage.
+
+GitHub authentication uses safe storage when it is available. Other auth files and plugin state can have different storage rules. Check the integration before you copy or share its state.
+
+### Renderer and browser controls
 
 Sero applies Electron/browser safeguards intended to reduce accidental exposure
 and common renderer risks. These are defense-in-depth controls, not a guarantee
@@ -186,7 +180,7 @@ IDs, but that is not a comprehensive per-tool or agent-action permission system.
 Because prompts can lead the agent to run tools, treat gateway credentials like
 high-privilege secrets.
 
-Important gateway caveats during beta:
+Important gateway limits:
 
 - the master token is profile-scoped and should be stored/handled like a root
   password
@@ -214,9 +208,9 @@ The pairing dialog is security-relevant because it shows both the access scope
 and expiry for a remote web device. Treat real QR codes and login URLs from this
 screen as secrets; redact them from screenshots and rotate exposed tokens.
 
-## What Sero does not claim during beta
+## Security boundaries
 
-The public beta does **not** claim:
+Sero does **not** claim:
 
 - universal permission prompts for every tool or action
 - comprehensive blocking of all dangerous agent behavior
@@ -239,11 +233,3 @@ credentials accordingly.
 - [Remote Control](/guide/remote-control)
 - [State and Folders](/reference/state-and-folders)
 - [Support Scope](/reference/support-scope)
-
-Current source material:
-
-- [`SECURITY.md`](https://github.com/sero-labs/sero/blob/main/SECURITY.md)
-- [`docs/reference/state-and-folders.md`](https://github.com/sero-labs/sero/blob/main/docs/reference/state-and-folders.md)
-- [`docs/security/gateway.md`](https://github.com/sero-labs/sero/blob/main/docs/security/gateway.md)
-- [`docs/features/memory.md`](https://github.com/sero-labs/sero/blob/main/docs/features/memory.md)
-- [`docs/features/profiles.md`](https://github.com/sero-labs/sero/blob/main/docs/features/profiles.md)
