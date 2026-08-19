@@ -51,6 +51,14 @@ describe('selectStreamingWriteContent', () => {
     expect(selectStreamingWriteContent(agentState({}), 'ws-1', TAB)).toBe('const a = 1;');
   });
 
+  it.each(['src/a.ts', './src/a.ts'])(
+    'maps the relative tool path %s onto the primary workspace root',
+    (path) => {
+      const state = agentState({ messages: [streamingWrite({ input: { path, content: 'live' } })] });
+      expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBe('live');
+    },
+  );
+
   it('ignores a different tab, workspace, or an idle session', () => {
     const state = agentState({});
     expect(selectStreamingWriteContent(state, 'ws-1', '/workspace/src/other.ts')).toBeNull();

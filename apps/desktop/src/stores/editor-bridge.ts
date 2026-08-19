@@ -51,17 +51,24 @@ export function toEditorPath(workspaceId: string, filePath: string): string {
   const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId);
   if (!workspace) return filePath;
 
+  const normalizedFilePath = normalizeHostPath(filePath);
+  const isAbsolutePath = normalizedFilePath.startsWith('/') || /^[a-z]:\//i.test(normalizedFilePath);
+  if (!isAbsolutePath) {
+    const relativePath = normalizedFilePath.replace(/^\.\/+/, '');
+    return `/workspace/${relativePath}`;
+  }
+
   for (const root of workspace.roots) {
-    if (isSameOrChild(root.path, filePath)) {
-      return toVirtualChildPath(`/${root.id}`, root.path, filePath);
+    if (isSameOrChild(root.path, normalizedFilePath)) {
+      return toVirtualChildPath(`/${root.id}`, root.path, normalizedFilePath);
     }
   }
 
-  if (isSameOrChild(workspace.path, filePath)) {
-    return toVirtualChildPath('/workspace', workspace.path, filePath);
+  if (isSameOrChild(workspace.path, normalizedFilePath)) {
+    return toVirtualChildPath('/workspace', workspace.path, normalizedFilePath);
   }
 
-  return filePath;
+  return normalizedFilePath;
 }
 
 function focusEditor(workspaceId: string): void {

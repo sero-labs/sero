@@ -2,20 +2,12 @@ import { useMemo } from 'react';
 import { FileCode2 } from 'lucide-react';
 import type { ChatToolCallMessage } from '@/types/ipc';
 
-/**
- * Live view of a file the model is still writing.
- *
- * The content comes from the tool call's partially parsed arguments, so it
- * grows delta by delta while the tool is still pending. Only the trailing lines
- * render — a long file must not cost more per frame than a short one.
- */
 const TAIL_LINES = 200;
 
+/** Show a readable tail of streamed file input inside the full tool details. */
 export function StreamingFileWrite({ tool }: { tool: ChatToolCallMessage }) {
   const content = typeof tool.input.content === 'string' ? tool.input.content : '';
   const path = typeof tool.input.path === 'string' ? tool.input.path : null;
-  // `edit` streams one replacement, not the file. Say so, rather than letting a
-  // fragment read as the whole document.
   const isFragment = tool.toolName === 'edit';
 
   const { tail, lineCount } = useMemo(() => {

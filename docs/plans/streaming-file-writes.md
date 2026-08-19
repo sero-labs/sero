@@ -128,14 +128,10 @@ placeholder still `pending` at `agent_end`.
 
 ### 3.4 UI
 
-`ToolCallProgress.tsx` already owns the "Live" card for running tools. Add a
-`buildWriteProgress` branch that renders the streaming content in a monospace
-pane pinned to the bottom, with the path as the title and a line counter as the
-badge. `SingleToolCall` opens expanded while running, so the pane is visible
-without a click.
-
-Cap the rendered pane to the last ~200 lines. A 3000-line file re-highlighted
-every frame will drop frames; a tail does not.
+The default tool view shows the path and a live status, but not the file content
+deltas. This keeps the chat compact while the editor uses the same streamed
+input for an open file. The full tool details can still show the current input
+when the user asks for it.
 
 ### 3.5 What NOT to do
 

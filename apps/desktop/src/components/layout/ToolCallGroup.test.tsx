@@ -19,6 +19,7 @@ import { groupMessages, isToolGroupFinalized, ToolCallGroup } from './ToolCallGr
 import type { ChatAssistantMessage, ChatToolCallMessage } from '@/types/ipc';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(window, 'scrollTo', { configurable: true, value: vi.fn() });
 
 function makeTool(overrides: Partial<ChatToolCallMessage>): ChatToolCallMessage {
   return {
@@ -145,6 +146,64 @@ describe('ToolCallGroup image previews', () => {
     });
 
     expect(container.textContent).toContain('Collapse details');
+  });
+
+  it('hides streaming write content from the default tool view', async () => {
+    const write = makeTool({
+      toolName: 'write',
+      state: 'pending',
+      input: { path: 'src/live.ts', content: 'STREAMED_FILE_CONTENT' },
+      output: null,
+      isStreamingInput: true,
+    });
+
+    await act(async () => {
+      root?.render(<ToolCallGroup tools={[write]} workspaceId="ws-1" isFinalized={false} />);
+    });
+
+    expect(container.textContent).toContain('src/live.ts');
+    expect(container.textContent).toContain('Live');
+    expect(container.textContent).not.toContain('STREAMED_FILE_CONTENT');
+
+    await act(async () => {
+      clickButtonByText(container, 'Show full details');
+    });
+
+    expect(container.textContent).toContain('STREAMED_FILE_CONTENT');
+
+    const updatedWrite = {
+      ...write,
+      input: { ...write.input, content: 'STREAMED_FILE_CONTENT\nNEXT_DELTA' },
+    };
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup tools={[updatedWrite]} workspaceId="ws-1" isFinalized={false} />,
+      );
+    });
+
+    expect(container.textContent).toContain('NEXT_DELTA');
+
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            updatedWrite,
+            makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'read' }),
+          ]}
+          workspaceId="ws-1"
+          isFinalized={false}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('src/live.ts');
+    expect(container.textContent).not.toContain('STREAMED_FILE_CONTENT');
+
+    await act(async () => {
+      clickButtonByText(container, 'Show full details');
+    });
+
+    expect(container.textContent).toContain('STREAMED_FILE_CONTENT');
   });
 
   it('renders only the last ten tool calls in summary and detail views', async () => {

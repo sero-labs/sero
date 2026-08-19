@@ -17,7 +17,6 @@ import { ToolDetail } from './ToolDetail';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';
-import { StreamingFileWrite } from './StreamingFileWrite';
 
 export function SingleToolCall({
   tool,
@@ -87,12 +86,6 @@ export function SingleToolCall({
           </span>
         ) : null}
       </button>
-
-      {isStreamingInput ? (
-        <div className="border-t border-[var(--border-subtle)] p-3">
-          <StreamingFileWrite tool={tool} />
-        </div>
-      ) : null}
 
       {!expanded && progressModel ? (
         <div className="border-t border-[var(--border-subtle)] p-3">

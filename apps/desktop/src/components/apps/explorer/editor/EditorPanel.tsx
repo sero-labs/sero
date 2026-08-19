@@ -23,6 +23,7 @@ import { useEditorDocumentState } from './useEditorDocumentState';
 import { useEditorMonacoState } from './useEditorMonacoState';
 import { useEditorRuntimeSync } from './useEditorRuntimeSync';
 import { useMonacoNavigation } from './useMonacoNavigation';
+import { useStreamingEditorChange } from './useStreamingEditorChange';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { useStreamingWriteContent } from '@/stores/streaming-writes';
@@ -124,6 +125,10 @@ export function EditorPanel({
   const streamingContent =
     activeTab && !documentState.dirtyPaths.has(activeTab) ? streamingWrite : null;
   const isStreamingTab = streamingContent !== null;
+  const handleEditorChange = useStreamingEditorChange(
+    isStreamingTab,
+    documentState.handleChange,
+  );
 
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const editorThemeId = useAppStore((state) => state.editorThemeId);
@@ -189,7 +194,7 @@ export function EditorPanel({
                 language={documentState.language}
                 path={activeTab}
                 value={streamingContent ?? documentState.content}
-                onChange={isStreamingTab ? undefined : documentState.handleChange}
+                onChange={handleEditorChange}
                 beforeMount={monacoState.handleBeforeMount}
                 onMount={monacoState.handleEditorMount}
                 theme={monacoThemeName}

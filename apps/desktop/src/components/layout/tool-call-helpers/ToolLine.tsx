@@ -7,7 +7,6 @@ import {
 } from '../ToolCallProgress';
 import { getCollapsedToolSummary, toolStatusDot } from '../ToolCallState';
 import { ToolSummaryText } from './ToolSummaryText';
-import { StreamingFileWrite } from './StreamingFileWrite';
 
 export function ToolLine({
   tool,
@@ -43,11 +42,6 @@ export function ToolLine({
           />
         ) : null}
       </div>
-      {tool.isStreamingInput ? (
-        <div className="mt-1.5">
-          <StreamingFileWrite tool={tool} />
-        </div>
-      ) : null}
     </motion.div>
   );
 }
