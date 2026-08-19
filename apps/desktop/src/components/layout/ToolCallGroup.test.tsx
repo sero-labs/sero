@@ -173,7 +173,7 @@ describe('ToolCallGroup image previews', () => {
 
     const updatedWrite = {
       ...write,
-      input: { ...write.input, content: 'STREAMED_FILE_CONTENT\nNEXT_DELTA' },
+      input: { ...write.input, content: 'STREAMED_FILE_CONTENT\nNEXT_DELTA\n' },
     };
     await act(async () => {
       root?.render(
@@ -182,6 +182,7 @@ describe('ToolCallGroup image previews', () => {
     });
 
     expect(container.textContent).toContain('NEXT_DELTA');
+    expect(container.textContent).toContain('2 lines');
 
     await act(async () => {
       root?.render(

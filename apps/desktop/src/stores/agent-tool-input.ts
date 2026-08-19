@@ -148,7 +148,15 @@ export function applyToolStart(
 
   return messages.map((message) =>
     message.type === 'tool' && message.toolCallId === tool.toolCallId
-      ? { ...message, ...tool, isPartialOutput: false, isStreamingInput: false }
+      ? {
+          ...message,
+          ...tool,
+          // The placeholder id is also the React key. Keep it stable when the
+          // SDK's real tool message arrives so an open details pane stays open.
+          id: message.id,
+          isPartialOutput: false,
+          isStreamingInput: false,
+        }
       : message,
   );
 }

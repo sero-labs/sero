@@ -87,6 +87,18 @@ describe('selectStreamingWriteContent', () => {
     expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBe('const a = 1;');
   });
 
+  it('does not inspect writes before the current user turn', () => {
+    const state = agentState({
+      messages: [
+        streamingWrite(),
+        { type: 'user', id: 'user-2', text: 'Next task' },
+        { type: 'assistant', id: 'assistant-2', text: '', isStreaming: true },
+      ],
+    });
+
+    expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBeNull();
+  });
+
   it('stops once the write has completed or was cancelled', () => {
     for (const state of ['completed', 'cancelled', 'error'] as const) {
       const agents = agentState({ messages: [streamingWrite({ state, isStreamingInput: false })] });

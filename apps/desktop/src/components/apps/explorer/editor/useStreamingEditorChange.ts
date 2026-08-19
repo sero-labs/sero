@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
 /**
  * Ignore Monaco change events while an agent-owned buffer is visible.
@@ -12,7 +12,9 @@ export function useStreamingEditorChange(
   onChange: (value: string | undefined) => void,
 ): (value: string | undefined) => void {
   const isStreamingRef = useRef(isStreaming);
-  isStreamingRef.current = isStreaming;
+  useLayoutEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   return useCallback((value: string | undefined) => {
     if (!isStreamingRef.current) onChange(value);

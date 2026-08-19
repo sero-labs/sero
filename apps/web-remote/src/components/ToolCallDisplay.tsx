@@ -29,6 +29,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
     running: <Loader2 className="size-3.5 animate-spin text-yellow-500" />,
     done: <Check className="size-3.5 text-green-500" />,
     error: <X className="size-3.5 text-destructive" />,
+    cancelled: <X className="size-3.5 text-muted-foreground" />,
   }[tc.state];
 
   // While arguments stream, the file being written is the interesting content —
@@ -116,12 +117,15 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({
   ).length;
   const done = toolCalls.filter((tc) => tc.state === 'done').length;
   const errors = toolCalls.filter((tc) => tc.state === 'error').length;
+  const cancelled = toolCalls.filter((tc) => tc.state === 'cancelled').length;
 
   const summary = running > 0
     ? `${running} running`
     : errors > 0
       ? `${errors} failed`
-      : `${done} complete`;
+      : cancelled > 0
+        ? `${cancelled} cancelled`
+        : `${done} complete`;
 
   return (
     <div className="bg-card border border-border rounded-lg p-2 my-1">
@@ -137,7 +141,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({
 
       <div className="space-y-0.5">
         {toolCalls.map((tc) => (
-          <ToolCallItem key={tc.toolCallId} tc={tc} />
+          <ToolCallItem key={tc.renderKey ?? tc.toolCallId} tc={tc} />
         ))}
       </div>
     </div>

@@ -58,6 +58,7 @@ describe('streaming tool input', () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({
+      id: 'tin-sk-1',
       toolCallId: 'call-1',
       state: 'running',
       isStreamingInput: false,

@@ -163,10 +163,11 @@ This composes with what the editor already does. `useEditorRuntimeSync` watches
 the file tree and re-reads any open, non-dirty tab whose directory changed, so a
 finished agent write already lands in the tab. (An earlier draft of this
 document claimed open tabs went stale — that was wrong; the watcher handles it.)
-The overlay covers the gap that watcher cannot: the seconds *while* the file is
-being written, before anything reaches disk. When the write lands the overlay
-clears and the watcher supplies the real content, so there is one path in and no
-reconciliation step.
+The overlay covers the gap that the watcher cannot: the seconds *while* the file
+is being written, before anything reaches disk. When the tool finishes, the
+editor holds the final streamed frame read-only until a direct file read returns
+the written content. The watcher remains the normal background refresh path,
+but the direct handoff prevents the old editable buffer from flashing on screen.
 
 Three rules make "all tabs live" safe:
 

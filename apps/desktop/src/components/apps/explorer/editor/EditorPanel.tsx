@@ -24,6 +24,7 @@ import { useEditorMonacoState } from './useEditorMonacoState';
 import { useEditorRuntimeSync } from './useEditorRuntimeSync';
 import { useMonacoNavigation } from './useMonacoNavigation';
 import { useStreamingEditorChange } from './useStreamingEditorChange';
+import { useStreamingWriteHandoff } from './useStreamingWriteHandoff';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { useStreamingWriteContent } from '@/stores/streaming-writes';
@@ -122,8 +123,15 @@ export function EditorPanel({
   // A file the agent is writing right now streams into its own tab. Unsaved
   // edits win — the user's buffer is not something to overwrite for a preview.
   const streamingWrite = useStreamingWriteContent(workspaceId, activeTab);
-  const streamingContent =
-    activeTab && !documentState.dirtyPaths.has(activeTab) ? streamingWrite : null;
+  const streamingContent = useStreamingWriteHandoff({
+    workspaceId,
+    editorPath: activeTab,
+    liveContent: streamingWrite,
+    dirty: activeTab ? documentState.dirtyPaths.has(activeTab) : false,
+    contentMapRef: documentState.contentMapRef,
+    savedContentRef: documentState.savedContentRef,
+    setContent: documentState.setContent,
+  });
   const isStreamingTab = streamingContent !== null;
   const handleEditorChange = useStreamingEditorChange(
     isStreamingTab,

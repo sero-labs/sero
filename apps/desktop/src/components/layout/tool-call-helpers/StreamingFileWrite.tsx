@@ -14,7 +14,7 @@ export function StreamingFileWrite({ tool }: { tool: ChatToolCallMessage }) {
     const lines = content.split('\n');
     return {
       tail: lines.slice(-TAIL_LINES).join('\n'),
-      lineCount: content ? lines.length : 0,
+      lineCount: content ? lines.length - Number(content.endsWith('\n')) : 0,
     };
   }, [content]);
 

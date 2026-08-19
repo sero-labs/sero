@@ -21,9 +21,11 @@ export interface ChatMessage {
 
 export interface ToolCall {
   toolCallId: string;
+  /** Stable React key while a streamed placeholder adopts its real call id. */
+  renderKey?: string;
   toolName: string;
   input?: Record<string, unknown>;
-  state: 'streaming' | 'running' | 'done' | 'error';
+  state: 'streaming' | 'running' | 'done' | 'error' | 'cancelled';
   /** True while the model is still streaming this call's arguments. */
   isStreamingInput?: boolean;
   output?: string;
@@ -195,11 +197,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set((s) => {
           const msgs = [...s.messages];
           const last = msgs[msgs.length - 1];
+          const finalizedToolCalls = s.toolCalls.map((toolCall) =>
+            toolCall.state === 'streaming' || toolCall.state === 'running'
+              ? { ...toolCall, state: 'cancelled' as const, isStreamingInput: false }
+              : toolCall,
+          );
           if (last && last.type === 'assistant' && last.isStreaming) {
             msgs[msgs.length - 1] = {
               ...last,
               isStreaming: false,
-              toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : last.toolCalls,
+              toolCalls: finalizedToolCalls.length > 0 ? finalizedToolCalls : last.toolCalls,
             };
           }
           return { isStreaming: false, messages: msgs, toolCalls: [] };
@@ -263,6 +270,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // real tool call id arrives.
         const toolCall: ToolCall = {
           toolCallId: pushMsg.streamKey as string,
+          renderKey: pushMsg.streamKey as string,
           toolName: pushMsg.toolName as string,
           input: {},
           state: 'streaming',
@@ -342,7 +350,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set((s) => ({
           toolCalls: s.toolCalls.map((tc) =>
             tc.toolCallId === callId
-              ? { ...tc, state: isError ? 'error' : 'done', output: output ?? undefined, images }
+              ? {
+                  ...tc,
+                  state: isError ? 'error' : 'done',
+                  isStreamingInput: false,
+                  output: output ?? undefined,
+                  images,
+                }
               : tc,
           ),
         }));

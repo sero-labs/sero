@@ -223,7 +223,7 @@ export function handleAgentStreamEvent(
         if (!agent) return state;
         const messages = agent.messages.map((message) =>
           message.type === 'tool' && (message.state === 'pending' || message.state === 'running')
-            ? { ...message, state: 'cancelled' as const }
+            ? { ...message, state: 'cancelled' as const, isStreamingInput: false }
             : message,
         );
         return {
@@ -418,6 +418,7 @@ export function handleAgentStreamEvent(
                     isError: event.isError,
                     state: event.isError ? 'error' : 'completed',
                     isPartialOutput: false,
+                    isStreamingInput: false,
                     images: event.images,
                   } as ChatToolCallMessage)
                 : message,
