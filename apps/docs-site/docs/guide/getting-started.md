@@ -1,9 +1,8 @@
 # Get Sero Running
 
-In this tutorial, you will install the Sero public beta desktop app, complete
-first-run setup, and open a project workspace.
-
-Developers and contributors can use the source-build path later on this page.
+Install the packaged desktop app, complete setup, and open a workspace. If you
+want to change Sero itself, use [Development Setup](/guide/development-setup)
+instead.
 
 ## Prerequisites
 
@@ -11,20 +10,12 @@ Before you start, make sure you have:
 
 - a platform covered by [Support Scope](/reference/support-scope)
 - access to the current Sero release assets on [GitHub Releases](https://github.com/sero-labs/sero/releases)
-- any runtime tools you plan to use after launch, such as Docker / Podman or
-  Apple's `container` CLI where supported
+- optional container tools if you plan to use a container runtime
 
-Sero is a **public beta desktop release**. GitHub Releases is the source of
-truth for exact current installer filenames. Beta caveats still apply: macOS
-Intel/x64 and Windows arm64 are unsupported, plugin/runtime APIs may change,
-updates are manual unless release notes say otherwise, and support is best
-effort. See [Support Scope](/reference/support-scope) for the exact platform and
-runtime contract.
+## 1. Download Sero
 
-## 1. Download the packaged beta
-
-Open [GitHub Releases](https://github.com/sero-labs/sero/releases) and download
-the current packaged artifact for your supported platform.
+Open [GitHub Releases](https://github.com/sero-labs/sero/releases). Download the
+current installer for your platform.
 
 Expected result: you have the current Sero installer or package for your OS. The
 release page contains the exact filename to use.
@@ -37,20 +28,16 @@ not assume another artifact will work.
 Install Sero using the normal installer flow for your operating system, then open
 the desktop app.
 
-On macOS, Sero is signed with a Developer ID certificate and notarized by Apple,
-so it opens normally — drag it to Applications and launch it, no Gatekeeper
-prompts.
-
 Expected result: the Sero window opens. On Windows, SmartScreen / unknown-publisher
-prompts may still appear during beta because the Windows build is not yet signed.
+prompts can appear if the release is not signed.
 
 If the app does not open, keep any installer or launch error output and check
 [Troubleshooting](/reference/troubleshooting).
 
 ## 3. Complete first-run setup
 
-In the Sero window, follow the first-run prompts to create or select a profile
-and configure the providers you want to use.
+In the Sero window, create a profile. Connect a model provider and select the
+LOW, MED, and HIGH defaults. GitHub setup is optional.
 
 Expected result: you reach the desktop shell with the app/workspace sidebar,
 main workspace area, and chat panel visible.
@@ -74,49 +61,5 @@ preview surfaces, and chat for that project.
 For exact platform and runtime support facts, see [Support Scope](/reference/support-scope).
 For help choosing later, see [Choose a Workspace Runtime](/guide/choose-workspace-runtime).
 
-## Source-build path for developers
-
-Developers and contributors can still run Sero from source on supported targets.
-Use this path when you are changing Sero itself or need a local checkout.
-
-Before you start, make sure you have Node.js 22, pnpm 10, Git, and a local clone
-of the Sero repository:
-
-```bash
-git clone https://github.com/sero-labs/sero.git
-cd sero
-```
-
-Then run:
-
-```bash
-node --version
-pnpm --version
-pnpm install
-pnpm build
-pnpm dev
-```
-
-Expected result: Node.js reports version 22.x, pnpm reports version 10.x, the
-monorepo builds, development servers start, and the Sero desktop app opens.
-Leave `pnpm dev` running while you use the source-built app.
-
-If dependency installation fails with native module errors, keep the error output
-and check [Troubleshooting](/reference/troubleshooting).
-
-When you are finished, return to the terminal running `pnpm dev` and press
-`Ctrl+C`. If a Vite or Electron process keeps running, stop it manually:
-
-```bash
-pkill -f "vite"
-pkill -f "electron"
-```
-
-## What you accomplished
-
-You installed the Sero public beta, completed the first-run path, and opened a
-workspace. If you are developing Sero, you also know where to find the source
-build workflow.
-
-Next, learn the main workspace surfaces in [Workspace and Chat](/guide/workspace-and-chat)
-or look up exact setup facts in [Installation / Requirements](/guide/installation-requirements).
+Next, learn the main workspace surfaces in [Workspace and Chat](/guide/workspace-and-chat).
+For package and platform details, see [Install Sero](/guide/installation-requirements).

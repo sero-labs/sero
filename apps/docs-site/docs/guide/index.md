@@ -6,9 +6,9 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 
 ## First run
 
-- [Start Here](/guide/overview) — learn what Sero is, who the public beta is for, and what to read next.
-- [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install the packaged beta or use the source-build path for development.
-- [Installation / Requirements](/guide/installation-requirements) — check supported install paths, local prerequisites, and setup requirements.
+- [How Sero Works](/guide/overview) — see how workspaces, memory, skills, and plugins make the agent yours.
+- [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install the packaged app or use the source-build path for development.
+- [Install Sero](/guide/installation-requirements) — choose the correct download and check what your system needs.
 
 ## Workspace and runtime tasks
 
@@ -25,7 +25,7 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Models and Providers](/guide/models-and-providers) — configure provider auth, health states, model tiers, and recovery.
 - [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — connect local OpenAI-compatible model servers.
 - [Agent Sessions and Context](/guide/agent-sessions-and-context) — manage composer controls, context, snapshots, steering, and queues.
-- [Subagents and Collaboration](/guide/subagents) — delegate work to specialist agents and review their results.
+- [Subagents](/guide/subagents) — delegate work to specialist agents and review their results.
 - [Memory](/guide/memory) — use durable context and memory tools.
 - [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
 - [Orchestrator](/guide/orchestrator) — choose between planned Workflows and collaborative Rooms.
@@ -51,4 +51,4 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 
 - [Architecture](/reference/architecture) — understand how the desktop shell, workspaces, runtimes, and plugins fit together.
 - [Security / Privacy](/reference/security-privacy) — understand Sero's local-first posture, remote surfaces, and sensitive state.
-- [Known Limitations](/reference/known-limitations) — understand current beta boundaries before relying on Sero for critical work.
+- [Known Limitations](/reference/known-limitations) — understand current boundaries before relying on Sero for critical work.

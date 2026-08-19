@@ -7,9 +7,8 @@ every weekday" or "remind me to review this synthetic plan tomorrow." Source
 checked: `plugins/sero-cron-plugin/package.json` and README. See the
 [Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
-Sero is in **public beta**. Treat scheduler behavior as helpful
-local automation, not guaranteed delivery or a replacement for a dedicated
-calendar, monitoring, or notification system.
+Scheduler is local automation. It does not guarantee delivery and does not
+replace a calendar, monitoring service, or notification service.
 
 ## Jobs vs reminders
 
@@ -49,8 +48,8 @@ You can use Scheduler from a few surfaces:
   checking status.
 - **Agent tools** — `current_time`, `cron`, and `reminder`.
 
-The app's main tabs are **Jobs**, **Reminders**, **Workflows**, and **History**. The
-app defaults to the Reminders view and includes a top status area for scheduler
+The app's main tabs are **Reminders**, **Jobs**, **Workflows**, and **History**.
+The app opens the **Reminders** tab and includes a top status area for scheduler
 state, autostart, and notification settings.
 
 The widget can show whether the scheduler is active or paused, counts for jobs
@@ -69,8 +68,9 @@ explicit. Review these fields carefully before enabling a job.
 ## Scheduled Orchestrator Workflows
 
 The **Workflows** tab lists the active workspace's Orchestrator Workflows that
-run on a schedule, plus Workflows with a pending snoozed retry. Workflows are created and managed
-in the Orchestrator app — this tab is a window into them:
+run on a schedule, plus Workflows with a pending snoozed retry. Workflow cron
+schedules use UTC. Workflows are created and managed in the Orchestrator app.
+This tab is a window into them:
 
 - **Edit schedule** changes the Workflow's cron schedule (evaluated in UTC).
 - **Pause / Resume** stops or re-arms only the schedule. A Workflow that also runs

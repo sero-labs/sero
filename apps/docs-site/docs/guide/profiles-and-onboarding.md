@@ -1,6 +1,8 @@
 # Profiles and Onboarding
 
-Profiles let you keep separate Sero working environments, such as `Work`, `Personal`, or `Research`. Each profile points at its own `SERO_HOME` directory and Sero stores that profile's agent files under `<SERO_HOME>/agent/`.
+Profiles keep separate Sero working environments, such as `Work`, `Personal`,
+or `Research`. Each profile has a `SERO_HOME` directory. Sero stores that
+profile's agent files under `<SERO_HOME>/agent/`.
 
 Profiles are practical local separation, not cryptographic isolation. Someone who can read your profile folder can read sensitive profile files such as provider auth, environment variables, prompts, memory, and workspace metadata.
 
@@ -56,7 +58,9 @@ If switching fails, the UI keeps the profile action visible and reports the rest
 
 ## Copying credentials and model preferences
 
-When creating a new profile from an existing active profile, Sero can offer to copy transferable credentials and model preferences.
+When you create a profile, Sero can copy credentials and model preferences from
+the active profile. It does not copy workspaces, sessions, memory, or general
+app state.
 
 The copy flow can include these profile-agent files when they have meaningful content:
 

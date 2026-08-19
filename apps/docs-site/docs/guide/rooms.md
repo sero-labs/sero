@@ -8,8 +8,6 @@ Use a Room when a task needs several roles or points of view. Use a
 [Workflow](/guide/workflows) when Sero can follow a plan of steps instead.
 [Orchestrator](/guide/orchestrator) explains the difference.
 
-Sero is in public beta. Check important results before you use or publish them.
-
 ## Before you start
 
 This tutorial uses
@@ -80,8 +78,10 @@ Select **Design the team →**.
 
 ## 2. Review the proposed team
 
-Sero reviews the task, workspace, limits, and access before it proposes a team.
-It does not create agent sessions or incur model costs during this stage.
+Sero calls a model to review the task, workspace, limits, and access and to
+propose a team. This planning call can incur a cost before you select **Start**.
+Member sessions and their execution costs start only after you select
+**Start**.
 
 ![Designing the team, with its five steps and the time remaining](../assets/images/orchestrator-rooms-designing.jpg)
 
@@ -199,8 +199,9 @@ test output, and review notes.
 ![The Artifacts tab, listing six published reports](../assets/images/orchestrator-rooms-artifacts.jpg)
 
 **Changes** shows changes that the Conductor made to the team or its assigned
-work. The Conductor cannot increase access, time, cost, or the number of members
-beyond the limits that you approved.
+work. The Conductor cannot increase a member's access or add or replace members
+while the Room runs. It can request higher time or cost limits for you to
+approve.
 
 ![The Changes tab, with the roster-change budget and the assignments made](../assets/images/orchestrator-rooms-changes.jpg)
 

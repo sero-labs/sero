@@ -10,7 +10,8 @@ Dashboard is Sero's home surface for compact app and workspace summaries. Widget
 4. Place it on the grid.
 5. Drag or resize it when you need a different layout.
 
-Dashboard layout is saved in profile layout state, so it follows the active profile.
+Sero saves the widget instance when you add it. It saves position and size after
+you finish a drag or resize action. The layout belongs to the active profile.
 
 ![Dashboard widget grid](../assets/generated/img14.jpg)
 
@@ -21,7 +22,7 @@ If the Dashboard is empty or the widget list is short:
 - no installed app/plugin may expose widgets
 - a plugin may not be enabled or compatible in the current profile
 - runtime widgets may only appear while the plugin UI/runtime is loaded
-- beta discovery may require reopening the app or restarting Sero
+- a runtime widget may require its app renderer to be active
 
 Do not assume every app has a widget.
 
@@ -36,7 +37,8 @@ Both types mount inside Sero's app runtime provider so they can read app/workspa
 
 ## Move, resize, and remove
 
-Dashboard uses a draggable/resizable grid. Widget sizes and positions are user-adjustable hints, not fixed guarantees across every screen size or future beta build.
+Dashboard uses a draggable and resizable grid. The grid adjusts to the available
+width.
 
 Typical actions:
 
@@ -50,7 +52,7 @@ Typical actions:
 Dashboard layout is stored with profile layout state:
 
 ```text
-<SERO_HOME>/agent/layout.json
+<SERO_HOME>/layout.json
 ```
 
 That state can include widget instances and grid layout details. It is local profile data and can reveal installed apps, workspace habits, and private project names through widget titles or state. Redact before sharing.

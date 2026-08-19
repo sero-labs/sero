@@ -6,7 +6,7 @@ Use Sero evals when you need a structured signal about prompt assembly or agent 
 
 | Command | When to use | Cost/auth |
 | --- | --- | --- |
-| `pnpm eval:snapshot` | Prompt assembly/cache drift checks | No live LLM calls; low/no provider cost. |
+| `pnpm eval:snapshot` | Prompt assembly and cache drift checks | No live model calls. |
 | `pnpm eval` | Full promptfoo eval against real providers | Requires credentials and may cost money. |
 | `pnpm eval:view` | Inspect saved promptfoo results | No new model calls. |
 
@@ -18,7 +18,10 @@ Run commands from the monorepo root.
 pnpm eval:snapshot
 ```
 
-Snapshot evals assemble Sero prompt blocks and check presence, ordering, size, and metadata. Run them before committing changes to agent prompts, CLI prompt blocks, container prompt blocks, subagent prompt guidance, or session setup.
+Snapshot evals assemble an approximation of a Sero session prompt. They check
+block presence, ordering, size, and metadata. Run them before you commit changes
+to agent prompts, CLI prompt blocks, container prompt blocks, subagent guidance,
+or session setup.
 
 If a snapshot fails after an intentional prompt change, inspect the failure reason and update the relevant baseline in `eval/scenarios/prompt-stability.yaml` only with the code change that caused it.
 
@@ -30,7 +33,9 @@ ANTHROPIC_API_KEY=... pnpm eval
 
 Real evals use promptfoo plus Sero's eval provider. They create isolated temp workspaces under `/tmp/sero-eval-*`, initialize a clean Git repo, expose file tools, and use an eval-only `sero-cli` shim for deterministic platform checks.
 
-Run them before releases, after model/SDK upgrades, or when changing agent behavior. They are not currently claimed as a required PR gate for every change.
+Run them before releases, after model or SDK upgrades, or when you change agent
+behavior. Current GitHub workflows do not run `pnpm eval` or
+`pnpm eval:snapshot`.
 
 ## Inspect results
 

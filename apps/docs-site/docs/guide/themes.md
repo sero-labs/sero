@@ -1,29 +1,30 @@
 # Themes
 
-Sero includes profile-scoped theme customization. Theme state is local profile
-state and may change as the beta design system continues to evolve.
+Sero stores the selected theme and light, dark, or system mode in the active
+profile's layout state. Custom theme presets are also profile-scoped.
 
 ## Selecting a theme
 
-Start with theme selection when you only need to switch between saved presets or
-verify the current profile's active theme.
+Open **Themes** from the command menu. Select **Default** or a saved preset.
+Use the mode control to select light, dark, or system mode. Sero applies the
+selection immediately and restores it when you next open the profile.
 
 ![Theme select](../assets/images/theme-select.jpg)
 
 ## Editing a theme
 
-Use the theme editor when you need to inspect or modify the preset itself rather
-than simply selecting it.
+Select the preset that you want to change before you open its editor. Use **New
+Theme** when you want to create a custom preset. The editor previews changes
+while it is open and saves custom preset data through the theme service.
 
 ![Theme editor](../assets/images/theme-editor.jpg)
 
-Color-token editing is useful for understanding which named values drive the
-shell and plugin surfaces.
+Color tokens control the shell and plugin surfaces that use those tokens.
 
 ![Theme editor color tokens](../assets/images/theme-editor-2.jpg)
 
-The preview area helps confirm whether a theme change reads correctly across
-common UI elements before you keep it.
+Check the preview before you close the editor. Confirm that text, borders, and
+status colors remain clear in the selected mode.
 
 ![Theme editor preview](../assets/images/theme-editor-3.jpg)
 

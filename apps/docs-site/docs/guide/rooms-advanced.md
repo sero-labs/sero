@@ -34,26 +34,22 @@ on the same file, send them a message with clear ownership instructions.
 
 See [Path claims](/reference/rooms#path-claims) for overlap policies and limits.
 
-## Respond to an access request
+## Set access before start
 
-Each member starts with an access level that you approved:
+Before you select **Start**, set and approve each member's access level:
 
 - **Read only** lets the member inspect the workspace.
 - **Edit workspace** lets the member change files and run commands.
 - **Edit and push** also lets the member use version-control actions that
   publish changes.
 
-If a member needs more access, the Room pauses and shows an approval request.
-Read which member made the request, why it needs the access, and which tools the
-change will add.
+A running Room cannot increase a member's access. Its host grant fixes the team
+and each member's tools when the Room starts. If the Conductor requests more
+access, Sero rejects the request instead of showing it for approval.
 
-Select **Approve** to grant the requested access to that member. Select
-**Reject** to keep its current access. A rejected member can continue with the
-tools it already has or report that it cannot complete its task.
-
-The same approval process applies when the Room requests more time, a higher
-cost limit, more members, or a different delivery destination. Members,
-including the Conductor, cannot approve their own requests.
+The Room can request more time or a higher cost limit. Sero shows these limit
+requests for you to approve or reject. Members, including the Conductor, cannot
+approve their own requests.
 
 ### Understand the access limit
 
@@ -62,22 +58,20 @@ security sandbox. A member with shell, or command-line, access can run any
 command that your account can run, including `git push` or `gh`.
 
 Run a Room only in a project that you permit it to change. Review the proposed
-tools before you start the Room or approve more access.
+tools before you start the Room because you cannot add tools while it runs.
 
 ## Change a running team
 
-The Conductor can change the team within the limits that you approved. It can
-change a member's task, priorities, or instructions. It can also add, suspend,
-resume, or retire a member.
+The Conductor can change a member's task, priorities, or instructions. It can
+also suspend, resume, or retire a member. It cannot add or replace a member
+after the Room starts.
 
 - **Suspend** stops new turns for a member but keeps its session and context.
 - **Resume** lets a suspended member continue.
 - **Retire** ends the member's work and releases its file claims.
-- **Add** creates another member when the approved team-size and cost limits
-  allow it.
-
-Replacing the Conductor needs your approval because the Conductor decides how
-to coordinate the team and when the Room is complete.
+Add or replace members when you review the proposal. A running Room rejects
+these membership changes because its approved host grant has a fixed set of
+members.
 
 Open **Changes** to review changes that the Conductor made to the team.
 
@@ -96,12 +90,12 @@ cost.
 
 ## Pause or stop a Room
 
-Select **Pause** to prevent new member turns from starting. Active turns finish
-or stop before the Room has the **Paused** status. Select **Resume** when the
-team can continue.
+Select **Pause** to prevent new member turns from starting. Pause does not stop
+active turns. They finish before the Room has the **Paused** status. Select
+**Resume** when the team can continue.
 
-Select **Cancel** when you do not want the Room to continue. Cancellation ends
-the Room and cannot be resumed.
+Select **Stop** when you do not want the Room to continue. Stop aborts active
+turns, ends the Room, and cannot be resumed.
 
 ## Continue a Room that stopped
 
@@ -144,14 +138,20 @@ checks yourself.
 
 ## Archive or delete a finished Room
 
-Select **Archive** to keep the Room in the list and remove older retained
-message activity.
+The current Room controls do not provide an **Archive** action.
 
-Select **Delete** to remove the Room record permanently. Deleting a Room does
-not immediately delete its member sessions. Sero keeps them according to the
-normal session retention rules.
+The finished-Room UI does not have a **Delete** control. To remove a Room, call
+the `rooms` tool or API with the `delete` action and the Room ID. See
+[GitHub issue #380](https://github.com/sero-labs/sero/issues/380) for the missing
+UI control.
 
-Check the result and artifacts before you archive or delete the Room. You cannot
+The `delete` action removes the Room record and its Room state permanently.
+Sero also deletes the persistent-session grant history, which includes the
+member session files. Before deletion, Sero preserves member work in
+checkpoints. If it cannot preserve a member worktree, deletion stops and you
+can fix the worktree before you try again.
+
+Check the result and artifacts before you use the `delete` action. You cannot
 undo deletion.
 
 ## Related guides

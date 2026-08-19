@@ -9,11 +9,11 @@ Local models still need enough memory and GPU/CPU capacity on your machine. They
 1. In LM Studio, download a chat/instruct model.
 2. Load the model.
 3. Start LM Studio's local server with OpenAI-compatible API enabled.
-4. In Sero, open Settings/Admin → Models → Local models.
-5. Add a provider and choose the **LM Studio** preset.
+4. Open the model selector. Select its gear icon to open **Model Manager**.
+5. Select **Local**, select **Add Provider**, and choose **LM Studio**.
 6. Confirm the base URL is `http://localhost:1234/v1`.
 7. Use API key `lm-studio` or `none` unless your server requires a specific key.
-8. Test the connection, fetch models, save the provider, then assign LOW/MED/HIGH tiers.
+8. Select **Test**, **Fetch from server**, and **Add Provider**. Then assign the profile model tiers.
 
 ## Set up LM Studio
 
@@ -40,19 +40,19 @@ If your LM Studio server uses a different port, update the base URL before testi
 
 ## Add the provider in Sero
 
-1. Open the model management surface from Settings/Admin or the model manager.
-2. Open **Local models**.
-3. Click **Add Local Provider**.
+1. Open **Model Manager** from the gear icon in the model selector.
+2. Select **Local**.
+3. Select **Add Provider**.
 4. Choose **LM Studio** in Quick Setup.
-5. Click **Test connection**.
-6. Click **Fetch from server** to import model IDs from LM Studio's `/models` endpoint.
-7. Save the provider.
+5. Select **Test**.
+6. Select **Fetch from server** to import model IDs from LM Studio's `/models` endpoint.
+7. Select **Add Provider**.
 
 Sero writes local provider configuration to `<SERO_HOME>/agent/models.json` and refreshes model availability after saving.
 
 ## Assign tiers
 
-After saving the provider, open Admin → Model and choose LOW, MED, and HIGH defaults.
+After you save the provider, open Admin and choose the LOW, MED, and HIGH defaults.
 
 A practical local setup is:
 

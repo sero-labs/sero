@@ -303,20 +303,22 @@ section > div[style*="min-height"] > div.pb-12 > div.relative {
 
 section div:has(> div > .rspress-home-hero-image) {
   min-height: 34vh !important;
-  max-width: 1180px !important;
+  max-width: 1280px !important;
   margin-top: 0 !important;
 }
 
 section div:has(> div > .rspress-home-hero-image) > div:first-child {
   align-items: flex-start !important;
   justify-content: center !important;
+  width: min(720px, 62vw) !important;
+  max-width: 720px !important;
   text-align: left !important;
 }
 
 section h1 { display: none !important; }
 
 .rspress-home-hero-text {
-  max-width: 640px !important;
+  max-width: 720px !important;
   color: var(--sero-text) !important;
   font-family: var(--sero-font) !important;
   font-size: clamp(2rem, 4vw, 4rem) !important;
@@ -324,10 +326,11 @@ section h1 { display: none !important; }
   letter-spacing: -0.04em;
   line-height: 1.0 !important;
   text-align: left !important;
+  white-space: nowrap;
 }
 
 .rspress-home-hero-tagline {
-  max-width: 560px !important;
+  max-width: 720px !important;
   padding-top: 0.85rem !important;
   color: var(--sero-muted) !important;
   font-family: var(--sero-font) !important;
@@ -415,7 +418,7 @@ section div:has(> div > div > article.rspress-home-feature-card) > div {
   font-size: 14px !important;
   font-weight: 600 !important;
   letter-spacing: -0.01em;
-  text-align: left !important;
+  text-align: center !important;
 }
 
 .rspress-home-feature-detail {
@@ -424,7 +427,7 @@ section div:has(> div > div > article.rspress-home-feature-card) > div {
   font-size: 12.5px !important;
   font-weight: 400;
   line-height: 1.55 !important;
-  text-align: left;
+  text-align: center;
 }
 
 /* ── Mobile ───────────────────────────────────────────────────────────── */
@@ -439,8 +442,15 @@ section div:has(> div > div > article.rspress-home-feature-card) > div {
     min-height: auto !important;
   }
 
+  section div:has(> div > .rspress-home-hero-image) > div:first-child {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .rspress-home-hero-text {
     font-size: clamp(1.8rem, 9vw, 2.8rem) !important;
+    white-space: normal;
+    text-wrap: balance;
   }
 
   section div:has(> div > div > article.rspress-home-feature-card) {

@@ -57,7 +57,7 @@ You find relevant docs, summarize current wording, and identify consistency risk
 
 | Field | Required | Type | Notes |
 | --- | --- | --- | --- |
-| `name` | Yes | string | Agent name. Use simple names that are easy to request from chat. |
+| `name` | Yes | string | The create tool accepts lowercase letters, digits, and hyphens. |
 | `description` | Yes | string | Short explanation of what the agent does. Used for discovery/listing. |
 | `model` | No | string or structured object | Can be a model ID/tier alias string, or `{ "prefer": string, "fallbacks": string[] }`. |
 | `thinking` | No | string | Thinking level override when supported by the resolved model. |
@@ -65,7 +65,8 @@ You find relevant docs, summarize current wording, and identify consistency risk
 | `tools` | No | string[] | Parsed but ignored in v1; do not rely on it for tool restriction. |
 | `extensions` | No | unknown | Warned/ignored in v1. |
 
-Unknown or invalid models can warn, but structured model resolution happens when the agent runs.
+Tier aliases are uppercase: `LOW`, `MED`, and `HIGH`. Structured model
+resolution happens when the agent runs. An unknown model can produce a warning.
 
 ## Model, thinking, and timeout precedence
 
@@ -111,7 +112,7 @@ Subagents run as child sessions with important constraints:
 
 ## Related docs
 
-- [Subagents and Collaboration](/guide/subagents)
+- [Subagents](/guide/subagents)
 - [Agent Sessions and Context](/guide/agent-sessions-and-context)
 - [Models and Providers](/guide/models-and-providers)
 - [State and Folders](/reference/state-and-folders)

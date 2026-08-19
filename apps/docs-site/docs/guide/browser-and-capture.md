@@ -9,21 +9,40 @@ They are useful for development previews, support reports, and agent/operator wo
 
 ## Quick path: preview a dev server
 
-1. Start the server in a container-backed workspace and register it.
+1. Start the server in the selected workspace runtime. Keep this terminal running.
+
+For a Host workspace, use the development server's normal local bind:
 
 ```bash
+npm run dev
+```
+
+For a container workspace, bind the server to all container interfaces:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+2. In a second terminal, register the running server. Use the command that matches the selected runtime.
+
+```bash
+# Host workspace
+sero devserver register --name "Web app" --port 3000 --command "npm run dev" --framework vite
+
+# Container workspace
 sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
+
 sero devserver list
 ```
 
-2. Open the listed URL in the visible browser or in a capturable app preview.
+3. Open the listed URL in the visible browser or in a capturable app preview.
 
 ```bash
-sero browser open http://<container-ip>:3000
-sero app preview http://<container-ip>:3000
+sero browser open <url-from-devserver-list>
+sero app preview <url-from-devserver-list>
 ```
 
-3. Capture what Sero sees.
+4. Capture what Sero sees.
 
 ```bash
 sero app screenshot --save ./preview.png
@@ -138,7 +157,7 @@ Redact private code, tokens, account data, and personal content before sharing s
 | `app panel not found or not visible` | Run `sero app open <app>` and wait for the app panel to render. |
 | Click/type misses the target | Run `sero app screenshot`, inspect coordinates/selectors, then retry. |
 | Recording stop fails | Confirm `sero app record status` shows recording and that frames were captured. |
-| Preview URL fails after container restart | Run `sero devserver list` and reopen/register the fresh container-IP URL. |
+| Preview URL fails after a runtime restart | Run `sero devserver list`. Re-register the server if its entry is gone, then use the reported URL. |
 
 ## Related docs
 

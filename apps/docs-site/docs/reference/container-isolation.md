@@ -55,7 +55,7 @@ HOSTNAME=0.0.0.0
 
 When Sero's container HTTP proxy starts, proxy variables are also injected and `NO_PROXY` includes localhost and the container subnet. DNS fallback is best effort.
 
-Dev-server URLs are resolved by the active workspace runtime. Apple Container and Docker / Podman expose host-reachable forwarded URLs. Host exposes a normal localhost URL. The registry id is scope-aware:
+Dev-server URLs are resolved by the active workspace runtime. All backends report a host-reachable loopback URL. Do not construct a URL from a container IP. Host uses `127.0.0.1`. The registry id is scope-aware:
 
 ```text
 workspaceId:scope:cardId:port
@@ -69,7 +69,7 @@ Container runtimes stop a dev server by finding processes listening on the port 
 
 This means stop/restart depends on the registered id and runtime process state, not just a host-side port forward.
 
-In Host mode, dev-server commands run as normal host processes from the real workspace directory and previews use the host localhost URL.
+In Host mode, a server started by Sero is owned by Sero, so stop terminates its process tree. A server that you start and then register remains your process. For that server, stop only updates Sero's record. Stop the process in its terminal.
 
 ## Host behavior
 
@@ -80,7 +80,7 @@ Host keeps direct local workflows available on supported platforms:
 - normal host terminal workflows
 - localhost dev-server registration and preview
 
-Host does not provide browser automation unless a published browser pack is available and Environment Doctor confirms it launches. It also does not provide containerized language servers/tooling, Linux/container parity, image-provided compiler stacks, or container networking semantics.
+Host browser-agent tools require an installed browser pack that passes its launch check. Host does not provide containerized language servers or tooling, Linux/container parity, image-provided compiler stacks, or container networking semantics.
 
 See [Containers and Host Mode](/reference/containers-host-mode) for exact runtime behavior and failure rules.
 

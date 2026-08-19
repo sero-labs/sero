@@ -32,6 +32,50 @@ not provide the Sero Remote web UI.
 Read [Security / Privacy](/reference/security-privacy) before enabling Remote
 Control.
 
+## Start Sero with the gateway
+
+Close Sero before you use one of these commands.
+
+On macOS, run the executable inside the app bundle:
+
+```bash
+SERO_GATEWAY=1 /Applications/Sero.app/Contents/MacOS/Sero
+```
+
+On Linux DEB installations, run:
+
+```bash
+SERO_GATEWAY=1 sero
+```
+
+For a Linux AppImage, replace the file name with the downloaded artifact:
+
+```bash
+SERO_GATEWAY=1 ./Sero-<version>-linux-<arch>.AppImage
+```
+
+On Windows PowerShell, replace the path with the location of your installed
+`Sero.exe`:
+
+```powershell
+$env:SERO_GATEWAY = '1'
+& '<Sero-install-path>\Sero.exe'
+```
+
+## Pair a device
+
+Before you pair another device, install and connect Tailscale on both devices.
+Both devices must be in the same tailnet. A localhost URL works only on the same
+machine and cannot connect another device.
+
+1. Start Sero with `SERO_GATEWAY=1`.
+2. Confirm that Tailscale is connected and private `tailscale serve` access is available.
+3. Open the command menu and select **Connect Device**.
+4. Scan the QR code with the other device, or copy the **Login URL** into its browser.
+5. Confirm that Sero Remote shows the correct profile and workspaces.
+
+The pairing gives the device access to all workspaces in the profile, including workspaces that you create later. The dialog shows the expiry time. Select **Generate New Code** when you need a new pairing URL.
+
 ## Web vs Remote Control
 
 | Feature | Use it when | Important note |
@@ -47,13 +91,13 @@ with the local desktop session.
 
 | Path | What it does | Network dependency |
 | --- | --- | --- |
-| **Local web gateway** | Serves Sero Remote locally for testing and pairing | Localhost only |
+| **Local web gateway** | Serves Sero Remote locally for testing and pairing on the same machine | Localhost only; it cannot connect another device |
 | **Sero Remote over Tailscale** | Lets another browser/device on your tailnet use the web UI | Tailscale VPN / `tailscale serve` |
 | **Dev-server proxy** | Lets Sero Remote open registered workspace dev servers through the same gateway | Tailscale VPN / `tailscale serve` plus a running registered dev server |
 | **Discord bot** | Lets allowed Discord users send prompts by DM or mention | Discord bot token and allowlist |
 
 Use Tailscale **serve** for tailnet-only exposure. Do not use public Tailscale
-funneling or direct public-internet exposure during the beta. Treat tailnet
+funneling or direct public-internet exposure. Treat tailnet
 URLs as private access details and redact them from screenshots, logs, and
 support reports.
 
@@ -223,7 +267,7 @@ serve URLs, Discord bot tokens, or Discord allowlists into bug reports,
 screenshots, chat transcripts, or public issues. See
 [State and Folders](/reference/state-and-folders) for the canonical storage map.
 
-## Pairing a remote web client
+## Pairing details
 
 Sero includes a pairing flow for connecting a remote browser or web client. The
 flow creates a time-limited web token and can produce a login URL or QR code for
@@ -242,9 +286,9 @@ Practical guidance:
 Token URLs are sensitive because they can leak through browser history,
 autocomplete, screenshots, referrers, logs, or shared terminal output.
 
-## Known beta limitations
+## Known limitations
 
-During the current public beta, Remote Control does **not** promise:
+Remote Control does not provide:
 
 - hardened remote administration
 - production deployment support

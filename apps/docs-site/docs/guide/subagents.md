@@ -1,6 +1,8 @@
-# Subagents and Collaboration
+# Subagents
 
-Subagents let the main Sero agent delegate bounded work to specialist child sessions. Use them when one task can be split into independent research, review, testing, or implementation tracks. Collaboration mode is related but distinct: it runs a fixed multi-agent collaboration/debate flow for one prompt.
+Subagents let the main Sero agent delegate bounded work to specialist child
+sessions. Use them when one task can be split into independent research,
+review, testing, or implementation tracks.
 
 ## Quick path
 
@@ -62,25 +64,17 @@ Important limits:
 - Parallel subagents share the same workspace runtime/container.
 - Costs and latency can grow quickly with fan-out.
 
-## Collaboration mode
+The default pool allows eight active child sessions in total. One delegation
+call can run four children at the same time. Profile settings can change these
+limits with `maxTotal` and `maxConcurrent`. Extra runs wait for capacity in
+first-in, first-out order.
 
-Collaboration mode is a separate chat strategy, not the same as every subagent run. In the standard collaboration flow, Sero uses a four-role framework:
+## Choose the correct Sero feature
 
-```text
-researcher
-    ↓
-analyst + visionary (parallel)
-    ↓
-coordinator synthesis
-```
-
-Use collaboration when you want a broader answer with multiple perspectives rather than a narrow delegated tool task.
-
-## Debate strategy
-
-The collaboration framework also has a debate strategy. It can decompose the question, run independent analysis, perform one or more debate rounds, and synthesize a final response. Current debate config includes a max round count, time limit, and optional per-role model choices.
-
-If one specialist fails or times out, Sero can continue in a degraded mode and mark errors in the collaboration result. Treat degraded output as partial and inspect the specialist details before acting on it.
+Use subagents for short, delegated tasks within a chat session. Use a
+[Room](/guide/rooms) when persistent members must work as a team. Use a
+[Workflow](/guide/workflows) for a saved sequence of steps. Scheduler starts
+work at a specified time. Memory supplies selected context across sessions.
 
 ## Good prompts
 
@@ -89,7 +83,8 @@ Use the reviewer subagent to inspect apps/docs-site/docs/guide/web.md for stale 
 ```
 
 ```text
-Use collaboration mode with debate for this architecture choice. I want risks, tradeoffs, and a final recommendation, not code changes.
+Use three subagents to review this architecture choice independently. Return
+the risks, tradeoffs, and one final recommendation. Do not change code.
 ```
 
 ## Related docs

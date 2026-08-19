@@ -36,7 +36,10 @@ Before editing:
    - technical meaning and product behaviour;
    - product names, canonical terms, and exact UI labels;
    - commands, code, file paths, numbers, limits, and factual claims;
+   - the documentation type, useful narrative flow, and balance between prose,
+     lists, tables, examples, and callouts;
    - frontmatter, anchors, link targets, image paths, and screenshot order;
+   - the purpose and placement of each image, diagram, and other media asset;
    - quotations and user input examples, unless the user asks to edit them.
 
 Identify the intended reader. Unless the page states otherwise, assume the
@@ -84,6 +87,10 @@ Prioritize these defects:
 Keep useful structure. A list, summary, warning, question heading, or em dash is
 not a defect by itself.
 
+Do not normalize a page or site to one format. Humanize the defective passages,
+not every paragraph. If a page already explains a concept well in prose, keep
+it as prose.
+
 ## Rewrite for Sero documentation
 
 Apply ASD-STE100 Simplified Technical English where it fits the material:
@@ -100,6 +107,20 @@ Apply ASD-STE100 Simplified Technical English where it fits the material:
 - Keep exact UI text in bold when the documentation uses bold for controls.
 - Keep code identifiers and paths in code formatting.
 - Retain a summary only when it helps the reader decide or act.
+
+Use lists only when the content is naturally a sequence, set of choices,
+checklist, or compact reference. Do not:
+
+- convert explanatory prose into bullet points only to make it shorter;
+- turn each sentence or paragraph into a list item;
+- replace transitions and reasoning with disconnected bullets;
+- use repeated lists where a short paragraph gives the reader necessary
+  context; or
+- make several pages share the same mechanical list structure.
+
+After the sentence pass, read the page as a whole. If lists now dominate a page
+that previously used useful prose, restore the prose. Clear technical writing
+needs connected explanation as well as scannable reference material.
 
 For an overview page:
 
@@ -133,8 +154,9 @@ For feature language:
   them enough space to explain when the control appears, how to use it, what it
   changes, and what remains under user control.
 
-Compress or merge material freely when meaning and navigation remain intact.
-Do not preserve the original paragraph boundaries merely because they exist.
+Compress or merge only the passages that contain a verified structural defect.
+Keep useful depth, examples, transitions, and paragraph structure. A shorter
+page is not automatically a better page.
 
 Do not manufacture a human voice with:
 
@@ -164,6 +186,47 @@ Do not manufacture a human voice with:
 - When a page title changes, update the sidebar, index, related-page labels, and
   in-scope links that display the old title.
 
+## Preserve images and other media
+
+Treat every existing image, diagram, video, and asset as preserved content.
+Humanizing prose does not authorize media removal or replacement.
+
+- Do not delete an asset, remove its reference, change its order, or replace it
+  unless the user explicitly approves that action.
+- Do not use "task value," brevity, a stale appearance, or a text explanation
+  as automatic reasons to remove an image.
+- Do not bulk-delete assets during a prose revision.
+- If an image is stale, private, inaccurate, decorative, or duplicated, report
+  the issue and propose one action: keep, recapture, move, or remove. Wait for
+  approval before changing it.
+- If an image exposes a credential or other active secret, stop publication and
+  report it immediately. Do not silently make a wider set of image changes.
+- When a replacement is approved, capture or obtain the replacement before
+  removing the current asset. Preserve the route and layout while replacement
+  work is pending.
+- Check non-doc consumers before changing an asset. README files, homepages,
+  package pages, and other applications can import docs-site images directly.
+
+A decision not to add a new screenshot is not permission to remove an existing
+screenshot.
+
+## Control the size of the rewrite
+
+For a large documentation set, work in reviewed vertical slices. Complete and
+review one representative page before applying the approach to the rest of a
+slice. Do not perform a site-wide structural rewrite from an audit summary.
+
+Pause and ask for approval when the work would:
+
+- change the dominant format of a page, such as prose to lists;
+- remove substantial explanation, examples, or media;
+- merge, tombstone, redirect, or delete a page;
+- change many pages through the same structural template; or
+- produce a much larger diff than the factual and prose defects require.
+
+When several agents contribute, give them the same preservation set and require
+a central review of format balance and media changes before integration.
+
 ## Use a two-pass edit
 
 ### Pass 1: structure
@@ -173,6 +236,9 @@ reader's task, and keep prerequisites before dependent actions. Give prominent
 placement to features that materially improve repeated use; do not give every
 feature equal weight merely because the source page did.
 
+Keep the smallest effective structural change. Do not rewrite a complete page
+when a heading, transition, or paragraph edit fixes the defect.
+
 ### Pass 2: sentences
 
 Remove filler and AI mannerisms. Simplify grammar. Keep terminology and facts
@@ -180,6 +246,8 @@ stable. Read the result as technical documentation, not as marketing copy.
 
 Then compare the result with the preservation set. Correct any lost condition,
 changed claim, broken reference, altered example, or mismatched UI label.
+Compare the prose-to-list balance and media inventory with the original. Undo
+unrequested format conversions and media changes.
 
 ## Validate edited files
 
@@ -187,14 +255,20 @@ Run checks that match the change:
 
 1. Inspect the diff for accidental changes to code blocks, links, images,
    examples, numbers, and UI labels.
-2. Search for renamed heading anchors and update in-scope references when the
+2. List every added, removed, moved, or replaced media asset. Confirm that each
+   change has explicit approval and that no external consumer breaks.
+3. Search for renamed heading anchors and update in-scope references when the
    rename was intentional.
-3. If the tutorial uses a sample repository, verify its URL, files, commands,
+4. If the tutorial uses a sample repository, verify its URL, files, commands,
    expected failures, and required authentication.
-4. Run `git diff --check`.
-5. Run documentation build or link checks when the change can affect rendering
+5. Run `git diff --check`.
+6. Run documentation build or link checks when the change can affect rendering
    or navigation and the repository provides a focused command.
-6. State exactly what was checked and what was not checked.
+7. Review at least one rendered page from each changed slice. Check that prose
+   still explains the subject and that lists support rather than replace it.
+8. Inspect the diff summary. Stop and review again if it shows unexpected mass
+   deletions, repeated page rewrites, or asset removal.
+9. State exactly what was checked and what was not checked.
 
 Report the main structural changes. Do not paste the full rewritten document
 unless the user asks for it.

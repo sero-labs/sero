@@ -10,9 +10,8 @@ voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context)
 
 ![Workspace desktop shell overview](../assets/images/explorer-view.jpg)
 
-## Beta expectations
+## Workspace runtime
 
-Sero is currently a **public beta** for **macOS Apple Silicon, Linux x64/arm64, and Windows x64**. Packaged beta installers are available from [GitHub Releases](https://github.com/sero-labs/sero/releases); developers and contributors can still build from source.
 Host is the default workspace runtime on supported platforms. Apple Container
 and Docker / Podman are explicit container choices when you want container
 isolation, image-provided tools, or container networking behavior.
@@ -28,8 +27,7 @@ workspace. A profile owns its own `<SERO_HOME>` and profile-scoped
 and local model configuration.
 
 Use profiles to separate local working environments such as Work and Personal.
-They are useful separation, not a cryptographic security boundary, and exact
-onboarding screens may change during beta.
+They separate local state, but they are not a cryptographic security boundary.
 
 For the complete profile flow, custom locations, restart-on-switch behavior,
 transferable credentials, deletion semantics, and redaction checklist, see
@@ -61,7 +59,7 @@ automatically when the device flow succeeds.
 
 ## Shell regions
 
-The desktop shell has a few stable regions:
+The desktop shell has these regions:
 
 ![Sero desktop shell regions](../assets/generated/img2.jpg)
 
@@ -75,8 +73,9 @@ The desktop shell has a few stable regions:
   focused session.
 - **Status bar** — current workspace/runtime state, related status, and zoom.
 
-The sidebar and chat panel can be collapsed. Use `Ctrl+B` to hide or show the
-main sidebar, and use `Ctrl+L` to hide or show the chat panel. Panel sizes and
+The sidebar and chat panel can be collapsed. On macOS, use `⌘B` to hide or show
+the main sidebar and `⌘L` to hide or show the chat panel. On Windows and Linux,
+use `Ctrl+B` and `Ctrl+L`. Panel sizes and
 open/closed state are restored between launches for the active profile.
 
 The title bar and status bar stay a fixed size on screen no matter how far you
@@ -175,7 +174,7 @@ Useful habits:
 
 - Create separate sessions for separate tasks.
 - Resume an existing session when the history matters.
-- Press `Ctrl+L` to collapse the chat panel when you need more room for the active app.
+- Press `⌘L` on macOS or `Ctrl+L` on Windows and Linux to collapse the chat panel.
 - Keep important current context in the prompt; memory and history are helpful,
   but not a guarantee that every detail is included in every turn.
 
@@ -202,8 +201,7 @@ current public-safe mental model is:
 - connect a remote device when that workflow is enabled
 - browse or adjust theme actions
 
-On macOS, the usual shortcut is `⌘K`; on other keyboard layouts or environments
-it may appear as `Ctrl+K`. Do not treat the command menu as a complete catalog
+Use `⌘K` on macOS or `Ctrl+K` on Windows and Linux. Do not treat the command menu as a complete catalog
 of agent slash commands or every possible action in Sero.
 
 ![Command Menu](../assets/images/command-menu.jpg)
@@ -219,13 +217,12 @@ can include things like:
 - theme-related choices
 - dashboard widget layout and browser-related layout state
 
-This is meant to make restarts feel continuous. If a layout looks wrong during
-beta, try switching apps, collapsing/reopening panels, or restarting from the
-same profile before filing an issue.
+If a layout looks wrong, switch apps or close and open the affected panel. If
+the problem continues, restart Sero with the same profile.
 
 ## What to read next
 
-- [Start Here](/guide/overview)
+- [How Sero Works](/guide/overview)
 - [Profiles and Onboarding](/guide/profiles-and-onboarding)
 - [Models and Providers](/guide/models-and-providers)
 - [Agent Sessions and Context](/guide/agent-sessions-and-context)

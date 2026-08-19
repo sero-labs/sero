@@ -1,37 +1,39 @@
 # Google Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+Google adds Gmail and Google Calendar to Sero. It uses the `gog` command from [gogcli](https://github.com/steipete/gogcli).
 
-## Overview
+## Set up Google
 
-Gmail and Calendar app for Sero via `gogcli`, with app UI, background runtime, Mail/Calendar widgets, and bridged `google`, `gmail`, and `gcal` tools.
+The current plugin depends on an externally managed macOS `gog` installation. It does not yet meet Sero's standard zero-manual-install toolchain contract.
 
-## Try it first
+Create a Desktop app OAuth client in Google Cloud Console. Enable the Gmail API and Google Calendar API. Open **Google**, enter the client ID and client secret, save them, and select **Sign in with Google**. Each Sero profile has a separate account context.
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+You can also set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. OAuth credentials and tokens are sensitive. Do not include them in logs or screenshots.
 
-Install or activate the external checkout, install `gogcli` as the README requires, complete Google OAuth with a test account, then ask Sero to summarize a fake/demo calendar agenda.
+## Use mail and calendars
 
-## Surfaces from the manifest/source
+Use the **Mail** and **Calendar** tabs, the Mail and Agenda widgets, or ask the agent. The plugin provides `google`, `gmail`, and `gcal` tools. It also registers `/gmail` and `/gcal`.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-google` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+For direct terminal access, use commands such as:
 
-## Privacy, secrets, and recovery
+```bash
+sero google gmail search 'newer_than:1d'
+sero google gmail thread <thread-id>
+sero google calendar events primary --today
+sero google calendar create primary --summary "Standup" --from 2026-08-12T09:00:00Z --to 2026-08-12T09:30:00Z
+```
 
-Google OAuth credentials and mailbox/calendar contents are sensitive. Do not paste real message bodies, invite links, or account identifiers into public issues. Runtime/background capability is required by the manifest.
+Send, create, and delete actions change Google data. Review recipients, dates, calendar IDs, and event IDs before you approve them.
 
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+The background runtime refreshes inbox state. In a container workspace, the plugin can fall back to the host when the container does not have `gog`.
+
+## Recover access
+
+If setup reports that OAuth is not configured, reopen Google and save the credentials. If `gog` is missing, the external host dependency is not available. Use `sero google auth status` to inspect authentication. Sign in again if the account is no longer valid.
+
+App state is at `<SERO_HOME>/apps/google/state.json`. Do not delete this file as an OAuth recovery step.
 
 ## Related docs
 
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

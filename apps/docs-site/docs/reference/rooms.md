@@ -57,13 +57,13 @@ The host checks each requested tool against the member's permission level. A
 tool that needs more authority is removed from the approved grant. An unknown
 plugin tool is denied until Sero has an explicit permission mapping for it.
 
-The Conductor can change tasks, priorities, and instructions within the
-approved limits. It can also add, retire, suspend, or resume members when the
-approved team-size and cost limits permit it. It cannot give itself or another
-member more access.
+The Conductor can change tasks, priorities, and instructions. It can retire,
+suspend, or resume members, but it cannot add or replace members after the Room
+starts. It also cannot increase a member's access. The host grant fixes the
+member set and each member's tools for the running Room.
 
-The user must approve a change that increases access, time, cost, team size, or
-delivery authority. Replacing the Conductor also needs user approval.
+The Room can ask the user to approve a higher time or cost limit. Requests for
+new members or increased access are rejected while the Room runs.
 
 ## Workspace modes
 
@@ -161,8 +161,8 @@ The `rooms` tool is the user control surface.
 | `prepare` | create a draft proposal from a problem description |
 | `adjust` | revise a draft proposal from a plain-language instruction |
 | `start` | approve setup and start member sessions |
-| `pause`, `resume` | stop or restart member turns |
-| `cancel`, `delete` | end a Room or remove its record |
+| `pause`, `resume` | prevent new turns while active turns finish, or restart member turns; pause does not stop an active turn |
+| `cancel`, `delete` | stop a Room and abort active turns, or remove its state and member session history |
 | `resolve_approval` | approve or reject one request |
 | `intervene` | send information or direction to members |
 | `wake` | put an idle member back to work |
@@ -183,10 +183,12 @@ After a restart, Sero reconciles saved Room state with member sessions and
 managed worktrees. Interrupted member turns are released. The Conductor decides
 what work still needs to run.
 
-Pausing keeps the Room record and member session history. Archiving a finished
-Room keeps it in the Room list and removes older retained message activity.
-Deleting removes the Room record. Member session files remain subject to the
-normal Sero session retention rules.
+Pausing keeps the Room record and member session history. The store supports an
+internal archive state that removes old retained message activity, but the
+current user control surface does not expose an archive action. Deleting removes
+the Room state and deletes its persistent-session grant history, including its
+member session files. Sero first preserves member work in checkpoints and
+refuses deletion if it cannot preserve a member worktree.
 
 ## State and storage
 

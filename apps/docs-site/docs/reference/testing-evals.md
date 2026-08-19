@@ -1,6 +1,8 @@
 # Testing / Evals
 
-Sero uses repository tests and promptfoo evals as separate quality signals. The current beta model is truthful rather than exhaustive: not every suite is a PR gate, and real LLM evals are usually manual/nightly/release-confidence checks.
+Sero uses repository tests and promptfoo evals as separate quality signals.
+Not every suite runs for each pull request. Run real LLM evals only when their
+provider cost and credentials are intentional.
 
 ## Current root command surface
 
@@ -14,24 +16,19 @@ pnpm eval
 pnpm eval:view
 ```
 
-Do not describe a repo-wide `turbo run test` public contract for the beta; the root public test commands are the ones above.
+`pnpm test` runs `turbo run test`. Use the root commands above as the supported
+entry points.
 
-## PR gate
+## CI workflows
 
-GitHub Actions currently uses the root command:
+The **Test** workflow runs for pushes to `main`, pull requests to `main`, and
+manual dispatch. It classifies changed paths. The affected jobs run
+`pnpm typecheck`, `pnpm build`, and `pnpm test`.
 
-```bash
-pnpm test:ci
-```
-
-That expands to:
-
-1. `pnpm typecheck`
-2. `pnpm build`
-3. `pnpm test` (desktop Vitest, non-watch)
-4. `pnpm --filter @sero/desktop test:e2e:ci`
-
-This is the current beta PR-gate shape. It does not run every package/plugin suite or every eval.
+The root `pnpm test:ci` command also runs `pnpm e2e:contract`, but the **Test**
+workflow does not call that root command. The separate **E2E Contract** and
+**E2E Agent** workflows run each day and by manual dispatch. **E2E Workflow** is
+manual-only. No workflow runs `pnpm eval` or `pnpm eval:snapshot`.
 
 ## Evals command reference
 

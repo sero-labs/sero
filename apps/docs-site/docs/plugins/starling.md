@@ -1,37 +1,36 @@
 # Starling Bank Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+The Starling Bank plugin is an external plugin. Install it from its owner with this source:
 
-## Overview
+```text
+git:https://github.com/monobyte/sero-starling-plugin.git
+```
 
-Starling Bank dashboard for balances, transactions, savings, and spending insights, with README-documented `starling` tool actions.
+The plugin shows balances, transactions, savings goals, and spending information. It only reads data from Starling. Its current Personal Access Token scopes are:
 
-## Try it first
+- `account:read`
+- `balance:read`
+- `transaction:read`
+- `savings-goal:read`
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+Create the token at [developer.starlingbank.com](https://developer.starlingbank.com). The plugin needs an internet connection and sends authenticated GET requests to `https://api.starlingbank.com/api/v2`. The app also requests Google Fonts from `fonts.googleapis.com` when it loads its styles.
 
-Use fake/demo descriptions in docs and support. If testing for real, use a disposable/private profile and never share tokens or transaction screenshots.
+## Protect access
 
-## Surfaces from the manifest/source
+On first use, enter the token and set a PIN of 4 to 8 digits. Sero encrypts the token through Electron `safeStorage`. The plugin stores the encrypted token, a random PIN salt, a salted SHA-256 PIN hash, and cached bank data in `~/.sero-ui/apps/starling/state.json`.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-starling` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+The PIN is an app lock. It is not an encryption key, and the source does not set an attempt limit or delay for an incorrect PIN. Use the operating-system account lock for device security.
 
-## Privacy, secrets, and recovery
+**Lock dashboard** removes the decrypted token from app memory but keeps the encrypted token and cached data. **Forget account** resets the token, PIN data, and cache. The agent `starling` tool can show cached status or clear all stored plugin data. It cannot request live banking data.
 
-Bank tokens, balances, transactions, and account identifiers are highly sensitive. README says tokens are encrypted with Electron `safeStorage` and PIN is UX-level only, not cryptographic account isolation.
+## Platform requirements
 
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+The package manifest requires Sero 0.1.0 or later and runtime ABI 2. The safe-storage bridge and host network bridge require the Sero desktop app. The repository also documents Pi CLI installation, but its dashboard security and network behavior depend on Sero host bridges.
+
+Do not include tokens, account identifiers, balances, or transactions in screenshots and public support reports.
 
 ## Related docs
 
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

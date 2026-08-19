@@ -41,7 +41,7 @@ flowchart LR
 
 ## Shell model
 
-The shell centers around:
+The shell has:
 - a main sidebar for apps and workspace/session context
 - an active app area
 - a chat panel for the focused agent session
@@ -62,8 +62,7 @@ The shell centers around:
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The title bar and status bar stay a fixed physical size at any zoom level;
-only the active app area scales.
+App zoom changes the active app area. It does not change the title bar or status bar.
 
 ![Sero shell with sidebar, active Explorer app, and agent chat panel](../assets/images/explorer-view.jpg)
 

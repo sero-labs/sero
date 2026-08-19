@@ -51,7 +51,7 @@ Orchestrator pauses the work when it needs:
 
 - an answer to a question;
 - your approval for an action;
-- more time, a higher cost limit, more access, or more team members;
+- more time or a higher cost limit;
 - help after something failed.
 
 You can close Orchestrator while the work continues. **Home** shows questions
@@ -64,8 +64,8 @@ or cannot continue.
 - [Manage Workflows](/guide/workflows-advanced) — schedules, recovery,
   Library and Catalog.
 - [Create and run a Room](/guide/rooms) — the tutorial.
-- [Manage a Room](/guide/rooms-advanced) — claims, asking for more access,
-  and changing a team while it works.
+- [Manage a Room](/guide/rooms-advanced) — claims, limits, and the changes a
+  team can make while it works.
 
 For exact tool names, commands, and compatibility terms, see the
 [Orchestrator reference](/reference/orchestrator), the

@@ -29,9 +29,11 @@ contribution inside one extension point only.
 | `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?` | Dashboard grid |
 | `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
 
-All component entries require `id`, `extensionPoint`, and `component`.
-`component` is the named export exposed by the owning plugin's Module
-Federation bundle. Dashboard sizes default to `2 × 2` when omitted.
+All component entries require `id`, `extensionPoint`, and `component`. The
+`component` value identifies a Module Federation exposed-module key. For
+example, `"KnowledgeSearch"` maps to the `"./KnowledgeSearch"` key in the
+plugin's `exposes` configuration. The source module must have a default React
+component export. Dashboard sizes default to `2 × 2` when omitted.
 
 ## Component example
 
@@ -72,8 +74,8 @@ This app has one main component and contributes two additional components:
 ```
 
 Each contributed component is wrapped in the standard app runtime context and
-plugin style scope. It unmounts when the host hides its surface. Keep state that
-must survive an unmount in plugin-owned state.
+plugin style scope. The host can unmount it when the surface closes or changes.
+Keep state that must survive an unmount in plugin-owned state.
 
 ## Control example
 
@@ -149,8 +151,10 @@ A static widget is a federated component contribution to
 `ui.dashboard.widget`. Use this when the widget is always available with the
 plugin.
 
-`useWidgetRegistration()` is a separate app-runtime API. Use it only when a
-widget must be registered and removed during the current renderer lifecycle.
+`useWidgetRegistration()` is a separate app-runtime API. Use it when widget
+availability is decided at runtime. Its registration is sticky for the current
+renderer session, even if the component that called the hook unmounts. For
+manual lifecycle control, `registerWidget()` returns an unregister function.
 Both paths use the same host-owned widget chrome and dashboard components.
 
 ## See also
