@@ -9,7 +9,7 @@ import explorerDevServers from "@docs-images/explorer-dev-servers.jpg";
 import gitResolveAi from "@docs-images/git-resolve-ai.jpg";
 import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
 import research from "@docs-images/research.jpg";
-import kanban from "@docs-images/kanban.jpg";
+import agentBoard from "@docs-images/agent-board.jpg";
 import memory from "@docs-images/memory.jpg";
 import cronJobsEditor from "@docs-images/cron-jobs-editor-crop.jpg";
 import gitApp from "@docs-images/git-app.jpg";
@@ -44,7 +44,7 @@ export const images = {
 	gitResolveAi,
 	cronJobs,
 	research,
-	kanban,
+	agentBoard,
 	memory,
 	cronJobsEditor,
 	gitApp,
@@ -174,11 +174,11 @@ export const become: BecomePanel[] = [
 	},
 	{
 		id: "ops",
-		title: "Operations console",
+		title: "Agent Board",
 		tagline: "Dashboards, monitors, routines, external APIs, jobs.",
 		defaults: ["Plugin UIs + widgets", "Background runtimes", "Provider plugins"],
 		mineExample: "“Make a deploy console that pings my staging cluster.”",
-		image: images.kanban,
+		image: images.agentBoard,
 	},
 ];
 
