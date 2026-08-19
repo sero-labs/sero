@@ -87,16 +87,15 @@ describe('selectStreamingWriteContent', () => {
     expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBe('const a = 1;');
   });
 
-  it('does not inspect writes before the current user turn', () => {
+  it('keeps an in-flight write visible after a steer message', () => {
     const state = agentState({
       messages: [
         streamingWrite(),
-        { type: 'user', id: 'user-2', text: 'Next task' },
-        { type: 'assistant', id: 'assistant-2', text: '', isStreaming: true },
+        { type: 'user', id: 'steer-1', text: 'Make it longer' },
       ],
     });
 
-    expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBeNull();
+    expect(selectStreamingWriteContent(state, 'ws-1', TAB)).toBe('const a = 1;');
   });
 
   it('stops once the write has completed or was cancelled', () => {

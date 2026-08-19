@@ -30,9 +30,6 @@ export function selectStreamingWriteContent(
 
     for (let index = agent.messages.length - 1; index >= 0; index -= 1) {
       const message = agent.messages[index];
-      // A live write belongs to the current turn. Do not rescan session history
-      // on every text or tool-input frame.
-      if (message.type === 'user') break;
       if (message.type !== 'tool' || message.toolName !== 'write') continue;
       // The overlay lasts until the tool completes, not until its arguments
       // finish: in between, the file has not been written yet, so dropping it
