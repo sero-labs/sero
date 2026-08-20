@@ -142,7 +142,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     label: 'Graphify Index',
     description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. A first build or a rebuild costs money and asks the user first. Track progress with graphify_status.',
     parameters: Type.Object({
-      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
+      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync', 'upgrade'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
     }),
@@ -150,7 +150,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       try {
         const state = await readStateFile(paths.stateFile);
         let workspaceId: string | undefined;
-        if (params.action !== 'enable-all' && params.action !== 'sync') {
+        if (params.action !== 'enable-all' && params.action !== 'sync' && params.action !== 'upgrade') {
           const entries = Object.values(state?.workspaces ?? {});
           const entry = params.workspaceId
             ? entries.find((candidate) => candidate.workspaceId === params.workspaceId)

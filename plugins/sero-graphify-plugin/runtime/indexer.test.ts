@@ -26,6 +26,7 @@ function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState) => vo
     ensureProvisioned: vi.fn().mockResolvedValue(undefined),
     graphExists: async (id) => built.has(id),
     graphifyVersion: async () => '0.9.47',
+    upgradeGraphify: vi.fn().mockResolvedValue(undefined),
     estimateBuild: async () => ({ files: 10, bytes: 40_000, truncated: false, estimatedInputTokens: 10_000, estimatedCostUsd: 0.02 }),
     confirm: vi.fn().mockResolvedValue(true),
     notify: vi.fn(),
@@ -353,6 +354,32 @@ describe('GraphifyIndexer — discovery', () => {
     await indexer.idle();
     expect(host.removeWorkspaceArtifacts).toHaveBeenCalledWith('gone');
     expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalledWith('ws1');
+    indexer.dispose();
+  });
+});
+
+describe('GraphifyIndexer — upgrading the tool', () => {
+  it('asks before upgrading, and says that rebuilds will pay again', async () => {
+    const { host } = makeHost({}, (state) => { state.provisioning.availableVersion = '0.9.48'; });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'upgrade'));
+    await indexer.idle();
+    expect(host.upgradeGraphify).toHaveBeenCalledWith('0.9.48');
+    const body = (host.confirm as ReturnType<typeof vi.fn>).mock.calls[0][0].body as string;
+    expect(body).toMatch(/pays full price again/i);
+    indexer.dispose();
+  });
+
+  it('does not upgrade when the dialog is declined', async () => {
+    const { host } = makeHost({
+      overrides: { confirm: vi.fn().mockResolvedValue(false) },
+    }, (state) => { state.provisioning.availableVersion = '0.9.48'; });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'upgrade'));
+    await indexer.idle();
+    expect(host.upgradeGraphify).not.toHaveBeenCalled();
     indexer.dispose();
   });
 });

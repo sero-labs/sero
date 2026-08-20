@@ -3,7 +3,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { readStateFile, appendIndexRequest, appendIndexRequests } from './state-io';
-import { DEFAULT_STATE } from './types';
+import { DEFAULT_STATE, withStateDefaults, type GraphifyState } from './types';
 
 describe('state-io', () => {
   it('returns null for missing state', async () => {
@@ -36,5 +36,32 @@ describe('state-io', () => {
       { action: 'sync', workspaceId: undefined },
       { action: 'enable', workspaceId: 'ws1' },
     ]);
+  });
+});
+
+describe('withStateDefaults', () => {
+  it('fills in caps and the ledger for state written before they existed', () => {
+    const legacy = { settings: { backend: 'claude', model: '', tokenBudget: 0, exclude: [] } } as unknown as GraphifyState;
+    const state = withStateDefaults(legacy);
+    expect(state.settings.caps.maxCostPerDayUsd).toBe(DEFAULT_STATE.settings.caps.maxCostPerDayUsd);
+    expect(state.spend).toEqual({ day: '', usd: 0, runs: [] });
+    expect(state.removedWorkspaces).toEqual([]);
+  });
+
+  it('does not treat a legacy model string as a chosen model', () => {
+    // `model: ''` meant "let graphify decide". Carrying it forward as a choice
+    // would resume spending on a default nobody picked.
+    const legacy = { settings: { model: '' } } as unknown as GraphifyState;
+    expect(withStateDefaults(legacy).settings.model).toBeNull();
+  });
+
+  it('keeps a real model choice', () => {
+    const chosen = { backend: 'openai' as const, modelId: 'gpt-5.6-luna', chosenAt: 'now' };
+    const state = withStateDefaults({ settings: { model: chosen } } as unknown as GraphifyState);
+    expect(state.settings.model).toEqual(chosen);
+  });
+
+  it('returns defaults for a missing file', () => {
+    expect(withStateDefaults(null)).toEqual(DEFAULT_STATE);
   });
 });

@@ -1,10 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { DEFAULT_STATE, type GraphifyState, type IndexAction, type IndexRequest } from './types';
+import { withStateDefaults, type GraphifyState, type IndexAction, type IndexRequest } from './types';
 
 export async function readStateFile(stateFile: string): Promise<GraphifyState | null> {
   try {
-    return JSON.parse(await readFile(stateFile, 'utf8')) as GraphifyState;
+    return withStateDefaults(JSON.parse(await readFile(stateFile, 'utf8')) as GraphifyState);
   } catch {
     return null;
   }
@@ -26,7 +26,7 @@ export async function appendIndexRequests(
   stateFile: string,
   requests: Array<Omit<IndexRequest, 'id' | 'requestedAt'>>,
 ): Promise<number[]> {
-  const current = (await readStateFile(stateFile)) ?? structuredClone(DEFAULT_STATE);
+  const current = withStateDefaults(await readStateFile(stateFile));
   const requestedAt = new Date().toISOString();
   const queued = requests.map((request, index) => ({
     id: current.nextRequestId + index,

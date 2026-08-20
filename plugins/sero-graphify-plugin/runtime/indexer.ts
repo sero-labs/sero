@@ -33,6 +33,8 @@ export interface IndexerHost extends SpendHost {
   graphExists(workspaceId: string): Promise<boolean>;
   /** graphifyy version currently installed, recorded against each build. */
   graphifyVersion(): Promise<string | undefined>;
+  /** Install a specific graphifyy version. Always a user-approved action. */
+  upgradeGraphify(version: string): Promise<void>;
   /** Surface something the user must see. */
   notify(notice: GraphifyNotice): void;
   log(message: string): void;
@@ -200,6 +202,9 @@ export class GraphifyIndexer {
       case 'sync':
         await this.syncWorkspaces();
         break;
+      case 'upgrade':
+        await this.upgrade();
+        break;
       case 'enable-all': {
         const state = await this.host.readState();
         for (const id of Object.keys(state?.workspaces ?? {})) {
@@ -218,6 +223,36 @@ export class GraphifyIndexer {
           await this.merge();
         }
         break;
+    }
+  }
+
+  /**
+   * Install a newer graphifyy, once the user has said yes.
+   *
+   * A new extractor version invalidates the semantic cache, so the next build
+   * of every workspace re-extracts and spends again. The dialog says so: this
+   * is the one upgrade path that cannot be silent.
+   */
+  private async upgrade(): Promise<void> {
+    const state = await this.host.readState();
+    const version = state?.provisioning.availableVersion;
+    if (!version) return;
+    const approved = await this.host.confirm({
+      title: `Update graphify to ${version}?`,
+      body: [
+        `Installed: ${state?.provisioning.version ?? 'unknown'} · Available: ${version}`,
+        'A new extractor version invalidates the cached extractions, so the next build of each workspace pays full price again.',
+        'Nothing is re-indexed now — each workspace waits until you rebuild it.',
+      ].join('\n'),
+      confirmLabel: 'Update graphify',
+    });
+    if (!approved) return;
+    try {
+      await this.host.upgradeGraphify(version);
+      this.host.notify(notice('info', `graphify updated to ${version}. Rebuild a workspace when you want its graph refreshed.`));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.host.notify(notice('refused', `Updating graphify failed: ${message}`));
     }
   }
 

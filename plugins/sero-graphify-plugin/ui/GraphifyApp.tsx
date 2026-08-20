@@ -2,14 +2,16 @@ import { useCallback, useEffect } from 'react';
 import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { Badge, Button, Card, Switch } from '@sero-ai/ui';
 import { Waypoints } from 'lucide-react';
-import { DEFAULT_STATE, type GraphifyState } from '../shared/types';
+import { DEFAULT_STATE, withStateDefaults, type GraphifyState } from '../shared/types';
 import { GraphSearch } from './GraphSearch';
 import { ModelPicker, SpendSettings } from './GraphifySettings';
 import { WorkspaceCard } from './WorkspaceCard';
 import './styles.css';
 
 export function GraphifyApp() {
-  const [state, setState] = useAppState<GraphifyState>(DEFAULT_STATE);
+  const [stored, setState] = useAppState<GraphifyState>(DEFAULT_STATE);
+  // A state file written by an older build has no caps and no ledger to render.
+  const state = withStateDefaults(stored);
   const { run } = useAppTools();
 
   const workspaces = Object.values(state.workspaces);
@@ -67,9 +69,12 @@ export function GraphifyApp() {
       )}
 
       {state.provisioning.availableVersion && (
-        <Card className="p-3 text-base">
-          graphify {state.provisioning.availableVersion} is available. Updating re-indexes every workspace,
-          which costs money, so it only happens when you ask.
+        <Card className="flex items-center justify-between p-3 text-base">
+          <span>
+            graphify {state.provisioning.availableVersion} is available. Updating makes the next build of each
+            workspace pay full price again, so nothing is re-indexed until you ask.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => index('upgrade')}>Update</Button>
         </Card>
       )}
 

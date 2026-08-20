@@ -2,7 +2,7 @@ import path from 'node:path';
 import { access, readdir, rm } from 'node:fs/promises';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { GraphifyNotice, GraphifyState, ModelChoice, WorkspaceIndexStats } from '../shared/types';
-import { DEFAULT_STATE } from '../shared/types';
+import { withStateDefaults } from '../shared/types';
 import { estimateFromScan } from '../shared/pricing';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
@@ -34,9 +34,11 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     return cachedToolsDir;
   };
 
-  const readState = async () => (await ctx.host.appState.read<GraphifyState>(ctx.stateFilePath)) ?? null;
+  // Every read goes through withStateDefaults: a state file written by an older
+  // build has no caps, no ledger, and a `model` that was a plain string.
+  const readState = async () => withStateDefaults(await ctx.host.appState.read<GraphifyState>(ctx.stateFilePath));
   const updateState = (updater: (current: GraphifyState) => GraphifyState) =>
-    ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => updater(current ?? structuredClone(DEFAULT_STATE)));
+    ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => updater(withStateDefaults(current)));
 
   const ensureProvisioned = async (): Promise<void> => {
     if (provisioned) return;
@@ -122,6 +124,20 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     graphExists: (workspaceId) =>
       access(workspaceGraphJson(paths, workspaceId)).then(() => true).catch(() => false),
     graphifyVersion: async () => provisioned?.version ?? (await readState())?.provisioning.version ?? GRAPHIFY_VERSION,
+    upgradeGraphify: async (version) => {
+      const result = await provisionGraphify({
+        ensureUv: async () => (await ctx.host.toolchains.ensure('uv')).path,
+        exec: boundedExec,
+        toolsDir: await toolsDir(),
+        baseEnv: cleanEnv('claude', process.env),
+        version,
+      });
+      provisioned = result;
+      await updateState((state) => ({
+        ...state,
+        provisioning: { ...state.provisioning, status: 'ready', graphifyPath: result.graphifyPath, version: result.version, availableVersion: undefined, error: undefined, updatedAt: new Date().toISOString() },
+      }));
+    },
     estimateBuild: async (workspace, settings) => {
       const scan = await scanWorkspace(workspace.path, {
         exclude: settings.exclude,

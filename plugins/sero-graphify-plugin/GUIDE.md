@@ -57,12 +57,32 @@ if no map exists.
   the same — the heavy lifting always happens on your machine, and sessions
   only need to *read* the finished maps.
 
+## What it costs, and what stops it
+
+Making the map is the only part that uses the AI model. Searching it, updating
+it after you edit files, and merging your projects together are all local and
+free.
+
+- **You choose the model.** Graphify does nothing until you pick a backend and
+  a model in the panel. It never falls back to a default, because then nobody
+  can say what a build cost.
+- **You see the price first.** Before each build Graphify counts the files and
+  the bytes it will read, works out what that costs with your model, and asks.
+  If it does not know your model's price it says so, and still asks.
+- **Limits stop it.** $2 for one build, $10 for one day, 5000 files. When a
+  limit stops a build, Graphify says which one and does not try again.
+- **Restarting never spends.** A project that has never been built waits, and
+  so does one whose build failed. You press the button.
+- **Pause** stops all paid work at once.
+
 ## Sensible defaults & safety
 
 - Nothing is mapped unless you opt in, per project (or click "Index all").
 - Junk is skipped automatically (node_modules, build output, lockfiles).
-- If a build fails (no API key, network down), that project just shows an
-  error with the reason and a retry — other projects keep going.
+- Your global workspace — where your memory files live — is never mapped. It is
+  dense writing, and it would cost far more than its size suggests.
+- If a build fails (no API key, network down), that project shows the error and
+  a **Try again** button — other projects keep going.
 - If a map is missing or broken, every feature quietly says "not indexed yet"
   rather than breaking anything.
 

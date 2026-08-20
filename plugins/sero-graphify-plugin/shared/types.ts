@@ -162,7 +162,7 @@ export interface RemovedWorkspaceRecord {
   stats?: WorkspaceIndexStats;
 }
 
-export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync';
+export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync' | 'upgrade';
 
 export interface IndexRequest {
   id: number;
@@ -262,4 +262,47 @@ export const DEFAULT_STATE: GraphifyState = Object.freeze({
  */
 export function isIndexableWorkspace(workspaceId: string): boolean {
   return workspaceId !== 'global';
+}
+
+/**
+ * Fill in anything a state file written by an older build is missing.
+ *
+ * State on disk predates the spend caps, the ledger and the model choice, and
+ * `settings.model` used to be a plain string (`''` meaning "let graphify
+ * decide"). Reading such a file without this would either crash on a missing
+ * `caps` or, worse, treat a leftover model string as a valid choice and spend
+ * on it. An unrecognised model value becomes `null`, which blocks paid work
+ * until the user picks one.
+ */
+export function withStateDefaults(raw: GraphifyState | null | undefined): GraphifyState {
+  const defaults = structuredClone(DEFAULT_STATE);
+  if (!raw) return defaults;
+  const settings = raw.settings ?? defaults.settings;
+  return {
+    ...defaults,
+    ...raw,
+    settings: {
+      ...defaults.settings,
+      ...settings,
+      caps: { ...defaults.settings.caps, ...settings.caps },
+      autoContext: { ...defaults.settings.autoContext, ...settings.autoContext },
+      model: isModelChoice(settings.model) ? settings.model : null,
+    },
+    provisioning: { ...defaults.provisioning, ...raw.provisioning },
+    profileGraph: { ...defaults.profileGraph, ...raw.profileGraph },
+    spend: { ...defaults.spend, ...raw.spend },
+    workspaces: raw.workspaces ?? {},
+    requests: raw.requests ?? [],
+    removedWorkspaces: raw.removedWorkspaces ?? [],
+    availableModels: raw.availableModels ?? [],
+    notice: raw.notice ?? null,
+    lastAppliedRequestId: raw.lastAppliedRequestId ?? 0,
+    nextRequestId: raw.nextRequestId ?? 1,
+  };
+}
+
+function isModelChoice(value: unknown): value is ModelChoice {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ModelChoice>;
+  return typeof candidate.modelId === 'string' && candidate.modelId.length > 0 && typeof candidate.backend === 'string';
 }
