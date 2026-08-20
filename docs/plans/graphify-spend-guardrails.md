@@ -780,6 +780,48 @@ Two deliberate departures from the plan:
   workspace has its own estimate, and one dialog covering several different
   numbers would be approving an amount nobody was shown.
 
+### Follow-up: a command inbox, so the runtime is the only writer
+
+Proposed by @monobyte in review of #384, and the right answer to §9's residual
+write race. Recorded here in full so whoever builds it starts from this point.
+
+1. The extension writes one immutable `inbox/<uuid>.json.tmp` and renames it to
+   `inbox/<uuid>.json`. It never reads or rewrites `state.json`.
+2. The runtime watches the inbox and also scans it at startup, so a missed or
+   duplicated filesystem event does not matter.
+3. It claims a command by renaming it into `processing/`, then records that
+   UUID as accepted in runtime-owned state *before* applying it.
+4. A crash before acceptance may safely retry the claimed file, because no side
+   effect began. A crash after acceptance skips that UUID and waits for another
+   click — deliberately at-most-once, the safer failure mode for paid work.
+5. The command UUID is also the spend reservation id. After the
+   `beforePaidSpawn` change the reservation is taken at the last boundary before
+   the paid child spawns, so acceptance and the durable debit become the same
+   write, and step 4's "no side effect began" is checkable rather than assumed.
+
+**One host change is required first.** A runtime is only woken for changes to
+its own state file: `AppRuntimeManager.handleStateChange` filters instances by
+`instance.stateFilePath === filePath`. An inbox write would therefore match no
+instance and be dropped, and commands would sit until something else touched
+the state file. Either let an instance register additional watched paths and
+match on those, or add the generic `appCommands.enqueue(appId, payload)`
+capability delivered through the same wake path. Polling is not an option worth
+taking: this plugin's update model is push-based with no timers, and an
+interval would become a spend-latency knob.
+
+### Follow-up: community naming as its own confirmed job
+
+Naming is a second LLM pass whose cost the extraction estimate never covered,
+so a build that ran it left part of the authorised work outside both caps.
+`cluster-only` now always runs `--no-label` and the setting is gone; graphs read
+`Community 1`, `Community 2`.
+
+Restoring it means a separate job: priced from `stats.communities` (which the
+free clustering pass produces), shown with its model and estimate, confirmed,
+reserved and settled like any other paid work. A pre-flight uplift inside the
+build was rejected — naming scales with community count, which is unknown until
+after the extraction, so any number would have been invented.
+
 Known and deliberate:
 
 * **The extension/runtime write race is narrowed, not closed.** The extension
