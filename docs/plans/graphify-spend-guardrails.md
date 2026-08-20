@@ -318,6 +318,39 @@ are re-queued on every incremental run.
 There is **no** upstream dry-run or pre-flight estimate. Sero must build that
 itself (Phase 2).
 
+### 5.4 Which model actually runs (verified against the pinned tag)
+
+Read from `v0.8.36:graphify/llm.py` — the exact code Sero installs:
+
+| Backend | Default model in 0.8.36 | Pricing table |
+|---|---|---|
+| `claude` ← **Sero uses this** | `claude-sonnet-4-6` (hard-coded string) | $3 / $15 per 1M |
+| `claude-cli` | Claude Code's own default, which is **Opus** | $0 / $0 (billed to the plan) |
+| `gemini` | `gemini-3-flash-preview` | — |
+| `openai` | `gpt-4.1-mini` | — |
+
+So on Sero's configured path the model is **Sonnet 4.6, not Opus**. Sero sends
+`model: ''`, sets no model environment variable, and 0.8.36 hard-codes the
+default (the `ANTHROPIC_MODEL` override arrived later, in 0.9.x). The community
+naming pass uses the same backend, so it is Sonnet too.
+
+Two points follow, and both belong in the plan:
+
+1. **Nobody can tell from the product.** The panel shows no model, the state
+   holds an empty string, and the build result records nothing. A user reading
+   graphify's own documentation reasonably concludes Opus, because the Opus
+   default is real — for the **`claude-cli`** backend. This is precisely the
+   transparency gap of §4.2.
+2. **The Opus default becomes ours the moment we adopt `claude-cli`** (§5.3).
+   That backend runs whatever Claude Code runs, which is Opus. Sero must
+   therefore always send `GRAPHIFY_CLAUDE_CLI_MODEL` and never accept the
+   default. Upstream issue **#2861** is exactly this complaint.
+
+Note also that graphify prices `claude` at a fixed $3/$15 (`llm.py` pricing
+table). If Sero passes `--model` for a different model, the `est. cost` line
+graphify prints stays at Sonnet rates and is wrong. Sero's own estimate must
+price the model it selected.
+
 ---
 
 ## 6. Plan
@@ -342,6 +375,9 @@ grep -n "est. cost\|tokens:" ~/.sero-ui/logs/dev/sero-electron.log
 # Did a build run for a workspace the host never confirmed? (§3.8, §3.9)
 grep -n "removing undiscovered workspace\|removing orphaned graph artifacts" \
   ~/.sero-ui/logs/dev/sero-electron.log
+
+# Which model and backend did the build really use? ('' means the default)
+jq '.settings.backend, .settings.model' ~/.sero-ui/apps/graphify/state.json
 
 # How large is the memory store that §3.9 would have indexed?
 du -sh ~/.sero-ui/workspaces/global
@@ -499,7 +535,7 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 | Raise the graphifyy pin from 0.8.36 (six repeat-billing fixes) | 2b | P0 |
 | Show the graphify version and offer an upgrade | 2b | P1 |
 | Report the 18x retry blow-up and cache split upstream | 2b | P1 |
-| Offer the claude-cli backend (subscription, not API credits) | 3 | P1 |
+| Offer the claude-cli backend (subscription, not API credits) — must pin its model, it defaults to Opus | 3 | P1 |
 | Graphify settings UI (backend, model, caps, excludes) | 3 | P1 |
 | Show cost and model on the workspace card | 3 | P1 |
 | New workspaces must not opt into indexing by default | 3 | P1 |
