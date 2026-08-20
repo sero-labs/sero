@@ -11,21 +11,26 @@ import {
 } from './provisioner';
 import type { ExecResult } from './bounded-exec';
 
-const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0 });
-const fail = (stderr: string): ExecResult => ({ stdout: '', stderr, exitCode: 1 });
+const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0, truncated: false });
+const fail = (stderr: string): ExecResult => ({ stdout: '', stderr, exitCode: 1, truncated: false });
 
 const toolsDir = () => mkdtemp(path.join(os.tmpdir(), 'graphify-tools-'));
 
 describe('provisionGraphify', () => {
   it('pins backend extras so semantic extraction works out of the box', () => {
+    // One extra per offered backend. bedrock needs boto3; without it a clean
+    // install fails every Bedrock build after the toolchain is already ready.
     expect(GRAPHIFY_INSTALL_SPEC).toBe(`graphifyy[anthropic,openai,gemini,kimi,ollama]==${GRAPHIFY_VERSION}`);
+    for (const extra of ['anthropic', 'openai', 'gemini', 'kimi', 'ollama']) {
+      expect(GRAPHIFY_INSTALL_SPEC).toContain(extra);
+    }
   });
 
   it('skips install when the recorded spec matches and the binary runs', async () => {
     const tools = await toolsDir();
     await writeFile(installSpecMarkerPath(tools), GRAPHIFY_INSTALL_SPEC, 'utf8');
     const exec = vi.fn().mockResolvedValue(ok(`graphify ${GRAPHIFY_VERSION}`));
-    const result = await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools });
+    const result = await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools, baseEnv: {} });
     expect(result.graphifyPath).toBe(graphifyBinPath(tools));
     expect(exec).toHaveBeenCalledTimes(1); // version probe only
   });
@@ -37,7 +42,7 @@ describe('provisionGraphify', () => {
     const exec = vi.fn()
       .mockResolvedValueOnce(ok('Installed graphifyy'))            // install
       .mockResolvedValueOnce(ok(`graphify ${GRAPHIFY_VERSION}`));  // verify
-    const result = await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools });
+    const result = await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools, baseEnv: {} });
     expect(result.version).toBe(GRAPHIFY_VERSION);
     const installCall = exec.mock.calls[0];
     expect(installCall[0]).toBe('/uv');
@@ -52,14 +57,14 @@ describe('provisionGraphify', () => {
     const exec = vi.fn()
       .mockResolvedValueOnce(ok('Installed graphifyy'))
       .mockResolvedValueOnce(ok(`graphify ${GRAPHIFY_VERSION}`));
-    await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools });
+    await provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools, baseEnv: {} });
     expect(exec.mock.calls[0][1]).toEqual(['tool', 'install', '--force', GRAPHIFY_INSTALL_SPEC]);
   });
 
   it('throws a useful error when install fails and leaves no marker', async () => {
     const tools = await toolsDir();
     const exec = vi.fn().mockResolvedValueOnce(fail('network unreachable'));
-    await expect(provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools }))
+    await expect(provisionGraphify({ ensureUv: async () => '/uv', exec, toolsDir: tools, baseEnv: {} }))
       .rejects.toThrow(/network unreachable/);
     await expect(readFile(installSpecMarkerPath(tools), 'utf8')).rejects.toThrow();
   });

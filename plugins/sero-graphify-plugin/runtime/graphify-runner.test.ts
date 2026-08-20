@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
+import type { BuildOptions } from './graphify-runner';
+import type { ModelChoice } from '../shared/types';
 import type { ExecResult } from './bounded-exec';
 
 const STORE = path.join(os.tmpdir(), 'graphify-runner-test', 'ws1');
@@ -15,21 +17,42 @@ const EXTRACT_STDOUT = [
 
 const UPDATE_STDOUT = '[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities';
 
-const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0 });
+const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0, truncated: false });
+
+const MODEL: ModelChoice = { backend: 'claude', modelId: 'gpt-5.6-luna', chosenAt: 'now' };
+
+function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
+  return {
+    workspaceDir: STORE,
+    inputPath: '/p',
+    model: MODEL,
+    tokenBudget: 0,
+    maxConcurrency: 0,
+    exclude: [],
+    ...overrides,
+  };
+}
 
 describe('parseBuildStats', () => {
   it('parses comma-formatted stats and tokens', () => {
     expect(parseBuildStats(EXTRACT_STDOUT)).toEqual({
-      nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000,
+      usageMeasured: true,
+      stats: { nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000 },
     });
   });
   it('parses graphify update output', () => {
+    // No token line: usage is unknown, NOT zero. Settling a reservation on this
+    // would write $0 over a conservative debit and hand back the daily cap.
     expect(parseBuildStats(UPDATE_STDOUT)).toEqual({
-      nodes: 35, edges: 42, communities: 5, inputTokens: 0, outputTokens: 0,
+      usageMeasured: false,
+      stats: { nodes: 35, edges: 42, communities: 5, inputTokens: 0, outputTokens: 0 },
     });
   });
   it('defaults to zeros on unparseable output', () => {
-    expect(parseBuildStats('done')).toEqual({ nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 });
+    expect(parseBuildStats('done')).toEqual({
+      usageMeasured: false,
+      stats: { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 },
+    });
   });
 });
 
@@ -38,19 +61,20 @@ describe('buildWorkspaceGraph', () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     const stats = await buildWorkspaceGraph(
       { exec, graphifyPath: '/tools/bin/graphify', env: {} },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 4096, exclude: ['node_modules'] },
+      buildOpts({ inputPath: '/home/me/proj', tokenBudget: 4096, exclude: ['node_modules'] }),
     );
-    expect(stats.nodes).toBe(1234);
+    expect(stats.stats.nodes).toBe(1234);
     const [cmd, args, opts] = exec.mock.calls[0];
     expect(cmd).toBe('/tools/bin/graphify');
     expect(args).toEqual([
       'extract', '/home/me/proj', '--backend', 'claude', '--out', STORE,
+      '--model', 'gpt-5.6-luna', '--api-timeout', '300',
       '--token-budget', '4096', '--exclude', 'node_modules',
     ]);
     expect(opts.cwd).toBe(STORE);
     // Report generation runs against the store dir (where graphify-out/ lives).
     const [, reportArgs] = exec.mock.calls[1];
-    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz']);
+    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--no-label']);
   });
 
   it('redirects the extraction cache into the store dir via GRAPHIFY_OUT', async () => {
@@ -60,7 +84,7 @@ describe('buildWorkspaceGraph', () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     await buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 0, exclude: [] },
+      buildOpts({ inputPath: '/home/me/proj' }),
     );
     for (const call of exec.mock.calls) {
       expect(call[2].env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));
@@ -68,22 +92,60 @@ describe('buildWorkspaceGraph', () => {
   });
 
   it('throws with stderr tail on failure', async () => {
-    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'boom', exitCode: 1 });
+    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'boom', exitCode: 1, truncated: false });
     await expect(buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: {} },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [] },
+      buildOpts({}),
     )).rejects.toThrow(/boom/);
   });
 
-  it('passes --model when a model override is set', async () => {
+  it('always passes the chosen model', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     await buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: {} },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', model: 'claude-haiku-4-5-20251001', tokenBudget: 0, exclude: [] },
+      buildOpts({ model: { backend: 'claude', modelId: 'claude-haiku-4-5-20251001', chosenAt: 'now' } }),
     );
     const [, args] = exec.mock.calls[0];
     expect(args).toContain('--model');
     expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('never runs the paid naming pass inside a build', async () => {
+    // Naming is a second LLM pass the pre-flight estimate never covered, so
+    // running it here would leave part of the authorised job outside both caps.
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+    const [, reportArgs] = exec.mock.calls[1];
+    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--no-label']);
+  });
+
+  it('debits only at the spawn boundary, after preparation succeeded', async () => {
+    const order: string[] = [];
+    const exec = vi.fn().mockImplementation(async () => {
+      order.push('exec');
+      return ok(EXTRACT_STDOUT);
+    });
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({
+      beforePaidSpawn: async () => { order.push('reserve'); },
+    }));
+    expect(order[0]).toBe('reserve');
+    expect(order[1]).toBe('exec');
+  });
+
+  it('keeps a built graph when the report step fails', async () => {
+    // The extraction is already paid for by then; throwing the result away
+    // over a failed report would mean paying for it twice.
+    const exec = vi.fn()
+      .mockResolvedValueOnce(ok(EXTRACT_STDOUT))
+      .mockResolvedValueOnce({ stdout: '', stderr: 'cluster boom', exitCode: 1, truncated: false });
+    const stats = await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+    expect(stats.stats.nodes).toBe(1234);
+  });
+
+  it('does not let a chatty build be killed for its output', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+    expect(exec.mock.calls[0][2].onOutputLimit).toBe('truncate');
   });
 
   it('streams progress lines with unbuffered python output', async () => {
@@ -94,7 +156,7 @@ describe('buildWorkspaceGraph', () => {
     const progress: string[] = [];
     await buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [], onProgress: (m) => progress.push(m) },
+      buildOpts({ onProgress: (m: string) => progress.push(m) }),
     );
     expect(progress).toContain('[graphify extract] scanning /p');
     expect(exec.mock.calls[0][2].env.PYTHONUNBUFFERED).toBe('1');
@@ -106,9 +168,9 @@ describe('updateWorkspaceGraph', () => {
     const exec = vi.fn().mockResolvedValue(ok(UPDATE_STDOUT));
     const stats = await updateWorkspaceGraph(
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 0, exclude: [] },
+      { workspaceDir: STORE, inputPath: '/home/me/proj' },
     );
-    expect(stats.nodes).toBe(35);
+    expect(stats.stats.nodes).toBe(35);
     const [, args, opts] = exec.mock.calls[0];
     expect(args).toEqual(['update', '/home/me/proj']);
     expect(opts.env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));

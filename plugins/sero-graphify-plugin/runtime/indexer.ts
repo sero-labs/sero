@@ -1,5 +1,18 @@
-import type { GraphifyState, IndexRequest, WorkspaceIndexStats, WorkspaceIndexStatus } from '../shared/types';
-import { DEFAULT_STATE } from '../shared/types';
+import type {
+  BuildEstimate,
+  GraphifyNotice,
+  GraphifyState,
+  IndexRequest,
+  WorkspaceIndexStats,
+  WorkspaceIndexStatus,
+} from '../shared/types';
+import { isIndexableWorkspace } from '../shared/types';
+import type { BuildOutcome } from './graphify-runner';
+import { authorizePaidBuild, type SpendHost } from './spend-guard';
+import { settleRun } from '../shared/ledger';
+import { reserveEstimate, settleStats } from './spend-record';
+import { sweepOrphanArtifacts, syncWorkspaceList } from './workspace-sync';
+import { applySettingsPatch, upgradeGraphifyTool } from './settings';
 
 export interface IndexerWorkspace {
   id: string;
@@ -8,28 +21,45 @@ export interface IndexerWorkspace {
   open: boolean;
 }
 
-export interface IndexerHost {
+export interface IndexerHost extends SpendHost {
   readState(): Promise<GraphifyState | null>;
   updateState(updater: (current: GraphifyState) => GraphifyState): Promise<void>;
   listWorkspaces(): Promise<IndexerWorkspace[]>;
   ensureProvisioned(): Promise<void>;
-  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
-  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
+  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
+  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
   mergeProfileGraph(workspaceIds: string[]): Promise<{ nodes: number; edges: number }>;
   /** Delete a workspace's on-disk graph artifacts (idempotent — no-op if absent). */
   removeWorkspaceArtifacts(workspaceId: string): Promise<void>;
   /** Ids of every workspace that has graph artifacts on disk. */
   listArtifactWorkspaceIds(): Promise<string[]>;
+  /** True when a built graph is already on disk — the difference between free and paid. */
+  graphExists(workspaceId: string): Promise<boolean>;
+  /** graphifyy version currently installed, recorded against each build. */
+  graphifyVersion(): Promise<string | undefined>;
+  /** Install a specific graphifyy version. Always a user-approved action. */
+  upgradeGraphify(version: string): Promise<void>;
+  /** Surface something the user must see. */
+  notify(notice: GraphifyNotice): void;
   log(message: string): void;
+}
+
+export interface JobHooks {
+  onProgress?: (message: string) => void;
+  /** Fires at the last moment before a paid child process starts. */
+  beforePaidSpawn?: () => Promise<void>;
 }
 
 interface Job {
   workspaceId: string;
-  full: boolean;
+  /** True when this job may call the LLM. Free AST updates set it false. */
+  paid: boolean;
+  /** Ask before spending, even when the estimate is inside every cap. */
+  confirm: boolean;
 }
 
-function isIndexing(status: WorkspaceIndexStatus): boolean {
-  return status === 'queued' || status === 'building' || status === 'updating';
+function notice(kind: GraphifyNotice['kind'], message: string): GraphifyNotice {
+  return { kind, message, at: new Date().toISOString() };
 }
 
 export class GraphifyIndexer {
@@ -37,41 +67,86 @@ export class GraphifyIndexer {
   private current: Promise<void> = Promise.resolve();
   private processing = false;
   private disposed = false;
+  /** The job running right now, so a repeat request cannot queue a second one. */
+  private activeJob: Job | null = null;
+  private rerunRequested = false;
+  /**
+   * Highest request id this process has applied.
+   *
+   * The authority is here, not in the file. The extension appends requests from
+   * its own process, so a write of its own can land on top of one of ours and
+   * carry an older watermark back — which would make an already-drained request
+   * eligible again, and a paid rebuild run twice. An in-memory high-water mark
+   * cannot be rolled back by another process.
+   */
+  private appliedWatermark = 0;
 
   constructor(private readonly host: IndexerHost) {}
 
   /**
-   * Push model — no timers, ever. After this boot pass, work arrives only as
-   * explicit requests: edit-triggered `refresh` from the extension's SDK
-   * hooks, `sync` from the panel / session-start discovery, and the panel's
-   * own enable/rebuild actions.
+   * Push model — no timers, ever. Work arrives as explicit requests: edit
+   * hooks, the panel, and session-start discovery.
+   *
+   * A restart never spends. An enabled workspace with a graph on disk gets the
+   * free AST update; one without a graph is marked `needs-build` and waits for
+   * the user. The old rule restarted a full build for any workspace with no
+   * `lastBuiltAt` — which every failed build has, so a build that failed was
+   * paid for again at every launch.
    */
   async start(): Promise<void> {
-    // Snapshot BEFORE syncing: the sync normalizes in-flight statuses
-    // ('building' → 'idle'), which is exactly the interrupted-work signal
-    // the catch-up decisions need.
     const before = await this.host.readState();
+    this.appliedWatermark = before?.lastAppliedRequestId ?? 0;
     await this.syncWorkspaces({ normalizeStatuses: true });
-    // Reclaim disk left by workspaces deleted while Sero was closed (or by
-    // older builds that never cleaned up after themselves).
-    await this.sweepOrphanArtifacts();
+    await sweepOrphanArtifacts(this.host);
 
-    // Boot catch-up: interrupted full builds restart full; everything else
-    // enabled gets one cheap AST-only update to absorb changes made while
-    // Sero was closed.
     for (const entry of Object.values(before?.workspaces ?? {})) {
-      if (!entry.enabled) continue;
-      this.enqueue(entry.workspaceId, entry.status === 'building' || !entry.lastBuiltAt);
+      if (!entry.enabled || !isIndexableWorkspace(entry.workspaceId)) continue;
+      if (await this.host.graphExists(entry.workspaceId)) {
+        this.enqueue({ workspaceId: entry.workspaceId, paid: false, confirm: false });
+      } else {
+        await this.setStatus(entry.workspaceId, 'needs-build', { progress: undefined });
+      }
     }
     this.kick();
   }
 
+  /**
+   * Drain the request list.
+   *
+   * The read and the clear happen inside ONE `updateState` callback, which the
+   * host runs inside its serialised write queue. Separate steps left a window
+   * in which a repeated file-watcher delivery — the watcher fires on both the
+   * rename and the change of an atomic write — read the same request twice and
+   * queued a second full build. `lastAppliedRequestId` closes the same hole
+   * across processes.
+   */
   async handleStateChange(rawState: unknown): Promise<void> {
-    const state = rawState as GraphifyState | null;
-    if (!state || !Array.isArray(state.requests) || state.requests.length === 0) return;
-    const requests = [...state.requests];
-    await this.host.updateState((current) => ({ ...current, requests: [] }));
-    for (const request of requests) await this.applyRequest(request);
+    const incoming = rawState as GraphifyState | null;
+    if (!incoming || !Array.isArray(incoming.requests) || incoming.requests.length === 0) return;
+
+    let pending: IndexRequest[] = [];
+    await this.host.updateState((current) => {
+      // Whichever is further ahead wins, so a rolled-back file cannot resurrect
+      // a request this process already applied.
+      const watermark = Math.max(this.appliedWatermark, current.lastAppliedRequestId ?? 0);
+      pending = (current.requests ?? []).filter((request) => request.id > watermark);
+      const highest = (current.requests ?? []).reduce((max, request) => Math.max(max, request.id), watermark);
+      this.appliedWatermark = highest;
+      return { ...current, requests: [], lastAppliedRequestId: highest };
+    });
+
+    // The clear and the watermark advance happen BEFORE the requests are
+    // applied, so a repeated delivery can never re-apply them. A request lost
+    // to a crash costs the user another click; a request applied twice costs
+    // them another build. Each is applied on its own so one failure does not
+    // discard the rest of the batch.
+    for (const request of pending) {
+      try {
+        await this.applyRequest(request);
+      } catch (error) {
+        this.host.log(`[graphify] request #${request.id} (${request.action}) failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     this.kick();
   }
 
@@ -81,7 +156,6 @@ export class GraphifyIndexer {
 
   /** Resolves when the queue drains. Test/diagnostic helper. */
   async idle(): Promise<void> {
-    // The queue is processed serially on `current`; chaining awaits completion.
     let previous: Promise<void>;
     do {
       previous = this.current;
@@ -89,191 +163,92 @@ export class GraphifyIndexer {
     } while (previous !== this.current);
   }
 
-  /**
-   * Reconcile the profile workspace list into state. Runs once at start
-   * (normalizing statuses interrupted by the previous process) and then on
-   * the discovery interval so new/renamed/removed workspaces show up live.
-   * Skips the state write entirely when nothing changed — every write
-   * broadcasts on the state bus and re-enters handleStateChange.
-   */
+  /** Reconcile the profile workspace list into state. */
   async syncWorkspaces(options: { normalizeStatuses?: boolean } = {}): Promise<void> {
-    const normalize = options.normalizeStatuses === true;
-    const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
-    const current = (await this.host.readState())?.workspaces ?? {};
-    const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
-    // Outside start(), live statuses (queued/building/updating) must survive a
-    // discovery tick; only the boot pass may normalize interrupted work to idle.
-    const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
-      normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
-    // Expire only pending entries present in this opening snapshot. An entry
-    // created while this sync runs gets one full discovery cycle of its own.
-    const expiringPendingIds = new Set<string>();
-    for (const entry of Object.values(current)) {
-      if (
-        entry.pendingHostDiscovery
-        && !discoveredIds.has(entry.workspaceId)
-        && !isIndexing(nextStatus(entry))
-      ) {
-        expiringPendingIds.add(entry.workspaceId);
-      }
-    }
-
-    const unchanged = workspaces.length === Object.keys(current).length
-      && workspaces.every((ws) => {
-        const existing = current[ws.id];
-        return existing
-          && !existing.pendingHostDiscovery
-          && existing.name === ws.name
-          && existing.path === ws.path
-          && existing.status === nextStatus(existing);
-      });
-    if (unchanged) return;
-
-    const removalCandidates = Object.keys(current).filter((id) => !discoveredIds.has(id));
-
-    await this.host.updateState((raw) => {
-      const state = raw ?? structuredClone(DEFAULT_STATE);
-      const next = { ...state, workspaces: { ...state.workspaces } };
-      for (const ws of workspaces) {
-        const existing = next.workspaces[ws.id];
-        if (!existing) {
-          next.workspaces[ws.id] = {
-            workspaceId: ws.id,
-            name: ws.name,
-            path: ws.path,
-            enabled: false,
-            status: 'idle',
-          };
-          continue;
-        }
-        const observed = { ...existing };
-        delete observed.pendingHostDiscovery;
-        next.workspaces[ws.id] = {
-          ...observed,
-          name: ws.name,
-          path: ws.path,
-          status: nextStatus(existing),
-        };
-      }
-      for (const id of Object.keys(next.workspaces)) {
-        let entry = next.workspaces[id];
-        const status = nextStatus(entry);
-        if (status !== entry.status) {
-          entry = { ...entry, status };
-          delete entry.progress;
-          next.workspaces[id] = entry;
-        }
-        if (
-          !discoveredIds.has(id)
-          && !isIndexing(entry.status)
-          && (!entry.pendingHostDiscovery || expiringPendingIds.has(id))
-        ) {
-          delete next.workspaces[id];
-        }
-      }
-      return next;
-    });
-    // The updater can preserve entries against the opening snapshot. Re-read
-    // state so artifact removal uses the authoritative reconciliation result.
-    const reconciled = (await this.host.readState())?.workspaces ?? {};
-    const removedIds = removalCandidates.filter((id) => !reconciled[id]);
-    const removedIndexed = removedIds.some((id) => current[id]?.enabled && current[id]?.lastBuiltAt);
-    // A removed workspace's per-workspace graph is now an orphan — delete it so
-    // disk tracks the live workspace list (disable keeps artifacts; removal does not).
-    // Removals are independent, so run them together.
-    await Promise.all(removedIds.map((id) => {
-      this.host.log(`[graphify] removing undiscovered workspace ${id} and its graph artifacts`);
-      return this.host.removeWorkspaceArtifacts(id);
-    }));
-    // A deleted workspace that was part of the profile graph leaves stale
-    // nodes behind until the next merge — re-merge promptly.
+    const { removedIndexed } = await syncWorkspaceList(this.host, options);
     if (removedIndexed) await this.merge();
   }
 
   /**
-   * Delete graph artifacts whose workspace no longer exists in the profile.
-   * Reactive removal (above) handles workspaces that vanish while running;
-   * this catches artifacts already orphaned on disk at boot. Disabled-but-present
-   * workspaces are safe: listWorkspaces() still returns them, so they are never
-   * mistaken for orphans.
+   * Turn indexing on for a workspace the host registry actually knows.
+   *
+   * The registry check is the guard: the old code built any workspace a caller
+   * named, including one discovery had never seen, and the next sync then
+   * deleted the graph that had just been paid for.
    */
-  private async sweepOrphanArtifacts(): Promise<void> {
-    const state = await this.host.readState();
-    const live = new Set((await this.host.listWorkspaces()).map((ws) => ws.id));
-    for (const entry of Object.values(state?.workspaces ?? {})) {
-      if (entry.pendingHostDiscovery) live.add(entry.workspaceId);
+  private async enable(workspaceId: string, options: { rebuild: boolean }): Promise<void> {
+    if (!isIndexableWorkspace(workspaceId)) {
+      this.host.notify(notice('refused', `${workspaceId} is not indexable. The global workspace holds your memory store, which is dense prose and expensive to index.`));
+      return;
     }
-    const orphans = (await this.host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
-    await Promise.all(orphans.map((id) => {
-      this.host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
-      return this.host.removeWorkspaceArtifacts(id);
-    }));
+    const known = (await this.host.listWorkspaces()).some((ws) => ws.id === workspaceId);
+    if (!known) {
+      this.host.notify(notice('refused', `Graphify does not know a workspace called ${workspaceId}, so it will not index it. Sync Graphify and try again.`));
+      return;
+    }
+    // A workspace-creation contribution fires the moment Sero creates the
+    // workspace, before discovery has seen it. The registry already knows it,
+    // so one sync is enough — and it keeps name and path host-owned rather
+    // than taking them from the caller.
+    if (!(await this.host.readState())?.workspaces[workspaceId]) await this.syncWorkspaces();
+
+    const hasGraph = await this.host.graphExists(workspaceId);
+    const paid = options.rebuild || !hasGraph;
+    await this.host.updateState((state) => {
+      const entry = state.workspaces[workspaceId];
+      if (!entry) return state;
+      return {
+        ...state,
+        workspaces: {
+          ...state.workspaces,
+          [workspaceId]: { ...entry, enabled: true, status: paid ? 'queued' : entry.status, lastError: undefined },
+        },
+      };
+    });
+
+    // Enabling a workspace that already has a graph costs nothing: it joins the
+    // profile merge as it is. Only an explicit rebuild spends again.
+    if (!paid) {
+      await this.merge();
+      return;
+    }
+    this.enqueue({ workspaceId, paid: true, confirm: true });
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {
-    const enable = async (request: IndexRequest, rebuild: boolean) => {
-      const workspaceId = request.workspaceId;
-      if (!workspaceId) return;
-      let shouldEnqueue = false;
-      let missingMessage: string | null = null;
-      await this.host.updateState((state) => {
-        const existing = state.workspaces[workspaceId];
-        if (!existing && (!request.workspaceName || !request.workspacePath)) {
-          missingMessage = 'Workspace is not available. Sync Graphify and enable indexing again.';
-          return state;
-        }
-        const entry = existing
-          ? {
-              ...existing,
-              name: request.workspaceName ?? existing.name,
-              path: request.workspacePath ?? existing.path,
-            }
-          : {
-              workspaceId,
-              name: request.workspaceName!,
-              path: request.workspacePath!,
-              enabled: false,
-              status: 'idle' as const,
-              pendingHostDiscovery: true,
-            };
-        shouldEnqueue = true;
-        return {
-          ...state,
-          workspaces: {
-            ...state.workspaces,
-            [workspaceId]: {
-              ...entry,
-              enabled: true,
-              status: 'queued',
-              lastError: undefined,
-            },
-          },
-        };
-      });
-      if (shouldEnqueue) this.enqueue(workspaceId, rebuild);
-      else if (missingMessage) this.host.log(`[graphify] ${workspaceId}: ${missingMessage}`);
-    };
-
     switch (request.action) {
       case 'enable':
+        if (request.workspaceId) await this.enable(request.workspaceId, { rebuild: false });
+        break;
       case 'rebuild':
-        await enable(request, true);
+        if (request.workspaceId) await this.enable(request.workspaceId, { rebuild: true });
         break;
       case 'refresh': {
-        // Refresh is the push-update path (edit hooks, panel). It must never
-        // resurrect a workspace the user disabled.
+        // The push-update path (edit hooks, panel). Free, and it must never
+        // resurrect a workspace the user disabled or build one that has no graph.
         if (!request.workspaceId) break;
         const state = await this.host.readState();
-        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request, false);
+        const entry = state?.workspaces[request.workspaceId];
+        if (entry?.enabled && await this.host.graphExists(request.workspaceId)) {
+          this.enqueue({ workspaceId: request.workspaceId, paid: false, confirm: false });
+        }
         break;
       }
       case 'sync':
         await this.syncWorkspaces();
         break;
+      case 'upgrade':
+        await upgradeGraphifyTool(this.host);
+        break;
+      case 'settings':
+        await applySettingsPatch(this.host, request.settings ?? {});
+        // Pausing must stop work already queued, not only work yet to be asked for.
+        if (request.settings?.paused === true) this.dropQueuedPaidJobs();
+        break;
       case 'enable-all': {
         const state = await this.host.readState();
         for (const id of Object.keys(state?.workspaces ?? {})) {
-          await enable({ ...request, workspaceId: id }, true);
+          await this.enable(id, { rebuild: false });
         }
         break;
       }
@@ -291,13 +266,30 @@ export class GraphifyIndexer {
     }
   }
 
-  private enqueue(workspaceId: string, full: boolean): void {
-    const existing = this.queue.find((job) => job.workspaceId === workspaceId);
-    if (existing) {
-      existing.full = existing.full || full;
+  private dropQueuedPaidJobs(): void {
+    this.queue = this.queue.filter((job) => !job.paid);
+  }
+
+  /**
+   * Queue a job, or fold it into one already queued or running.
+   *
+   * Folding into the *running* job is the part that matters: the old queue only
+   * de-duplicated against jobs still waiting, so a second request for a
+   * workspace already building appended a second build that ran the moment the
+   * first finished.
+   */
+  private enqueue(job: Job): void {
+    if (this.activeJob?.workspaceId === job.workspaceId) {
+      if (job.paid && !this.activeJob.paid) this.rerunRequested = true;
       return;
     }
-    this.queue.push({ workspaceId, full });
+    const existing = this.queue.find((queued) => queued.workspaceId === job.workspaceId);
+    if (existing) {
+      existing.paid = existing.paid || job.paid;
+      existing.confirm = existing.confirm || job.confirm;
+      return;
+    }
+    this.queue.push({ ...job });
   }
 
   private kick(): void {
@@ -307,7 +299,16 @@ export class GraphifyIndexer {
       try {
         while (this.queue.length > 0 && !this.disposed) {
           const job = this.queue.shift()!;
-          await this.runJob(job);
+          this.activeJob = job;
+          this.rerunRequested = false;
+          try {
+            await this.runJob(job);
+          } finally {
+            const rerun = this.rerunRequested;
+            this.activeJob = null;
+            this.rerunRequested = false;
+            if (rerun) this.enqueue({ ...job, paid: true, confirm: true });
+          }
         }
       } finally {
         this.processing = false;
@@ -323,15 +324,46 @@ export class GraphifyIndexer {
     });
   }
 
+  private async refuse(workspaceId: string, decision: { kind: string; reason: string }): Promise<void> {
+    const kind = decision.kind === 'declined' ? 'declined' : decision.kind === 'cap' ? 'cap' : 'refused';
+    this.host.log(`[graphify] ${workspaceId}: ${decision.reason}`);
+    await this.host.updateState((state) => ({ ...state, notice: notice(kind as GraphifyNotice['kind'], decision.reason) }));
+    this.host.notify(notice(kind as GraphifyNotice['kind'], decision.reason));
+    // A refused build waits for the user and never retries. A refused *rebuild*
+    // still has its graph, so it stays indexed — calling it "not built" would
+    // misdescribe a workspace that is perfectly usable.
+    const status: WorkspaceIndexStatus = await this.host.graphExists(workspaceId) ? 'idle' : 'needs-build';
+    await this.setStatus(workspaceId, status, { progress: undefined });
+    // One refusal is the answer for the whole batch: a cap or a pause applies
+    // to every queued build, and re-asking per workspace is just noise.
+    if (decision.kind === 'cap' || decision.kind === 'paused') this.dropQueuedPaidJobs();
+  }
+
   private async runJob(job: Job): Promise<void> {
     const state = await this.host.readState();
     const entry = state?.workspaces[job.workspaceId];
     if (!state || !entry?.enabled) return;
 
-    const runningStatus: WorkspaceIndexStatus = job.full ? 'building' : 'updating';
-    await this.setStatus(job.workspaceId, runningStatus, { progress: 'Starting…' });
+    const runningStatus: WorkspaceIndexStatus = job.paid ? 'building' : 'updating';
+    const startedAt = new Date().toISOString();
+    let reservationId: string | null = null;
+    let estimate: BuildEstimate | null = null;
 
-    // Throttled progress → state writes; the UI observes via the state bus.
+    if (job.paid) {
+      const decision = await authorizePaidBuild(this.host, state, entry, { alwaysConfirm: job.confirm, now: new Date() });
+      if (!decision.allowed) {
+        await this.refuse(job.workspaceId, decision);
+        return;
+      }
+      this.host.log(`[graphify] ${entry.name}: building — ${decision.estimate.files} files, ~${decision.estimate.estimatedInputTokens} tokens, model ${state.settings.model?.modelId}`);
+      estimate = decision.estimate;
+    }
+    await this.setStatus(job.workspaceId, runningStatus, {
+      progress: 'Starting…',
+      lastAttemptAt: startedAt,
+      ...(job.paid ? { lastPaidAttemptAt: startedAt } : {}),
+    });
+
     let lastWrite = 0;
     let lastMessage = '';
     const onProgress = (message: string) => {
@@ -347,22 +379,75 @@ export class GraphifyIndexer {
     try {
       await this.host.ensureProvisioned();
       const target = { workspaceId: entry.workspaceId, path: entry.path };
-      const fresh = job.full
-        ? await this.host.buildGraph(target, state.settings, onProgress)
-        : await this.host.updateGraph(target, state.settings, onProgress);
-      // Incremental updates never spend LLM tokens; keep the last build's cost visible.
-      const stats: WorkspaceIndexStats = {
-        ...fresh,
-        inputTokens: fresh.inputTokens || entry.stats?.inputTokens || 0,
-        outputTokens: fresh.outputTokens || entry.stats?.outputTokens || 0,
+      // The debit is taken at the last boundary before the paid child is
+      // spawned, once the toolchain, the credentials and the output directory
+      // have all succeeded. Reserving earlier charged the day for a uv install
+      // failure or a missing key — spend for a request that never happened.
+      const beforePaidSpawn = async () => {
+        if (!estimate) return;
+        reservationId = await reserveEstimate(this.host, job.workspaceId, state.settings, estimate, startedAt);
       };
-      await this.setStatus(job.workspaceId, 'idle', { stats, lastBuiltAt: new Date().toISOString(), lastError: undefined, progress: undefined });
-      await this.merge();
+      const outcome = job.paid
+        ? await this.host.buildGraph(target, state.settings, { onProgress, beforePaidSpawn })
+        : await this.host.updateGraph(target, state.settings, { onProgress });
+      await this.completeJob(job, state, outcome, entry.stats, reservationId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.host.log(`[graphify] build failed for ${job.workspaceId}: ${message}`);
-      await this.setStatus(job.workspaceId, 'error', { lastError: message, progress: undefined });
+      await this.setStatus(job.workspaceId, 'error', {
+        lastError: message,
+        progress: undefined,
+        failureCount: (entry.failureCount ?? 0) + 1,
+      });
+      // The reservation is deliberately left standing: the build may well have
+      // spent tokens before it failed, and the day's cap must reflect that.
+      // No automatic retry, here or at the next start.
+      this.host.notify(notice('refused', `Indexing ${entry.name} failed: ${message}`));
     }
+  }
+
+  private async completeJob(
+    job: Job,
+    state: GraphifyState,
+    outcome: BuildOutcome,
+    previous: WorkspaceIndexStats | undefined,
+    reservationId: string | null,
+  ): Promise<void> {
+    const choice = state.settings.model;
+    const { stats, inputTokens, outputTokens, spentUsd, canSettle } = settleStats(
+      job.paid, state.settings, outcome, previous, await this.host.graphifyVersion(),
+    );
+    if (job.paid && !canSettle) {
+      this.host.log(`[graphify] ${job.workspaceId}: build reported no token usage; keeping the reserved estimate as the debit`);
+    }
+
+    await this.host.updateState((current) => {
+      const entry = current.workspaces[job.workspaceId];
+      if (!entry) return current;
+      const next: GraphifyState = {
+        ...current,
+        workspaces: {
+          ...current.workspaces,
+          [job.workspaceId]: {
+            ...entry,
+            status: 'idle',
+            stats,
+            lastBuiltAt: new Date().toISOString(),
+            lastError: undefined,
+            progress: undefined,
+            failureCount: 0,
+          },
+        },
+      };
+      // The reservation only settles against usage that was actually measured.
+      // Anything else leaves the conservative debit standing.
+      if (!job.paid || !choice || !reservationId || !canSettle) return next;
+      return {
+        ...next,
+        spend: settleRun(current.spend, reservationId, { inputTokens, outputTokens, usd: spentUsd ?? 0 }),
+      };
+    });
+    await this.merge();
   }
 
   private async merge(): Promise<void> {

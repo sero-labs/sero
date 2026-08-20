@@ -2,7 +2,8 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import type { ExecFn } from './bounded-exec';
-import type { GraphifyBackend, WorkspaceIndexStats } from '../shared/types';
+import { BUILD_MAX_OUTPUT_BYTES } from './bounded-exec';
+import type { ModelChoice, WorkspaceIndexStats } from '../shared/types';
 
 export interface RunnerDeps {
   exec: ExecFn;
@@ -10,24 +11,51 @@ export interface RunnerDeps {
   env: NodeJS.ProcessEnv;
 }
 
-export interface BuildOptions {
+/** What the free, AST-only `update` pass needs. It never calls a model. */
+export interface UpdateOptions {
   /** Sero-managed per-workspace store dir — graphify-out/ lands here, never in the workspace. */
   workspaceDir: string;
   /** Workspace root host path (graphify input). */
   inputPath: string;
-  backend: GraphifyBackend;
-  /** Model override; empty string = the backend's default model. */
-  model?: string;
-  tokenBudget: number;
-  exclude: string[];
   /** Receives graphify's progress lines as they stream. */
   onProgress?: (message: string) => void;
 }
 
+export interface BuildOptions extends UpdateOptions {
+  /**
+   * Called immediately before the paid child process is spawned, after every
+   * non-spending preparation has succeeded. The durable spend debit goes here.
+   */
+  beforePaidSpawn?: () => Promise<void>;
+  /** The chosen backend and model. Never absent for a paid pass. */
+  model: ModelChoice;
+  /** Per-chunk packing size (--token-budget). NOT a spend cap. */
+  tokenBudget: number;
+  /** Parallel LLM calls (--max-concurrency); 0 leaves graphify's default. */
+  maxConcurrency: number;
+  exclude: string[];
+}
+
 const BUILD_TIMEOUT_MS = 60 * 60_000;
+/** Passed to the CLI so a hung request fails instead of holding a paid slot. */
+const API_TIMEOUT_SECONDS = 300;
 
 function tail(text: string, max = 2000): string {
   return text.length > max ? `…${text.slice(-max)}` : text;
+}
+
+/**
+ * What a graphify run reported.
+ *
+ * `usageMeasured` is the important half. A successful exit is not proof that
+ * usage was measured: the token line is absent from some outputs and can be cut
+ * from a truncated one, and the parser returns zeros for anything it does not
+ * recognise. Treating that as "this build cost nothing" would settle a
+ * conservative reservation down to zero and hand the daily cap straight back.
+ */
+export interface BuildOutcome {
+  stats: WorkspaceIndexStats;
+  usageMeasured: boolean;
 }
 
 /**
@@ -36,25 +64,36 @@ function tail(text: string, max = 2000): string {
  *   "[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities"
  *   "[graphify extract] tokens: 45,000 in / 9,000 out, est. cost (~claude): $0.51"
  */
-export function parseBuildStats(stdout: string): WorkspaceIndexStats {
+export function parseBuildStats(stdout: string): BuildOutcome {
   const summary = stdout.match(/(\d[\d,]*)\s+nodes?,\s*(\d[\d,]*)\s+edges?,\s*(\d[\d,]*)\s+communities/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
   const tokens = stdout.match(/(\d[\d,]*)\s+in\s*\/\s*(\d[\d,]*)\s+out/i);
   return {
-    nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
-    edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
-    communities: parse(summary?.[3]),
-    inputTokens: parse(tokens?.[1]),
-    outputTokens: parse(tokens?.[2]),
+    usageMeasured: tokens !== null,
+    stats: {
+      nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
+      edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
+      communities: parse(summary?.[3]),
+      inputTokens: parse(tokens?.[1]),
+      outputTokens: parse(tokens?.[2]),
+    },
   };
 }
 
 function buildArgs(options: BuildOptions): string[] {
   // --out redirects graphify-out/ into the store dir (verified in the spike:
   // default output is input-path-relative, which would pollute the workspace).
-  const args = ['extract', options.inputPath, '--backend', options.backend, '--out', options.workspaceDir];
-  if (options.model) args.push('--model', options.model);
+  const args = [
+    'extract', options.inputPath,
+    '--backend', options.model.backend,
+    '--out', options.workspaceDir,
+    // Always explicit. Without it graphify picks its own default model, which
+    // is how a build could run with nobody able to say what it cost.
+    '--model', options.model.modelId,
+    '--api-timeout', String(API_TIMEOUT_SECONDS),
+  ];
   if (options.tokenBudget > 0) args.push('--token-budget', String(options.tokenBudget));
+  if (options.maxConcurrency > 0) args.push('--max-concurrency', String(options.maxConcurrency));
   for (const pattern of options.exclude) args.push('--exclude', pattern);
   return args;
 }
@@ -89,35 +128,80 @@ export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
   }
 }
 
-export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
+export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
   await mkdir(options.workspaceDir, { recursive: true });
   await ensureGraphifyIgnore(options.inputPath);
   // `--out` only redirects the graph; the AST/semantic extraction cache
   // resolves from the GRAPHIFY_OUT env var and would otherwise land inside
   // the workspace as <inputPath>/graphify-out/cache (observed live).
   const storeOutEnv = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
+  // The last boundary before money can be spent. Everything above — the
+  // toolchain, the credentials, the output directory — has already succeeded,
+  // so a debit taken here cannot be charged for a build that never reached the
+  // model.
+  await options.beforePaidSpawn?.();
   const result = await deps.exec(deps.graphifyPath, buildArgs(options), {
     cwd: options.workspaceDir,
     env: storeOutEnv,
     timeoutMs: BUILD_TIMEOUT_MS,
+    // Never killed for being chatty: the tokens are already spent by the time
+    // a long extract has printed a megabyte of progress, and killing it there
+    // discards a finished, paid-for build.
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
     onLine: options.onProgress,
   });
   if (result.exitCode !== 0) {
     throw new Error(`graphify extract failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
   }
-  // Report generation (GRAPH_REPORT.md + community names) — non-fatal if it fails.
-  // cluster-only resolves the graph at <path>/graphify-out/, so it gets the store dir.
-  options.onProgress?.('Generating GRAPH_REPORT.md and naming communities…');
-  await deps.exec(deps.graphifyPath, ['cluster-only', options.workspaceDir, '--no-viz'], {
-    cwd: options.workspaceDir,
-    env: storeOutEnv,
-    timeoutMs: BUILD_TIMEOUT_MS,
-    onLine: options.onProgress,
-  });
-  return parseBuildStats(result.stdout);
+
+  const extraction = parseBuildStats(result.stdout);
+  const cluster = await clusterGraph(deps, options, storeOutEnv);
+  return {
+    usageMeasured: extraction.usageMeasured,
+    stats: {
+      ...extraction.stats,
+      communities: cluster.communities || extraction.stats.communities,
+    },
+  };
 }
 
-export async function updateWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
+/**
+ * Clustering and the report — **always free**.
+ *
+ * `--no-label` is unconditional. Naming communities is a second LLM pass, and
+ * running it here would spend money the pre-flight estimate never covered, so
+ * neither the per-build nor the daily cap would bound the whole job it
+ * authorised. Naming belongs in its own confirmed job, priced from the
+ * community count this pass produces.
+ */
+async function clusterGraph(
+  deps: RunnerDeps,
+  options: BuildOptions,
+  env: NodeJS.ProcessEnv,
+): Promise<WorkspaceIndexStats> {
+  options.onProgress?.('Generating GRAPH_REPORT.md…');
+  const args = ['cluster-only', options.workspaceDir, '--no-viz', '--no-label'];
+
+  const result = await deps.exec(deps.graphifyPath, args, {
+    cwd: options.workspaceDir,
+    env,
+    timeoutMs: BUILD_TIMEOUT_MS,
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
+    onLine: options.onProgress,
+  });
+  // Reported, never fatal: the graph itself is already built and paid for, and
+  // a failed report is not worth discarding it. Silence was the old behaviour
+  // and it hid both the failure and the spend.
+  if (result.exitCode !== 0) {
+    options.onProgress?.(`Report step failed (exit ${result.exitCode}); the graph itself is complete.`);
+    return { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 };
+  }
+  return parseBuildStats(result.stdout).stats;
+}
+
+export async function updateWorkspaceGraph(deps: RunnerDeps, options: UpdateOptions): Promise<BuildOutcome> {
   await ensureGraphifyIgnore(options.inputPath);
   // `update` writes to <inputPath>/$GRAPHIFY_OUT; an absolute GRAPHIFY_OUT
   // redirects everything into the store dir (verified live in the spike).
@@ -125,6 +209,8 @@ export async function updateWorkspaceGraph(deps: RunnerDeps, options: BuildOptio
     cwd: options.workspaceDir,
     env: { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') },
     timeoutMs: BUILD_TIMEOUT_MS,
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
     onLine: options.onProgress,
   });
   if (result.exitCode !== 0) {

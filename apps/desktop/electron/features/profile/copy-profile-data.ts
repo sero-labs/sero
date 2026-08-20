@@ -92,6 +92,55 @@ function copyTransferableAgentFiles(
   }
 }
 
+/**
+ * Carry an app's declared preference keys into the new profile.
+ *
+ * Apps hold preferences the checkbox already promises to copy — which model to
+ * use, what limits it runs under — in their own state file, which lives outside
+ * `agent/` and so was never covered here.
+ *
+ * Only the keys an app declares in `sero.app.portableState` travel, and they
+ * are merged into the destination rather than replacing it. Copying a whole
+ * state file would carry that profile's workspace list, build history, and
+ * `lastBuiltAt` stamps into a profile where those workspaces do not exist —
+ * which, for an app that indexes workspaces, means queueing paid work on
+ * arrival.
+ */
+function copyPortableAppState(
+  sourceProfilePath: string,
+  destProfilePath: string,
+  apps: PortableApp[],
+): void {
+  for (const app of apps) {
+    if (app.portableState.length === 0) continue;
+    const sourcePath = path.join(sourceProfilePath, 'apps', app.id, 'state.json');
+    if (!existsSync(sourcePath)) continue;
+
+    let source: Record<string, unknown>;
+    try {
+      source = JSON.parse(readFileSync(sourcePath, 'utf8')) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    const portable: Record<string, unknown> = {};
+    for (const key of app.portableState) {
+      if (source[key] !== undefined) portable[key] = source[key];
+    }
+    if (Object.keys(portable).length === 0) continue;
+
+    const destPath = path.join(destProfilePath, 'apps', app.id, 'state.json');
+    let dest: Record<string, unknown> = {};
+    try {
+      dest = JSON.parse(readFileSync(destPath, 'utf8')) as Record<string, unknown>;
+    } catch {
+      // Fresh profile — the app writes the rest of its state on first run.
+    }
+    mkdirSync(path.dirname(destPath), { recursive: true });
+    writeFileSync(destPath, JSON.stringify({ ...dest, ...portable }, null, 2) + '\n', 'utf8');
+  }
+}
+
 function copyGlobalModelPreferences(
   sourceProfilePath: string,
   destProfilePath: string,
@@ -135,11 +184,19 @@ export function profileHasTransferableData(profilePath: string): boolean {
   });
 }
 
+/** An app that declares state keys safe to carry between profiles. */
+export interface PortableApp {
+  id: string;
+  portableState: string[];
+}
+
 /** Copy credentials, gateway auth, local model config, and model preferences into a new profile. */
 export function copyProfileDataSync(
   sourceProfilePath: string,
   destProfilePath: string,
+  portableApps: PortableApp[] = [],
 ): void {
   copyTransferableAgentFiles(sourceProfilePath, destProfilePath);
   copyGlobalModelPreferences(sourceProfilePath, destProfilePath);
+  copyPortableAppState(sourceProfilePath, destProfilePath, portableApps);
 }
