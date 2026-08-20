@@ -843,7 +843,7 @@ Known and deliberate:
   first, and is recorded in the ledger at zero so it still appears in the day's
   record. A user who wants it inside the caps can supply the price.
 
-Still open:
+Still open, tracked as sero-labs/sero#386:
 
 * **§3.7 is unmeasured.** Whether Sero's split of `--out` from the corpus path
   keeps the extraction cache warm still needs a live two-build measurement.
