@@ -42,6 +42,10 @@ up to 15 billed calls — a measured **18× token blow-up** — and the pin miss
 six later fixes for work that was billed a second time because the cache or the
 manifest failed (§5).
 
+Sero also sends `model: ''` — "use whatever graphify defaults to". §6 replaces
+that with a **required** model choice, persisted to state and portable into a
+copied profile.
+
 There is no confirmation, no estimate, no cost display, no daily cap, and no
 setting in the UI. The plugin cannot say which model it used, and it cannot say
 which library version produced a graph.
@@ -395,7 +399,142 @@ price the model it selected.
 
 ---
 
-## 6. Plan
+## 6. Required model choice and profile portability
+
+**Decision: Graphify never spends on a default.** The user picks a backend and
+a model before the first paid build. Nothing runs while that choice is unset.
+This replaces `model: ''` — "whatever graphify decides" — which is the root of
+§4.2 and the reason nobody could say what the money bought.
+
+### 6.1 The state shape
+
+`model: ''` as a sentinel for "unset" is what let a build start with nobody
+knowing the model. Make the absence representable instead:
+
+```ts
+export interface ModelChoice {
+  backend: GraphifyBackend;
+  /** Exact model id sent to the CLI, e.g. 'gpt-5.6-luna'. Never empty. */
+  modelId: string;
+  chosenAt: string;
+}
+
+export interface GraphifySettings {
+  /** Null until the user chooses. No paid build runs while it is null. */
+  model: ModelChoice | null;
+  // backend moves inside ModelChoice — the two must never disagree.
+  …
+}
+```
+
+The indexer refuses any paid job when `model` is null, sets the workspace to
+`needs-setup`, and the panel shows the picker in place of the build controls.
+`backend` moves inside the choice so the two cannot drift apart.
+
+### 6.2 Where the choice must be applied — both passes, two mechanisms
+
+Read from the pinned tag. The two paid passes take the model **differently**:
+
+| Pass | Command | How the model is set |
+|---|---|---|
+| Extraction | `graphify extract` | `--model <id>` |
+| Community naming | `graphify cluster-only` | **`--model` is ignored** — `_call_llm` resolves `_default_model_for_backend(backend)` (`v0.8.36:llm.py:1565`). Only the backend's `model_env_key` works. |
+
+So Sero must set **both**: the `--model` flag *and* the backend's model
+environment variable.
+
+| Backend | Model env var in 0.8.36 |
+|---|---|
+| `openai` | `GRAPHIFY_OPENAI_MODEL` |
+| `gemini` | `GRAPHIFY_GEMINI_MODEL` |
+| `claude` | **none** — naming is locked to `claude-sonnet-4-6`; `ANTHROPIC_MODEL` only arrives in 0.9.x |
+
+That the `claude` backend cannot honour a chosen model for the naming pass is a
+further reason to raise the pin (§5.2). Until then, a user who picks a Claude
+model must be told that community naming runs Sonnet 4.6 regardless — or the
+naming pass must be off by default.
+
+Also pass `--backend=<id>` to `cluster-only` in the `=` form (§3.11).
+
+### 6.3 Where the model list comes from
+
+Do not hard-code a list. `ctx.host.models.list()` already exists on the app
+runtime host (`capabilities/create-host.ts:246`) and returns the user's real
+available model groups, so a model the user has configured — `gpt-5.6-luna`
+included — appears without Sero knowing it in advance.
+
+The panel is a plugin UI and cannot import the desktop `ModelSelector`
+(`apps/desktop/src/components/layout/models/ModelSelector.tsx`), so pick one:
+
+* the background runtime caches the groups into graphify state on start, and
+  the panel renders them with a plain `Select` from `@sero-ai/ui` — smallest
+  change; or
+* promote a model picker into `@sero-ai/ui` so every plugin can use it —
+  better if a second plugin needs one.
+
+Offer a free-text model id as well. A model Sero does not list yet must still
+be usable, and the CLI takes any string.
+
+### 6.4 What this means for cost display
+
+graphify prices per **backend**, not per model (`llm.py` pricing table). The
+`openai` entry is $0.40 / $1.60 — the `gpt-4.1-mini` rate. Any other OpenAI
+model, `gpt-5.6-luna` included, is priced wrongly by graphify's own
+`est. cost` line.
+
+Sero's estimate must therefore price the **chosen model**, from the same source
+that feeds the picker, and show "cost unknown for this model" rather than a
+confident wrong number when no price is known. A near-free model should read as
+near-free; that is a large part of why the choice matters.
+
+Note also that the `openai` backend needs an `OPENAI_API_KEY` and, on 0.8.36, a
+hard-coded `https://api.openai.com/v1` endpoint. A subscription that is cheap
+for one user is not the same as free for the next, and a custom or proxied
+endpoint (`OPENAI_BASE_URL`) needs the newer library (§5.2). The picker must
+state which credential pays (§4.7), not assume.
+
+### 6.5 Carrying the choice into a new profile
+
+Sero already has the seam: **"Copy credentials and model preferences from
+current profile"** in the profile-creation flow, implemented by
+`copyProfileDataSync` (`apps/desktop/electron/features/profile/copy-profile-data.ts`).
+It copies an allow-list of `agent/` files plus the global model tiers. The
+label already promises *model preferences*, so carrying the Graphify choice
+matches what the checkbox says today.
+
+It does not reach Graphify: a global-scope app keeps its state at
+`SERO_HOME/apps/<appId>/state.json`, outside `agent/`.
+
+**Copy the settings, never the whole state file.** `workspaces`, `stats`,
+`lastBuiltAt`, `requests`, and `provisioning` are facts about *that* machine and
+profile. Copying `enabled` and `lastBuiltAt` into a new profile would hand the
+boot catch-up a list of workspaces to build (§3.1) — a spend bug created by a
+convenience feature.
+
+Two ways to do it:
+
+1. **Preferred — a declared portable subtree.** Add an optional
+   `sero.app.portableState` to the app manifest, listing the state keys that may
+   travel:
+
+   ```jsonc
+   "sero": { "app": { "id": "graphify", "portableState": ["settings"] } }
+   ```
+
+   Profile copy then merges only those keys into the new profile's state file,
+   creating it when absent. No plugin name enters the desktop profile code, and
+   every future app gets the behaviour free. `SeroAppManifest`
+   (`apps/desktop/src/types/sero-apps.ts:16`) gains one optional field.
+2. **Fallback — hard-code the graphify settings subtree** in
+   `copy-profile-data.ts`. Faster, but it puts a plugin's name in core profile
+   code, which the plugin architecture exists to avoid.
+
+Either way the copy must be **settings-only, additive, and must not enable any
+workspace**. A cloned profile starts with the model chosen and nothing indexed.
+
+---
+
+## 7. Plan
 
 The rule that the plan applies everywhere:
 
@@ -525,26 +664,38 @@ becomes the test fixture.
 
 ### Phase 3 — Control and transparency in the UI
 
-1. **A settings section in the Graphify panel:** backend, model (a real list
-   per backend, plus "backend default"), caps, concurrency, exclude patterns,
-   and "index new workspaces automatically". This removes the need to edit the
+1. **A required model choice before the first paid build** (§6). The panel
+   shows a picker fed by `host.models.list()`, the choice persists to state as
+   a `ModelChoice`, and the indexer refuses to spend while it is null. Sero
+   sends both `--model` and the backend's model environment variable (§6.2).
+   There is no "backend default" option.
+2. **A settings section** around it: caps, concurrency, exclude patterns, and
+   "index new workspaces automatically". This removes the need to edit the
    state file.
-2. **Offer the `claude-cli` backend** (§5.3) as the default choice where the
+3. **Offer the `claude-cli` backend** (§5.3) as the default choice where the
    user has Claude Code, with `GRAPHIFY_CLAUDE_CLI_MODEL` set to a cheap model.
    It moves indexing onto the subscription instead of API credits. Add `azure`
    and `bedrock` to the backend list at the same time.
-3. **Show the model and the paying account** on the pre-flight dialog and on
+4. **Show the model and the paying account** on the pre-flight dialog and on
    every workspace card. Record the resolved model in the build stats, so an
    old build says which model produced it.
-4. **Show money, not only tokens** on the card:
+5. **Show money, not only tokens** on the card:
    `$0.51 est. · 45k in / 9k out · claude-…`, and include the cluster pass.
-5. **Change the create-workspace switch default to `false`**
+6. **Change the create-workspace switch default to `false`**
    (`package.json` → `contributes.controls`). Opting a new repo into a paid
    build must be a decision, not a default.
-6. **A visible error state** with a **Try again** button, in place of the
+7. **A visible error state** with a **Try again** button, in place of the
    silent restart loop of §3.1.
-7. **Prototype first** in `docs/prototypes/` — the settings section and the
+8. **Prototype first** in `docs/prototypes/` — the settings section and the
    pre-flight dialog (repo rule: prototype before feature work).
+
+### Phase 3b — Profile portability
+
+1. Add `sero.app.portableState` to the app manifest and honour it in
+   `copyProfileDataSync` (§6.5). Graphify declares `["settings"]`.
+2. The copy is settings-only and additive: it must never carry `workspaces`,
+   `lastBuiltAt`, `enabled`, `requests`, or `provisioning` into a new profile.
+3. Test that a cloned profile keeps the model choice and indexes nothing.
 
 ### Phase 4 — Tests and documentation
 
@@ -559,6 +710,10 @@ Deterministic tests only (no live model):
 * A build whose stdout passes the output limit still completes.
 * The daily cap stops the queue and reports it.
 * The estimator returns the same number for the same file tree.
+* No paid job starts while `settings.model` is null.
+* The chosen model reaches both the `--model` flag and the backend's model
+  environment variable.
+* A profile copy carries `settings` and no workspace state.
 
 Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 "What it costs" section), `plugins/sero-graphify-plugin/README.md`, and
@@ -566,7 +721,7 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 
 ---
 
-## 7. Suggested issues
+## 8. Suggested issues
 
 | Issue | Phase | Priority |
 |---|---|---|
@@ -586,6 +741,10 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 | Show the graphify version and offer an upgrade | 2b | P1 |
 | Report the 18x retry blow-up and cache split upstream | 2b | P1 |
 | Offer the claude-cli backend (subscription, not API credits) — must pin its model, it defaults to Opus | 3 | P1 |
-| Graphify settings UI (backend, model, caps, excludes) | 3 | P1 |
+| Force an explicit model choice; no graphify default | 3 | P0 |
+| Apply the chosen model to the naming pass too (env var, not --model) | 3 | P0 |
+| Price the estimate by the chosen model, not the backend | 3 | P1 |
+| Graphify settings UI (caps, excludes, concurrency) | 3 | P1 |
+| Carry app settings into a copied profile (`portableState`) | 3b | P1 |
 | Show cost and model on the workspace card | 3 | P1 |
 | New workspaces must not opt into indexing by default | 3 | P1 |
