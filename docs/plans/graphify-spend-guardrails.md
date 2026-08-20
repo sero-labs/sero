@@ -35,8 +35,15 @@ Three more explain a large bill from small repositories:
 * The `graphify_index` agent tool takes a free-form path, so an agent session
   can start a paid extraction of any directory (§3.10).
 
+The library itself contributes. Sero pins **graphifyy 0.8.36**; upstream is
+**0.9.47**. An open upstream bug (#2880) turns one rate-limited response into
+up to 15 billed calls — a measured **18× token blow-up** — and the pin misses
+six later fixes for work that was billed a second time because the cache or the
+manifest failed (§5).
+
 There is no confirmation, no estimate, no cost display, no daily cap, and no
-setting in the UI. The plugin cannot say which model it used.
+setting in the UI. The plugin cannot say which model it used, and it cannot say
+which library version produced a graph.
 
 ---
 
@@ -226,7 +233,94 @@ shipped; the controls did not.
 
 ---
 
-## 5. Plan
+## 5. The upstream library — https://github.com/Graphify-Labs/graphify
+
+Sero pins **graphifyy 0.8.36** (`runtime/provisioner.ts:7`). Upstream is at
+**0.9.47** (2026-08-19). The pin is hard-coded, so the user cannot update it:
+`GRAPHIFY_INSTALL_SPEC` names the exact version, and only a Sero release can
+change it. The panel does not even show which version is installed — it shows
+`provisioning.status` only (`ui/GraphifyApp.tsx:41`), although
+`provisioning.version` is already in state.
+
+### 5.1 A live upstream bug can multiply the bill by 18
+
+**Issue #2880 (open):** "Hollow responses are relabelled as truncation and
+bisected, so one bad response costs up to 15 billed calls (measured 18x token
+blow-up)".
+
+`_response_is_hollow()` cannot tell a truncated answer from an empty one. A
+rate limit, a transport error, or a refusal returns an empty HTTP 200. The
+extractor reads that as "the answer was too long", splits the chunk, and
+retries each half — recursively, to `max_retry_depth=3`. Bisection cannot
+converge on an empty answer, so the whole sub-tree is billed. The reporter
+measured **~18× the input tokens for an identical graph** during a service
+disruption.
+
+This matters for Sero specifically:
+
+* Sero indexes workspaces **one after another** with the same key. A rate limit
+  in the middle of that queue is likely, and a rate limit is exactly the
+  trigger.
+* Sero shows tokens only after the run, so an 18× run looks like a normal run.
+* `max_retry_depth` has no CLI flag, so Sero cannot bound it today.
+
+The bisection path already exists in 0.8.36 (the 0.8.43 note describes the
+community labeller copying "the extract path"), so the pinned version is
+affected — and it also lacks the **0.9.6** fix for an *infinite* chunk
+bisection on the `claude-cli` backend.
+
+### 5.2 The pin misses six upstream fixes for repeat billing
+
+Every one of these landed after 0.8.36:
+
+| Version | Fix |
+|---|---|
+| 0.9.42 | A corrupt semantic-cache entry was a silent cache miss that **re-billed the LLM every run**. |
+| 0.9.41 | A warm cache hit re-anchored `source_file` to a ghost path when the working directory differed from the graph root — Sero always runs with `cwd` set to the store dir, not the workspace (`graphify-runner.ts:100`). |
+| 0.9.37 | `graphify update` stamped a failed file as up-to-date forever, and the `claude-cli` backend swallowed a rate-limit error as an empty success. |
+| 0.9.28 | `--update` on macOS **re-extracted everything** when a path held non-ASCII characters. |
+| 0.9.27 | `cache/stat-index.json` used absolute keys, so a moved or cloned corpus **re-extracted everything** and the index grew without limit. |
+| 0.9.17 | `manifest.json` dropped every freshly-extracted semantic document, which **broke the incremental baseline**; hyperedge-only documents were **re-extracted on every run**. |
+| 0.9.18 | A truncated chunk was promoted to the semantic cache as complete. |
+
+The 0.9.41, 0.9.27, and 0.9.17 items are the family that §3.7 asks about:
+whether Sero's split of `--out` (the store dir) from the corpus path keeps the
+cache warm. On 0.8.36 the answer is probably **no**, which means every rebuild
+pays full price.
+
+**Issue #2879 (open)** is the same shape: files classified as failed extraction
+are re-queued on every incremental run.
+
+### 5.3 Options the library already offers and Sero does not use
+
+* **`claude-cli` backend.** graphify can call the Claude Code CLI (`claude -p`)
+  instead of the Anthropic API. Work then runs against the **Claude Code
+  subscription** rather than API credits. The backend has existed since 0.8.24,
+  so the pinned version has it. Sero's backend list
+  (`shared/types.ts:1`, `runtime/credentials.ts:10`) does not offer it. Note
+  that it defaults to **Opus**, and `GRAPHIFY_CLAUDE_CLI_MODEL=haiku` makes it
+  cheap (upstream issue #2861 asks for this to be documented).
+* **`azure` and `bedrock` backends** also exist and are missing from Sero's
+  list.
+* **The model is choosable and namable.** The `claude` backend default is
+  `claude-sonnet-4-6` in 0.9.47, and `ANTHROPIC_MODEL` overrides it
+  (`llm.py:107`). Sero can therefore always state the exact model instead of
+  sending `model: ''` and not knowing.
+* **Bounding knobs:** `GRAPHIFY_MAX_RETRIES` (0 disables retries),
+  `GRAPHIFY_API_TIMEOUT`, `GRAPHIFY_MAX_OUTPUT_TOKENS`, and
+  `--max-concurrency`. Setting `GRAPHIFY_MAX_RETRIES` is the one lever that
+  limits the §5.1 blow-up today. Each must be verified against the pinned
+  version before we depend on it.
+* **`estimate_cost()` prices per backend, not per model** (`llm.py:2796`), so
+  the `est. cost` line graphify prints is wrong whenever a non-default model
+  runs. Sero's own estimate must price the model it actually selects.
+
+There is **no** upstream dry-run or pre-flight estimate. Sero must build that
+itself (Phase 2).
+
+---
+
+## 6. Plan
 
 The rule that the plan applies everywhere:
 
@@ -295,6 +389,10 @@ becomes the test fixture.
     from the model (§3.10).
 12. **Correct the misleading comment** on `tokenBudget` (§4.3) so nobody treats
     it as a spend cap.
+13. **Bound the retry blow-up now.** Export `GRAPHIFY_MAX_RETRIES` (and an
+    explicit `--api-timeout`) on the extraction environment, after verifying
+    both against the pinned version. This limits §5.1 without waiting for an
+    upstream fix.
 
 ### Phase 2 — Real guardrails
 
@@ -321,23 +419,46 @@ becomes the test fixture.
 6. **A Pause switch** in the panel that empties the queue and blocks new paid
    work.
 
+### Phase 2b — The library version
+
+1. **Raise the pin** from 0.8.36 towards 0.9.47 (§5.2). Do it as one deliberate
+   bump with the E2E build re-run, not as a range. The 0.9.17 / 0.9.27 / 0.9.41
+   cache and manifest fixes are the reason.
+2. **Show the version.** Put `provisioning.version` in the panel next to the
+   status badge — the state field already exists and is never displayed.
+3. **Check for a newer release** and offer an update. graphifyy is a PyPI
+   package installed with `uv tool install`, so a check is one query and an
+   update is a re-install with a new spec. The upgrade must be a user action,
+   because a new extractor version can invalidate the semantic cache (see the
+   0.9.40 note: "This invalidates cached semantic chunks, which re-extract on
+   the next run") — an automatic upgrade would therefore **spend money**. Say
+   so in the dialog.
+4. **Keep the pin as the floor**, and record the version that produced each
+   graph in the workspace stats, so a rebuild after an upgrade is explainable.
+5. **Report §5.1 and §3.7 upstream** with our numbers, and subscribe to #2880
+   and #2879.
+
 ### Phase 3 — Control and transparency in the UI
 
 1. **A settings section in the Graphify panel:** backend, model (a real list
    per backend, plus "backend default"), caps, concurrency, exclude patterns,
    and "index new workspaces automatically". This removes the need to edit the
    state file.
-2. **Show the model and the paying account** on the pre-flight dialog and on
+2. **Offer the `claude-cli` backend** (§5.3) as the default choice where the
+   user has Claude Code, with `GRAPHIFY_CLAUDE_CLI_MODEL` set to a cheap model.
+   It moves indexing onto the subscription instead of API credits. Add `azure`
+   and `bedrock` to the backend list at the same time.
+3. **Show the model and the paying account** on the pre-flight dialog and on
    every workspace card. Record the resolved model in the build stats, so an
    old build says which model produced it.
-3. **Show money, not only tokens** on the card:
+4. **Show money, not only tokens** on the card:
    `$0.51 est. · 45k in / 9k out · claude-…`, and include the cluster pass.
-4. **Change the create-workspace switch default to `false`**
+5. **Change the create-workspace switch default to `false`**
    (`package.json` → `contributes.controls`). Opting a new repo into a paid
    build must be a decision, not a default.
-5. **A visible error state** with a **Try again** button, in place of the
+6. **A visible error state** with a **Try again** button, in place of the
    silent restart loop of §3.1.
-6. **Prototype first** in `docs/prototypes/` — the settings section and the
+7. **Prototype first** in `docs/prototypes/` — the settings section and the
    pre-flight dialog (repo rule: prototype before feature work).
 
 ### Phase 4 — Tests and documentation
@@ -360,7 +481,7 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 
 ---
 
-## 6. Suggested issues
+## 7. Suggested issues
 
 | Issue | Phase | Priority |
 |---|---|---|
@@ -372,8 +493,13 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 | Measure whether the extraction cache is reused between builds | 1 | P1 |
 | A build for an unconfirmed workspace is paid for, then deleted | 1 | P0 |
 | `graphify_index` can index any path, including the memory store | 1 | P0 |
+| Bound the retry blow-up with GRAPHIFY_MAX_RETRIES | 1 | P0 |
 | Estimate and confirm before a paid build | 2 | P0 |
 | Per-build and per-day spend caps with a ledger | 2 | P0 |
+| Raise the graphifyy pin from 0.8.36 (six repeat-billing fixes) | 2b | P0 |
+| Show the graphify version and offer an upgrade | 2b | P1 |
+| Report the 18x retry blow-up and cache split upstream | 2b | P1 |
+| Offer the claude-cli backend (subscription, not API credits) | 3 | P1 |
 | Graphify settings UI (backend, model, caps, excludes) | 3 | P1 |
 | Show cost and model on the workspace card | 3 | P1 |
 | New workspaces must not opt into indexing by default | 3 | P1 |
