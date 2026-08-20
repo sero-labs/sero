@@ -782,8 +782,10 @@ Two deliberate departures from the plan:
 
 ### Follow-up: a command inbox, so the runtime is the only writer
 
-Proposed by @monobyte in review of #384, and the right answer to §9's residual
-write race. Recorded here in full so whoever builds it starts from this point.
+**Tracked as sero-labs/sero#385.** Proposed by @monobyte in review of #384, and
+the right answer to §9's residual write race. The repo owner decided to land
+#384 first and do this as a follow-up; the review thread stays open on the PR.
+Recorded here so the reasoning survives, with the full spec in the issue.
 
 1. The extension writes one immutable `inbox/<uuid>.json.tmp` and renames it to
    `inbox/<uuid>.json`. It never reads or rewrites `state.json`.
@@ -799,15 +801,20 @@ write race. Recorded here in full so whoever builds it starts from this point.
    the paid child spawns, so acceptance and the durable debit become the same
    write, and step 4's "no side effect began" is checkable rather than assumed.
 
-**One host change is required first.** A runtime is only woken for changes to
-its own state file: `AppRuntimeManager.handleStateChange` filters instances by
-`instance.stateFilePath === filePath`. An inbox write would therefore match no
-instance and be dropped, and commands would sit until something else touched
-the state file. Either let an instance register additional watched paths and
-match on those, or add the generic `appCommands.enqueue(appId, payload)`
-capability delivered through the same wake path. Polling is not an option worth
-taking: this plugin's update model is push-based with no timers, and an
-interval would become a spend-latency knob.
+**One host change is required first**, and the reviewer's preferred route is
+the narrow one rather than a full `appCommands.enqueue` bridge: let a runtime
+register additional watched paths (constrained to its own state directory),
+deliver them through a separate `handleFileChange({ path, kind })` callback
+that never parses the path as state JSON, and index those paths to instances in
+`AppRuntimeManager`. Today `handleStateChange` filters on
+`instance.stateFilePath === filePath`, so an inbox write matches no instance and
+is dropped. `handleFileChange` should be optional on `AppRuntime`: four runtimes
+implement it today and only graphify needs this.
+
+Polling is not an option worth taking: this plugin's update model is push-based
+with no timers, and an interval would become a spend-latency knob.
+
+The acceptance tests the reviewer asked for are listed in #385.
 
 ### Follow-up: community naming as its own confirmed job
 
