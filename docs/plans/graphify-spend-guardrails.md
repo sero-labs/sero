@@ -13,7 +13,8 @@ Graphify spends money in one place only: `graphify extract` (and the
 `cluster-only` pass that follows it). Everything else — `update`,
 `merge-graphs`, all queries — is local.
 
-The investigation found **ten defects that can waste or repeat a paid build**
+The investigation found **eleven defects that can waste or repeat a paid
+build**
 and **seven gaps in control and transparency**.
 
 Two defects each duplicate a full build one time per trigger, which matches the
@@ -213,6 +214,37 @@ but nothing enforces it: the model can pass any values. With §3.8 there is no
 registry check, so **an agent session can start a paid extraction of any path on
 the machine**, and the result is then deleted by the next sync.
 
+### 3.11 The naming pass chooses its own provider from inherited environment variables — `runtime/graphify-runner.ts:111`
+
+Sero calls `graphify cluster-only <dir> --no-viz` and passes **no backend and
+no model**. Read the pinned code (`v0.8.36:graphify/__main__.py:3113` and
+`llm.py:1918`): with no `--backend=`, the labeller calls `detect_backend()`,
+which scans **environment variables** in this fixed order:
+
+```
+gemini → kimi → claude → openai → deepseek → azure → bedrock → ollama
+```
+
+Sero builds the child environment from `uvEnv()`, which spreads the **whole
+Electron process environment** (`runtime/provisioner.ts:42`), and then adds the
+configured backend's key. So a `GEMINI_API_KEY` or `GOOGLE_API_KEY` that exists
+on the machine for any other reason **wins over the Anthropic key Sero
+injected**. Community naming then bills Google while the Graphify panel says
+the backend is Claude.
+
+Two more details from the same code:
+
+* `cluster-only` parses only the `--backend=claude` form, never
+  `--backend claude` (`__main__.py:3121`). A fix that passes the flag with a
+  space is silently ignored.
+* Labels are cached in `graphify-out/.graphify_labels.json` and reused unless
+  the `label` sub-command forces a refresh, so a rebuild does not pay for
+  naming twice.
+
+**Fix:** pass `--backend=<configured>` and the resolved `--model` to
+`cluster-only`, and give the child a clean environment that carries only the
+selected provider's key.
+
 ---
 
 ## 4. Gaps in control and transparency
@@ -331,8 +363,18 @@ Read from `v0.8.36:graphify/llm.py` — the exact code Sero installs:
 
 So on Sero's configured path the model is **Sonnet 4.6, not Opus**. Sero sends
 `model: ''`, sets no model environment variable, and 0.8.36 hard-codes the
-default (the `ANTHROPIC_MODEL` override arrived later, in 0.9.x). The community
-naming pass uses the same backend, so it is Sonnet too.
+default (the `ANTHROPIC_MODEL` override arrived later, in 0.9.x).
+
+Upstream issue **#2861** reports the Opus default for community naming, and it
+does not reach Sero. The reporter ran `graphify label . --backend=claude-cli`,
+an explicit choice. Sero passes no backend there, so the labeller auto-detects
+— and `detect_backend()` **excludes `claude-cli` by name**
+(`v0.8.36:llm.py:1768`). The `claude-cli` backend, and therefore Opus, is
+unreachable on Sero's path today. It becomes reachable the moment we adopt that
+backend (§5.3), which is why the plan pins its model.
+
+The naming pass is still wrong, for a different reason — it picks its provider
+from inherited environment variables and can leave Anthropic entirely (§3.11).
 
 Two points follow, and both belong in the plan:
 
@@ -409,23 +451,30 @@ becomes the test fixture.
    tail ring-buffer instead of a hard kill; keep the kill for the short probes
    (`--version`, install).
 7. **Make the cluster pass honest.** Check its exit code, parse its stats, and
-   pass `--no-label` unless the user opts in to LLM community names.
-8. **Never build a workspace the host does not confirm.** The indexer must ask
+   pass `--no-label` unless the user opts in to LLM community names. When it
+   does name communities, pass `--backend=<configured>` (the `=` form — the
+   space form is not parsed) and the resolved `--model`, so the pass cannot
+   drift onto another provider (§3.11).
+8. **Give the child a clean environment.** Build the extraction environment
+   from an explicit allow-list plus the selected provider's key, in place of
+   spreading the whole Electron environment (`provisioner.ts:42`). Today any
+   provider key on the machine can capture the naming pass.
+9. **Never build a workspace the host does not confirm.** The indexer must ask
    the host registry for the id before it spends. An unknown id is refused with
    a clear message, not built and then deleted (§3.8). Delete the assertion in
    `indexer.test.ts:327` and replace it with the opposite one.
-9. **Enforce the `global` exclusion where the money is spent**, not only in
+10. **Enforce the `global` exclusion where the money is spent**, not only in
    discovery (§3.9). One shared `isIndexable(workspaceId)` helper, used by
    discovery **and** by `applyRequest`.
-10. **Never delete a paid graph silently.** If a workspace disappears after its
+11. **Never delete a paid graph silently.** If a workspace disappears after its
     graph was built, keep a tombstone record of the cost and tell the user, or
     keep the artifacts until the user removes them.
-11. **Restrict the agent tool.** `graphify_index` must resolve a workspace from
+12. **Restrict the agent tool.** `graphify_index` must resolve a workspace from
     the registry. The `workspacePath` parameter must not be free-form input
     from the model (§3.10).
-12. **Correct the misleading comment** on `tokenBudget` (§4.3) so nobody treats
+13. **Correct the misleading comment** on `tokenBudget` (§4.3) so nobody treats
     it as a spend cap.
-13. **Bound the retry blow-up now.** Export `GRAPHIFY_MAX_RETRIES` (and an
+14. **Bound the retry blow-up now.** Export `GRAPHIFY_MAX_RETRIES` (and an
     explicit `--api-timeout`) on the extraction environment, after verifying
     both against the pinned version. This limits §5.1 without waiting for an
     upstream fix.
@@ -526,6 +575,7 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 | `enable` must not mean `rebuild` | 1 | P0 |
 | A paid build is killed by the 1 MiB output limit | 1 | P1 |
 | `cluster-only` spend is unchecked and unreported | 1 | P1 |
+| The naming pass picks its provider from inherited env vars | 1 | P1 |
 | Measure whether the extraction cache is reused between builds | 1 | P1 |
 | A build for an unconfirmed workspace is paid for, then deleted | 1 | P0 |
 | `graphify_index` can index any path, including the memory store | 1 | P0 |
