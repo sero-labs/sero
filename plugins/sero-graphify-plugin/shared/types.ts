@@ -95,11 +95,23 @@ export interface WorkspaceIndexStats {
   graphifyVersion?: string;
 }
 
+/** Measured result of the separate paid community-naming job. */
+export interface CommunityNamingStats {
+  communities: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd?: number;
+  model: string;
+  backend: GraphifyBackend;
+  namedAt: string;
+}
+
 export type WorkspaceIndexStatus =
   | 'idle'
   | 'queued'
   | 'building'
   | 'updating'
+  | 'naming'
   | 'error'
   /** Enabled, but no graph on disk. Waits for the user — a restart never spends. */
   | 'needs-build';
@@ -113,7 +125,9 @@ export interface WorkspaceIndexEntry {
   lastBuiltAt?: string;
   lastError?: string;
   stats?: WorkspaceIndexStats;
-  /** Latest build progress line; only set while building/updating. */
+  /** Present after the user separately approves AI-generated community names. */
+  communityNaming?: CommunityNamingStats;
+  /** Latest job progress line; only set while building, updating or naming. */
   progress?: string;
   /** Last time any job ran for this workspace, successful or not. */
   lastAttemptAt?: string;
@@ -130,6 +144,7 @@ export interface BuildEstimate {
   /** True when the scan stopped at the file cap — the real tree is larger. */
   truncated: boolean;
   estimatedInputTokens: number;
+  estimatedOutputTokens: number;
   /** Null when no price is known for the chosen model — never guess. */
   estimatedCostUsd: number | null;
   /**
@@ -143,6 +158,8 @@ export interface SpendRun {
   /** Identifies the attempt, so a reservation can be settled or kept. */
   id: string;
   workspaceId: string;
+  /** The paid operation, so extraction and naming stay distinct in the ledger. */
+  job: 'build' | 'community-naming';
   backend: GraphifyBackend;
   model: string;
   inputTokens: number;
@@ -179,7 +196,7 @@ export interface RemovedWorkspaceRecord {
   stats?: WorkspaceIndexStats;
 }
 
-export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync' | 'upgrade' | 'settings';
+export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'name-communities' | 'enable-all' | 'sync' | 'upgrade' | 'settings';
 
 /**
  * A settings change, queued rather than written.

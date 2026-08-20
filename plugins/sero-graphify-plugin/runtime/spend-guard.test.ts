@@ -8,7 +8,15 @@ const MODEL: ModelChoice = { backend: 'openai', modelId: 'gpt-4.1-mini', chosenA
 const WORKSPACE = { workspaceId: 'ws1', name: 'One', path: '/p/one' };
 
 function estimate(overrides: Partial<BuildEstimate> = {}): BuildEstimate {
-  return { files: 10, bytes: 40_000, truncated: false, estimatedInputTokens: 10_000, estimatedCostUsd: 0.01, ...overrides };
+  return {
+    files: 10,
+    bytes: 40_000,
+    truncated: false,
+    estimatedInputTokens: 10_000,
+    estimatedOutputTokens: 2_000,
+    estimatedCostUsd: 0.01,
+    ...overrides,
+  };
 }
 
 function makeHost(value: BuildEstimate, confirmed = true): SpendHost & { confirm: ReturnType<typeof vi.fn> } {
@@ -92,7 +100,7 @@ describe('the spend ledger', () => {
   });
 
   it('accumulates within a day', () => {
-    const run = { id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai' as const, model: 'm', inputTokens: 1, outputTokens: 1, usd: 0.5, at: 'now' };
+    const run = { id: 'ws1:t1', workspaceId: 'ws1', job: 'build' as const, backend: 'openai' as const, model: 'm', inputTokens: 1, outputTokens: 1, usd: 0.5, at: 'now' };
     const first = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, run, '2026-08-20');
     const second = recordRun(first, { ...run, id: 'ws1:t2' }, '2026-08-20');
     expect(second.usd).toBe(1);
@@ -101,7 +109,7 @@ describe('the spend ledger', () => {
 
   it('settles a reservation against measured usage', () => {
     const reserved = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, {
-      id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai', model: 'm',
+      id: 'ws1:t1', workspaceId: 'ws1', job: 'build', backend: 'openai', model: 'm',
       inputTokens: 10_000, outputTokens: 0, usd: 2, at: 'now', estimated: true,
     }, '2026-08-20');
     expect(reserved.usd).toBe(2);
@@ -116,7 +124,7 @@ describe('the spend ledger', () => {
     // its debit would let the same workspace be retried all day against a cap
     // that still reads $0.
     const reserved = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, {
-      id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai', model: 'm',
+      id: 'ws1:t1', workspaceId: 'ws1', job: 'build', backend: 'openai', model: 'm',
       inputTokens: 10_000, outputTokens: 0, usd: 2, at: 'now', estimated: true,
     }, '2026-08-20');
     expect(settleRun(reserved, 'ws1:other', { inputTokens: 1, outputTokens: 1, usd: 9 })).toEqual(reserved);

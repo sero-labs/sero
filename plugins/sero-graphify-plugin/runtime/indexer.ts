@@ -8,47 +8,15 @@ import type {
 } from '../shared/types';
 import { isIndexableWorkspace } from '../shared/types';
 import type { BuildOutcome } from './graphify-runner';
-import { authorizePaidBuild, type SpendHost } from './spend-guard';
+import { authorizePaidBuild } from './spend-guard';
 import { settleRun } from '../shared/ledger';
 import { reserveEstimate, settleStats } from './spend-record';
 import { sweepOrphanArtifacts, syncWorkspaceList } from './workspace-sync';
 import { applySettingsPatch, upgradeGraphifyTool } from './settings';
+import type { IndexerHost } from './indexer-host';
+import { runCommunityNamingJob } from './community-naming-job';
 
-export interface IndexerWorkspace {
-  id: string;
-  name: string;
-  path: string;
-  open: boolean;
-}
-
-export interface IndexerHost extends SpendHost {
-  readState(): Promise<GraphifyState | null>;
-  updateState(updater: (current: GraphifyState) => GraphifyState): Promise<void>;
-  listWorkspaces(): Promise<IndexerWorkspace[]>;
-  ensureProvisioned(): Promise<void>;
-  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
-  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
-  mergeProfileGraph(workspaceIds: string[]): Promise<{ nodes: number; edges: number }>;
-  /** Delete a workspace's on-disk graph artifacts (idempotent — no-op if absent). */
-  removeWorkspaceArtifacts(workspaceId: string): Promise<void>;
-  /** Ids of every workspace that has graph artifacts on disk. */
-  listArtifactWorkspaceIds(): Promise<string[]>;
-  /** True when a built graph is already on disk — the difference between free and paid. */
-  graphExists(workspaceId: string): Promise<boolean>;
-  /** graphifyy version currently installed, recorded against each build. */
-  graphifyVersion(): Promise<string | undefined>;
-  /** Install a specific graphifyy version. Always a user-approved action. */
-  upgradeGraphify(version: string): Promise<void>;
-  /** Surface something the user must see. */
-  notify(notice: GraphifyNotice): void;
-  log(message: string): void;
-}
-
-export interface JobHooks {
-  onProgress?: (message: string) => void;
-  /** Fires at the last moment before a paid child process starts. */
-  beforePaidSpawn?: () => Promise<void>;
-}
+export type { IndexerHost } from './indexer-host';
 
 interface Job {
   workspaceId: string;
@@ -56,6 +24,8 @@ interface Job {
   paid: boolean;
   /** Ask before spending, even when the estimate is inside every cap. */
   confirm: boolean;
+  /** The second paid pass. False/absent means extraction or a free update. */
+  naming?: boolean;
 }
 
 function notice(kind: GraphifyNotice['kind'], message: string): GraphifyNotice {
@@ -234,6 +204,18 @@ export class GraphifyIndexer {
         }
         break;
       }
+      case 'name-communities': {
+        if (!request.workspaceId) break;
+        const state = await this.host.readState();
+        const entry = state?.workspaces[request.workspaceId];
+        if (!entry?.enabled || !await this.host.graphExists(request.workspaceId)) {
+          this.host.notify(notice('refused', `Build and enable ${entry?.name ?? request.workspaceId} before naming its communities.`));
+          break;
+        }
+        await this.setStatus(request.workspaceId, 'queued', { lastError: undefined });
+        this.enqueue({ workspaceId: request.workspaceId, paid: true, confirm: true, naming: true });
+        break;
+      }
       case 'sync':
         await this.syncWorkspaces();
         break;
@@ -279,11 +261,13 @@ export class GraphifyIndexer {
    * first finished.
    */
   private enqueue(job: Job): void {
-    if (this.activeJob?.workspaceId === job.workspaceId) {
+    const sameKind = (candidate: Job) => candidate.workspaceId === job.workspaceId
+      && Boolean(candidate.naming) === Boolean(job.naming);
+    if (this.activeJob && sameKind(this.activeJob)) {
       if (job.paid && !this.activeJob.paid) this.rerunRequested = true;
       return;
     }
-    const existing = this.queue.find((queued) => queued.workspaceId === job.workspaceId);
+    const existing = this.queue.find(sameKind);
     if (existing) {
       existing.paid = existing.paid || job.paid;
       existing.confirm = existing.confirm || job.confirm;
@@ -343,6 +327,13 @@ export class GraphifyIndexer {
     const state = await this.host.readState();
     const entry = state?.workspaces[job.workspaceId];
     if (!state || !entry?.enabled) return;
+    if (job.naming) {
+      await runCommunityNamingJob(this.host, state, entry, {
+        refuse: (workspaceId, decision) => this.refuse(workspaceId, decision),
+        merge: () => this.merge(),
+      });
+      return;
+    }
 
     const runningStatus: WorkspaceIndexStatus = job.paid ? 'building' : 'updating';
     const startedAt = new Date().toISOString();

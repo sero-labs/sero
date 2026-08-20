@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graphify community naming</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #090d0c; color: #edf3f0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at 30% 20%, #11241d, #090d0c 46%); }
+    main { width: min(880px, calc(100% - 32px)); display: grid; gap: 18px; }
+    h1 { margin: 0; font-size: 20px; font-weight: 650; }
+    .muted { color: #8e9b96; font-size: 13px; }
+    .card { border: 1px solid #26322e; border-radius: 12px; background: #111715; padding: 16px; box-shadow: 0 16px 50px #0007; }
+    .workspace { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .title { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .badge { border: 1px solid #315e4d; border-radius: 999px; padding: 2px 8px; color: #9ee7c5; font-size: 12px; }
+    button { border: 1px solid #3b4c46; border-radius: 8px; padding: 8px 12px; color: #edf3f0; background: #19221f; font-weight: 600; }
+    .dialog { width: min(560px, 100%); justify-self: center; border-color: #3b5b4f; }
+    .dialog h2 { margin: 0 0 12px; font-size: 17px; }
+    .estimate { padding: 12px; border-radius: 8px; background: #0b110f; line-height: 1.7; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .primary { background: #1f8a61; border-color: #2bad7b; color: white; }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <h1>Graphify</h1>
+      <p class="muted">Community naming is optional and paid separately from extraction.</p>
+    </section>
+    <section class="card workspace">
+      <div>
+        <div class="title"><strong>Sero</strong><span class="badge">indexed</span></div>
+        <div class="muted">$0.18 · 1,284 nodes · 2,106 edges · 18 communities · gpt-4.1-mini</div>
+      </div>
+      <button>Name communities</button>
+    </section>
+    <section class="card dialog">
+      <h2>Name communities in Sero?</h2>
+      <div class="estimate">
+        <div>18 communities · up to ~5k tokens · &lt;$0.01</div>
+        <div class="muted">Model: gpt-4.1-mini (openai)</div>
+        <div class="muted">This is a separate paid job. It does not rebuild the graph.</div>
+      </div>
+      <div class="actions"><button>Cancel</button><button class="primary">Name communities</button></div>
+    </section>
+  </main>
+</body>
+</html>

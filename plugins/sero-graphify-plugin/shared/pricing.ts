@@ -47,6 +47,18 @@ export const BYTES_PER_TOKEN = 4;
  */
 const OUTPUT_TOKEN_RATIO = 0.2;
 
+/**
+ * graphify 0.9.47 labels at most 100 communities per request. Each prompt row
+ * contains up to 12 labels of 60 characters, and each response asks for a
+ * short JSON name. These constants reserve the documented upper shape rather
+ * than an invented percentage of the extraction cost.
+ */
+const NAMING_BATCH_SIZE = 100;
+const NAMING_PROMPT_TOKENS_PER_BATCH = 100;
+const NAMING_INPUT_TOKENS_PER_COMMUNITY = 200;
+const NAMING_OUTPUT_TOKENS_PER_BATCH = 256;
+const NAMING_OUTPUT_TOKENS_PER_COMMUNITY = 48;
+
 export function estimateFromScan(
   scan: { files: number; bytes: number; truncated: boolean; unsupportedPatterns?: string[] },
   choice: ModelChoice | null,
@@ -59,7 +71,25 @@ export function estimateFromScan(
     truncated: scan.truncated,
     unsupportedPatterns: scan.unsupportedPatterns,
     estimatedInputTokens,
+    estimatedOutputTokens: outputTokens,
     estimatedCostUsd: choice ? costUsd(choice, estimatedInputTokens, outputTokens) : null,
+  };
+}
+
+/** Price the separate label pass from the community count already measured. */
+export function estimateCommunityNaming(communities: number, choice: ModelChoice | null): BuildEstimate {
+  const batches = Math.ceil(communities / NAMING_BATCH_SIZE);
+  const estimatedInputTokens = communities * NAMING_INPUT_TOKENS_PER_COMMUNITY
+    + batches * NAMING_PROMPT_TOKENS_PER_BATCH;
+  const estimatedOutputTokens = communities * NAMING_OUTPUT_TOKENS_PER_COMMUNITY
+    + batches * NAMING_OUTPUT_TOKENS_PER_BATCH;
+  return {
+    files: 0,
+    bytes: 0,
+    truncated: false,
+    estimatedInputTokens,
+    estimatedOutputTokens,
+    estimatedCostUsd: choice ? costUsd(choice, estimatedInputTokens, estimatedOutputTokens) : null,
   };
 }
 
@@ -74,6 +104,18 @@ export function formatEstimate(estimate: BuildEstimate, choice: ModelChoice | nu
     ? `cost unknown for ${choice ? choice.modelId : 'this model'}`
     : `~${formatUsd(estimate.estimatedCostUsd)}`;
   return `${estimate.files} files · ${mb} MB · ~${tokens} · ${cost}`;
+}
+
+export function formatCommunityNamingEstimate(
+  communities: number,
+  estimate: BuildEstimate,
+  choice: ModelChoice,
+): string {
+  const cost = estimate.estimatedCostUsd === null
+    ? `cost unknown for ${choice.modelId}`
+    : `~${formatUsd(estimate.estimatedCostUsd)}`;
+  const tokens = estimate.estimatedInputTokens + estimate.estimatedOutputTokens;
+  return `${communities} communities · up to ~${Math.round(tokens / 1000)}k tokens · ${cost}`;
 }
 
 /**

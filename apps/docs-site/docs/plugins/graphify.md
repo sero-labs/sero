@@ -4,7 +4,7 @@ Graphify builds a local knowledge graph for selected workspaces. It also merges 
 
 ## What it costs
 
-Only the first build of a workspace, and each rebuild, use the AI model. Everything else is local and free: incremental updates, the profile merge, and every search.
+The first build of a workspace, each rebuild, and optional community naming use the AI model. Everything else is local and free: incremental updates, the profile merge, and every search.
 
 Graphify does not spend on a default. Before the first build you must select a backend and a model in the Graphify panel. While no model is selected, Graphify indexes nothing.
 
@@ -12,13 +12,15 @@ Before each paid build, Graphify counts the files and bytes it will read, estima
 
 Graphify records the estimate against your daily limit before the build starts. If the build then fails, the record stays: a build can use tokens and still fail, and the limit must include that. If a build finishes but does not report its token use, Graphify keeps the estimate instead of recording zero.
 
-Community names are not made yet. Naming uses the AI model a second time, and that cost is not in the estimate, so Graphify does not do it. Your graph uses `Community 1`, `Community 2`, and so on.
+Community naming is a separate paid job. Graphify first makes the graph with placeholder names, then uses the measured community count to estimate naming. Select **Name communities** on the workspace card to see the model and estimate. Graphify asks before it starts, reserves the estimate, and settles the record from the token count in the generated report.
 
-These limits stop a build, and Sero shows the reason:
+An unpriced model always asks before each paid job. Graphify has no total-token stop for extraction or labeling, so Sero cannot enforce a token cap after the process starts. Ask the agent to use `graphify_configure` with the model price if you want the cost limits to control it.
+
+These limits stop a paid job, and Sero shows the reason:
 
 | Limit | Default |
 | --- | --- |
-| Maximum cost for one build | $2 |
+| Maximum cost for one paid job | $2 |
 | Maximum cost for one day | $10 |
 | Maximum files in one workspace | 5000 |
 
@@ -31,7 +33,7 @@ The **Spent today** line shows the total against the daily limit. Use **Pause** 
 3. Select or type a model. The list shows the models Sero knows. You can type any model name.
 4. Select **Use this model**.
 
-Sero sends this model to both AI steps. If you select the Claude Code subscription, always set a model: that backend uses Opus when you do not.
+Sero sends this model to extraction and community naming. If you select the Claude Code subscription, always set a model: that backend uses Opus when you do not.
 
 ## Index your first workspace
 
@@ -57,6 +59,8 @@ Graphify installs its Python tools in Sero's shared machine tool area. It does n
 
 Each workspace card shows its state and, after a build, the cost, the node and edge counts, the token use, the model, and the Graphify version. Use the **Rebuild** icon to pay for a new build after you change the model or when a graph is not correct.
 
+Select **Name communities** after a build to replace placeholder names with AI-generated names. The confirmation is separate from the build because the number of communities is not known before extraction finishes. Select **Rename communities** to run that paid job again.
+
 Graphify queues a free AST update after an agent edits files in an enabled workspace. It also runs an update when Sero starts, so it can include changes made while Sero was closed. These updates do not use the AI model.
 
 A restart never starts a paid build. A workspace with no graph shows **not built** and waits for you. A workspace whose build failed shows **error** with the reason and a **Try again** button. Graphify does not repeat a failed build on its own.
@@ -80,7 +84,8 @@ The agent can use these tools:
 | `graphify_path` | Find the shortest connection between two concepts. |
 | `graphify_explain` | Show the connections for one concept. |
 | `graphify_status` | Show provisioning, graph, and workspace states. |
-| `graphify_index` | Enable, disable, rebuild, refresh, synchronize indexing, or update the tool. |
+| `graphify_index` | Enable, disable, rebuild, name communities, refresh, synchronize indexing, or update the tool. |
+| `graphify_configure` | Select the backend and model, add a custom price, set limits, or pause paid work. |
 
 The agent can ask for a workspace to be indexed, but it cannot select a directory: it names a workspace, and Sero checks that name against its own workspace list. A build that Sero cannot confirm does not run.
 

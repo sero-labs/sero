@@ -1,7 +1,7 @@
 import type { BuildEstimate, GraphifyState, WorkspaceIndexStats } from '../shared/types';
 import { costUsd } from '../shared/pricing';
 import { recordRun, utcDay } from '../shared/ledger';
-import type { IndexerHost } from './indexer';
+import type { IndexerHost } from './indexer-host';
 
 /**
  * Writing down what a build was authorised to spend, and what it actually did.
@@ -26,19 +26,21 @@ export async function reserveEstimate(
   settings: GraphifyState['settings'],
   estimate: BuildEstimate,
   startedAt: string,
+  job: 'build' | 'community-naming' = 'build',
 ): Promise<string | null> {
   const choice = settings.model;
   if (!choice) return null;
-  const id = `${workspaceId}:${startedAt}`;
+  const id = `${workspaceId}:${job}:${startedAt}`;
   await host.updateState((current) => ({
     ...current,
     spend: recordRun(current.spend, {
       id,
       workspaceId,
+      job,
       backend: choice.backend,
       model: choice.modelId,
       inputTokens: estimate.estimatedInputTokens,
-      outputTokens: 0,
+      outputTokens: estimate.estimatedOutputTokens,
       usd: estimate.estimatedCostUsd ?? 0,
       at: startedAt,
       estimated: true,

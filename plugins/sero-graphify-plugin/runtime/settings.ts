@@ -1,5 +1,5 @@
 import type { GraphifyNotice, SettingsPatch } from '../shared/types';
-import type { IndexerHost } from './indexer';
+import type { IndexerHost } from './indexer-host';
 
 /**
  * Configuration changes: settings the panel queued, and the library upgrade.

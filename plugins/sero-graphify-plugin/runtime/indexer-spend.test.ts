@@ -168,6 +168,71 @@ describe('GraphifyIndexer — a failed build still costs', () => {
   });
 });
 
+describe('GraphifyIndexer — community naming is a separate paid job', () => {
+  it('refuses naming before a graph exists', async () => {
+    const { host } = makeHost();
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'name-communities', 'ws1'));
+    await indexer.idle();
+    expect(host.nameCommunities).not.toHaveBeenCalled();
+    expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/build and enable/i) }));
+    indexer.dispose();
+  });
+
+  it('confirms, reserves and settles community naming without rebuilding', async () => {
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    (host.confirm as ReturnType<typeof vi.fn>).mockClear();
+    (host.mergeProfileGraph as ReturnType<typeof vi.fn>).mockClear();
+
+    await deliver(indexer, host, request(1, 'name-communities', 'ws1'));
+    await indexer.idle();
+
+    expect(host.nameCommunities).toHaveBeenCalledTimes(1);
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect((host.confirm as ReturnType<typeof vi.fn>).mock.calls[0][0].body).toContain('2 communities');
+    expect(getState().spend.runs.at(-1)).toMatchObject({ job: 'community-naming', estimated: false });
+    expect(getState().workspaces.ws1.communityNaming).toMatchObject({
+      communities: 2,
+      inputTokens: 2_100,
+      outputTokens: 736,
+      model: 'gpt-4.1-mini',
+    });
+    expect(host.mergeProfileGraph).toHaveBeenCalledWith(['ws1']);
+    indexer.dispose();
+  });
+
+  it('keeps the reservation when naming fails after the process starts', async () => {
+    const nameCommunities = vi.fn(async (
+      _workspace: unknown,
+      _settings: unknown,
+      hooks: { beforePaidSpawn?: () => Promise<void> },
+    ) => {
+      await hooks.beforePaidSpawn?.();
+      throw new Error('provider unavailable');
+    });
+    const { host, getState } = makeHost({ built: ['ws1'], overrides: { nameCommunities } }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    await deliver(indexer, host, request(1, 'name-communities', 'ws1'));
+    await indexer.idle();
+
+    expect(getState().spend.runs.at(-1)).toMatchObject({ job: 'community-naming', estimated: true });
+    expect(getState().workspaces.ws1.status).toBe('idle');
+    expect(getState().workspaces.ws1.lastError).toMatch(/community naming failed/i);
+    indexer.dispose();
+  });
+});
+
 describe('GraphifyIndexer — the watermark cannot be rolled back', () => {
   it('ignores a request resurrected by another process overwriting state', async () => {
     // The extension appends from its own process, so one of its writes can land

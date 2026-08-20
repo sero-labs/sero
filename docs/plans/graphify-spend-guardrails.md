@@ -816,18 +816,15 @@ with no timers, and an interval would become a spend-latency knob.
 
 The acceptance tests the reviewer asked for are listed in #385.
 
-### Follow-up: community naming as its own confirmed job
+### Follow-up: community naming as its own confirmed job — implemented
 
-Naming is a second LLM pass whose cost the extraction estimate never covered,
-so a build that ran it left part of the authorised work outside both caps.
-`cluster-only` now always runs `--no-label` and the setting is gone; graphs read
-`Community 1`, `Community 2`.
-
-Restoring it means a separate job: priced from `stats.communities` (which the
-free clustering pass produces), shown with its model and estimate, confirmed,
-reserved and settled like any other paid work. A pre-flight uplift inside the
-build was rejected — naming scales with community count, which is unknown until
-after the extraction, so any number would have been invented.
+Naming is now a separate `name-communities` job. It is priced from
+`stats.communities` (which the free clustering pass produces), shown with its
+model and estimate, confirmed, reserved at the spawn boundary, and settled from
+the token count Graphify writes to `GRAPH_REPORT.md`. A failed naming pass keeps
+the reservation and leaves the graph usable. A pre-flight uplift inside the
+build remains rejected: naming scales with community count, which is unknown
+until after extraction.
 
 Known and deliberate:
 
@@ -839,9 +836,12 @@ Known and deliberate:
   read-parse-rebuild to a single rename. Closing it completely needs one shared
   write path for both processes, which is a host change rather than a plugin
   one.
-* **A cap cannot hold a model Sero has no price for.** Such a build always asks
-  first, and is recorded in the ledger at zero so it still appears in the day's
-  record. A user who wants it inside the caps can supply the price.
+* **A cap cannot hold a model Sero has no price for.** This is sufficient for
+  now. Such a job always asks first and is recorded in the ledger at zero, so it
+  still appears in the day's record. Graphify exposes a per-chunk packing limit,
+  not a total-token stop, so adding a Sero token cap would be a control the child
+  process cannot enforce. A user who wants the job inside the cost caps can
+  supply the model price.
 
 Still open, tracked as sero-labs/sero#386:
 

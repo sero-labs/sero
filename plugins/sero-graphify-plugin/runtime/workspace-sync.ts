@@ -1,6 +1,6 @@
 import type { GraphifyNotice, GraphifyState, WorkspaceIndexStatus } from '../shared/types';
 import { DEFAULT_STATE, isIndexableWorkspace } from '../shared/types';
-import type { IndexerHost } from './indexer';
+import type { IndexerHost } from './indexer-host';
 
 /**
  * Reconciling the profile's workspace list into graphify state.
@@ -11,7 +11,7 @@ import type { IndexerHost } from './indexer';
  */
 
 function isIndexing(status: WorkspaceIndexStatus): boolean {
-  return status === 'queued' || status === 'building' || status === 'updating';
+  return status === 'queued' || status === 'building' || status === 'updating' || status === 'naming';
 }
 
 export interface SyncResult {

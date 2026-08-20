@@ -91,7 +91,7 @@ export function SpendSettings({ state, onConfigure }: Props) {
   return (
     <Card className="flex flex-col gap-3 border-border/40 p-3">
       <div className="grid grid-cols-3 gap-2">
-        <NumberField key={`build-${caps.maxCostPerBuildUsd}`} label="Max per build" value={caps.maxCostPerBuildUsd} onCommit={(value) => onConfigure({ maxCostPerBuildUsd: value })} step="0.5" />
+        <NumberField key={`build-${caps.maxCostPerBuildUsd}`} label="Max per job" value={caps.maxCostPerBuildUsd} onCommit={(value) => onConfigure({ maxCostPerBuildUsd: value })} step="0.5" />
         <NumberField key={`day-${caps.maxCostPerDayUsd}`} label="Max per day" value={caps.maxCostPerDayUsd} onCommit={(value) => onConfigure({ maxCostPerDayUsd: value })} step="1" />
         <NumberField key={`files-${caps.maxFilesPerBuild}`} label="Max files" value={caps.maxFilesPerBuild} onCommit={(value) => onConfigure({ maxFilesPerBuild: value })} step="500" />
       </div>
@@ -130,4 +130,3 @@ function NumberField({ label, value, onCommit, step }: { label: string; value: n
     </div>
   );
 }
-

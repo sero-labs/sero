@@ -135,7 +135,8 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       lines.push(`Profile graph: ${state.profileGraph.status}${state.profileGraph.nodes ? ` — ${state.profileGraph.nodes} nodes / ${state.profileGraph.edges} edges` : ''}`);
       for (const entry of Object.values(state.workspaces)) {
         const stats = entry.stats ? ` ${entry.stats.nodes}n/${entry.stats.edges}e` : '';
-        lines.push(`• ${entry.name} [${entry.enabled ? entry.status : 'disabled'}]${stats}${entry.lastError ? ` — ${entry.lastError}` : ''}`);
+        const named = entry.communityNaming ? ` · names: ${entry.communityNaming.model}` : '';
+        lines.push(`• ${entry.name} [${entry.enabled ? entry.status : 'disabled'}]${stats}${named}${entry.lastError ? ` — ${entry.lastError}` : ''}`);
       }
       return text(lines.join('\n'));
     },
@@ -144,9 +145,9 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_index',
     label: 'Graphify Index',
-    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. A first build or a rebuild costs money and asks the user first. Track progress with graphify_status.',
+    description: 'Manage workspace indexing and community names. A first build, rebuild, or community naming job costs money and asks the user first. Track progress with graphify_status.',
     parameters: Type.Object({
-      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync', 'upgrade'] as const),
+      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'name-communities', 'enable-all', 'sync', 'upgrade'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
     }),
@@ -183,7 +184,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_configure',
     label: 'Graphify Settings',
-    description: 'Change Graphify settings: the backend and model every paid build runs on, the spend limits, community naming, and pause. Nothing is indexed until a model is set.',
+    description: 'Change Graphify settings: the backend and model every paid job runs on, the spend limits, and pause. Nothing is indexed until a model is set.',
     parameters: Type.Object({
       backend: Type.Optional(StringEnum(BACKENDS)),
       model: Type.Optional(Type.String({ description: 'Exact model id, e.g. gpt-5.6-luna. Requires backend.' })),

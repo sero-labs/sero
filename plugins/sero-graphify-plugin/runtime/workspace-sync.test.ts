@@ -52,4 +52,17 @@ describe('an unreadable workspace list is not a deletion', () => {
     expect(getState().workspaces.ws1).toBeUndefined();
     expect(getState().removedWorkspaces.map((entry) => entry.workspaceId)).toEqual(['ws1']);
   });
+
+  it('does not remove a workspace while its paid naming job is active', async () => {
+    const { host, getState } = makeHost([{ id: 'ws2', name: 'Two', path: '/p/two', open: true }], (state) => {
+      state.workspaces.ws1 = {
+        workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
+        status: 'naming', lastBuiltAt: 'yesterday',
+      };
+    });
+    const result = await syncWorkspaceList(host);
+    expect(result.removedIds).toEqual([]);
+    expect(getState().workspaces.ws1.status).toBe('naming');
+    expect(host.removeWorkspaceArtifacts).not.toHaveBeenCalled();
+  });
 });

@@ -15,15 +15,14 @@ One rule drives the whole plugin:
 > **Money is spent only by an explicit user action, with the model, the size and
 > the estimated cost known first. A restart never spends.**
 
-`graphify extract` is the only step that costs anything. `update`,
-`merge-graphs`, `cluster-only` (always `--no-label`) and every query are local.
+`graphify extract` and the optional `graphify label` job can cost money.
+`update`, `merge-graphs`, `cluster-only --no-label` and every query are local.
 
-Community naming is a second LLM pass and is **not run**. The pre-flight
-estimate prices the extraction, so naming inside a build would leave part of the
-authorised job outside both caps. It belongs in its own confirmed job, priced
-from the community count the free clustering pass produces.
+Community naming is separate from extraction. The runtime prices it from the
+community count produced by free clustering, confirms it, reserves the estimate
+at the spawn boundary, and settles it from the token line in `GRAPH_REPORT.md`.
 
-Before any paid build the runtime: refuses if paused or if no model is chosen;
+Before any paid job the runtime: refuses if paused or if no model is chosen;
 scans the tree the build will read (files **and bytes** — graphify chunks by
 tokens, so dense prose costs more than its file count suggests); checks the
 per-build, per-day and file caps against a durable ledger; and asks the user.
@@ -77,7 +76,7 @@ The profile graph re-merges after every change. The toolchain (`uv` + pinned
 | `graphify_path` | Shortest connection between two concepts |
 | `graphify_explain` | Neighborhood explanation of a single node |
 | `graphify_status` | Index status per workspace + profile graph |
-| `graphify_index` | enable / disable / rebuild / refresh / enable-all / sync / upgrade |
+| `graphify_index` | enable / disable / rebuild / name-communities / refresh / enable-all / sync / upgrade |
 
 All tools are CLI-bridged (`sero graphify_search ...`).
 
@@ -95,7 +94,7 @@ caches, fully idle when no graph exists.
 | Setting | Default | Notes |
 |---|---|---|
 | `model` | `null` | `{ backend, modelId, chosenAt, price? }`. **null blocks every paid job.** There is no "backend default" — that is how a build could run with nobody able to say what it cost |
-| `caps.maxCostPerBuildUsd` | `2` | A build estimated above this is refused |
+| `caps.maxCostPerBuildUsd` | `2` | A paid job estimated above this is refused |
 | `caps.maxCostPerDayUsd` | `10` | Profile-wide, measured against `state.spend` |
 | `caps.maxFilesPerBuild` | `5000` | Bigger trees are refused, not truncated |
 | `paused` | `false` | Blocks all paid work |
@@ -115,10 +114,9 @@ workspaces that do not exist there, and queue paid builds on arrival.
 
 ### Applying the model
 
-The chosen model is sent **twice**, because the two paid passes take it
-differently: `extract` reads `--model`, while the naming pass resolves
-`_default_model_for_backend(backend)` and ignores the flag entirely — only the
-backend's model environment variable (`GRAPHIFY_OPENAI_MODEL`, …) reaches it.
+The chosen model is sent by flag and environment variable. Extraction reads
+`--model`; the pinned naming command reads `--model=<id>`. The backend-specific
+environment variable (`GRAPHIFY_OPENAI_MODEL`, and others) is a second guard.
 
 The child environment is an allow-list plus the one selected provider key.
 `cluster-only` otherwise scans the environment and takes the first provider with

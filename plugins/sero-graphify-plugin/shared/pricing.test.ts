@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { costUsd, estimateFromScan, formatEstimate, MODEL_ENV_VAR, priceFor } from './pricing';
+import {
+  costUsd,
+  estimateCommunityNaming,
+  estimateFromScan,
+  formatEstimate,
+  MODEL_ENV_VAR,
+  priceFor,
+} from './pricing';
 import type { GraphifyBackend, ModelChoice } from './types';
 
 const choice = (backend: ModelChoice['backend'], modelId: string, price?: ModelChoice['price']): ModelChoice =>
@@ -46,6 +53,22 @@ describe('estimateFromScan', () => {
 
   it('has no cost at all without a chosen model', () => {
     expect(estimateFromScan({ files: 1, bytes: 100, truncated: false }, null).estimatedCostUsd).toBeNull();
+  });
+});
+
+describe('estimateCommunityNaming', () => {
+  it('scales from the measured community count and batch shape', () => {
+    const small = estimateCommunityNaming(10, choice('openai', 'gpt-4.1-mini'));
+    const large = estimateCommunityNaming(110, choice('openai', 'gpt-4.1-mini'));
+    expect(small.estimatedInputTokens).toBe(2_100);
+    expect(small.estimatedOutputTokens).toBe(736);
+    expect(large.estimatedInputTokens).toBe(22_200);
+    expect(large.estimatedOutputTokens).toBe(5_792);
+    expect(large.estimatedCostUsd!).toBeGreaterThan(small.estimatedCostUsd!);
+  });
+
+  it('does not invent a cost for an unpriced model', () => {
+    expect(estimateCommunityNaming(12, choice('openai', 'gpt-5.6-luna')).estimatedCostUsd).toBeNull();
   });
 });
 

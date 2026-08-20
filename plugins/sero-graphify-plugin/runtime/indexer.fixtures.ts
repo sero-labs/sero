@@ -28,7 +28,14 @@ export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState
     graphExists: async (id) => built.has(id),
     graphifyVersion: async () => '0.9.47',
     upgradeGraphify: vi.fn().mockResolvedValue(undefined),
-    estimateBuild: async () => ({ files: 10, bytes: 40_000, truncated: false, estimatedInputTokens: 10_000, estimatedCostUsd: 0.02 }),
+    estimateBuild: async () => ({
+      files: 10,
+      bytes: 40_000,
+      truncated: false,
+      estimatedInputTokens: 10_000,
+      estimatedOutputTokens: 2_000,
+      estimatedCostUsd: 0.02,
+    }),
     confirm: vi.fn().mockResolvedValue(true),
     notify: vi.fn(),
     buildGraph: vi.fn().mockImplementation(async (
@@ -40,6 +47,14 @@ export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState
       await hooks.beforePaidSpawn?.();
       built.add(workspace.workspaceId);
       return { stats: STATS, usageMeasured: true };
+    }),
+    nameCommunities: vi.fn().mockImplementation(async (
+      _workspace: unknown,
+      _settings: unknown,
+      hooks: { beforePaidSpawn?: () => Promise<void> },
+    ) => {
+      await hooks.beforePaidSpawn?.();
+      return { stats: { ...STATS, inputTokens: 2_100, outputTokens: 736 }, usageMeasured: true };
     }),
     updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false }),
     mergeProfileGraph: vi.fn().mockResolvedValue({ nodes: 20, edges: 40 }),

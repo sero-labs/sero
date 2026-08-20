@@ -8,6 +8,7 @@ function statusBadge(entry: WorkspaceIndexEntry) {
   switch (entry.status) {
     case 'building': return <Badge>building…</Badge>;
     case 'updating': return <Badge>updating…</Badge>;
+    case 'naming': return <Badge>naming…</Badge>;
     case 'queued': return <Badge variant="secondary">queued</Badge>;
     case 'needs-build': return <Badge variant="outline">not built</Badge>;
     case 'error': return <Badge variant="destructive">error</Badge>;
@@ -33,12 +34,13 @@ interface Props {
   entry: WorkspaceIndexEntry;
   /** True while no model is chosen — every paid action is unavailable. */
   blocked: boolean;
-  onIndex: (action: 'enable' | 'disable' | 'rebuild') => void;
+  onIndex: (action: 'enable' | 'disable' | 'rebuild' | 'name-communities') => void;
 }
 
 export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
   const stats = statsLine(entry);
-  const building = entry.status === 'building' || entry.status === 'updating';
+  const building = entry.status === 'building' || entry.status === 'updating' || entry.status === 'naming';
+  const canName = entry.enabled && (entry.stats?.communities ?? 0) > 0;
 
   return (
     <Card className="flex flex-row items-center justify-between border-border/40 p-3">
@@ -49,6 +51,12 @@ export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
         </div>
         <p className="truncate text-xs text-muted-foreground">{entry.path}</p>
         {stats && <p className="text-xs text-muted-foreground">{stats}</p>}
+        {entry.communityNaming && (
+          <p className="text-xs text-muted-foreground">
+            {entry.communityNaming.communities} communities named with {entry.communityNaming.model}
+            {entry.communityNaming.costUsd !== undefined ? ` · ${formatUsd(entry.communityNaming.costUsd)}` : ''}
+          </p>
+        )}
         {entry.progress && building && (
           <p className="truncate text-xs text-muted-foreground animate-pulse" title={entry.progress}>{entry.progress}</p>
         )}
@@ -60,6 +68,16 @@ export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
         {entry.enabled && (entry.status === 'needs-build' || entry.status === 'error') && (
           <Button size="sm" variant="outline" disabled={blocked} onClick={() => onIndex('rebuild')}>
             {entry.status === 'error' ? 'Try again' : 'Build'}
+          </Button>
+        )}
+        {canName && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={blocked || building}
+            onClick={() => onIndex('name-communities')}
+          >
+            {entry.communityNaming ? 'Rename communities' : 'Name communities'}
           </Button>
         )}
         <Button

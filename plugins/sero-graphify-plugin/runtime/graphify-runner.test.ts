@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
+import {
+  buildWorkspaceGraph,
+  ensureGraphifyIgnore,
+  mergeProfileGraph,
+  nameWorkspaceCommunities,
+  parseBuildStats,
+  parseCommunityNamingUsage,
+  updateWorkspaceGraph,
+} from './graphify-runner';
 import type { BuildOptions } from './graphify-runner';
 import type { ModelChoice } from '../shared/types';
 import type { ExecResult } from './bounded-exec';
@@ -52,6 +60,50 @@ describe('parseBuildStats', () => {
     expect(parseBuildStats('done')).toEqual({
       usageMeasured: false,
       stats: { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 },
+    });
+  });
+});
+
+describe('community naming', () => {
+  it('parses the measured label usage from the generated report', () => {
+    expect(parseCommunityNamingUsage('- Token cost: 1,234 input · 567 output')).toMatchObject({
+      usageMeasured: true,
+      stats: { inputTokens: 1234, outputTokens: 567 },
+    });
+  });
+
+  it('runs a forced label job with the chosen model and settles from the report', async () => {
+    const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
+    const workspaceDir = await mkdtemp(path.join(os.tmpdir(), 'graphify-label-'));
+    await mkdir(path.join(workspaceDir, 'graphify-out'));
+    await writeFile(
+      path.join(workspaceDir, 'graphify-out', 'GRAPH_REPORT.md'),
+      '- Token cost: 2,100 input · 736 output',
+    );
+    const order: string[] = [];
+    const exec = vi.fn().mockImplementation(async () => {
+      order.push('exec');
+      return ok('Done - 10 communities. GRAPH_REPORT.md and graph.json updated');
+    });
+    const outcome = await nameWorkspaceCommunities(
+      { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
+      {
+        workspaceDir,
+        inputPath: '/p',
+        model: MODEL,
+        maxConcurrency: 2,
+        beforePaidSpawn: async () => { order.push('reserve'); },
+      },
+    );
+
+    expect(order).toEqual(['reserve', 'exec']);
+    expect(exec.mock.calls[0][1]).toEqual([
+      'label', workspaceDir, '--no-viz', '--backend=claude',
+      '--model=gpt-5.6-luna', '--max-concurrency=2',
+    ]);
+    expect(outcome).toEqual({
+      usageMeasured: true,
+      stats: { nodes: 0, edges: 0, communities: 10, inputTokens: 2100, outputTokens: 736 },
     });
   });
 });

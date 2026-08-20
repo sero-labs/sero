@@ -36,6 +36,13 @@ export interface BuildOptions extends UpdateOptions {
   exclude: string[];
 }
 
+export interface CommunityNamingOptions extends UpdateOptions {
+  /** Called at the last boundary before graphify starts the paid label pass. */
+  beforePaidSpawn?: () => Promise<void>;
+  model: ModelChoice;
+  maxConcurrency: number;
+}
+
 const BUILD_TIMEOUT_MS = 60 * 60_000;
 /** Passed to the CLI so a hung request fails instead of holding a paid slot. */
 const API_TIMEOUT_SECONDS = 300;
@@ -73,7 +80,23 @@ export function parseBuildStats(stdout: string): BuildOutcome {
     stats: {
       nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
       edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
-      communities: parse(summary?.[3]),
+      communities: parse(summary?.[3] ?? stdout.match(/(\d[\d,]*)\s+communities/i)?.[1]),
+      inputTokens: parse(tokens?.[1]),
+      outputTokens: parse(tokens?.[2]),
+    },
+  };
+}
+
+/** Parse the measured label tokens Graphify 0.9.47 writes to GRAPH_REPORT.md. */
+export function parseCommunityNamingUsage(report: string): Pick<BuildOutcome, 'stats' | 'usageMeasured'> {
+  const tokens = report.match(/Token cost:\s*(\d[\d,]*)\s+input\s*[·|/]\s*(\d[\d,]*)\s+output/i);
+  const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
+  return {
+    usageMeasured: tokens !== null,
+    stats: {
+      nodes: 0,
+      edges: 0,
+      communities: 0,
       inputTokens: parse(tokens?.[1]),
       outputTokens: parse(tokens?.[2]),
     },
@@ -199,6 +222,46 @@ async function clusterGraph(
     return { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 };
   }
   return parseBuildStats(result.stdout).stats;
+}
+
+/** Run the separately authorised paid pass that replaces placeholder names. */
+export async function nameWorkspaceCommunities(
+  deps: RunnerDeps,
+  options: CommunityNamingOptions,
+): Promise<BuildOutcome> {
+  const env = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
+  const args = [
+    'label',
+    options.workspaceDir,
+    '--no-viz',
+    `--backend=${options.model.backend}`,
+    `--model=${options.model.modelId}`,
+  ];
+  if (options.maxConcurrency > 0) args.push(`--max-concurrency=${options.maxConcurrency}`);
+
+  await options.beforePaidSpawn?.();
+  const result = await deps.exec(deps.graphifyPath, args, {
+    cwd: options.workspaceDir,
+    env,
+    timeoutMs: BUILD_TIMEOUT_MS,
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
+    onLine: options.onProgress,
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(`graphify label failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
+  }
+
+  const report = await readFile(path.join(options.workspaceDir, 'graphify-out', 'GRAPH_REPORT.md'), 'utf8').catch(() => '');
+  const usage = parseCommunityNamingUsage(report);
+  return {
+    usageMeasured: usage.usageMeasured,
+    stats: {
+      ...parseBuildStats(result.stdout).stats,
+      inputTokens: usage.stats.inputTokens,
+      outputTokens: usage.stats.outputTokens,
+    },
+  };
 }
 
 export async function updateWorkspaceGraph(deps: RunnerDeps, options: UpdateOptions): Promise<BuildOutcome> {

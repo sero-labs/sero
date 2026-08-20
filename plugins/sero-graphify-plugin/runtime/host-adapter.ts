@@ -7,11 +7,17 @@ import { estimateFromScan } from '../shared/pricing';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
 import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
+import {
+  buildWorkspaceGraph,
+  mergeProfileGraph as runMerge,
+  nameWorkspaceCommunities,
+  updateWorkspaceGraph,
+  type BuildOutcome,
+} from './graphify-runner';
 import { cleanEnv, extractionEnv } from './credentials';
 import { scanWorkspace } from './estimator';
 import { graphStats, loadGraph } from '../shared/query-engine';
-import type { IndexerHost } from './indexer';
+import type { IndexerHost } from './indexer-host';
 
 /** A build with no model chosen is a bug the guard should have stopped first. */
 function requireModel(settings: GraphifyState['settings']): ModelChoice {
@@ -174,6 +180,15 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
       // throws when either is missing — before beforePaidSpawn can debit.
       withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await extractionDeps(settings), {
         ...buildOptionsFor(workspace, settings),
+        onProgress: hooks.onProgress,
+        beforePaidSpawn: hooks.beforePaidSpawn,
+      })),
+    nameCommunities: async (workspace, settings, hooks) =>
+      withAuthoritativeStats(workspace.workspaceId, await nameWorkspaceCommunities(await extractionDeps(settings), {
+        workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
+        inputPath: workspace.path,
+        model: requireModel(settings),
+        maxConcurrency: settings.maxConcurrency,
         onProgress: hooks.onProgress,
         beforePaidSpawn: hooks.beforePaidSpawn,
       })),
