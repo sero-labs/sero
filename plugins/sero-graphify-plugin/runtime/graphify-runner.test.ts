@@ -62,6 +62,12 @@ describe('parseBuildStats', () => {
       stats: { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 },
     });
   });
+  it('does not treat a zero-token line as measured usage', () => {
+    expect(parseBuildStats('10 nodes, 20 edges, 2 communities\ntokens: 0 in / 0 out')).toMatchObject({
+      usageMeasured: false,
+      stats: { inputTokens: 0, outputTokens: 0 },
+    });
+  });
 });
 
 describe('community naming', () => {
@@ -70,6 +76,27 @@ describe('community naming', () => {
       usageMeasured: true,
       stats: { inputTokens: 1234, outputTokens: 567 },
     });
+  });
+
+  it('does not treat a free report as measured label usage', () => {
+    expect(parseCommunityNamingUsage('- Token cost: 0 input · 0 output')).toMatchObject({
+      usageMeasured: false,
+      stats: { inputTokens: 0, outputTokens: 0 },
+    });
+  });
+
+  it.each([
+    'Warning: using Community N placeholders',
+    'Warning: no LLM backend configured',
+  ])('fails when Graphify exits zero with a degraded label pass: %s', async (stderr) => {
+    const exec = vi.fn().mockResolvedValue({ ...ok(), stderr });
+    const beforePaidSpawn = vi.fn().mockResolvedValue(undefined);
+
+    await expect(nameWorkspaceCommunities(
+      { exec, graphifyPath: 'g', env: {} },
+      { workspaceDir: STORE, inputPath: '/p', model: MODEL, maxConcurrency: 0, beforePaidSpawn },
+    )).rejects.toThrow(/fallback names/i);
+    expect(beforePaidSpawn).toHaveBeenCalledOnce();
   });
 
   it('runs a forced label job with the chosen model and settles from the report', async () => {
@@ -101,6 +128,7 @@ describe('community naming', () => {
       'label', workspaceDir, '--no-viz', '--backend=claude',
       '--model=gpt-5.6-luna', '--max-concurrency=2',
     ]);
+    expect(exec.mock.calls[0][2].env.GRAPHIFY_API_TIMEOUT).toBe('300');
     expect(outcome).toEqual({
       usageMeasured: true,
       stats: { nodes: 0, edges: 0, communities: 10, inputTokens: 2100, outputTokens: 736 },

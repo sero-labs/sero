@@ -39,7 +39,8 @@ interface Props {
 
 export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
   const stats = statsLine(entry);
-  const building = entry.status === 'building' || entry.status === 'updating' || entry.status === 'naming';
+  const building = entry.status === 'queued' || entry.status === 'building'
+    || entry.status === 'updating' || entry.status === 'naming';
   const canName = entry.enabled && (entry.stats?.communities ?? 0) > 0;
 
   return (

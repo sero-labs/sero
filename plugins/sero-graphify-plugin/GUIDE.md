@@ -76,8 +76,8 @@ free.
 - **A failed build still counts.** A build can use the model and then fail, so
   Graphify records what it was allowed to spend before it starts. A failure
   that never reached the model is not counted.
-- **Community names are not made yet.** That is a second use of the model, and
-  its cost is not in the estimate, so your graph uses `Community 1` and so on.
+- **Community names need a separate paid pass.** Select **Name communities**
+  after the graph is built. Graphify asks before it spends again.
 - **Pause** stops all paid work at once.
 
 ## Sensible defaults & safety

@@ -164,6 +164,10 @@ export class GraphifyIndexer {
 
     const hasGraph = await this.host.graphExists(workspaceId);
     const paid = options.rebuild || !hasGraph;
+    if (paid && !this.enqueue({ workspaceId, paid: true, confirm: true })) {
+      this.host.notify(notice('refused', `${workspaceId} already has a paid Graphify job queued or running.`));
+      return;
+    }
     await this.host.updateState((state) => {
       const entry = state.workspaces[workspaceId];
       if (!entry) return state;
@@ -182,7 +186,6 @@ export class GraphifyIndexer {
       await this.merge();
       return;
     }
-    this.enqueue({ workspaceId, paid: true, confirm: true });
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {
@@ -212,8 +215,11 @@ export class GraphifyIndexer {
           this.host.notify(notice('refused', `Build and enable ${entry?.name ?? request.workspaceId} before naming its communities.`));
           break;
         }
+        if (!this.enqueue({ workspaceId: request.workspaceId, paid: true, confirm: true, naming: true })) {
+          this.host.notify(notice('refused', `${entry.name} already has a paid Graphify job queued or running.`));
+          break;
+        }
         await this.setStatus(request.workspaceId, 'queued', { lastError: undefined });
-        this.enqueue({ workspaceId: request.workspaceId, paid: true, confirm: true, naming: true });
         break;
       }
       case 'sync':
@@ -260,20 +266,28 @@ export class GraphifyIndexer {
    * workspace already building appended a second build that ran the moment the
    * first finished.
    */
-  private enqueue(job: Job): void {
+  private enqueue(job: Job): boolean {
+    const paidConflict = job.paid && (
+      (this.activeJob?.workspaceId === job.workspaceId && this.activeJob.paid)
+      || (this.activeJob?.workspaceId === job.workspaceId && this.rerunRequested)
+      || this.queue.some((candidate) => candidate.workspaceId === job.workspaceId && candidate.paid)
+    );
+    if (paidConflict) return false;
+
     const sameKind = (candidate: Job) => candidate.workspaceId === job.workspaceId
       && Boolean(candidate.naming) === Boolean(job.naming);
     if (this.activeJob && sameKind(this.activeJob)) {
       if (job.paid && !this.activeJob.paid) this.rerunRequested = true;
-      return;
+      return true;
     }
     const existing = this.queue.find(sameKind);
     if (existing) {
       existing.paid = existing.paid || job.paid;
       existing.confirm = existing.confirm || job.confirm;
-      return;
+      return true;
     }
     this.queue.push({ ...job });
+    return true;
   }
 
   private kick(): void {
@@ -427,6 +441,7 @@ export class GraphifyIndexer {
             lastError: undefined,
             progress: undefined,
             failureCount: 0,
+            communityNaming: job.paid ? undefined : entry.communityNaming,
           },
         },
       };

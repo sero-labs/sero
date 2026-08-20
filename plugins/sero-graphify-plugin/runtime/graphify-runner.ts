@@ -75,14 +75,16 @@ export function parseBuildStats(stdout: string): BuildOutcome {
   const summary = stdout.match(/(\d[\d,]*)\s+nodes?,\s*(\d[\d,]*)\s+edges?,\s*(\d[\d,]*)\s+communities/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
   const tokens = stdout.match(/(\d[\d,]*)\s+in\s*\/\s*(\d[\d,]*)\s+out/i);
+  const inputTokens = parse(tokens?.[1]);
+  const outputTokens = parse(tokens?.[2]);
   return {
-    usageMeasured: tokens !== null,
+    usageMeasured: tokens !== null && inputTokens + outputTokens > 0,
     stats: {
       nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
       edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
       communities: parse(summary?.[3] ?? stdout.match(/(\d[\d,]*)\s+communities/i)?.[1]),
-      inputTokens: parse(tokens?.[1]),
-      outputTokens: parse(tokens?.[2]),
+      inputTokens,
+      outputTokens,
     },
   };
 }
@@ -91,14 +93,16 @@ export function parseBuildStats(stdout: string): BuildOutcome {
 export function parseCommunityNamingUsage(report: string): Pick<BuildOutcome, 'stats' | 'usageMeasured'> {
   const tokens = report.match(/Token cost:\s*(\d[\d,]*)\s+input\s*[·|/]\s*(\d[\d,]*)\s+output/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
+  const inputTokens = parse(tokens?.[1]);
+  const outputTokens = parse(tokens?.[2]);
   return {
-    usageMeasured: tokens !== null,
+    usageMeasured: tokens !== null && inputTokens + outputTokens > 0,
     stats: {
       nodes: 0,
       edges: 0,
       communities: 0,
-      inputTokens: parse(tokens?.[1]),
-      outputTokens: parse(tokens?.[2]),
+      inputTokens,
+      outputTokens,
     },
   };
 }
@@ -229,7 +233,11 @@ export async function nameWorkspaceCommunities(
   deps: RunnerDeps,
   options: CommunityNamingOptions,
 ): Promise<BuildOutcome> {
-  const env = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
+  const env = {
+    ...liveEnv(deps.env),
+    GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out'),
+    GRAPHIFY_API_TIMEOUT: String(API_TIMEOUT_SECONDS),
+  };
   const args = [
     'label',
     options.workspaceDir,
@@ -250,6 +258,9 @@ export async function nameWorkspaceCommunities(
   });
   if (result.exitCode !== 0) {
     throw new Error(`graphify label failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
+  }
+  if (/using Community N placeholders|no LLM backend configured/i.test(result.stderr)) {
+    throw new Error(`graphify label used fallback names: ${tail(result.stderr)}`);
   }
 
   const report = await readFile(path.join(options.workspaceDir, 'graphify-out', 'GRAPH_REPORT.md'), 'utf8').catch(() => '');

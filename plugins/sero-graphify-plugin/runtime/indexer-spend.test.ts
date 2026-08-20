@@ -229,6 +229,63 @@ describe('GraphifyIndexer — community naming is a separate paid job', () => {
     expect(getState().spend.runs.at(-1)).toMatchObject({ job: 'community-naming', estimated: true });
     expect(getState().workspaces.ws1.status).toBe('idle');
     expect(getState().workspaces.ws1.lastError).toMatch(/community naming failed/i);
+    expect(getState().workspaces.ws1.communityNaming).toBeUndefined();
+    indexer.dispose();
+  });
+
+  it('drops a rebuild queued after naming for the same workspace', async () => {
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    (host.buildGraph as ReturnType<typeof vi.fn>).mockClear();
+
+    await deliver(
+      indexer,
+      host,
+      request(1, 'name-communities', 'ws1'),
+      request(2, 'rebuild', 'ws1'),
+    );
+    await indexer.idle();
+
+    expect(host.nameCommunities).toHaveBeenCalledTimes(1);
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.communityNaming).toBeDefined();
+    indexer.dispose();
+  });
+
+  it('drops naming queued after a rebuild for the same workspace', async () => {
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', {
+        lastBuiltAt: 'yesterday',
+        stats: STATS,
+        communityNaming: {
+          communities: 2,
+          inputTokens: 100,
+          outputTokens: 50,
+          model: 'old-model',
+          namedAt: 'yesterday',
+        },
+      });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    (host.buildGraph as ReturnType<typeof vi.fn>).mockClear();
+
+    await deliver(
+      indexer,
+      host,
+      request(1, 'rebuild', 'ws1'),
+      request(2, 'name-communities', 'ws1'),
+    );
+    await indexer.idle();
+
+    expect(host.buildGraph).toHaveBeenCalledTimes(1);
+    expect(host.nameCommunities).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.communityNaming).toBeUndefined();
     indexer.dispose();
   });
 });
