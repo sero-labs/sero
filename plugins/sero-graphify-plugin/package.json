@@ -17,6 +17,7 @@
     "app": {
       "id": "graphify",
       "styleIsolation": "scope",
+      "portableState": ["settings"],
       "name": "Graphify",
       "icon": "waypoints",
       "scope": "global",
@@ -39,7 +40,7 @@
             "control": {
               "type": "switch",
               "label": "Enable Graphify indexing",
-              "defaultValue": true
+              "defaultValue": false
             },
             "action": {
               "type": "tool",

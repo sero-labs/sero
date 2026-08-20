@@ -43,3 +43,37 @@ describe('boundedExec', () => {
     expect(result.stdout).toContain('boom');
   });
 });
+
+const node = process.execPath;
+/** Print more than the limit, then exit cleanly. */
+const chatty = (bytes: number) => [
+  '-e',
+  `const line='x'.repeat(1000)+'\\n';for(let i=0;i<${Math.ceil(bytes / 1000)};i++)process.stdout.write(line);process.stdout.write('done\\n');`,
+];
+
+describe('boundedExec output limits', () => {
+  it('kills a short probe that will not stop talking', async () => {
+    const result = await boundedExec(node, chatty(200_000), { maxOutputBytes: 50_000 });
+    expect(result.exitCode).toBe(OUTPUT_LIMIT_EXIT_CODE);
+  });
+
+  it('lets a chatty build finish, keeping the tail', async () => {
+    // The tokens are already spent by the time a long extract has printed a
+    // megabyte of progress. Killing it there throws away a finished, paid-for
+    // build and makes it look like one that never ran.
+    const result = await boundedExec(node, chatty(200_000), {
+      maxOutputBytes: 50_000,
+      onOutputLimit: 'truncate',
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.truncated).toBe(true);
+    expect(result.stdout.length).toBeLessThanOrEqual(50_000);
+    // The tail is what diagnoses a build, and it holds the summary line.
+    expect(result.stdout).toContain('done');
+  });
+
+  it('leaves small output whole', async () => {
+    const result = await boundedExec(node, ['-e', 'process.stdout.write("hello\\n")'], { onOutputLimit: 'truncate' });
+    expect(result).toMatchObject({ exitCode: 0, stdout: 'hello\n', truncated: false });
+  });
+});

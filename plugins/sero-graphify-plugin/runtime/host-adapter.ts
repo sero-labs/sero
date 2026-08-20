@@ -1,20 +1,29 @@
 import path from 'node:path';
-import { readdir, rm } from 'node:fs/promises';
+import { access, readdir, rm } from 'node:fs/promises';
 import type { AppRuntimeContext } from '@sero-ai/common';
-import type { GraphifyState } from '../shared/types';
+import type { GraphifyNotice, GraphifyState, ModelChoice, WorkspaceIndexStats } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
+import { estimateFromScan } from '../shared/pricing';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
-import { provisionGraphify, graphifyBinPath, uvEnv } from './provisioner';
+import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
 import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge } from './graphify-runner';
-import { extractionEnv } from './credentials';
+import { cleanEnv, extractionEnv } from './credentials';
+import { scanWorkspace } from './estimator';
 import { graphStats, loadGraph } from '../shared/query-engine';
-import type { WorkspaceIndexStats } from '../shared/types';
 import type { IndexerHost } from './indexer';
+
+/** A build with no model chosen is a bug the guard should have stopped first. */
+function requireModel(settings: GraphifyState['settings']): ModelChoice {
+  if (!settings.model) throw new Error('No Graphify model chosen. Pick a backend and model in the Graphify panel.');
+  return settings.model;
+}
+
+const CONFIRMATION_TIMEOUT_MS = 120_000;
 
 export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; paths: GraphifyPaths } {
   const paths = graphifyPathsFromHome(path.dirname(ctx.stateFilePath));
-  let provisioned: { graphifyPath: string } | null = null;
+  let provisioned: { graphifyPath: string; version: string } | null = null;
   let provisioningPromise: Promise<void> | null = null;
 
   // Tool installs (uv-managed Python + graphifyy venv) are machine-shared,
@@ -45,33 +54,57 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         ensureUv: async () => (await ctx.host.toolchains.ensure('uv')).path,
         exec: boundedExec,
         toolsDir: await toolsDir(),
+        // uv and graphify never need the whole Electron environment; see cleanEnv.
+        baseEnv: cleanEnv('claude', process.env),
       });
       provisioned = result;
       await updateState((state) => ({
         ...state,
-        provisioning: { status: 'ready', uvPath: result.uvPath, graphifyPath: result.graphifyPath, version: result.version, updatedAt: new Date().toISOString() },
+        provisioning: { ...state.provisioning, status: 'ready', uvPath: result.uvPath, graphifyPath: result.graphifyPath, version: result.version, error: undefined, updatedAt: new Date().toISOString() },
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await updateState((state) => ({ ...state, provisioning: { status: 'failed', error: message, updatedAt: new Date().toISOString() } }));
+      await updateState((state) => ({ ...state, provisioning: { ...state.provisioning, status: 'failed', error: message, updatedAt: new Date().toISOString() } }));
       throw error;
     }
   };
 
   const resolvedGraphifyPath = async () => provisioned?.graphifyPath ?? graphifyBinPath(await toolsDir());
 
-  // Extraction needs the backend's API key in env; merges are local-only and must
-  // not fail when no key is configured, so they get the bare uv env.
-  const extractionDeps = async (settings: GraphifyState['settings']) => ({
-    exec: boundedExec,
-    graphifyPath: await resolvedGraphifyPath(),
-    env: await extractionEnv(settings.backend, (providerId) => ctx.host.credentials.getProviderApiKey(providerId), uvEnv(await toolsDir())),
-  });
+  // Extraction needs the backend's key and the chosen model in env; merges are
+  // local-only and must not fail when no key is configured.
+  const extractionDeps = async (settings: GraphifyState['settings']) => {
+    const choice = requireModel(settings);
+    const tools = await toolsDir();
+    return {
+      exec: boundedExec,
+      graphifyPath: await resolvedGraphifyPath(),
+      env: await extractionEnv(
+        choice,
+        (providerId) => ctx.host.credentials.getProviderApiKey(providerId),
+        process.env,
+        uvEnv(tools, {}),
+      ),
+    };
+  };
 
-  const localDeps = async () => ({
-    exec: boundedExec,
-    graphifyPath: await resolvedGraphifyPath(),
-    env: uvEnv(await toolsDir()),
+  const localDeps = async () => {
+    const tools = await toolsDir();
+    return {
+      exec: boundedExec,
+      graphifyPath: await resolvedGraphifyPath(),
+      env: uvEnv(tools, cleanEnv('ollama', process.env)),
+    };
+  };
+
+  const buildOptionsFor = (workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']) => ({
+    workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
+    inputPath: workspace.path,
+    model: requireModel(settings),
+    tokenBudget: settings.tokenBudget,
+    maxConcurrency: settings.maxConcurrency,
+    nameCommunities: settings.nameCommunities,
+    exclude: settings.exclude,
   });
 
   // Stdout stat lines are best-effort (a no-change update prints none at all);
@@ -86,25 +119,49 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     updateState,
     listWorkspaces: () => ctx.host.workspace.list(),
     ensureProvisioned,
+    graphExists: (workspaceId) =>
+      access(workspaceGraphJson(paths, workspaceId)).then(() => true).catch(() => false),
+    graphifyVersion: async () => provisioned?.version ?? (await readState())?.provisioning.version ?? GRAPHIFY_VERSION,
+    estimateBuild: async (workspace, settings) => {
+      const scan = await scanWorkspace(workspace.path, {
+        exclude: settings.exclude,
+        // Scanning past the cap tells us nothing: the build is refused either way.
+        maxFiles: settings.caps.maxFilesPerBuild + 1,
+      });
+      return estimateFromScan(scan, settings.model);
+    },
+    confirm: async ({ title, body, confirmLabel }) => {
+      const outcome = await ctx.host.notifications.requestChoice({
+        title,
+        body,
+        choices: [
+          { id: 'confirm', label: confirmLabel, emphasis: 'primary' },
+          { id: 'skip', label: 'Cancel' },
+        ],
+        timeoutMs: CONFIRMATION_TIMEOUT_MS,
+        openTarget: { appId: 'graphify' },
+      });
+      // Silence is a no. A dialog nobody answered — the app was in the
+      // background, the user walked away — must never become approval to spend.
+      return outcome.choiceId === 'confirm';
+    },
+    notify: (notice: GraphifyNotice) =>
+      ctx.host.notifications.notify({
+        message: notice.message,
+        type: notice.kind === 'info' ? 'info' : 'warning',
+        source: 'Graphify',
+        openTarget: { appId: 'graphify' },
+      }),
     buildGraph: async (workspace, settings, onProgress) =>
       withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await extractionDeps(settings), {
-        workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
-        inputPath: workspace.path,
-        backend: settings.backend,
-        model: settings.model,
-        tokenBudget: settings.tokenBudget,
-        exclude: settings.exclude,
+        ...buildOptionsFor(workspace, settings),
         onProgress,
       })),
-    updateGraph: async (workspace, settings, onProgress) =>
+    updateGraph: async (workspace, _settings, onProgress) =>
       // `graphify update` is AST-only (no LLM), so no credentials needed.
       withAuthoritativeStats(workspace.workspaceId, await updateWorkspaceGraph(await localDeps(), {
         workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
         inputPath: workspace.path,
-        backend: settings.backend,
-        model: settings.model,
-        tokenBudget: settings.tokenBudget,
-        exclude: settings.exclude,
         onProgress,
       })),
     mergeProfileGraph: async (workspaceIds) => {

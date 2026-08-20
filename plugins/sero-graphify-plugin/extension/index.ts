@@ -12,7 +12,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
-import { readStateFile, appendIndexRequest, appendIndexRequests } from '../shared/state-io';
+import { readStateFile, appendIndexRequest } from '../shared/state-io';
 import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
@@ -140,13 +140,11 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_index',
     label: 'Graphify Index',
-    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. Builds run in the background; check progress with graphify_status.',
+    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. A first build or a rebuild costs money and asks the user first. Track progress with graphify_status.',
     parameters: Type.Object({
       action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
-      workspaceName: Type.Optional(Type.String({ description: 'Workspace name supplied by a host contribution' })),
-      workspacePath: Type.Optional(Type.String({ description: 'Workspace path supplied by a host contribution' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
@@ -159,30 +157,15 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
             : params.workspace
             ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
             : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
-          if (!entry) {
-            // A workspace-creation contribution runs immediately after the host
-            // creates the workspace. Queue sync first so the following enable
-            // request can target its new registry entry.
-            if (
-              params.action === 'enable'
-              && params.workspaceId
-              && params.workspaceName
-              && params.workspacePath
-            ) {
-              const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
-                { action: 'sync' },
-                {
-                  action: 'enable',
-                  workspaceId: params.workspaceId,
-                  workspaceName: params.workspaceName,
-                  workspacePath: params.workspacePath,
-                },
-              ]);
-              return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
-            }
+          // A host contribution names a workspace Sero has just created, which
+          // discovery may not have seen yet; the runtime syncs and re-checks it
+          // against the workspace registry. There is deliberately no way to
+          // pass a path: pointing an extraction at an arbitrary directory is
+          // how an agent could spend money on anything on the machine.
+          workspaceId = entry?.workspaceId ?? params.workspaceId;
+          if (!workspaceId) {
             return text(`Error: Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
           }
-          workspaceId = entry.workspaceId;
         }
         const id = await appendIndexRequest(paths.stateFile, params.action, workspaceId);
         return text(`Queued ${params.action}${workspaceId ? ` for ${workspaceId}` : ''} (request #${id}). Track with graphify_status.`);

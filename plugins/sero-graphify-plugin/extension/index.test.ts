@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe('graphify workspace creation indexing', () => {
-  it('queues sync before enabling a newly created workspace', async () => {
+  it('queues an enable by id and never carries a path', async () => {
     const seroHome = await mkdtemp(path.join(os.tmpdir(), 'graphify-extension-'));
     process.env.SERO_HOME = seroHome;
 
@@ -46,15 +46,12 @@ describe('graphify workspace creation indexing', () => {
       );
 
       const state = await readStateFile(path.join(seroHome, 'apps', 'graphify', 'state.json'));
-      expect(state?.requests).toMatchObject([
-        { action: 'sync' },
-        {
-          action: 'enable',
-          workspaceId: 'new-workspace',
-          workspaceName: 'New Workspace',
-          workspacePath: '/workspace/new-workspace',
-        },
-      ]);
+      // One request, carrying an id the runtime re-checks against the host
+      // workspace registry. A path never travels: pointing an extraction at an
+      // arbitrary directory is how an agent could spend money on anything on
+      // the machine, and how a build could be paid for and then thrown away.
+      expect(state?.requests).toMatchObject([{ action: 'enable', workspaceId: 'new-workspace' }]);
+      expect(JSON.stringify(state?.requests)).not.toContain('/workspace/new-workspace');
     } finally {
       await rm(seroHome, { recursive: true, force: true });
     }
