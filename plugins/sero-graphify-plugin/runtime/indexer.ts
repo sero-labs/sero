@@ -112,7 +112,18 @@ export class GraphifyIndexer {
       return { ...current, requests: [], lastAppliedRequestId: highest };
     });
 
-    for (const request of pending) await this.applyRequest(request);
+    // The clear and the watermark advance happen BEFORE the requests are
+    // applied, so a repeated delivery can never re-apply them. A request lost
+    // to a crash costs the user another click; a request applied twice costs
+    // them another build. Each is applied on its own so one failure does not
+    // discard the rest of the batch.
+    for (const request of pending) {
+      try {
+        await this.applyRequest(request);
+      } catch (error) {
+        this.host.log(`[graphify] request #${request.id} (${request.action}) failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     this.kick();
   }
 
@@ -400,17 +411,20 @@ export class GraphifyIndexer {
           },
         },
       };
-      if (!job.paid || spent === null || !choice) return next;
+      if (!job.paid || !choice) return next;
       const day = utcDay(new Date());
       return {
         ...next,
+        // An unpriced model still lands in the ledger, at zero. It cannot be
+        // held to the daily cap — which is why it always asks first — but the
+        // build must not vanish from the record of what was run today.
         spend: recordRun(current.spend, {
           workspaceId: job.workspaceId,
           backend: choice.backend,
           model: choice.modelId,
           inputTokens,
           outputTokens,
-          usd: spent,
+          usd: spent ?? 0,
           at: new Date().toISOString(),
         }, day),
       };

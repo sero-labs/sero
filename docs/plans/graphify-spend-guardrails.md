@@ -770,6 +770,20 @@ Two deliberate departures from the plan:
   workspace has its own estimate, and one dialog covering several different
   numbers would be approving an amount nobody was shown.
 
+Known and deliberate:
+
+* **The extension/runtime write race is narrowed, not closed.** The extension
+  queues requests by read-modify-write on the state file from its own process,
+  while the runtime writes the same file through the host's serialised queue —
+  the two share no lock. Appends now re-read and compare the file immediately
+  before writing and retry when it changed, which shrinks the window from a
+  read-parse-rebuild to a single rename. Closing it completely needs one shared
+  write path for both processes, which is a host change rather than a plugin
+  one.
+* **A cap cannot hold a model Sero has no price for.** Such a build always asks
+  first, and is recorded in the ledger at zero so it still appears in the day's
+  record. A user who wants it inside the caps can supply the price.
+
 Still open:
 
 * **§3.7 is unmeasured.** Whether Sero's split of `--out` from the corpus path

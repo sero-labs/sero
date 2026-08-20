@@ -93,9 +93,9 @@ export function SpendSettings({ state, onConfigure }: Props) {
   return (
     <Card className="flex flex-col gap-3 border-border/40 p-3">
       <div className="grid grid-cols-3 gap-2">
-        <NumberField label="Max per build" value={caps.maxCostPerBuildUsd} onCommit={(value) => onConfigure({ maxCostPerBuildUsd: value })} step="0.5" />
-        <NumberField label="Max per day" value={caps.maxCostPerDayUsd} onCommit={(value) => onConfigure({ maxCostPerDayUsd: value })} step="1" />
-        <NumberField label="Max files" value={caps.maxFilesPerBuild} onCommit={(value) => onConfigure({ maxFilesPerBuild: value })} step="500" />
+        <NumberField key={`build-${caps.maxCostPerBuildUsd}`} label="Max per build" value={caps.maxCostPerBuildUsd} onCommit={(value) => onConfigure({ maxCostPerBuildUsd: value })} step="0.5" />
+        <NumberField key={`day-${caps.maxCostPerDayUsd}`} label="Max per day" value={caps.maxCostPerDayUsd} onCommit={(value) => onConfigure({ maxCostPerDayUsd: value })} step="1" />
+        <NumberField key={`files-${caps.maxFilesPerBuild}`} label="Max files" value={caps.maxFilesPerBuild} onCommit={(value) => onConfigure({ maxFilesPerBuild: value })} step="500" />
       </div>
 
       <ToggleRow
@@ -112,7 +112,12 @@ export function SpendSettings({ state, onConfigure }: Props) {
   );
 }
 
-/** Commits on blur, so a limit is queued once rather than on every keystroke. */
+/**
+ * Commits on blur, so a limit is queued once rather than on every keystroke.
+ * Keyed on `value` by its caller, so a change the runtime did not apply falls
+ * back to the value that is actually in force rather than showing a number
+ * nothing is enforcing.
+ */
 function NumberField({ label, value, onCommit, step }: { label: string; value: number; onCommit: (value: number) => void; step: string }) {
   const [draft, setDraft] = useState(String(value));
   return (

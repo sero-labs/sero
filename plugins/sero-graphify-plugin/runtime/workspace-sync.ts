@@ -26,8 +26,19 @@ export async function syncWorkspaceList(
   options: { normalizeStatuses?: boolean } = {},
 ): Promise<SyncResult> {
   const normalize = options.normalizeStatuses === true;
-  const workspaces = (await host.listWorkspaces()).filter((ws) => isIndexableWorkspace(ws.id));
+  const discovered = await host.listWorkspaces();
   const current = (await host.readState())?.workspaces ?? {};
+
+  // An empty listing means "cannot see the workspaces", never "every workspace
+  // was deleted". The host's registry loader falls back to an empty list when
+  // workspaces.json is unreadable, and acting on that would drop every state
+  // entry and delete every graph the user paid for.
+  if (discovered.length === 0 && Object.keys(current).length > 0) {
+    host.log('[graphify] workspace list came back empty; keeping existing entries rather than treating them as removed');
+    return { removedIds: [], removedIndexed: false };
+  }
+
+  const workspaces = discovered.filter((ws) => isIndexableWorkspace(ws.id));
   const discoveredIds = new Set(workspaces.map((workspace) => workspace.id));
 
   // Only the boot pass may normalise interrupted work, and `needs-build`
@@ -110,8 +121,16 @@ async function recordRemovals(
 
 /** Delete graph artifacts whose workspace no longer exists in the profile. */
 export async function sweepOrphanArtifacts(host: IndexerHost): Promise<void> {
-  const live = new Set((await host.listWorkspaces()).map((ws) => ws.id));
-  const orphans = (await host.listArtifactWorkspaceIds()).filter((id) => !live.has(id));
+  const discovered = await host.listWorkspaces();
+  const artifacts = await host.listArtifactWorkspaceIds();
+  // Same rule as the sync: with no visible workspaces every graph looks like an
+  // orphan, and deleting them all is unrecoverable.
+  if (discovered.length === 0 && artifacts.length > 0) {
+    host.log('[graphify] workspace list came back empty; leaving graph artifacts alone');
+    return;
+  }
+  const live = new Set(discovered.map((ws) => ws.id));
+  const orphans = artifacts.filter((id) => !live.has(id));
   await Promise.all(orphans.map((id) => {
     host.log(`[graphify] removing orphaned graph artifacts for ${id}`);
     return host.removeWorkspaceArtifacts(id);
