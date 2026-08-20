@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { authorizePaidBuild, ledgerForDay, recordRun, utcDay, type SpendHost } from './spend-guard';
+import { authorizePaidBuild, type SpendHost } from './spend-guard';
+import { ledgerForDay, recordRun, utcDay } from '../shared/ledger';
 import { DEFAULT_STATE, type BuildEstimate, type GraphifyState, type ModelChoice } from '../shared/types';
 
 const NOW = new Date('2026-08-20T10:00:00Z');

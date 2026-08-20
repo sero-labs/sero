@@ -1,5 +1,8 @@
 import { formatEstimate, formatUsd } from '../shared/pricing';
-import type { BuildEstimate, GraphifyState, SpendLedger, SpendRun } from '../shared/types';
+import type { BuildEstimate, GraphifyState } from '../shared/types';
+import { ledgerForDay, utcDay } from '../shared/ledger';
+
+export { ledgerForDay, recordRun, utcDay } from '../shared/ledger';
 
 /**
  * Everything that must be true before graphify is allowed to spend.
@@ -18,25 +21,6 @@ export interface SpendHost {
   estimateBuild(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']): Promise<BuildEstimate>;
   /** Ask the user. A dialog nobody answers must resolve to false. */
   confirm(options: { title: string; body: string; confirmLabel: string }): Promise<boolean>;
-}
-
-export function utcDay(now: Date): string {
-  return now.toISOString().slice(0, 10);
-}
-
-/** A ledger that has rolled onto `day`, with yesterday's total cleared. */
-export function ledgerForDay(ledger: SpendLedger, day: string): SpendLedger {
-  return ledger.day === day ? ledger : { day, usd: 0, runs: [] };
-}
-
-export function recordRun(ledger: SpendLedger, run: SpendRun, day: string): SpendLedger {
-  const rolled = ledgerForDay(ledger, day);
-  return {
-    day,
-    usd: rolled.usd + run.usd,
-    // Bounded: the ledger is a spend record for the day, not an audit log.
-    runs: [...rolled.runs, run].slice(-50),
-  };
 }
 
 /**

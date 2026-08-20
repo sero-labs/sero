@@ -3,8 +3,9 @@ import {
   Button, Card, Input, Label, Switch,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@sero-ai/ui';
-import type { GraphifyBackend, GraphifyState, ModelChoice } from '../shared/types';
+import type { GraphifyBackend, GraphifyState } from '../shared/types';
 import { formatUsd } from '../shared/pricing';
+import { ledgerForDay, utcDay } from '../shared/ledger';
 
 /** Backends Sero can drive, with what actually pays for each. */
 const BACKENDS: { id: GraphifyBackend; label: string }[] = [
@@ -21,14 +22,15 @@ const BACKENDS: { id: GraphifyBackend; label: string }[] = [
 
 interface Props {
   state: GraphifyState;
-  onChange: (update: (settings: GraphifyState['settings']) => GraphifyState['settings']) => void;
+  /** Queues a settings change for the runtime; the panel never writes state. */
+  onConfigure: (params: Record<string, unknown>) => void;
 }
 
 /**
  * The model picker is the gate on every paid build: `settings.model` stays null
  * until it is used, and the indexer refuses to spend while it is null.
  */
-export function ModelPicker({ state, onChange }: Props) {
+export function ModelPicker({ state, onConfigure }: Props) {
   const chosen = state.settings.model;
   const [backend, setBackend] = useState<GraphifyBackend>(chosen?.backend ?? 'claude-cli');
   const [modelId, setModelId] = useState(chosen?.modelId ?? '');
@@ -37,8 +39,7 @@ export function ModelPicker({ state, onChange }: Props) {
 
   const save = () => {
     if (!modelId.trim()) return;
-    const choice: ModelChoice = { backend, modelId: modelId.trim(), chosenAt: new Date().toISOString() };
-    onChange((settings) => ({ ...settings, model: choice }));
+    onConfigure({ backend, model: modelId.trim() });
   };
 
   return (
@@ -84,35 +85,36 @@ export function ModelPicker({ state, onChange }: Props) {
   );
 }
 
-export function SpendSettings({ state, onChange }: Props) {
+export function SpendSettings({ state, onConfigure }: Props) {
   const { settings } = state;
   const caps = settings.caps;
-  const setCap = (key: keyof typeof caps, value: number) =>
-    onChange((current) => ({ ...current, caps: { ...current.caps, [key]: value } }));
+  const spentToday = ledgerForDay(state.spend, utcDay(new Date())).usd;
 
   return (
     <Card className="flex flex-col gap-3 border-border/40 p-3">
       <div className="grid grid-cols-3 gap-2">
-        <NumberField label="Max per build" value={caps.maxCostPerBuildUsd} onChange={(value) => setCap('maxCostPerBuildUsd', value)} step="0.5" />
-        <NumberField label="Max per day" value={caps.maxCostPerDayUsd} onChange={(value) => setCap('maxCostPerDayUsd', value)} step="1" />
-        <NumberField label="Max files" value={caps.maxFilesPerBuild} onChange={(value) => setCap('maxFilesPerBuild', value)} step="500" />
+        <NumberField label="Max per build" value={caps.maxCostPerBuildUsd} onCommit={(value) => onConfigure({ maxCostPerBuildUsd: value })} step="0.5" />
+        <NumberField label="Max per day" value={caps.maxCostPerDayUsd} onCommit={(value) => onConfigure({ maxCostPerDayUsd: value })} step="1" />
+        <NumberField label="Max files" value={caps.maxFilesPerBuild} onCommit={(value) => onConfigure({ maxFilesPerBuild: value })} step="500" />
       </div>
 
       <ToggleRow
         label="Name communities with the model"
         checked={settings.nameCommunities}
-        onChange={(checked) => onChange((current) => ({ ...current, nameCommunities: checked }))}
+        onChange={(nameCommunities) => onConfigure({ nameCommunities })}
       />
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>Spent today</span>
-        <span>{formatUsd(state.spend.usd)} of {formatUsd(caps.maxCostPerDayUsd)}</span>
+        <span>{formatUsd(spentToday)} of {formatUsd(caps.maxCostPerDayUsd)}</span>
       </div>
     </Card>
   );
 }
 
-function NumberField({ label, value, onChange, step }: { label: string; value: number; onChange: (value: number) => void; step: string }) {
+/** Commits on blur, so a limit is queued once rather than on every keystroke. */
+function NumberField({ label, value, onCommit, step }: { label: string; value: number; onCommit: (value: number) => void; step: string }) {
+  const [draft, setDraft] = useState(String(value));
   return (
     <div className="flex flex-col gap-1">
       <Label className="text-xs">{label}</Label>
@@ -120,8 +122,13 @@ function NumberField({ label, value, onChange, step }: { label: string; value: n
         type="number"
         min="0"
         step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          const next = Number(draft);
+          if (Number.isFinite(next) && next >= 0 && next !== value) onCommit(next);
+          else setDraft(String(value));
+        }}
       />
     </div>
   );

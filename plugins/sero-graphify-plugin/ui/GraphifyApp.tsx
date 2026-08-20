@@ -9,7 +9,7 @@ import { WorkspaceCard } from './WorkspaceCard';
 import './styles.css';
 
 export function GraphifyApp() {
-  const [stored, setState] = useAppState<GraphifyState>(DEFAULT_STATE);
+  const [stored] = useAppState<GraphifyState>(DEFAULT_STATE);
   // A state file written by an older build has no caps and no ledger to render.
   const state = withStateDefaults(stored);
   const { run } = useAppTools();
@@ -19,9 +19,12 @@ export function GraphifyApp() {
     void run('graphify_index', { action, workspace: workspaceId });
   }, [run]);
 
-  const updateSettings = useCallback((update: (settings: GraphifyState['settings']) => GraphifyState['settings']) => {
-    setState((current) => ({ ...current, settings: update(current.settings) }));
-  }, [setState]);
+  // Settings are queued, never written here. The renderer persists its whole
+  // cached snapshot, so a settings write landing just after a build would roll
+  // back the spend ledger and the workspace statuses the runtime owns.
+  const configure = useCallback((params: Record<string, unknown>) => {
+    void run('graphify_configure', params);
+  }, [run]);
 
   // Push-based discovery: opening the panel asks the runtime to re-read the
   // profile workspace list, so newly created workspaces appear immediately.
@@ -48,10 +51,7 @@ export function GraphifyApp() {
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Pause
-            <Switch
-              checked={state.settings.paused}
-              onCheckedChange={(paused) => updateSettings((settings) => ({ ...settings, paused }))}
-            />
+            <Switch checked={state.settings.paused} onCheckedChange={(paused) => configure({ paused })} />
           </label>
           <Button size="sm" variant="outline" disabled={blocked} onClick={() => index('enable-all')}>Index all</Button>
         </div>
@@ -60,7 +60,7 @@ export function GraphifyApp() {
       {state.notice && (
         <Card className="flex items-center justify-between border-destructive/50 p-3 text-base">
           <span>{state.notice.message}</span>
-          <Button size="sm" variant="ghost" onClick={() => setState((current) => ({ ...current, notice: null }))}>Dismiss</Button>
+          <Button size="sm" variant="ghost" onClick={() => configure({ clearNotice: true })}>Dismiss</Button>
         </Card>
       )}
 
@@ -83,8 +83,10 @@ export function GraphifyApp() {
           Choose a backend and model. Graphify will not index anything until you do.
         </p>
       )}
-      <ModelPicker state={state} onChange={updateSettings} />
-      {chosen && <SpendSettings state={state} onChange={updateSettings} />}
+      {/* Keyed on the stored choice so the picker re-seeds when state arrives —
+          its fields start from DEFAULT_STATE on the first render. */}
+      <ModelPicker key={chosen ? `${chosen.backend}:${chosen.modelId}` : 'unset'} state={state} onConfigure={configure} />
+      {chosen && <SpendSettings state={state} onConfigure={configure} />}
 
       <GraphSearch run={run} profileGraph={state.profileGraph} />
 

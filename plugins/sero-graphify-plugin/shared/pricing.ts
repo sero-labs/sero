@@ -41,8 +41,9 @@ export const BYTES_PER_TOKEN = 4;
 
 /**
  * Extraction reads every file once and writes a much smaller graph. Output is
- * charged at a higher rate, so it cannot simply be ignored; a tenth of the
- * input is the ratio the spike's own numbers showed (45k in / 9k out).
+ * charged at a higher rate, so it cannot simply be ignored. A fifth of the
+ * input is a little above the ratio the spike measured (45k in / 9k out), which
+ * errs towards over-estimating — the safe direction for a spend guard.
  */
 const OUTPUT_TOKEN_RATIO = 0.2;
 

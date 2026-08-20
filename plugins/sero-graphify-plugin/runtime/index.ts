@@ -41,7 +41,13 @@ async function cacheAvailableModels(ctx: AppRuntimeContext): Promise<void> {
  */
 async function checkForUpgrade(ctx: AppRuntimeContext): Promise<void> {
   const latest = await latestPublishedVersion();
-  if (!latest || latest === GRAPHIFY_VERSION) return;
+  if (!latest) return;
+  // Against what is installed, not against the pin: after an accepted upgrade
+  // the installed version has moved on, and comparing with the compile-time
+  // constant would offer the same update for ever.
+  const current = await ctx.host.appState.read<GraphifyState>(ctx.stateFilePath);
+  const installed = current?.provisioning.version ?? GRAPHIFY_VERSION;
+  if (latest === installed) return;
   await ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => {
     const state = current ?? structuredClone(DEFAULT_STATE);
     return { ...state, provisioning: { ...state.provisioning, availableVersion: latest } };

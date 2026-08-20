@@ -383,3 +383,70 @@ describe('GraphifyIndexer — upgrading the tool', () => {
     indexer.dispose();
   });
 });
+
+describe('GraphifyIndexer — settings are queued, not written by the panel', () => {
+  it('merges a settings patch without disturbing the ledger or the workspaces', async () => {
+    // The panel persists its whole cached snapshot, so a settings write landing
+    // after a build would roll back what the runtime owns. It queues instead.
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+      state.spend = { day: '2026-08-20', usd: 3.5, runs: [] };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, {
+      ...request(1, 'settings'),
+      settings: { caps: { maxCostPerDayUsd: 25 }, nameCommunities: true },
+    });
+    await indexer.idle();
+    const state = getState();
+    expect(state.settings.caps.maxCostPerDayUsd).toBe(25);
+    expect(state.settings.caps.maxCostPerBuildUsd).toBe(DEFAULT_STATE.settings.caps.maxCostPerBuildUsd);
+    expect(state.settings.nameCommunities).toBe(true);
+    expect(state.spend.usd).toBe(3.5);
+    expect(state.workspaces.ws1).toMatchObject({ enabled: true, stats: expect.objectContaining({ nodes: STATS.nodes }) });
+    indexer.dispose();
+  });
+
+  it('pausing empties the queue instead of only blocking new work', async () => {
+    let finish: (stats: WorkspaceIndexStats) => void = () => {};
+    const buildGraph = vi.fn(() => new Promise<WorkspaceIndexStats>((resolve) => { finish = resolve; }));
+    const { host, getState } = makeHost({ overrides: { buildGraph } });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'enable', 'ws1'), request(2, 'enable', 'ws2'));
+    await vi.waitFor(() => expect(getState().workspaces.ws1.status).toBe('building'));
+
+    await deliver(indexer, host, { ...request(3, 'settings'), settings: { paused: true } });
+    finish(STATS);
+    await indexer.idle();
+    expect(buildGraph).toHaveBeenCalledTimes(1); // ws2 never started
+    indexer.dispose();
+  });
+
+  it('a refused rebuild stays indexed rather than being called "not built"', async () => {
+    const { host, getState } = makeHost({
+      built: ['ws1'],
+      overrides: { confirm: vi.fn().mockResolvedValue(false) },
+    }, (state) => enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS }));
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'rebuild', 'ws1'));
+    await indexer.idle();
+    expect(getState().workspaces.ws1.status).toBe('idle');
+    indexer.dispose();
+  });
+
+  it('one cap refusal answers the whole batch', async () => {
+    const { host } = makeHost({}, (state) => {
+      state.settings.caps = { ...state.settings.caps, maxCostPerDayUsd: 0 };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'enable-all'));
+    await indexer.idle();
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect((host.notify as ReturnType<typeof vi.fn>).mock.calls.length).toBeLessThanOrEqual(1);
+    indexer.dispose();
+  });
+});

@@ -9,6 +9,7 @@ import { isIndexableWorkspace } from '../shared/types';
 import { costUsd } from '../shared/pricing';
 import { authorizePaidBuild, recordRun, utcDay, type SpendHost } from './spend-guard';
 import { sweepOrphanArtifacts, syncWorkspaceList } from './workspace-sync';
+import { applySettingsPatch, upgradeGraphifyTool } from './settings';
 
 export interface IndexerWorkspace {
   id: string;
@@ -203,7 +204,12 @@ export class GraphifyIndexer {
         await this.syncWorkspaces();
         break;
       case 'upgrade':
-        await this.upgrade();
+        await upgradeGraphifyTool(this.host);
+        break;
+      case 'settings':
+        await applySettingsPatch(this.host, request.settings ?? {});
+        // Pausing must stop work already queued, not only work yet to be asked for.
+        if (request.settings?.paused === true) this.dropQueuedPaidJobs();
         break;
       case 'enable-all': {
         const state = await this.host.readState();
@@ -226,34 +232,8 @@ export class GraphifyIndexer {
     }
   }
 
-  /**
-   * Install a newer graphifyy, once the user has said yes.
-   *
-   * A new extractor version invalidates the semantic cache, so the next build
-   * of every workspace re-extracts and spends again. The dialog says so: this
-   * is the one upgrade path that cannot be silent.
-   */
-  private async upgrade(): Promise<void> {
-    const state = await this.host.readState();
-    const version = state?.provisioning.availableVersion;
-    if (!version) return;
-    const approved = await this.host.confirm({
-      title: `Update graphify to ${version}?`,
-      body: [
-        `Installed: ${state?.provisioning.version ?? 'unknown'} · Available: ${version}`,
-        'A new extractor version invalidates the cached extractions, so the next build of each workspace pays full price again.',
-        'Nothing is re-indexed now — each workspace waits until you rebuild it.',
-      ].join('\n'),
-      confirmLabel: 'Update graphify',
-    });
-    if (!approved) return;
-    try {
-      await this.host.upgradeGraphify(version);
-      this.host.notify(notice('info', `graphify updated to ${version}. Rebuild a workspace when you want its graph refreshed.`));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.host.notify(notice('refused', `Updating graphify failed: ${message}`));
-    }
+  private dropQueuedPaidJobs(): void {
+    this.queue = this.queue.filter((job) => !job.paid);
   }
 
   /**
@@ -315,9 +295,14 @@ export class GraphifyIndexer {
     this.host.log(`[graphify] ${workspaceId}: ${decision.reason}`);
     await this.host.updateState((state) => ({ ...state, notice: notice(kind as GraphifyNotice['kind'], decision.reason) }));
     this.host.notify(notice(kind as GraphifyNotice['kind'], decision.reason));
-    // A refused build leaves the workspace waiting for the user, never retrying.
-    await this.setStatus(workspaceId, 'needs-build', { progress: undefined });
-    if (decision.kind === 'cap') this.queue = this.queue.filter((job) => !job.paid);
+    // A refused build waits for the user and never retries. A refused *rebuild*
+    // still has its graph, so it stays indexed — calling it "not built" would
+    // misdescribe a workspace that is perfectly usable.
+    const status: WorkspaceIndexStatus = await this.host.graphExists(workspaceId) ? 'idle' : 'needs-build';
+    await this.setStatus(workspaceId, status, { progress: undefined });
+    // One refusal is the answer for the whole batch: a cap or a pause applies
+    // to every queued build, and re-asking per workspace is just noise.
+    if (decision.kind === 'cap' || decision.kind === 'paused') this.dropQueuedPaidJobs();
   }
 
   private async runJob(job: Job): Promise<void> {

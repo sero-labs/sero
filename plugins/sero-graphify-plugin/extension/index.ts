@@ -12,8 +12,9 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
-import { readStateFile, appendIndexRequest } from '../shared/state-io';
+import { readStateFile, appendIndexRequest, appendSettingsRequest } from '../shared/state-io';
 import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
+import type { GraphifyBackend, SettingsPatch } from '../shared/types';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -26,6 +27,9 @@ type ToolResult = {
 function text(message: string): ToolResult {
   return { content: [{ type: 'text', text: message }], details: {} };
 }
+
+/** Kept in step with GraphifyBackend; StringEnum needs a literal tuple. */
+const BACKENDS = ['claude', 'claude-cli', 'openai', 'gemini', 'deepseek', 'kimi', 'azure', 'bedrock', 'ollama'] as const satisfies readonly GraphifyBackend[];
 
 const NOT_BUILT = 'Profile graph not built yet. Enable workspace indexing in the Graphify panel or run: graphify_index enable-all';
 
@@ -172,6 +176,58 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       } catch (error) {
         // Container sessions may have the profile home mounted read-only.
         return text(`Error: Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_configure',
+    label: 'Graphify Settings',
+    description: 'Change Graphify settings: the backend and model every paid build runs on, the spend limits, community naming, and pause. Nothing is indexed until a model is set.',
+    parameters: Type.Object({
+      backend: Type.Optional(StringEnum(BACKENDS)),
+      model: Type.Optional(Type.String({ description: 'Exact model id, e.g. gpt-5.6-luna. Requires backend.' })),
+      priceInputUsdPerMTok: Type.Optional(Type.Number({ description: 'USD per 1M input tokens, when Sero has no price for this model' })),
+      priceOutputUsdPerMTok: Type.Optional(Type.Number({ description: 'USD per 1M output tokens' })),
+      maxCostPerBuildUsd: Type.Optional(Type.Number()),
+      maxCostPerDayUsd: Type.Optional(Type.Number()),
+      maxFilesPerBuild: Type.Optional(Type.Number()),
+      maxConcurrency: Type.Optional(Type.Number()),
+      nameCommunities: Type.Optional(Type.Boolean({ description: 'A second paid pass that names communities with the model' })),
+      paused: Type.Optional(Type.Boolean({ description: 'Blocks all paid work and empties the queue' })),
+      exclude: Type.Optional(Type.Array(Type.String())),
+      clearNotice: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_toolCallId, params) {
+      const patch: SettingsPatch = {};
+      if (params.backend && params.model) {
+        patch.model = {
+          backend: params.backend,
+          modelId: params.model,
+          chosenAt: new Date().toISOString(),
+          ...(params.priceInputUsdPerMTok !== undefined && params.priceOutputUsdPerMTok !== undefined
+            ? { price: { input: params.priceInputUsdPerMTok, output: params.priceOutputUsdPerMTok } }
+            : {}),
+        };
+      } else if (params.backend || params.model) {
+        return text('Error: set the backend and the model together — a model id means nothing without the backend that serves it.');
+      }
+      const caps: SettingsPatch['caps'] = {};
+      if (params.maxCostPerBuildUsd !== undefined) caps.maxCostPerBuildUsd = params.maxCostPerBuildUsd;
+      if (params.maxCostPerDayUsd !== undefined) caps.maxCostPerDayUsd = params.maxCostPerDayUsd;
+      if (params.maxFilesPerBuild !== undefined) caps.maxFilesPerBuild = params.maxFilesPerBuild;
+      if (Object.keys(caps).length > 0) patch.caps = caps;
+      if (params.maxConcurrency !== undefined) patch.maxConcurrency = params.maxConcurrency;
+      if (params.nameCommunities !== undefined) patch.nameCommunities = params.nameCommunities;
+      if (params.paused !== undefined) patch.paused = params.paused;
+      if (params.exclude) patch.exclude = params.exclude;
+      if (params.clearNotice) patch.clearNotice = true;
+
+      try {
+        const id = await appendSettingsRequest(paths.stateFile, patch);
+        return text(`Queued settings change (request #${id}).`);
+      } catch (error) {
+        return text(`Error: Could not queue the settings change: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
   });

@@ -162,12 +162,33 @@ export interface RemovedWorkspaceRecord {
   stats?: WorkspaceIndexStats;
 }
 
-export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync' | 'upgrade';
+export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync' | 'upgrade' | 'settings';
+
+/**
+ * A settings change, queued rather than written.
+ *
+ * The panel must never write the state file itself: the renderer persists its
+ * whole cached snapshot, so a settings change landing just after a build would
+ * roll back the spend ledger, the workspace statuses and the applied-request
+ * watermark. The runtime is the single writer, and it merges these patches
+ * inside its serialised update.
+ */
+export interface SettingsPatch {
+  model?: ModelChoice | null;
+  caps?: Partial<SpendCaps>;
+  nameCommunities?: boolean;
+  paused?: boolean;
+  maxConcurrency?: number;
+  exclude?: string[];
+  clearNotice?: boolean;
+}
 
 export interface IndexRequest {
   id: number;
   action: IndexAction;
   workspaceId?: string;
+  /** Only on `settings` requests. */
+  settings?: SettingsPatch;
   requestedAt: string;
 }
 

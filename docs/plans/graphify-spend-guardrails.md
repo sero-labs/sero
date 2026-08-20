@@ -1,7 +1,7 @@
 # Graphify — spend guardrails, cost control, and transparency
 
 **Date:** 2026-08-20
-**Status:** investigation + plan (no code changes yet)
+**Status:** implemented — Phases 1, 2, 2b, 3, 3b and 4. See "What shipped" below.
 **Trigger:** Graphify was enabled on several local repos and used the Anthropic
 credits two times. The repos were small. The cause was not visible in the UI.
 
@@ -748,3 +748,37 @@ Documentation to update: `apps/docs-site/docs/plugins/graphify.md` (a real
 | Carry app settings into a copied profile (`portableState`) | 3b | P1 |
 | Show cost and model on the workspace card | 3 | P1 |
 | New workspaces must not opt into indexing by default | 3 | P1 |
+
+---
+
+## 9. What shipped, and what did not
+
+Phases 1, 2, 2b, 3, 3b and 4 are implemented on
+`claude/graphify-credit-overspend-dmvcvb`. Every defect in §3 and every gap in
+§4 is addressed, the pin is raised to 0.9.47, and the model choice of §6 is
+required and portable.
+
+Two deliberate departures from the plan:
+
+* **`indexNewWorkspaces` was dropped.** Phase 3 listed it as a setting. A
+  contribution control declares its `defaultValue` statically in the manifest,
+  so the host cannot read a setting to decide it — the toggle would have
+  changed nothing. The manifest default is `false` instead, which delivers the
+  same intent: opting a new repository into a paid build is a decision, not a
+  default.
+* **`enable-all` confirms per workspace**, not once for the batch. Each
+  workspace has its own estimate, and one dialog covering several different
+  numbers would be approving an amount nobody was shown.
+
+Still open:
+
+* **§3.7 is unmeasured.** Whether Sero's split of `--out` from the corpus path
+  keeps the extraction cache warm still needs a live two-build measurement.
+  Raising the pin (§5.2) fixes the three upstream bugs most likely to cause it,
+  but that is a reasoned expectation, not a measurement.
+* **Nothing has been reported upstream** (Phase 2b item 5). Filing
+  against Graphify-Labs/graphify is an outward-facing action on someone else's
+  tracker and is left for a person to send.
+* **The 0.9.47 bump is untested against a real build.** It typechecks and the
+  unit tests pass, but no extraction has run on the new version in this
+  environment; the first live build should be watched.
