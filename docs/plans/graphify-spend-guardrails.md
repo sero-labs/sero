@@ -338,8 +338,11 @@ are re-queued on every incremental run.
   (`shared/types.ts:1`, `runtime/credentials.ts:10`) does not offer it. Note
   that it defaults to **Opus**, and `GRAPHIFY_CLAUDE_CLI_MODEL=haiku` makes it
   cheap (upstream issue #2861 asks for this to be documented).
-* **`azure` and `bedrock` backends** also exist and are missing from Sero's
-  list.
+* **`azure` and `bedrock` backends** also exist upstream. Both were considered
+  and **rejected**: neither maps to a Sero provider credential, so each would
+  depend on `AZURE_*`/`AWS_*` variables happening to be in the environment. A
+  backend a user can pick but cannot configure in the app is not a feature, and
+  Bedrock also costs a boto3 install for every user to carry.
 * **The model is choosable and namable.** The `claude` backend default is
   `claude-sonnet-4-6` in 0.9.47, and `ANTHROPIC_MODEL` overrides it
   (`llm.py:107`). Sero can therefore always state the exact model instead of
@@ -458,8 +461,6 @@ its `default_model` resolves through:
 | `openai` | `GRAPHIFY_OPENAI_MODEL` |
 | `gemini` | `GRAPHIFY_GEMINI_MODEL` |
 | `deepseek` | `GRAPHIFY_DEEPSEEK_MODEL` |
-| `azure` | `GRAPHIFY_AZURE_MODEL` |
-| `bedrock` | `GRAPHIFY_BEDROCK_MODEL` |
 | `ollama` | `OLLAMA_MODEL` (via `default_model`) |
 | `kimi` | **none exists** — `--model` is the only lever |
 
@@ -684,8 +685,7 @@ becomes the test fixture.
    state file.
 3. **Offer the `claude-cli` backend** (§5.3) as the default choice where the
    user has Claude Code, with `GRAPHIFY_CLAUDE_CLI_MODEL` set to a cheap model.
-   It moves indexing onto the subscription instead of API credits. Add `azure`
-   and `bedrock` to the backend list at the same time.
+   It moves indexing onto the subscription instead of API credits.
 4. **Show the model and the paying account** on the pre-flight dialog and on
    every workspace card. Record the resolved model in the build stats, so an
    old build says which model produced it.

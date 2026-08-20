@@ -94,8 +94,6 @@ export const MODEL_ENV_VAR: Partial<Record<GraphifyBackend, string>> = {
   openai: 'GRAPHIFY_OPENAI_MODEL',
   gemini: 'GRAPHIFY_GEMINI_MODEL',
   deepseek: 'GRAPHIFY_DEEPSEEK_MODEL',
-  azure: 'GRAPHIFY_AZURE_MODEL',
-  bedrock: 'GRAPHIFY_BEDROCK_MODEL',
   ollama: 'OLLAMA_MODEL', // read by the backend's default_model
   // kimi: none exists upstream — `--model` is the only lever.
 };

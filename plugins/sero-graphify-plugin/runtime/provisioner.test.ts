@@ -20,8 +20,8 @@ describe('provisionGraphify', () => {
   it('pins backend extras so semantic extraction works out of the box', () => {
     // One extra per offered backend. bedrock needs boto3; without it a clean
     // install fails every Bedrock build after the toolchain is already ready.
-    expect(GRAPHIFY_INSTALL_SPEC).toBe(`graphifyy[anthropic,openai,gemini,kimi,ollama,bedrock]==${GRAPHIFY_VERSION}`);
-    for (const extra of ['anthropic', 'openai', 'gemini', 'kimi', 'ollama', 'bedrock']) {
+    expect(GRAPHIFY_INSTALL_SPEC).toBe(`graphifyy[anthropic,openai,gemini,kimi,ollama]==${GRAPHIFY_VERSION}`);
+    for (const extra of ['anthropic', 'openai', 'gemini', 'kimi', 'ollama']) {
       expect(GRAPHIFY_INSTALL_SPEC).toContain(extra);
     }
   });

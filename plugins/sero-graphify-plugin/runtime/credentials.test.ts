@@ -34,8 +34,11 @@ describe('extractionEnv', () => {
   });
 
   it('maps every backend', () => {
+    // Azure and Bedrock are deliberately absent: neither maps to a Sero
+    // provider credential, so both would depend on ambient environment
+    // variables — a backend you can pick but cannot configure.
     expect(Object.keys(BACKEND_PROVIDERS).sort()).toEqual(
-      ['azure', 'bedrock', 'claude', 'claude-cli', 'deepseek', 'gemini', 'kimi', 'ollama', 'openai'],
+      ['claude', 'claude-cli', 'deepseek', 'gemini', 'kimi', 'ollama', 'openai'],
     );
   });
 });
@@ -61,9 +64,9 @@ describe('cleanEnv', () => {
     expect(env).toMatchObject({ PATH: '/bin', HOME: '/home/me', HTTPS_PROXY: 'http://proxy', LANG: 'en_GB.UTF-8' });
   });
 
-  it('passes a backend its own environment credentials', () => {
-    const env = cleanEnv('bedrock', { AWS_REGION: 'eu-west-2', GEMINI_API_KEY: 'leaked' });
-    expect(env.AWS_REGION).toBe('eu-west-2');
+  it('passes a backend its own environment settings', () => {
+    const env = cleanEnv('ollama', { OLLAMA_BASE_URL: 'http://127.0.0.1:11434', GEMINI_API_KEY: 'leaked' });
+    expect(env.OLLAMA_BASE_URL).toBe('http://127.0.0.1:11434');
     expect(env.GEMINI_API_KEY).toBeUndefined();
   });
 });

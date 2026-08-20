@@ -1,3 +1,12 @@
+/**
+ * Backends Sero can actually configure.
+ *
+ * graphify also speaks to Azure OpenAI and AWS Bedrock, and both are omitted on
+ * purpose: neither maps to a Sero provider credential, so both would depend on
+ * `AZURE_*`/`AWS_*` variables happening to be in the environment. Offering a
+ * backend nobody can set up in the app is the same mistake as a setting that
+ * does nothing — it looks like a control and is not one.
+ */
 export type GraphifyBackend =
   | 'claude'
   | 'claude-cli'
@@ -5,8 +14,6 @@ export type GraphifyBackend =
   | 'gemini'
   | 'deepseek'
   | 'kimi'
-  | 'azure'
-  | 'bedrock'
   | 'ollama';
 
 /**

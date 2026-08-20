@@ -62,8 +62,6 @@ describe('MODEL_ENV_VAR', () => {
     openai: 'GRAPHIFY_OPENAI_MODEL',
     gemini: 'GRAPHIFY_GEMINI_MODEL',
     deepseek: 'GRAPHIFY_DEEPSEEK_MODEL',
-    azure: 'GRAPHIFY_AZURE_MODEL',
-    bedrock: 'GRAPHIFY_BEDROCK_MODEL',
     ollama: 'OLLAMA_MODEL',
     kimi: null,
   };

@@ -29,7 +29,7 @@ function text(message: string): ToolResult {
 }
 
 /** Kept in step with GraphifyBackend; StringEnum needs a literal tuple. */
-const BACKENDS = ['claude', 'claude-cli', 'openai', 'gemini', 'deepseek', 'kimi', 'azure', 'bedrock', 'ollama'] as const satisfies readonly GraphifyBackend[];
+const BACKENDS = ['claude', 'claude-cli', 'openai', 'gemini', 'deepseek', 'kimi', 'ollama'] as const satisfies readonly GraphifyBackend[];
 
 const NOT_BUILT = 'Profile graph not built yet. Enable workspace indexing in the Graphify panel or run: graphify_index enable-all';
 

@@ -15,8 +15,6 @@ const BACKENDS: { id: GraphifyBackend; label: string }[] = [
   { id: 'gemini', label: 'Google Gemini' },
   { id: 'deepseek', label: 'DeepSeek' },
   { id: 'kimi', label: 'Moonshot Kimi' },
-  { id: 'azure', label: 'Azure OpenAI' },
-  { id: 'bedrock', label: 'AWS Bedrock' },
   { id: 'ollama', label: 'Ollama (local)' },
 ];
 

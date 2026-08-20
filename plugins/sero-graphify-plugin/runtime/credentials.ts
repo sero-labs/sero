@@ -17,8 +17,6 @@ export const BACKEND_PROVIDERS: Record<GraphifyBackend, { providerId: string | n
   gemini: { providerId: 'google', displayName: 'Google (Gemini)' },
   deepseek: { providerId: 'deepseek', displayName: 'DeepSeek' },
   kimi: { providerId: 'moonshotai', displayName: 'Moonshot (Kimi)' },
-  azure: { providerId: null, displayName: 'Azure OpenAI (environment)' },
-  bedrock: { providerId: null, displayName: 'AWS Bedrock (environment)' },
   ollama: { providerId: null, displayName: 'Ollama (local)' },
 };
 
@@ -46,8 +44,6 @@ const ALLOWED_ENV_KEYS = [
 
 /** Backends Sero holds no credential for, which read their own environment. */
 const BACKEND_PASSTHROUGH: Partial<Record<GraphifyBackend, readonly string[]>> = {
-  bedrock: ['AWS_PROFILE', 'AWS_REGION', 'AWS_DEFAULT_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN'],
-  azure: ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_DEPLOYMENT'],
   ollama: ['OLLAMA_BASE_URL'],
 };
 
@@ -71,9 +67,9 @@ export function cleanEnv(backend: GraphifyBackend, baseEnv: NodeJS.ProcessEnv): 
 /**
  * Child-process environment for a paid graphify pass.
  *
- * Sets the model twice on purpose. `--model` covers extraction; the community
- * naming pass resolves `_default_model_for_backend(backend)` and ignores the
- * flag entirely, so only the backend's own model variable reaches it.
+ * Sets the model twice on purpose. `--model` pins it on the pinned graphifyy
+ * version; the environment variable is the second belt, for a backend whose
+ * flag handling changes underneath us.
  */
 export async function extractionEnv(
   choice: ModelChoice,
