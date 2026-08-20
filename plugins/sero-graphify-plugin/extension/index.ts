@@ -193,7 +193,6 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       maxCostPerDayUsd: Type.Optional(Type.Number()),
       maxFilesPerBuild: Type.Optional(Type.Number()),
       maxConcurrency: Type.Optional(Type.Number()),
-      nameCommunities: Type.Optional(Type.Boolean({ description: 'A second paid pass that names communities with the model' })),
       paused: Type.Optional(Type.Boolean({ description: 'Blocks all paid work and empties the queue' })),
       exclude: Type.Optional(Type.Array(Type.String())),
       clearNotice: Type.Optional(Type.Boolean()),
@@ -218,7 +217,6 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       if (params.maxFilesPerBuild !== undefined) caps.maxFilesPerBuild = params.maxFilesPerBuild;
       if (Object.keys(caps).length > 0) patch.caps = caps;
       if (params.maxConcurrency !== undefined) patch.maxConcurrency = params.maxConcurrency;
-      if (params.nameCommunities !== undefined) patch.nameCommunities = params.nameCommunities;
       if (params.paused !== undefined) patch.paused = params.paused;
       if (params.exclude) patch.exclude = params.exclude;
       if (params.clearNotice) patch.clearNotice = true;

@@ -10,6 +10,10 @@ Graphify does not spend on a default. Before the first build you must select a b
 
 Before each paid build, Graphify counts the files and bytes it will read, estimates the cost for your model, and asks you to approve it. If Sero has no price for your model, the panel shows **cost unknown** and always asks. It never shows a guess.
 
+Graphify records the estimate against your daily limit before the build starts. If the build then fails, the record stays: a build can use tokens and still fail, and the limit must include that. If a build finishes but does not report its token use, Graphify keeps the estimate instead of recording zero.
+
+Community names are not made yet. Naming uses the AI model a second time, and that cost is not in the estimate, so Graphify does not do it. Your graph uses `Community 1`, `Community 2`, and so on.
+
 These limits stop a build, and Sero shows the reason:
 
 | Limit | Default |

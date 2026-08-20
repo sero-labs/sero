@@ -53,6 +53,15 @@ export interface SettledStats {
   outputTokens: number;
   /** Null when the chosen model has no known price. */
   spentUsd: number | null;
+  /**
+   * False when the reservation must stand as it is.
+   *
+   * A successful exit is not proof that usage was measured: the token line is
+   * absent from some outputs and can be cut from a truncated one, and the
+   * parser reports zeros for anything it does not recognise. Settling on that
+   * would write $0 over a conservative debit and hand back the daily cap.
+   */
+  canSettle: boolean;
 }
 
 /**
@@ -64,11 +73,12 @@ export interface SettledStats {
 export function settleStats(
   paid: boolean,
   settings: GraphifyState['settings'],
-  fresh: WorkspaceIndexStats,
+  outcome: { stats: WorkspaceIndexStats; usageMeasured: boolean },
   previous: WorkspaceIndexStats | undefined,
   graphifyVersion: string | undefined,
 ): SettledStats {
   const choice = settings.model;
+  const fresh = outcome.stats;
   const inputTokens = fresh.inputTokens || (paid ? 0 : previous?.inputTokens ?? 0);
   const outputTokens = fresh.outputTokens || (paid ? 0 : previous?.outputTokens ?? 0);
   const spentUsd = paid && choice ? costUsd(choice, inputTokens, outputTokens) : null;
@@ -76,11 +86,12 @@ export function settleStats(
     inputTokens,
     outputTokens,
     spentUsd,
+    canSettle: outcome.usageMeasured,
     stats: {
       ...fresh,
       inputTokens,
       outputTokens,
-      costUsd: paid ? spentUsd ?? undefined : previous?.costUsd,
+      costUsd: paid ? (outcome.usageMeasured ? spentUsd ?? undefined : undefined) : previous?.costUsd,
       model: paid ? choice?.modelId : previous?.model,
       backend: paid ? choice?.backend : previous?.backend,
       graphifyVersion: paid ? graphifyVersion : previous?.graphifyVersion,

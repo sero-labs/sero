@@ -31,11 +31,17 @@ export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState
     estimateBuild: async () => ({ files: 10, bytes: 40_000, truncated: false, estimatedInputTokens: 10_000, estimatedCostUsd: 0.02 }),
     confirm: vi.fn().mockResolvedValue(true),
     notify: vi.fn(),
-    buildGraph: vi.fn().mockImplementation(async (workspace: { workspaceId: string }) => {
+    buildGraph: vi.fn().mockImplementation(async (
+      workspace: { workspaceId: string },
+      _settings: unknown,
+      hooks: { beforePaidSpawn?: () => Promise<void> },
+    ) => {
+      // Mirror the runner: the debit is taken at the spawn boundary.
+      await hooks.beforePaidSpawn?.();
       built.add(workspace.workspaceId);
-      return STATS;
+      return { stats: STATS, usageMeasured: true };
     }),
-    updateGraph: vi.fn().mockResolvedValue(STATS),
+    updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false }),
     mergeProfileGraph: vi.fn().mockResolvedValue({ nodes: 20, edges: 40 }),
     removeWorkspaceArtifacts: vi.fn().mockResolvedValue(undefined),
     listArtifactWorkspaceIds: vi.fn().mockResolvedValue([]),

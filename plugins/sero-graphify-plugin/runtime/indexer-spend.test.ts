@@ -42,13 +42,13 @@ describe('GraphifyIndexer — settings are queued, not written by the panel', ()
     await indexer.start();
     await deliver(indexer, host, {
       ...request(1, 'settings'),
-      settings: { caps: { maxCostPerDayUsd: 25 }, nameCommunities: true },
+      settings: { caps: { maxCostPerDayUsd: 25 }, maxConcurrency: 4 },
     });
     await indexer.idle();
     const state = getState();
     expect(state.settings.caps.maxCostPerDayUsd).toBe(25);
     expect(state.settings.caps.maxCostPerBuildUsd).toBe(DEFAULT_STATE.settings.caps.maxCostPerBuildUsd);
-    expect(state.settings.nameCommunities).toBe(true);
+    expect(state.settings.maxConcurrency).toBe(4);
     expect(state.spend.usd).toBe(3.5);
     expect(state.workspaces.ws1).toMatchObject({ enabled: true, stats: expect.objectContaining({ nodes: STATS.nodes }) });
     indexer.dispose();
@@ -56,7 +56,16 @@ describe('GraphifyIndexer — settings are queued, not written by the panel', ()
 
   it('pausing empties the queue instead of only blocking new work', async () => {
     let finish: (stats: WorkspaceIndexStats) => void = () => {};
-    const buildGraph = vi.fn(() => new Promise<WorkspaceIndexStats>((resolve) => { finish = resolve; }));
+    const buildGraph = vi.fn(async (
+      _workspace: unknown,
+      _settings: unknown,
+      hooks: { beforePaidSpawn?: () => Promise<void> },
+    ) => {
+      await hooks.beforePaidSpawn?.();
+      return new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean }>((resolve) => {
+        finish = (stats) => resolve({ stats, usageMeasured: true });
+      });
+    });
     const { host, getState } = makeHost({ overrides: { buildGraph } });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
@@ -98,14 +107,22 @@ describe('GraphifyIndexer — settings are queued, not written by the panel', ()
 });
 
 describe('GraphifyIndexer — a failed build still costs', () => {
+  /** Spawns (so the debit is taken), then fails — the rate-limited case. */
+  const failsAfterSpawning = () => vi.fn(async (
+    _workspace: unknown,
+    _settings: unknown,
+    hooks: { beforePaidSpawn?: () => Promise<void> },
+  ) => {
+    await hooks.beforePaidSpawn?.();
+    throw new Error('rate limited');
+  });
+
   it('keeps the authorised debit when the build fails after spending', async () => {
     // An extraction can consume tokens and then exit non-zero, reporting
     // nothing. Without a debit the same workspace could be retried all day
     // against a cap that still reads $0 — and a failing build is the incident
     // that motivated all of this.
-    const { host, getState } = makeHost({
-      overrides: { buildGraph: vi.fn().mockRejectedValue(new Error('rate limited')) },
-    });
+    const { host, getState } = makeHost({ overrides: { buildGraph: failsAfterSpawning() } });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await deliver(indexer, host, request(1, 'enable', 'ws1'));
@@ -134,9 +151,7 @@ describe('GraphifyIndexer — a failed build still costs', () => {
   });
 
   it('a second attempt sees the first attempt in the day total', async () => {
-    const { host, getState } = makeHost({
-      overrides: { buildGraph: vi.fn().mockRejectedValue(new Error('rate limited')) },
-    }, (state) => {
+    const { host, getState } = makeHost({ overrides: { buildGraph: failsAfterSpawning() } }, (state) => {
       state.settings.caps = { ...state.settings.caps, maxCostPerDayUsd: 0.03 };
     });
     const indexer = new GraphifyIndexer(host);
@@ -176,6 +191,52 @@ describe('GraphifyIndexer — the watermark cannot be rolled back', () => {
 
     expect(host.buildGraph).toHaveBeenCalledTimes(1);
     expect(getState().lastAppliedRequestId).toBe(1);
+    indexer.dispose();
+  });
+
+  it('does not debit a failure that never reached the model', async () => {
+    // A uv install failure or a missing provider key fails before anything can
+    // be sent. Charging the day for that is spend the user never incurred.
+    const { host, getState } = makeHost({
+      overrides: { buildGraph: vi.fn().mockRejectedValue(new Error('No API key configured for OpenAI')) },
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'enable', 'ws1'));
+    await indexer.idle();
+
+    expect(getState().spend.usd).toBe(0);
+    expect(getState().spend.runs).toHaveLength(0);
+    expect(getState().workspaces.ws1.status).toBe('error');
+    indexer.dispose();
+  });
+
+  it('keeps the reservation when a successful build reported no usage', async () => {
+    // A clean exit is not proof that usage was measured: the token line can be
+    // missing or cut from truncated output. Settling on the parser's zeros
+    // would write $0 over the debit and hand the daily cap straight back.
+    const { host, getState } = makeHost({
+      overrides: {
+        buildGraph: vi.fn(async (
+          workspace: { workspaceId: string },
+          _settings: unknown,
+          hooks: { beforePaidSpawn?: () => Promise<void> },
+        ) => {
+          await hooks.beforePaidSpawn?.();
+          return { stats: { ...STATS, inputTokens: 0, outputTokens: 0 }, usageMeasured: false };
+        }),
+      },
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'enable', 'ws1'));
+    await indexer.idle();
+
+    expect(getState().spend.usd).toBeGreaterThan(0);
+    expect(getState().spend.runs[0].estimated).toBe(true);
+    // The graph is still usable; only its cost is unknown.
+    expect(getState().workspaces.ws1.status).toBe('idle');
+    expect(getState().workspaces.ws1.stats?.costUsd).toBeUndefined();
     indexer.dispose();
   });
 });

@@ -25,7 +25,6 @@ export async function applySettingsPatch(host: IndexerHost, patch: SettingsPatch
     const settings = { ...state.settings };
     if (patch.model !== undefined) settings.model = patch.model;
     if (patch.caps) settings.caps = { ...settings.caps, ...patch.caps };
-    if (patch.nameCommunities !== undefined) settings.nameCommunities = patch.nameCommunities;
     if (patch.paused !== undefined) settings.paused = patch.paused;
     if (patch.maxConcurrency !== undefined) settings.maxConcurrency = patch.maxConcurrency;
     if (patch.exclude) settings.exclude = patch.exclude;

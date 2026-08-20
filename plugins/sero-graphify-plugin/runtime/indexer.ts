@@ -1,4 +1,5 @@
 import type {
+  BuildEstimate,
   GraphifyNotice,
   GraphifyState,
   IndexRequest,
@@ -6,6 +7,7 @@ import type {
   WorkspaceIndexStatus,
 } from '../shared/types';
 import { isIndexableWorkspace } from '../shared/types';
+import type { BuildOutcome } from './graphify-runner';
 import { authorizePaidBuild, type SpendHost } from './spend-guard';
 import { settleRun } from '../shared/ledger';
 import { reserveEstimate, settleStats } from './spend-record';
@@ -24,8 +26,8 @@ export interface IndexerHost extends SpendHost {
   updateState(updater: (current: GraphifyState) => GraphifyState): Promise<void>;
   listWorkspaces(): Promise<IndexerWorkspace[]>;
   ensureProvisioned(): Promise<void>;
-  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
-  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
+  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
+  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], hooks: JobHooks): Promise<BuildOutcome>;
   mergeProfileGraph(workspaceIds: string[]): Promise<{ nodes: number; edges: number }>;
   /** Delete a workspace's on-disk graph artifacts (idempotent — no-op if absent). */
   removeWorkspaceArtifacts(workspaceId: string): Promise<void>;
@@ -40,6 +42,12 @@ export interface IndexerHost extends SpendHost {
   /** Surface something the user must see. */
   notify(notice: GraphifyNotice): void;
   log(message: string): void;
+}
+
+export interface JobHooks {
+  onProgress?: (message: string) => void;
+  /** Fires at the last moment before a paid child process starts. */
+  beforePaidSpawn?: () => Promise<void>;
 }
 
 interface Job {
@@ -339,6 +347,7 @@ export class GraphifyIndexer {
     const runningStatus: WorkspaceIndexStatus = job.paid ? 'building' : 'updating';
     const startedAt = new Date().toISOString();
     let reservationId: string | null = null;
+    let estimate: BuildEstimate | null = null;
 
     if (job.paid) {
       const decision = await authorizePaidBuild(this.host, state, entry, { alwaysConfirm: job.confirm, now: new Date() });
@@ -347,11 +356,7 @@ export class GraphifyIndexer {
         return;
       }
       this.host.log(`[graphify] ${entry.name}: building — ${decision.estimate.files} files, ~${decision.estimate.estimatedInputTokens} tokens, model ${state.settings.model?.modelId}`);
-      // Debited before the process starts. An extraction that consumes tokens
-      // and then exits non-zero reports nothing, so a ledger written only on
-      // success would let a failing workspace be retried all day against a cap
-      // that still reads $0.
-      reservationId = await reserveEstimate(this.host, job.workspaceId, state.settings, decision.estimate, startedAt);
+      estimate = decision.estimate;
     }
     await this.setStatus(job.workspaceId, runningStatus, {
       progress: 'Starting…',
@@ -374,10 +379,18 @@ export class GraphifyIndexer {
     try {
       await this.host.ensureProvisioned();
       const target = { workspaceId: entry.workspaceId, path: entry.path };
-      const fresh = job.paid
-        ? await this.host.buildGraph(target, state.settings, onProgress)
-        : await this.host.updateGraph(target, state.settings, onProgress);
-      await this.completeJob(job, state, fresh, entry.stats, reservationId);
+      // The debit is taken at the last boundary before the paid child is
+      // spawned, once the toolchain, the credentials and the output directory
+      // have all succeeded. Reserving earlier charged the day for a uv install
+      // failure or a missing key — spend for a request that never happened.
+      const beforePaidSpawn = async () => {
+        if (!estimate) return;
+        reservationId = await reserveEstimate(this.host, job.workspaceId, state.settings, estimate, startedAt);
+      };
+      const outcome = job.paid
+        ? await this.host.buildGraph(target, state.settings, { onProgress, beforePaidSpawn })
+        : await this.host.updateGraph(target, state.settings, { onProgress });
+      await this.completeJob(job, state, outcome, entry.stats, reservationId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.host.log(`[graphify] build failed for ${job.workspaceId}: ${message}`);
@@ -396,14 +409,17 @@ export class GraphifyIndexer {
   private async completeJob(
     job: Job,
     state: GraphifyState,
-    fresh: WorkspaceIndexStats,
+    outcome: BuildOutcome,
     previous: WorkspaceIndexStats | undefined,
     reservationId: string | null,
   ): Promise<void> {
     const choice = state.settings.model;
-    const { stats, inputTokens, outputTokens, spentUsd } = settleStats(
-      job.paid, state.settings, fresh, previous, await this.host.graphifyVersion(),
+    const { stats, inputTokens, outputTokens, spentUsd, canSettle } = settleStats(
+      job.paid, state.settings, outcome, previous, await this.host.graphifyVersion(),
     );
+    if (job.paid && !canSettle) {
+      this.host.log(`[graphify] ${job.workspaceId}: build reported no token usage; keeping the reserved estimate as the debit`);
+    }
 
     await this.host.updateState((current) => {
       const entry = current.workspaces[job.workspaceId];
@@ -423,10 +439,9 @@ export class GraphifyIndexer {
           },
         },
       };
-      if (!job.paid || !choice || !reservationId) return next;
-      // Settle the reservation against measured usage. An unpriced model
-      // settles at zero: it cannot be held to the daily cap — which is why it
-      // always asks first — but the build stays in the day's record.
+      // The reservation only settles against usage that was actually measured.
+      // Anything else leaves the conservative debit standing.
+      if (!job.paid || !choice || !reservationId || !canSettle) return next;
       return {
         ...next,
         spend: settleRun(current.spend, reservationId, { inputTokens, outputTokens, usd: spentUsd ?? 0 }),

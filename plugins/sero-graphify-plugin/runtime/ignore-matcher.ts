@@ -31,6 +31,12 @@ function escapeRegex(value: string): string {
 /**
  * gitignore glob → regex source. Returns null when the pattern uses syntax this
  * cannot reproduce faithfully, so the caller can drop it rather than guess.
+ *
+ * Only the three documented forms of `**` span separators: a leading `**\/`, a
+ * trailing `/**`, and `/**\/` in the middle. Anywhere else — `foo**bar` — git
+ * treats consecutive asterisks as an ordinary `*` that stays inside one
+ * segment. Making every `**` recursive excluded `foo/x/bar` for a pattern git
+ * would not match, which is another way to under-count a build.
  */
 function globToRegexSource(glob: string): string | null {
   // Character classes and negations both change which files are included in
@@ -39,25 +45,34 @@ function globToRegexSource(glob: string): string | null {
   let source = '';
   for (let i = 0; i < glob.length; i += 1) {
     const char = glob[i];
-    if (char === '*') {
-      if (glob[i + 1] === '*') {
-        i += 1;
-        if (glob[i + 1] === '/') {
-          i += 1;
-          source += '(?:.*/)?'; // `**/` — any number of leading directories
-        } else {
-          source += '.*'; // `**` — spans separators
-        }
-      } else {
-        source += '[^/]*'; // `*` stays inside one segment
-      }
+    if (char !== '*') {
+      source += char === '?' ? '[^/]' : escapeRegex(char);
       continue;
     }
-    if (char === '?') {
-      source += '[^/]';
+
+    let run = 0;
+    while (glob[i + run] === '*') run += 1;
+    const isDouble = run === 2;
+    const atStart = i === 0;
+    const atEnd = i + run === glob.length;
+    const precededBySlash = glob[i - 1] === '/';
+    const followedBySlash = glob[i + run] === '/';
+
+    if (isDouble && (atStart || precededBySlash) && followedBySlash) {
+      // `**/` at the start, or `/**/` in the middle: any number of directories.
+      source += '(?:.*/)?';
+      i += run; // also consume the slash
       continue;
     }
-    source += escapeRegex(char);
+    if (isDouble && precededBySlash && atEnd) {
+      // Trailing `/**`: everything beneath. The `/` is already in `source`.
+      source += '.*';
+      i += run - 1;
+      continue;
+    }
+    // Any other run of asterisks behaves as a single in-segment `*`.
+    source += '[^/]*';
+    i += run - 1;
   }
   return source;
 }

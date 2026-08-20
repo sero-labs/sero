@@ -68,12 +68,6 @@ export interface GraphifySettings {
   caps: SpendCaps;
   /** Passed as --max-concurrency; 0 = graphify default. */
   maxConcurrency: number;
-  /**
-   * LLM community naming — a second paid pass over the built graph. Off by
-   * default: a graph is useful with `Community N` placeholders, and the pass
-   * costs real money.
-   */
-  nameCommunities: boolean;
   /** Blocks every paid job while true and empties the queue. */
   paused: boolean;
   autoContext: AutoContextSettings;
@@ -192,7 +186,6 @@ export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable
 export interface SettingsPatch {
   model?: ModelChoice | null;
   caps?: Partial<SpendCaps>;
-  nameCommunities?: boolean;
   paused?: boolean;
   maxConcurrency?: number;
   exclude?: string[];
@@ -268,7 +261,6 @@ export const DEFAULT_STATE: GraphifyState = Object.freeze({
     exclude: ['node_modules', 'dist', 'build', 'out', '.git', '*.lock', '*.min.js', '*.map'],
     caps: DEFAULT_CAPS,
     maxConcurrency: 0,
-    nameCommunities: false,
     paused: false,
     autoContext: {
       sessionSummary: true,

@@ -1,13 +1,13 @@
 import path from 'node:path';
 import { access, readdir, rm } from 'node:fs/promises';
 import type { AppRuntimeContext } from '@sero-ai/common';
-import type { GraphifyNotice, GraphifyState, ModelChoice, WorkspaceIndexStats } from '../shared/types';
+import type { GraphifyNotice, GraphifyState, ModelChoice } from '../shared/types';
 import { withStateDefaults } from '../shared/types';
 import { estimateFromScan } from '../shared/pricing';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
 import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge } from './graphify-runner';
+import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
 import { cleanEnv, extractionEnv } from './credentials';
 import { scanWorkspace } from './estimator';
 import { graphStats, loadGraph } from '../shared/query-engine';
@@ -105,15 +105,16 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     model: requireModel(settings),
     tokenBudget: settings.tokenBudget,
     maxConcurrency: settings.maxConcurrency,
-    nameCommunities: settings.nameCommunities,
     exclude: settings.exclude,
   });
 
   // Stdout stat lines are best-effort (a no-change update prints none at all);
-  // the graph file is the source of truth for structural counts.
-  const withAuthoritativeStats = async (workspaceId: string, stats: WorkspaceIndexStats): Promise<WorkspaceIndexStats> => {
+  // the graph file is the source of truth for structural counts. Token usage is
+  // NOT overwritten here: `usageMeasured` says whether it was reported at all,
+  // and the graph file cannot answer that.
+  const withAuthoritativeStats = async (workspaceId: string, outcome: BuildOutcome): Promise<BuildOutcome> => {
     const graph = await loadGraph(workspaceGraphJson(paths, workspaceId));
-    return graph ? { ...stats, ...graphStats(graph) } : stats;
+    return graph ? { ...outcome, stats: { ...outcome.stats, ...graphStats(graph) } } : outcome;
   };
 
   const host: IndexerHost = {
@@ -168,17 +169,20 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         source: 'Graphify',
         openTarget: { appId: 'graphify' },
       }),
-    buildGraph: async (workspace, settings, onProgress) =>
+    buildGraph: async (workspace, settings, hooks) =>
+      // extractionDeps resolves the credentials and the toolchain path, and
+      // throws when either is missing — before beforePaidSpawn can debit.
       withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await extractionDeps(settings), {
         ...buildOptionsFor(workspace, settings),
-        onProgress,
+        onProgress: hooks.onProgress,
+        beforePaidSpawn: hooks.beforePaidSpawn,
       })),
-    updateGraph: async (workspace, _settings, onProgress) =>
+    updateGraph: async (workspace, _settings, hooks) =>
       // `graphify update` is AST-only (no LLM), so no credentials needed.
       withAuthoritativeStats(workspace.workspaceId, await updateWorkspaceGraph(await localDeps(), {
         workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
         inputPath: workspace.path,
-        onProgress,
+        onProgress: hooks.onProgress,
       })),
     mergeProfileGraph: async (workspaceIds) => {
       await runMerge(await localDeps(), workspaceIds.map((id) => workspaceGraphJson(paths, id)), paths.profileGraph);

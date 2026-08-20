@@ -73,7 +73,16 @@ describe('GraphifyIndexer — one action, one build', () => {
 
   it('does not queue a second build for a workspace already building', async () => {
     let finish: (stats: WorkspaceIndexStats) => void = () => {};
-    const buildGraph = vi.fn(() => new Promise<WorkspaceIndexStats>((resolve) => { finish = resolve; }));
+    const buildGraph = vi.fn(async (
+      _workspace: unknown,
+      _settings: unknown,
+      hooks: { beforePaidSpawn?: () => Promise<void> },
+    ) => {
+      await hooks.beforePaidSpawn?.();
+      return new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean }>((resolve) => {
+        finish = (stats) => resolve({ stats, usageMeasured: true });
+      });
+    });
     const { host, getState } = makeHost({ overrides: { buildGraph } });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();

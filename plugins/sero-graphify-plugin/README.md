@@ -15,8 +15,13 @@ One rule drives the whole plugin:
 > **Money is spent only by an explicit user action, with the model, the size and
 > the estimated cost known first. A restart never spends.**
 
-`graphify extract` and the community-naming pass are the only steps that cost
-anything. `update`, `merge-graphs`, and every query are local.
+`graphify extract` is the only step that costs anything. `update`,
+`merge-graphs`, `cluster-only` (always `--no-label`) and every query are local.
+
+Community naming is a second LLM pass and is **not run**. The pre-flight
+estimate prices the extraction, so naming inside a build would leave part of the
+authorised job outside both caps. It belongs in its own confirmed job, priced
+from the community count the free clustering pass produces.
 
 Before any paid build the runtime: refuses if paused or if no model is chosen;
 scans the tree the build will read (files **and bytes** — graphify chunks by
@@ -24,6 +29,13 @@ tokens, so dense prose costs more than its file count suggests); checks the
 per-build, per-day and file caps against a durable ledger; and asks the user.
 A model with no known price always asks, because an unknown price cannot be
 checked against a cap. An unanswered dialog is a no.
+
+The debit is durable and taken at the **last boundary before the child process
+spawns** — after the toolchain, the credentials and the output directory have
+all succeeded — then settled against measured usage. Three rules follow: a
+failure before that boundary is never charged; a failure after it keeps its
+debit; and a build that reports no token usage keeps the estimate rather than
+settling to zero, because a clean exit is not proof that usage was measured.
 
 Nothing retries on its own. A failed or unbuilt workspace sits in
 `needs-build`/`error` until someone presses a button.
@@ -86,7 +98,6 @@ caches, fully idle when no graph exists.
 | `caps.maxCostPerBuildUsd` | `2` | A build estimated above this is refused |
 | `caps.maxCostPerDayUsd` | `10` | Profile-wide, measured against `state.spend` |
 | `caps.maxFilesPerBuild` | `5000` | Bigger trees are refused, not truncated |
-| `nameCommunities` | `false` | The LLM naming pass is a **second paid pass**; a graph works with `Community N` placeholders |
 | `paused` | `false` | Blocks all paid work |
 | `maxConcurrency` | `0` | `--max-concurrency`; 0 = graphify default |
 | `tokenBudget` | `0` | Per-**chunk** packing size (`--token-budget`). **Not a spend cap** — a larger value spends more per call, not less |

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Button, Card, Input, Label, Switch,
+  Button, Card, Input, Label,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@sero-ai/ui';
 import type { GraphifyBackend, GraphifyState } from '../shared/types';
@@ -98,12 +98,6 @@ export function SpendSettings({ state, onConfigure }: Props) {
         <NumberField key={`files-${caps.maxFilesPerBuild}`} label="Max files" value={caps.maxFilesPerBuild} onCommit={(value) => onConfigure({ maxFilesPerBuild: value })} step="500" />
       </div>
 
-      <ToggleRow
-        label="Name communities with the model"
-        checked={settings.nameCommunities}
-        onChange={(nameCommunities) => onConfigure({ nameCommunities })}
-      />
-
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>Spent today</span>
         <span>{formatUsd(spentToday)} of {formatUsd(caps.maxCostPerDayUsd)}</span>
@@ -139,11 +133,3 @@ function NumberField({ label, value, onCommit, step }: { label: string; value: n
   );
 }
 
-function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <Label>{label}</Label>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}

@@ -28,7 +28,6 @@ function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
     model: MODEL,
     tokenBudget: 0,
     maxConcurrency: 0,
-    nameCommunities: false,
     exclude: [],
     ...overrides,
   };
@@ -37,16 +36,23 @@ function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
 describe('parseBuildStats', () => {
   it('parses comma-formatted stats and tokens', () => {
     expect(parseBuildStats(EXTRACT_STDOUT)).toEqual({
-      nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000,
+      usageMeasured: true,
+      stats: { nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000 },
     });
   });
   it('parses graphify update output', () => {
+    // No token line: usage is unknown, NOT zero. Settling a reservation on this
+    // would write $0 over a conservative debit and hand back the daily cap.
     expect(parseBuildStats(UPDATE_STDOUT)).toEqual({
-      nodes: 35, edges: 42, communities: 5, inputTokens: 0, outputTokens: 0,
+      usageMeasured: false,
+      stats: { nodes: 35, edges: 42, communities: 5, inputTokens: 0, outputTokens: 0 },
     });
   });
   it('defaults to zeros on unparseable output', () => {
-    expect(parseBuildStats('done')).toEqual({ nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 });
+    expect(parseBuildStats('done')).toEqual({
+      usageMeasured: false,
+      stats: { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 },
+    });
   });
 });
 
@@ -57,7 +63,7 @@ describe('buildWorkspaceGraph', () => {
       { exec, graphifyPath: '/tools/bin/graphify', env: {} },
       buildOpts({ inputPath: '/home/me/proj', tokenBudget: 4096, exclude: ['node_modules'] }),
     );
-    expect(stats.nodes).toBe(1234);
+    expect(stats.stats.nodes).toBe(1234);
     const [cmd, args, opts] = exec.mock.calls[0];
     expect(cmd).toBe('/tools/bin/graphify');
     expect(args).toEqual([
@@ -104,22 +110,26 @@ describe('buildWorkspaceGraph', () => {
     expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
   });
 
-  it('names communities only when asked, and always names the backend explicitly', async () => {
-    // `cluster-only` parses only the `--backend=X` form, and with no backend it
-    // scans the environment and takes the first provider with a key — gemini
-    // before claude. Passing it explicitly is what keeps the paid naming pass
-    // on the provider the user chose.
+  it('never runs the paid naming pass inside a build', async () => {
+    // Naming is a second LLM pass the pre-flight estimate never covered, so
+    // running it here would leave part of the authorised job outside both caps.
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
-    await buildWorkspaceGraph(
-      { exec, graphifyPath: 'g', env: {} },
-      buildOpts({ nameCommunities: true }),
-    );
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
     const [, reportArgs] = exec.mock.calls[1];
-    // The model matters as much as the backend: with none, cluster-only falls
-    // back to that backend's default and quietly names communities on a
-    // different model from the extraction beside it.
-    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--backend=claude', '--model=gpt-5.6-luna']);
-    expect(reportArgs).not.toContain('--no-label');
+    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--no-label']);
+  });
+
+  it('debits only at the spawn boundary, after preparation succeeded', async () => {
+    const order: string[] = [];
+    const exec = vi.fn().mockImplementation(async () => {
+      order.push('exec');
+      return ok(EXTRACT_STDOUT);
+    });
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({
+      beforePaidSpawn: async () => { order.push('reserve'); },
+    }));
+    expect(order[0]).toBe('reserve');
+    expect(order[1]).toBe('exec');
   });
 
   it('keeps a built graph when the report step fails', async () => {
@@ -129,7 +139,7 @@ describe('buildWorkspaceGraph', () => {
       .mockResolvedValueOnce(ok(EXTRACT_STDOUT))
       .mockResolvedValueOnce({ stdout: '', stderr: 'cluster boom', exitCode: 1, truncated: false });
     const stats = await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
-    expect(stats.nodes).toBe(1234);
+    expect(stats.stats.nodes).toBe(1234);
   });
 
   it('does not let a chatty build be killed for its output', async () => {
@@ -160,7 +170,7 @@ describe('updateWorkspaceGraph', () => {
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
       { workspaceDir: STORE, inputPath: '/home/me/proj' },
     );
-    expect(stats.nodes).toBe(35);
+    expect(stats.stats.nodes).toBe(35);
     const [, args, opts] = exec.mock.calls[0];
     expect(args).toEqual(['update', '/home/me/proj']);
     expect(opts.env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));

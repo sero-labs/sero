@@ -73,6 +73,11 @@ free.
   limit stops a build, Graphify says which one and does not try again.
 - **Restarting never spends.** A project that has never been built waits, and
   so does one whose build failed. You press the button.
+- **A failed build still counts.** A build can use the model and then fail, so
+  Graphify records what it was allowed to spend before it starts. A failure
+  that never reached the model is not counted.
+- **Community names are not made yet.** That is a second use of the model, and
+  its cost is not in the estimate, so your graph uses `Community 1` and so on.
 - **Pause** stops all paid work at once.
 
 ## Sensible defaults & safety

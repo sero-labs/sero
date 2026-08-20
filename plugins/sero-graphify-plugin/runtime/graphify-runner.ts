@@ -22,14 +22,17 @@ export interface UpdateOptions {
 }
 
 export interface BuildOptions extends UpdateOptions {
+  /**
+   * Called immediately before the paid child process is spawned, after every
+   * non-spending preparation has succeeded. The durable spend debit goes here.
+   */
+  beforePaidSpawn?: () => Promise<void>;
   /** The chosen backend and model. Never absent for a paid pass. */
   model: ModelChoice;
   /** Per-chunk packing size (--token-budget). NOT a spend cap. */
   tokenBudget: number;
   /** Parallel LLM calls (--max-concurrency); 0 leaves graphify's default. */
   maxConcurrency: number;
-  /** Run the LLM community-naming pass. A second paid pass, so off by default. */
-  nameCommunities: boolean;
   exclude: string[];
 }
 
@@ -42,21 +45,38 @@ function tail(text: string, max = 2000): string {
 }
 
 /**
+ * What a graphify run reported.
+ *
+ * `usageMeasured` is the important half. A successful exit is not proof that
+ * usage was measured: the token line is absent from some outputs and can be cut
+ * from a truncated one, and the parser returns zeros for anything it does not
+ * recognise. Treating that as "this build cost nothing" would settle a
+ * conservative reservation down to zero and hand the daily cap straight back.
+ */
+export interface BuildOutcome {
+  stats: WorkspaceIndexStats;
+  usageMeasured: boolean;
+}
+
+/**
  * Parse stats from graphify stdout. Matches both shapes seen in the spike:
  *   "[graphify extract] wrote …: 1,234 nodes, 5,678 edges, 12 communities"
  *   "[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities"
  *   "[graphify extract] tokens: 45,000 in / 9,000 out, est. cost (~claude): $0.51"
  */
-export function parseBuildStats(stdout: string): WorkspaceIndexStats {
+export function parseBuildStats(stdout: string): BuildOutcome {
   const summary = stdout.match(/(\d[\d,]*)\s+nodes?,\s*(\d[\d,]*)\s+edges?,\s*(\d[\d,]*)\s+communities/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
   const tokens = stdout.match(/(\d[\d,]*)\s+in\s*\/\s*(\d[\d,]*)\s+out/i);
   return {
-    nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
-    edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
-    communities: parse(summary?.[3]),
-    inputTokens: parse(tokens?.[1]),
-    outputTokens: parse(tokens?.[2]),
+    usageMeasured: tokens !== null,
+    stats: {
+      nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
+      edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
+      communities: parse(summary?.[3]),
+      inputTokens: parse(tokens?.[1]),
+      outputTokens: parse(tokens?.[2]),
+    },
   };
 }
 
@@ -108,13 +128,18 @@ export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
   }
 }
 
-export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
+export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
   await mkdir(options.workspaceDir, { recursive: true });
   await ensureGraphifyIgnore(options.inputPath);
   // `--out` only redirects the graph; the AST/semantic extraction cache
   // resolves from the GRAPHIFY_OUT env var and would otherwise land inside
   // the workspace as <inputPath>/graphify-out/cache (observed live).
   const storeOutEnv = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
+  // The last boundary before money can be spent. Everything above — the
+  // toolchain, the credentials, the output directory — has already succeeded,
+  // so a debit taken here cannot be charged for a build that never reached the
+  // model.
+  await options.beforePaidSpawn?.();
   const result = await deps.exec(deps.graphifyPath, buildArgs(options), {
     cwd: options.workspaceDir,
     env: storeOutEnv,
@@ -130,41 +155,33 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
     throw new Error(`graphify extract failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
   }
 
-  const stats = parseBuildStats(result.stdout);
+  const extraction = parseBuildStats(result.stdout);
   const cluster = await clusterGraph(deps, options, storeOutEnv);
   return {
-    ...stats,
-    inputTokens: stats.inputTokens + cluster.inputTokens,
-    outputTokens: stats.outputTokens + cluster.outputTokens,
-    communities: cluster.communities || stats.communities,
+    usageMeasured: extraction.usageMeasured,
+    stats: {
+      ...extraction.stats,
+      communities: cluster.communities || extraction.stats.communities,
+    },
   };
 }
 
 /**
- * Clustering and the report. Naming communities is a **second paid pass**, so
- * it only runs when the user asked for it, and it is told exactly which backend
- * and model to use.
+ * Clustering and the report — **always free**.
  *
- * Both flags matter. Given no backend, `cluster-only` scans the environment and
- * takes the first provider with a key — gemini before claude — so it would
- * otherwise bill a provider the user never chose. Given no model, it falls back
- * to that backend's default, which is how a naming pass could quietly run on a
- * different model from the extraction beside it.
+ * `--no-label` is unconditional. Naming communities is a second LLM pass, and
+ * running it here would spend money the pre-flight estimate never covered, so
+ * neither the per-build nor the daily cap would bound the whole job it
+ * authorised. Naming belongs in its own confirmed job, priced from the
+ * community count this pass produces.
  */
 async function clusterGraph(
   deps: RunnerDeps,
   options: BuildOptions,
   env: NodeJS.ProcessEnv,
 ): Promise<WorkspaceIndexStats> {
-  options.onProgress?.(options.nameCommunities
-    ? 'Generating GRAPH_REPORT.md and naming communities…'
-    : 'Generating GRAPH_REPORT.md…');
-  const args = ['cluster-only', options.workspaceDir, '--no-viz'];
-  if (options.nameCommunities) {
-    args.push(`--backend=${options.model.backend}`, `--model=${options.model.modelId}`);
-  } else {
-    args.push('--no-label');
-  }
+  options.onProgress?.('Generating GRAPH_REPORT.md…');
+  const args = ['cluster-only', options.workspaceDir, '--no-viz', '--no-label'];
 
   const result = await deps.exec(deps.graphifyPath, args, {
     cwd: options.workspaceDir,
@@ -181,10 +198,10 @@ async function clusterGraph(
     options.onProgress?.(`Report step failed (exit ${result.exitCode}); the graph itself is complete.`);
     return { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 };
   }
-  return parseBuildStats(result.stdout);
+  return parseBuildStats(result.stdout).stats;
 }
 
-export async function updateWorkspaceGraph(deps: RunnerDeps, options: UpdateOptions): Promise<WorkspaceIndexStats> {
+export async function updateWorkspaceGraph(deps: RunnerDeps, options: UpdateOptions): Promise<BuildOutcome> {
   await ensureGraphifyIgnore(options.inputPath);
   // `update` writes to <inputPath>/$GRAPHIFY_OUT; an absolute GRAPHIFY_OUT
   // redirects everything into the store dir (verified live in the spike).

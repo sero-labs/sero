@@ -20,14 +20,19 @@ export const GRAPHIFY_VERSION = '0.9.47';
 /**
  * Backend SDKs are optional extras of graphifyy; the bare package can only do
  * AST extraction ("the 'anthropic' package is required for this backend").
- * Install every supported backend's extra so switching backends in settings
- * never needs a reinstall (deepseek rides on the openai client).
+ * Install every offered backend's extra so switching backends never needs a
+ * reinstall. deepseek rides on the openai client. `bedrock` pulls boto3; `azure`
+ * has no extra of its own because it rides on the openai client. A missing
+ * extra fails the build after the toolchain is ready, which — before the debit
+ * moved to the last boundary — also charged the user for it.
  */
-export const GRAPHIFY_INSTALL_SPEC = `graphifyy[anthropic,openai,gemini,kimi,ollama]==${GRAPHIFY_VERSION}`;
+const BACKEND_EXTRAS = 'anthropic,openai,gemini,kimi,ollama,bedrock';
 
 export function installSpecFor(version: string): string {
-  return `graphifyy[anthropic,openai,gemini,kimi,ollama]==${version}`;
+  return `graphifyy[${BACKEND_EXTRAS}]==${version}`;
 }
+
+export const GRAPHIFY_INSTALL_SPEC = installSpecFor(GRAPHIFY_VERSION);
 
 export interface ProvisionDeps {
   /** Resolve the uv executable (host.toolchains.ensure('uv')). */

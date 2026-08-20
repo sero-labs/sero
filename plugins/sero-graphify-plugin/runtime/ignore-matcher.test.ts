@@ -68,4 +68,28 @@ describe('createIgnoreMatcher', () => {
     expect(matcher.ignores('node_modules/pkg/index.js')).toBe(true);
     expect(matcher.ignores('src/index.ts')).toBe(false);
   });
+
+  it('does not let a mid-pattern ** span directories', () => {
+    // git only treats `**` as recursive as a whole path segment: leading `**\/`,
+    // trailing `/**`, or `/**\/`. In `foo**bar` the asterisks are an ordinary
+    // `*` that stays inside one segment. Making every `**` recursive excluded
+    // paths git would index — another way to under-count a build.
+    const matcher = match(['foo**bar']);
+    expect(matcher.ignores('foo/x/bar')).toBe(false);
+    expect(matcher.ignores('fooXbar')).toBe(true);
+    expect(matcher.ignores('foobar')).toBe(true);
+  });
+
+  it('handles the three recursive forms', () => {
+    expect(match(['**/gen']).ignores('a/b/gen/x.ts')).toBe(true);
+    expect(match(['src/**']).ignores('src/a/b/x.ts')).toBe(true);
+    expect(match(['src/**/gen']).ignores('src/a/b/gen/x.ts')).toBe(true);
+    expect(match(['src/**/gen']).ignores('other/a/gen/x.ts')).toBe(false);
+  });
+
+  it('treats a run of three or more asterisks as one in-segment star', () => {
+    const matcher = match(['a***b']);
+    expect(matcher.ignores('a/x/b')).toBe(false);
+    expect(matcher.ignores('aXXb')).toBe(true);
+  });
 });
