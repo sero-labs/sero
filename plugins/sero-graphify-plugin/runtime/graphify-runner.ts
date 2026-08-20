@@ -145,11 +145,11 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
  * it only runs when the user asked for it, and it is told exactly which backend
  * and model to use.
  *
- * `cluster-only` takes no backend from a flag unless it is spelled
- * `--backend=X` (the space form is not parsed), and with none it scans the
- * environment and picks the first provider with a key — gemini before claude.
- * Passing it explicitly is what stops the pass drifting onto a provider the
- * user never chose.
+ * Both flags matter. Given no backend, `cluster-only` scans the environment and
+ * takes the first provider with a key — gemini before claude — so it would
+ * otherwise bill a provider the user never chose. Given no model, it falls back
+ * to that backend's default, which is how a naming pass could quietly run on a
+ * different model from the extraction beside it.
  */
 async function clusterGraph(
   deps: RunnerDeps,
@@ -160,8 +160,11 @@ async function clusterGraph(
     ? 'Generating GRAPH_REPORT.md and naming communities…'
     : 'Generating GRAPH_REPORT.md…');
   const args = ['cluster-only', options.workspaceDir, '--no-viz'];
-  if (options.nameCommunities) args.push(`--backend=${options.model.backend}`);
-  else args.push('--no-label');
+  if (options.nameCommunities) {
+    args.push(`--backend=${options.model.backend}`, `--model=${options.model.modelId}`);
+  } else {
+    args.push('--no-label');
+  }
 
   const result = await deps.exec(deps.graphifyPath, args, {
     cwd: options.workspaceDir,

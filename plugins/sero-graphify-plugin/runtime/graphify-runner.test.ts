@@ -115,7 +115,10 @@ describe('buildWorkspaceGraph', () => {
       buildOpts({ nameCommunities: true }),
     );
     const [, reportArgs] = exec.mock.calls[1];
-    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--backend=claude']);
+    // The model matters as much as the backend: with none, cluster-only falls
+    // back to that backend's default and quietly names communities on a
+    // different model from the extraction beside it.
+    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--backend=claude', '--model=gpt-5.6-luna']);
     expect(reportArgs).not.toContain('--no-label');
   });
 

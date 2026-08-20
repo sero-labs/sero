@@ -6,8 +6,9 @@ import type {
   WorkspaceIndexStatus,
 } from '../shared/types';
 import { isIndexableWorkspace } from '../shared/types';
-import { costUsd } from '../shared/pricing';
-import { authorizePaidBuild, recordRun, utcDay, type SpendHost } from './spend-guard';
+import { authorizePaidBuild, type SpendHost } from './spend-guard';
+import { settleRun } from '../shared/ledger';
+import { reserveEstimate, settleStats } from './spend-record';
 import { sweepOrphanArtifacts, syncWorkspaceList } from './workspace-sync';
 import { applySettingsPatch, upgradeGraphifyTool } from './settings';
 
@@ -61,6 +62,16 @@ export class GraphifyIndexer {
   /** The job running right now, so a repeat request cannot queue a second one. */
   private activeJob: Job | null = null;
   private rerunRequested = false;
+  /**
+   * Highest request id this process has applied.
+   *
+   * The authority is here, not in the file. The extension appends requests from
+   * its own process, so a write of its own can land on top of one of ours and
+   * carry an older watermark back — which would make an already-drained request
+   * eligible again, and a paid rebuild run twice. An in-memory high-water mark
+   * cannot be rolled back by another process.
+   */
+  private appliedWatermark = 0;
 
   constructor(private readonly host: IndexerHost) {}
 
@@ -76,6 +87,7 @@ export class GraphifyIndexer {
    */
   async start(): Promise<void> {
     const before = await this.host.readState();
+    this.appliedWatermark = before?.lastAppliedRequestId ?? 0;
     await this.syncWorkspaces({ normalizeStatuses: true });
     await sweepOrphanArtifacts(this.host);
 
@@ -106,9 +118,12 @@ export class GraphifyIndexer {
 
     let pending: IndexRequest[] = [];
     await this.host.updateState((current) => {
-      const watermark = current.lastAppliedRequestId ?? 0;
+      // Whichever is further ahead wins, so a rolled-back file cannot resurrect
+      // a request this process already applied.
+      const watermark = Math.max(this.appliedWatermark, current.lastAppliedRequestId ?? 0);
       pending = (current.requests ?? []).filter((request) => request.id > watermark);
       const highest = (current.requests ?? []).reduce((max, request) => Math.max(max, request.id), watermark);
+      this.appliedWatermark = highest;
       return { ...current, requests: [], lastAppliedRequestId: highest };
     });
 
@@ -321,6 +336,10 @@ export class GraphifyIndexer {
     const entry = state?.workspaces[job.workspaceId];
     if (!state || !entry?.enabled) return;
 
+    const runningStatus: WorkspaceIndexStatus = job.paid ? 'building' : 'updating';
+    const startedAt = new Date().toISOString();
+    let reservationId: string | null = null;
+
     if (job.paid) {
       const decision = await authorizePaidBuild(this.host, state, entry, { alwaysConfirm: job.confirm, now: new Date() });
       if (!decision.allowed) {
@@ -328,10 +347,12 @@ export class GraphifyIndexer {
         return;
       }
       this.host.log(`[graphify] ${entry.name}: building — ${decision.estimate.files} files, ~${decision.estimate.estimatedInputTokens} tokens, model ${state.settings.model?.modelId}`);
+      // Debited before the process starts. An extraction that consumes tokens
+      // and then exits non-zero reports nothing, so a ledger written only on
+      // success would let a failing workspace be retried all day against a cap
+      // that still reads $0.
+      reservationId = await reserveEstimate(this.host, job.workspaceId, state.settings, decision.estimate, startedAt);
     }
-
-    const runningStatus: WorkspaceIndexStatus = job.paid ? 'building' : 'updating';
-    const startedAt = new Date().toISOString();
     await this.setStatus(job.workspaceId, runningStatus, {
       progress: 'Starting…',
       lastAttemptAt: startedAt,
@@ -356,7 +377,7 @@ export class GraphifyIndexer {
       const fresh = job.paid
         ? await this.host.buildGraph(target, state.settings, onProgress)
         : await this.host.updateGraph(target, state.settings, onProgress);
-      await this.completeJob(job, state, fresh, entry.stats);
+      await this.completeJob(job, state, fresh, entry.stats, reservationId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.host.log(`[graphify] build failed for ${job.workspaceId}: ${message}`);
@@ -365,8 +386,9 @@ export class GraphifyIndexer {
         progress: undefined,
         failureCount: (entry.failureCount ?? 0) + 1,
       });
-      // No automatic retry, here or at the next start. A failure that already
-      // spent tokens must not spend them again without the user asking.
+      // The reservation is deliberately left standing: the build may well have
+      // spent tokens before it failed, and the day's cap must reflect that.
+      // No automatic retry, here or at the next start.
       this.host.notify(notice('refused', `Indexing ${entry.name} failed: ${message}`));
     }
   }
@@ -376,22 +398,12 @@ export class GraphifyIndexer {
     state: GraphifyState,
     fresh: WorkspaceIndexStats,
     previous: WorkspaceIndexStats | undefined,
+    reservationId: string | null,
   ): Promise<void> {
     const choice = state.settings.model;
-    // A free update reports no tokens; keep the paid build's numbers visible
-    // rather than showing a graph that looks like it cost nothing.
-    const inputTokens = fresh.inputTokens || (job.paid ? 0 : previous?.inputTokens ?? 0);
-    const outputTokens = fresh.outputTokens || (job.paid ? 0 : previous?.outputTokens ?? 0);
-    const spent = job.paid && choice ? costUsd(choice, inputTokens, outputTokens) : null;
-    const stats: WorkspaceIndexStats = {
-      ...fresh,
-      inputTokens,
-      outputTokens,
-      costUsd: spent ?? (job.paid ? undefined : previous?.costUsd),
-      model: job.paid ? choice?.modelId : previous?.model,
-      backend: job.paid ? choice?.backend : previous?.backend,
-      graphifyVersion: job.paid ? await this.host.graphifyVersion() : previous?.graphifyVersion,
-    };
+    const { stats, inputTokens, outputTokens, spentUsd } = settleStats(
+      job.paid, state.settings, fresh, previous, await this.host.graphifyVersion(),
+    );
 
     await this.host.updateState((current) => {
       const entry = current.workspaces[job.workspaceId];
@@ -411,22 +423,13 @@ export class GraphifyIndexer {
           },
         },
       };
-      if (!job.paid || !choice) return next;
-      const day = utcDay(new Date());
+      if (!job.paid || !choice || !reservationId) return next;
+      // Settle the reservation against measured usage. An unpriced model
+      // settles at zero: it cannot be held to the daily cap — which is why it
+      // always asks first — but the build stays in the day's record.
       return {
         ...next,
-        // An unpriced model still lands in the ledger, at zero. It cannot be
-        // held to the daily cap — which is why it always asks first — but the
-        // build must not vanish from the record of what was run today.
-        spend: recordRun(current.spend, {
-          workspaceId: job.workspaceId,
-          backend: choice.backend,
-          model: choice.modelId,
-          inputTokens,
-          outputTokens,
-          usd: spent ?? 0,
-          at: new Date().toISOString(),
-        }, day),
+        spend: settleRun(current.spend, reservationId, { inputTokens, outputTokens, usd: spentUsd ?? 0 }),
       };
     });
     await this.merge();

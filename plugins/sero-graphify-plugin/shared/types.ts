@@ -131,9 +131,16 @@ export interface BuildEstimate {
   estimatedInputTokens: number;
   /** Null when no price is known for the chosen model — never guess. */
   estimatedCostUsd: number | null;
+  /**
+   * Ignore patterns the scan could not apply exactly, so their files were
+   * counted. The estimate is high rather than wrong, and says so.
+   */
+  unsupportedPatterns?: string[];
 }
 
 export interface SpendRun {
+  /** Identifies the attempt, so a reservation can be settled or kept. */
+  id: string;
   workspaceId: string;
   backend: GraphifyBackend;
   model: string;
@@ -141,6 +148,15 @@ export interface SpendRun {
   outputTokens: number;
   usd: number;
   at: string;
+  /**
+   * True while this is the authorised estimate rather than measured usage.
+   *
+   * A build is debited before it starts. An extraction that consumes tokens and
+   * then exits non-zero reports nothing, so settling only on success would let
+   * a failing workspace be retried all day against a cap that still reads $0 —
+   * and a failing build is the incident this whole change exists to stop.
+   */
+  estimated?: boolean;
 }
 
 /** Durable spend record, so a cap survives a restart and the panel can show it. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { costUsd, estimateFromScan, formatEstimate, MODEL_ENV_VAR, priceFor } from './pricing';
-import type { ModelChoice } from './types';
+import type { GraphifyBackend, ModelChoice } from './types';
 
 const choice = (backend: ModelChoice['backend'], modelId: string, price?: ModelChoice['price']): ModelChoice =>
   ({ backend, modelId, chosenAt: 'now', price });
@@ -50,10 +50,32 @@ describe('estimateFromScan', () => {
 });
 
 describe('MODEL_ENV_VAR', () => {
-  it('names the variable the naming pass actually reads', () => {
-    // `cluster-only` resolves the backend default and ignores --model, so this
-    // is the only lever on that pass.
-    expect(MODEL_ENV_VAR.openai).toBe('GRAPHIFY_OPENAI_MODEL');
-    expect(MODEL_ENV_VAR['claude-cli']).toBe('GRAPHIFY_CLAUDE_CLI_MODEL');
+  /**
+   * Read from the pinned graphifyy source: a backend's `model_env_key`, or a
+   * variable its `default_model` resolves through. `kimi` has neither at
+   * 0.9.47, so it must have no entry — an invented variable would look like a
+   * control and do nothing.
+   */
+  const VERIFIED: Record<GraphifyBackend, string | null> = {
+    claude: 'ANTHROPIC_MODEL',
+    'claude-cli': 'GRAPHIFY_CLAUDE_CLI_MODEL',
+    openai: 'GRAPHIFY_OPENAI_MODEL',
+    gemini: 'GRAPHIFY_GEMINI_MODEL',
+    deepseek: 'GRAPHIFY_DEEPSEEK_MODEL',
+    azure: 'GRAPHIFY_AZURE_MODEL',
+    bedrock: 'GRAPHIFY_BEDROCK_MODEL',
+    ollama: 'OLLAMA_MODEL',
+    kimi: null,
+  };
+
+  it.each(Object.entries(VERIFIED))('matches upstream for %s', (backend, expected) => {
+    expect(MODEL_ENV_VAR[backend as GraphifyBackend] ?? null).toBe(expected);
+  });
+
+  it('never invents a variable for a backend that has none', () => {
+    // The model still reaches the naming pass for every backend, because
+    // cluster-only takes --model on the pinned version. This map is only the
+    // second belt.
+    expect(MODEL_ENV_VAR.kimi).toBeUndefined();
   });
 });

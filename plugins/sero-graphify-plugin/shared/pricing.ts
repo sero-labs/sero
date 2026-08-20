@@ -48,7 +48,7 @@ export const BYTES_PER_TOKEN = 4;
 const OUTPUT_TOKEN_RATIO = 0.2;
 
 export function estimateFromScan(
-  scan: { files: number; bytes: number; truncated: boolean },
+  scan: { files: number; bytes: number; truncated: boolean; unsupportedPatterns?: string[] },
   choice: ModelChoice | null,
 ): BuildEstimate {
   const estimatedInputTokens = Math.round(scan.bytes / BYTES_PER_TOKEN);
@@ -57,6 +57,7 @@ export function estimateFromScan(
     files: scan.files,
     bytes: scan.bytes,
     truncated: scan.truncated,
+    unsupportedPatterns: scan.unsupportedPatterns,
     estimatedInputTokens,
     estimatedCostUsd: choice ? costUsd(choice, estimatedInputTokens, outputTokens) : null,
   };
@@ -76,20 +77,25 @@ export function formatEstimate(estimate: BuildEstimate, choice: ModelChoice | nu
 }
 
 /**
- * The environment variable that sets the model for the community-naming pass.
+ * A second way to name the model, belt to the `--model` flag's braces.
  *
- * `graphify cluster-only` resolves the model with
- * `_default_model_for_backend(backend)` and ignores `--model` completely, so
- * the flag alone cannot control that pass. The `claude` backend has no such
- * variable before graphifyy 0.9.x, which is why naming is off by default.
+ * Every entry is verified against the pinned graphifyy source: each is either a
+ * backend's `model_env_key`, or a variable its `default_model` reads. `kimi`
+ * has neither, so it has no entry — an invented variable would look like a
+ * control and silently do nothing.
+ *
+ * `--model` is what actually pins both paid passes (extraction and community
+ * naming) on the pinned version; this only covers a backend whose flag handling
+ * changes underneath us.
  */
 export const MODEL_ENV_VAR: Partial<Record<GraphifyBackend, string>> = {
+  claude: 'ANTHROPIC_MODEL', // read by the backend's default_model
+  'claude-cli': 'GRAPHIFY_CLAUDE_CLI_MODEL', // read directly by _call_claude_cli
   openai: 'GRAPHIFY_OPENAI_MODEL',
   gemini: 'GRAPHIFY_GEMINI_MODEL',
   deepseek: 'GRAPHIFY_DEEPSEEK_MODEL',
-  kimi: 'GRAPHIFY_KIMI_MODEL',
-  ollama: 'OLLAMA_MODEL',
   azure: 'GRAPHIFY_AZURE_MODEL',
-  claude: 'ANTHROPIC_MODEL',
-  'claude-cli': 'GRAPHIFY_CLAUDE_CLI_MODEL',
+  bedrock: 'GRAPHIFY_BEDROCK_MODEL',
+  ollama: 'OLLAMA_MODEL', // read by the backend's default_model
+  // kimi: none exists upstream — `--model` is the only lever.
 };

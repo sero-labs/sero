@@ -94,8 +94,13 @@ export async function authorizePaidBuild(
       estimate.estimatedCostUsd === null
         ? 'Sero has no price for this model, so the cost cannot be checked against your limits.'
         : `Spent today: ${formatUsd(spentToday)} of ${formatUsd(caps.maxCostPerDayUsd)}.`,
+      // An over-estimate is the safe direction, but the user should know why
+      // the number looks high rather than think the workspace is bigger.
+      estimate.unsupportedPatterns?.length
+        ? `Some ignore rules could not be read exactly (${estimate.unsupportedPatterns.slice(0, 3).join(', ')}), so their files are counted. The real cost may be lower.`
+        : null,
       'This is an estimate. The real cost depends on how the model chunks the workspace.',
-    ].join('\n'),
+    ].filter((line): line is string => line !== null).join('\n'),
     confirmLabel: 'Index workspace',
   });
   if (!approved) {

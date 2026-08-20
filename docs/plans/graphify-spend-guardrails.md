@@ -238,9 +238,11 @@ the backend is Claude.
 
 Two more details from the same code:
 
-* `cluster-only` parses only the `--backend=claude` form, never
-  `--backend claude` (`__main__.py:3121`). A fix that passes the flag with a
-  space is silently ignored.
+* At **0.8.36** `cluster-only` parses only the `--backend=claude` form, never
+  `--backend claude` (`__main__.py:3121`). At **0.9.47** — the version this
+  work ships — both forms are parsed, and `--model` is accepted and passed
+  through to the labeller. The implementation uses the `=` form for both, which
+  is correct on either version.
 * Labels are cached in `graphify-out/.graphify_labels.json` and reused unless
   the `label` sub-command forces a refresh, so a rebuild does not pay for
   naming twice.
@@ -435,26 +437,34 @@ The indexer refuses any paid job when `model` is null, sets the workspace to
 
 Read from the pinned tag. The two paid passes take the model **differently**:
 
-| Pass | Command | How the model is set |
-|---|---|---|
-| Extraction | `graphify extract` | `--model <id>` |
-| Community naming | `graphify cluster-only` | **`--model` is ignored** — `_call_llm` resolves `_default_model_for_backend(backend)` (`v0.8.36:llm.py:1565`). Only the backend's `model_env_key` works. |
+| Pass | Command | 0.8.36 | 0.9.47 (shipped) |
+|---|---|---|---|
+| Extraction | `graphify extract` | `--model <id>` | `--model <id>` |
+| Community naming | `graphify cluster-only` | **`--model` ignored** — `_call_llm` resolves `_default_model_for_backend(backend)` (`v0.8.36:llm.py:1565`); only the backend's `model_env_key` works | **`--model` accepted** and passed to `label_communities`, which forwards it to `_call_llm` |
 
-So Sero must set **both**: the `--model` flag *and* the backend's model
-environment variable.
+Raising the pin (§5.2) therefore fixes this too: on 0.9.47 the flag pins both
+paid passes, for every backend. The implementation passes `--backend=` and
+`--model=` to `cluster-only` and *also* sets the backend's model environment
+variable as a second belt.
 
-| Backend | Model env var in 0.8.36 |
+That environment map has to be verified rather than assumed. Read from the
+pinned source, a backend's model variable is either its `model_env_key` or one
+its `default_model` resolves through:
+
+| Backend | Variable at 0.9.47 |
 |---|---|
+| `claude` | `ANTHROPIC_MODEL` (via `default_model`) |
+| `claude-cli` | `GRAPHIFY_CLAUDE_CLI_MODEL` (read by `_call_claude_cli`) |
 | `openai` | `GRAPHIFY_OPENAI_MODEL` |
 | `gemini` | `GRAPHIFY_GEMINI_MODEL` |
-| `claude` | **none** — naming is locked to `claude-sonnet-4-6`; `ANTHROPIC_MODEL` only arrives in 0.9.x |
+| `deepseek` | `GRAPHIFY_DEEPSEEK_MODEL` |
+| `azure` | `GRAPHIFY_AZURE_MODEL` |
+| `bedrock` | `GRAPHIFY_BEDROCK_MODEL` |
+| `ollama` | `OLLAMA_MODEL` (via `default_model`) |
+| `kimi` | **none exists** — `--model` is the only lever |
 
-That the `claude` backend cannot honour a chosen model for the naming pass is a
-further reason to raise the pin (§5.2). Until then, a user who picks a Claude
-model must be told that community naming runs Sonnet 4.6 regardless — or the
-naming pass must be off by default.
-
-Also pass `--backend=<id>` to `cluster-only` in the `=` form (§3.11).
+There is no `GRAPHIFY_KIMI_MODEL`. Inventing one would put a control in the
+code that silently does nothing.
 
 ### 6.3 Where the model list comes from
 

@@ -27,3 +27,20 @@ export function recordRun(ledger: SpendLedger, run: SpendRun, day: string): Spen
     runs: [...rolled.runs, run].slice(-50),
   };
 }
+
+/**
+ * Replace a reservation with what the build actually used.
+ *
+ * The reservation was already counted against the day, so the total moves by
+ * the difference. A reservation that is never settled — because the build
+ * failed after spending — simply stays, which is the conservative answer.
+ */
+export function settleRun(ledger: SpendLedger, runId: string, actual: Pick<SpendRun, 'inputTokens' | 'outputTokens' | 'usd'>): SpendLedger {
+  const existing = ledger.runs.find((run) => run.id === runId);
+  if (!existing) return ledger;
+  return {
+    ...ledger,
+    usd: Math.max(0, ledger.usd - existing.usd + actual.usd),
+    runs: ledger.runs.map((run) => (run.id === runId ? { ...run, ...actual, estimated: false } : run)),
+  };
+}

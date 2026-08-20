@@ -1,6 +1,6 @@
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
+import { workspaceIgnoreMatcher } from './ignore-matcher';
 
 /**
  * Measure what a build would read, before anything is spent.
@@ -11,8 +11,8 @@ import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
  * exactly the case that produced a surprising bill.
  *
  * The scan errs towards over-counting. An estimate that is a little high
- * refuses a build that would have been affordable, which the user can override;
- * one that is low approves a build that empties an account.
+ * refuses a build the user can approve anyway; one that is low approves a build
+ * that empties an account.
  */
 
 export interface ScanResult {
@@ -20,6 +20,8 @@ export interface ScanResult {
   bytes: number;
   /** True when the walk stopped at `maxFiles` — the real tree is larger. */
   truncated: boolean;
+  /** Ignore patterns that could not be applied exactly, so their files count. */
+  unsupportedPatterns: string[];
 }
 
 export interface ScanOptions {
@@ -29,60 +31,25 @@ export interface ScanOptions {
   maxFiles: number;
 }
 
-/** gitignore-style pattern matched against a single path segment. */
-function segmentMatcher(pattern: string): (segment: string) => boolean {
-  const trimmed = pattern.trim().replace(/\/$/, '');
-  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) return () => false;
-  // Anchored and nested patterns ('/build', 'docs/**') are matched by their
-  // last meaningful segment: over-matching costs a few uncounted files, while
-  // implementing gitignore in full would not change any decision this makes.
-  const segment = trimmed.split('/').filter(Boolean).pop() ?? trimmed;
-  if (!segment.includes('*')) return (candidate) => candidate === segment;
-  const regex = new RegExp(`^${segment.split('*').map(escapeRegex).join('.*')}$`);
-  return (candidate) => regex.test(candidate);
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-}
-
-async function readIgnoreFile(root: string, name: string): Promise<string[]> {
-  const raw = await readFile(path.join(root, name), 'utf8').catch(() => null);
-  return raw === null ? [] : raw.split('\n');
-}
-
-/**
- * graphify honours `.gitignore` and `.graphifyignore`; the estimate has to see
- * the same tree the build will, or it prices a repository nobody is indexing.
- */
-export async function buildIgnoreMatcher(root: string, exclude: string[]): Promise<(segment: string) => boolean> {
-  const patterns = [
-    ...WORKSPACE_COMMON_IGNORES,
-    ...exclude,
-    '.git',
-    ...(await readIgnoreFile(root, '.gitignore')),
-    ...(await readIgnoreFile(root, '.graphifyignore')),
-  ];
-  const matchers = patterns.map(segmentMatcher);
-  return (segment) => matchers.some((match) => match(segment));
-}
-
 export async function scanWorkspace(root: string, options: ScanOptions): Promise<ScanResult> {
-  const ignored = await buildIgnoreMatcher(root, options.exclude);
-  const result: ScanResult = { files: 0, bytes: 0, truncated: false };
-  const queue: string[] = [root];
+  const matcher = await workspaceIgnoreMatcher(root, options.exclude);
+  const result: ScanResult = { files: 0, bytes: 0, truncated: false, unsupportedPatterns: matcher.unsupported };
+  // Relative paths, because a gitignore pattern is anchored to the workspace
+  // root — matching bare segment names is what let `coverage/**` read as `**`.
+  const queue: string[] = [''];
 
   while (queue.length > 0) {
-    const dir = queue.pop()!;
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const relativeDir = queue.pop()!;
+    const absoluteDir = path.join(root, relativeDir);
+    const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (ignored(entry.name)) continue;
-      const full = path.join(dir, entry.name);
+      const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+      if (matcher.ignores(relativePath)) continue;
       // Symlinks are skipped rather than followed: a link into a large tree (or
       // a cycle) would make the estimate meaningless.
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
-        queue.push(full);
+        queue.push(relativePath);
         continue;
       }
       if (!entry.isFile()) continue;
@@ -91,7 +58,7 @@ export async function scanWorkspace(root: string, options: ScanOptions): Promise
         return result;
       }
       result.files += 1;
-      result.bytes += await stat(full).then((info) => info.size).catch(() => 0);
+      result.bytes += await stat(path.join(root, relativePath)).then((info) => info.size).catch(() => 0);
     }
   }
   return result;

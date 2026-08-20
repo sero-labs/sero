@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { authorizePaidBuild, type SpendHost } from './spend-guard';
-import { ledgerForDay, recordRun, utcDay } from '../shared/ledger';
+import { ledgerForDay, recordRun, settleRun, utcDay } from '../shared/ledger';
 import { DEFAULT_STATE, type BuildEstimate, type GraphifyState, type ModelChoice } from '../shared/types';
 
 const NOW = new Date('2026-08-20T10:00:00Z');
@@ -92,10 +92,34 @@ describe('the spend ledger', () => {
   });
 
   it('accumulates within a day', () => {
-    const run = { workspaceId: 'ws1', backend: 'openai' as const, model: 'm', inputTokens: 1, outputTokens: 1, usd: 0.5, at: 'now' };
+    const run = { id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai' as const, model: 'm', inputTokens: 1, outputTokens: 1, usd: 0.5, at: 'now' };
     const first = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, run, '2026-08-20');
-    const second = recordRun(first, run, '2026-08-20');
+    const second = recordRun(first, { ...run, id: 'ws1:t2' }, '2026-08-20');
     expect(second.usd).toBe(1);
     expect(second.runs).toHaveLength(2);
+  });
+
+  it('settles a reservation against measured usage', () => {
+    const reserved = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, {
+      id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai', model: 'm',
+      inputTokens: 10_000, outputTokens: 0, usd: 2, at: 'now', estimated: true,
+    }, '2026-08-20');
+    expect(reserved.usd).toBe(2);
+
+    const settled = settleRun(reserved, 'ws1:t1', { inputTokens: 4000, outputTokens: 800, usd: 0.8 });
+    expect(settled.usd).toBeCloseTo(0.8);
+    expect(settled.runs[0].estimated).toBe(false);
+  });
+
+  it('keeps the reservation when a build never settles', () => {
+    // A build that consumed tokens and then failed reports nothing. Dropping
+    // its debit would let the same workspace be retried all day against a cap
+    // that still reads $0.
+    const reserved = recordRun({ day: '2026-08-20', usd: 0, runs: [] }, {
+      id: 'ws1:t1', workspaceId: 'ws1', backend: 'openai', model: 'm',
+      inputTokens: 10_000, outputTokens: 0, usd: 2, at: 'now', estimated: true,
+    }, '2026-08-20');
+    expect(settleRun(reserved, 'ws1:other', { inputTokens: 1, outputTokens: 1, usd: 9 })).toEqual(reserved);
+    expect(reserved.usd).toBe(2);
   });
 });
