@@ -5,9 +5,13 @@
  * The button runs the extraction pass; the dialog is the review the user must
  * pass before anything is written. Every field is editable, because what gets
  * saved is the user's version, not the model's proposal.
+ *
+ * The review is one state machine, not seven flags: opening a draft, hitting a
+ * name collision and closing each move several fields at once, so each is a
+ * single dispatched action and the intermediate states cannot be reached.
  */
 
-import { useState } from 'react';
+import { useReducer } from 'react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from '@sero-ai/ui';
 import { GraduationCap } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
@@ -21,6 +25,66 @@ interface ExtractDetails {
   skillConflict?: { name: string; filePath: string };
 }
 
+interface ReviewState {
+  open: boolean;
+  name: string;
+  description: string;
+  body: string;
+  /** Why the pass judged this worth teaching, and which runs it read. */
+  rationale: string;
+  fromRunNumbers: number[];
+  /** The existing skill name the host refused to overwrite. */
+  conflict: string | null;
+  /** The pass ran and judged there is nothing durable to teach. */
+  declined: string | null;
+}
+
+type ReviewAction =
+  | { kind: 'extracting' }
+  | { kind: 'declined'; reason: string }
+  | { kind: 'review'; draft: SkillDraft; body: string }
+  | { kind: 'edit'; field: 'name' | 'description' | 'body'; value: string }
+  | { kind: 'conflict'; name: string }
+  | { kind: 'close' };
+
+const INITIAL: ReviewState = {
+  open: false,
+  name: '',
+  description: '',
+  body: '',
+  rationale: '',
+  fromRunNumbers: [],
+  conflict: null,
+  declined: null,
+};
+
+function reduce(state: ReviewState, action: ReviewAction): ReviewState {
+  switch (action.kind) {
+    case 'extracting':
+      return { ...state, declined: null };
+    case 'declined':
+      return { ...state, open: false, declined: action.reason };
+    case 'review':
+      return {
+        open: true,
+        name: action.draft.name,
+        description: action.draft.description,
+        body: action.body,
+        rationale: action.draft.rationale,
+        fromRunNumbers: action.draft.fromRunNumbers,
+        conflict: null,
+        declined: null,
+      };
+    case 'edit':
+      // Editing the name is how the user resolves a collision, so it clears one.
+      return { ...state, [action.field]: action.value, conflict: action.field === 'name' ? null : state.conflict };
+    case 'conflict':
+      return { ...state, conflict: action.name };
+    case 'close':
+      return { ...state, open: false, conflict: null };
+  }
+}
+
 export function SkillDraftControl({
   loop,
   busy,
@@ -31,39 +95,24 @@ export function SkillDraftControl({
   onDispatch: (params: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
 }) {
   const pending = loop.skillDraft?.status === 'pending' ? loop.skillDraft : undefined;
-  const [open, setOpen] = useState(false);
-  const [declined, setDeclined] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [body, setBody] = useState('');
-  // Held here as well as on the loop: a freshly extracted draft reaches the
-  // dialog through the action result, before the watched loop file catches up.
-  const [provenance, setProvenance] = useState<{ rationale: string; fromRunNumbers: number[] }>({ rationale: '', fromRunNumbers: [] });
+  const [state, dispatch] = useReducer(reduce, INITIAL);
+  const { open, name, description, body, conflict, declined } = state;
 
   // The draft body is a colocated JSON artifact, so a pending draft can be
   // reopened after a reload without re-running the pass.
   const watched = useWatchedJson<{ body: string }>(pending?.bodyRef ?? null, { body: '' });
 
-  const review = (draftValues: SkillDraft, draftBody: string) => {
-    setName(draftValues.name);
-    setDescription(draftValues.description);
-    setBody(draftBody);
-    setProvenance({ rationale: draftValues.rationale, fromRunNumbers: draftValues.fromRunNumbers });
-    setConflict(null);
-    setOpen(true);
-  };
-
   const extract = async () => {
-    setDeclined(null);
+    dispatch({ kind: 'extracting' });
     const details = (await onDispatch({ action: 'extract_skill', loopId: loop.id })) as ExtractDetails | null;
     if (!details || details.ok === false) return;
     if (details.skillDeclined) {
-      setDeclined(details.skillDeclined);
+      dispatch({ kind: 'declined', reason: details.skillDeclined });
       return;
     }
+    // The fresh draft arrives in the result, before the watched loop file catches up.
     const fresh = details.loop?.skillDraft;
-    if (fresh) review(fresh, details.skillDraftBody ?? '');
+    if (fresh) dispatch({ kind: 'review', draft: fresh, body: details.skillDraftBody ?? '' });
   };
 
   const save = async (overwrite?: boolean) => {
@@ -76,15 +125,15 @@ export function SkillDraftControl({
       skillOverwrite: overwrite,
     })) as ExtractDetails | null;
     if (details?.skillConflict) {
-      setConflict(details.skillConflict.name);
+      dispatch({ kind: 'conflict', name: details.skillConflict.name });
       return;
     }
-    if (details && details.ok !== false) setOpen(false);
+    if (details && details.ok !== false) dispatch({ kind: 'close' });
   };
 
   const discard = async () => {
     await onDispatch({ action: 'discard_skill_draft', loopId: loop.id });
-    setOpen(false);
+    dispatch({ kind: 'close' });
   };
 
   return (
@@ -95,7 +144,7 @@ export function SkillDraftControl({
         // A pending draft opens from its artifact, so the button waits for it
         // rather than opening the review with an empty SKILL.md.
         disabled={busy || (!!pending && !watched.body)}
-        onClick={() => (pending ? review(pending, watched.body) : void extract())}
+        onClick={() => (pending ? dispatch({ kind: 'review', draft: pending, body: watched.body }) : void extract())}
         title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
       >
         <GraduationCap className="mr-1 h-3.5 w-3.5" />
@@ -105,28 +154,39 @@ export function SkillDraftControl({
 
       {declined && <span className="text-xs text-muted-foreground">Nothing durable to teach yet — {declined}</span>}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => !next && dispatch({ kind: 'close' })}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Save as a skill</DialogTitle>
             <DialogDescription>
-              {provenance.rationale}
-              {provenance.fromRunNumbers.length ? ` (from run ${provenance.fromRunNumbers.join(', ')})` : ''}
+              {state.rationale}
+              {state.fromRunNumbers.length ? ` (from run ${state.fromRunNumbers.join(', ')})` : ''}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="skill-name" className="text-xs">Name</Label>
-              <Input id="skill-name" value={name} onChange={(e) => { setName(e.target.value); setConflict(null); }} />
+              <Input id="skill-name" value={name} onChange={(e) => dispatch({ kind: 'edit', field: 'name', value: e.target.value })} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="skill-description" className="text-xs">Description — what it does and when to use it</Label>
-              <Textarea id="skill-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+              <Textarea
+                id="skill-description"
+                value={description}
+                onChange={(e) => dispatch({ kind: 'edit', field: 'description', value: e.target.value })}
+                rows={2}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="skill-body" className="text-xs">SKILL.md</Label>
-              <Textarea id="skill-body" value={body} onChange={(e) => setBody(e.target.value)} rows={14} className="font-mono text-xs" />
+              <Textarea
+                id="skill-body"
+                value={body}
+                onChange={(e) => dispatch({ kind: 'edit', field: 'body', value: e.target.value })}
+                rows={14}
+                className="font-mono text-xs"
+              />
             </div>
             {conflict && (
               <p className="text-xs text-amber-500">
