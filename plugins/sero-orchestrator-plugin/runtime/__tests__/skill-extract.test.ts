@@ -279,3 +279,17 @@ describe('discard_skill_draft action', () => {
     expect(host.skills.written).toHaveLength(0);
   });
 });
+
+describe('a malformed reply', () => {
+  it('is repaired, not read as a refusal', async () => {
+    const host = createFakeHost();
+    const loop = seedLoop(host);
+    host.modelResponses.push({ response: JSON.stringify({ nothing: true }) });
+    host.modelResponses.push({ response: skillResponse() });
+
+    const out = await proposeSkill(host, loop, [digest(1)]);
+
+    expect('draft' in out).toBe(true);
+    expect(host.modelCalls).toHaveLength(2);
+  });
+});

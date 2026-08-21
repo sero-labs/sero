@@ -92,7 +92,9 @@ export function SkillDraftControl({
       <Button
         size="sm"
         variant="outline"
-        disabled={busy}
+        // A pending draft opens from its artifact, so the button waits for it
+        // rather than opening the review with an empty SKILL.md.
+        disabled={busy || (!!pending && !watched.body)}
         onClick={() => (pending ? review(pending, watched.body) : void extract())}
         title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
       >

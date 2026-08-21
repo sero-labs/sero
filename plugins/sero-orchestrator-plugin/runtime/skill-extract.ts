@@ -134,13 +134,17 @@ function parseExtraction(value: unknown): ParseResult<ParsedExtraction> {
   if (!isRecord(value)) {
     return { ok: false, errors: ['Reply must be a JSON object with a "skill" key (an object, or null with a "reason").'] };
   }
-  if (value.skill === null || value.skill === undefined) {
+  // Only an EXPLICIT null is a refusal. A missing key is a malformed reply, and
+  // reading it as "nothing to teach" would hide a broken pass as a judgement.
+  if (value.skill === null) {
     const reason = typeof value.reason === 'string' && value.reason.trim()
       ? value.reason.trim()
       : 'Nothing durable to teach.';
     return { ok: true, value: { skill: null, reason } };
   }
-  if (!isRecord(value.skill)) return { ok: false, errors: ['"skill" must be an object, or null.'] };
+  if (!isRecord(value.skill)) {
+    return { ok: false, errors: ['"skill" must be an object, or null with a "reason".'] };
+  }
 
   const { name, description, body, rationale } = value.skill;
   const errors: string[] = [];
