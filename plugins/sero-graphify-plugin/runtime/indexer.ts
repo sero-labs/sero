@@ -236,7 +236,11 @@ export class GraphifyIndexer {
         if (!request.workspaceId) break;
         const state = await this.host.readState();
         const entry = state?.workspaces[request.workspaceId];
-        if (entry?.enabled && await this.host.graphExists(request.workspaceId)) {
+        if (
+          entry?.enabled
+          && entry.indexModeVersion === CURRENT_INDEX_MODE_VERSION
+          && await this.host.graphExists(request.workspaceId)
+        ) {
           this.enqueue({ workspaceId: request.workspaceId, kind: 'update' });
         }
         break;
@@ -447,7 +451,11 @@ export class GraphifyIndexer {
   private async merge(): Promise<void> {
     const state = await this.host.readState();
     const ids = Object.values(state?.workspaces ?? {})
-      .filter((entry) => entry.enabled && entry.lastBuiltAt)
+      .filter((entry) => (
+        entry.enabled
+        && entry.lastBuiltAt
+        && entry.indexModeVersion === CURRENT_INDEX_MODE_VERSION
+      ))
       .map((entry) => entry.workspaceId);
 
     if (ids.length === 0) {

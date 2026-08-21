@@ -64,6 +64,24 @@ describe('GraphifyIndexer — restart recovery', () => {
     expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({
       message: expect.stringMatching(/clean local rebuild/i),
     }));
+
+    await deliver(indexer, host, request(1, 'refresh', 'ws1'));
+    await indexer.idle();
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.status).toBe('needs-build');
+    indexer.dispose();
+  });
+
+  it('excludes old indexing modes from later profile merges', async () => {
+    const { host } = makeHost({ built: ['ws1', 'ws2'] }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', indexModeVersion: undefined });
+      enabled(state, 'ws2', { lastBuiltAt: 'yesterday' });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    expect(host.mergeProfileGraph).toHaveBeenCalledWith(['ws2']);
     indexer.dispose();
   });
 });

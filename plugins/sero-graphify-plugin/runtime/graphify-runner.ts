@@ -171,8 +171,13 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
  * used by the profile merge unchanged.
  */
 export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
-  const stagingDir = `${options.workspaceDir}.rebuild-${randomUUID()}`;
-  const backupDir = `${options.workspaceDir}.backup-${randomUUID()}`;
+  // Keep recovery directories outside graphs/. Workspace artifact sweeps treat
+  // every directory under graphs/ as a workspace id and can run in another
+  // runtime process while this rebuild is active.
+  const recoveryRoot = path.join(path.dirname(path.dirname(options.workspaceDir)), 'graph-rebuilds');
+  const workspaceName = path.basename(options.workspaceDir);
+  const stagingDir = path.join(recoveryRoot, `${workspaceName}.rebuild-${randomUUID()}`);
+  const backupDir = path.join(recoveryRoot, `${workspaceName}.backup-${randomUUID()}`);
   let movedCurrent = false;
   try {
     const outcome = await buildWorkspaceGraph(deps, {

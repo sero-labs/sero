@@ -149,7 +149,7 @@ describe('buildWorkspaceGraph', () => {
 describe('rebuildWorkspaceGraph', () => {
   it('passes --force and replaces the active graph after clustering succeeds', async () => {
     const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-'));
-    const workspaceDir = path.join(parent, 'ws1');
+    const workspaceDir = path.join(parent, 'graphs', 'ws1');
     await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
     await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'old');
     const exec = vi.fn().mockImplementation(async (_cmd, args, options) => {
@@ -169,12 +169,12 @@ describe('rebuildWorkspaceGraph', () => {
       'extract', '/p', '--force', '--code-only', '--no-cluster', '--out', expect.stringContaining('.rebuild-'),
     ]);
     expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('clean-code-only');
-    expect((await readdir(parent)).filter((name) => name.includes('.rebuild-') || name.includes('.backup-'))).toEqual([]);
+    expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
   });
 
   it('keeps the active graph when clean extraction fails', async () => {
     const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-fail-'));
-    const workspaceDir = path.join(parent, 'ws1');
+    const workspaceDir = path.join(parent, 'graphs', 'ws1');
     await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
     await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'valid-profile-source');
     const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'extract failed', exitCode: 1, truncated: false });
@@ -185,7 +185,7 @@ describe('rebuildWorkspaceGraph', () => {
     )).rejects.toThrow(/extract failed/);
 
     expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('valid-profile-source');
-    expect((await readdir(parent)).filter((name) => name.includes('.rebuild-'))).toEqual([]);
+    expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
   });
 });
 
