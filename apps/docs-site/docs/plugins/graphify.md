@@ -35,11 +35,17 @@ Graphify installs its Python tools in Sero's shared machine tool area. It does n
 
 ## Check and update the graph
 
-Each workspace card shows its state, node and edge counts, and Graphify version. Use the **Rebuild** icon when a graph is not correct or after you update Graphify.
+Each workspace card shows its state, node and edge counts, and Graphify version. Use the **Rebuild** icon when a graph is not correct or after you update Graphify. A rebuild starts from an empty temporary graph and uses `--force --code-only`. Graphify replaces the current workspace graph only after extraction and clustering finish. If the rebuild fails, Sero keeps the current workspace graph and merged profile graph.
 
 Graphify queues a local AST update after an agent edits files in an enabled workspace. It also runs an update when Sero starts, so it can include changes made while Sero was closed.
 
 If no indexed file changed, Graphify keeps the current graph and skips clustering and the profile merge.
+
+### One-time code-only migration
+
+Graphs created before Sero changed Graphify to code-only indexing can contain old document, PDF, image, or media nodes. Sero detects these graphs from their missing indexing-mode version. It stops automatic refresh for the affected workspace and shows **clean rebuild needed**.
+
+Select **Rebuild** once. This local rebuild removes the old graph and creates a code-only graph. It makes no model calls and needs no API key. After it succeeds, Sero records the current indexing-mode version and automatic refresh starts again.
 
 A restart does not repeat an incomplete build. A workspace with no graph shows **not built** and waits for you. A failed build shows **error** with a **Try again** button.
 
@@ -74,7 +80,7 @@ Graphify can also add graph context to an agent session. Session orientation and
 
 Graphify stores profile data under `<SERO_HOME>/apps/graphify/`:
 
-- `state.json` contains settings, workspace state, and queued requests.
+- `state.json` contains settings, each workspace indexing-mode version, and queued requests.
 - `graphs/<workspace-id>/graphify-out/` contains each workspace graph.
 - `profile/graph.json` contains the merged graph.
 

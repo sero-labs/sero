@@ -1,4 +1,5 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import type { ExecFn } from './bounded-exec';
@@ -20,6 +21,8 @@ export interface BuildOptions {
   /** Receives graphify's progress lines as they stream. */
   onProgress?: (message: string) => void;
   exclude: string[];
+  /** Ignore an existing Graphify baseline and extract the code corpus again. */
+  force?: boolean;
 }
 
 const BUILD_TIMEOUT_MS = 60 * 60_000;
@@ -71,6 +74,7 @@ function buildArgs(options: BuildOptions): string[] {
   // default output is input-path-relative, which would pollute the workspace).
   const args = [
     'extract', options.inputPath,
+    ...(options.force ? ['--force'] : []),
     // Code extraction is deterministic Tree-sitter work. This also prevents
     // Graphify from sending workspace documents to a model.
     '--code-only',
@@ -81,6 +85,10 @@ function buildArgs(options: BuildOptions): string[] {
   ];
   for (const pattern of options.exclude) args.push('--exclude', pattern);
   return args;
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  return access(target).then(() => true).catch(() => false);
 }
 
 /** Python block-buffers stdout when piped; unbuffered keeps progress lines live. */
@@ -155,6 +163,38 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
       communities: cluster.communities || extraction.stats.communities,
     },
   };
+}
+
+/**
+ * Build in a sibling directory and replace the active graph only after both
+ * extraction and clustering finish. A failed clean rebuild leaves the graph
+ * used by the profile merge unchanged.
+ */
+export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
+  const stagingDir = `${options.workspaceDir}.rebuild-${randomUUID()}`;
+  const backupDir = `${options.workspaceDir}.backup-${randomUUID()}`;
+  let movedCurrent = false;
+  try {
+    const outcome = await buildWorkspaceGraph(deps, {
+      ...options,
+      workspaceDir: stagingDir,
+      force: true,
+    });
+    if (await pathExists(options.workspaceDir)) {
+      await rename(options.workspaceDir, backupDir);
+      movedCurrent = true;
+    }
+    try {
+      await rename(stagingDir, options.workspaceDir);
+    } catch (error) {
+      if (movedCurrent) await rename(backupDir, options.workspaceDir);
+      throw error;
+    }
+    if (movedCurrent) await rm(backupDir, { recursive: true, force: true });
+    return outcome;
+  } finally {
+    await rm(stagingDir, { recursive: true, force: true });
+  }
 }
 
 /** Clustering, deterministic hub labels, and the report are always local. */

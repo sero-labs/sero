@@ -110,6 +110,21 @@ code{color:var(--text)}
   <p class="note">The card shows graph size and tool version. It does not show model, token, or cost fields because the code graph made no model call.</p>
 </div>
 
+<h2>One-time clean rebuild</h2>
+<div class="row">
+  <div class="panel">
+    <div class="card between">
+      <div>
+        <div class="left"><span class="name">legacy-app</span><span class="badge">clean rebuild needed</span></div>
+        <div class="path">~/code/legacy-app</div>
+        <div class="stats">Graph created before code-only indexing</div>
+      </div>
+      <div class="actions"><button class="button">Rebuild</button><span class="switch on"></span></div>
+    </div>
+  </div>
+  <p class="note">Sero pauses incremental refresh until one forced code-only rebuild succeeds. A failed rebuild keeps the existing workspace and profile graphs.</p>
+</div>
+
 <h2>Failure waits for the user</h2>
 <div class="row">
   <div class="panel">

@@ -1,7 +1,7 @@
 /** Shared harness for the indexer suites. */
 import { vi } from 'vitest';
 import { GraphifyIndexer, type IndexerHost } from './indexer';
-import { DEFAULT_STATE, type GraphifyState, type WorkspaceIndexStats } from '../shared/types';
+import { CURRENT_INDEX_MODE_VERSION, DEFAULT_STATE, type GraphifyState, type WorkspaceIndexStats } from '../shared/types';
 
 export const STATS: WorkspaceIndexStats = { nodes: 10, edges: 20, communities: 2, inputTokens: 0, outputTokens: 0 };
 
@@ -67,6 +67,6 @@ export async function deliver(
 export function enabled(state: GraphifyState, id: string, patch: Partial<GraphifyState['workspaces'][string]> = {}) {
   state.workspaces[id] = {
     workspaceId: id, name: id === 'ws1' ? 'One' : 'Two', path: `/p/${id}`,
-    enabled: true, status: 'idle', ...patch,
+    enabled: true, status: 'idle', indexModeVersion: CURRENT_INDEX_MODE_VERSION, ...patch,
   };
 }

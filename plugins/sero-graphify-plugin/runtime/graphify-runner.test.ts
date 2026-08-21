@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { buildWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { buildWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore, rebuildWorkspaceGraph } from './graphify-runner';
 import type { BuildOptions } from './graphify-runner';
 import type { ExecResult } from './bounded-exec';
 
@@ -59,6 +60,13 @@ describe('buildWorkspaceGraph', () => {
     // Report generation runs against the store dir (where graphify-out/ lives).
     const [, reportArgs] = exec.mock.calls[1];
     expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz']);
+  });
+
+  it('keeps incremental refresh arguments free of --force', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts());
+
+    expect(exec.mock.calls[0][1]).not.toContain('--force');
   });
 
   it('redirects the extraction cache into the store dir via GRAPHIFY_OUT', async () => {
@@ -138,9 +146,51 @@ describe('buildWorkspaceGraph', () => {
   });
 });
 
+describe('rebuildWorkspaceGraph', () => {
+  it('passes --force and replaces the active graph after clustering succeeds', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-'));
+    const workspaceDir = path.join(parent, 'ws1');
+    await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
+    await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'old');
+    const exec = vi.fn().mockImplementation(async (_cmd, args, options) => {
+      if (args[0] === 'extract') {
+        await mkdir(path.join(options.cwd, 'graphify-out'), { recursive: true });
+        await writeFile(path.join(options.cwd, 'graphify-out', 'graph.json'), 'clean-code-only');
+      }
+      return ok(EXTRACT_STDOUT);
+    });
+
+    await rebuildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({ workspaceDir }),
+    );
+
+    expect(exec.mock.calls[0][1]).toEqual([
+      'extract', '/p', '--force', '--code-only', '--no-cluster', '--out', expect.stringContaining('.rebuild-'),
+    ]);
+    expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('clean-code-only');
+    expect((await readdir(parent)).filter((name) => name.includes('.rebuild-') || name.includes('.backup-'))).toEqual([]);
+  });
+
+  it('keeps the active graph when clean extraction fails', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-fail-'));
+    const workspaceDir = path.join(parent, 'ws1');
+    await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
+    await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'valid-profile-source');
+    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'extract failed', exitCode: 1, truncated: false });
+
+    await expect(rebuildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({ workspaceDir }),
+    )).rejects.toThrow(/extract failed/);
+
+    expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('valid-profile-source');
+    expect((await readdir(parent)).filter((name) => name.includes('.rebuild-'))).toEqual([]);
+  });
+});
+
 describe('ensureGraphifyIgnore', () => {
   it('creates .graphifyignore with all Sero internals in the workspace', async () => {
-    const { mkdtemp, readFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await ensureGraphifyIgnore(ws);
     const content = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
@@ -149,7 +199,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('appends to an existing ignore file without clobbering it', async () => {
-    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await writeFile(path.join(ws, '.graphifyignore'), 'custom-dir/\n');
     await ensureGraphifyIgnore(ws);
@@ -160,7 +209,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('tops up files written by older versions with newly required entries', async () => {
-    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await writeFile(path.join(ws, '.graphifyignore'), '# Added by Sero Graphify: keep Sero workspace internals out of the knowledge graph\n.sero/\n');
     await ensureGraphifyIgnore(ws);
@@ -170,7 +218,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('is idempotent and never throws on bad paths', async () => {
-    const { mkdtemp, readFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await ensureGraphifyIgnore(ws);
     const first = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
@@ -188,7 +235,6 @@ describe('mergeProfileGraph', () => {
   });
 
   it('copies the single graph when only one workspace is indexed (merge-graphs needs two)', async () => {
-    const { mkdtemp, mkdir, writeFile, readFile } = await import('node:fs/promises');
     const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-merge-'));
     const source = path.join(dir, 'ws1', 'graph.json');
     await mkdir(path.dirname(source), { recursive: true });

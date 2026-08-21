@@ -5,7 +5,7 @@ import type {
   WorkspaceIndexStats,
   WorkspaceIndexStatus,
 } from '../shared/types';
-import { isIndexableWorkspace } from '../shared/types';
+import { CURRENT_INDEX_MODE_VERSION, isIndexableWorkspace } from '../shared/types';
 import type { BuildOutcome } from './graphify-runner';
 import { sweepOrphanArtifacts, syncWorkspaceList } from './workspace-sync';
 import { applySettingsPatch, upgradeGraphifyTool } from './settings';
@@ -89,10 +89,18 @@ export class GraphifyIndexer {
     await this.syncWorkspaces({ normalizeStatuses: true });
     await sweepOrphanArtifacts(this.host);
 
-    for (const entry of Object.values(before?.workspaces ?? {})) {
+    const state = await this.host.readState();
+    for (const entry of Object.values(state?.workspaces ?? {})) {
       if (!entry.enabled || !isIndexableWorkspace(entry.workspaceId)) continue;
       if (await this.host.graphExists(entry.workspaceId)) {
-        this.enqueue({ workspaceId: entry.workspaceId, kind: 'update' });
+        if (entry.indexModeVersion === CURRENT_INDEX_MODE_VERSION) {
+          this.enqueue({ workspaceId: entry.workspaceId, kind: 'update' });
+        } else {
+          await this.setStatus(entry.workspaceId, 'needs-build', { progress: undefined });
+          if (entry.status !== 'needs-build') {
+            this.host.notify(notice('info', `${entry.name} needs one clean local rebuild to remove data from the previous indexing mode.`));
+          }
+        }
       } else {
         await this.setStatus(entry.workspaceId, 'needs-build', { progress: undefined });
       }
@@ -183,7 +191,10 @@ export class GraphifyIndexer {
     if (!(await this.host.readState())?.workspaces[workspaceId]) await this.syncWorkspaces();
 
     const hasGraph = await this.host.graphExists(workspaceId);
-    const needsBuild = options.rebuild || !hasGraph;
+    const state = await this.host.readState();
+    const currentEntry = state?.workspaces[workspaceId];
+    const needsBuild = options.rebuild || !hasGraph
+      || currentEntry?.indexModeVersion !== CURRENT_INDEX_MODE_VERSION;
     const foldsIntoActiveUpdate = needsBuild
       && this.activeJob?.workspaceId === workspaceId
       && this.activeJob.kind === 'update';
@@ -423,6 +434,9 @@ export class GraphifyIndexer {
             lastError: undefined,
             progress: undefined,
             failureCount: 0,
+            indexModeVersion: job.kind === 'build'
+              ? CURRENT_INDEX_MODE_VERSION
+              : entry.indexModeVersion,
           },
         },
       };

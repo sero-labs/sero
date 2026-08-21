@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Switch } from '@sero-ai/ui';
 import { RefreshCw } from 'lucide-react';
-import type { WorkspaceIndexEntry } from '../shared/types';
+import { CURRENT_INDEX_MODE_VERSION, type WorkspaceIndexEntry } from '../shared/types';
 
 function statusBadge(entry: WorkspaceIndexEntry) {
   if (!entry.enabled) return <Badge variant="outline">off</Badge>;
@@ -8,10 +8,18 @@ function statusBadge(entry: WorkspaceIndexEntry) {
     case 'building': return <Badge>building…</Badge>;
     case 'updating': return <Badge>updating…</Badge>;
     case 'queued': return <Badge variant="secondary">queued</Badge>;
-    case 'needs-build': return <Badge variant="outline">not built</Badge>;
+    case 'needs-build': return (
+      <Badge variant="outline">
+        {needsCleanRebuild(entry) ? 'clean rebuild needed' : 'not built'}
+      </Badge>
+    );
     case 'error': return <Badge variant="destructive">error</Badge>;
     default: return <Badge variant="secondary">indexed</Badge>;
   }
+}
+
+function needsCleanRebuild(entry: WorkspaceIndexEntry): boolean {
+  return entry.lastBuiltAt !== undefined && entry.indexModeVersion !== CURRENT_INDEX_MODE_VERSION;
 }
 
 function statsLine(entry: WorkspaceIndexEntry): string | null {
@@ -32,6 +40,7 @@ interface Props {
 export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
   const stats = statsLine(entry);
   const building = entry.status === 'building' || entry.status === 'updating';
+  const needsMigration = entry.status === 'needs-build' && needsCleanRebuild(entry);
 
   return (
     <Card className="flex flex-row items-center justify-between border-border/40 p-3">
@@ -52,7 +61,7 @@ export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
             here for another user action. Nothing retries on its own. */}
         {entry.enabled && (entry.status === 'needs-build' || entry.status === 'error') && (
           <Button size="sm" variant="outline" disabled={blocked} onClick={() => onIndex('rebuild')}>
-            {entry.status === 'error' ? 'Try again' : 'Build'}
+            {entry.status === 'error' ? 'Try again' : needsMigration ? 'Rebuild' : 'Build'}
           </Button>
         )}
         <Button
