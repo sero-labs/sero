@@ -20,6 +20,7 @@ import type {
   ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
+  AppRuntimeSkillsApi,
   PersistentSessionsApi,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
@@ -282,6 +283,15 @@ export interface OrchestratorHost {
    * so every caller must check for it. Room mode is unavailable without it.
    */
   persistentSessions?: PersistentSessionsApi;
+
+  /**
+   * User-skill read/write (spec 18 — skill extraction).
+   *
+   * Absent unless this host build installed the gated capability for the
+   * Orchestrator, so every caller must check for it. Saving a drafted skill is
+   * unavailable without it; extraction itself still works.
+   */
+  skills?: AppRuntimeSkillsApi;
 
   // ── Loop Library (profile-global versioned definition store) ──
   library: LibraryStore;

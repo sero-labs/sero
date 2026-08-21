@@ -6,6 +6,9 @@
 import type {
   AppRuntimeCommandResult,
   AppRuntimePullRequestSummary,
+  AppRuntimeSkillSummary,
+  AppRuntimeSkillWrite,
+  AppRuntimeSkillWriteResult,
   ContextAgentInfo,
   ContextSkillInfo,
   ContextToolInfo,
@@ -105,6 +108,34 @@ export interface FakeHost extends OrchestratorHost {
   catalogContents: Map<string, CatalogRepoContents>;
   /** Always present here; on a real host the capability is usually absent. */
   persistentSessions: FakePersistentSessions;
+  /** Same: the gated user-skill capability, recording what a runtime asked to write. */
+  skills: FakeSkills;
+}
+
+export interface FakeSkills {
+  list(): Promise<AppRuntimeSkillSummary[]>;
+  write(skill: AppRuntimeSkillWrite): Promise<AppRuntimeSkillWriteResult>;
+  /** Skills the profile already holds. */
+  existing: AppRuntimeSkillSummary[];
+  /** Every write the runtime attempted, in order. */
+  written: AppRuntimeSkillWrite[];
+}
+
+function createFakeSkills(): FakeSkills {
+  return {
+    existing: [],
+    written: [],
+    async list() {
+      return this.existing;
+    },
+    async write(skill) {
+      this.written.push(skill);
+      const existed = this.existing.some((s) => s.name === skill.name);
+      const filePath = `/agent/skills/${skill.name}/SKILL.md`;
+      if (!existed) this.existing.push({ name: skill.name, description: skill.description, filePath });
+      return { filePath, created: !existed };
+    },
+  };
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -151,6 +182,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     catalogRepos: [{ key: OFFICIAL_CATALOG_KEY, url: OFFICIAL_CATALOG_URL, official: true }],
     catalogContents: new Map<string, CatalogRepoContents>(),
     persistentSessions: createFakePersistentSessions(),
+    skills: createFakeSkills(),
 
     async readState() {
       return structuredClone(this.state);

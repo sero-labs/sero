@@ -32,6 +32,7 @@ import { reconcileAll } from './reconcile';
 import { applyRecovery } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
+import { handleSkillAction } from './skill-actions';
 import { handleLibraryAction, isLibraryAction } from './library-actions';
 import { handleCatalogAction, isCatalogAction } from './catalog-actions';
 import { handleOverrideAction, isOverrideAction } from './override-actions';
@@ -182,6 +183,10 @@ export class Coordinator {
       case 'reflect_workspace':
       case 'choose_suggestion':
         return handleReflectAction(this.host, action);
+      case 'extract_skill':
+      case 'save_skill':
+      case 'discard_skill_draft':
+        return handleSkillAction(this.host, action);
       case 'answer_input':
         return this.answerInput(action);
       case 'fire_event': {
