@@ -44,7 +44,12 @@ export interface WorkspaceIndexEntry {
   progress?: string;
   lastAttemptAt?: string;
   failureCount?: number;
+  /** Version of Sero's extraction rules used to create this workspace graph. */
+  indexModeVersion?: number;
 }
+
+/** Increment when a graph needs a clean rebuild rather than an incremental refresh. */
+export const CURRENT_INDEX_MODE_VERSION = 1;
 
 export interface RemovedWorkspaceRecord {
   workspaceId: string;

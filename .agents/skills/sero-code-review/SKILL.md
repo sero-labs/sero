@@ -52,16 +52,7 @@ things. Each round must move towards a verdict, never away from one.
   fixed / changed), then the new ones.
 - Lead with the verdict, then the blocking findings, then the non-blocking notes.
 
-## 4. Second pass before posting
-
-Perform a fresh second pass with the review tools available in the current
-environment. Re-read the changed logic and verify each proposed finding against
-the source. Do not depend on a specific model, agent, or editor-only skill.
-
-Reconcile the second pass with the first **before** the comment goes up. A wrong finding corrected in session costs nothing; corrected on the PR it costs a round
-trip and the reader's trust.
-
-## 5. Scope
+## 4. Scope
 
 - Review when the branch is ready, not on every push, unless asked for a mid-flight pass.
 - Check type safety, the 500 LOC file limit, and whether `apps/docs-site` and `docs/prototypes` needed an update.

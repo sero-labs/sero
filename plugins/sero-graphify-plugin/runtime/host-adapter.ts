@@ -6,7 +6,7 @@ import { withStateDefaults } from '../shared/types';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
 import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
-import { buildWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
+import { buildWorkspaceGraph, mergeProfileGraph as runMerge, rebuildWorkspaceGraph, type BuildOutcome } from './graphify-runner';
 import { cleanEnv } from './credentials';
 import { graphStats, loadGraph } from '../shared/query-engine';
 import type { IndexerHost } from './indexer';
@@ -78,6 +78,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
 
   const buildOptionsFor = (workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']) => ({
     workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
+    rebuildsDir: paths.rebuildsDir,
     inputPath: workspace.path,
     exclude: settings.exclude,
   });
@@ -135,7 +136,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         openTarget: { appId: 'graphify' },
       }),
     buildGraph: async (workspace, settings, hooks) =>
-      withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await localDeps(), {
+      withAuthoritativeStats(workspace.workspaceId, await rebuildWorkspaceGraph(await localDeps(), {
         ...buildOptionsFor(workspace, settings),
         onProgress: hooks.onProgress,
       })),

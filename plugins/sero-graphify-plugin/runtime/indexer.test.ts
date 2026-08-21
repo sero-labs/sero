@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GraphifyIndexer } from './indexer';
 import type { WorkspaceIndexStats } from '../shared/types';
+import { CURRENT_INDEX_MODE_VERSION } from '../shared/types';
 import { deliver, enabled, makeHost, request, STATS } from './indexer.fixtures';
 
 describe('GraphifyIndexer — restart recovery', () => {
@@ -43,6 +44,46 @@ describe('GraphifyIndexer — restart recovery', () => {
     expect(host.buildGraph).not.toHaveBeenCalled();
     expect(getState().workspaces.ws1.stats?.graphifyVersion).toBe('0.9.47');
     expect(host.mergeProfileGraph).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
+  it('marks a graph from the old indexing mode for one clean rebuild', async () => {
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', {
+        lastBuiltAt: 'yesterday',
+        indexModeVersion: undefined,
+      });
+      state.profileGraph = { status: 'ready', workspaceIds: ['ws1'] };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.status).toBe('needs-build');
+    expect(getState().profileGraph.status).toBe('absent');
+    expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringMatching(/clean local rebuild/i),
+    }));
+
+    await deliver(indexer, host, request(1, 'refresh', 'ws1'));
+    await indexer.idle();
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.status).toBe('needs-build');
+    indexer.dispose();
+  });
+
+  it('excludes old indexing modes from later profile merges', async () => {
+    const { host } = makeHost({ built: ['ws1', 'ws2'] }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', indexModeVersion: undefined });
+      enabled(state, 'ws2', { lastBuiltAt: 'yesterday' });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    expect(host.mergeProfileGraph).toHaveBeenCalledWith(['ws2']);
     indexer.dispose();
   });
 });
@@ -101,7 +142,9 @@ describe('GraphifyIndexer — one action, one build', () => {
 
 describe('GraphifyIndexer — enable is not rebuild', () => {
   it('enabling a workspace that already has a graph does not rebuild it', async () => {
-    const { host, getState } = makeHost({ built: ['ws1'] });
+    const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
+      enabled(state, 'ws1', { enabled: false, indexModeVersion: CURRENT_INDEX_MODE_VERSION });
+    });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await deliver(indexer, host, request(1, 'enable', 'ws1'));
@@ -134,6 +177,7 @@ describe('GraphifyIndexer — enable is not rebuild', () => {
       outputTokens: 0,
       graphifyVersion: '0.9.47',
     });
+    expect(getState().workspaces.ws1.indexModeVersion).toBe(CURRENT_INDEX_MODE_VERSION);
     expect(host.confirm).not.toHaveBeenCalled();
     indexer.dispose();
   });
@@ -203,6 +247,7 @@ describe('GraphifyIndexer — build records', () => {
     await indexer.idle();
     expect(getState().workspaces.ws1).toMatchObject({ status: 'error', lastError: 'extract failed', failureCount: 1 });
     expect(host.buildGraph).toHaveBeenCalledTimes(1);
+    expect(host.mergeProfileGraph).not.toHaveBeenCalled();
     indexer.dispose();
   });
 });

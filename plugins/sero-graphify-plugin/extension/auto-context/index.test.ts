@@ -5,7 +5,7 @@ import path from 'node:path';
 import { registerAutoContext } from './index';
 import { graphifyPathsFromHome, type GraphifyPaths } from '../../shared/paths';
 import { writeStateFile } from '../../shared/state-io';
-import { DEFAULT_STATE, type GraphifyState } from '../../shared/types';
+import { CURRENT_INDEX_MODE_VERSION, DEFAULT_STATE, type GraphifyState } from '../../shared/types';
 
 const FIXTURE = path.join(__dirname, '..', '..', 'shared', 'query-engine', 'fixtures', 'small-graph.json');
 
@@ -39,7 +39,10 @@ async function makeEnv(options: HomeOptions = {}) {
       autoContext: { ...structuredClone(DEFAULT_STATE.settings.autoContext), ...options.autoContext },
     },
     workspaces: {
-      ws1: { workspaceId: 'ws1', name: 'One', path: cwd, enabled: true, status: 'idle' },
+      ws1: {
+        workspaceId: 'ws1', name: 'One', path: cwd, enabled: true,
+        status: 'idle', indexModeVersion: CURRENT_INDEX_MODE_VERSION,
+      },
     },
   };
   await writeStateFile(paths.stateFile, state);
