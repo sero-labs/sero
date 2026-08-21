@@ -13,7 +13,7 @@
 import type { Loop, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { gatherHistory } from './digest';
-import { hasCompletedRun, proposeSkill, skillDraftBodyPath, VALID_SKILL_NAME } from './skill-extract';
+import { hasCompletedRun, proposeSkill, readDraftBody, writeDraftBody, VALID_SKILL_NAME } from './skill-extract';
 
 type SkillAction = Extract<
   OrchestratorAction,
@@ -47,8 +47,7 @@ async function extractSkill(host: OrchestratorHost, loopId: string): Promise<Orc
 
   const updated: Loop = { ...loop, skillDraft: output.draft, updatedAt: host.now() };
   await replaceLoop(host, updated);
-  const body = await host.readArtifact(output.draft.bodyRef);
-  return { ok: true, loop: updated, skillDraftBody: body ?? '' };
+  return { ok: true, loop: updated, skillDraftBody: await readDraftBody(host, output.draft.bodyRef) };
 }
 
 async function saveSkill(
@@ -87,7 +86,7 @@ async function saveSkill(
 
   const now = host.now();
   // Keep the edited body: the draft artifact is what the review dialog reopens.
-  const bodyRef = await host.writeArtifact(skillDraftBodyPath(loop.id), body);
+  const bodyRef = await writeDraftBody(host, loop.id, body);
   const updated: Loop = {
     ...loop,
     skillDraft: { ...loop.skillDraft, name, description, bodyRef, status: 'saved', decidedAt: now },

@@ -325,7 +325,7 @@ export function OrchestratorApp() {
           <>
             <MemoizedLoopList loops={index.loops} libraryIndex={libraryIndex} selectedId={selectedId} onSelect={openLoop} onNew={openCreate} />
             {selected ? (
-              <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
+              <LoopDetail loop={selected} busy={busy} onAction={onAction} onDispatch={detailsDispatch} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
             ) : (
               <div className="flex flex-1 items-center justify-center text-base text-muted-foreground">Select a Workflow from the list.</div>
             )}

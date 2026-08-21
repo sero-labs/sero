@@ -178,8 +178,24 @@ export function hasCompletedRun(history: RunDigest[]): boolean {
   return history.some((digest) => digest.completion === 'complete');
 }
 
+/**
+ * The draft body lives in its own colocated artifact, as JSON — the renderer
+ * watches JSON files through the app-state bridge, so the review dialog can
+ * reopen a pending draft after a reload without re-running the pass.
+ */
 export function skillDraftBodyPath(loopId: string): string {
-  return `${loopArtifactDir(loopId)}/skill-draft.md`;
+  return `${loopArtifactDir(loopId)}/skill-draft.json`;
+}
+
+export function writeDraftBody(host: OrchestratorHost, loopId: string, body: string): Promise<string> {
+  return host.writeArtifact(skillDraftBodyPath(loopId), JSON.stringify({ body }, null, 2));
+}
+
+export async function readDraftBody(host: OrchestratorHost, ref: string): Promise<string> {
+  const raw = await host.readArtifact(ref);
+  if (!raw) return '';
+  const parsed: unknown = JSON.parse(raw);
+  return isRecord(parsed) && typeof parsed.body === 'string' ? parsed.body : '';
 }
 
 /**
@@ -216,7 +232,7 @@ export async function proposeSkill(
   if (result.value.skill === null) return { declined: result.value.reason };
 
   const { name, description, body, rationale } = result.value.skill;
-  const bodyRef = await host.writeArtifact(skillDraftBodyPath(loop.id), body);
+  const bodyRef = await writeDraftBody(host, loop.id, body);
   return {
     draft: {
       id: host.newId('skill'),
