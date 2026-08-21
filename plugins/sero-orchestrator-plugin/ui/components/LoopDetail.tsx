@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { Card } from '@sero-ai/ui';
-import { AlertTriangle } from 'lucide-react';
+import { Button, Card } from '@sero-ai/ui';
+import { AlertTriangle, Sparkles } from 'lucide-react';
 import type {
   GithubSourceHealth,
   LibraryIndex,
@@ -82,10 +82,21 @@ export function LoopDetail({ loop, busy, onAction, onDispatch, stateDir, library
         <p className="text-base text-muted-foreground">{loop.summary || loop.prompt}</p>
         <LoopMetaStrip loop={loop} runs={runIndex.runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
+          <LoopControls loop={loop} busy={busy} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
           <LoopDeliveryControl loop={loop} busy={busy} onAction={onAction} />
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
+          {runIndex.runs.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
+              title="Learn from past runs and suggest improvements"
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect
+            </Button>
+          )}
           {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
         </div>
       </header>

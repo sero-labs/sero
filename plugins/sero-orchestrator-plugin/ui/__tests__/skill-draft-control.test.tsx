@@ -132,6 +132,24 @@ describe('SkillDraftControl', () => {
       .toBeLessThan(dispatch.mock.invocationCallOrder[dispatch.mock.calls.length - 1]);
   });
 
+  it('shows that the skill is being prepared while extraction runs', async () => {
+    let finishExtraction: ((details: Record<string, unknown>) => void) | undefined;
+    const dispatch = vi.fn(() => new Promise<Record<string, unknown>>((resolve) => {
+      finishExtraction = resolve;
+    }));
+    await render(loopWith(), dispatch);
+
+    await act(async () => trigger().click());
+
+    expect(trigger().textContent).toContain('Preparing skill…');
+    expect(trigger().disabled).toBe(true);
+
+    await act(async () => finishExtraction?.({ ok: true, skillDeclined: 'a one-off cleanup' }));
+
+    expect(trigger().textContent).toContain('Skill');
+    expect(trigger().disabled).toBe(false);
+  });
+
   it('shows a declined pass as a plain line and opens nothing', async () => {
     const dispatch = vi.fn(async () => ({ ok: true, skillDeclined: 'a one-off cleanup' }));
     await render(loopWith(), dispatch);

@@ -13,7 +13,7 @@
 
 import { useReducer } from 'react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from '@sero-ai/ui';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, LoaderCircle } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { approveSkillWrite } from '../lib/skill-approval';
@@ -28,6 +28,7 @@ interface ExtractDetails {
 
 interface ReviewState {
   open: boolean;
+  extracting: boolean;
   /** The pending draft this review belongs to; a save names it. */
   draftId: string;
   name: string;
@@ -44,6 +45,7 @@ interface ReviewState {
 
 type ReviewAction =
   | { kind: 'extracting' }
+  | { kind: 'extract_failed' }
   | { kind: 'declined'; reason: string }
   | { kind: 'review'; draft: SkillDraft; body: string }
   | { kind: 'edit'; field: 'name' | 'description' | 'body'; value: string }
@@ -52,6 +54,7 @@ type ReviewAction =
 
 const INITIAL: ReviewState = {
   open: false,
+  extracting: false,
   draftId: '',
   name: '',
   description: '',
@@ -65,12 +68,15 @@ const INITIAL: ReviewState = {
 function reduce(state: ReviewState, action: ReviewAction): ReviewState {
   switch (action.kind) {
     case 'extracting':
-      return { ...state, declined: null };
+      return { ...state, extracting: true, declined: null };
+    case 'extract_failed':
+      return { ...state, extracting: false };
     case 'declined':
-      return { ...state, open: false, declined: action.reason };
+      return { ...state, open: false, extracting: false, declined: action.reason };
     case 'review':
       return {
         open: true,
+        extracting: false,
         draftId: action.draft.id,
         name: action.draft.name,
         description: action.draft.description,
@@ -86,7 +92,7 @@ function reduce(state: ReviewState, action: ReviewAction): ReviewState {
     case 'conflict':
       return { ...state, conflict: action.name };
     case 'close':
-      return { ...state, open: false, conflict: null };
+      return { ...state, open: false, extracting: false, conflict: null };
   }
 }
 
@@ -101,7 +107,7 @@ export function SkillDraftControl({
 }) {
   const pending = loop.skillDraft?.status === 'pending' ? loop.skillDraft : undefined;
   const [state, dispatch] = useReducer(reduce, INITIAL);
-  const { open, name, description, body, conflict, declined } = state;
+  const { open, extracting, name, description, body, conflict, declined } = state;
 
   // The draft body is a colocated JSON artifact, so a pending draft can be
   // reopened after a reload without re-running the pass.
@@ -110,7 +116,10 @@ export function SkillDraftControl({
   const extract = async () => {
     dispatch({ kind: 'extracting' });
     const details = (await onDispatch({ action: 'extract_skill', loopId: loop.id })) as ExtractDetails | null;
-    if (!details || details.ok === false) return;
+    if (!details || details.ok === false) {
+      dispatch({ kind: 'extract_failed' });
+      return;
+    }
     if (details.skillDeclined) {
       dispatch({ kind: 'declined', reason: details.skillDeclined });
       return;
@@ -157,19 +166,23 @@ export function SkillDraftControl({
         variant="outline"
         // A pending draft opens from its artifact, so the button waits for it
         // rather than opening the review with an empty SKILL.md.
-        disabled={busy || (!!pending && !watched.body)}
+        disabled={busy || extracting || (!!pending && !watched.body)}
         onClick={() => (pending ? dispatch({ kind: 'review', draft: pending, body: watched.body }) : void extract())}
         title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
       >
-        <GraduationCap className="mr-1 h-3.5 w-3.5" />
-        {pending ? 'Review skill' : 'Skill'}
+        {extracting ? (
+          <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <GraduationCap className="mr-1 h-3.5 w-3.5" />
+        )}
+        {extracting ? 'Preparing skill…' : pending ? 'Review skill' : 'Skill'}
         {loop.skillLink && !pending && <span className="ml-1 text-sm font-medium">{loop.skillLink.name}</span>}
       </Button>
 
       {declined && <span className="text-xs text-muted-foreground">Nothing durable to teach yet — {declined}</span>}
 
       <Dialog open={open} onOpenChange={(next) => !next && dispatch({ kind: 'close' })}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:h-[calc(100dvh-6rem)] sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle>Save as a skill</DialogTitle>
             <DialogDescription>
@@ -178,7 +191,7 @@ export function SkillDraftControl({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3">
+          <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 overflow-hidden">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="skill-name" className="text-xs">Name</Label>
               <Input id="skill-name" value={name} onChange={(e) => dispatch({ kind: 'edit', field: 'name', value: e.target.value })} />
@@ -190,16 +203,17 @@ export function SkillDraftControl({
                 value={description}
                 onChange={(e) => dispatch({ kind: 'edit', field: 'description', value: e.target.value })}
                 rows={2}
+                className="max-h-32 resize-none overflow-y-auto"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-h-0 flex-col gap-1.5">
               <Label htmlFor="skill-body" className="text-xs">SKILL.md</Label>
               <Textarea
                 id="skill-body"
                 value={body}
                 onChange={(e) => dispatch({ kind: 'edit', field: 'body', value: e.target.value })}
                 rows={14}
-                className="font-mono text-xs"
+                className="min-h-0 flex-1 field-sizing-fixed resize-none overflow-y-auto font-mono text-xs"
               />
             </div>
             {conflict && (
