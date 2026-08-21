@@ -119,9 +119,12 @@ interface Loop {
 Both fields are optional and absent on every existing loop, so loops that are
 never extracted behave exactly as today.
 
-The body lives at `loops/<id>/skill-draft.md` through `host.writeArtifact`, the
-same colocation `digests.json` uses. The loop record carries the ref, never the
-text.
+The body lives at `loops/<id>/artifacts/skill-draft.json` (`{ "body": "…" }`)
+through `host.writeArtifact`, the same colocation `digests.json` uses. The loop
+record carries the ref, never the text. JSON rather than markdown for one
+reason: the renderer watches JSON files through the app-state bridge
+(`useWatchedJson`), so the review dialog reopens a pending draft after a reload
+without re-running the pass.
 
 ## The extraction pass
 
@@ -132,8 +135,9 @@ New module `runtime/skill-extract.ts`, exporting
 ### It runs as a background agent, not a pure model call
 
 A pure model call cannot load a skill. The extractor therefore runs as a
-**read-only background agent** in the loop's workspace
-(`platformTools: 'readOnly'`), so it can:
+**read-only background agent** in the loop's workspace (`platformTools:
+'readOnly'`, which `runStructuredJson` gains as an option alongside its default
+pure-model call), so it can:
 
 - load and follow the profile's **`skill-creator`** skill, which is the authority
   on frontmatter, description quality, progressive disclosure, and body style;
@@ -263,9 +267,14 @@ interface AppRuntimeHost {
 ```
 
 `'appRuntime.skills'` is added to `SERO_HOST_CAPABILITIES`
-(`packages/common/src/plugins.ts`) and to the Orchestrator's
-`requiredHostCapabilities`. As the existing comment in that file states, the list
-is a **compatibility declaration and grants nothing**.
+(`packages/common/src/plugins.ts`). As the existing comment in that file states,
+the list is a **compatibility declaration and grants nothing**.
+
+It is deliberately NOT added to the Orchestrator's `requiredHostCapabilities`:
+extraction is one feature, and a required entry would make the whole plugin
+uninstallable on a host that predates it. `save_skill` checks `host.skills` at
+run time and fails with a clear message instead — the same rule Room mode
+follows for `persistentSessions`.
 
 ### Authority rules
 
@@ -285,10 +294,15 @@ is a **compatibility declaration and grants nothing**.
 
 A skill file is prompt content loaded into every agent session, so write access is
 a real privilege. The capability is installed by the app-runtime manager only for
-a bundled built-in plugin that passes the existing
-`builtin-gate.ts` path-equality check, the same way `persistentSessions` is
-installed (AD-029). A third-party plugin declaring `appRuntime.skills` gets a
-host with no `skills` property.
+a bundled built-in plugin that passes the built-in gate, the same way
+`persistentSessions` is installed (AD-029). A third-party plugin declaring
+`appRuntime.skills` gets a host with no `skills` property.
+
+The gate itself moves to `capabilities/builtin-gate.ts`
+(`evaluateBuiltinAppGate(input, allowlist)`) so both capabilities share one
+implementation and one set of denial reasons; `persistent-sessions/builtin-gate.ts`
+becomes its allowlist plus a thin delegation, keeping its existing exports and
+tests.
 
 ### Shared skill store (refactor, not duplication)
 
@@ -331,8 +345,10 @@ The `orchestrator` tool and slash command gain the three actions, mirroring how
 
 ## UI
 
-- **Skill button** in `LoopControls`, next to **Reflect**, enabled when the loop
-  has ≥1 completed run and not busy. Click → `extract_skill`. It is the same
+- **Skill button** in the `LoopDetail` control row, next to **Library** and the
+  **Reflect** button in `LoopControls`. It is shown when the run index holds a
+  run with `completionStatus: "complete"` (or while a draft is still under
+  review) and is disabled while busy. Click → `extract_skill`. It is the same
   shape of control the user already knows: user-run, model-judged, reversible.
 - **`SkillDraftControl`** (`ui/components/SkillDraftControl.tsx`), modelled on
   `LibrarySaveControl`: a dialog showing the proposed **name**, **description**,

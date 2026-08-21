@@ -54,6 +54,10 @@ interface Loop {
   suggestions?: LoopSuggestion[];
   /** Resolved human-input requests — planner clarifications + step questions (see 07-human-input.md). */
   answeredInputs?: AnsweredInput[];
+  /** The pending or last-decided skill-extraction draft (see 18-skill-extraction.md). */
+  skillDraft?: SkillDraft;
+  /** Set once a draft was saved as a skill (see 18-skill-extraction.md). */
+  skillLink?: LoopSkillLink;
   createdAt: string;
   updatedAt: string;
 }
@@ -667,6 +671,23 @@ to its plan. The full model lives in
 
 The watched `LoopSummary` carries a `pendingSuggestions` count for the loop-list
 badge.
+
+## Skill extraction
+
+A Workflow that has completed a run can be distilled into one reusable
+`SKILL.md`. The full model lives in
+[18-skill-extraction.md](18-skill-extraction.md); the persisted additions are:
+
+- `SkillDraft` — the proposed skill awaiting the user's review (`Loop.skillDraft`),
+  carrying the name, description, the source run numbers, and a ref to the body.
+  One per loop: a later pass replaces it.
+- The body itself is a colocated artifact,
+  `loops/<id>/artifacts/skill-draft.json`, never inline in `loop.json`.
+- `LoopSkillLink` — where a saved draft landed (`Loop.skillLink`), so the loop can
+  show its skill and default a later extraction to updating it.
+
+The saved skill is an ordinary user skill file under
+`$SERO_AGENT_DIR/skills/<name>/`, written by the host, not by the plugin.
 
 ## Human input (ask the user)
 

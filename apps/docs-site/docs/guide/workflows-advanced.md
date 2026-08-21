@@ -1,8 +1,8 @@
 # Manage Workflows
 
-This guide explains how to improve a Workflow from its run history, run it
-automatically, change one step, recover from an error, and reuse it in another
-workspace.
+This guide explains how to improve a Workflow from its run history, save what it
+proved as a skill, run it automatically, change one step, recover from an error,
+and reuse it in another workspace.
 
 Start with [Create a Workflow](/guide/workflows) if you have not made one yet.
 See the [Workflows reference](/reference/workflows) for all commands, limits,
@@ -40,6 +40,32 @@ for you to approve or reject.
 
 Reflect is most useful for recurring Workflows. It lets you improve the plan
 from real run results instead of waiting for the same problem to happen again.
+
+## Save a Workflow as a skill
+
+Reflect improves the Workflow. **Skill** takes the method out of it, so the
+Sero agent can do the same work by hand in a chat, and any agent in your profile
+can use it.
+
+The **Skill** button appears after the Workflow completes a run.
+
+To save one:
+
+1. Open the Workflow.
+2. Select **Skill**. Sero reads the plan and the run history and writes a draft.
+3. Review the draft. You can change the name, the description, and the full text.
+4. Select **Save skill**.
+
+The description tells the agent when to use the skill, so keep it specific. Say
+what the skill does and which requests must start it.
+
+Sero can also tell you that there is nothing to teach. A one-off task, or a task
+that an agent does correctly without help, gives no skill. This is a usual
+result.
+
+The saved skill goes in your profile with all your other skills. Open **Admin →
+Skills** to change it or to delete it later. If the name is already used, Sero
+asks you to give a different name or to replace the other skill.
 
 ## Run a Workflow automatically
 
