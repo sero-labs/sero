@@ -134,7 +134,7 @@ Captured from the current beta on macOS Apple Silicon.
 
 ![VCS Management](./apps/docs-site/docs/assets/images/git-app.jpg)
 
-![Image Generation](./apps/docs-site/docs/assets/images/imagegen.jpg)
+![Content Generation](./apps/docs-site/docs/assets/images/design-library.jpg)
 
 
 ## Quick start
