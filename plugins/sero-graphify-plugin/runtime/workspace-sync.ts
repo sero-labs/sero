@@ -6,8 +6,7 @@ import type { IndexerHost } from './indexer';
  * Reconciling the profile's workspace list into graphify state.
  *
  * Split out of the indexer so the queue file stays about queueing, and because
- * removal is the one path that can destroy something the user paid for — it
- * deserves to be read on its own.
+ * removal destroys generated graph data, so it deserves to be read on its own.
  */
 
 function isIndexing(status: WorkspaceIndexStatus): boolean {
@@ -32,7 +31,7 @@ export async function syncWorkspaceList(
   // An empty listing means "cannot see the workspaces", never "every workspace
   // was deleted". The host's registry loader falls back to an empty list when
   // workspaces.json is unreadable, and acting on that would drop every state
-  // entry and delete every graph the user paid for.
+  // entry and delete every generated graph.
   if (discovered.length === 0 && Object.keys(current).length > 0) {
     host.log('[graphify] workspace list came back empty; keeping existing entries rather than treating them as removed');
     return { removedIds: [], removedIndexed: false };
@@ -94,28 +93,25 @@ export async function syncWorkspaceList(
 }
 
 /**
- * Keep a record of a graph that was paid for before its artifacts go.
- *
- * Without it, a workspace removed from the profile takes the only evidence of
- * what its build cost with it, and re-adding the workspace looks free.
+ * Keep a short record of built graphs whose workspace was removed.
  */
 async function recordRemovals(
   host: IndexerHost,
   removedIds: string[],
   previous: GraphifyState['workspaces'],
 ): Promise<void> {
-  const paidFor = removedIds.filter((id) => previous[id]?.lastBuiltAt);
-  if (paidFor.length === 0) return;
+  const built = removedIds.filter((id) => previous[id]?.lastBuiltAt);
+  if (built.length === 0) return;
   const removedAt = new Date().toISOString();
   await host.updateState((state) => ({
     ...state,
     removedWorkspaces: [
       ...state.removedWorkspaces,
-      ...paidFor.map((id) => ({ workspaceId: id, name: previous[id].name, removedAt, stats: previous[id].stats })),
+      ...built.map((id) => ({ workspaceId: id, name: previous[id].name, removedAt, stats: previous[id].stats })),
     ].slice(-20),
   }));
-  const names = paidFor.map((id) => previous[id].name).join(', ');
-  const message = `${names} was removed from the profile. Its knowledge graph is gone; re-indexing it would cost again.`;
+  const names = built.map((id) => previous[id].name).join(', ');
+  const message = `${names} was removed from the profile. Its knowledge graph is gone; enable it again to rebuild the local index.`;
   host.notify({ kind: 'info', message, at: removedAt } satisfies GraphifyNotice);
 }
 

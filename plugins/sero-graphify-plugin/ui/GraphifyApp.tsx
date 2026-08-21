@@ -4,7 +4,6 @@ import { Badge, Button, Card, Switch } from '@sero-ai/ui';
 import { Waypoints } from 'lucide-react';
 import { DEFAULT_STATE, withStateDefaults, type GraphifyState } from '../shared/types';
 import { GraphSearch } from './GraphSearch';
-import { ModelPicker, SpendSettings } from './GraphifySettings';
 import { WorkspaceCard } from './WorkspaceCard';
 import './styles.css';
 
@@ -21,7 +20,7 @@ export function GraphifyApp() {
 
   // Settings are queued, never written here. The renderer persists its whole
   // cached snapshot, so a settings write landing just after a build would roll
-  // back the spend ledger and the workspace statuses the runtime owns.
+  // back workspace statuses the runtime owns.
   const configure = useCallback((params: Record<string, unknown>) => {
     void run('graphify_configure', params);
   }, [run]);
@@ -33,11 +32,7 @@ export function GraphifyApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const chosen = state.settings.model;
-  // Every paid action stays unavailable until a model is chosen. Graphify does
-  // not fall back to the library's default: that is how a build could run with
-  // nobody able to say what it cost.
-  const blocked = !chosen || state.settings.paused;
+  const blocked = state.settings.paused;
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto bg-background p-4 text-foreground">
@@ -71,22 +66,12 @@ export function GraphifyApp() {
       {state.provisioning.availableVersion && (
         <Card className="flex items-center justify-between p-3 text-base">
           <span>
-            graphify {state.provisioning.availableVersion} is available. Updating makes the next build of each
-            workspace pay full price again, so nothing is re-indexed until you ask.
+            graphify {state.provisioning.availableVersion} is available. Rebuild each workspace after the update
+            when you want to use the new extractor.
           </span>
           <Button size="sm" variant="outline" onClick={() => index('upgrade')}>Update</Button>
         </Card>
       )}
-
-      {!chosen && (
-        <p className="text-base text-muted-foreground">
-          Choose a backend and model. Graphify will not index anything until you do.
-        </p>
-      )}
-      {/* Keyed on the stored choice so the picker re-seeds when state arrives —
-          its fields start from DEFAULT_STATE on the first render. */}
-      <ModelPicker key={chosen ? `${chosen.backend}:${chosen.modelId}` : 'unset'} state={state} onConfigure={configure} />
-      {chosen && <SpendSettings state={state} onConfigure={configure} />}
 
       <GraphSearch run={run} profileGraph={state.profileGraph} />
 
@@ -107,7 +92,7 @@ export function GraphifyApp() {
       {state.removedWorkspaces.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Removed since indexing: {state.removedWorkspaces.map((removed) => removed.name).join(', ')}.
-          Their graphs are gone; re-indexing would cost again.
+          Their graphs are gone. Enable them again to rebuild the local index.
         </p>
       )}
     </div>

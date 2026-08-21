@@ -1,10 +1,9 @@
 /** Shared harness for the indexer suites. */
 import { vi } from 'vitest';
 import { GraphifyIndexer, type IndexerHost } from './indexer';
-import { DEFAULT_STATE, type GraphifyState, type ModelChoice, type WorkspaceIndexStats } from '../shared/types';
+import { DEFAULT_STATE, type GraphifyState, type WorkspaceIndexStats } from '../shared/types';
 
-export const STATS: WorkspaceIndexStats = { nodes: 10, edges: 20, communities: 2, inputTokens: 100, outputTokens: 50 };
-const MODEL: ModelChoice = { backend: 'openai', modelId: 'gpt-4.1-mini', chosenAt: 'now' };
+export const STATS: WorkspaceIndexStats = { nodes: 10, edges: 20, communities: 2, inputTokens: 0, outputTokens: 0 };
 
 interface HostOptions {
   /** Workspace ids whose graph is already on disk. */
@@ -14,7 +13,6 @@ interface HostOptions {
 
 export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState) => void) {
   let state: GraphifyState = structuredClone(DEFAULT_STATE);
-  state.settings.model = MODEL;
   seed?.(state);
   const built = new Set(options.built ?? []);
   const host: IndexerHost = {
@@ -28,20 +26,15 @@ export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState
     graphExists: async (id) => built.has(id),
     graphifyVersion: async () => '0.9.47',
     upgradeGraphify: vi.fn().mockResolvedValue(undefined),
-    estimateBuild: async () => ({ files: 10, bytes: 40_000, truncated: false, estimatedInputTokens: 10_000, estimatedCostUsd: 0.02 }),
     confirm: vi.fn().mockResolvedValue(true),
     notify: vi.fn(),
     buildGraph: vi.fn().mockImplementation(async (
       workspace: { workspaceId: string },
-      _settings: unknown,
-      hooks: { beforePaidSpawn?: () => Promise<void> },
     ) => {
-      // Mirror the runner: the debit is taken at the spawn boundary.
-      await hooks.beforePaidSpawn?.();
       built.add(workspace.workspaceId);
-      return { stats: STATS, usageMeasured: true };
+      return { stats: STATS, usageMeasured: false, changed: true };
     }),
-    updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false }),
+    updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false, changed: true }),
     mergeProfileGraph: vi.fn().mockResolvedValue({ nodes: 20, edges: 40 }),
     removeWorkspaceArtifacts: vi.fn().mockResolvedValue(undefined),
     listArtifactWorkspaceIds: vi.fn().mockResolvedValue([]),

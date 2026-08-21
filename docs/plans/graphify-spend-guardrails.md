@@ -1,4 +1,6 @@
-# Graphify — spend guardrails, cost control, and transparency
+# Graphify spend guardrails, cost control, and transparency
+
+> **Status, August 2026:** The paid-build design in this document is superseded by [issue #390](https://github.com/sero-labs/sero/issues/390). Current Graphify versions parse code locally and create deterministic community labels without a model. Sero now uses `extract --code-only` in a credential-free environment and runs `cluster-only` without `--no-label`. Model-backed semantic indexing is not part of the current product. The investigation below remains as a record of the previous design and its failure modes.
 
 **Date:** 2026-08-20
 **Status:** implemented — Phases 1, 2, 2b, 3, 3b and 4. See "What shipped" below.
@@ -816,18 +818,17 @@ with no timers, and an interval would become a spend-latency knob.
 
 The acceptance tests the reviewer asked for are listed in #385.
 
-### Follow-up: community naming as its own confirmed job
+### Superseded follow-up: paid community naming
 
-Naming is a second LLM pass whose cost the extraction estimate never covered,
-so a build that ran it left part of the authorised work outside both caps.
-`cluster-only` now always runs `--no-label` and the setting is gone; graphs read
-`Community 1`, `Community 2`.
+PR #387 tried to add community naming as a separate paid job. We rejected that
+direction after checking Graphify 0.9.47. `cluster-only` already creates a
+deterministic label from each community's most connected node when no model
+backend is available. Sero caused the placeholder names by passing
+`--no-label`.
 
-Restoring it means a separate job: priced from `stats.communities` (which the
-free clustering pass produces), shown with its model and estimate, confirmed,
-reserved and settled like any other paid work. A pre-flight uplift inside the
-build was rejected — naming scales with community count, which is unknown until
-after the extraction, so any number would have been invented.
+Issue #390 replaces this work. Sero runs code-only extraction and clustering in
+a credential-free environment. It does not pass `--no-label` and does not add a
+paid community-label action.
 
 Known and deliberate:
 

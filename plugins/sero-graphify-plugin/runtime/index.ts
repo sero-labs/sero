@@ -2,42 +2,13 @@ import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/c
 import { GraphifyIndexer } from './indexer';
 import { createIndexerHost } from './host-adapter';
 import { latestPublishedVersion, GRAPHIFY_VERSION } from './provisioner';
-import { DEFAULT_STATE, type GraphifyBackend, type GraphifyState } from '../shared/types';
-
-/** Sero provider ids mapped onto graphify's backend names. */
-const PROVIDER_BACKENDS: Record<string, GraphifyBackend> = {
-  anthropic: 'claude',
-  openai: 'openai',
-  google: 'gemini',
-  deepseek: 'deepseek',
-  moonshotai: 'kimi',
-  ollama: 'ollama',
-};
+import { DEFAULT_STATE, type GraphifyState } from '../shared/types';
 
 /**
- * Cache the models the user actually has into state, so the panel's picker
- * offers real choices instead of a list Sero was shipped with. A model added
- * to Sero after this release still appears.
- */
-async function cacheAvailableModels(ctx: AppRuntimeContext): Promise<void> {
-  const groups = await ctx.host.models.list().catch(() => []);
-  const available = groups.flatMap((group) => {
-    const backend = PROVIDER_BACKENDS[group.provider];
-    if (!backend) return [];
-    return group.models.map((model) => ({ backend, modelId: model.modelId, label: `${group.displayName} · ${model.name}` }));
-  });
-  await ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => ({
-    ...(current ?? structuredClone(DEFAULT_STATE)),
-    availableModels: available,
-  }));
-}
-
-/**
- * Note a newer graphifyy, never install it.
+ * Note a newer graphifyy version. Never install it automatically.
  *
- * A new extractor version invalidates the semantic cache, so applying an
- * upgrade re-extracts the corpus and spends money. That makes an automatic
- * upgrade unacceptable; the panel offers it and the user decides.
+ * A new extractor version can invalidate cached work. The panel offers the
+ * update, and the user decides when to rebuild each workspace.
  */
 async function checkForUpgrade(ctx: AppRuntimeContext): Promise<void> {
   const latest = await latestPublishedVersion();
@@ -48,8 +19,7 @@ async function checkForUpgrade(ctx: AppRuntimeContext): Promise<void> {
   const current = await ctx.host.appState.read<GraphifyState>(ctx.stateFilePath);
   const installed = current?.provisioning.version ?? GRAPHIFY_VERSION;
   // Strictly newer only. A yanked release can leave PyPI reporting a lower
-  // version, and "updating" to it would downgrade the extractor and invalidate
-  // the cache — re-billing every workspace to go backwards.
+  // version, and "updating" to it would downgrade the extractor.
   if (compareVersions(latest, installed) <= 0) return;
   await ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => {
     const state = current ?? structuredClone(DEFAULT_STATE);
@@ -76,10 +46,7 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
     start: async () => {
       await indexer.start();
       // Both are informational and must never block or fail startup.
-      await Promise.all([
-        cacheAvailableModels(ctx).catch(() => undefined),
-        checkForUpgrade(ctx).catch(() => undefined),
-      ]);
+      await checkForUpgrade(ctx).catch(() => undefined);
     },
     handleStateChange: (state) => indexer.handleStateChange(state),
     dispose: () => indexer.dispose(),

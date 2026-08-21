@@ -16,8 +16,7 @@ async function readRaw(stateFile: string): Promise<string | null> {
 
 function parseOrThrow(raw: string, stateFile: string): GraphifyState {
   // A file that exists but does not parse must NOT be replaced with defaults:
-  // that would erase the model choice, the caps and the spend ledger over a
-  // half-written read.
+  // that would erase workspace and request state over a half-written read.
   const trimmed = raw.trim();
   if (!trimmed || trimmed === 'null') return withStateDefaults(null);
   try {
@@ -86,9 +85,8 @@ export async function writeIfUnchanged(
  * This runs in the extension process, while the runtime writes the same file
  * through the host's serialised queue — the two share no lock. A plain
  * read-modify-write would therefore revert everything the runtime wrote since
- * this read: a spend-ledger entry, a `lastBuiltAt`, or the applied-request
- * watermark (which would resurrect drained requests and re-queue a paid
- * rebuild). Builds write progress every 750ms, so that window is hit routinely.
+ * this read, such as a `lastBuiltAt` or the applied-request watermark. Builds
+ * write progress every 750ms, so that window is hit routinely.
  *
  * Instead the file is re-read and compared byte-for-byte immediately before the
  * write, and the whole append is retried when it changed. Writes are atomic

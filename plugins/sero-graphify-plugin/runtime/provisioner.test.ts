@@ -17,13 +17,9 @@ const fail = (stderr: string): ExecResult => ({ stdout: '', stderr, exitCode: 1,
 const toolsDir = () => mkdtemp(path.join(os.tmpdir(), 'graphify-tools-'));
 
 describe('provisionGraphify', () => {
-  it('pins backend extras so semantic extraction works out of the box', () => {
-    // One extra per offered backend. bedrock needs boto3; without it a clean
-    // install fails every Bedrock build after the toolchain is already ready.
-    expect(GRAPHIFY_INSTALL_SPEC).toBe(`graphifyy[anthropic,openai,gemini,kimi,ollama]==${GRAPHIFY_VERSION}`);
-    for (const extra of ['anthropic', 'openai', 'gemini', 'kimi', 'ollama']) {
-      expect(GRAPHIFY_INSTALL_SPEC).toContain(extra);
-    }
+  it('installs the code-only package without model SDK extras', () => {
+    expect(GRAPHIFY_INSTALL_SPEC).toBe(`graphifyy==${GRAPHIFY_VERSION}`);
+    expect(GRAPHIFY_INSTALL_SPEC).not.toContain('[');
   });
 
   it('skips install when the recorded spec matches and the binary runs', async () => {
@@ -36,8 +32,7 @@ describe('provisionGraphify', () => {
   });
 
   it('reinstalls when the marker is missing even if the version probe would pass', async () => {
-    // A bare `graphifyy==X` install answers --version fine but lacks the
-    // backend SDK extras; only the marker proves the extras are present.
+    // The marker records the exact managed install request.
     const tools = await toolsDir();
     const exec = vi.fn()
       .mockResolvedValueOnce(ok('Installed graphifyy'))            // install
@@ -51,9 +46,9 @@ describe('provisionGraphify', () => {
     expect((await readFile(installSpecMarkerPath(tools), 'utf8')).trim()).toBe(GRAPHIFY_INSTALL_SPEC);
   });
 
-  it('reinstalls when the recorded spec is stale (e.g. bare install without extras)', async () => {
+  it('reinstalls when the recorded spec still contains old backend extras', async () => {
     const tools = await toolsDir();
-    await writeFile(installSpecMarkerPath(tools), `graphifyy==${GRAPHIFY_VERSION}`, 'utf8');
+    await writeFile(installSpecMarkerPath(tools), `graphifyy[openai]==${GRAPHIFY_VERSION}`, 'utf8');
     const exec = vi.fn()
       .mockResolvedValueOnce(ok('Installed graphifyy'))
       .mockResolvedValueOnce(ok(`graphify ${GRAPHIFY_VERSION}`));

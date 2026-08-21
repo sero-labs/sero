@@ -14,7 +14,7 @@ import { Type } from 'typebox';
 import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
 import { readStateFile, appendIndexRequest, appendSettingsRequest } from '../shared/state-io';
 import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
-import type { GraphifyBackend, SettingsPatch } from '../shared/types';
+import type { SettingsPatch } from '../shared/types';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -27,9 +27,6 @@ type ToolResult = {
 function text(message: string): ToolResult {
   return { content: [{ type: 'text', text: message }], details: {} };
 }
-
-/** Kept in step with GraphifyBackend; StringEnum needs a literal tuple. */
-const BACKENDS = ['claude', 'claude-cli', 'openai', 'gemini', 'deepseek', 'kimi', 'ollama'] as const satisfies readonly GraphifyBackend[];
 
 const NOT_BUILT = 'Profile graph not built yet. Enable workspace indexing in the Graphify panel or run: graphify_index enable-all';
 
@@ -144,7 +141,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_index',
     label: 'Graphify Index',
-    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. A first build or a rebuild costs money and asks the user first. Track progress with graphify_status.',
+    description: 'Manage local workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. Track progress with graphify_status.',
     parameters: Type.Object({
       action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync', 'upgrade'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
@@ -164,8 +161,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
           // A host contribution names a workspace Sero has just created, which
           // discovery may not have seen yet; the runtime syncs and re-checks it
           // against the workspace registry. There is deliberately no way to
-          // pass a path: pointing an extraction at an arbitrary directory is
-          // how an agent could spend money on anything on the machine.
+          // pass a path: indexing remains limited to host-owned workspaces.
           workspaceId = entry?.workspaceId ?? params.workspaceId;
           if (!workspaceId) {
             return text(`Error: Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
@@ -183,40 +179,14 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_configure',
     label: 'Graphify Settings',
-    description: 'Change Graphify settings: the backend and model every paid build runs on, the spend limits, community naming, and pause. Nothing is indexed until a model is set.',
+    description: 'Pause local Graphify indexing, change exclude patterns, or clear the current notice.',
     parameters: Type.Object({
-      backend: Type.Optional(StringEnum(BACKENDS)),
-      model: Type.Optional(Type.String({ description: 'Exact model id, e.g. gpt-5.6-luna. Requires backend.' })),
-      priceInputUsdPerMTok: Type.Optional(Type.Number({ description: 'USD per 1M input tokens, when Sero has no price for this model' })),
-      priceOutputUsdPerMTok: Type.Optional(Type.Number({ description: 'USD per 1M output tokens' })),
-      maxCostPerBuildUsd: Type.Optional(Type.Number()),
-      maxCostPerDayUsd: Type.Optional(Type.Number()),
-      maxFilesPerBuild: Type.Optional(Type.Number()),
-      maxConcurrency: Type.Optional(Type.Number()),
-      paused: Type.Optional(Type.Boolean({ description: 'Blocks all paid work and empties the queue' })),
+      paused: Type.Optional(Type.Boolean({ description: 'Blocks indexing and empties the queue' })),
       exclude: Type.Optional(Type.Array(Type.String())),
       clearNotice: Type.Optional(Type.Boolean()),
     }),
     async execute(_toolCallId, params) {
       const patch: SettingsPatch = {};
-      if (params.backend && params.model) {
-        patch.model = {
-          backend: params.backend,
-          modelId: params.model,
-          chosenAt: new Date().toISOString(),
-          ...(params.priceInputUsdPerMTok !== undefined && params.priceOutputUsdPerMTok !== undefined
-            ? { price: { input: params.priceInputUsdPerMTok, output: params.priceOutputUsdPerMTok } }
-            : {}),
-        };
-      } else if (params.backend || params.model) {
-        return text('Error: set the backend and the model together — a model id means nothing without the backend that serves it.');
-      }
-      const caps: SettingsPatch['caps'] = {};
-      if (params.maxCostPerBuildUsd !== undefined) caps.maxCostPerBuildUsd = params.maxCostPerBuildUsd;
-      if (params.maxCostPerDayUsd !== undefined) caps.maxCostPerDayUsd = params.maxCostPerDayUsd;
-      if (params.maxFilesPerBuild !== undefined) caps.maxFilesPerBuild = params.maxFilesPerBuild;
-      if (Object.keys(caps).length > 0) patch.caps = caps;
-      if (params.maxConcurrency !== undefined) patch.maxConcurrency = params.maxConcurrency;
       if (params.paused !== undefined) patch.paused = params.paused;
       if (params.exclude) patch.exclude = params.exclude;
       if (params.clearNotice) patch.clearNotice = true;

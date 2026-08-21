@@ -17,16 +17,13 @@ function notice(kind: GraphifyNotice['kind'], message: string): GraphifyNotice {
  *
  * The panel never writes the state file: the renderer persists its whole cached
  * snapshot, so a settings change landing just after a build would roll back the
- * spend ledger, the workspace statuses and the applied-request watermark. It
+ * workspace statuses and the applied-request watermark. It
  * queues a patch and the runtime — the single writer — merges it here.
  */
 export async function applySettingsPatch(host: IndexerHost, patch: SettingsPatch): Promise<void> {
   await host.updateState((state) => {
     const settings = { ...state.settings };
-    if (patch.model !== undefined) settings.model = patch.model;
-    if (patch.caps) settings.caps = { ...settings.caps, ...patch.caps };
     if (patch.paused !== undefined) settings.paused = patch.paused;
-    if (patch.maxConcurrency !== undefined) settings.maxConcurrency = patch.maxConcurrency;
     if (patch.exclude) settings.exclude = patch.exclude;
     return { ...state, settings, notice: patch.clearNotice ? null : state.notice };
   });
@@ -35,9 +32,7 @@ export async function applySettingsPatch(host: IndexerHost, patch: SettingsPatch
 /**
  * Install a newer graphifyy, once the user has said yes.
  *
- * A new extractor version invalidates the semantic cache, so the next build of
- * every workspace re-extracts and spends again. The dialog says so: this is the
- * one upgrade path that cannot be silent, and nothing is rebuilt afterwards
+ * A new extractor version can invalidate cached AST work. Nothing is rebuilt
  * until the user asks.
  */
 export async function upgradeGraphifyTool(host: IndexerHost): Promise<void> {
@@ -48,7 +43,7 @@ export async function upgradeGraphifyTool(host: IndexerHost): Promise<void> {
     title: `Update graphify to ${version}?`,
     body: [
       `Installed: ${state?.provisioning.version ?? 'unknown'} · Available: ${version}`,
-      'A new extractor version invalidates the cached extractions, so the next build of each workspace pays full price again.',
+      'A new extractor version can invalidate cached extraction work, so each workspace might need a full local rebuild.',
       'Nothing is re-indexed now — each workspace waits until you rebuild it.',
     ].join('\n'),
     confirmLabel: 'Update graphify',

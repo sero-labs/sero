@@ -1,7 +1,6 @@
 import { Badge, Button, Card, Switch } from '@sero-ai/ui';
 import { RefreshCw } from 'lucide-react';
 import type { WorkspaceIndexEntry } from '../shared/types';
-import { formatUsd } from '../shared/pricing';
 
 function statusBadge(entry: WorkspaceIndexEntry) {
   if (!entry.enabled) return <Badge variant="outline">off</Badge>;
@@ -15,23 +14,17 @@ function statusBadge(entry: WorkspaceIndexEntry) {
   }
 }
 
-/** Cost first, then size, then the model that produced it. */
 function statsLine(entry: WorkspaceIndexEntry): string | null {
   const stats = entry.stats;
   if (!stats) return null;
   const parts = [`${stats.nodes} nodes · ${stats.edges} edges`];
-  if (stats.costUsd !== undefined) parts.unshift(formatUsd(stats.costUsd));
-  if (stats.inputTokens > 0) {
-    parts.push(`${Math.round(stats.inputTokens / 1000)}k in / ${Math.round(stats.outputTokens / 1000)}k out`);
-  }
-  if (stats.model) parts.push(stats.model);
   if (stats.graphifyVersion) parts.push(`graphify ${stats.graphifyVersion}`);
   return parts.join(' · ');
 }
 
 interface Props {
   entry: WorkspaceIndexEntry;
-  /** True while no model is chosen — every paid action is unavailable. */
+  /** True while indexing is paused. */
   blocked: boolean;
   onIndex: (action: 'enable' | 'disable' | 'rebuild') => void;
 }
@@ -56,7 +49,7 @@ export function WorkspaceCard({ entry, blocked, onIndex }: Props) {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {/* A workspace that has never been built, or whose build failed, waits
-            here for a decision. Nothing retries on its own. */}
+            here for another user action. Nothing retries on its own. */}
         {entry.enabled && (entry.status === 'needs-build' || entry.status === 'error') && (
           <Button size="sm" variant="outline" disabled={blocked} onClick={() => onIndex('rebuild')}>
             {entry.status === 'error' ? 'Try again' : 'Build'}

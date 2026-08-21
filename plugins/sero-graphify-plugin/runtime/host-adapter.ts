@@ -1,23 +1,15 @@
 import path from 'node:path';
 import { access, readdir, rm } from 'node:fs/promises';
 import type { AppRuntimeContext } from '@sero-ai/common';
-import type { GraphifyNotice, GraphifyState, ModelChoice } from '../shared/types';
+import type { GraphifyNotice, GraphifyState } from '../shared/types';
 import { withStateDefaults } from '../shared/types';
-import { estimateFromScan } from '../shared/pricing';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
 import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
-import { cleanEnv, extractionEnv } from './credentials';
-import { scanWorkspace } from './estimator';
+import { buildWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
+import { cleanEnv } from './credentials';
 import { graphStats, loadGraph } from '../shared/query-engine';
 import type { IndexerHost } from './indexer';
-
-/** A build with no model chosen is a bug the guard should have stopped first. */
-function requireModel(settings: GraphifyState['settings']): ModelChoice {
-  if (!settings.model) throw new Error('No Graphify model chosen. Pick a backend and model in the Graphify panel.');
-  return settings.model;
-}
 
 const CONFIRMATION_TIMEOUT_MS = 120_000;
 
@@ -34,8 +26,8 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     return cachedToolsDir;
   };
 
-  // Every read goes through withStateDefaults: a state file written by an older
-  // build has no caps, no ledger, and a `model` that was a plain string.
+  // Every read goes through withStateDefaults so paid-build state from an older
+  // release becomes the current local indexing shape.
   const readState = async () => withStateDefaults(await ctx.host.appState.read<GraphifyState>(ctx.stateFilePath));
   const updateState = (updater: (current: GraphifyState) => GraphifyState) =>
     ctx.host.appState.update<GraphifyState>(ctx.stateFilePath, (current) => updater(withStateDefaults(current)));
@@ -57,7 +49,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         exec: boundedExec,
         toolsDir: await toolsDir(),
         // uv and graphify never need the whole Electron environment; see cleanEnv.
-        baseEnv: cleanEnv('claude', process.env),
+        baseEnv: cleanEnv(process.env),
       });
       provisioned = result;
       await updateState((state) => ({
@@ -73,43 +65,25 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
 
   const resolvedGraphifyPath = async () => provisioned?.graphifyPath ?? graphifyBinPath(await toolsDir());
 
-  // Extraction needs the backend's key and the chosen model in env; merges are
-  // local-only and must not fail when no key is configured.
-  const extractionDeps = async (settings: GraphifyState['settings']) => {
-    const choice = requireModel(settings);
-    const tools = await toolsDir();
-    return {
-      exec: boundedExec,
-      graphifyPath: await resolvedGraphifyPath(),
-      env: await extractionEnv(
-        choice,
-        (providerId) => ctx.host.credentials.getProviderApiKey(providerId),
-        process.env,
-        uvEnv(tools, {}),
-      ),
-    };
-  };
-
   const localDeps = async () => {
     const tools = await toolsDir();
     return {
       exec: boundedExec,
       graphifyPath: await resolvedGraphifyPath(),
-      env: uvEnv(tools, cleanEnv('ollama', process.env)),
+      // No provider keys, AWS settings, Ollama endpoint, or Claude CLI backend.
+      // Graphify can only perform local AST, clustering, and export work.
+      env: uvEnv(tools, cleanEnv(process.env)),
     };
   };
 
   const buildOptionsFor = (workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']) => ({
     workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
     inputPath: workspace.path,
-    model: requireModel(settings),
-    tokenBudget: settings.tokenBudget,
-    maxConcurrency: settings.maxConcurrency,
     exclude: settings.exclude,
   });
 
-  // Stdout stat lines are best-effort (a no-change update prints none at all);
-  // the graph file is the source of truth for structural counts. Token usage is
+  // Stdout stat lines are best-effort, so the graph file is the source of truth
+  // for structural counts. Token usage is
   // NOT overwritten here: `usageMeasured` says whether it was reported at all,
   // and the graph file cannot answer that.
   const withAuthoritativeStats = async (workspaceId: string, outcome: BuildOutcome): Promise<BuildOutcome> => {
@@ -130,7 +104,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         ensureUv: async () => (await ctx.host.toolchains.ensure('uv')).path,
         exec: boundedExec,
         toolsDir: await toolsDir(),
-        baseEnv: cleanEnv('claude', process.env),
+        baseEnv: cleanEnv(process.env),
         version,
       });
       provisioned = result;
@@ -138,14 +112,6 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         ...state,
         provisioning: { ...state.provisioning, status: 'ready', graphifyPath: result.graphifyPath, version: result.version, availableVersion: undefined, error: undefined, updatedAt: new Date().toISOString() },
       }));
-    },
-    estimateBuild: async (workspace, settings) => {
-      const scan = await scanWorkspace(workspace.path, {
-        exclude: settings.exclude,
-        // Scanning past the cap tells us nothing: the build is refused either way.
-        maxFiles: settings.caps.maxFilesPerBuild + 1,
-      });
-      return estimateFromScan(scan, settings.model);
     },
     confirm: async ({ title, body, confirmLabel }) => {
       const outcome = await ctx.host.notifications.requestChoice({
@@ -158,8 +124,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         timeoutMs: CONFIRMATION_TIMEOUT_MS,
         openTarget: { appId: 'graphify' },
       });
-      // Silence is a no. A dialog nobody answered — the app was in the
-      // background, the user walked away — must never become approval to spend.
+      // Silence is a no for toolchain upgrades.
       return outcome.choiceId === 'confirm';
     },
     notify: (notice: GraphifyNotice) =>
@@ -170,18 +135,15 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         openTarget: { appId: 'graphify' },
       }),
     buildGraph: async (workspace, settings, hooks) =>
-      // extractionDeps resolves the credentials and the toolchain path, and
-      // throws when either is missing — before beforePaidSpawn can debit.
-      withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await extractionDeps(settings), {
+      withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await localDeps(), {
         ...buildOptionsFor(workspace, settings),
         onProgress: hooks.onProgress,
-        beforePaidSpawn: hooks.beforePaidSpawn,
       })),
-    updateGraph: async (workspace, _settings, hooks) =>
-      // `graphify update` is AST-only (no LLM), so no credentials needed.
-      withAuthoritativeStats(workspace.workspaceId, await updateWorkspaceGraph(await localDeps(), {
-        workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
-        inputPath: workspace.path,
+    updateGraph: async (workspace, settings, hooks) =>
+      // Use the cached code-only extraction path for refreshes too. Graphify's
+      // `update` command can add document AST nodes that a rebuild removes.
+      withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await localDeps(), {
+        ...buildOptionsFor(workspace, settings),
         onProgress: hooks.onProgress,
       })),
     mergeProfileGraph: async (workspaceIds) => {
