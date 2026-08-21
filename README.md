@@ -76,26 +76,6 @@ Public links:
 - Website: <https://sero-ai.dev/>
 - Docs: <https://docs.sero-ai.dev/>
 
-Sero is built on [Pi](https://github.com/earendil-works/pi-mono), the
-open-source coding agent platform. The current pinned Pi SDK baseline is
-**0.78.0** (`@earendil-works/pi-*` packages in `pnpm-workspace.yaml`).
-
-## What Sero is not
-
-Sero is intentionally not trying to be everything at once:
-
-- It is **not** a replacement for your editor, terminal, browser, or Git client.
-  It aims to coordinate them around agent workflows, not fully subsume every
-  expert tool.
-- It is **not** a general-purpose low-code app builder or consumer automation
-  product.
-- It is **not** a hosted agent platform, SaaS IDE, or cloud execution service.
-  The default direction is local-first desktop software.
-- It is **not** API-stable yet. Plugin, runtime, and Extension API surfaces are
-  still expected to change during beta.
-- It is **not** polished end-user software today. The current beta is for
-  early adopters, contributors, and people interested in the direction.
-
 ## Beta status
 
 Sero is available as a public beta desktop release for macOS Apple Silicon,
@@ -107,17 +87,10 @@ Current release posture:
 
 - **Supported packaged targets:** macOS Apple Silicon, Linux x64/arm64, and Windows x64
 - **Unsupported targets:** macOS Intel/x64 and Windows arm64
-- **Maintainer-validated baseline:** macOS on Apple Silicon
 - **Distribution:** packaged beta installers are published through GitHub Releases; developers and contributors can still build from source
 - **Runtime options:** Host by default on supported targets, plus explicit Apple Container or Docker/Podman where supported
 - **Stability:** plugin/runtime contracts may change during beta
 - **Updates/support:** updates are manual unless release notes say otherwise; support is best effort
-- **UX polish:** rough and actively changing; layout, flows, and accessibility
-  need refinement
-- **Theming:** CSS/theme support is patchy and will be normalized as the shell
-  and plugin contracts mature
-- **Spotify / Widevine:** Sero uses stock Electron and does not ship Castlabs,
-  Widevine/VMP signing, or DRM-dependent Spotify playback support.
 
 Sero does **not** currently promise stable internal APIs, a support SLA,
 auto-update for every beta release, or full feature parity without containers.
@@ -129,19 +102,6 @@ contract, see [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md
 Modern agent workflows often sprawl across a terminal, browser, editor, chat UI,
 local scripts, MCP tools, dashboards, and half a dozen plugin surfaces. Sero is
 an attempt to bring those pieces into one coherent desktop shell.
-
-Key ideas:
-
-- **Keep the loop together** — code, chat, terminal, visual inspection, plugins,
-  and supporting tools share context.
-- **Let the agent see the product** — browser and screenshot workflows make UI
-  work less blind than text-only coding loops.
-- **Make extension a normal workflow** — Sero treats new tools and plugin UIs as
-  things you can build with the agent, not separate platform projects.
-- **Stay local-first** — project files, app state, logs, memory, and runtime
-  state stay on your machine unless you explicitly connect external services.
-- **Use Pi directly** — sessions, tools, skills, prompts, and extensions are
-  built around Pi primitives.
 
 ## Highlights
 
@@ -312,25 +272,9 @@ Start here:
   — product overview
 - [`apps/docs-site/docs/guide/getting-started.md`](./apps/docs-site/docs/guide/getting-started.md)
   — first-run guide
-- [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md)
-  — current beta support matrix
 - [`apps/docs-site/docs/reference/environment-doctor.md`](./apps/docs-site/docs/reference/environment-doctor.md)
   — built-in diagnostics, safe-mode CLI, and the bundled `sero-doctor` shim
-- [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
-- [`docs/architecture.md`](./docs/architecture.md) — shell and subsystem overview
-- [`docs/reference/state-and-folders.md`](./docs/reference/state-and-folders.md)
-  — profile/state/auth/log storage reference
-- [`docs/features/docker-runtime.md`](./docs/features/docker-runtime.md)
-  — Docker and runtime provider behavior
-- [`docs/guides/macos-containers.md`](./docs/guides/macos-containers.md)
-  — Apple Container setup on macOS
-- [`docs/plugins/guide.md`](./docs/plugins/guide.md) — plugin author and user guide
-- [`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) — minimal plugin path
-- [`docs/testing/eval-guide.md`](./docs/testing/eval-guide.md) — eval framework
-- [`SECURITY.md`](./SECURITY.md) — vulnerability reporting policy
 
-The docs site is intentionally compact during beta and is being populated from
-canonical repo docs as public coverage matures.
 
 ## Plugins and ecosystem
 
@@ -362,9 +306,6 @@ Please review:
 - [`docs/security/gateway.md`](./docs/security/gateway.md)
 - [`apps/docs-site/docs/reference/security-privacy.md`](./apps/docs-site/docs/reference/security-privacy.md)
 
-When sharing logs, screenshots, issues, or repro steps, redact tokens, private
-local paths, auth files, and other sensitive information.
-
 ## Contributing
 
 Contributions, issues, docs improvements, and plugin experiments are welcome,
@@ -381,19 +322,6 @@ Useful links:
 
 - [Open an issue](https://github.com/sero-labs/sero/issues/new/choose)
 - [Browse pull requests](https://github.com/sero-labs/sero/pulls)
-
-## Special thanks
-
-Sero would not exist without **Pi** and its open-source community.
-
-With deep gratitude: thank you to [Mario Zechner](https://x.com/badlogicgames),
-creator of Pi, for building and sharing the open-source agent platform that Sero
-is built on.
-
-Thank you also to the Pi open-source community, particularly
-[Nico Bailon](https://x.com/nicopreme), for excellent extension development and
-ecosystem work that helped shape what agent-native desktop workflows can feel
-like.
 
 ## License
 
