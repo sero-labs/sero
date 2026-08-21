@@ -3,6 +3,7 @@ import type {
   AppRuntimeContext,
   AppRuntimeHost,
   AppRuntimeModule,
+  AppRuntimeSkillsApi,
   PersistentSessionsApi,
 } from '@sero-ai/common';
 import type { SeroAppManifest } from '@/types/ipc';
@@ -53,6 +54,11 @@ export interface AppRuntimeManagerDeps {
    * manager without it.
    */
   installPersistentSessions?: (target: AppRuntimeTarget) => Promise<PersistentSessionsApi | null>;
+  /**
+   * Installs the gated user-skill capability, or returns null when the app is
+   * not a permitted bundled plugin. Optional for the same reason.
+   */
+  installSkills?: (target: AppRuntimeTarget) => Promise<AppRuntimeSkillsApi | null>;
 }
 
 export interface ReconcileAppRuntimeOptions {

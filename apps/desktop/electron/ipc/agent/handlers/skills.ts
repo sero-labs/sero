@@ -1,22 +1,16 @@
 /**
  * IPC handlers for skill CRUD.
  *
- * Listing uses the Pi SDK's `loadSkillsFromDir()` which recursively
- * discovers SKILL.md files in nested subdirectories. Read/write/delete
- * use the absolute `filePath` returned by discovery — not the skill
- * name, since skills can be arbitrarily nested (e.g.
- * `tavily-ai-skills/skills/tavily/search/SKILL.md`).
+ * The file mechanics — discovery, frontmatter, atomic write, path validation —
+ * live in [features/skills/store.ts](../../../features/skills/store.ts), shared
+ * with the gated `appRuntime.skills` runtime capability. These handlers add the
+ * renderer-facing parts: the available-skill catalogue, the model-visibility
+ * setting, and the session hot reload after a write or a delete.
  */
 
 import { ipcMain } from 'electron';
-import { readFile, writeFile, mkdir, rm, rename } from 'fs/promises';
-import path from 'path';
 import {
   DefaultResourceLoader,
-  loadSkillsFromDir,
-  parseFrontmatter,
-  type SkillFrontmatter,
-  type SourceInfo,
 } from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
@@ -25,16 +19,14 @@ import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
-import type { SkillSummary, AvailableSkillSummary, SkillFileData, SkillSource } from '@/types/skills';
-
-const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
-
-function toSkillSource(sourceInfo: SourceInfo): SkillSource {
-  if (sourceInfo.scope === 'user' || sourceInfo.scope === 'project') {
-    return sourceInfo.scope;
-  }
-  return 'path';
-}
+import {
+  deleteSkillFile,
+  listUserSkills,
+  readSkillFile,
+  toSkillSource,
+  writeSkillFile,
+} from '@electron/features/skills/store';
+import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
 
 async function refreshRuntimeSettings(): Promise<void> {
   const infra = await ensureInfra();
@@ -43,58 +35,17 @@ async function refreshRuntimeSettings(): Promise<void> {
   await reloadAllSessionResources();
 }
 
-/**
- * Validate that a filePath is under SKILLS_DIR to prevent path traversal.
- */
-function validateSkillPath(filePath: string): void {
-  const resolved = path.resolve(filePath);
-  const root = path.resolve(SKILLS_DIR);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`Skill path must be under ${SKILLS_DIR}`);
-  }
+/** Hot-reload active sessions so a skill change lands without restarting Sero. */
+function reloadSessions(): void {
+  reloadAllSessionResources().catch((err) =>
+    console.error('[skills] reloadAllSessionResources failed:', err),
+  );
 }
-
-/** Validate skill name for new skill creation. */
-const VALID_SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
-
-// ── Frontmatter serialization (SDK only provides parsing) ────
-
-function serializeValue(val: unknown): string {
-  if (Array.isArray(val)) {
-    return `[${val.map((v) => String(v)).join(', ')}]`;
-  }
-  if (typeof val === 'object' && val !== null) {
-    return JSON.stringify(val);
-  }
-  return String(val);
-}
-
-function serializeFrontmatter(fields: Record<string, unknown>): string {
-  const lines: string[] = [];
-  for (const [key, val] of Object.entries(fields)) {
-    if (val === undefined || val === null || val === '') continue;
-    lines.push(`${key}: ${serializeValue(val)}`);
-  }
-  return lines.length > 0 ? `---\n${lines.join('\n')}\n---\n` : '';
-}
-
-// ── Handlers ─────────────────────────────────────────────────
 
 export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.listSkills,
-    async (): Promise<SkillSummary[]> => {
-      const { skills } = loadSkillsFromDir({ dir: SKILLS_DIR, source: 'user' });
-
-      return skills
-        .map((s) => ({
-          name: s.name,
-          description: s.description,
-          filePath: s.filePath,
-          source: toSkillSource(s.sourceInfo),
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    },
+    async (): Promise<SkillSummary[]> => listUserSkills(),
   );
 
   ipcMain.handle(
@@ -141,94 +92,31 @@ export function registerSkillHandlers(): void {
     },
   );
 
-  /**
-   * Read a skill by its absolute filePath (returned by listSkills).
-   */
+  /** Read a skill by its absolute filePath (returned by listSkills). */
   ipcMain.handle(
     IpcChannels.skills.readSkill,
-    async (_e, filePath: string): Promise<SkillFileData> => {
-      validateSkillPath(filePath);
-      const raw = await readFile(filePath, 'utf-8');
-      const { frontmatter, body } = parseFrontmatter<SkillFrontmatter>(raw);
-
-      const parentDir = path.basename(path.dirname(filePath));
-      const { name: fmName, description, ...extra } = frontmatter;
-
-      return {
-        name: fmName || parentDir,
-        description: description || '',
-        extraFrontmatter: extra,
-        filePath,
-        body,
-      };
-    },
+    async (_e, filePath: string): Promise<SkillFileData> => readSkillFile(filePath),
   );
 
   /**
-   * Write a skill. If `filePath` is provided, overwrites that file.
-   * Otherwise creates a new skill at SKILLS_DIR/<name>/SKILL.md.
-   * Returns the absolute filePath of the written file.
+   * Write a skill. With `filePath` it overwrites that file; otherwise it creates
+   * a new skill at SKILLS_DIR/<name>/SKILL.md. Returns the absolute filePath.
    */
   ipcMain.handle(
     IpcChannels.skills.writeSkill,
     async (_e, data: SkillFileData): Promise<string> => {
-      let targetPath: string;
-
-      if (data.filePath) {
-        validateSkillPath(data.filePath);
-        targetPath = data.filePath;
-      } else {
-        // New skill — validate name and create directory
-        if (!VALID_SKILL_NAME.test(data.name)) {
-          throw new Error(
-            `Invalid skill name '${data.name}'. Use only lowercase letters, numbers, and hyphens.`,
-          );
-        }
-        const skillDir = path.join(SKILLS_DIR, data.name);
-        await mkdir(skillDir, { recursive: true });
-        targetPath = path.join(skillDir, 'SKILL.md');
-      }
-
-      const fmFields: Record<string, unknown> = {
-        name: data.name,
-        description: data.description,
-        ...data.extraFrontmatter,
-      };
-
-      const content = serializeFrontmatter(fmFields) + data.body;
-      const tmpPath = `${targetPath}.tmp.${Date.now()}`;
-      await writeFile(tmpPath, content, 'utf-8');
-      await rename(tmpPath, targetPath);
-
-      // Hot-reload all active sessions so the updated skill is
-      // available immediately without restarting Sero.
-      reloadAllSessionResources().catch((err) =>
-        console.error('[skills] reloadAllSessionResources failed:', err),
-      );
-
+      const targetPath = await writeSkillFile(data);
+      reloadSessions();
       return targetPath;
     },
   );
 
-  /**
-   * Delete a skill by its absolute filePath. Removes the parent
-   * directory (the skill folder containing SKILL.md + assets).
-   */
+  /** Delete a skill by its absolute filePath (removes the skill folder). */
   ipcMain.handle(
     IpcChannels.skills.deleteSkill,
     async (_e, filePath: string): Promise<void> => {
-      validateSkillPath(filePath);
-      const skillDir = path.dirname(filePath);
-      // Safety: don't delete the skills root itself
-      if (path.resolve(skillDir) === path.resolve(SKILLS_DIR)) {
-        throw new Error('Cannot delete the skills root directory');
-      }
-      await rm(skillDir, { recursive: true });
-
-      // Hot-reload so deleted skill disappears from active sessions.
-      reloadAllSessionResources().catch((err) =>
-        console.error('[skills] reloadAllSessionResources failed:', err),
-      );
+      await deleteSkillFile(filePath);
+      reloadSessions();
     },
   );
 }
