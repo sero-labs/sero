@@ -41,8 +41,8 @@
     "husky": "^9.1.7",
     "promptfoo": "0.121.20",
     "release-it": "^20.2.1",
-    "turbo": "^2.10.8",
-    "wrangler": "^4.118.0"
+    "turbo": "^2.10.10",
+    "wrangler": "^4.123.0"
   },
   "pnpm": {
     "overrides": {
