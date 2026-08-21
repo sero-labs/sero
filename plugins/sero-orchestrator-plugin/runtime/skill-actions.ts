@@ -56,9 +56,18 @@ async function saveSkill(
 ): Promise<OrchestratorActionResult> {
   const loop = await findLoop(host, action.loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${action.loopId}` };
-  if (!loop.skillDraft) return { ok: false, error: 'No skill draft to save — extract one first.' };
   if (!host.skills) {
     return { ok: false, error: 'This Sero build cannot save skills from the Orchestrator.' };
+  }
+  // A save applies to the draft the user is looking at, and to that draft only:
+  // an already-decided draft, or an id that does not match the current one, is
+  // refused rather than treated as permission to write something else.
+  const draft = loop.skillDraft;
+  if (!draft || draft.status !== 'pending') {
+    return { ok: false, error: 'No skill draft is waiting for review — extract one first.' };
+  }
+  if (draft.id !== action.draftId) {
+    return { ok: false, error: 'That skill draft is no longer the current one. Reopen the review and save again.' };
   }
 
   const name = action.name.trim();
@@ -76,12 +85,16 @@ async function saveSkill(
     return { ok: false, error: `A skill named '${name}' already exists.`, skillConflict: { name, filePath: existing.filePath } };
   }
 
+  // The scope names what the user approved in the app. The host matches it
+  // against a hash of this exact content and consumes it once, so a save that no
+  // person approved gets no further than here (spec 18).
   const written = await host.skills.write({
     name,
     description,
     body,
     origin: `sero-workflow:${loop.id}`,
     overwrite: action.overwrite,
+    approval: { scope: `${loop.id}:${draft.id}` },
   });
 
   const now = host.now();
@@ -89,7 +102,7 @@ async function saveSkill(
   const bodyRef = await writeDraftBody(host, loop.id, body);
   const updated: Loop = {
     ...loop,
-    skillDraft: { ...loop.skillDraft, name, description, bodyRef, status: 'saved', decidedAt: now },
+    skillDraft: { ...draft, name, description, bodyRef, status: 'saved', decidedAt: now },
     skillLink: { name, filePath: written.filePath, savedAt: now },
     updatedAt: now,
   };

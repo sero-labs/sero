@@ -23,6 +23,9 @@ vi.mock('@sero-ai/app-runtime', () => ({
 import { SkillDraftControl } from '../components/SkillDraftControl';
 import type { Loop, SkillDraft } from '../../shared/types';
 
+/** The renderer-only approval channel the host requires before any save. */
+const approveSkillWrite = vi.fn(async () => {});
+
 const DRAFT: SkillDraft = {
   id: 'skill-1',
   createdAt: 't0',
@@ -51,6 +54,16 @@ describe('SkillDraftControl', () => {
   const field = (id: string) => document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement;
   const buttonNamed = (label: string) =>
     [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
+  /**
+   * Click, then flush again: saving hashes the content through `crypto.subtle`,
+   * so the state update lands a microtask after the click's own flush.
+   */
+  const click = async (button: HTMLButtonElement) => {
+    await act(async () => button.click());
+    // A real tick, not just a microtask: the digest promise settles off the
+    // microtask queue, so the dispatch it gates lands after this.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  };
 
   const type = async (id: string, value: string) => {
     const el = field(id);
@@ -63,6 +76,8 @@ describe('SkillDraftControl', () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+    approveSkillWrite.mockClear();
+    Reflect.set(window, 'sero', { skills: { approveSkillWrite } });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -90,16 +105,21 @@ describe('SkillDraftControl', () => {
 
     await type('skill-name', 'lockfile-fix');
     await type('skill-body', '# Edited\n');
-    await act(async () => buttonNamed('Save skill').click());
+    await click(buttonNamed('Save skill'));
 
     expect(dispatch).toHaveBeenLastCalledWith({
       action: 'save_skill',
       loopId: 'loop-1',
+      skillDraftId: DRAFT.id,
       skillName: 'lockfile-fix',
       skillDescription: DRAFT.description,
       skillBody: '# Edited\n',
       skillOverwrite: undefined,
     });
+    // The approval names this draft and is issued BEFORE the save is dispatched.
+    expect(approveSkillWrite).toHaveBeenCalledWith(`loop-1:${DRAFT.id}`, expect.stringMatching(/^[0-9a-f]{64}$/));
+    expect(approveSkillWrite.mock.invocationCallOrder[0])
+      .toBeLessThan(dispatch.mock.invocationCallOrder[dispatch.mock.calls.length - 1]);
   });
 
   it('shows a declined pass as a plain line and opens nothing', async () => {
@@ -119,10 +139,10 @@ describe('SkillDraftControl', () => {
     });
     await render(loopWith(), dispatch);
     await act(async () => trigger().click());
-    await act(async () => buttonNamed('Save skill').click());
+    await click(buttonNamed('Save skill'));
 
     expect(text()).toContain('already exists');
-    await act(async () => buttonNamed('Replace').click());
+    await click(buttonNamed('Replace'));
     expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
   });
 
@@ -144,5 +164,19 @@ describe('SkillDraftControl', () => {
     await act(async () => buttonNamed('Discard').click());
 
     expect(dispatch).toHaveBeenCalledWith({ action: 'discard_skill_draft', loopId: 'loop-1' });
+  });
+
+  it('saves back into the linked skill without asking about a collision it did not create', async () => {
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    const linked = {
+      ...loopWith(DRAFT),
+      skillLink: { name: DRAFT.name, filePath: '/x/SKILL.md', savedAt: 't1' },
+    } as Loop;
+
+    await render(linked, dispatch);
+    await act(async () => trigger().click());
+    await click(buttonNamed('Save skill'));
+
+    expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
   });
 });

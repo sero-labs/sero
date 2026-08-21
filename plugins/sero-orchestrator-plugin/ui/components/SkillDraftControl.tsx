@@ -16,6 +16,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { GraduationCap } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { approveSkillWrite } from '../lib/skill-approval';
 
 interface ExtractDetails {
   ok?: boolean;
@@ -27,6 +28,8 @@ interface ExtractDetails {
 
 interface ReviewState {
   open: boolean;
+  /** The pending draft this review belongs to; a save names it. */
+  draftId: string;
   name: string;
   description: string;
   body: string;
@@ -49,6 +52,7 @@ type ReviewAction =
 
 const INITIAL: ReviewState = {
   open: false,
+  draftId: '',
   name: '',
   description: '',
   body: '',
@@ -67,6 +71,7 @@ function reduce(state: ReviewState, action: ReviewAction): ReviewState {
     case 'review':
       return {
         open: true,
+        draftId: action.draft.id,
         name: action.draft.name,
         description: action.draft.description,
         body: action.body,
@@ -115,13 +120,21 @@ export function SkillDraftControl({
     if (fresh) dispatch({ kind: 'review', draft: fresh, body: details.skillDraftBody ?? '' });
   };
 
-  const save = async (overwrite?: boolean) => {
+  const save = async (replace?: boolean) => {
+    const content = { name: name.trim(), description: description.trim(), body };
+    // Saving back into the skill this Workflow already produced is an update, so
+    // it does not need the user to answer a collision they did not create.
+    const overwrite = replace || loop.skillLink?.name === content.name || undefined;
+    // The approval goes over renderer-only IPC and covers exactly these bytes.
+    // The host refuses the write without it, so this comes first.
+    await approveSkillWrite(`${loop.id}:${state.draftId}`, content);
     const details = (await onDispatch({
       action: 'save_skill',
       loopId: loop.id,
-      skillName: name.trim(),
-      skillDescription: description.trim(),
-      skillBody: body,
+      skillDraftId: state.draftId,
+      skillName: content.name,
+      skillDescription: content.description,
+      skillBody: content.body,
       skillOverwrite: overwrite,
     })) as ExtractDetails | null;
     if (details?.skillConflict) {

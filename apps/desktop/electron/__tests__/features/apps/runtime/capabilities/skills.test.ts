@@ -6,7 +6,8 @@
  * the capability at all.
  */
 
-import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'fs/promises';
+import { createHash } from 'crypto';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,6 +56,21 @@ async function importCapability() {
   return import('@electron/features/apps/runtime/capabilities/skills');
 }
 
+async function importApprovals() {
+  return import('@electron/features/skills/write-approvals');
+}
+
+/** What the app does before a save: approve exactly these bytes, once. */
+async function approve(scope: string, content: { name: string; description: string; body: string }) {
+  const { approveSkillWrite } = await importApprovals();
+  approveSkillWrite(
+    scope,
+    createHash('sha256').update(`${content.name}\n${content.description}\n${content.body}`).digest('hex'),
+  );
+}
+
+const APPROVAL = { scope: 'loop-1:skill-1' };
+
 function target(packagePath: string, id = 'orchestrator') {
   return {
     manifest: { id, packagePath },
@@ -83,12 +99,13 @@ describe('installSkills gate', () => {
 describe('skills.write', () => {
   it('writes SKILL.md under the skills dir and hot-reloads sessions', async () => {
     const { createSkillsApi } = await importCapability();
-    const result = await createSkillsApi().write({
+    const content = {
       name: 'release-notes',
       description: 'Draft release notes. Use when a milestone closes.',
       body: '# Release notes\n\nDo the thing.\n',
-      origin: 'sero-workflow:loop_1',
-    });
+    };
+    await approve(APPROVAL.scope, content);
+    const result = await createSkillsApi().write({ ...content, origin: 'sero-workflow:loop_1', approval: APPROVAL });
 
     expect(result).toEqual({ filePath: path.join(skillsDir, 'release-notes', 'SKILL.md'), created: true });
     const written = await readFile(result.filePath, 'utf-8');
@@ -105,7 +122,7 @@ describe('skills.write', () => {
     const { createSkillsApi } = await importCapability();
     const api = createSkillsApi();
     for (const name of ['../escape', '', 'Upper', 'has space', '/abs']) {
-      await expect(api.write({ name, description: 'd', body: 'b' })).rejects.toThrow(/Invalid skill name/);
+      await expect(api.write({ name, description: 'd', body: 'b', approval: APPROVAL })).rejects.toThrow(/Invalid skill name/);
     }
     expect(reloads.count).toBe(0);
   });
@@ -113,8 +130,8 @@ describe('skills.write', () => {
   it('rejects an empty description or body', async () => {
     const { createSkillsApi } = await importCapability();
     const api = createSkillsApi();
-    await expect(api.write({ name: 'ok-name', description: '  ', body: 'b' })).rejects.toThrow(/description/);
-    await expect(api.write({ name: 'ok-name', description: 'd', body: '  ' })).rejects.toThrow(/body/);
+    await expect(api.write({ name: 'ok-name', description: '  ', body: 'b', approval: APPROVAL })).rejects.toThrow(/description/);
+    await expect(api.write({ name: 'ok-name', description: 'd', body: '  ', approval: APPROVAL })).rejects.toThrow(/body/);
   });
 
   it('refuses an existing name unless overwrite is asked for', async () => {
@@ -124,10 +141,12 @@ describe('skills.write', () => {
     await mkdir(existing, { recursive: true });
     await writeFile(path.join(existing, 'SKILL.md'), '---\nname: taken\ndescription: old\n---\nold body\n');
 
-    await expect(api.write({ name: 'taken', description: 'new', body: 'new body' }))
+    await approve(APPROVAL.scope, { name: 'taken', description: 'new', body: 'new body' });
+    await expect(api.write({ name: 'taken', description: 'new', body: 'new body', approval: APPROVAL }))
       .rejects.toThrow(/already exists/);
 
-    const result = await api.write({ name: 'taken', description: 'new', body: 'new body', overwrite: true });
+    await approve(APPROVAL.scope, { name: 'taken', description: 'new', body: 'new body' });
+    const result = await api.write({ name: 'taken', description: 'new', body: 'new body', overwrite: true, approval: APPROVAL });
     expect(result.created).toBe(false);
     expect(await readFile(result.filePath, 'utf-8')).toContain('new body');
   });
@@ -139,5 +158,112 @@ describe('skills.list', () => {
     const listed = await createSkillsApi().list();
     expect(listed.map((s) => s.name)).toContain('release-notes');
     expect(listed.every((s) => s.filePath.startsWith(skillsDir))).toBe(true);
+  });
+});
+
+describe('the renderer approval', () => {
+  const content = { name: 'needs-approval', description: 'Do a thing. Use when asked.', body: '# body\n' };
+
+  it('refuses a write nobody approved', async () => {
+    const { createSkillsApi } = await importCapability();
+
+    await expect(createSkillsApi().write({ ...content, approval: { scope: 'loop-9:skill-9' } }))
+      .rejects.toThrow(/not approved in the app/);
+  });
+
+  it('refuses content that differs from what was approved', async () => {
+    const { createSkillsApi } = await importCapability();
+    await approve('loop-2:skill-2', content);
+
+    // The model's body, the user's approval — the hash does not match.
+    await expect(createSkillsApi().write({
+      ...content,
+      body: '# something else\n',
+      approval: { scope: 'loop-2:skill-2' },
+    })).rejects.toThrow(/not approved in the app/);
+
+    // A wrong guess must not burn the approval the user actually gave.
+    const ok = await createSkillsApi().write({ ...content, approval: { scope: 'loop-2:skill-2' } });
+    expect(ok.created).toBe(true);
+  });
+
+  it('is consumed once', async () => {
+    const { createSkillsApi } = await importCapability();
+    const second = { ...content, name: 'once-only' };
+    await approve('loop-3:skill-3', second);
+
+    await createSkillsApi().write({ ...second, approval: { scope: 'loop-3:skill-3' } });
+    await expect(createSkillsApi().write({ ...second, overwrite: true, approval: { scope: 'loop-3:skill-3' } }))
+      .rejects.toThrow(/not approved in the app/);
+  });
+
+  it('expires', async () => {
+    const { approveSkillWrite, consumeSkillWriteApproval } = await importApprovals();
+    const hash = createHash('sha256').update('a\nb\nc').digest('hex');
+    approveSkillWrite('loop-4:skill-4', hash, 1_000);
+
+    expect(consumeSkillWriteApproval('loop-4:skill-4', hash, 1_000 + 130_000)).toBe(false);
+  });
+});
+
+describe('replacing an existing skill', () => {
+  it('overwrites the file discovery found, not a second copy at the canonical path', async () => {
+    const { createSkillsApi } = await importCapability();
+    // A nested skill whose directory name differs from its declared name — the
+    // shape the shared store explicitly supports.
+    const nested = path.join(skillsDir, 'vendor-pack', 'skills', 'search-tool');
+    await mkdir(nested, { recursive: true });
+    await writeFile(path.join(nested, 'SKILL.md'), '---\nname: search\ndescription: old\n---\nold body\n');
+
+    const content = { name: 'search', description: 'new', body: 'new body\n' };
+    await approve('loop-5:skill-5', content);
+    const result = await createSkillsApi().write({ ...content, overwrite: true, approval: { scope: 'loop-5:skill-5' } });
+
+    expect(result).toEqual({ filePath: path.join(nested, 'SKILL.md'), created: false });
+    expect(await readFile(result.filePath, 'utf-8')).toContain('new body');
+    // No duplicate at <skills>/search/SKILL.md — two skills of one name is the bug.
+    await expect(readFile(path.join(skillsDir, 'search', 'SKILL.md'), 'utf-8')).rejects.toThrow();
+    await rm(path.join(skillsDir, 'vendor-pack'), { recursive: true });
+  });
+
+  it('refuses when the name is ambiguous rather than picking one', async () => {
+    const { createSkillsApi } = await importCapability();
+    for (const dir of ['dup-a', 'dup-b']) {
+      const full = path.join(skillsDir, dir);
+      await mkdir(full, { recursive: true });
+      await writeFile(path.join(full, 'SKILL.md'), '---\nname: doubled\ndescription: d\n---\nbody\n');
+    }
+
+    const content = { name: 'doubled', description: 'new', body: 'new body\n' };
+    await approve('loop-6:skill-6', content);
+    await expect(createSkillsApi().write({ ...content, overwrite: true, approval: { scope: 'loop-6:skill-6' } }))
+      .rejects.toThrow(/More than one skill is named/);
+
+    for (const dir of ['dup-a', 'dup-b']) await rm(path.join(skillsDir, dir), { recursive: true });
+  });
+});
+
+describe('frontmatter serialization', () => {
+  it('round-trips values that plain `key: value` lines would break', async () => {
+    const { createSkillsApi } = await importCapability();
+    const { parseFrontmatter } = await import('@earendil-works/pi-coding-agent');
+
+    const content = {
+      name: 'tricky-frontmatter',
+      // A colon, a hash, quotes, a leading indicator character, and a newline —
+      // each of which an unquoted scalar either breaks on or silently re-reads.
+      description: 'Build recovery: use when installs fail #urgent, "quoted", @mention\nand a second line',
+      body: '# body\n',
+    };
+    await approve('loop-7:skill-7', content);
+    const result = await createSkillsApi().write({ ...content, origin: 'sero-workflow:loop_7', approval: { scope: 'loop-7:skill-7' } });
+
+    const parsed = parseFrontmatter<{ name: string; description: string; origin: string }>(
+      await readFile(result.filePath, 'utf-8'),
+    );
+    expect(parsed.frontmatter.name).toBe(content.name);
+    expect(parsed.frontmatter.description).toBe(content.description);
+    expect(parsed.frontmatter.origin).toBe('sero-workflow:loop_7');
+    expect(parsed.body).toBe('# body');
   });
 });

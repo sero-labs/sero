@@ -390,6 +390,13 @@ export interface SeroSkillsBridge {
   listSkills(): Promise<SkillSummaryIPC[]>;
   readSkill(filePath: string): Promise<SkillFileDataIPC>;
   writeSkill(data: SkillFileDataIPC): Promise<string>;
+  /**
+   * Approves ONE skill write by a plugin runtime: the scope names the pending
+   * draft (`<loopId>:<draftId>`) and the hash covers the exact content. Renderer
+   * only — a model has no way to call it, which is what keeps a drafted skill
+   * from being written without the user (see spec 18).
+   */
+  approveSkillWrite(scope: string, contentHash: string): Promise<void>;
   deleteSkill(filePath: string): Promise<void>;
 }
 

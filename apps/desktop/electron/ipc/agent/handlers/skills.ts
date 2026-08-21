@@ -19,6 +19,7 @@ import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
+import { approveSkillWrite } from '@electron/features/skills/write-approvals';
 import {
   deleteSkillFile,
   listUserSkills,
@@ -108,6 +109,18 @@ export function registerSkillHandlers(): void {
       const targetPath = await writeSkillFile(data);
       reloadSessions();
       return targetPath;
+    },
+  );
+
+  /**
+   * Approve one runtime skill write. Renderer only: this is the channel a model
+   * does not have, and it is what makes the Orchestrator's drafted skill
+   * unwritable without the person who reviewed it (spec 18).
+   */
+  ipcMain.handle(
+    IpcChannels.skills.approveSkillWrite,
+    async (_e, scope: string, contentHash: string): Promise<void> => {
+      approveSkillWrite(scope, contentHash);
     },
   );
 

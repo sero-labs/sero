@@ -49,7 +49,16 @@ export type OrchestratorAction =
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }
   | { kind: 'extract_skill'; loopId: string }
-  | { kind: 'save_skill'; loopId: string; name: string; description: string; body: string; overwrite?: boolean }
+  | {
+      kind: 'save_skill';
+      loopId: string;
+      /** The pending draft being saved. A stale or absent id is refused. */
+      draftId: string;
+      name: string;
+      description: string;
+      body: string;
+      overwrite?: boolean;
+    }
   | { kind: 'discard_skill_draft'; loopId: string }
   | { kind: 'answer_input'; loopId: string; requestId: string; answers: InputAnswer[] }
   | { kind: 'library_save'; loopId: string; mode: 'new-version' | 'new-entry'; name?: string; note?: string }

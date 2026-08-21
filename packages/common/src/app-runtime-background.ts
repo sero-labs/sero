@@ -479,6 +479,14 @@ export interface AppRuntimeSkillWrite {
   origin?: string;
   /** An existing skill of this name is refused unless this is true. */
   overwrite?: boolean;
+  /**
+   * The renderer-issued approval that permits this write, naming what the user
+   * reviewed (`<loopId>:<draftId>`). The host matches it against a hash of the
+   * content and consumes it once. A runtime action is reachable by a model, so
+   * without this a write no person approved would be indistinguishable from one
+   * they did.
+   */
+  approval: { scope: string };
 }
 
 export interface AppRuntimeSkillWriteResult {

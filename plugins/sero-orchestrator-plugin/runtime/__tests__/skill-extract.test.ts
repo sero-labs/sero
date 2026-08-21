@@ -185,6 +185,7 @@ describe('save_skill action', () => {
     const res = await handleSkillAction(host, {
       kind: 'save_skill',
       loopId: loop.id,
+      draftId: loop.skillDraft!.id,
       name: 'lockfile-recovery',
       description: 'Edited description. Use when install fails.',
       body: '# Edited body\n',
@@ -197,6 +198,9 @@ describe('save_skill action', () => {
       body: '# Edited body\n',
       origin: `sero-workflow:${loop.id}`,
       overwrite: undefined,
+      // Names the draft the user reviewed; the host matches it to the approval
+      // the app issued and consumes it once.
+      approval: { scope: `${loop.id}:${loop.skillDraft!.id}` },
     }]);
     expect(host.state.loops[0].skillLink).toMatchObject({ name: 'lockfile-recovery' });
     expect(host.state.loops[0].skillDraft?.status).toBe('saved');
@@ -208,7 +212,7 @@ describe('save_skill action', () => {
     host.skills.existing.push({ name: 'taken', description: 'x', filePath: '/agent/skills/taken/SKILL.md' });
 
     const res = await handleSkillAction(host, {
-      kind: 'save_skill', loopId: loop.id, name: 'taken', description: 'd', body: 'b',
+      kind: 'save_skill', loopId: loop.id, draftId: loop.skillDraft!.id, name: 'taken', description: 'd', body: 'b',
     });
 
     expect(res.ok).toBe(false);
@@ -222,7 +226,7 @@ describe('save_skill action', () => {
     host.skills.existing.push({ name: 'taken', description: 'x', filePath: '/agent/skills/taken/SKILL.md' });
 
     const res = await handleSkillAction(host, {
-      kind: 'save_skill', loopId: loop.id, name: 'taken', description: 'd', body: 'b', overwrite: true,
+      kind: 'save_skill', loopId: loop.id, draftId: loop.skillDraft!.id, name: 'taken', description: 'd', body: 'b', overwrite: true,
     });
 
     expect(res.ok).toBe(true);
@@ -232,7 +236,7 @@ describe('save_skill action', () => {
   it('rejects an invalid name, an empty description and an empty body', async () => {
     const host = createFakeHost();
     const loop = await withDraft(host);
-    const base = { kind: 'save_skill' as const, loopId: loop.id, name: 'ok-name', description: 'd', body: 'b' };
+    const base = { kind: 'save_skill' as const, loopId: loop.id, draftId: loop.skillDraft!.id, name: 'ok-name', description: 'd', body: 'b' };
 
     expect((await handleSkillAction(host, { ...base, name: '../escape' })).error).toMatch(/Invalid skill name/);
     expect((await handleSkillAction(host, { ...base, description: '  ' })).error).toMatch(/description/);
@@ -246,7 +250,7 @@ describe('save_skill action', () => {
     (host as { skills?: unknown }).skills = undefined;
 
     const res = await handleSkillAction(host, {
-      kind: 'save_skill', loopId: loop.id, name: 'ok-name', description: 'd', body: 'b',
+      kind: 'save_skill', loopId: loop.id, draftId: loop.skillDraft!.id, name: 'ok-name', description: 'd', body: 'b',
     });
 
     expect(res.ok).toBe(false);
@@ -258,10 +262,38 @@ describe('save_skill action', () => {
     const loop = seedLoop(host);
 
     const res = await handleSkillAction(host, {
-      kind: 'save_skill', loopId: loop.id, name: 'ok-name', description: 'd', body: 'b',
+      kind: 'save_skill', loopId: loop.id, draftId: 'skill-x', name: 'ok-name', description: 'd', body: 'b',
     });
 
-    expect(res.error).toBe('No skill draft to save — extract one first.');
+    expect(res.error).toBe('No skill draft is waiting for review — extract one first.');
+    expect(host.skills.written).toHaveLength(0);
+  });
+
+  it('refuses a draft id that is not the current one', async () => {
+    const host = createFakeHost();
+    const loop = await withDraft(host);
+
+    const res = await handleSkillAction(host, {
+      kind: 'save_skill', loopId: loop.id, draftId: 'skill-stale', name: 'ok-name', description: 'd', body: 'b',
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/no longer the current one/);
+    expect(host.skills.written).toHaveLength(0);
+  });
+
+  it('refuses a second save of a draft that was already decided', async () => {
+    const host = createFakeHost();
+    const loop = await withDraft(host);
+    const draftId = loop.skillDraft!.id;
+    const save = { kind: 'save_skill' as const, loopId: loop.id, draftId, name: 'ok-name', description: 'd', body: 'b' };
+
+    expect((await handleSkillAction(host, save)).ok).toBe(true);
+    const second = await handleSkillAction(host, save);
+
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/No skill draft is waiting for review/);
+    expect(host.skills.written).toHaveLength(1);
   });
 });
 

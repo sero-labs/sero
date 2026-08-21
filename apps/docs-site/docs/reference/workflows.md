@@ -414,10 +414,15 @@ the plan names. It writes no skill file, and it returns no draft when the
 Workflow teaches nothing reusable.
 
 `save_skill` writes the values you reviewed to
-`$SERO_AGENT_DIR/skills/<name>/SKILL.md` and reloads active sessions. An
-existing name is refused unless you choose to replace it. The write goes through
-a host capability that only bundled Sero plugins receive; the plugin cannot
-write the file itself.
+`$SERO_AGENT_DIR/skills/<name>/SKILL.md` and reloads active sessions. Replacing
+an existing skill overwrites the file Sero discovered for that name, including a
+nested one; a name that matches more than one skill is refused.
+
+The write goes through a host capability that only bundled Sero plugins receive,
+and the host refuses it unless the Orchestrator app approved that exact content
+for that draft. The approval travels on a channel only the app has, so a model
+that calls `save_skill` on its own cannot write a skill — the person who
+reviewed the draft must press Save.
 
 A saved skill is an ordinary user skill: it is listed and edited in **Admin →
 Skills**, and the model-visibility controls apply to it. Its frontmatter records

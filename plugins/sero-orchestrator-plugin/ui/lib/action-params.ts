@@ -17,6 +17,7 @@ export function actionToParams(action: OrchestratorAction): Record<string, unkno
       if (action.rejectionReason !== undefined) params.rejectionReason = action.rejectionReason;
       break;
     case 'save_skill':
+      params.skillDraftId = action.draftId;
       params.skillName = action.name;
       params.skillDescription = action.description;
       params.skillBody = action.body;

@@ -91,6 +91,7 @@ export const OrchestratorToolParams = Type.Object({
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
   rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
+  skillDraftId: Type.Optional(Type.String({ description: 'For save_skill: the pending draft id (loop.skillDraft.id) this save applies to' })),
   skillName: Type.Optional(Type.String({ description: 'For save_skill: the skill name (lowercase letters, numbers and hyphens); it is also the directory name' })),
   skillDescription: Type.Optional(Type.String({ description: 'For save_skill: the frontmatter description — what the skill does AND when to use it. This is its trigger text' })),
   skillBody: Type.Optional(Type.String({ description: 'For save_skill: the SKILL.md markdown body, without frontmatter' })),
@@ -133,6 +134,7 @@ export interface OrchestratorToolParamsShape {
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
   rejectionReason?: string;
+  skillDraftId?: string;
   skillName?: string;
   skillDescription?: string;
   skillBody?: string;
@@ -286,12 +288,14 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
     }
     case 'save_skill': {
       if (!params.loopId) return { error: 'save_skill requires a loopId' };
+      if (!params.skillDraftId) return { error: 'save_skill requires the pending skillDraftId' };
       if (!params.skillName) return { error: 'save_skill requires a skillName' };
       if (!params.skillDescription) return { error: 'save_skill requires a skillDescription (what it does AND when to use it)' };
       if (!params.skillBody) return { error: 'save_skill requires a skillBody' };
       return {
         kind: 'save_skill',
         loopId: params.loopId,
+        draftId: params.skillDraftId,
         name: params.skillName,
         description: params.skillDescription,
         body: params.skillBody,

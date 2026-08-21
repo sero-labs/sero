@@ -16,6 +16,7 @@
 
 import { readFile, writeFile, mkdir, rm, rename } from 'fs/promises';
 import path from 'path';
+import { stringify } from 'yaml';
 import {
   loadSkillsFromDir,
   parseFrontmatter,
@@ -54,23 +55,23 @@ export function skillFilePath(name: string): string {
 
 // ── Frontmatter serialization (the SDK only provides parsing) ──
 
-function serializeValue(val: unknown): string {
-  if (Array.isArray(val)) {
-    return `[${val.map((v) => String(v)).join(', ')}]`;
-  }
-  if (typeof val === 'object' && val !== null) {
-    return JSON.stringify(val);
-  }
-  return String(val);
-}
-
+/**
+ * Serialized with the SAME library the SDK parses with, so what is written
+ * round-trips by construction.
+ *
+ * Hand-rolled `key: value` lines were not safe here: a natural description such
+ * as "Build recovery: use when installs fail", a leading "#", a quote, or the
+ * newline a textarea puts in produces frontmatter that is invalid or parses to
+ * something else — and a skill that saves fine but never loads.
+ */
 function serializeFrontmatter(fields: Record<string, unknown>): string {
-  const lines: string[] = [];
-  for (const [key, val] of Object.entries(fields)) {
-    if (val === undefined || val === null || val === '') continue;
-    lines.push(`${key}: ${serializeValue(val)}`);
-  }
-  return lines.length > 0 ? `---\n${lines.join('\n')}\n---\n` : '';
+  const present = Object.entries(fields)
+    .filter(([, val]) => val !== undefined && val !== null && val !== '');
+  if (present.length === 0) return '';
+  // lineWidth 0 disables folding: a folded long description would round-trip to
+  // the same string, but the file is meant to be read and edited by hand too.
+  const yaml = stringify(Object.fromEntries(present), { lineWidth: 0 });
+  return `---\n${yaml}---\n`;
 }
 
 // ── Operations ────────────────────────────────────────────────
