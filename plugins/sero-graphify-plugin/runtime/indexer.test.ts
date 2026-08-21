@@ -28,15 +28,21 @@ describe('GraphifyIndexer — restart recovery', () => {
     indexer.dispose();
   });
 
-  it('catches up an already-built workspace with the free AST update', async () => {
-    const { host } = makeHost({ built: ['ws1'] }, (state) => {
-      enabled(state, 'ws1', { lastBuiltAt: new Date().toISOString(), stats: STATS });
+  it('catches up an already-built workspace and records the current Graphify version', async () => {
+    const updateGraph = vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false, changed: false });
+    const { host, getState } = makeHost({ built: ['ws1'], overrides: { updateGraph } }, (state) => {
+      enabled(state, 'ws1', {
+        lastBuiltAt: new Date().toISOString(),
+        stats: { ...STATS, graphifyVersion: '0.9.46' },
+      });
     });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await indexer.idle();
     expect(host.updateGraph).toHaveBeenCalledTimes(1);
     expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.stats?.graphifyVersion).toBe('0.9.47');
+    expect(host.mergeProfileGraph).not.toHaveBeenCalled();
     indexer.dispose();
   });
 });
@@ -75,8 +81,8 @@ describe('GraphifyIndexer — one action, one build', () => {
     const buildGraph = vi.fn(async (
       _workspace: unknown,
     ) => {
-      return new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean }>((resolve) => {
-        finish = (stats) => resolve({ stats, usageMeasured: false });
+      return new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean; changed: boolean }>((resolve) => {
+        finish = (stats) => resolve({ stats, usageMeasured: false, changed: true });
       });
     });
     const { host, getState } = makeHost({ overrides: { buildGraph } });

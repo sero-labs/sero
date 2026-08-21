@@ -9,7 +9,7 @@ All Graphify processes run in the host background runtime. Container sessions re
 Sero runs initial builds with:
 
 ```text
-graphify extract <workspace> --code-only --out <sero-store>
+graphify extract <workspace> --code-only --no-cluster --out <sero-store>
 graphify cluster-only <sero-store> --no-viz
 ```
 
@@ -32,7 +32,7 @@ Requests use a durable watermark because the state-file watcher can deliver one 
 
 The runtime checks every requested workspace against the host registry. It never accepts an arbitrary path. The global memory workspace is excluded.
 
-The profile graph re-merges after each successful change. The managed Graphify toolchain is installed once in the machine-shared tools directory.
+An unchanged scan keeps the existing clustered graph and skips clustering and the profile merge. The profile graph re-merges after each successful change. The managed Graphify toolchain is installed once in the machine-shared tools directory.
 
 ## Community labels
 

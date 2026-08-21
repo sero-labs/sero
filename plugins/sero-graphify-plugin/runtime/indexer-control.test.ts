@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GraphifyIndexer } from './indexer';
 import type { WorkspaceIndexStats } from '../shared/types';
-import { deliver, makeHost, request, STATS } from './indexer.fixtures';
+import { deliver, enabled, makeHost, request, STATS } from './indexer.fixtures';
 
 describe('GraphifyIndexer — tool upgrades', () => {
   it('asks before upgrading and describes a local rebuild', async () => {
@@ -51,8 +51,8 @@ describe('GraphifyIndexer — local controls', () => {
 
   it('pausing empties the queued local work', async () => {
     let finish: (stats: WorkspaceIndexStats) => void = () => {};
-    const buildGraph = vi.fn(async () => new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean }>((resolve) => {
-      finish = (stats) => resolve({ stats, usageMeasured: false });
+    const buildGraph = vi.fn(async () => new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean; changed: boolean }>((resolve) => {
+      finish = (stats) => resolve({ stats, usageMeasured: false, changed: true });
     }));
     const { host, getState } = makeHost({ overrides: { buildGraph } });
     const indexer = new GraphifyIndexer(host);
@@ -66,6 +66,29 @@ describe('GraphifyIndexer — local controls', () => {
 
     expect(buildGraph).toHaveBeenCalledTimes(1);
     expect(getState().workspaces.ws2.status).toBe('needs-build');
+    indexer.dispose();
+  });
+
+  it('does not leave a folded rebuild marked as queued when pause cancels it', async () => {
+    let finish: (stats: WorkspaceIndexStats) => void = () => {};
+    const updateGraph = vi.fn(async () => new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean; changed: boolean }>((resolve) => {
+      finish = (stats) => resolve({ stats, usageMeasured: false, changed: true });
+    }));
+    const { host, getState } = makeHost({ built: ['ws1'], overrides: { updateGraph } }, (state) => {
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await vi.waitFor(() => expect(getState().workspaces.ws1.status).toBe('updating'));
+
+    await deliver(indexer, host, request(1, 'rebuild', 'ws1'));
+    expect(getState().workspaces.ws1.status).toBe('updating');
+    await deliver(indexer, host, { ...request(2, 'settings'), settings: { paused: true } });
+    finish(STATS);
+    await indexer.idle();
+
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.status).toBe('idle');
     indexer.dispose();
   });
 
@@ -85,6 +108,20 @@ describe('GraphifyIndexer — local controls', () => {
     indexer.dispose();
   });
 
+  it('does not notify for automatic refreshes while paused', async () => {
+    const { host } = makeHost({ built: ['ws1'] }, (state) => {
+      state.settings.paused = true;
+      enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    expect(host.notify).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
   it('does not ask for a model or spend confirmation', async () => {
     const { host } = makeHost();
     const indexer = new GraphifyIndexer(host);
@@ -100,6 +137,7 @@ describe('GraphifyIndexer — local controls', () => {
     const buildGraph = vi.fn().mockResolvedValue({
       stats: { ...STATS, nodes: 0, edges: 0, communities: 0 },
       usageMeasured: false,
+      changed: true,
     });
     const { host } = makeHost({ overrides: { buildGraph } });
     const indexer = new GraphifyIndexer(host);

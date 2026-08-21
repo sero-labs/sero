@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import type { ExecFn } from './bounded-exec';
@@ -35,9 +35,14 @@ function tail(text: string, max = 2000): string {
  * builds normally omit it. The field also gives the smoke test a direct check
  * that this path did not enter semantic extraction.
  */
-export interface BuildOutcome {
+export interface ParsedBuildStats {
   stats: WorkspaceIndexStats;
   usageMeasured: boolean;
+}
+
+export interface BuildOutcome extends ParsedBuildStats {
+  /** False when Graphify reports that every indexed file is unchanged. */
+  changed: boolean;
 }
 
 /**
@@ -45,7 +50,7 @@ export interface BuildOutcome {
  *   "[graphify extract] wrote …: 1,234 nodes, 5,678 edges, 12 communities"
  *   "[graphify extract] tokens: 45,000 in / 9,000 out, est. cost (~claude): $0.51"
  */
-export function parseBuildStats(stdout: string): BuildOutcome {
+export function parseBuildStats(stdout: string): ParsedBuildStats {
   const summary = stdout.match(/(\d[\d,]*)\s+nodes?,\s*(\d[\d,]*)\s+edges?,\s*(\d[\d,]*)\s+communities/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
   const tokens = stdout.match(/(\d[\d,]*)\s+in\s*\/\s*(\d[\d,]*)\s+out/i);
@@ -69,6 +74,9 @@ function buildArgs(options: BuildOptions): string[] {
     // Code extraction is deterministic Tree-sitter work. This also prevents
     // Graphify from sending workspace documents to a model.
     '--code-only',
+    // Defer clustering until we know extraction changed the raw graph. This
+    // lets a warm refresh keep the existing clustered output untouched.
+    '--no-cluster',
     '--out', options.workspaceDir,
   ];
   for (const pattern of options.exclude) args.push('--exclude', pattern);
@@ -126,8 +134,21 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
   }
 
   const extraction = parseBuildStats(result.stdout);
-  const cluster = await clusterGraph(deps, options, storeOutEnv);
+  const changed = !result.stdout.includes('no incremental changes detected (--no-cluster); outputs left untouched.');
+  if (!changed) return { ...extraction, changed: false };
+
+  let cluster: WorkspaceIndexStats;
+  try {
+    cluster = await clusterGraph(deps, options, storeOutEnv);
+  } catch (error) {
+    // The raw graph was written but was not clustered. Remove the manifest so
+    // the next user retry re-extracts the corpus instead of accepting it as
+    // unchanged.
+    await rm(path.join(options.workspaceDir, 'graphify-out', 'manifest.json'), { force: true });
+    throw error;
+  }
   return {
+    changed: true,
     usageMeasured: extraction.usageMeasured,
     stats: {
       ...extraction.stats,
@@ -156,11 +177,8 @@ async function clusterGraph(
     onOutputLimit: 'truncate',
     onLine: options.onProgress,
   });
-  // Reported, never fatal: the local graph is already built, and a failed
-  // report is not worth discarding it.
   if (result.exitCode !== 0) {
-    options.onProgress?.(`Report step failed (exit ${result.exitCode}); the graph itself is complete.`);
-    return { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 };
+    throw new Error(`graphify cluster-only failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
   }
   return parseBuildStats(result.stdout).stats;
 }

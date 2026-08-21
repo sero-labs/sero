@@ -32,9 +32,9 @@ export function makeHost(options: HostOptions = {}, seed?: (state: GraphifyState
       workspace: { workspaceId: string },
     ) => {
       built.add(workspace.workspaceId);
-      return { stats: STATS, usageMeasured: false };
+      return { stats: STATS, usageMeasured: false, changed: true };
     }),
-    updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false }),
+    updateGraph: vi.fn().mockResolvedValue({ stats: STATS, usageMeasured: false, changed: true }),
     mergeProfileGraph: vi.fn().mockResolvedValue({ nodes: 20, edges: 40 }),
     removeWorkspaceArtifacts: vi.fn().mockResolvedValue(undefined),
     listArtifactWorkspaceIds: vi.fn().mockResolvedValue([]),

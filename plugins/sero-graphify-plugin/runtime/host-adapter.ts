@@ -82,8 +82,8 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
     exclude: settings.exclude,
   });
 
-  // Stdout stat lines are best-effort (a no-change update prints none at all);
-  // the graph file is the source of truth for structural counts. Token usage is
+  // Stdout stat lines are best-effort, so the graph file is the source of truth
+  // for structural counts. Token usage is
   // NOT overwritten here: `usageMeasured` says whether it was reported at all,
   // and the graph file cannot answer that.
   const withAuthoritativeStats = async (workspaceId: string, outcome: BuildOutcome): Promise<BuildOutcome> => {

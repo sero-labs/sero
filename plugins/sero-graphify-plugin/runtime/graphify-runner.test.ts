@@ -51,9 +51,10 @@ describe('buildWorkspaceGraph', () => {
     const [cmd, args, opts] = exec.mock.calls[0];
     expect(cmd).toBe('/tools/bin/graphify');
     expect(args).toEqual([
-      'extract', '/home/me/proj', '--code-only', '--out', STORE,
+      'extract', '/home/me/proj', '--code-only', '--no-cluster', '--out', STORE,
       '--exclude', 'node_modules',
     ]);
+    expect(stats.changed).toBe(true);
     expect(opts.cwd).toBe(STORE);
     // Report generation runs against the store dir (where graphify-out/ lives).
     const [, reportArgs] = exec.mock.calls[1];
@@ -97,13 +98,23 @@ describe('buildWorkspaceGraph', () => {
     expect(reportArgs).not.toContain('--no-label');
   });
 
-  it('keeps a built graph when the report step fails', async () => {
-    // The graph remains useful even when report generation fails.
+  it('fails when clustering fails so a raw graph is not accepted as complete', async () => {
     const exec = vi.fn()
       .mockResolvedValueOnce(ok(EXTRACT_STDOUT))
       .mockResolvedValueOnce({ stdout: '', stderr: 'cluster boom', exitCode: 1, truncated: false });
-    const stats = await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
-    expect(stats.stats.nodes).toBe(1234);
+    await expect(buildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({}),
+    )).rejects.toThrow(/cluster boom/);
+  });
+
+  it('skips clustering when the incremental scan finds no changes', async () => {
+    const stdout = '[graphify extract] no incremental changes detected (--no-cluster); outputs left untouched.';
+    const exec = vi.fn().mockResolvedValue(ok(stdout));
+    const outcome = await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+
+    expect(outcome.changed).toBe(false);
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('does not let a chatty build be killed for its output', async () => {

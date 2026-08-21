@@ -39,6 +39,8 @@ Each workspace card shows its state, node and edge counts, and Graphify version.
 
 Graphify queues a local AST update after an agent edits files in an enabled workspace. It also runs an update when Sero starts, so it can include changes made while Sero was closed.
 
+If no indexed file changed, Graphify keeps the current graph and skips clustering and the profile merge.
+
 A restart does not repeat an incomplete build. A workspace with no graph shows **not built** and waits for you. A failed build shows **error** with a **Try again** button.
 
 Turning off a workspace stops its updates but keeps its graph files. Turning it on again uses the existing graph. If you remove the workspace from the profile, Graphify removes its graph files and rebuilds the merged profile graph.

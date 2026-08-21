@@ -184,6 +184,9 @@ export class GraphifyIndexer {
 
     const hasGraph = await this.host.graphExists(workspaceId);
     const needsBuild = options.rebuild || !hasGraph;
+    const foldsIntoActiveUpdate = needsBuild
+      && this.activeJob?.workspaceId === workspaceId
+      && this.activeJob.kind === 'update';
     await this.host.updateState((state) => {
       const entry = state.workspaces[workspaceId];
       if (!entry) return state;
@@ -191,7 +194,12 @@ export class GraphifyIndexer {
         ...state,
         workspaces: {
           ...state.workspaces,
-          [workspaceId]: { ...entry, enabled: true, status: needsBuild ? 'queued' : entry.status, lastError: undefined },
+          [workspaceId]: {
+            ...entry,
+            enabled: true,
+            status: needsBuild && !foldsIntoActiveUpdate ? 'queued' : entry.status,
+            lastError: undefined,
+          },
         },
       };
     });
@@ -332,7 +340,9 @@ export class GraphifyIndexer {
     if (state.settings.paused) {
       const status = await this.host.graphExists(job.workspaceId) ? 'idle' : 'needs-build';
       await this.setStatus(job.workspaceId, status, { progress: undefined });
-      this.host.notify(notice('info', `Indexing is paused, so ${entry.name} was not indexed.`));
+      if (job.kind === 'build') {
+        this.host.notify(notice('info', `Indexing is paused, so ${entry.name} was not indexed.`));
+      }
       return;
     }
 
@@ -382,18 +392,20 @@ export class GraphifyIndexer {
     outcome: BuildOutcome,
     previous: WorkspaceIndexStats | undefined,
   ): Promise<void> {
+    const graphifyVersion = await this.host.graphifyVersion();
     const stats: WorkspaceIndexStats = job.kind === 'build'
       ? {
           ...outcome.stats,
           inputTokens: 0,
           outputTokens: 0,
-          graphifyVersion: await this.host.graphifyVersion(),
+          graphifyVersion,
         }
       : {
           ...previous,
           ...outcome.stats,
           inputTokens: previous?.inputTokens ?? 0,
           outputTokens: previous?.outputTokens ?? 0,
+          graphifyVersion,
         };
 
     await this.host.updateState((current) => {
@@ -415,7 +427,7 @@ export class GraphifyIndexer {
         },
       };
     });
-    await this.merge();
+    if (outcome.changed) await this.merge();
   }
 
   private async merge(): Promise<void> {
