@@ -32,11 +32,27 @@ interface StoredApproval {
 /** scope (`<loopId>:<draftId>`) → the single approval outstanding for it. */
 const approvals = new Map<string, StoredApproval>();
 
-/** The canonical hash of what a write would put on disk. */
-export function skillContentHash(input: { name: string; description: string; body: string }): string {
-  return createHash('sha256')
-    .update(`${input.name}\n${input.description}\n${input.body}`)
-    .digest('hex');
+/**
+ * The canonical hash of what a write would do: the exact content AND the
+ * authority to replace something.
+ *
+ * Structured, not concatenated. A description may legitimately contain newlines,
+ * so `name\ndescription\nbody` has no unique reading: moving a line across the
+ * description/body boundary produces the same preimage from different content.
+ * JSON escapes the separators inside each field, so one digest has one meaning.
+ *
+ * `overwrite` is part of it because it is a separate authority. Without it, an
+ * approval the user gave by pressing Save could be spent on a write that
+ * replaces an existing skill — a Replace they never pressed.
+ */
+export function skillContentHash(input: {
+  name: string;
+  description: string;
+  body: string;
+  overwrite?: boolean;
+}): string {
+  const canonical = JSON.stringify([input.name, input.description, input.body, input.overwrite === true]);
+  return createHash('sha256').update(canonical).digest('hex');
 }
 
 function prune(now: number): void {

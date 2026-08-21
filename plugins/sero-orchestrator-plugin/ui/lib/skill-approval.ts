@@ -20,17 +20,26 @@ export function canApproveSkillWrite(): boolean {
   return typeof skillsBridge()?.approveSkillWrite === 'function';
 }
 
-/** Must match the host's canonical hash of what a write would put on disk. */
-async function contentHash(input: { name: string; description: string; body: string }): Promise<string> {
-  const encoded = new TextEncoder().encode(`${input.name}\n${input.description}\n${input.body}`);
-  const digest = await crypto.subtle.digest('SHA-256', encoded);
+/**
+ * The approved write: the content AND whether it may replace an existing skill.
+ *
+ * Must match the host's `skillContentHash` byte for byte — same fields, same
+ * order, same JSON framing.
+ */
+export interface ApprovedSkillWrite {
+  name: string;
+  description: string;
+  body: string;
+  overwrite?: boolean;
+}
+
+async function contentHash(input: ApprovedSkillWrite): Promise<string> {
+  const canonical = JSON.stringify([input.name, input.description, input.body, input.overwrite === true]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function approveSkillWrite(
-  scope: string,
-  content: { name: string; description: string; body: string },
-): Promise<void> {
+export async function approveSkillWrite(scope: string, content: ApprovedSkillWrite): Promise<void> {
   const bridge = skillsBridge();
   if (!bridge?.approveSkillWrite) throw new Error('This Sero build cannot approve a skill write.');
   await bridge.approveSkillWrite(scope, await contentHash(content));

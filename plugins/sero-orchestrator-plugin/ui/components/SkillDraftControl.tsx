@@ -121,12 +121,13 @@ export function SkillDraftControl({
   };
 
   const save = async (replace?: boolean) => {
-    const content = { name: name.trim(), description: description.trim(), body };
     // Saving back into the skill this Workflow already produced is an update, so
     // it does not need the user to answer a collision they did not create.
-    const overwrite = replace || loop.skillLink?.name === content.name || undefined;
-    // The approval goes over renderer-only IPC and covers exactly these bytes.
-    // The host refuses the write without it, so this comes first.
+    const overwrite = replace || loop.skillLink?.name === name.trim() || undefined;
+    const content = { name: name.trim(), description: description.trim(), body, overwrite };
+    // The approval goes over renderer-only IPC and covers exactly these bytes
+    // AND whether they may replace an existing skill. The host refuses the write
+    // without it, so this comes first — and the two must not disagree.
     await approveSkillWrite(`${loop.id}:${state.draftId}`, content);
     const details = (await onDispatch({
       action: 'save_skill',

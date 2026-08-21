@@ -6,6 +6,7 @@
  * an ordinary outcome, not as a failure.
  */
 
+import { createHash } from 'node:crypto';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,11 @@ import type { Loop, SkillDraft } from '../../shared/types';
 
 /** The renderer-only approval channel the host requires before any save. */
 const approveSkillWrite = vi.fn(async () => {});
+
+/** The host's canonical digest, recomputed here to prove the two sides agree. */
+function expectedHash(name: string, description: string, body: string, overwrite: boolean): string {
+  return createHash('sha256').update(JSON.stringify([name, description, body, overwrite])).digest('hex');
+}
 
 const DRAFT: SkillDraft = {
   id: 'skill-1',
@@ -116,8 +122,12 @@ describe('SkillDraftControl', () => {
       skillBody: '# Edited\n',
       skillOverwrite: undefined,
     });
-    // The approval names this draft and is issued BEFORE the save is dispatched.
-    expect(approveSkillWrite).toHaveBeenCalledWith(`loop-1:${DRAFT.id}`, expect.stringMatching(/^[0-9a-f]{64}$/));
+    // The approval names this draft, covers exactly the bytes being sent plus
+    // the (absent) replace authority, and is issued BEFORE the save.
+    expect(approveSkillWrite).toHaveBeenCalledWith(
+      `loop-1:${DRAFT.id}`,
+      expectedHash('lockfile-fix', DRAFT.description, '# Edited\n', false),
+    );
     expect(approveSkillWrite.mock.invocationCallOrder[0])
       .toBeLessThan(dispatch.mock.invocationCallOrder[dispatch.mock.calls.length - 1]);
   });
@@ -144,6 +154,11 @@ describe('SkillDraftControl', () => {
     expect(text()).toContain('already exists');
     await click(buttonNamed('Replace'));
     expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    // Replacing is a different authority, so it is a different approval.
+    expect(approveSkillWrite).toHaveBeenLastCalledWith(
+      `loop-1:${DRAFT.id}`,
+      expectedHash(DRAFT.name, DRAFT.description, 'b', true),
+    );
   });
 
   it('reopens a pending draft from its artifact without re-running the pass', async () => {
@@ -178,5 +193,9 @@ describe('SkillDraftControl', () => {
     await click(buttonNamed('Save skill'));
 
     expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    expect(approveSkillWrite).toHaveBeenLastCalledWith(
+      `loop-1:${DRAFT.id}`,
+      expectedHash(DRAFT.name, DRAFT.description, '# From the artifact\n', true),
+    );
   });
 });

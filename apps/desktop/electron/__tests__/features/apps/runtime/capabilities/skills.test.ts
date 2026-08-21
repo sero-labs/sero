@@ -60,13 +60,22 @@ async function importApprovals() {
   return import('@electron/features/skills/write-approvals');
 }
 
-/** What the app does before a save: approve exactly these bytes, once. */
-async function approve(scope: string, content: { name: string; description: string; body: string }) {
+interface Approvable {
+  name: string;
+  description: string;
+  body: string;
+  overwrite?: boolean;
+}
+
+/**
+ * What the app does before a save: approve exactly this write, once. The digest
+ * is computed here the way the RENDERER computes it — structured JSON, including
+ * the replace authority — so these tests also prove the two sides agree.
+ */
+async function approve(scope: string, content: Approvable) {
   const { approveSkillWrite } = await importApprovals();
-  approveSkillWrite(
-    scope,
-    createHash('sha256').update(`${content.name}\n${content.description}\n${content.body}`).digest('hex'),
-  );
+  const canonical = JSON.stringify([content.name, content.description, content.body, content.overwrite === true]);
+  approveSkillWrite(scope, createHash('sha256').update(canonical).digest('hex'));
 }
 
 const APPROVAL = { scope: 'loop-1:skill-1' };
@@ -145,7 +154,7 @@ describe('skills.write', () => {
     await expect(api.write({ name: 'taken', description: 'new', body: 'new body', approval: APPROVAL }))
       .rejects.toThrow(/already exists/);
 
-    await approve(APPROVAL.scope, { name: 'taken', description: 'new', body: 'new body' });
+    await approve(APPROVAL.scope, { name: 'taken', description: 'new', body: 'new body', overwrite: true });
     const result = await api.write({ name: 'taken', description: 'new', body: 'new body', overwrite: true, approval: APPROVAL });
     expect(result.created).toBe(false);
     expect(await readFile(result.filePath, 'utf-8')).toContain('new body');
@@ -193,8 +202,44 @@ describe('the renderer approval', () => {
     await approve('loop-3:skill-3', second);
 
     await createSkillsApi().write({ ...second, approval: { scope: 'loop-3:skill-3' } });
-    await expect(createSkillsApi().write({ ...second, overwrite: true, approval: { scope: 'loop-3:skill-3' } }))
+    await expect(createSkillsApi().write({ ...second, approval: { scope: 'loop-3:skill-3' } }))
       .rejects.toThrow(/not approved in the app/);
+  });
+
+  it('cannot be spent on a replace the user did not ask for', async () => {
+    const { createSkillsApi } = await importCapability();
+    const existing = { name: 'guarded', description: 'Guard it. Use when asked.', body: '# original\n' };
+    await approve('loop-8:skill-8', existing);
+    await createSkillsApi().write({ ...existing, approval: { scope: 'loop-8:skill-8' } });
+
+    // A plain Save approval — the user never pressed Replace.
+    const update = { ...existing, body: '# replaced\n' };
+    await approve('loop-8:skill-8b', update);
+
+    await expect(createSkillsApi().write({ ...update, overwrite: true, approval: { scope: 'loop-8:skill-8b' } }))
+      .rejects.toThrow(/not approved in the app/);
+  });
+
+  it('binds each field, so a newline moved across the description/body boundary fails', async () => {
+    const { createSkillsApi } = await importCapability();
+    // Same `name\ndescription\nbody` concatenation, different SKILL.md.
+    await approve('loop-9:skill-9b', { name: 'shifted', description: 'use when x', body: 'first\nsecond' });
+
+    await expect(createSkillsApi().write({
+      name: 'shifted',
+      description: 'use when x\nfirst',
+      body: 'second',
+      approval: { scope: 'loop-9:skill-9b' },
+    })).rejects.toThrow(/not approved in the app/);
+
+    // And the approval it did not match is still there for its own content.
+    const ok = await createSkillsApi().write({
+      name: 'shifted',
+      description: 'use when x',
+      body: 'first\nsecond',
+      approval: { scope: 'loop-9:skill-9b' },
+    });
+    expect(ok.created).toBe(true);
   });
 
   it('expires', async () => {
@@ -215,7 +260,7 @@ describe('replacing an existing skill', () => {
     await mkdir(nested, { recursive: true });
     await writeFile(path.join(nested, 'SKILL.md'), '---\nname: search\ndescription: old\n---\nold body\n');
 
-    const content = { name: 'search', description: 'new', body: 'new body\n' };
+    const content = { name: 'search', description: 'new', body: 'new body\n', overwrite: true };
     await approve('loop-5:skill-5', content);
     const result = await createSkillsApi().write({ ...content, overwrite: true, approval: { scope: 'loop-5:skill-5' } });
 
@@ -234,7 +279,7 @@ describe('replacing an existing skill', () => {
       await writeFile(path.join(full, 'SKILL.md'), '---\nname: doubled\ndescription: d\n---\nbody\n');
     }
 
-    const content = { name: 'doubled', description: 'new', body: 'new body\n' };
+    const content = { name: 'doubled', description: 'new', body: 'new body\n', overwrite: true };
     await approve('loop-6:skill-6', content);
     await expect(createSkillsApi().write({ ...content, overwrite: true, approval: { scope: 'loop-6:skill-6' } }))
       .rejects.toThrow(/More than one skill is named/);

@@ -79,7 +79,12 @@ export function createSkillsApi(): AppRuntimeSkillsApi {
       // with no approval and stops.
       const approved = consumeSkillWriteApproval(
         skill.approval.scope,
-        skillContentHash({ name: skill.name, description: skill.description, body: skill.body }),
+        skillContentHash({
+          name: skill.name,
+          description: skill.description,
+          body: skill.body,
+          overwrite: skill.overwrite,
+        }),
       );
       if (!approved) {
         throw new Error('This skill write was not approved in the app. Review and save the draft there.');

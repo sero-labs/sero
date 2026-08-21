@@ -286,7 +286,14 @@ follows for `persistentSessions`.
   the model, since a skill is loaded into every later session. The Orchestrator
   app therefore approves one write over a **renderer-only IPC channel**
   (`skills.approveSkillWrite`, `features/skills/write-approvals.ts`), naming the
-  pending draft and a SHA-256 of the bytes it is about to send. The approval
+  pending draft and a SHA-256 of a **canonical JSON tuple**
+  `[name, description, body, overwrite === true]`. Structured, not concatenated:
+  a description may contain newlines, so `name\ndescription\nbody` has no unique
+  reading — a line moved across the description/body boundary yields the same
+  preimage from different content. `overwrite` is inside the digest because it is
+  a **separate authority**: without it, the approval a user gives by pressing
+  Save could be spent on a write that replaces an existing skill, a Replace they
+  never pressed. The approval
   lives in **main-process memory only** — never on disk, never in the workspace,
   never in a tool result — expires in two minutes, and is consumed on first use.
   A save with no matching approval is refused, and a mismatch consumes nothing,
@@ -414,7 +421,7 @@ Static prototype of all five states:
 | FR-K7 | `save_skill` writes through the host capability to `<SERO_AGENT_DIR>/skills/<name>/SKILL.md`, atomically, and hot-reloads active sessions. |
 | FR-K8 | An existing skill name is refused unless the user chose overwrite; replacing overwrites the file host discovery resolved for that name, and an ambiguous name is refused. |
 | FR-K9 | The host derives the target path itself; a path supplied by a plugin is not accepted. |
-| FR-K14 | A write is refused unless the app approved that exact content for that pending draft over renderer-only IPC; the approval is memory-only, expires, and is consumed once. |
+| FR-K14 | A write is refused unless the app approved that exact content — and its replace authority — for that pending draft over renderer-only IPC; the approval is memory-only, expires, and is consumed once. |
 | FR-K15 | `save_skill` is refused unless the loop's draft is pending and its id matches the one being saved. |
 | FR-K16 | Frontmatter is serialized with the library the SDK parses with, so a description containing a colon, a hash, a quote or a newline round-trips. |
 | FR-K10 | `host.skills` is installed only for a bundled plugin that passes the built-in gate; declaring the capability grants nothing. |
@@ -449,6 +456,9 @@ Host capability (temp `SERO_AGENT_DIR`):
 
 - a write with no approval, or with content differing from the approved hash, is
   refused; a mismatch consumes nothing; an approval works once and expires;
+- a Save approval cannot be spent on a write that sets `overwrite`, and a line
+  moved across the description/body boundary fails the digest;
+- the renderer's digest and the host's agree, asserted from both sides;
 - replacing a nested skill overwrites its own file and creates no duplicate at
   the canonical path; an ambiguous name is refused;
 - a description with a colon, a hash, quotes and a newline round-trips through
