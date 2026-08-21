@@ -78,6 +78,7 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
 
   const buildOptionsFor = (workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']) => ({
     workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
+    rebuildsDir: paths.rebuildsDir,
     inputPath: workspace.path,
     exclude: settings.exclude,
   });

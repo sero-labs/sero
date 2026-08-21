@@ -20,6 +20,7 @@ export interface GraphifyPaths {
   home: string;
   stateFile: string;
   graphsDir: string;
+  rebuildsDir: string;
   profileDir: string;
   profileGraph: string;
 }
@@ -29,6 +30,7 @@ export function graphifyPathsFromHome(home: string): GraphifyPaths {
     home,
     stateFile: path.join(home, 'state.json'),
     graphsDir: path.join(home, 'graphs'),
+    rebuildsDir: path.join(home, 'graph-rebuilds'),
     profileDir: path.join(home, 'profile'),
     profileGraph: path.join(home, 'profile', 'graph.json'),
   };

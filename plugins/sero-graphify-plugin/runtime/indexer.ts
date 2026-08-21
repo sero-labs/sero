@@ -90,6 +90,8 @@ export class GraphifyIndexer {
     await sweepOrphanArtifacts(this.host);
 
     const state = await this.host.readState();
+    let profileNeedsMigration = false;
+    const profileWorkspaceIds = state?.profileGraph.workspaceIds;
     for (const entry of Object.values(state?.workspaces ?? {})) {
       if (!entry.enabled || !isIndexableWorkspace(entry.workspaceId)) continue;
       if (await this.host.graphExists(entry.workspaceId)) {
@@ -97,6 +99,9 @@ export class GraphifyIndexer {
           this.enqueue({ workspaceId: entry.workspaceId, kind: 'update' });
         } else {
           await this.setStatus(entry.workspaceId, 'needs-build', { progress: undefined });
+          if (!Array.isArray(profileWorkspaceIds) || profileWorkspaceIds.includes(entry.workspaceId)) {
+            profileNeedsMigration = true;
+          }
           if (entry.status !== 'needs-build') {
             this.host.notify(notice('info', `${entry.name} needs one clean local rebuild to remove data from the previous indexing mode.`));
           }
@@ -105,6 +110,7 @@ export class GraphifyIndexer {
         await this.setStatus(entry.workspaceId, 'needs-build', { progress: undefined });
       }
     }
+    if (profileNeedsMigration) await this.merge();
     this.kick();
   }
 

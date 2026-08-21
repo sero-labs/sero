@@ -82,6 +82,7 @@ Graphify stores profile data under `<SERO_HOME>/apps/graphify/`:
 
 - `state.json` contains settings, each workspace indexing-mode version, and queued requests.
 - `graphs/<workspace-id>/graphify-out/` contains each workspace graph.
+- `graph-rebuilds/` temporarily holds clean rebuilds and recovery copies. On the next rebuild, Graphify removes old temporary builds and restores an old recovery copy if its active graph is missing.
 - `profile/graph.json` contains the merged graph.
 
 Graph artifacts do not enter your repositories.

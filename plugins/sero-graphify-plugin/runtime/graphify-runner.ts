@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
@@ -18,6 +18,8 @@ export interface BuildOptions {
   workspaceDir: string;
   /** Workspace root host path (graphify input). */
   inputPath: string;
+  /** Recovery area outside graphs/, which the workspace artifact sweep owns. */
+  rebuildsDir: string;
   /** Receives graphify's progress lines as they stream. */
   onProgress?: (message: string) => void;
   exclude: string[];
@@ -26,6 +28,7 @@ export interface BuildOptions {
 }
 
 const BUILD_TIMEOUT_MS = 60 * 60_000;
+const STALE_REBUILD_MS = 24 * 60 * 60_000;
 
 function tail(text: string, max = 2000): string {
   return text.length > max ? `…${text.slice(-max)}` : text;
@@ -89,6 +92,34 @@ function buildArgs(options: BuildOptions): string[] {
 
 async function pathExists(target: string): Promise<boolean> {
   return access(target).then(() => true).catch(() => false);
+}
+
+/** Remove rebuilds left by killed processes without touching active work. */
+export async function cleanupStaleRebuilds(
+  rebuildsDir: string,
+  graphsDir: string,
+  now = Date.now(),
+): Promise<void> {
+  const entries = await readdir(rebuildsDir, { withFileTypes: true }).catch(() => []);
+  await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+    const target = path.join(rebuildsDir, entry.name);
+    const info = await stat(target).catch(() => null);
+    if (!info || now - info.mtimeMs < STALE_REBUILD_MS) return;
+    if (entry.name.includes('.rebuild-')) {
+      await rm(target, { recursive: true, force: true });
+      return;
+    }
+    const backupMarker = entry.name.lastIndexOf('.backup-');
+    if (backupMarker < 1) return;
+    const activeGraph = path.join(graphsDir, entry.name.slice(0, backupMarker));
+    if (await pathExists(activeGraph)) {
+      await rm(target, { recursive: true, force: true });
+      return;
+    }
+    await mkdir(graphsDir, { recursive: true });
+    // Keep the backup if recovery still fails. A later rebuild can retry.
+    await rename(target, activeGraph).catch(() => undefined);
+  }));
 }
 
 /** Python block-buffers stdout when piped; unbuffered keeps progress lines live. */
@@ -174,12 +205,12 @@ export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOpti
   // Keep recovery directories outside graphs/. Workspace artifact sweeps treat
   // every directory under graphs/ as a workspace id and can run in another
   // runtime process while this rebuild is active.
-  const recoveryRoot = path.join(path.dirname(path.dirname(options.workspaceDir)), 'graph-rebuilds');
   const workspaceName = path.basename(options.workspaceDir);
-  const stagingDir = path.join(recoveryRoot, `${workspaceName}.rebuild-${randomUUID()}`);
-  const backupDir = path.join(recoveryRoot, `${workspaceName}.backup-${randomUUID()}`);
+  const stagingDir = path.join(options.rebuildsDir, `${workspaceName}.rebuild-${randomUUID()}`);
+  const backupDir = path.join(options.rebuildsDir, `${workspaceName}.backup-${randomUUID()}`);
   let movedCurrent = false;
   try {
+    await cleanupStaleRebuilds(options.rebuildsDir, path.dirname(options.workspaceDir));
     const outcome = await buildWorkspaceGraph(deps, {
       ...options,
       workspaceDir: stagingDir,
@@ -192,7 +223,13 @@ export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOpti
     try {
       await rename(stagingDir, options.workspaceDir);
     } catch (error) {
-      if (movedCurrent) await rename(backupDir, options.workspaceDir);
+      if (movedCurrent && !(await pathExists(options.workspaceDir))) {
+        await rename(backupDir, options.workspaceDir).catch(async () => {
+          // A second rename failure must not strand the only valid graph in
+          // recovery storage. Copying is slower but keeps the documented path.
+          await cp(backupDir, options.workspaceDir, { recursive: true, force: false, errorOnExist: true });
+        });
+      }
       throw error;
     }
     if (movedCurrent) await rm(backupDir, { recursive: true, force: true });

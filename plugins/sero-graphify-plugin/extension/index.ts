@@ -11,10 +11,10 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
+import { resolveGraphifyPaths, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { readStateFile, appendIndexRequest, appendSettingsRequest } from '../shared/state-io';
-import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
-import type { SettingsPatch } from '../shared/types';
+import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure, type GraphLoadResult } from '../shared/query-engine';
+import { CURRENT_INDEX_MODE_VERSION, type GraphifyState, type SettingsPatch } from '../shared/types';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -42,6 +42,19 @@ function unavailableMessage(failure: GraphLoadFailure, detail?: string): string 
   }
 }
 
+function profileUsesCurrentIndexMode(state: GraphifyState | null): boolean {
+  const ids = state?.profileGraph.workspaceIds;
+  return state?.profileGraph.status === 'ready'
+    && Array.isArray(ids)
+    && ids.every((id) => state.workspaces[id]?.indexModeVersion === CURRENT_INDEX_MODE_VERSION);
+}
+
+async function loadCurrentProfileGraph(paths: GraphifyPaths): Promise<GraphLoadResult> {
+  const state = await readStateFile(paths.stateFile);
+  if (!profileUsesCurrentIndexMode(state)) return { failure: 'absent' };
+  return loadGraphResult(paths.profileGraph);
+}
+
 export default function graphifyExtension(pi: ExtensionAPI): void {
   const paths = resolveGraphifyPaths();
 
@@ -55,7 +68,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       budget: Type.Optional(Type.Number({ description: 'Max answer tokens (default 1200)' })),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       const { text: answer, files } = searchGraph(result.graph, params.question, { mode: params.mode, budget: params.budget });
       // `files` rides on `details` (UI-only) so the search panel can open them;
@@ -75,9 +88,10 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const state = await readStateFile(paths.stateFile);
-      const entry = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+      const resolved = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+      const entry = resolved?.indexModeVersion === CURRENT_INDEX_MODE_VERSION ? resolved : null;
       const graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
-      const primary = await loadGraphResult(graphPath);
+      const primary = entry ? await loadGraphResult(graphPath) : await loadCurrentProfileGraph(paths);
       if ('graph' in primary) return text(queryGraph(primary.graph, params.question, { mode: params.mode, budget: params.budget }));
       // Fall back to the profile graph only when the workspace simply has no graph
       // of its own. A built-but-unreadable workspace graph (too-large/invalid)
@@ -85,7 +99,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       if (primary.failure !== 'absent' || graphPath === paths.profileGraph) {
         return text(unavailableMessage(primary.failure, primary.detail));
       }
-      const fallback = await loadGraphResult(paths.profileGraph);
+      const fallback = await loadCurrentProfileGraph(paths);
       if ('graph' in fallback) return text(queryGraph(fallback.graph, params.question, { mode: params.mode, budget: params.budget }));
       return text(unavailableMessage(fallback.failure, fallback.detail));
     },
@@ -100,7 +114,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       to: Type.String({ description: 'Target concept name or node id' }),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       return text(findPath(result.graph, params.from, params.to));
     },
@@ -114,7 +128,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       concept: Type.String({ description: 'Concept name or node id to explain' }),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       return text(explainNode(result.graph, params.concept));
     },

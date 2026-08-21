@@ -53,6 +53,7 @@ describe('GraphifyIndexer — restart recovery', () => {
         lastBuiltAt: 'yesterday',
         indexModeVersion: undefined,
       });
+      state.profileGraph = { status: 'ready', workspaceIds: ['ws1'] };
     });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
@@ -61,6 +62,7 @@ describe('GraphifyIndexer — restart recovery', () => {
     expect(host.updateGraph).not.toHaveBeenCalled();
     expect(host.buildGraph).not.toHaveBeenCalled();
     expect(getState().workspaces.ws1.status).toBe('needs-build');
+    expect(getState().profileGraph.status).toBe('absent');
     expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({
       message: expect.stringMatching(/clean local rebuild/i),
     }));

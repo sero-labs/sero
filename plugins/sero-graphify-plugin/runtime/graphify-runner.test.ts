@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
-import { buildWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore, rebuildWorkspaceGraph } from './graphify-runner';
+import { mkdir, mkdtemp, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
+import { buildWorkspaceGraph, cleanupStaleRebuilds, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore, rebuildWorkspaceGraph } from './graphify-runner';
 import type { BuildOptions } from './graphify-runner';
 import type { ExecResult } from './bounded-exec';
 
@@ -20,6 +20,7 @@ const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0, trun
 function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
   return {
     workspaceDir: STORE,
+    rebuildsDir: path.join(os.tmpdir(), 'graphify-runner-test', 'graph-rebuilds'),
     inputPath: '/p',
     exclude: [],
     ...overrides,
@@ -162,7 +163,7 @@ describe('rebuildWorkspaceGraph', () => {
 
     await rebuildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: {} },
-      buildOpts({ workspaceDir }),
+      buildOpts({ workspaceDir, rebuildsDir: path.join(parent, 'graph-rebuilds') }),
     );
 
     expect(exec.mock.calls[0][1]).toEqual([
@@ -181,11 +182,41 @@ describe('rebuildWorkspaceGraph', () => {
 
     await expect(rebuildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: {} },
-      buildOpts({ workspaceDir }),
+      buildOpts({ workspaceDir, rebuildsDir: path.join(parent, 'graph-rebuilds') }),
     )).rejects.toThrow(/extract failed/);
 
     expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('valid-profile-source');
     expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
+  });
+
+  it('removes old recovery directories but keeps recent ones', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-cleanup-'));
+    const graphsDir = path.join(parent, 'graphs');
+    const oldDir = path.join(parent, 'ws1.rebuild-old');
+    const recentDir = path.join(parent, 'ws1.rebuild-recent');
+    await Promise.all([mkdir(oldDir), mkdir(recentDir)]);
+    const now = Date.now();
+    await utimes(oldDir, new Date(now - 25 * 60 * 60_000), new Date(now - 25 * 60 * 60_000));
+
+    await cleanupStaleRebuilds(parent, graphsDir, now);
+
+    expect(await readdir(parent)).toEqual(['ws1.rebuild-recent']);
+  });
+
+  it('restores a stale backup when the active workspace graph is missing', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-backup-recovery-'));
+    const rebuildsDir = path.join(parent, 'graph-rebuilds');
+    const graphsDir = path.join(parent, 'graphs');
+    const backupDir = path.join(rebuildsDir, 'ws1.backup-old');
+    await mkdir(backupDir, { recursive: true });
+    await writeFile(path.join(backupDir, 'valid'), 'graph');
+    const now = Date.now();
+    await utimes(backupDir, new Date(now - 25 * 60 * 60_000), new Date(now - 25 * 60 * 60_000));
+
+    await cleanupStaleRebuilds(rebuildsDir, graphsDir, now);
+
+    expect(await readFile(path.join(graphsDir, 'ws1', 'valid'), 'utf8')).toBe('graph');
+    expect(await readdir(rebuildsDir)).toEqual([]);
   });
 });
 
