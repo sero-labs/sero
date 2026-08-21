@@ -61,6 +61,7 @@ restrictions.
 | [15-pr-lifecycle.md](15-pr-lifecycle.md) | PR lifecycle loops: work on the PR's own branch (event-scoped worktree checkout), pending-event FIFO queue, `pr-approved`/`main-updated`/`issue-opened` sources, updated-PR receipts, four catalog loops (Issue Implementer with claim protocol, CI fixer, review responder, rebase-on-main) |
 | [16-bounded-feedback.md](16-bounded-feedback.md) | One bounded return to a strict dependency ancestor, durable activation visits, traversal exhaustion through recovery, region validation and restart-safe persistence |
 | [17-dynamic-fan-out.md](17-dynamic-fan-out.md) | Bounded dynamic fan-out: one step expanded at run time into per-item activations of an upstream array (persisted manifest, wave concurrency, all-settled join, `<itemsFrom>Results` aggregate, per-activation recovery) |
+| [18-skill-extraction.md](18-skill-extraction.md) | Skill extraction: turn a proven Workflow into a reusable `SKILL.md` — read-only extractor agent guided by `skill-creator`, user-reviewed draft, gated `appRuntime.skills` host write into the profile skills directory |
 
 ## Non-Goals
 
