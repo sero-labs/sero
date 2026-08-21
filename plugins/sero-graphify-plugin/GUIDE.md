@@ -23,7 +23,7 @@ When a session starts in an indexed workspace, Graphify can add a short graph su
 
 Sero runs Graphify in code-only mode. Tree-sitter parses the code on your machine. No model receives the code, and no API key is required.
 
-Initial builds, rebuilds, incremental updates, profile merges, and searches make no model calls.
+Initial builds, cached refreshes, rebuilds, profile merges, and searches make no model calls.
 
 After an agent edits files, Graphify queues one local update. It also catches up enabled workspaces when Sero starts.
 

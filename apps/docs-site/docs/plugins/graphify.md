@@ -6,7 +6,7 @@ Graphify builds a local knowledge graph for selected workspaces. It maps code sy
 
 Sero indexes code only. Graphify uses Tree-sitter to find classes, functions, imports, calls, and other code relationships. This work runs on your machine.
 
-Sero does not send code to a model. You do not need to select a model or configure an API key. Initial builds, rebuilds, incremental updates, profile merges, and searches are free.
+Sero does not send code to a model. You do not need to select a model or configure an API key. Initial builds, cached refreshes, rebuilds, profile merges, and searches are free.
 
 Graphify can also process documents, PDFs, images, and media with a model. Sero does not enable that semantic pass. It will require a separate opt-in design before it is available.
 

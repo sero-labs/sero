@@ -3,9 +3,9 @@
  *
  * The pi SDK already tells us when the agent changes files: every mutating
  * tool call surfaces as `tool_execution_end`. We mark the session dirty and,
- * at `agent_end`, queue ONE incremental `refresh` request for the current
- * workspace (only if the user opted it into indexing). The background runtime
- * drains the request, runs the AST-only `graphify update`, and re-merges.
+ * at `agent_end`, queue ONE `refresh` request for the current workspace (only
+ * if the user opted it into indexing). The background runtime drains the
+ * request, runs cached code-only extraction, and re-merges.
  *
  * `session_start` doubles as workspace discovery: a session opening in a
  * workspace graphify has never seen means the profile list is stale, so we
@@ -21,7 +21,7 @@ import { resolveCurrentWorkspace } from './current-workspace';
 
 /** Tools that can change workspace files. Bash is opaque (we cannot know what
  * a command touched), so it counts as potentially mutating — a no-op update
- * costs nothing. */
+ * only uses local compute. */
 const MUTATING_TOOLS = new Set(['edit', 'write', 'bash']);
 
 export function registerRefreshOnEdit(pi: ExtensionAPI, paths: GraphifyPaths): void {

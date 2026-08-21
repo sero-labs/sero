@@ -65,6 +65,23 @@ describe('GraphifyIndexer — local controls', () => {
     await indexer.idle();
 
     expect(buildGraph).toHaveBeenCalledTimes(1);
+    expect(getState().workspaces.ws2.status).toBe('needs-build');
+    indexer.dispose();
+  });
+
+  it('explains when a build request is dropped while paused', async () => {
+    const { host, getState } = makeHost({}, (state) => { state.settings.paused = true; });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'rebuild', 'ws1'));
+    await indexer.idle();
+
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.status).toBe('needs-build');
+    expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'info',
+      message: expect.stringMatching(/paused.*not indexed/i),
+    }));
     indexer.dispose();
   });
 
@@ -76,6 +93,24 @@ describe('GraphifyIndexer — local controls', () => {
     await indexer.idle();
 
     expect(host.confirm).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
+  it('explains an empty code-only graph', async () => {
+    const buildGraph = vi.fn().mockResolvedValue({
+      stats: { ...STATS, nodes: 0, edges: 0, communities: 0 },
+      usageMeasured: false,
+    });
+    const { host } = makeHost({ overrides: { buildGraph } });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await deliver(indexer, host, request(1, 'enable', 'ws1'));
+    await indexer.idle();
+
+    expect(host.notify).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'info',
+      message: expect.stringMatching(/no supported code.*empty/i),
+    }));
     indexer.dispose();
   });
 });

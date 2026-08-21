@@ -230,7 +230,7 @@ export class GraphifyIndexer {
         break;
       case 'settings':
         await applySettingsPatch(this.host, request.settings ?? {});
-        if (request.settings?.paused === true) this.queue = [];
+        if (request.settings?.paused === true) await this.cancelQueuedJobs();
         break;
       case 'enable-all': {
         const state = await this.host.readState();
@@ -274,6 +274,25 @@ export class GraphifyIndexer {
     this.queue.push({ ...job });
   }
 
+  /** Cancel waiting work and restore a status that the user can act on. */
+  private async cancelQueuedJobs(): Promise<void> {
+    const queued = this.queue;
+    this.queue = [];
+    this.rerunRequested = false;
+    const statuses = await Promise.all(queued.map(async (job) => {
+      const status: WorkspaceIndexStatus = await this.host.graphExists(job.workspaceId) ? 'idle' : 'needs-build';
+      return { workspaceId: job.workspaceId, status };
+    }));
+    await this.host.updateState((state) => {
+      const workspaces = { ...state.workspaces };
+      for (const { workspaceId, status } of statuses) {
+        const entry = workspaces[workspaceId];
+        if (entry) workspaces[workspaceId] = { ...entry, status, progress: undefined };
+      }
+      return { ...state, workspaces };
+    });
+  }
+
   private kick(): void {
     if (this.processing || this.disposed) return;
     this.processing = true;
@@ -313,6 +332,7 @@ export class GraphifyIndexer {
     if (state.settings.paused) {
       const status = await this.host.graphExists(job.workspaceId) ? 'idle' : 'needs-build';
       await this.setStatus(job.workspaceId, status, { progress: undefined });
+      this.host.notify(notice('info', `Indexing is paused, so ${entry.name} was not indexed.`));
       return;
     }
 
@@ -342,6 +362,9 @@ export class GraphifyIndexer {
         ? await this.host.buildGraph(target, state.settings, { onProgress })
         : await this.host.updateGraph(target, state.settings, { onProgress });
       await this.completeJob(job, outcome, entry.stats);
+      if (job.kind === 'build' && outcome.stats.nodes === 0) {
+        this.host.notify(notice('info', `${entry.name} contains no supported code, so its graph is empty.`));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.host.log(`[graphify] build failed for ${job.workspaceId}: ${message}`);

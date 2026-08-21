@@ -6,7 +6,7 @@ import { withStateDefaults } from '../shared/types';
 import { graphifyPathsFromHome, workspaceGraphDir, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
 import { boundedExec } from './bounded-exec';
 import { provisionGraphify, graphifyBinPath, uvEnv, GRAPHIFY_VERSION } from './provisioner';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
+import { buildWorkspaceGraph, mergeProfileGraph as runMerge, type BuildOutcome } from './graphify-runner';
 import { cleanEnv } from './credentials';
 import { graphStats, loadGraph } from '../shared/query-engine';
 import type { IndexerHost } from './indexer';
@@ -139,11 +139,11 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
         ...buildOptionsFor(workspace, settings),
         onProgress: hooks.onProgress,
       })),
-    updateGraph: async (workspace, _settings, hooks) =>
-      // `graphify update` is AST-only (no LLM), so no credentials needed.
-      withAuthoritativeStats(workspace.workspaceId, await updateWorkspaceGraph(await localDeps(), {
-        workspaceDir: workspaceGraphDir(paths, workspace.workspaceId),
-        inputPath: workspace.path,
+    updateGraph: async (workspace, settings, hooks) =>
+      // Use the cached code-only extraction path for refreshes too. Graphify's
+      // `update` command can add document AST nodes that a rebuild removes.
+      withAuthoritativeStats(workspace.workspaceId, await buildWorkspaceGraph(await localDeps(), {
+        ...buildOptionsFor(workspace, settings),
         onProgress: hooks.onProgress,
       })),
     mergeProfileGraph: async (workspaceIds) => {

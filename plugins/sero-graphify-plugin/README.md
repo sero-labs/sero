@@ -23,7 +23,7 @@ Sero does not enable Graphify's semantic extraction for documents, PDFs, images,
 
 Indexing is opt-in per workspace. Updates are push-based:
 
-- Agent edits queue one `graphify update` request per agent run.
+- Agent edits queue one cached code-only extraction per agent run.
 - Opening the Graphify panel queues workspace discovery.
 - Runtime startup queues a local update for each enabled workspace that already has a graph.
 - A workspace without a graph waits for a user action.

@@ -11,17 +11,14 @@ export interface RunnerDeps {
   env: NodeJS.ProcessEnv;
 }
 
-/** What the free, AST-only `update` pass needs. It never calls a model. */
-export interface UpdateOptions {
+/** What a local code-only extraction needs. It never calls a model. */
+export interface BuildOptions {
   /** Sero-managed per-workspace store dir — graphify-out/ lands here, never in the workspace. */
   workspaceDir: string;
   /** Workspace root host path (graphify input). */
   inputPath: string;
   /** Receives graphify's progress lines as they stream. */
   onProgress?: (message: string) => void;
-}
-
-export interface BuildOptions extends UpdateOptions {
   exclude: string[];
 }
 
@@ -46,7 +43,6 @@ export interface BuildOutcome {
 /**
  * Parse stats from graphify stdout. Matches both shapes seen in the spike:
  *   "[graphify extract] wrote …: 1,234 nodes, 5,678 edges, 12 communities"
- *   "[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities"
  *   "[graphify extract] tokens: 45,000 in / 9,000 out, est. cost (~claude): $0.51"
  */
 export function parseBuildStats(stdout: string): BuildOutcome {
@@ -90,8 +86,8 @@ const SERO_IGNORE_HEADER = '# Added by Sero Graphify: keep Sero workspace intern
  * Graphify honors .gitignore/.graphifyignore but cannot know about Sero's
  * workspace internals (`.sero/`, `.pnpm-store/`, …) or be trusted with
  * secrets (`.env`). The canonical list lives in @sero-ai/common
- * (WORKSPACE_COMMON_IGNORES). CLI --exclude only applies to `extract`, not
- * `update`, so an ignore file is the one mechanism covering both.
+ * (WORKSPACE_COMMON_IGNORES). The ignore file also protects any direct
+ * Graphify command a user runs in the workspace.
  * Idempotent and best-effort: never fails the build, never duplicates lines.
  */
 export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
@@ -167,24 +163,6 @@ async function clusterGraph(
     return { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 };
   }
   return parseBuildStats(result.stdout).stats;
-}
-
-export async function updateWorkspaceGraph(deps: RunnerDeps, options: UpdateOptions): Promise<BuildOutcome> {
-  await ensureGraphifyIgnore(options.inputPath);
-  // `update` writes to <inputPath>/$GRAPHIFY_OUT; an absolute GRAPHIFY_OUT
-  // redirects everything into the store dir (verified live in the spike).
-  const result = await deps.exec(deps.graphifyPath, ['update', options.inputPath], {
-    cwd: options.workspaceDir,
-    env: { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') },
-    timeoutMs: BUILD_TIMEOUT_MS,
-    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
-    onOutputLimit: 'truncate',
-    onLine: options.onProgress,
-  });
-  if (result.exitCode !== 0) {
-    throw new Error(`graphify update failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
-  }
-  return parseBuildStats(result.stdout);
 }
 
 export async function mergeProfileGraph(deps: RunnerDeps, graphPaths: string[], outPath: string): Promise<void> {
