@@ -365,6 +365,9 @@ The `orchestrator` tool and slash command gain the three actions, mirroring how
 Nothing is added to the loop list or the home inbox: an unreviewed draft is not an
 attention item, because the user just asked for it and is looking at the dialog.
 
+Static prototype of all five states:
+[docs/prototypes/sero-workflow-skill-extraction.html](../../../../prototypes/sero-workflow-skill-extraction.html).
+
 ## Functional requirements
 
 | ID | Requirement |
