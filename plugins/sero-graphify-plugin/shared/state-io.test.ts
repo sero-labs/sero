@@ -40,25 +40,24 @@ describe('state-io', () => {
 });
 
 describe('withStateDefaults', () => {
-  it('fills in caps and the ledger for state written before they existed', () => {
-    const legacy = { settings: { backend: 'claude', model: '', tokenBudget: 0, exclude: [] } } as unknown as GraphifyState;
+  it('migrates paid-build state to local indexing settings', () => {
+    const legacy = {
+      settings: { backend: 'claude', model: 'legacy', tokenBudget: 60000, exclude: ['vendor'] },
+      spend: { day: '2026-08-20', usd: 4.2, runs: [] },
+    } as unknown as GraphifyState;
     const state = withStateDefaults(legacy);
-    expect(state.settings.caps.maxCostPerDayUsd).toBe(DEFAULT_STATE.settings.caps.maxCostPerDayUsd);
-    expect(state.spend).toEqual({ day: '', usd: 0, runs: [] });
+    expect(state.settings.exclude).toEqual(['vendor']);
+    expect(state.settings.paused).toBe(false);
+    expect(state.settings).toHaveProperty('model', 'legacy');
+    expect(state).toHaveProperty('spend.usd', 4.2);
     expect(state.removedWorkspaces).toEqual([]);
   });
 
-  it('does not treat a legacy model string as a chosen model', () => {
-    // `model: ''` meant "let graphify decide". Carrying it forward as a choice
-    // would resume spending on a default nobody picked.
-    const legacy = { settings: { model: '' } } as unknown as GraphifyState;
-    expect(withStateDefaults(legacy).settings.model).toBeNull();
-  });
-
-  it('keeps a real model choice', () => {
-    const chosen = { backend: 'openai' as const, modelId: 'gpt-5.6-luna', chosenAt: 'now' };
-    const state = withStateDefaults({ settings: { model: chosen } } as unknown as GraphifyState);
-    expect(state.settings.model).toEqual(chosen);
+  it('keeps current local settings', () => {
+    const state = withStateDefaults({
+      settings: { ...structuredClone(DEFAULT_STATE.settings), paused: true, exclude: ['dist'] },
+    } as unknown as GraphifyState);
+    expect(state.settings).toMatchObject({ paused: true, exclude: ['dist'] });
   });
 
   it('returns defaults for a missing file', () => {
@@ -70,18 +69,20 @@ describe('appendIndexRequests concurrency', () => {
   it('refuses to write over content that changed since it was read', async () => {
     // The extension and the runtime write this file from different processes
     // with no shared lock. Without the check, an append would revert whatever
-    // the runtime wrote in between — a spend-ledger entry, or the applied
-    // request watermark, which would resurrect drained requests.
+    // the runtime wrote in between, including the applied request watermark.
     const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-race-'));
     const stateFile = path.join(dir, 'state.json');
     const stale = JSON.stringify(structuredClone(DEFAULT_STATE), null, 2);
 
-    const runtimeWrote = { ...structuredClone(DEFAULT_STATE), spend: { day: '2026-08-20', usd: 4.2, runs: [] } };
+    const runtimeWrote = {
+      ...structuredClone(DEFAULT_STATE),
+      provisioning: { status: 'ready' as const, updatedAt: '2026-08-20' },
+    };
     await writeStateFile(stateFile, runtimeWrote);
 
     const wrote = await writeIfUnchanged(stateFile, stale, structuredClone(DEFAULT_STATE));
     expect(wrote).toBe(false);
-    expect((await readStateFile(stateFile))?.spend.usd).toBe(4.2);
+    expect((await readStateFile(stateFile))?.provisioning.updatedAt).toBe('2026-08-20');
   });
 
   it('writes when the content is untouched', async () => {
@@ -96,8 +97,7 @@ describe('appendIndexRequests concurrency', () => {
   });
 
   it('refuses to overwrite a state file it cannot parse', async () => {
-    // Replacing an unreadable file with defaults would erase the model choice,
-    // the caps and the ledger over a half-written read.
+    // Replacing an unreadable file with defaults would erase runtime state.
     const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-corrupt-'));
     const stateFile = path.join(dir, 'state.json');
     await writeFile(stateFile, '{"settings":', 'utf8');

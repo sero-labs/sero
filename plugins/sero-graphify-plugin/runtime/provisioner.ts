@@ -17,18 +17,10 @@ import { JSON_MAX_OUTPUT_BYTES } from './bounded-exec';
  */
 export const GRAPHIFY_VERSION = '0.9.47';
 
-/**
- * Backend SDKs are optional extras of graphifyy; the bare package can only do
- * AST extraction ("the 'anthropic' package is required for this backend").
- * Install every offered backend's extra so switching backends never needs a
- * reinstall. deepseek rides on the openai client; claude-cli and ollama need no
- * SDK at all. A missing extra fails the build only once the toolchain is ready,
- * so this list and the offered-backend list must not drift.
- */
-const BACKEND_EXTRAS = 'anthropic,openai,gemini,kimi,ollama';
-
 export function installSpecFor(version: string): string {
-  return `graphifyy[${BACKEND_EXTRAS}]==${version}`;
+  // The bare package contains Tree-sitter extraction and clustering. Provider
+  // extras would install model SDKs that this code-only integration cannot use.
+  return `graphifyy==${version}`;
 }
 
 export const GRAPHIFY_INSTALL_SPEC = installSpecFor(GRAPHIFY_VERSION);
@@ -114,7 +106,7 @@ export async function provisionGraphify(deps: ProvisionDeps): Promise<ProvisionR
  *
  * Best-effort and never blocking: this only ever *offers* an upgrade. Installing
  * a new extractor invalidates the semantic cache, so applying one re-extracts
- * the corpus and spends money — which makes an automatic upgrade unacceptable.
+ * the corpus, so an automatic upgrade would create unexpected local work.
  */
 export async function latestPublishedVersion(): Promise<string | null> {
   const response = await fetch('https://pypi.org/pypi/graphifyy/json', {

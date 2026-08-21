@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GraphifyIndexer } from './indexer';
-import { DEFAULT_STATE, type WorkspaceIndexStats } from '../shared/types';
+import type { WorkspaceIndexStats } from '../shared/types';
 import { deliver, enabled, makeHost, request, STATS } from './indexer.fixtures';
 
-describe('GraphifyIndexer — a restart never spends', () => {
+describe('GraphifyIndexer — restart recovery', () => {
   it('does not rebuild a workspace whose build failed', async () => {
     // The old rule restarted a full build for any workspace with no
-    // lastBuiltAt, which every failed build has — so a failure was paid for
-    // again at every launch.
+    // lastBuiltAt, which every failed build has, so it ran again at each launch.
     const { host, getState } = makeHost({}, (state) => {
       enabled(state, 'ws1', { status: 'error', lastError: 'no key', failureCount: 1 });
     });
@@ -75,12 +74,9 @@ describe('GraphifyIndexer — one action, one build', () => {
     let finish: (stats: WorkspaceIndexStats) => void = () => {};
     const buildGraph = vi.fn(async (
       _workspace: unknown,
-      _settings: unknown,
-      hooks: { beforePaidSpawn?: () => Promise<void> },
     ) => {
-      await hooks.beforePaidSpawn?.();
       return new Promise<{ stats: WorkspaceIndexStats; usageMeasured: boolean }>((resolve) => {
-        finish = (stats) => resolve({ stats, usageMeasured: true });
+        finish = (stats) => resolve({ stats, usageMeasured: false });
       });
     });
     const { host, getState } = makeHost({ overrides: { buildGraph } });
@@ -98,7 +94,7 @@ describe('GraphifyIndexer — one action, one build', () => {
 });
 
 describe('GraphifyIndexer — enable is not rebuild', () => {
-  it('enabling a workspace that already has a graph costs nothing', async () => {
+  it('enabling a workspace that already has a graph does not rebuild it', async () => {
     const { host, getState } = makeHost({ built: ['ws1'] });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
@@ -109,8 +105,8 @@ describe('GraphifyIndexer — enable is not rebuild', () => {
     indexer.dispose();
   });
 
-  it('rebuild always spends', async () => {
-    const { host, getState } = makeHost({ built: ['ws1'] });
+  it('rebuild runs a fresh local extraction', async () => {
+    const { host } = makeHost({ built: ['ws1'] });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await deliver(indexer, host, request(1, 'rebuild', 'ws1'));
@@ -119,7 +115,7 @@ describe('GraphifyIndexer — enable is not rebuild', () => {
     indexer.dispose();
   });
 
-  it('a first enable builds, records the model, and merges', async () => {
+  it('a first enable builds without a model and merges', async () => {
     const { host, getState } = makeHost();
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
@@ -127,25 +123,19 @@ describe('GraphifyIndexer — enable is not rebuild', () => {
     await indexer.idle();
     expect(host.buildGraph).toHaveBeenCalledTimes(1);
     expect(host.mergeProfileGraph).toHaveBeenCalledWith(['ws1']);
-    expect(getState().workspaces.ws1.stats).toMatchObject({ model: 'gpt-4.1-mini', backend: 'openai', graphifyVersion: '0.9.47' });
+    expect(getState().workspaces.ws1.stats).toMatchObject({
+      inputTokens: 0,
+      outputTokens: 0,
+      graphifyVersion: '0.9.47',
+    });
+    expect(host.confirm).not.toHaveBeenCalled();
     indexer.dispose();
   });
 });
 
-describe('GraphifyIndexer — what it refuses to spend on', () => {
-  it('refuses every paid job while no model is chosen', async () => {
-    const { host, getState } = makeHost({}, (state) => { state.settings.model = null; });
-    const indexer = new GraphifyIndexer(host);
-    await indexer.start();
-    await deliver(indexer, host, request(1, 'enable', 'ws1'));
-    await indexer.idle();
-    expect(host.buildGraph).not.toHaveBeenCalled();
-    expect(getState().notice?.message).toMatch(/model/i);
-    indexer.dispose();
-  });
-
+describe('GraphifyIndexer — safety boundaries', () => {
   it('refuses a workspace the host registry does not know', async () => {
-    // Building one anyway was paid for and then deleted by the next sync.
+    // Building one anyway would be deleted by the next sync.
     const { host } = makeHost();
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
@@ -168,33 +158,8 @@ describe('GraphifyIndexer — what it refuses to spend on', () => {
     indexer.dispose();
   });
 
-  it('stops the queue when a build would pass the daily cap', async () => {
-    const { host, getState } = makeHost({}, (state) => {
-      state.settings.caps = { ...state.settings.caps, maxCostPerDayUsd: 1 };
-      state.spend = { day: new Date().toISOString().slice(0, 10), usd: 0.99, runs: [] };
-    });
-    const indexer = new GraphifyIndexer(host);
-    await indexer.start();
-    await deliver(indexer, host, request(1, 'enable', 'ws1'));
-    await indexer.idle();
-    expect(host.buildGraph).not.toHaveBeenCalled();
-    expect(getState().notice?.kind).toBe('cap');
-    indexer.dispose();
-  });
-
-  it('does not spend when the confirmation is declined', async () => {
-    const { host, getState } = makeHost({ overrides: { confirm: vi.fn().mockResolvedValue(false) } });
-    const indexer = new GraphifyIndexer(host);
-    await indexer.start();
-    await deliver(indexer, host, request(1, 'enable', 'ws1'));
-    await indexer.idle();
-    expect(host.buildGraph).not.toHaveBeenCalled();
-    expect(getState().workspaces.ws1.status).toBe('needs-build');
-    indexer.dispose();
-  });
-
-  it('refuses paid work while paused', async () => {
-    const { host, getState } = makeHost({}, (state) => { state.settings.paused = true; });
+  it('does not start local work while paused', async () => {
+    const { host } = makeHost({}, (state) => { state.settings.paused = true; });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await deliver(indexer, host, request(1, 'rebuild', 'ws1'));
@@ -204,21 +169,8 @@ describe('GraphifyIndexer — what it refuses to spend on', () => {
   });
 });
 
-describe('GraphifyIndexer — the record of what was spent', () => {
-  it('adds a completed build to the day ledger', async () => {
-    const { host, getState } = makeHost();
-    const indexer = new GraphifyIndexer(host);
-    await indexer.start();
-    await deliver(indexer, host, request(1, 'enable', 'ws1'));
-    await indexer.idle();
-    const ledger = getState().spend;
-    expect(ledger.runs).toHaveLength(1);
-    expect(ledger.runs[0]).toMatchObject({ workspaceId: 'ws1', model: 'gpt-4.1-mini' });
-    expect(ledger.usd).toBeGreaterThan(0);
-    indexer.dispose();
-  });
-
-  it('keeps a record of a graph that was paid for and then removed', async () => {
+describe('GraphifyIndexer — build records', () => {
+  it('keeps a record of a graph that was built and then removed', async () => {
     const { host, getState } = makeHost({ built: ['ws1'] }, (state) => {
       enabled(state, 'ws1', { lastBuiltAt: 'yesterday', stats: STATS });
     });
@@ -237,13 +189,13 @@ describe('GraphifyIndexer — the record of what was spent', () => {
 
   it('a failed build records the failure and never retries itself', async () => {
     const { host, getState } = makeHost({
-      overrides: { buildGraph: vi.fn().mockRejectedValue(new Error('no key')) },
+      overrides: { buildGraph: vi.fn().mockRejectedValue(new Error('extract failed')) },
     });
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await deliver(indexer, host, request(1, 'enable', 'ws1'));
     await indexer.idle();
-    expect(getState().workspaces.ws1).toMatchObject({ status: 'error', lastError: 'no key', failureCount: 1 });
+    expect(getState().workspaces.ws1).toMatchObject({ status: 'error', lastError: 'extract failed', failureCount: 1 });
     expect(host.buildGraph).toHaveBeenCalledTimes(1);
     indexer.dispose();
   });

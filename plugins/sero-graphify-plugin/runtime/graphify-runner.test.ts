@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
 import type { BuildOptions } from './graphify-runner';
-import type { ModelChoice } from '../shared/types';
 import type { ExecResult } from './bounded-exec';
 
 const STORE = path.join(os.tmpdir(), 'graphify-runner-test', 'ws1');
@@ -19,15 +18,10 @@ const UPDATE_STDOUT = '[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communiti
 
 const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0, truncated: false });
 
-const MODEL: ModelChoice = { backend: 'claude', modelId: 'gpt-5.6-luna', chosenAt: 'now' };
-
 function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
   return {
     workspaceDir: STORE,
     inputPath: '/p',
-    model: MODEL,
-    tokenBudget: 0,
-    maxConcurrency: 0,
     exclude: [],
     ...overrides,
   };
@@ -57,24 +51,23 @@ describe('parseBuildStats', () => {
 });
 
 describe('buildWorkspaceGraph', () => {
-  it('runs extract with backend/budget/excludes and --out at the workspace store dir', async () => {
+  it('runs local code-only extraction and writes to the workspace store', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     const stats = await buildWorkspaceGraph(
       { exec, graphifyPath: '/tools/bin/graphify', env: {} },
-      buildOpts({ inputPath: '/home/me/proj', tokenBudget: 4096, exclude: ['node_modules'] }),
+      buildOpts({ inputPath: '/home/me/proj', exclude: ['node_modules'] }),
     );
     expect(stats.stats.nodes).toBe(1234);
     const [cmd, args, opts] = exec.mock.calls[0];
     expect(cmd).toBe('/tools/bin/graphify');
     expect(args).toEqual([
-      'extract', '/home/me/proj', '--backend', 'claude', '--out', STORE,
-      '--model', 'gpt-5.6-luna', '--api-timeout', '300',
-      '--token-budget', '4096', '--exclude', 'node_modules',
+      'extract', '/home/me/proj', '--code-only', '--out', STORE,
+      '--exclude', 'node_modules',
     ]);
     expect(opts.cwd).toBe(STORE);
     // Report generation runs against the store dir (where graphify-out/ lives).
     const [, reportArgs] = exec.mock.calls[1];
-    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--no-label']);
+    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz']);
   });
 
   it('redirects the extraction cache into the store dir via GRAPHIFY_OUT', async () => {
@@ -99,42 +92,23 @@ describe('buildWorkspaceGraph', () => {
     )).rejects.toThrow(/boom/);
   });
 
-  it('always passes the chosen model', async () => {
+  it('does not pass a model backend or credential selector', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
-    await buildWorkspaceGraph(
-      { exec, graphifyPath: 'g', env: {} },
-      buildOpts({ model: { backend: 'claude', modelId: 'claude-haiku-4-5-20251001', chosenAt: 'now' } }),
-    );
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts());
     const [, args] = exec.mock.calls[0];
-    expect(args).toContain('--model');
-    expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
+    expect(args).not.toContain('--model');
+    expect(args).not.toContain('--backend');
   });
 
-  it('never runs the paid naming pass inside a build', async () => {
-    // Naming is a second LLM pass the pre-flight estimate never covered, so
-    // running it here would leave part of the authorised job outside both caps.
+  it('allows Graphify to create deterministic community labels', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
     const [, reportArgs] = exec.mock.calls[1];
-    expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz', '--no-label']);
-  });
-
-  it('debits only at the spawn boundary, after preparation succeeded', async () => {
-    const order: string[] = [];
-    const exec = vi.fn().mockImplementation(async () => {
-      order.push('exec');
-      return ok(EXTRACT_STDOUT);
-    });
-    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({
-      beforePaidSpawn: async () => { order.push('reserve'); },
-    }));
-    expect(order[0]).toBe('reserve');
-    expect(order[1]).toBe('exec');
+    expect(reportArgs).not.toContain('--no-label');
   });
 
   it('keeps a built graph when the report step fails', async () => {
-    // The extraction is already paid for by then; throwing the result away
-    // over a failed report would mean paying for it twice.
+    // The graph remains useful even when report generation fails.
     const exec = vi.fn()
       .mockResolvedValueOnce(ok(EXTRACT_STDOUT))
       .mockResolvedValueOnce({ stdout: '', stderr: 'cluster boom', exitCode: 1, truncated: false });

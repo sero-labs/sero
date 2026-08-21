@@ -59,7 +59,7 @@ describe('boundedExec output limits', () => {
 
   it('lets a chatty build finish, keeping the tail', async () => {
     // The tokens are already spent by the time a long extract has printed a
-    // megabyte of progress. Killing it there throws away a finished, paid-for
+    // megabyte of progress. Killing it there throws away a finished
     // build and makes it look like one that never ran.
     const result = await boundedExec(node, chatty(200_000), {
       maxOutputBytes: 50_000,

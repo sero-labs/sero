@@ -48,8 +48,7 @@ describe('graphify workspace creation indexing', () => {
       const state = await readStateFile(path.join(seroHome, 'apps', 'graphify', 'state.json'));
       // One request, carrying an id the runtime re-checks against the host
       // workspace registry. A path never travels: pointing an extraction at an
-      // arbitrary directory is how an agent could spend money on anything on
-      // the machine, and how a build could be paid for and then thrown away.
+      // arbitrary directory would bypass the host workspace boundary.
       expect(state?.requests).toMatchObject([{ action: 'enable', workspaceId: 'new-workspace' }]);
       expect(JSON.stringify(state?.requests)).not.toContain('/workspace/new-workspace');
     } finally {

@@ -11,7 +11,7 @@ export interface ExecOptions {
    * `kill` suits short probes, where runaway output means something is wrong.
    * `truncate` keeps only the tail and lets the process finish — the only safe
    * choice for a command that has already spent money, because killing it
-   * throws the paid result away and the failure then looks like a build that
+   * throws the completed result away and the failure then looks like a build that
    * never ran.
    */
   onOutputLimit?: 'kill' | 'truncate';

@@ -1,155 +1,104 @@
-# Graphify — profile-wide knowledge graphs
+# Graphify profile knowledge graphs
 
-A global Sero plugin that builds [Graphify](https://github.com/safishamsi/graphify)
-knowledge graphs of every opted-in workspace in the active profile, merges them
-into one profile-wide graph, and gives agent sessions graph search tools plus
-automatic context injection. Works identically for host-mode and
-container-isolated workspaces: all Python/LLM extraction runs host-side in the
-plugin's single global background runtime; sessions answer queries with a pure
-TypeScript engine over `graph.json` (no Python at query time).
+This global Sero plugin builds code knowledge graphs for enabled workspaces. It merges them into one profile graph and gives agent sessions graph search tools and bounded context injection.
 
-## Spend model
+All Graphify processes run in the host background runtime. Container sessions read the finished JSON graphs through the TypeScript query engine. Python is not required at query time.
 
-One rule drives the whole plugin:
+## Free-first indexing
 
-> **Money is spent only by an explicit user action, with the model, the size and
-> the estimated cost known first. A restart never spends.**
+Sero runs initial builds with:
 
-`graphify extract` is the only step that costs anything. `update`,
-`merge-graphs`, `cluster-only` (always `--no-label`) and every query are local.
+```text
+graphify extract <workspace> --code-only --out <sero-store>
+graphify cluster-only <sero-store> --no-viz
+```
 
-Community naming is a second LLM pass and is **not run**. The pre-flight
-estimate prices the extraction, so naming inside a build would leave part of the
-authorised job outside both caps. It belongs in its own confirmed job, priced
-from the community count the free clustering pass produces.
+The child environment contains no provider API keys, AWS backend settings, Ollama endpoint, or model selector. Code extraction uses Tree-sitter. Community detection uses Leiden clustering. Graphify keeps its deterministic hub-based labels because no model backend is available.
 
-Before any paid build the runtime: refuses if paused or if no model is chosen;
-scans the tree the build will read (files **and bytes** — graphify chunks by
-tokens, so dense prose costs more than its file count suggests); checks the
-per-build, per-day and file caps against a durable ledger; and asks the user.
-A model with no known price always asks, because an unknown price cannot be
-checked against a cap. An unanswered dialog is a no.
+Do not add `--no-label` to the cluster command. That flag explicitly replaces the useful deterministic labels with `Community N` placeholders.
 
-The debit is durable and taken at the **last boundary before the child process
-spawns** — after the toolchain, the credentials and the output directory have
-all succeeded — then settled against measured usage. Three rules follow: a
-failure before that boundary is never charged; a failure after it keeps its
-debit; and a build that reports no token usage keeps the estimate rather than
-settling to zero, because a clean exit is not proof that usage was measured.
-
-Nothing retries on its own. A failed or unbuilt workspace sits in
-`needs-build`/`error` until someone presses a button.
+Sero does not enable Graphify's semantic extraction for documents, PDFs, images, transcripts, or other media. That work can call a model and needs a separate opt-in product path.
 
 ## Indexing model
 
-Indexing is **opt-in per workspace** (toggle in the panel, "Index all", or the
-`graphify_index` tool). Updates are **push-based — no polling**:
+Indexing is opt-in per workspace. Updates are push-based:
 
-- **Agent edits** — the extension watches `tool_execution_end`/`agent_end` SDK
-  events and queues one incremental `refresh` (AST-only `graphify update`, no
-  LLM) per agent run that mutated files, for enabled workspaces only.
-- **Workspace discovery** — opening the Graphify panel (and any session
-  starting in a workspace graphify has not seen) queues a `sync` request that
-  re-reads the profile workspace list.
-- **Boot catch-up** — at runtime start, an enabled workspace **that already has
-  a graph** gets one free AST update. One without a graph is marked
-  `needs-build` and waits. Nothing is rebuilt.
+- Agent edits queue one `graphify update` request per agent run.
+- Opening the Graphify panel queues workspace discovery.
+- Runtime startup queues a local update for each enabled workspace that already has a graph.
+- A workspace without a graph waits for a user action.
 
-Requests are drained inside a single `updateState` callback behind a
-`lastAppliedRequestId` watermark, and a request for a workspace already building
-folds into the running job. The state-file watcher fires on both the rename and
-the change of an atomic write, so without both guards one action could be
-applied twice.
+Requests use a durable watermark because the state-file watcher can deliver one atomic write more than once. The queue folds repeated work for the same workspace.
 
-Only workspaces the **host registry** confirms are ever built, and the `global`
-workspace (the memory store) is excluded where the money is spent, not only in
-discovery.
+The runtime checks every requested workspace against the host registry. It never accepts an arbitrary path. The global memory workspace is excluded.
 
-The profile graph re-merges after every change. The toolchain (`uv` + pinned
-`graphifyy`) provisions itself on first build.
+The profile graph re-merges after each successful change. The managed Graphify toolchain is installed once in the machine-shared tools directory.
+
+## Community labels
+
+`graphify cluster-only` creates a deterministic base label from the highest-degree node in each community. Graphify can replace that label with an LLM result when it discovers a configured backend. Sero prevents that discovery by using a credential-free child environment.
+
+Graphify stores labels with community membership signatures. It reuses a label while the membership stays valid. Changed communities get a new deterministic hub label.
+
+Sero does not have a paid community-label action.
 
 ## Agent tools
 
-| Tool | What it does |
-|---|---|
-| `graphify_search` | Search the merged profile-wide graph (all indexed workspaces) |
-| `graphify_query` | Query the current workspace's graph (BFS broad / DFS trace, token budget) |
-| `graphify_path` | Shortest connection between two concepts |
-| `graphify_explain` | Neighborhood explanation of a single node |
-| `graphify_status` | Index status per workspace + profile graph |
-| `graphify_index` | enable / disable / rebuild / refresh / enable-all / sync / upgrade |
+| Tool | Purpose |
+| --- | --- |
+| `graphify_search` | Search the merged profile graph. |
+| `graphify_query` | Query the current workspace graph, with profile fallback. |
+| `graphify_path` | Find the shortest connection between two concepts. |
+| `graphify_explain` | Explain the neighborhood of one node. |
+| `graphify_status` | Show workspace and profile graph states. |
+| `graphify_index` | Enable, disable, rebuild, refresh, synchronize, or update Graphify. |
+| `graphify_configure` | Pause indexing, change exclusions, or clear a notice. |
 
-All tools are CLI-bridged (`sero graphify_search ...`).
+All tools use the `sero` CLI bridge.
 
-The plugin also contributes a global-search panel to the shell
-(`sero.app.search` → `GraphifySearch`), reachable from the main sidebar and
-the ⌘K menu, so the profile graph can be searched without opening the app.
+## State
 
-Auto-context (ported from pi-graphify) adds a one-time session orientation from
-the workspace's `GRAPH_REPORT.md` + profile-graph stats, and appends bounded
-graph-query hints to broad search results. Hard per-session budgets, dedup
-caches, fully idle when no graph exists.
+The active state fields are:
 
-## Settings (`state.json` → `settings`)
+| Field | Purpose |
+| --- | --- |
+| `settings.exclude` | Repeated `--exclude` patterns. |
+| `settings.paused` | Stops queued and new indexing work. |
+| `settings.autoContext` | Controls session summaries and search augmentation. |
+| `workspaces` | Per-workspace status and graph statistics. |
+| `requests` | Commands waiting for the background runtime. |
+| `profileGraph` | State of the merged graph. |
 
-| Setting | Default | Notes |
-|---|---|---|
-| `model` | `null` | `{ backend, modelId, chosenAt, price? }`. **null blocks every paid job.** There is no "backend default" — that is how a build could run with nobody able to say what it cost |
-| `caps.maxCostPerBuildUsd` | `2` | A build estimated above this is refused |
-| `caps.maxCostPerDayUsd` | `10` | Profile-wide, measured against `state.spend` |
-| `caps.maxFilesPerBuild` | `5000` | Bigger trees are refused, not truncated |
-| `paused` | `false` | Blocks all paid work |
-| `maxConcurrency` | `0` | `--max-concurrency`; 0 = graphify default |
-| `tokenBudget` | `0` | Per-**chunk** packing size (`--token-budget`). **Not a spend cap** — a larger value spends more per call, not less |
-| `exclude` | node_modules, dist, … | Repeated `--exclude` patterns |
-| `autoContext.sessionSummary` | `true` | Session-start orientation |
-| `autoContext.augmentSearchResults` | `true` | Tool-result hints |
-| `autoContext.autoQuery` | `false` | Run real graph queries for high-confidence intents |
-| `autoContext.maxSessionAugments` | `8` | Per-session augment budget |
-| `autoContext.maxAugmentChars` | `1200` | Per-augment size bound |
+Older state files can contain model, cap, and spend fields from the previous paid-build design. Sero preserves that history but does not use it for code-only indexing.
 
-`settings` is declared as `sero.app.portableState`, so creating a profile with
-"Copy credentials and model preferences" carries the model and the caps across —
-and nothing else. Copying `workspaces` would hand the new profile a list of
-workspaces that do not exist there, and queue paid builds on arrival.
+## Storage
 
-### Applying the model
+```text
+<SERO_HOME>/apps/graphify/
+├── state.json
+├── graphs/<workspaceId>/graphify-out/
+└── profile/graph.json
 
-The chosen model is sent **twice**, because the two paid passes take it
-differently: `extract` reads `--model`, while the naming pass resolves
-`_default_model_for_backend(backend)` and ignores the flag entirely — only the
-backend's model environment variable (`GRAPHIFY_OPENAI_MODEL`, …) reaches it.
-
-The child environment is an allow-list plus the one selected provider key.
-`cluster-only` otherwise scans the environment and takes the first provider with
-a key — gemini before claude — so a stray key on the machine could capture and
-bill a pass the panel said was running on something else.
-
-`GRAPHIFY_MAX_RETRIES` is set, bounding upstream
-[#2880](https://github.com/Graphify-Labs/graphify/issues/2880), where one
-rate-limited response is read as truncation and bisected into up to 15 billed
-calls.
-
-## Storage layout
-
-```
-SERO_HOME/apps/graphify/                        per-profile DATA
-├── state.json                                  status, settings, requests
-├── graphs/<workspaceId>/graphify-out/          per-workspace graph.json + GRAPH_REPORT.md
-└── profile/graph.json                          merged profile-wide graph
-
-SERO_HOST_ARTIFACTS_ROOT/app-tools/graphify/    machine-shared TOOLS (all profiles)
-├── bin/graphify                                pinned graphifyy CLI
-├── uv-tools/                                   its Python environment
-└── python/                                     uv-downloaded CPython (only if no system Python)
+<SERO_HOST_ARTIFACTS_ROOT>/app-tools/graphify/
+├── bin/graphify
+├── uv-tools/
+└── python/
 ```
 
-Graph artifacts never land inside workspaces (no repo pollution): `extract`
-uses `--out`, `update` uses an absolute `GRAPHIFY_OUT`. Container sessions only
-need read access to this directory.
+Graph artifacts do not enter workspaces. `GRAPHIFY_OUT` moves the cache and generated files into Sero's profile data directory.
+
+## Validation
+
+Run:
+
+```bash
+pnpm --filter @sero-ai/plugin-graphify typecheck
+pnpm --filter @sero-ai/plugin-graphify test
+bash scripts/build-plugin.sh plugins/sero-graphify-plugin
+```
+
+A release check must also run Graphify 0.9.47 against a small code-only fixture with a credential-free environment. Confirm that the build creates deterministic labels and makes no model call.
 
 ## Credits
 
-Built on [Graphify](https://github.com/safishamsi/graphify) (PyPI `graphifyy`)
-by Safi Shamsi. The bounded-exec discipline, stat parsing, and auto-context
-design are adapted from the `pi-graphify` Pi extension.
+Built on [Graphify](https://github.com/Graphify-Labs/graphify), distributed on PyPI as `graphifyy`.
