@@ -15,6 +15,11 @@ import type { LoopLibraryLink, StepOverride } from './library-types';
 import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
+
+// Skill extraction (specs/18) and loop warnings are split out the same way.
+export type { SkillDraft, SkillDraftStatus, LoopSkillLink } from './skill-types';
+import type { LoopSkillLink, SkillDraft } from './skill-types';
+import type { LoopWarning } from './warning-types';
 import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-types';
 import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepCompletion } from './recovery-types';
 import type { Observation } from './observation-types';
@@ -162,28 +167,17 @@ export interface Loop {
   answeredInputs?: AnsweredInput[];
   /** Set when the loop was loaded from / saved to the library (see specs/08-loop-library.md). Absent ⇒ standalone. */
   libraryLink?: LoopLibraryLink;
+  /** The pending or last-decided skill-extraction draft (see specs/18-skill-extraction.md). */
+  skillDraft?: SkillDraft;
+  /** Set once a draft was saved as a skill; drives the badge and the overwrite default. */
+  skillLink?: LoopSkillLink;
   /** Local per-step overrides, replayed after a library version switch so they survive the plan being replaced. */
   stepOverrides?: Record<string, StepOverride>;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface LoopWarning {
-  id: string;
-  code:
-    | 'mixed-workspace-targets'
-    | 'model-unavailable'
-    | 'agent-unavailable'
-    | 'event-chain-depth'
-    | 'event-dropped'
-    | 'event-queue-overflow'
-    | 'delivery-tool-missing'
-    | 'catalog-tool-missing';
-  message: string;
-  /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
-  stepId?: string;
-  createdAt: string;
-}
+export type { LoopWarning } from './warning-types';
 
 // ── Planning response & plan ────────────────────────────────
 

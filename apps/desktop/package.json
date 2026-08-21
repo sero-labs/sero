@@ -67,7 +67,8 @@
     "qrcode": "^1.5.4",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@discordjs/rest": "^2.6.3",

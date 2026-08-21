@@ -45,6 +45,13 @@ export const SERO_HOST_CAPABILITIES = [
    * must be on the host's built-in allowlist.
    */
   'appRuntime.persistentSessions',
+  /**
+   * User-skill read/write for a background runtime (spec 18 — skill
+   * extraction). Gated exactly like `appRuntime.persistentSessions`: this list
+   * declares host support, and the host installs `host.skills` only for a
+   * bundled plugin that passes the built-in gate.
+   */
+  'appRuntime.skills',
 ] as const;
 
 /**

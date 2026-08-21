@@ -48,6 +48,18 @@ export type OrchestratorAction =
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }
+  | { kind: 'extract_skill'; loopId: string }
+  | {
+      kind: 'save_skill';
+      loopId: string;
+      /** The pending draft being saved. A stale or absent id is refused. */
+      draftId: string;
+      name: string;
+      description: string;
+      body: string;
+      overwrite?: boolean;
+    }
+  | { kind: 'discard_skill_draft'; loopId: string }
   | { kind: 'answer_input'; loopId: string; requestId: string; answers: InputAnswer[] }
   | { kind: 'library_save'; loopId: string; mode: 'new-version' | 'new-entry'; name?: string; note?: string }
   | { kind: 'library_load'; entryId: string; version?: number }
@@ -94,6 +106,15 @@ export interface OrchestratorActionResult {
   reflection?: { suggestionCount: number };
   /** Set by `reflect_workspace`: the consecutive per-loop sweep summary. */
   workspaceReflection?: { reflected: number; suggestionCount: number; perLoop: ReflectedLoopSummary[] };
+  /**
+   * Set by `extract_skill`: the pass ran and judged the workflow teaches nothing
+   * durable. A successful outcome, not an error (see specs/18-skill-extraction.md).
+   */
+  skillDeclined?: string;
+  /** Set by `extract_skill` / `save_skill`: the drafted SKILL.md body, so the UI can show and edit it. */
+  skillDraftBody?: string;
+  /** Set by `save_skill` when the name is taken and the user has not chosen to overwrite. */
+  skillConflict?: { name: string; filePath: string };
   /** Set by `library_list`: the resolved profile-global library dir (so the UI can watch its index.json). */
   libraryDir?: string;
   /** Set by `library_list`: a snapshot of the library index (the live data comes from watching the dir). */

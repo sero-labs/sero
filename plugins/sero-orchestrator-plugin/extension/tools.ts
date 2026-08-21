@@ -43,6 +43,9 @@ export const ORCHESTRATOR_ACTIONS = [
   'reflect',
   'reflect_workspace',
   'choose_suggestion',
+  'extract_skill',
+  'save_skill',
+  'discard_skill_draft',
   'answer_input',
   'library_save',
   'library_load',
@@ -88,6 +91,11 @@ export const OrchestratorToolParams = Type.Object({
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
   rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
+  skillDraftId: Type.Optional(Type.String({ description: 'For save_skill: the pending draft id (loop.skillDraft.id) this save applies to' })),
+  skillName: Type.Optional(Type.String({ description: 'For save_skill: the skill name (lowercase letters, numbers and hyphens); it is also the directory name' })),
+  skillDescription: Type.Optional(Type.String({ description: 'For save_skill: the frontmatter description — what the skill does AND when to use it. This is its trigger text' })),
+  skillBody: Type.Optional(Type.String({ description: 'For save_skill: the SKILL.md markdown body, without frontmatter' })),
+  skillOverwrite: Type.Optional(Type.Boolean({ description: 'For save_skill: replace an existing skill of the same name (default false — an existing name is refused)' })),
   requestId: Type.Optional(Type.String({ description: 'For answer_input: the pending question request id (loop.runtime.pendingInput.id)' })),
   answersJson: Type.Optional(Type.String({ description: 'For answer_input: JSON array of answers [{ questionId, choiceId?, text? }] — answer every question with a picked choiceId and/or free text' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
@@ -126,6 +134,11 @@ export interface OrchestratorToolParamsShape {
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
   rejectionReason?: string;
+  skillDraftId?: string;
+  skillName?: string;
+  skillDescription?: string;
+  skillBody?: string;
+  skillOverwrite?: boolean;
   requestId?: string;
   answersJson?: string;
   deleteBranch?: boolean;
@@ -273,6 +286,22 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.decision) return { error: 'choose_suggestion requires a decision (approve|reject)' };
       return { kind: 'choose_suggestion', loopId: params.loopId, suggestionId: params.suggestionId, decision: params.decision, rejectionReason: params.rejectionReason };
     }
+    case 'save_skill': {
+      if (!params.loopId) return { error: 'save_skill requires a loopId' };
+      if (!params.skillDraftId) return { error: 'save_skill requires the pending skillDraftId' };
+      if (!params.skillName) return { error: 'save_skill requires a skillName' };
+      if (!params.skillDescription) return { error: 'save_skill requires a skillDescription (what it does AND when to use it)' };
+      if (!params.skillBody) return { error: 'save_skill requires a skillBody' };
+      return {
+        kind: 'save_skill',
+        loopId: params.loopId,
+        draftId: params.skillDraftId,
+        name: params.skillName,
+        description: params.skillDescription,
+        body: params.skillBody,
+        overwrite: params.skillOverwrite,
+      };
+    }
     case 'answer_input': {
       if (!params.loopId) return { error: 'answer_input requires a loopId' };
       if (!params.requestId) return { error: 'answer_input requires a requestId' };
@@ -327,7 +356,8 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
     default: {
       if (!params.loopId) return { error: `${params.action} requires a loopId` };
       // The switch guarantees params.action is one of the single-loopId kinds
-      // (show/activate/disable/enable/run_next/run_again/retry/reflect), all of
+      // (show/activate/disable/enable/run_next/run_again/retry/reflect/
+      // extract_skill/discard_skill_draft), all of
       // shape { kind; loopId }.
       return { kind: params.action, loopId: params.loopId } as OrchestratorAction;
     }
@@ -351,6 +381,14 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Reflected ${res.workspaceReflection?.reflected ?? 0} loop(s) — ${res.workspaceReflection?.suggestionCount ?? 0} suggestion(s) for review.`;
     case 'choose_suggestion':
       return `Suggestion ${action.decision === 'approve' ? 'approved and applied' : 'rejected'}.`;
+    case 'extract_skill':
+      return res.skillDeclined
+        ? `Nothing durable to teach yet — ${res.skillDeclined}`
+        : `Drafted skill "${res.loop?.skillDraft?.name}" for review: ${res.loop?.skillDraft?.rationale ?? ''}`;
+    case 'save_skill':
+      return `Saved skill "${action.name}" to ${res.loop?.skillLink?.filePath ?? 'the profile skills directory'}.`;
+    case 'discard_skill_draft':
+      return `Discarded the skill draft for loop ${action.loopId}.`;
     case 'answer_input':
       return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
     case 'retry_step':

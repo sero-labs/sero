@@ -20,6 +20,8 @@ export const skillsBridge = {
     ipcRenderer.invoke(IpcChannels.skills.readSkill, filePath),
   writeSkill: (data: SkillFileData): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.skills.writeSkill, data),
+  approveSkillWrite: (scope: string, contentHash: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.skills.approveSkillWrite, scope, contentHash),
   deleteSkill: (filePath: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.skills.deleteSkill, filePath),
 };

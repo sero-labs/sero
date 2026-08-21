@@ -45,6 +45,15 @@ export interface StructuredCallSpec<T> {
   signal?: AbortSignal;
   /** Repair passes allowed after the first attempt (default 1, as the planner). */
   maxRepairs?: number;
+  /**
+   * Tool surface for the call. Default 'none' — a pure model call, which is what
+   * every decision pass wants. 'readOnly' is for a pass that must read the real
+   * workspace or load a skill (skill extraction, spec 18); it still writes
+   * nothing, because its only output is the validated JSON.
+   */
+  platformTools?: 'none' | 'readOnly';
+  /** Working directory, required when `platformTools` is not 'none'. */
+  cwd?: string;
 }
 
 export interface StructuredCallResult<T> {
@@ -76,7 +85,8 @@ export async function runStructuredJson<T>(
       model: spec.model,
       thinking: spec.thinking,
       parentSessionId: spec.parentSessionId,
-      platformTools: 'none',
+      platformTools: spec.platformTools ?? 'none',
+      cwd: spec.cwd,
       signal: spec.signal,
     });
     if (result.error) return { ok: false, errors: [result.error], responses };

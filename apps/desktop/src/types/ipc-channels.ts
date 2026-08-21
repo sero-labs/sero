@@ -374,6 +374,8 @@ export const IpcChannels = {
     setDisabledModelSkills: 'sero:skills:set-disabled-model-skills',
     readSkill: 'sero:skills:read',
     writeSkill: 'sero:skills:write',
+    /** Renderer-only: approve ONE runtime skill write, bound to a draft and its content. */
+    approveSkillWrite: 'sero:skills:approve-write',
     deleteSkill: 'sero:skills:delete',
   },
   prompts: {

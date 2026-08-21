@@ -25,8 +25,8 @@ Actions: `create`, `list`, `show`, `activate`, `disable`, `enable`, `run_next`,
 `run_again`, `retry`, `retry_step`, `revise`, `choose_recovery`,
 `set_step_model`, `set_step_tools`, `set_step_agent`, `set_loop_context`,
 `set_delivery`, `set_schedule`, `reflect`, `reflect_workspace`,
-`choose_suggestion`, `answer_input`, the `library_*` and `catalog_*` actions,
-and `delete`.
+`choose_suggestion`, `extract_skill`, `save_skill`, `discard_skill_draft`,
+`answer_input`, the `library_*` and `catalog_*` actions, and `delete`.
 
 ## `/orchestrator` commands
 
@@ -46,6 +46,8 @@ and `delete`.
 /orchestrator retry_step <loopId> <stepId>
 /orchestrator reflect <loopId>
 /orchestrator reflect_workspace
+/orchestrator extract_skill <loopId>
+/orchestrator discard_skill_draft <loopId>
 /orchestrator answer <loopId> <your answer>
 /orchestrator revise <loopId> <plain-English change>
 /orchestrator delete <loopId>
@@ -403,6 +405,31 @@ Curated, ready-made workflows you install instead of writing from scratch. The
 - If an entry needs a tool you don't have (listed as `requiredTools`), the
   install still works and the draft carries a warning.
 
+## Skill extraction
+
+`extract_skill` reads a Workflow that has completed a run and drafts one
+`SKILL.md` for the everyday agent. It runs with read-only tools in the
+Workflow's workspace, so it can use the `skill-creator` skill and read the files
+the plan names. It writes no skill file, and it returns no draft when the
+Workflow teaches nothing reusable.
+
+`save_skill` writes the values you reviewed to
+`$SERO_AGENT_DIR/skills/<name>/SKILL.md` and reloads active sessions. Replacing
+an existing skill overwrites the file Sero discovered for that name, including a
+nested one; a name that matches more than one skill is refused.
+
+The write goes through a host capability that only bundled Sero plugins receive,
+and the host refuses it unless the Orchestrator app approved that exact content
+for that draft. The approval travels on a channel only the app has, so a model
+that calls `save_skill` on its own cannot write a skill — the person who
+reviewed the draft must press Save.
+
+A saved skill is an ordinary user skill: it is listed and edited in **Admin →
+Skills**, and the model-visibility controls apply to it. Its frontmatter records
+`origin: sero-workflow:<loopId>`.
+
+`discard_skill_draft` drops the draft. Nothing is written.
+
 ## State and storage
 
 Per-workspace Workflow state:
@@ -413,6 +440,7 @@ Per-workspace Workflow state:
   loops/<loopId>/loop.json       # plan, triggers, limits, context
   loops/<loopId>/runs/           # attempt history
   loops/<loopId>/revisions.json  # plan revision history
+  loops/<loopId>/artifacts/skill-draft.json  # the skill draft awaiting review
 ```
 
 (A legacy single `state.json` is migrated into this split layout on first load,
