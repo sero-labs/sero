@@ -60,15 +60,8 @@ describe('SkillDraftControl', () => {
   const field = (id: string) => document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement;
   const buttonNamed = (label: string) =>
     [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
-  /**
-   * Click, then flush again: saving hashes the content through `crypto.subtle`,
-   * so the state update lands a microtask after the click's own flush.
-   */
   const click = async (button: HTMLButtonElement) => {
     await act(async () => button.click());
-    // A real tick, not just a microtask: the digest promise settles off the
-    // microtask queue, so the dispatch it gates lands after this.
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
   };
 
   const type = async (id: string, value: string) => {
@@ -113,14 +106,16 @@ describe('SkillDraftControl', () => {
     await type('skill-body', '# Edited\n');
     await click(buttonNamed('Save skill'));
 
-    expect(dispatch).toHaveBeenLastCalledWith({
-      action: 'save_skill',
-      loopId: 'loop-1',
-      skillDraftId: DRAFT.id,
-      skillName: 'lockfile-fix',
-      skillDescription: DRAFT.description,
-      skillBody: '# Edited\n',
-      skillOverwrite: undefined,
+    await vi.waitFor(() => {
+      expect(dispatch).toHaveBeenLastCalledWith({
+        action: 'save_skill',
+        loopId: 'loop-1',
+        skillDraftId: DRAFT.id,
+        skillName: 'lockfile-fix',
+        skillDescription: DRAFT.description,
+        skillBody: '# Edited\n',
+        skillOverwrite: undefined,
+      });
     });
     // The approval names this draft, covers exactly the bytes being sent plus
     // the (absent) replace authority, and is issued BEFORE the save.
@@ -169,9 +164,11 @@ describe('SkillDraftControl', () => {
     await act(async () => trigger().click());
     await click(buttonNamed('Save skill'));
 
-    expect(text()).toContain('already exists');
+    await vi.waitFor(() => expect(text()).toContain('already exists'));
     await click(buttonNamed('Replace'));
-    expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    await vi.waitFor(() => {
+      expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    });
     // Replacing is a different authority, so it is a different approval.
     expect(approveSkillWrite).toHaveBeenLastCalledWith(
       `loop-1:${DRAFT.id}`,
@@ -210,7 +207,9 @@ describe('SkillDraftControl', () => {
     await act(async () => trigger().click());
     await click(buttonNamed('Save skill'));
 
-    expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    await vi.waitFor(() => {
+      expect(dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ skillOverwrite: true }));
+    });
     expect(approveSkillWrite).toHaveBeenLastCalledWith(
       `loop-1:${DRAFT.id}`,
       expectedHash(DRAFT.name, DRAFT.description, '# From the artifact\n', true),
