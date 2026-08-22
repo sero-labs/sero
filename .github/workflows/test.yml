@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -17,9 +18,8 @@ concurrency:
 
 env:
   CI: true
+  SERO_SKIP_NATIVE_REBUILD: 1
   TURBO_TELEMETRY_DISABLED: 1
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
 jobs:
   changes:
@@ -28,22 +28,20 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       full: ${{ steps.filter.outputs.full }}
-      desktop: ${{ steps.filter.outputs.desktop }}
-      docs: ${{ steps.filter.outputs.docs }}
-      homepage: ${{ steps.filter.outputs.homepage }}
-      webremote: ${{ steps.filter.outputs.webremote }}
-      filters: ${{ steps.filter.outputs.filters }}
+      base: ${{ steps.filter.outputs.base }}
+      head: ${{ steps.filter.outputs.head }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-
+          persist-credentials: false
+      - name: Enforce repository layout
+        run: node scripts/check-repository-layout.mjs
       - id: filter
         name: Classify changed paths
         shell: bash
         run: |
           set -euo pipefail
-
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base="${{ github.event.pull_request.base.sha }}"
             head="${{ github.event.pull_request.head.sha }}"
@@ -55,134 +53,262 @@ jobs:
             head="${{ github.sha }}"
           fi
 
-          # A force-push leaves github.event.before pointing at a commit the
-          # rewritten branch no longer has. Fall back to the full file list
-          # rather than failing the gate on a missing base.
-          if [[ -n "$base" && "$base" != "0000000000000000000000000000000000000000" ]] \
-            && git cat-file -e "$base^{commit}" 2>/dev/null; then
-            changed_files="$(git diff --name-only "$base" "$head")"
-          else
-            echo "No usable base commit ($base) — treating every tracked file as changed."
-            changed_files="$(git ls-files)"
-          fi
-
-          echo "Changed files:"
-          printf '%s\n' "$changed_files"
-
           full=false
-          desktop=false
-          docs=false
-          homepage=false
-          webremote=false
-
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            case "$file" in
-              apps/desktop/*|apps/desktop/**)
-                desktop=true
-                ;;
-              apps/docs-site/*|apps/docs-site/**)
-                docs=true
-                ;;
-              apps/homepage/*|apps/homepage/**)
-                homepage=true
-                ;;
-              apps/web-remote/*|apps/web-remote/**)
-                webremote=true
-                ;;
-              packages/*|packages/**|plugins/*|plugins/**|scripts/*|scripts/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|.github/workflows/test.yml)
-                full=true
-                ;;
-              *)
-                full=true
-                ;;
-            esac
-          done <<< "$changed_files"
-
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]] \
+            || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             full=true
+            echo "No usable base commit; using the full run."
+          else
+            changed_files="$(git diff --name-only "$base" "$head")"
+            printf '%s\n' "Changed files:" "$changed_files"
+            while IFS= read -r file; do
+              case "$file" in
+                assets/*|eval/*|packages/templates/*|plugins/sero-*-plugin/package.json|doctor.config.jsonc|promptfooconfig.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|scripts/*|.github/workflows/test.yml)
+                  full=true
+                  ;;
+              esac
+            done <<< "$changed_files"
           fi
-
-          filters=""
-          if [[ "$full" == "false" ]]; then
-            [[ "$desktop" == "true" ]] && filters="$filters --filter=@sero/desktop"
-            [[ "$docs" == "true" ]] && filters="$filters --filter=@sero/docs-site"
-            [[ "$homepage" == "true" ]] && filters="$filters --filter=@sero/homepage"
-            [[ "$webremote" == "true" ]] && filters="$filters --filter=@sero/web-remote"
-          fi
-
-          if [[ "$full" == "false" && -z "${filters// }" ]]; then
-            full=true
-          fi
-
+          [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && full=true
           {
             echo "full=$full"
-            echo "desktop=$desktop"
-            echo "docs=$docs"
-            echo "homepage=$homepage"
-            echo "webremote=$webremote"
-            echo "filters=${filters# }"
+            echo "base=$base"
+            echo "head=$head"
           } >> "$GITHUB_OUTPUT"
 
-  fast-checks:
-    name: Fast checks
+  source-typecheck:
+    name: Source typecheck
     needs: changes
     if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7.0.1
-
-      - name: Enforce repository layout
-        run: node scripts/check-repository-layout.mjs
-
-      - uses: pnpm/action-setup@v6.0.10
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22.19.0
-          cache: pnpm
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        env:
-          SERO_SKIP_NATIVE_REBUILD: 1
-
-      - name: Run affected checks
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.full }}" == "true" ]]; then
-            pnpm typecheck
-            pnpm build
-            pnpm test
+          start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Report remote cache configuration
+        env:
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        run: |
+          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
+      - name: Typecheck source
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          if [[ "$FULL_RUN" == "true" ]]; then
+            pnpm turbo run typecheck --filter='!@sero/desktop' --summarize
+            pnpm turbo run typecheck:source --filter=@sero/desktop --summarize
           else
-            pnpm turbo run typecheck build test ${{ needs.changes.outputs.filters }}
+            pnpm turbo run typecheck --filter='!@sero/desktop' --affected --summarize
+            pnpm turbo run typecheck:source --filter=@sero/desktop --affected --summarize
           fi
+          echo "Source typecheck took $((SECONDS - start))s"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+          path: .turbo/runs/*.json
+          if-no-files-found: ignore
+
+  test-typecheck:
+    name: Test typecheck
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Report remote cache configuration
+        env:
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        run: |
+          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
+      - name: Typecheck tests
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run typecheck:tests --filter=@sero/desktop --summarize; else pnpm turbo run typecheck:tests --filter=@sero/desktop --affected --summarize; fi
+          echo "Test typecheck took $((SECONDS - start))s"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+          path: .turbo/runs/*.json
+          if-no-files-found: ignore
+
+  build:
+    name: Build
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+      - name: Install dependencies
+        shell: bash
+        run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Report remote cache configuration
+        env:
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        run: |
+          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
+      - name: Build
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run build --summarize; else pnpm turbo run build --affected --summarize; fi
+          echo "Build took $((SECONDS - start))s"
+      - name: Packaging tests
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run test:packaging --filter=@sero/desktop --summarize; else pnpm turbo run test:packaging --filter=@sero/desktop --affected --summarize; fi
+          echo "Packaging tests took $((SECONDS - start))s"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+          path: .turbo/runs/*.json
+          if-no-files-found: ignore
+
+  tests:
+    name: Tests
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+      - name: Install dependencies
+        shell: bash
+        run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Report remote cache configuration
+        env:
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        run: |
+          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
+      - name: Tests
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          # Each suite starts its own workers, so package-level concurrency can overload the CI runner.
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run test --concurrency=1 --summarize; else pnpm turbo run test --affected --concurrency=1 --summarize; fi
+          echo "Tests took $((SECONDS - start))s"
+      - name: Advisory test report
+        if: always()
+        shell: bash
+        run: node scripts/test-advisory.mjs --format=github | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+          path: .turbo/runs/*.json
+          if-no-files-found: ignore
+
+  workflow-metrics:
+    name: CI feedback metrics
+    needs: [changes, source-typecheck, test-typecheck, build, tests]
+    if: always() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Report recent workflow duration
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci-workflow-metrics.mjs --workflow=test.yml --target-seconds=300 >> "$GITHUB_STEP_SUMMARY"
 
   pr-gate:
     name: PR Gate
-    needs: [changes, fast-checks]
+    needs: [changes, source-typecheck, test-typecheck, build, tests]
     if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
     steps:
       - name: Check required jobs
         shell: bash
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_TYPECHECK_RESULT: ${{ needs.source-typecheck.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          TEST_TYPECHECK_RESULT: ${{ needs.test-typecheck.result }}
         run: |
-          if [[ "${{ needs.changes.result }}" != "success" ]]; then
-            echo "Change detection failed or was cancelled."
-            exit 1
-          fi
-
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
-            echo "External fork PR detected; repository compute-heavy checks are skipped until a maintainer reviews or syncs the branch."
-            exit 0
-          fi
-
-          if [[ "${{ needs.fast-checks.result }}" != "success" ]]; then
-            echo "Fast checks failed or were cancelled."
-            exit 1
-          fi
-          echo "PR gate passed."
+          if [[ "$CHANGES_RESULT" != "success" ]]; then exit 1; fi
+          if [[ -n "$HEAD_REPOSITORY" && "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then echo 'External fork PR: compute-heavy checks skipped.'; exit 0; fi
+          for result in "$SOURCE_TYPECHECK_RESULT" "$TEST_TYPECHECK_RESULT" "$BUILD_RESULT" "$TESTS_RESULT"; do [[ "$result" == success ]] || exit 1; done
+          echo 'PR gate passed.'

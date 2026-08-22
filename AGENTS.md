@@ -110,6 +110,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 ## Test Rules (CRITICAL)
 
 **Test behaviour deterministically. A live model in a test is a last resort, not a default.**
+Name each test for the observable behavior it protects. Add a short comment only when the behavior is not clear from the test name.
 Before writing any test that calls a real model, answer in the PR or commit body:
 *which property does this prove that a deterministic test cannot?* If you cannot
 answer it in one sentence, write the deterministic test instead.
