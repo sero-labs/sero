@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sero Design Library — prototype</title>
+<style>
+:root {
+  --bg:#09090b;
+  --surface:#111113;
+  --raised:#18181b;
+  --overlay:#202024;
+  --muted:#28282d;
+  --line:#26262b;
+  --line-strong:#393940;
+  --text:#f4f4f5;
+  --text-2:#b7b7c0;
+  --text-3:#74747f;
+  --emerald:#34d399;
+  --emerald-2:#10b981;
+  --emerald-wash:rgba(52,211,153,.1);
+  --blue:#60a5fa;
+  --amber:#fbbf24;
+  --red:#fb7185;
+  --violet:#a78bfa;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 0 120px;background:#050506;color:var(--text);font-family:var(--sans)}
+button,input,textarea{font:inherit}
+h1,h2,p{margin:0}
+.doc{width:1400px;margin:0 auto}
+.intro{width:760px;margin-bottom:52px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b,.note b{color:var(--text);font-weight:560}
+.state{margin-top:64px}
+.state:first-of-type{margin-top:0}
+h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+.note{width:760px;margin:9px 0 18px;color:var(--text-3);font-size:13px;line-height:1.55}
+.app{width:1400px;height:820px;overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.46);display:flex;flex-direction:column}
+.top{height:58px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:9px;width:220px;font-size:13px;font-weight:650}
+.brand-mark{width:20px;height:20px;border:1px solid #515159;border-radius:5px;position:relative;background:linear-gradient(145deg,#222228,#101012)}
+.brand-mark:before,.brand-mark:after{content:"";position:absolute;width:4px;height:4px;border:1px solid var(--emerald);transform:rotate(45deg)}
+.brand-mark:before{left:4px;top:7px}.brand-mark:after{right:4px;top:7px}
+.tabs{display:flex;align-items:center;align-self:stretch;gap:5px}
+.tab{position:relative;display:flex;align-items:center;gap:7px;height:100%;padding:0 17px;color:var(--text-3);font-size:13px}
+.tab.active{color:var(--text)}
+.tab.active:after{content:"";position:absolute;left:15px;right:15px;bottom:-1px;height:2px;background:var(--emerald)}
+.badge{display:inline-flex;min-width:17px;height:17px;align-items:center;justify-content:center;padding:0 5px;border-radius:10px;background:var(--muted);color:var(--text-2);font:10px/1 var(--mono)}
+.tab.active .badge{background:var(--emerald-wash);color:var(--emerald)}
+.top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{height:32px;padding:0 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;white-space:nowrap}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--text-3)}
+.btn.primary{border-color:#2dd49a;background:var(--emerald-2);color:#04130d;font-weight:650}
+.btn.icon{width:32px;padding:0}
+.avatar{width:27px;height:27px;border-radius:50%;background:linear-gradient(140deg,#3f3f46,#18181b);border:1px solid #4a4a51}
+.shell{display:flex;flex:1;min-height:0}
+.side{width:220px;border-right:1px solid var(--line);padding:17px 11px;flex:0 0 auto;overflow:hidden}
+.side-title{height:27px;padding:0 8px;display:flex;align-items:center;color:var(--text-3);font-size:10px;font-weight:650;letter-spacing:.09em;text-transform:uppercase}
+.side-title .plus{margin-left:auto;color:var(--text-3);font-size:16px;font-weight:400}
+.side-row{height:32px;padding:0 8px;border-radius:6px;display:flex;align-items:center;gap:9px;color:var(--text-3);font-size:12px}
+.side-row.active{background:var(--raised);color:var(--text)}
+.side-row .count{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.side-row .spark{color:var(--violet)}
+.side-row .dot{width:7px;height:7px;border-radius:50%;background:#494950}
+.side-row .dot.a{background:#fb7185}.side-row .dot.b{background:#60a5fa}.side-row .dot.c{background:#fbbf24}.side-row .dot.d{background:#a78bfa}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.toolbar{height:58px;display:flex;align-items:center;gap:8px;padding:0 15px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.search{height:33px;min-width:280px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text-3);font-size:12px}
+.search .key{margin-left:auto;border:1px solid var(--line-strong);border-radius:4px;padding:2px 4px;font:9px var(--mono);color:#666670}
+.filter{height:29px;padding:0 9px;border:1px solid var(--line);border-radius:6px;color:var(--text-3);font-size:11px;display:flex;align-items:center;gap:6px}
+.filter.on{border-color:rgba(52,211,153,.28);background:var(--emerald-wash);color:#8ce7c5}
+.tools{margin-left:auto;display:flex;align-items:center;gap:5px}
+.tool{width:29px;height:29px;border-radius:6px;display:grid;place-items:center;color:var(--text-3);font-size:14px}
+.tool.active{background:var(--raised);color:var(--text-2)}
+.content{flex:1;min-height:0;padding:15px;overflow:hidden}
+.selection-bar{height:45px;margin-bottom:13px;padding:0 12px;border:1px solid rgba(52,211,153,.26);border-radius:8px;background:rgba(16,185,129,.075);display:flex;align-items:center;gap:10px;color:#b8f3dc;font-size:12px}
+.selection-bar .stack{display:flex;padding-left:6px}
+.selection-bar .mini-thumb{width:29px;height:29px;margin-left:-6px;border:2px solid #151518;border-radius:5px}
+.selection-bar .spacer{flex:1}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;align-items:stretch}
+.card{position:relative;display:flex;flex-direction:column;height:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.card.selected{border-color:var(--emerald);box-shadow:0 0 0 1px var(--emerald)}
+.shot{height:146px;position:relative;overflow:hidden;background:#151519}
+.shot.tall{height:187px}.shot.short{height:121px}
+.select{position:absolute;top:9px;left:9px;width:21px;height:21px;z-index:4;border:1px solid rgba(255,255,255,.38);border-radius:6px;background:rgba(8,8,10,.7);display:grid;place-items:center;color:transparent;font-size:12px}
+.selected .select{background:var(--emerald);border-color:var(--emerald);color:#04130d}
+.media{position:absolute;top:9px;right:9px;height:20px;padding:0 6px;border-radius:5px;background:rgba(8,8,10,.72);display:flex;align-items:center;color:#c6c6ce;font:9px var(--mono);backdrop-filter:blur(5px)}
+.card-copy{flex:1;padding:10px 11px 11px;display:flex;flex-direction:column;justify-content:flex-end}
+.card-title{display:flex;align-items:center;gap:7px;font-size:12px;color:#dddde2}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--emerald)}
+.status-dot.pending{background:var(--amber);box-shadow:0 0 0 3px rgba(251,191,36,.1)}
+.style{margin-top:5px;color:var(--text-3);font-size:10px}
+.tags{display:flex;gap:5px;margin-top:8px;overflow:hidden}
+.tag{height:20px;padding:0 6px;border-radius:5px;background:var(--raised);color:#8e8e99;display:flex;align-items:center;font-size:9px;white-space:nowrap}
+.shot-dashboard{background:linear-gradient(140deg,#101218,#0a0b10)}
+.shot-dashboard .rail-mini{position:absolute;left:8px;top:8px;bottom:8px;width:26px;background:#181b22;border-radius:3px}
+.shot-dashboard .hero-mini{position:absolute;left:41px;right:8px;top:8px;height:42px;border:1px solid #343944;background:linear-gradient(110deg,#1b1e26,#11131a)}
+.shot-dashboard .hero-mini:after{content:"";position:absolute;left:9px;top:10px;width:60px;height:5px;background:#e8e9ec;box-shadow:0 11px 0 #4c515e}
+.shot-dashboard .chart-mini{position:absolute;left:41px;right:8px;top:58px;bottom:8px;background:linear-gradient(180deg,rgba(52,211,153,.06),transparent);border:1px solid #282d35}
+.shot-dashboard svg{position:absolute;inset:0;width:100%;height:100%}
+.shot-editorial{background:#e6dfd3;color:#151515}
+.shot-editorial .bigtype{position:absolute;left:14px;top:13px;font:800 28px/25px var(--sans);letter-spacing:-.08em}
+.shot-editorial .copyline{position:absolute;left:15px;bottom:18px;width:75px;height:3px;background:#242424;box-shadow:0 7px 0 #8f887e,0 14px 0 #8f887e}
+.shot-editorial .orb{position:absolute;right:-6px;bottom:-13px;width:99px;height:99px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff9f62,#e9552c 55%,#923019)}
+.shot-glass{background:radial-gradient(circle at 15% 80%,#173f39,transparent 43%),radial-gradient(circle at 88% 15%,#28365d,transparent 42%),#0c1115}
+.glass-panel{position:absolute;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);box-shadow:0 10px 25px rgba(0,0,0,.3);backdrop-filter:blur(8px)}
+.glass-panel.a{left:13px;top:16px;width:94px;height:53px}.glass-panel.b{right:12px;top:38px;width:84px;height:79px}.glass-panel.c{left:38px;bottom:13px;width:92px;height:41px}
+.shot-brutal{background:#d9ff40}
+.shot-brutal .black{position:absolute;background:#080808}.shot-brutal .black.a{left:10px;top:10px;width:72px;height:57px}.shot-brutal .black.b{right:9px;bottom:9px;width:104px;height:48px}
+.shot-brutal .word{position:absolute;left:16px;bottom:11px;color:#d9ff40;font:800 16px var(--sans);letter-spacing:-.05em}
+.shot-data{background:#edf1ee}
+.shot-data .data-top{position:absolute;left:10px;right:10px;top:9px;height:24px;border-bottom:1px solid #b5bcb7}
+.shot-data .bars{position:absolute;left:17px;right:17px;bottom:15px;height:78px;display:flex;align-items:end;gap:7px}
+.shot-data .bars i{flex:1;background:#1a755b}.shot-data .bars i:nth-child(2){height:70%!important;background:#9ac9ba}.shot-data .bars i:nth-child(4){background:#0e3c30}
+.shot-mobile{background:linear-gradient(145deg,#31184b,#0c0d17)}
+.phone{position:absolute;left:50%;top:10px;bottom:10px;width:73px;transform:translateX(-50%);border:2px solid #5f5368;border-radius:14px;background:#101017;padding:7px}
+.phone:before{content:"";display:block;width:25px;height:3px;margin:0 auto 8px;border-radius:2px;background:#41414a}
+.phone .tile{height:36px;margin-top:5px;border-radius:7px;background:linear-gradient(135deg,#5c2b7c,#29476e)}
+.phone .line{height:3px;margin-top:8px;background:#464650;box-shadow:0 7px 0 #2b2b34}
+.shot-motion{background:#0d0e11}
+.rings{position:absolute;inset:0;background:repeating-radial-gradient(circle at 52% 50%,transparent 0 11px,#6d5ce7 12px 14px,transparent 15px 25px);transform:scale(1.2)}
+.shot-lux{background:#0b0b0a}
+.shot-lux:before{content:"";position:absolute;width:120px;height:120px;left:50%;top:50%;transform:translate(-50%,-46%) rotate(25deg);background:linear-gradient(135deg,#433823,#d8b976 42%,#645232 43%,#1b1811 58%,#b79d64);clip-path:polygon(50% 0,100% 40%,78% 100%,22% 100%,0 40%)}
+.shot-lux:after{content:"ATELIER  /  06";position:absolute;left:12px;bottom:9px;color:#cbb989;font:8px var(--mono);letter-spacing:.18em}
+
+/* item inspector */
+.inspector-layout{display:grid;grid-template-columns:minmax(0,1fr) 440px;flex:1;min-height:0}
+.preview-pane{padding:16px;border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.crumbs{height:30px;color:var(--text-3);font-size:11px;display:flex;align-items:center;gap:7px}
+.crumbs b{color:var(--text-2);font-weight:500}
+.hero-preview{flex:1;position:relative;overflow:hidden;border:1px solid #2b3039;border-radius:8px;background:#0c0f14}
+.hero-preview .hero-nav{position:absolute;left:22px;right:22px;top:20px;height:26px;display:flex;align-items:center;color:#747b88;font:9px var(--mono);letter-spacing:.06em}
+.hero-preview .hero-nav:before{content:"NORTHSTAR";color:#f2f4f6;font-weight:700;margin-right:auto}
+.hero-preview .hero-nav span{margin-left:24px}
+.hero-preview .hero-title{position:absolute;left:24px;top:73px;color:white;font-size:47px;font-weight:620;letter-spacing:-.06em;line-height:.91}
+.hero-preview .hero-title i{font-style:normal;color:var(--emerald)}
+.hero-preview .metrics{position:absolute;left:24px;right:24px;top:187px;height:79px;display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.hero-preview .metric{padding:11px;border:1px solid #303640;background:#12161d}
+.hero-preview .metric small{color:#68717f;font:8px var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.hero-preview .metric strong{display:block;margin-top:7px;font-size:21px;font-weight:500}
+.hero-preview .metric em{float:right;color:var(--emerald);font:9px var(--mono)}
+.hero-preview .big-chart{position:absolute;left:24px;right:24px;top:281px;bottom:24px;border:1px solid #262d35;background:linear-gradient(180deg,rgba(52,211,153,.045),transparent)}
+.big-chart .gridline{position:absolute;left:0;right:0;height:1px;background:#1f252d}.big-chart .gridline:nth-child(1){top:25%}.big-chart .gridline:nth-child(2){top:50%}.big-chart .gridline:nth-child(3){top:75%}
+.big-chart svg{position:absolute;inset:0;width:100%;height:100%}
+.preview-foot{height:43px;display:flex;align-items:end;color:var(--text-3);font-size:10px}.preview-foot span:last-child{margin-left:auto}
+.detail-panel{overflow:hidden;display:flex;flex-direction:column;background:#0e0e10}
+.detail-head{padding:17px 17px 14px;border-bottom:1px solid var(--line)}
+.eyebrow{font:9px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--emerald)}
+.title-row{display:flex;align-items:start;gap:8px;margin-top:7px}
+.title-row h3{margin:0;flex:1;font-size:18px;letter-spacing:-.03em}
+.detail-sub{margin-top:5px;color:var(--text-3);font-size:10px}
+.detail-scroll{padding:3px 17px 14px;overflow:hidden}
+.section{padding:13px 0;border-bottom:1px solid var(--line)}
+.section:last-child{border-bottom:0}
+.section-head{display:flex;align-items:center;margin-bottom:8px;color:var(--text-2);font-size:11px;font-weight:600}.section-head span{margin-left:auto;color:var(--text-3);font-size:10px;font-weight:400}
+.summary{color:#a5a5ae;font-size:11px;line-height:1.5}
+.vocab{display:flex;flex-wrap:wrap;gap:5px}
+.vocab .tag{background:#1b1b20;color:#bdbdc7;border:1px solid #2b2b31}
+.palette{display:flex;height:25px;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.palette i{flex:1}.palette i:nth-child(1){background:#0c0f14}.palette i:nth-child(2){background:#171d25}.palette i:nth-child(3){background:#34d399}.palette i:nth-child(4){background:#ebeff1}.palette i:nth-child(5){background:#68717f}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.profile{padding:8px;border:1px solid var(--line);border-radius:6px}
+.profile b{display:block;color:#9999a4;font-size:9px;text-transform:uppercase;letter-spacing:.07em}
+.profile span{display:block;margin-top:4px;color:#666670;font-size:9px;line-height:1.4}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rule{padding:9px;border-radius:6px;font-size:9px;line-height:1.45}
+.rule.good{background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.17);color:#8fd8bd}
+.rule.bad{background:rgba(251,113,133,.06);border:1px solid rgba(251,113,133,.14);color:#d99aa5}
+
+/* generation dialog */
+.dimmed{position:relative;filter:saturate(.6);opacity:.44}
+.scrim{position:absolute;inset:58px 0 0;background:rgba(3,3,4,.71);z-index:10;display:flex;align-items:center;justify-content:center}
+.dialog{width:760px;background:#111114;border:1px solid var(--line-strong);border-radius:11px;box-shadow:0 30px 90px rgba(0,0,0,.68);overflow:hidden}
+.dialog-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;align-items:start}
+.dialog-head h3{margin:0;font-size:16px;letter-spacing:-.02em}.dialog-head p{margin-top:5px;color:var(--text-3);font-size:10px}
+.close{margin-left:auto;color:var(--text-3);font-size:17px}
+.dialog-body{display:grid;grid-template-columns:1fr 246px;min-height:475px}
+.form{padding:17px 19px;border-right:1px solid var(--line)}
+.label{display:flex;align-items:center;margin:0 0 7px;color:#9b9ba5;font-size:10px;font-weight:600}.label span{margin-left:auto;color:var(--text-3);font-weight:400}
+.textarea{height:95px;padding:10px;border:1px solid #34343b;border-radius:7px;background:#0c0c0f;color:#cfcfd5;font-size:11px;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.selectbox{height:35px;padding:0 9px;border:1px solid var(--line-strong);border-radius:7px;background:#0c0c0f;color:#aaaab4;font-size:10px;display:flex;align-items:center}.selectbox span{margin-left:auto;color:#5f5f69}
+.segmented{height:36px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#0b0b0d;display:flex}
+.seg{flex:1;display:grid;place-items:center;border-radius:5px;color:#686873;font-size:10px}.seg.on{background:var(--raised);color:#d6d6db}
+.count-control{display:flex;align-items:center;gap:7px}.count-control .counter{height:35px;flex:1;display:flex;align-items:center;justify-content:space-between;padding:0 9px;border:1px solid var(--line-strong);border-radius:7px;background:#0c0c0f;font:11px var(--mono);color:#bbb}.counter b{font-size:16px;font-weight:400;color:#696973}
+.strength{margin-top:14px}.track{height:3px;margin:16px 5px 5px;background:#2b2b31;position:relative}.track:before{content:"";display:block;width:52%;height:100%;background:var(--emerald)}.track:after{content:"";position:absolute;left:50%;top:50%;width:11px;height:11px;border-radius:50%;background:var(--emerald);transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(52,211,153,.11)}
+.track-labels{display:flex;justify-content:space-between;color:#62626c;font-size:9px}.track-labels b{color:#a7a7b0;font-weight:500}
+.source-panel{padding:17px 14px;background:#0d0d0f}
+.source-row{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+.source-thumb{width:50px;height:38px;border-radius:5px;overflow:hidden;flex:0 0 auto}
+.source-meta{min-width:0}.source-meta b{display:block;color:#b8b8c1;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-meta span{display:block;margin-top:5px;color:#666670;font-size:8px}
+.synthesis{margin-top:15px;padding:10px;border:1px solid rgba(167,139,250,.18);background:rgba(167,139,250,.05);border-radius:7px}
+.synthesis .eyebrow{color:var(--violet)}.synthesis p{margin-top:7px;color:#8f8f9a;font-size:9px;line-height:1.5}
+.conflict{margin-top:8px;padding-top:8px;border-top:1px solid rgba(167,139,250,.14);color:#c8a963;font-size:8px;line-height:1.45}
+.dialog-foot{height:57px;padding:0 17px;border-top:1px solid var(--line);display:flex;align-items:center;color:var(--text-3);font-size:10px}.dialog-foot b{color:var(--text-2)}.dialog-foot .btn{margin-left:auto}
+
+/* design workbench */
+.session-side{width:182px;border-right:1px solid var(--line);padding:13px 9px}.session-row{padding:9px;border-radius:6px;margin-bottom:3px}.session-row.active{background:var(--raised)}.session-row b{display:block;color:#c7c7cf;font-size:10px;font-weight:550}.session-row span{display:block;margin-top:5px;color:#62626c;font-size:8px}.progress{height:2px;margin-top:7px;background:#29292e}.progress i{display:block;width:62%;height:100%;background:var(--violet)}
+.workbench{flex:1;min-width:0;display:flex;flex-direction:column}
+.variant-tabs{height:45px;display:flex;align-items:end;padding:0 10px;border-bottom:1px solid var(--line)}
+.variant{height:35px;padding:0 13px;display:flex;align-items:center;gap:7px;border:1px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;color:#6f6f79;font-size:10px}.variant.active{border-color:var(--line);background:#101012;color:#d0d0d7}.variant .state-dot{width:6px;height:6px;border-radius:50%;background:var(--emerald)}.variant .state-dot.working{background:var(--violet);box-shadow:0 0 0 3px rgba(167,139,250,.1)}.variant .unsaved{width:4px;height:4px;border-radius:50%;background:#d8d8de}
+.canvas-bar{height:43px;padding:0 10px;display:flex;align-items:center;border-bottom:1px solid var(--line);color:#6c6c76;font-size:9px}.canvas-bar .devices{margin:0 auto;display:flex;gap:3px}.device{height:26px;min-width:30px;padding:0 7px;display:grid;place-items:center;border-radius:5px}.device.on{background:var(--raised);color:#cacad1}.canvas-bar .zoom{font:9px var(--mono);width:70px}
+.canvas-and-inspector{flex:1;min-height:0;display:flex}
+.canvas{flex:1;padding:19px;background:#0d0d0f;display:flex;justify-content:center;min-width:0}
+.prototype-frame{width:100%;max-width:760px;height:100%;border:1px solid #34343a;background:#f2f0ea;box-shadow:0 14px 36px rgba(0,0,0,.38);overflow:hidden;color:#131315}
+.proto-top{height:43px;padding:0 18px;display:flex;align-items:center;border-bottom:1px solid #c8c6c0;font-size:8px;text-transform:uppercase;letter-spacing:.09em}.proto-top b{font-size:10px;margin-right:auto}.proto-top span{margin-left:18px}
+.proto-body{padding:20px}.proto-kicker{font:8px var(--mono);color:#6e6d69}.proto-title{margin-top:8px;width:480px;font-size:31px;line-height:.98;letter-spacing:-.055em;font-weight:680}.proto-title i{font-style:normal;color:#16805f}.proto-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px}.proto-metric{padding:10px;border:1px solid #c8c6c0}.proto-metric small{font:7px var(--mono);color:#797873}.proto-metric strong{display:block;margin-top:7px;font-size:17px}.proto-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-top:8px;height:235px}.proto-chart,.proto-feed{border:1px solid #c8c6c0;padding:10px}.proto-chart b,.proto-feed b{font-size:8px;text-transform:uppercase;letter-spacing:.08em}.chart-area{position:relative;height:165px;margin-top:15px;background:repeating-linear-gradient(to bottom,transparent 0 32px,#dedbd4 33px)}.chart-area svg{position:absolute;inset:0;width:100%;height:100%}.feed-row{padding:10px 0;border-bottom:1px solid #ddd9d2;display:flex;gap:8px}.feed-row i{width:6px;height:6px;margin-top:2px;border-radius:50%;background:#16805f}.feed-row span{font-size:7px;color:#75736d;line-height:1.4}.feed-row b{display:block;color:#222;font-size:8px;text-transform:none;letter-spacing:0}
+.work-inspector{width:274px;border-left:1px solid var(--line);background:#0e0e10;display:flex;flex-direction:column}.work-inspector .detail-head{padding:13px}.inspect-tabs{display:flex;height:33px;padding:0 9px;border-bottom:1px solid var(--line)}.inspect-tab{flex:1;display:grid;place-items:center;color:#666670;font-size:9px}.inspect-tab.on{color:#ccc;border-bottom:1px solid var(--emerald)}.inspect-body{padding:12px;overflow:hidden}.concept{color:#8f8f98;font-size:9px;line-height:1.5}.inspiration-strip{display:flex;gap:6px;margin-top:8px}.inspiration-strip .source-thumb{width:53px;height:40px}.file-row{height:26px;display:flex;align-items:center;padding:0 7px;border-radius:4px;color:#7e7e88;font:9px var(--mono)}.file-row.active{background:var(--raised);color:#c9c9d0}.file-row span{margin-left:auto;color:#575760}
+.revise{height:68px;padding:9px 11px;border-top:1px solid var(--line);display:flex;gap:8px}.revise-box{flex:1;border:1px solid #313137;border-radius:7px;padding:8px;color:#73737d;font-size:9px}.revise .btn{align-self:end}
+
+/* gallery */
+.gallery-main{flex:1;display:flex;flex-direction:column;min-width:0}.gallery-hero{padding:25px 21px 16px;display:flex;align-items:end}.gallery-hero h3{margin:0;font-size:24px;letter-spacing:-.04em}.gallery-hero p{margin-top:6px;color:var(--text-3);font-size:10px}.gallery-count{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.gallery-toolbar{height:45px;padding:0 21px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line)}.gallery-toolbar .search{min-width:300px}.gallery-toolbar .tools{margin-left:auto}
+.gallery-content{padding:16px 21px;overflow:hidden}.family-head{display:flex;align-items:center;height:30px;margin-bottom:9px}.family-head b{font-size:11px}.family-head span{margin-left:8px;color:var(--text-3);font-size:9px}.family-head .line{flex:1;height:1px;margin-left:12px;background:var(--line)}
+.family-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}
+.design-card{border:1px solid var(--line);background:var(--surface);border-radius:8px;overflow:hidden}.design-preview{height:153px;position:relative;overflow:hidden}.design-preview .version{position:absolute;top:9px;left:9px;height:20px;padding:0 6px;display:flex;align-items:center;border-radius:4px;background:rgba(8,8,10,.75);color:#bcbcc5;font:8px var(--mono)}.design-preview .heart{position:absolute;top:9px;right:9px;color:#fff}.design-copy{padding:10px}.design-title{display:flex;font-size:11px;color:#d3d3d9}.design-title span{margin-left:auto;color:var(--text-3)}.design-meta{display:flex;gap:7px;margin-top:7px;color:#666670;font-size:8px}.design-meta b{font-weight:400;color:#8c8c96}.design-card.featured{border-color:#46464d}.saved-preview{position:absolute;inset:0;background:#f1efe9;color:#151515;padding:14px}.saved-preview.dark{background:#0c1014;color:#f5f5f5}.saved-preview.soft{background:#e9ddda}.saved-preview .sp-nav{height:13px;border-bottom:1px solid currentColor;opacity:.48}.saved-preview .sp-title{margin-top:15px;width:80%;font-size:19px;line-height:.98;letter-spacing:-.05em}.saved-preview .sp-boxes{display:grid;grid-template-columns:1.5fr 1fr;gap:6px;margin-top:14px;height:71px}.saved-preview .sp-boxes i{display:block;border:1px solid currentColor;opacity:.38}.saved-preview.dark .sp-title em{color:var(--emerald);font-style:normal}.saved-preview.soft:after{content:"";position:absolute;right:15px;bottom:12px;width:68px;height:68px;border-radius:50%;background:#cd695d}.saved-preview.blue{background:#dce8ed}.saved-preview.blue:before{content:"";position:absolute;inset:29px 17px 17px;border:1px solid #668797;box-shadow:10px 10px 0 #224554}
+
+/* tweaks */
+.tweak-scroll{padding:11px;overflow:hidden}
+.tweak-intro{margin-bottom:11px;color:#6f6f7a;font-size:9px;line-height:1.5}
+.tweak-group{margin-bottom:13px}
+.tweak-group>b{display:flex;align-items:center;color:#8e8e99;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.tweak-group>b:after{content:"";flex:1;height:1px;margin-left:9px;background:var(--line)}
+.tweak{margin-bottom:9px}
+.tweak-label{display:flex;align-items:center;color:#b4b4be;font-size:10px;margin-bottom:6px}
+.tweak-label .val{margin-left:auto;color:#70707b;font:9px var(--mono)}
+.tweak-label .reset{margin-left:7px;color:#4e4e58;font-size:10px}
+.tweak-label .edited{width:5px;height:5px;margin-left:6px;border-radius:50%;background:var(--emerald)}
+.trk{height:3px;border-radius:2px;background:#2b2b31;position:relative}
+.trk i{display:block;height:100%;border-radius:2px;background:#5a5a66}
+.trk:after{content:"";position:absolute;top:50%;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#d6d6dc;transform:translateY(-50%)}
+.trk.on i{background:var(--emerald)}.trk.on:after{background:var(--emerald)}
+.trk.p30:after{left:30%}.trk.p46:after{left:46%}.trk.p58:after{left:58%}.trk.p72:after{left:72%}.trk.p88:after{left:88%}
+.swatches{display:flex;gap:5px}
+.sw{width:23px;height:23px;border-radius:5px;border:1px solid rgba(255,255,255,.13)}
+.sw.sel{box-shadow:0 0 0 2px var(--emerald),0 0 0 3px #0e0e10}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{height:22px;padding:0 8px;border-radius:5px;border:1px solid var(--line);background:#141418;color:#82828d;display:flex;align-items:center;font-size:9px}
+.chip.on{border-color:rgba(52,211,153,.4);background:var(--emerald-wash);color:#93e8c6}
+.sw-toggle{width:34px;height:19px;border-radius:10px;background:#2b2b31;position:relative}
+.sw-toggle:after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#75757f}
+.sw-toggle.on{background:rgba(52,211,153,.3)}.sw-toggle.on:after{left:17px;background:var(--emerald)}
+.tweak-foot{padding:9px 11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:7px}
+.tweak-foot span{color:#5e5e68;font-size:9px}
+.tweak-warn{margin:0 11px 9px;padding:6px 9px;border:1px solid rgba(251,191,36,.18);background:rgba(251,191,36,.05);border-radius:6px;color:#c4a55f;font-size:9px;display:flex;align-items:center;gap:8px}
+.tweak-warn span{margin-left:auto;color:#8a7a4c;text-decoration:underline}
+.tweak-side{width:300px;border-right:1px solid var(--line);background:#0e0e10;display:flex;flex-direction:column;flex:0 0 auto}
+.tweak-side .detail-head{padding:13px}
+.rail-collapsed{width:46px;border-right:1px solid var(--line);padding:13px 0;display:flex;flex-direction:column;align-items:center;gap:11px;flex:0 0 auto}
+.rail-collapsed i{width:22px;height:22px;border-radius:6px;background:#1c1c21;display:block}
+.rail-collapsed i.on{background:var(--raised);box-shadow:inset 0 0 0 1px #3a3a42}
+.rail-collapsed i.add{background:transparent;box-shadow:inset 0 0 0 1px #2c2c33;color:#5c5c66;font-style:normal;font-size:12px;line-height:22px;text-align:center}
+.rail-toggle{width:22px;height:22px;margin-bottom:3px;border-radius:6px;display:grid;place-items:center;color:#5c5c66;font-size:11px}
+.grip{width:5px;align-self:stretch;background:var(--line);position:relative;flex:0 0 auto;display:grid;place-items:center}
+.grip i{display:block;width:3px;height:22px;border-radius:2px;background:#4a4a53}
+
+/* settings */
+.settings-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.settings-body{padding:24px 28px;overflow:hidden}
+.settings-block{max-width:600px;margin-bottom:26px}
+.settings-block>h4{margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.settings-block>p{margin:0 0 13px;color:var(--text-3);font-size:10px;line-height:1.5}
+.field{margin-bottom:12px}
+.field>label{display:flex;align-items:center;margin-bottom:6px;color:#a2a2ac;font-size:10px;font-weight:550}
+.field>label span{margin-left:auto;color:var(--text-3);font-weight:400}
+.model-pick{height:44px;padding:0 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);display:flex;align-items:center;gap:9px}
+.model-pick .logo{width:17px;height:17px;border-radius:4px;background:linear-gradient(140deg,#e8e8ee,#a9a9b4);flex:0 0 auto}
+.model-pick b{display:block;font-size:11px;font-weight:550;color:var(--text)}
+.model-pick small{display:block;margin-top:2px;color:var(--text-3);font-size:9px}
+.model-pick .chev{margin-left:auto;color:#5f5f69}
+.text-field{height:33px;padding:0 10px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);color:#b9b9c3;display:flex;align-items:center;font:10px var(--mono)}
+.cap-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.status-pill{height:21px;padding:0 8px;border-radius:11px;display:inline-flex;align-items:center;gap:6px;font-size:9px}
+.status-pill.ok{background:rgba(52,211,153,.1);color:#8ce7c5}
+.status-pill.ok:before{content:"";width:5px;height:5px;border-radius:50%;background:var(--emerald)}
+.row-split{display:flex;align-items:center;gap:11px}
+.row-split .grow{flex:1}
+.recipe-row{height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);display:flex;align-items:center;gap:9px;margin-bottom:6px;font-size:10px;color:#bdbdc6}
+.recipe-row span{margin-left:auto;color:var(--text-3);font-size:9px}
+
+/* media generation */
+.gen-tabs{display:flex;gap:4px;margin-bottom:13px}
+.gen-tab{height:28px;padding:0 11px;border-radius:6px;border:1px solid var(--line);color:#74747f;display:flex;align-items:center;gap:6px;font-size:10px}
+.gen-tab.on{border-color:rgba(52,211,153,.32);background:var(--emerald-wash);color:#8ce7c5}
+.cost-note{display:flex;align-items:center;gap:7px;color:#6d6d77;font-size:9px}
+.cost-note b{color:#a5a5af;font-weight:500}
+.asset-tray{border-top:1px solid var(--line);padding:10px 12px}
+.tray-head{display:flex;align-items:center;color:#8e8e99;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.tray-head span{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;color:#6a6a74;font-family:var(--mono)}
+.tray{display:flex;gap:6px}
+.tray-item{width:48px;height:38px;border-radius:5px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.tray-item.a{background:radial-gradient(circle at 30% 30%,#f0a06a,#8c3a1e)}
+.tray-item.b{background:linear-gradient(140deg,#2c3f6b,#101827)}
+.tray-item.c{background:#141418;display:grid;place-items:center;color:#5c5c66;font-size:13px}
+.tray-item.fail{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.06);display:grid;place-items:center;color:#d9909c;font-size:11px}
+.tray-item .vid{position:absolute;right:3px;bottom:3px;padding:1px 3px;border-radius:3px;background:rgba(0,0,0,.6);color:#d3d3d9;font:7px var(--mono)}
+
+/* shared small visuals */
+.mini-thumb.shot-dashboard,.source-thumb.shot-dashboard{position:relative;background:linear-gradient(140deg,#101218,#0a0b10)}
+.mini-thumb.shot-editorial,.source-thumb.shot-editorial{position:relative;background:#e6dfd3}
+.mini-thumb.shot-glass,.source-thumb.shot-glass{position:relative;background:radial-gradient(circle at 15% 80%,#173f39,transparent 43%),#0c1115}
+.mini-thumb.shot-brutal,.source-thumb.shot-brutal{position:relative;background:#d9ff40}
+.mini-thumb.shot-dashboard:after,.source-thumb.shot-dashboard:after{content:"";position:absolute;inset:7px;border:1px solid #36404b;background:linear-gradient(180deg,transparent 55%,rgba(52,211,153,.28))}
+.mini-thumb.shot-editorial:after,.source-thumb.shot-editorial:after{content:"Aa";position:absolute;left:8px;top:5px;color:#171717;font:800 13px var(--sans)}
+.mini-thumb.shot-glass:after,.source-thumb.shot-glass:after{content:"";position:absolute;inset:7px;border:1px solid rgba(255,255,255,.23);background:rgba(255,255,255,.08)}
+.mini-thumb.shot-brutal:after,.source-thumb.shot-brutal:after{content:"";position:absolute;left:7px;top:7px;width:50%;height:50%;background:#090909}
+.plus-icon{font-size:15px;line-height:1}.chev{font-size:9px}.mono{font-family:var(--mono)}
+@media(max-width:1450px){body{padding-left:24px;padding-right:24px}.doc{width:1400px}}
+</style>
+</head>
+<body>
+<main class="doc">
+  <div class="intro">
+    <h1>Design Library plugin — prototype</h1>
+    <p class="lede">A private visual memory and creative workbench for Sero. <b>Library captures design DNA, Design turns it into new work, and Gallery preserves the results.</b> The imagery leads throughout; analysis appears exactly where it helps selection, generation, or reuse.</p>
+    <p class="lede">States 5A and 5B are two placements for the same Tweaks panel — the AI-authored CSS controls that belong to one specific generated page. Everything else is settled.</p>
+  </div>
+
+  <section class="state">
+    <h2>1 · Library — browsing and selecting inspiration</h2>
+    <p class="note">The default surface is a dense visual browser, not a metadata catalogue. Collections and smart groups stay in the left rail, lightweight filters sit above the work, and selecting references reveals one focused action bar.</p>
+    <div class="app">
+      <header class="top">
+        <div class="brand"><span class="brand-mark"></span>Design Library</div>
+        <nav class="tabs" aria-label="Library prototype primary navigation"><div class="tab active">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav>
+        <div class="top-actions"><button type="button" class="btn ghost">⌘ K</button><button type="button" class="btn primary"><span class="plus-icon">＋</span>Add inspiration</button><span class="avatar"></span></div>
+      </header>
+      <div class="shell">
+        <aside class="side" aria-label="Library navigation">
+          <div class="side-title">Library</div>
+          <div class="side-row active">◇ All inspiration <span class="count">42</span></div>
+          <div class="side-row">☆ Favourites <span class="count">8</span></div>
+          <div class="side-row">◷ Awaiting analysis <span class="count">2</span></div>
+          <div class="side-row">⌁ Recently added <span class="count">12</span></div>
+          <div class="side-title" style="margin-top:14px">Collections <span class="plus">＋</span></div>
+          <div class="side-row"><span class="dot a"></span>Trading dashboards <span class="count">9</span></div>
+          <div class="side-row"><span class="dot b"></span>Editorial layouts <span class="count">7</span></div>
+          <div class="side-row"><span class="dot c"></span>Luxury products <span class="count">5</span></div>
+          <div class="side-row"><span class="dot d"></span>Data visualisation <span class="count">11</span></div>
+          <div class="side-title" style="margin-top:14px">Smart groups</div>
+          <div class="side-row"><span class="spark">✦</span>Dark luxury <span class="count">6</span></div>
+          <div class="side-row"><span class="spark">✦</span>High density <span class="count">8</span></div>
+          <div class="side-row"><span class="spark">✦</span>Editorial <span class="count">10</span></div>
+          <div class="side-row"><span class="spark">✦</span>Retro-futurist <span class="count">4</span></div>
+        </aside>
+        <div class="main">
+          <div class="toolbar">
+            <div class="search">⌕ Search visual styles, tags or sources <span class="key">⌘ F</span></div>
+            <div class="filter on">All media <span class="chev">⌄</span></div>
+            <div class="filter">Style <span class="chev">⌄</span></div>
+            <div class="filter">Colour <span class="chev">⌄</span></div>
+            <div class="filter">Density <span class="chev">⌄</span></div>
+            <div class="tools"><span class="tool active">▦</span><span class="tool">▤</span><span class="tool">↕</span></div>
+          </div>
+          <div class="content">
+            <div class="selection-bar">
+              <div class="stack"><span class="mini-thumb shot-dashboard"></span><span class="mini-thumb shot-editorial"></span><span class="mini-thumb shot-glass"></span></div>
+              <b>3 references selected</b><span style="color:#73998b">Blend their design DNA into a new implementation</span>
+              <span class="spacer"></span><button type="button" class="btn ghost">Add to collection</button><button type="button" class="btn primary">Create design →</button>
+            </div>
+            <div class="grid">
+              <article class="card selected"><div class="shot shot-dashboard tall"><span class="select">✓</span><span class="media">WEB</span><div class="rail-mini"></div><div class="hero-mini"></div><div class="chart-mini"><svg viewBox="0 0 200 80" preserveAspectRatio="none"><path d="M0 63 C25 58 38 28 59 41 S96 70 119 37 S159 7 200 19" fill="none" stroke="#34d399" stroke-width="2"/></svg></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Northstar operations</div><div class="style">Technical monochrome</div><div class="tags"><span class="tag">data-dense</span><span class="tag">precise</span><span class="tag">emerald</span></div></div></article>
+              <article class="card selected"><div class="shot shot-editorial"><span class="select">✓</span><span class="media">IMG</span><div class="bigtype">FORM<br>FOLLOWS<br>FEELING</div><div class="copyline"></div><div class="orb"></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Material journal</div><div class="style">Contemporary editorial</div><div class="tags"><span class="tag">overscale type</span><span class="tag">warm</span></div></div></article>
+              <article class="card selected"><div class="shot shot-glass short"><span class="select">✓</span><span class="media">VIDEO · 0:18</span><div class="glass-panel a"></div><div class="glass-panel b"></div><div class="glass-panel c"></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Layered command centre</div><div class="style">Spatial glass</div><div class="tags"><span class="tag">depth</span><span class="tag">motion-led</span></div></div></article>
+              <article class="card"><div class="shot shot-brutal tall"><span class="select"></span><span class="media">WEB</span><div class="black a"></div><div class="black b"><span class="word">SIGNAL / 04</span></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Signal archive</div><div class="style">Neo-brutalist</div><div class="tags"><span class="tag">hard geometry</span><span class="tag">acid</span></div></div></article>
+              <article class="card"><div class="shot shot-data"><span class="select"></span><span class="media">IMG</span><div class="data-top"></div><div class="bars"><i style="height:42%"></i><i></i><i style="height:84%"></i><i style="height:58%"></i><i style="height:96%"></i><i style="height:70%"></i></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Climate index</div><div class="style">Analytical minimalism</div><div class="tags"><span class="tag">calm</span><span class="tag">structured</span></div></div></article>
+              <article class="card"><div class="shot shot-mobile tall"><span class="select"></span><span class="media">IMG</span><div class="phone"><div class="tile"></div><div class="line"></div><div class="tile" style="margin-top:18px;background:linear-gradient(135deg,#7a4669,#3a275c)"></div></div></div><div class="card-copy"><div class="card-title"><span class="status-dot pending"></span>Evening finance</div><div class="style">Analysing…</div><div class="tags"><span class="tag">mobile</span></div></div></article>
+              <article class="card"><div class="shot shot-motion"><span class="select"></span><span class="media">VIDEO · 0:09</span><div class="rings"></div></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Kinetic identity</div><div class="style">Retro-futurist motion</div><div class="tags"><span class="tag">kinetic</span><span class="tag">optical</span></div></div></article>
+              <article class="card"><div class="shot shot-lux"><span class="select"></span><span class="media">WEB</span></div><div class="card-copy"><div class="card-title"><span class="status-dot"></span>Atelier product study</div><div class="style">Dark luxury</div><div class="tags"><span class="tag">restrained</span><span class="tag">metallic</span></div></div></article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>2 · Library item — the Librarian explains the design DNA</h2>
+    <p class="note">Opening a reference gives the image most of the canvas. The Librarian’s output is compact and editable: vocabulary, construction, palette, and guardrails instead of a long critique. Reanalysis is visible but secondary.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Inspector prototype primary navigation"><div class="tab active">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Duplicate</button><button type="button" class="btn">↻ Reanalyse</button><button type="button" class="btn primary">Create design →</button><span class="avatar"></span></div></header>
+      <div class="inspector-layout">
+        <div class="preview-pane">
+          <div class="crumbs">Library <span>›</span> Trading dashboards <span>›</span> <b>Northstar operations</b></div>
+          <div class="hero-preview">
+            <div class="hero-nav"><span>Workloads</span><span>Models</span><span>Usage</span><span>Alerts</span></div>
+            <div class="hero-title">AGENT<br>OPERATIONS<i>.</i></div>
+            <div class="metrics"><div class="metric"><small>Active tasks <em>+8.4%</em></small><strong>1,284</strong></div><div class="metric"><small>Success rate <em>+1.2%</em></small><strong>98.7%</strong></div><div class="metric"><small>Token spend <em>−3.1%</em></small><strong>£842</strong></div></div>
+            <div class="big-chart"><span class="gridline"></span><span class="gridline"></span><span class="gridline"></span><svg viewBox="0 0 800 240" preserveAspectRatio="none"><path d="M0 200 C80 195 98 119 165 150 S269 212 335 121 S457 66 518 108 S636 149 800 28" fill="none" stroke="#34d399" stroke-width="3"/><path d="M0 200 C80 195 98 119 165 150 S269 212 335 121 S457 66 518 108 S636 149 800 28 L800 240 L0 240Z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#34d399" stop-opacity=".18"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient></defs></svg></div>
+          </div>
+          <div class="preview-foot"><span>Captured from northstar.example · 1440 × 1024 · 21 July 2026</span><span>Open original ↗</span></div>
+        </div>
+        <aside class="detail-panel" aria-label="Librarian analysis">
+          <div class="detail-head"><div class="eyebrow">Librarian profile · 96% confidence</div><div class="title-row"><h3>Northstar operations</h3><span style="color:var(--text-3)">☆</span><span style="color:var(--text-3)">•••</span></div><div class="detail-sub">Web application · Trading dashboards · Edited 2h ago</div></div>
+          <div class="detail-scroll">
+            <div class="section"><div class="section-head">Style <span>Edit</span></div><div class="summary"><b style="display:block;color:#ddd;margin-bottom:4px">Technical monochrome</b>A severe, high-density operations interface that makes complex activity feel controlled, exact, and quietly premium.</div></div>
+            <div class="section"><div class="section-head">Vocabulary <span>Edit</span></div><div class="vocab"><span class="tag">monolithic</span><span class="tag">high-contrast</span><span class="tag">instrumental</span><span class="tag">chromatic restraint</span><span class="tag">editorial scale</span></div></div>
+            <div class="section"><div class="section-head">Palette <span>Edit</span></div><div class="palette"><i></i><i></i><i></i><i></i><i></i></div></div>
+            <div class="section"><div class="section-head">Visual construction <span>8 groups</span></div><div class="profile-grid"><div class="profile"><b>Typography</b><span>Overscale grotesk headings, compact mono labels</span></div><div class="profile"><b>Layout</b><span>Strict grid, broad data canvas, narrow chrome</span></div><div class="profile"><b>Density</b><span>Dense data with deliberate quiet zones</span></div><div class="profile"><b>Surfaces</b><span>Near-black planes, hairline separators, no effects</span></div></div></div>
+            <div class="section"><div class="section-head">Guardrails <span>Edit</span></div><div class="rules"><div class="rule good"><b>Always</b><br>Reserve emerald for state and emphasis. Keep geometry square and exact.</div><div class="rule bad"><b>Never</b><br>Add decorative gradients, soft cards, or multiple accent colours.</div></div></div>
+            <div class="section"><div class="section-head">Generation prompt <span>Expand · Edit</span></div><div class="summary">Create an operational interface with disciplined monochrome surfaces, overscale typography, compressed labels, and an emerald signal colour…</div></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>3 · Create Design — synthesis before generation</h2>
+    <p class="note">Generation is a single focused decision. The request and output controls stay on the left; selected sources and the Librarian’s synthesis stay visible on the right. Conflicting guardrails are surfaced before work starts.</p>
+    <div class="app" style="position:relative">
+      <div class="dimmed" style="position:absolute;inset:0">
+        <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Generation dialog prototype primary navigation"><div class="tab active">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav></header>
+        <div class="shell"><aside class="side" aria-label="Dimmed library navigation"></aside><div class="main"><div class="toolbar"></div><div class="content"><div class="grid"><div class="card"><div class="shot shot-dashboard tall"></div></div><div class="card"><div class="shot shot-editorial"></div></div><div class="card"><div class="shot shot-glass"></div></div><div class="card"><div class="shot shot-brutal tall"></div></div></div></div></div></div>
+      </div>
+      <div class="scrim">
+        <div class="dialog">
+          <div class="dialog-head"><div><h3>Create a new design</h3><p>Turn the selected references into original, runnable work.</p></div><span class="close">×</span></div>
+          <div class="dialog-body">
+            <div class="form">
+              <div class="label">What should Sero create? <span>⌘ Enter to generate</span></div>
+              <div class="textarea">Create a responsive analytics dashboard for monitoring AI agent tasks, failures and token usage. It should make incidents obvious without feeling noisy.</div>
+              <div class="form-row"><div><div class="label">Prompt recipe</div><div class="selectbox">Default web prototype <span>⌄</span></div></div><div><div class="label">Output target</div><div class="selectbox">HTML, CSS + JavaScript <span>⌄</span></div></div></div>
+              <div class="form-row"><div><div class="label">Variation mode</div><div class="segmented"><div class="seg on">Blend</div><div class="seg">Per reference</div></div></div><div><div class="label">Variants <span>3 outputs total</span></div><div class="count-control"><div class="counter"><b>−</b><span>3</span><b>＋</b></div></div></div></div>
+              <div class="strength"><div class="label">Inspiration strength <span>Balanced</span></div><div class="track"></div><div class="track-labels"><span>Light</span><b>Balanced</b><span>Strong</span></div></div>
+              <div class="section" style="margin-top:13px"><div class="section-head">Applied guardrails <span>8 of 9 enabled · Review</span></div><div class="vocab"><span class="tag">✓ restrained colour</span><span class="tag">✓ strict geometry</span><span class="tag">✓ original composition</span><span class="tag">+ session rule</span></div></div>
+            </div>
+            <aside class="source-panel" aria-label="Selected inspiration and synthesis">
+              <div class="label">Selected inspiration <span>3</span></div>
+              <div class="source-row"><span class="source-thumb shot-dashboard"></span><div class="source-meta"><b>Northstar operations</b><span>Technical monochrome</span></div></div>
+              <div class="source-row"><span class="source-thumb shot-editorial"></span><div class="source-meta"><b>Material journal</b><span>Contemporary editorial</span></div></div>
+              <div class="source-row"><span class="source-thumb shot-glass"></span><div class="source-meta"><b>Layered command centre</b><span>Spatial glass</span></div></div>
+              <div class="synthesis"><div class="eyebrow">✦ Style synthesis ready</div><p>Precise operational density, strong typographic hierarchy, restrained colour, and selective depth.</p><div class="vocab" style="margin-top:8px"><span class="tag">instrumental</span><span class="tag">layered</span><span class="tag">editorial scale</span></div><div class="conflict">⚠ 1 conflict: flat surfaces vs layered glass<br><b style="color:#d4c18e">Prioritise controlled depth →</b></div></div>
+            </aside>
+          </div>
+          <div class="dialog-foot"><span><b>3</b> original variants · self-contained preview files</span><button type="button" class="btn primary">Generate variants ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>4 · Design — one workbench for preview, provenance, and revision</h2>
+    <p class="note">The implementation preview owns the canvas. Variant tabs preserve independent directions, device controls sit with the canvas, and the inspector keeps provenance available without competing with the work. Revisions form history instead of replacing it.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Design workbench prototype primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab active">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Compare</button><button type="button" class="btn">Export files</button><button type="button" class="btn primary">Save to Gallery</button><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="session-side" aria-label="Design sessions"><div class="side-title">Sessions <span class="plus">＋</span></div><div class="session-row active"><b>Agent operations</b><span>3 variants · just now</span></div><div class="session-row"><b>Portfolio overview</b><span>2 variants · yesterday</span></div><div class="session-row"><b>Command palette study</b><span>4 variants · 22 Jul</span></div><div class="side-title" style="margin-top:16px">Generating</div><div class="session-row"><b>Research workspace</b><span>2 of 3 complete</span><div class="progress"><i></i></div></div></aside>
+        <div class="workbench">
+          <div class="variant-tabs"><div class="variant active"><span class="state-dot"></span>01 Signal ledger <span class="unsaved"></span></div><div class="variant"><span class="state-dot"></span>02 Operational field</div><div class="variant"><span class="state-dot working"></span>03 Glass telemetry</div><div class="variant">＋</div></div>
+          <div class="canvas-bar"><span class="zoom">Fit · 83%</span><div class="devices"><span class="device on">▰</span><span class="device">▯</span><span class="device">▯</span><span class="device">Fit</span></div><span>↻ &nbsp; ⛶</span></div>
+          <div class="canvas-and-inspector">
+            <div class="canvas"><div class="prototype-frame"><div class="proto-top"><b>AXIS</b><span>Overview</span><span>Workloads</span><span>Incidents</span><span>Usage</span></div><div class="proto-body"><div class="proto-kicker">OPERATIONS / LIVE SYSTEM STATUS</div><div class="proto-title">CONTROL THE WORK.<br><i>SEE THE SIGNAL.</i></div><div class="proto-metrics"><div class="proto-metric"><small>Active tasks</small><strong>1,284</strong></div><div class="proto-metric"><small>Success rate</small><strong>98.7%</strong></div><div class="proto-metric"><small>Incidents</small><strong>07</strong></div><div class="proto-metric"><small>Token spend</small><strong>£842</strong></div></div><div class="proto-grid"><div class="proto-chart"><b>Throughput / 24 hours</b><div class="chart-area"><svg viewBox="0 0 500 160" preserveAspectRatio="none"><path d="M0 132 C41 118 68 125 94 86 S151 118 187 101 S246 41 287 76 S353 103 393 48 S458 68 500 18" fill="none" stroke="#16805f" stroke-width="2"/></svg></div></div><div class="proto-feed"><b>Incident feed</b><div class="feed-row"><i></i><span><b>Queue latency recovered</b>planner-eu · 2m ago</span></div><div class="feed-row"><i style="background:#c45b4c"></i><span><b>Tool execution failed</b>research-08 · 7m ago</span></div><div class="feed-row"><i style="background:#cf9c3a"></i><span><b>Budget threshold</b>content-pipeline · 14m ago</span></div></div></div></div></div></div>
+            <aside class="work-inspector" aria-label="Design variant inspector"><div class="detail-head"><div class="eyebrow">Variant 01 · completed</div><div class="title-row"><h3 style="font-size:14px">Signal ledger</h3><span>•••</span></div></div><div class="inspect-tabs"><div class="inspect-tab on">Design</div><div class="inspect-tab">Files</div><div class="inspect-tab">History</div></div><div class="inspect-body"><div class="section" style="padding-top:0"><div class="section-head">Concept</div><div class="concept">A typography-led operational dashboard that treats live system data like a controlled instrument panel.</div></div><div class="section"><div class="section-head">Inspiration <span>3 sources</span></div><div class="inspiration-strip"><span class="source-thumb shot-dashboard"></span><span class="source-thumb shot-editorial"></span><span class="source-thumb shot-glass"></span></div></div><div class="section"><div class="section-head">Applied language</div><div class="vocab"><span class="tag">instrumental</span><span class="tag">editorial scale</span><span class="tag">restrained</span></div></div><div class="section"><div class="section-head">Files <span>3</span></div><div class="file-row active">◇ index.html <span>8.2 KB</span></div><div class="file-row"># styles.css <span>12.4 KB</span></div><div class="file-row">JS script.js <span>1.8 KB</span></div></div><div class="section"><div class="section-head">Generation <span>Details</span></div><div class="concept">Default web prototype · Balanced influence<br>Generated in 41s · 3 source references</div></div></div></aside>
+          </div>
+          <div class="revise"><div class="revise-box">Ask Sero to revise this variant…</div><button type="button" class="btn">Revise ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>5 · Tweaks — a fourth inspector tab in a resizable panel</h2>
+    <p class="note">The model authors controls for <b>this specific page</b> — display scale, metric density, signal accent — never a generic slider set. They live in the existing inspector, so no new chrome appears. The inspector is <b>drag-resizable and its width persists</b>, so the panel can be widened for a control-heavy design and narrowed again for the canvas.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Tweaks option A primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab active">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Compare</button><button type="button" class="btn">Export files</button><button type="button" class="btn primary">Save to Gallery</button><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="rail-collapsed" aria-label="Sessions rail, collapsed"><span class="rail-toggle">»</span><i class="on" title="Agent operations"></i><i title="Portfolio overview"></i><i title="Command palette study"></i><i class="add">＋</i></aside>
+        <div class="workbench">
+          <div class="variant-tabs"><div class="variant active"><span class="state-dot"></span>01 Signal ledger <span class="unsaved"></span></div><div class="variant"><span class="state-dot"></span>02 Operational field</div><div class="variant"><span class="state-dot"></span>03 Glass telemetry</div><div class="variant">＋</div></div>
+          <div class="canvas-bar"><span class="zoom">Fit · 81%</span><div class="devices"><span class="device on">▰</span><span class="device">▯</span><span class="device">▯</span><span class="device">Fit</span></div><span>↻ &nbsp; ⛶</span></div>
+          <div class="canvas-and-inspector">
+            <div class="canvas"><div class="prototype-frame"><div class="proto-top"><b>AXIS</b><span>Overview</span><span>Workloads</span><span>Incidents</span><span>Usage</span></div><div class="proto-body"><div class="proto-kicker">OPERATIONS / LIVE SYSTEM STATUS</div><div class="proto-title" style="font-size:37px">CONTROL THE WORK.<br><i>SEE THE SIGNAL.</i></div><div class="proto-metrics" style="gap:12px"><div class="proto-metric" style="padding:14px"><small>Active tasks</small><strong>1,284</strong></div><div class="proto-metric" style="padding:14px"><small>Success rate</small><strong>98.7%</strong></div><div class="proto-metric" style="padding:14px"><small>Incidents</small><strong>07</strong></div><div class="proto-metric" style="padding:14px"><small>Token spend</small><strong>£842</strong></div></div><div class="proto-grid" style="gap:12px;height:225px"><div class="proto-chart"><b>Throughput / 24 hours</b><div class="chart-area" style="background:none"><svg viewBox="0 0 500 160" preserveAspectRatio="none"><path d="M0 132 C41 118 68 125 94 86 S151 118 187 101 S246 41 287 76 S353 103 393 48 S458 68 500 18" fill="none" stroke="#16805f" stroke-width="2"/></svg></div></div><div class="proto-feed"><b>Incident feed</b><div class="feed-row"><i></i><span><b>Queue latency recovered</b>planner-eu · 2m ago</span></div><div class="feed-row"><i style="background:#c45b4c"></i><span><b>Tool execution failed</b>research-08 · 7m ago</span></div><div class="feed-row"><i style="background:#cf9c3a"></i><span><b>Budget threshold</b>content-pipeline · 14m ago</span></div></div></div></div></div></div>
+            <span class="grip" aria-hidden="true"><i></i></span>
+            <aside class="work-inspector" style="width:352px" aria-label="Variant inspector with tweaks">
+              <div class="detail-head" style="padding-bottom:11px"><div class="eyebrow">Variant 01 · completed</div><div class="title-row"><h3 style="font-size:14px">Signal ledger</h3><span>•••</span></div><div class="detail-sub">11 controls authored for this page</div></div>
+              <div class="inspect-tabs"><div class="inspect-tab">Design</div><div class="inspect-tab">Files</div><div class="inspect-tab">History</div><div class="inspect-tab on">Tweaks</div></div>
+              <div class="tweak-scroll">
+                <div class="tweak-group"><b>Typography</b>
+                  <div class="tweak"><div class="tweak-label">Display scale <span class="val">37px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p72"><i style="width:72%"></i></div></div>
+                  <div class="tweak"><div class="tweak-label">Heading weight <span class="val">680</span></div><div class="chips"><span class="chip">600</span><span class="chip on">680</span><span class="chip">760</span></div></div>
+                  <div class="tweak"><div class="tweak-label">Label tracking <span class="val">.08em</span></div><div class="trk p46"><i style="width:46%"></i></div></div>
+                </div>
+                <div class="tweak-group"><b>Density</b>
+                  <div class="tweak"><div class="tweak-label">Metric padding <span class="val">14px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p58"><i style="width:58%"></i></div></div>
+                  <div class="tweak"><div class="tweak-label">Grid gap <span class="val">12px</span><span class="edited"></span><span class="reset">↺</span></div><div class="trk on p46"><i style="width:46%"></i></div></div>
+                </div>
+                <div class="tweak-group"><b>Colour</b>
+                  <div class="tweak"><div class="tweak-label">Signal accent</div><div class="swatches"><span class="sw sel" style="background:#16805f"></span><span class="sw" style="background:#2f6fb5"></span><span class="sw" style="background:#b4562f"></span><span class="sw" style="background:#6d5ce7"></span><span class="sw" style="background:#1c1c1c"></span></div></div>
+                  <div class="tweak"><div class="tweak-label">Paper tone</div><div class="swatches"><span class="sw" style="background:#ffffff"></span><span class="sw sel" style="background:#f2f0ea"></span><span class="sw" style="background:#e6e2d8"></span><span class="sw" style="background:#dfe3e2"></span></div></div>
+                </div>
+                <div class="tweak-group"><b>Structure</b>
+                  <div class="tweak"><div class="tweak-label">Chart gridlines</div><div class="row-split"><span class="sw-toggle"></span><span style="color:#6d6d77;font-size:9px">Hidden</span></div></div>
+                  <div class="tweak"><div class="tweak-label">Panel borders</div><div class="row-split"><span class="sw-toggle on"></span><span style="color:#6d6d77;font-size:9px">Hairline</span></div></div>
+                </div>
+              </div>
+              <div class="tweak-warn">⚠ 2 controls omitted <span>Why</span></div>
+              <div class="tweak-foot"><button type="button" class="btn ghost">Reset all</button><button type="button" class="btn ghost">Copy CSS</button><span style="margin-left:auto">3 edited</span></div>
+            </aside>
+          </div>
+          <div class="revise"><div class="revise-box">Ask Sero to revise this variant…</div><button type="button" class="btn">Revise ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>6 · Generate inspiration — the same capabilities the agent gets</h2>
+    <p class="note">Media generation has two entry points and one implementation. The agent calls these capabilities while building a design; you call them directly from here. The provider is never named in the flow — you choose a <b>capability</b> and a model, and video always asks before it spends.</p>
+    <div class="app" style="position:relative">
+      <div class="dimmed" style="position:absolute;inset:0">
+        <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Generate dialog dimmed navigation"><div class="tab active">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav></header>
+        <div class="shell"><aside class="side" aria-label="Dimmed library navigation"></aside><div class="main"><div class="toolbar"></div><div class="content"><div class="grid"><div class="card"><div class="shot shot-dashboard tall"></div></div><div class="card"><div class="shot shot-editorial"></div></div><div class="card"><div class="shot shot-glass"></div></div><div class="card"><div class="shot shot-brutal tall"></div></div></div></div></div></div>
+      </div>
+      <div class="scrim">
+        <div class="dialog" style="width:640px">
+          <div class="dialog-head"><div><h3>Generate inspiration</h3><p>New references enter the Library and are analysed automatically.</p></div><span class="close">×</span></div>
+          <div class="dialog-body" style="grid-template-columns:1fr;min-height:400px">
+            <div class="form" style="border-right:0">
+              <div class="gen-tabs"><span class="gen-tab on">✦ New image</span><span class="gen-tab">↺ Restyle existing</span><span class="gen-tab">⤢ Upscale</span><span class="gen-tab">▶ Video</span></div>
+              <div class="label">Describe the reference</div>
+              <div class="textarea" style="height:76px">A dark luxury product page with metallic surfaces, restrained gold accents, and enormous quiet space around a single object.</div>
+              <div class="form-row"><div><div class="label">Model</div><div class="selectbox">Image · default <span>⌄</span></div></div><div><div class="label">Aspect</div><div class="selectbox">16 : 9 <span>⌄</span></div></div></div>
+              <div class="form-row"><div><div class="label">Count</div><div class="count-control"><div class="counter"><b>−</b><span>2</span><b>＋</b></div></div></div><div><div class="label">Add to</div><div class="selectbox">Luxury products <span>⌄</span></div></div></div>
+              <div class="section" style="margin-top:15px"><div class="section-head">Analysis</div><div class="summary" style="font-size:10px">Generated references run through the Librarian like any import, and keep their generation prompt as provenance.</div></div>
+            </div>
+          </div>
+          <div class="dialog-foot"><span class="cost-note">Estimated <b>$0.06</b> · <b>4 of 6</b> media calls left this run</span><button type="button" class="btn primary">Generate ✦</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>7 · Gallery — a permanent creative archive, grouped by family</h2>
+    <p class="note">Gallery feels like a private portfolio rather than a file manager. Family grouping makes iterations legible, while version, provenance, format, and dates stay quiet until needed. Experiments only arrive here when deliberately saved.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Gallery prototype primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab active">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><button type="button" class="btn ghost">Select</button><button type="button" class="btn primary">Open Design</button><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="side" aria-label="Gallery navigation"><div class="side-title">Gallery</div><div class="side-row active">◇ All designs <span class="count">18</span></div><div class="side-row">♥ Favourites <span class="count">5</span></div><div class="side-row">⌁ Recently saved <span class="count">7</span></div><div class="side-title" style="margin-top:14px">Views</div><div class="side-row"><span class="spark">◫</span>Design families <span class="count">6</span></div><div class="side-row"><span>▦</span>Uniform grid</div><div class="side-row"><span>▥</span>Masonry</div><div class="side-row"><span>◷</span>Timeline</div><div class="side-title" style="margin-top:14px">Output</div><div class="side-row"><span class="dot b"></span>Web prototypes <span class="count">14</span></div><div class="side-row"><span class="dot d"></span>Sero plugins <span class="count">4</span></div></aside>
+        <div class="gallery-main">
+          <div class="gallery-hero"><div><h3>Your Gallery</h3><p>Finished work worth keeping, revisiting, and remixing.</p></div><span class="gallery-count">18 designs · 6 families</span></div>
+          <div class="gallery-toolbar"><div class="search">⌕ Search designs, prompts or inspiration <span class="key">⌘ F</span></div><div class="filter on">Families</div><div class="filter">Type <span class="chev">⌄</span></div><div class="filter">Recipe <span class="chev">⌄</span></div><div class="tools"><span class="tool active">▦</span><span class="tool">▤</span></div></div>
+          <div class="gallery-content">
+            <div class="family-head"><b>Agent Operations Dashboard</b><span>3 designs · updated today</span><div class="line"></div><span>View family →</span></div>
+            <div class="family-grid">
+              <article class="design-card featured"><div class="design-preview"><div class="saved-preview dark"><div class="sp-nav"></div><div class="sp-title">CONTROL THE WORK.<br><em>SEE THE SIGNAL.</em></div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">FINAL · V3</span><span class="heart">♥</span></div><div class="design-copy"><div class="design-title">Signal ledger <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>3 inspirations</span><span>·</span><span>Today</span></div></div></article>
+              <article class="design-card"><div class="design-preview"><div class="saved-preview"><div class="sp-nav"></div><div class="sp-title">AGENT SYSTEM<br>OVERVIEW</div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">V2</span></div><div class="design-copy"><div class="design-title">Operational field <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>3 inspirations</span><span>·</span><span>Today</span></div></div></article>
+              <article class="design-card"><div class="design-preview"><div class="saved-preview blue"><div class="sp-nav"></div><div class="sp-title">TELEMETRY<br>FIELD</div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Glass telemetry <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>3 inspirations</span><span>·</span><span>Today</span></div></div></article>
+              <article class="design-card" style="border-style:dashed;background:transparent"><div class="design-preview" style="display:grid;place-items:center;color:var(--text-3);font-size:10px"><div style="text-align:center"><span style="display:block;font-size:24px;margin-bottom:7px">＋</span>Save another variant</div></div><div class="design-copy"><div class="design-meta" style="justify-content:center">Open original Design session</div></div></article>
+            </div>
+            <div class="family-head"><b>Editorial Portfolio</b><span>4 designs · updated 23 Jul</span><div class="line"></div><span>View family →</span></div>
+            <div class="family-grid">
+              <article class="design-card"><div class="design-preview"><div class="saved-preview soft"><div class="sp-nav"></div><div class="sp-title">WORK<br>WITH WEIGHT.</div></div><span class="version">FINAL · V2</span><span class="heart">♥</span></div><div class="design-copy"><div class="design-title">Material index <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>2 inspirations</span><span>·</span><span>23 Jul</span></div></div></article>
+              <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#d6ff46"><div class="sp-nav"></div><div class="sp-title" style="font-weight:800">LOUD /<br>ORDER</div><div class="sp-boxes"><i style="background:#111"></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Hard copy <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>2 inspirations</span><span>·</span><span>23 Jul</span></div></div></article>
+              <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#151515;color:#eee"><div class="sp-nav"></div><div class="sp-title" style="font-family:Georgia,serif;font-weight:400">Quiet form,<br>clear intent.</div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Quiet editorial <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>1 inspiration</span><span>·</span><span>22 Jul</span></div></div></article>
+              <article class="design-card"><div class="design-preview"><div class="saved-preview" style="background:#ef4f38;color:#161616"><div class="sp-nav"></div><div class="sp-title" style="font-weight:800">PORTFOLIO<br>NO. 04</div><div class="sp-boxes"><i></i><i></i></div></div><span class="version">V1</span></div><div class="design-copy"><div class="design-title">Chromatic folio <span>•••</span></div><div class="design-meta"><b>HTML prototype</b><span>·</span><span>3 inspirations</span><span>·</span><span>21 Jul</span></div></div></article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state">
+    <h2>8 · Settings — models, media and generation defaults</h2>
+    <p class="note">Analysis and generation are different jobs, so they get different models. Media is configured by <b>capability</b>, never by provider — the endpoint ids are editable text, the credential is read from the environment, and the spend limits are plain numbers. Everything here persists to plugin state.</p>
+    <div class="app">
+      <header class="top"><div class="brand"><span class="brand-mark"></span>Design Library</div><nav class="tabs" aria-label="Settings prototype primary navigation"><div class="tab">Library <span class="badge">42</span></div><div class="tab">Design <span class="badge">1</span></div><div class="tab">Gallery <span class="badge">18</span></div></nav><div class="top-actions"><span class="avatar"></span></div></header>
+      <div class="shell">
+        <aside class="side" aria-label="Settings navigation"><div class="side-title">Settings</div><div class="side-row active">◇ Models</div><div class="side-row">✦ Media generation</div><div class="side-row">⌁ Generation defaults</div><div class="side-row">▤ Prompt recipes</div><div class="side-row">⛶ Storage</div></aside>
+        <div class="settings-main">
+          <div class="gallery-hero"><div><h3 style="font-size:20px">Models</h3><p>Which model does the thinking on each side of the loop.</p></div></div>
+          <div class="settings-body">
+            <div class="settings-block">
+              <div class="field"><label>Librarian model <span>Reads references and writes their design language</span></label>
+                <div class="model-pick"><span class="logo"></span><div><b>Claude Sonnet 5</b><small>Anthropic</small></div><span class="chev">⌄</span></div>
+              </div>
+              <div class="field"><label>Design model <span>Generates, revises and authors tweaks</span></label>
+                <div class="model-pick"><span class="logo"></span><div><b>Claude Opus 5</b><small>Anthropic</small></div><span class="chev">⌄</span></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Media generation</h4>
+              <p>Configured per capability. The model asks for a capability; it never picks an endpoint.</p>
+              <div class="field"><label>Credential <span>Read from the Sero environment</span></label><div class="row-split"><span class="status-pill ok">FAL_KEY · environment</span><span style="color:#5f5f69;font-size:9px">Use a stored key instead</span></div></div>
+              <div class="cap-grid">
+                <div class="field"><label>Image</label><div class="text-field">fal-ai/flux/dev</div></div>
+                <div class="field"><label>Image editing</label><div class="text-field">fal-ai/flux-pro/kontext</div></div>
+                <div class="field"><label>Upscale</label><div class="text-field">fal-ai/topaz/upscale</div></div>
+                <div class="field"><label>Video</label><div class="text-field">fal-ai/kling-video/v3</div></div>
+              </div>
+              <div class="cap-grid" style="margin-top:3px">
+                <div class="field"><label>Media calls per run</label><div class="counter" style="height:33px"><b>−</b><span>6</span><b>＋</b></div></div>
+                <div class="field"><label>Confirm before video</label><div class="row-split" style="height:33px"><span class="sw-toggle on"></span><span style="color:#6d6d77;font-size:9px">Always ask — video is the expensive one</span></div></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Generation defaults</h4>
+              <div class="cap-grid">
+                <div class="field"><label>Variants per run</label><div class="counter" style="height:33px"><b>−</b><span>3</span><b>＋</b></div></div>
+                <div class="field"><label>When revising</label><div class="segmented" style="height:33px"><div class="seg on">Replace</div><div class="seg">Keep both</div></div></div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <h4>Prompt recipes</h4>
+              <div class="recipe-row">Default web prototype <span>Built in</span></div>
+              <div class="recipe-row">Dense operations console <span>Edited 21 Jul</span></div>
+              <div class="recipe-row">Editorial long-form <span>Edited 19 Jul</span></div>
+              <div class="recipe-row" style="border-style:dashed;color:var(--text-3)">＋ New recipe</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -56,5 +56,5 @@ things. Each round must move towards a verdict, never away from one.
 
 - Review when the branch is ready, not on every push, unless asked for a mid-flight pass.
 - Check type safety, the 500 LOC file limit, and whether `apps/docs-site` needs
-  an update. Temporary prototypes must not remain on the merge branch.
+  an update.
 - Do not let review feedback expand the PR scope beyond the users original goal. Address real shortcomings but avoid scope creep

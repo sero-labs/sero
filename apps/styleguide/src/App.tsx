@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { STYLEGUIDE_THEMES } from './themes';
 import { DashboardFixture } from './DashboardFixture';
+import { PrototypeArchive } from '@/PrototypeArchive';
 
 type Mode = 'light' | 'dark';
 
@@ -78,6 +79,7 @@ export function App() {
             <DashboardFixture />
           </div>
         </div>
+        <PrototypeArchive />
       </div>
     </main>
   );

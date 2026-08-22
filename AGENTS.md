@@ -100,9 +100,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - NEVER add unnecessary clutter to UI components. For instance do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
 - Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
-- Keep temporary UX prototypes on the working branch or attach them to the
-  relevant issue. Remove them before merge unless they are current public docs
-  assets or maintained product code.
+- Store UX prototypes in `apps/styleguide/public/prototypes/`
 - When the user asks about pi itself (its SDK, extensions, themes, skills, TUI, or other internals), use the `pi-docs` skill — it maps every topic to the bundled pi documentation and examples.
 - You do not have to validate/lint markdown files
 

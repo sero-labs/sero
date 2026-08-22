@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sero Agent Plugins — admin surface prototype</title>
+<style>
+:root{
+  --page:#07080b;
+  --bg:#0b0e14;
+  --card:#0f131a;
+  --raised:#151a23;
+  --line:#232936;
+  --text:#e6e9f0;
+  --text-2:#a8aebd;
+  --text-3:#787f8f;
+  --primary:#7cc2f4;
+  --primary-ink:#08131c;
+  --primary-wash:rgba(124,194,244,.07);
+  --primary-line:rgba(124,194,244,.28);
+  --warn:#e6b869;
+  --warn-wash:rgba(230,184,105,.07);
+  --red:#e0757f;
+  --red-line:rgba(224,117,127,.32);
+  --ok:#6cd3a6;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--page);color-scheme:dark}
+body{margin:0;padding:56px 0 120px;background:var(--page);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,p,ul,dl{margin:0}
+.doc{width:1220px;margin:0 auto}
+.intro{width:820px}
+h1{font-size:28px;letter-spacing:-.03em;font-weight:640}
+.lede{margin-top:12px;color:var(--text-2);font-size:14px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+.legend{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.legend span{padding:5px 10px;border:1px solid var(--line);border-radius:999px;color:var(--text-2);font-size:12px}
+.legend span b{color:var(--primary);font-weight:600}
+
+.state{margin-top:56px}
+h2{font-size:17px;letter-spacing:-.01em;font-weight:620}
+.kicker{margin-bottom:6px;color:var(--primary);font:11px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.note{width:820px;margin:8px 0 16px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.deltas{width:1100px;margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:6px 26px}
+.deltas li{position:relative;padding-left:18px;color:var(--text-3);font-size:12px;line-height:1.6}
+.deltas li:before{content:"→";position:absolute;left:0;color:var(--primary)}
+.deltas li b{color:var(--text-2);font-weight:560}
+
+/* ---------- app surface (1:1 with the admin panel) ---------- */
+.surface{width:1100px;padding:20px;border:1px solid #1c212b;border-radius:12px;background:var(--bg)}
+.section{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.section-head{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.section-icon{width:28px;height:28px;flex:0 0 auto;margin-top:1px;display:grid;place-items:center;border-radius:8px;background:var(--primary-wash);color:var(--primary)}
+.section-head h3{font-size:14px;font-weight:620}
+.section-head p{margin-top:2px;max-width:640px;color:var(--text-3);font-size:12px;line-height:1.5}
+.section-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+
+.field-row{display:flex;gap:8px}
+.input{height:36px;flex:1;display:flex;align-items:center;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#090c11;color:var(--text-3);font-size:12px}
+.input.filled{color:var(--text)}
+.input.mono{font-family:var(--mono)}
+.btn{height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--text-2);font-size:13px;white-space:nowrap}
+.btn.sm{height:32px;padding:0 10px;font-size:12px}
+.btn.primary{border-color:transparent;background:var(--primary);color:var(--primary-ink);font-weight:600}
+.btn.danger{border-color:var(--red-line);background:transparent;color:var(--red)}
+.btn.icon{width:32px;height:32px;padding:0;justify-content:center}
+.btn.off{opacity:.42}
+.btn svg{width:14px;height:14px}
+
+/* one card edge; bands inside are separated by a full-strength divider */
+.plugin{border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.014)}
+.plugin.preview{border-color:var(--primary-line);background:var(--primary-wash)}
+.plugin-head{display:flex;align-items:flex-start;gap:12px;padding:12px 14px}
+.plugin-head .grow{min-width:0;flex:1}
+.name{display:flex;align-items:center;gap:8px}
+.name h4{font-size:14px;font-weight:600}
+.desc{margin-top:3px;color:var(--text-2);font-size:12px;line-height:1.5}
+.meta{margin-top:3px;color:var(--text-3);font-size:12px}
+.meta .dot{margin:0 6px;opacity:.5}
+.head-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+
+.pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border:1px solid var(--line);border-radius:999px;color:var(--text-2);font-size:11px;font-family:var(--mono)}
+.pill.ok{border-color:rgba(108,211,166,.35);color:var(--ok)}
+.pill.primary{border-color:transparent;background:var(--primary);color:var(--primary-ink);font-family:var(--sans);font-weight:600}
+.pill.warn{border-color:rgba(230,184,105,.3);color:var(--warn)}
+
+.band{padding:12px 14px;border-top:1px solid var(--line)}
+.band.tight{padding:10px 14px}
+
+.warnline{display:flex;gap:8px;align-items:flex-start;padding:10px 14px;border-top:1px solid var(--line);background:var(--warn-wash);font-size:12px;line-height:1.55}
+.warnline svg{width:14px;height:14px;margin-top:2px;flex:0 0 auto;color:var(--warn)}
+.warnline span{color:#d8c49b}
+.warnline b{color:var(--warn);font-weight:600}
+
+/* contents: 104px label column, control column, status right */
+.grid{display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px 14px;font-size:12px;align-items:start}
+.grid .lab{color:var(--text-3);padding-top:1px}
+.grid .val{min-width:0;display:flex;flex-direction:column;gap:5px}
+.grid .row{display:flex;align-items:baseline;gap:12px;color:var(--text)}
+.grid .row .st{margin-left:auto;color:var(--text-3);font-size:11px;text-align:right}
+.grid .row.bad,.grid .row.bad .st{color:var(--red)}
+.grid .row .st .warn{color:var(--warn)}
+.grid .none{color:var(--text-3)}
+
+/* choices band: every control flush at the card padding */
+.choices{display:flex;flex-direction:column;gap:12px;font-size:12px}
+.check{display:flex;align-items:center;gap:8px;color:var(--text);font-size:12px}
+.check .box{width:15px;height:15px;flex:0 0 auto;border:1px solid #3a4150;border-radius:4px;background:#0a0d12}
+.check .box.on{border-color:var(--primary);background:var(--primary);display:grid;place-items:center}
+.check .box.on:after{content:"";width:7px;height:4px;border:1.6px solid var(--primary-ink);border-top:0;border-right:0;transform:rotate(-45deg) translate(.5px,-1px)}
+.indent{padding-left:23px;display:flex;align-items:center;gap:8px;margin-top:6px}
+.hint{color:var(--text-3);font-size:11px;line-height:1.5}
+.indent .input{height:32px;flex:0 0 240px;font-family:var(--mono);font-size:12px}
+
+.update h5{color:var(--text-2);font-size:12px;font-weight:600}
+.update ul{margin-top:6px;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.update li{color:var(--text-3);font:11px/1.6 var(--mono)}
+.update .btns{display:flex;gap:8px;margin-top:10px}
+
+.footer{display:flex;align-items:center;gap:8px}
+.footer .spacer{flex:1}
+
+.empty{padding:32px;border:1px dashed var(--line);border-radius:10px;text-align:center}
+.empty b{display:block;font-size:13px;font-weight:560}
+.empty p{margin-top:4px;color:var(--text-3);font-size:12px}
+
+.scrim{position:relative;width:1100px;padding:40px 0;border:1px solid #1c212b;border-radius:12px;background:
+  repeating-linear-gradient(135deg,#0b0e14,#0b0e14 8px,#0d1119 8px,#0d1119 16px);display:grid;place-items:center}
+.modal{width:420px;padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.modal h4{font-size:15px;font-weight:620}
+.modal p{margin-top:6px;color:var(--text-2);font-size:12px;line-height:1.6}
+.modal .check{align-items:flex-start;margin-top:14px}
+.modal .check .box{margin-top:1px}
+.modal .check small{display:block;margin-top:2px;color:var(--text-3);font-size:11px}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+</style>
+</head>
+<body>
+<main class="doc">
+
+<header class="intro">
+  <div class="kicker">Admin · Plugins</div>
+  <h1>Agent Plugins — surface redesign</h1>
+  <p class="lede">Same behaviour, flatter surface. The current panel stacks a card inside a card inside a card, spends
+  three large tiles on three numbers, and mixes button and input heights. Here the card has <b>one edge</b>, its bands
+  are separated by full-strength dividers, and every control sits on one of two left edges.</p>
+  <div class="legend">
+    <span><b>Preview</b> replaces “Inspect source”</span>
+    <span><b>Plugin source</b> replaces “Package folder”</span>
+    <span><b>Show in Sero CLI</b> is one checkbox</span>
+    <span>Opening a folder no longer collapses the details</span>
+  </div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section class="state">
+  <div class="kicker">State 1</div>
+  <h2>Idle · nothing installed</h2>
+  <p class="note">The source row keeps one height for every control (36px). The empty state says what to do next and
+  nothing else.</p>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7.3 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
+        <div>
+          <h3>Agent Plugins</h3>
+          <p>Portable Agent Skills and MCP servers. Agent Plugins stay separate from Sero apps and never create sidebar entries.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row">
+          <div class="input">npm:package, git URL, or absolute local directory</div>
+          <div class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Browse</div>
+          <div class="btn primary off">Preview</div>
+        </div>
+        <div class="empty">
+          <b>No Agent Plugins installed</b>
+          <p>Paste a package source and preview it before you install.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="state">
+  <div class="kicker">State 2</div>
+  <h2>Preview · skills only</h2>
+  <p class="note">The canonical package <b>agentplugins/agent-plugins-example</b>: one skill, no MCP servers. Everything
+  the old three-tile grid carried now sits on one meta line, and the package contents are listed by name.</p>
+  <ul class="deltas">
+    <li>Three count tiles → one <b>meta line</b> under the description</li>
+    <li>Trust warning is a band, not a nested card</li>
+    <li>Raw <code>&lt;input type="checkbox"&gt;</code> → <b>Checkbox</b> + <b>Label</b></li>
+    <li>CLI is one checkbox: <b>Show in Sero CLI</b>. No namespace field, no command list</li>
+  </ul>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-head">
+        <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7.3 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
+        <div>
+          <h3>Agent Plugins</h3>
+          <p>Portable Agent Skills and MCP servers. Agent Plugins stay separate from Sero apps and never create sidebar entries.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row">
+          <div class="input filled mono">https://github.com/agentplugins/agent-plugins-example</div>
+          <div class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Browse</div>
+          <div class="btn primary">Preview</div>
+        </div>
+
+        <div class="plugin preview">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>agent-plugins-example</h4><span class="pill">v1.0.0</span></div>
+              <p class="desc">A copyable reference package and migration guide for Agent Plugins v1.0.0.</p>
+              <p class="meta">1 skill<span class="dot">·</span>no MCP servers</p>
+            </div>
+            <div class="head-actions"><span class="pill primary">Ready to install</span></div>
+          </div>
+
+          <div class="warnline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span><b>Install only from sources you trust.</b> Skills can direct the agent. MCP servers can connect to services or run commands on this machine.</span>
+          </div>
+
+          <div class="band">
+            <dl class="grid">
+              <dt class="lab">Skills</dt>
+              <dd class="val"><div class="row">migrate-agent-plugin<span class="st">Ready</span></div></dd>
+              <dt class="lab">MCP servers</dt>
+              <dd class="val"><div class="none">None</div></dd>
+            </dl>
+          </div>
+
+          <div class="band">
+            <div class="choices">
+              <div class="check"><span class="box on"></span>Show in Sero CLI</div>
+            </div>
+          </div>
+
+          <div class="band tight footer">
+            <span class="spacer"></span>
+            <div class="btn sm">Cancel</div>
+            <div class="btn sm primary">Install Agent Plugin</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="state">
+  <div class="kicker">State 3</div>
+  <h2>Preview · MCP approval and a skipped component</h2>
+  <p class="note">Each MCP server carries its own definition on its contents row, so the definitions the user approves
+  are read in one place and the approval itself is one checkbox. A skipped component states its reason on its row.</p>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-body" style="padding-top:16px">
+        <div class="field-row">
+          <div class="input filled mono">git:https://github.com/acme/deployment-tools</div>
+          <div class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Browse</div>
+          <div class="btn primary">Preview</div>
+        </div>
+
+        <div class="plugin preview">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>deployment-tools</h4><span class="pill">v1.4.0</span></div>
+              <p class="desc">Release workflows and deployment checks.</p>
+              <p class="meta">2 skills<span class="dot">·</span>1 local MCP<span class="dot">·</span>1 remote MCP<span class="dot">·</span><span style="color:var(--warn)">1 component skipped</span></p>
+            </div>
+            <div class="head-actions"><span class="pill primary">Ready to install</span></div>
+          </div>
+
+          <div class="warnline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span><b>Install only from sources you trust.</b> Skills can direct the agent. MCP servers can connect to services or run commands on this machine.</span>
+          </div>
+
+          <div class="band">
+            <dl class="grid">
+              <dt class="lab">Skills</dt>
+              <dd class="val">
+                <div class="row">create-release<span class="st">Ready</span></div>
+                <div class="row">deployment-check<span class="st">Ready</span></div>
+              </dd>
+              <dt class="lab">MCP servers</dt>
+              <dd class="val">
+                <div class="row">deployment<span class="st">stdio · ./bin/server --serve</span></div>
+                <div class="row">status-api<span class="st">https://api.acme.dev/mcp</span></div>
+                <div class="row bad">legacy-feed<span class="st">Skipped · unsupported schema version 2.0.0</span></div>
+              </dd>
+            </dl>
+          </div>
+
+          <div class="band">
+            <div class="choices">
+              <div>
+                <div class="check"><span class="box on"></span>Approve these MCP definitions</div>
+                <p class="hint" style="padding-left:23px;margin-top:5px">Local servers can run commands. Remote servers can connect to the shown endpoints.</p>
+              </div>
+              <div class="check"><span class="box on"></span>Show in Sero CLI</div>
+            </div>
+          </div>
+
+          <div class="band tight footer">
+            <span class="spacer"></span>
+            <div class="btn sm">Cancel</div>
+            <div class="btn sm primary">Install Agent Plugin</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="state">
+  <div class="kicker">State 4</div>
+  <h2>Installed · collapsed list</h2>
+  <p class="note">Rows read like the Installed Plugins list next to them: name, version, state, one description line,
+  one meta line. Details is an icon toggle so the rows keep the same height whatever their state.</p>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-body" style="padding-top:16px">
+        <div class="field-row">
+          <div class="input">npm:package, git URL, or absolute local directory</div>
+          <div class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Browse</div>
+          <div class="btn primary off">Preview</div>
+        </div>
+
+        <div class="plugin">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>agent-plugins-example</h4><span class="pill">v1.0.0</span><span class="pill ok">Healthy</span></div>
+              <p class="desc">A copyable reference package and migration guide for Agent Plugins v1.0.0.</p>
+              <p class="meta">1 skill<span class="dot">·</span>no MCP servers<span class="dot">·</span>CLI agent-plugins-example</p>
+            </div>
+            <div class="head-actions">
+              <div class="btn sm">Disable</div>
+              <div class="btn sm icon" title="Details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="plugin">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>research-kit</h4><span class="pill">v2.1.0</span><span class="pill warn">Partial failure</span></div>
+              <p class="desc">Search, summarise and cite sources.</p>
+              <p class="meta">1 skill<span class="dot">·</span>1 remote MCP<span class="dot">·</span>CLI off<span class="dot">·</span><span style="color:var(--warn)">2 components skipped</span></p>
+            </div>
+            <div class="head-actions">
+              <div class="btn sm">Disable</div>
+              <div class="btn sm icon" title="Details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="state">
+  <div class="kicker">State 5</div>
+  <h2>Installed · details open</h2>
+  <p class="note">Three bands and a footer, each divided by a full-strength line. The namespace field stays here — this
+  is where a name clash gets fixed — and it is the only place it appears.</p>
+  <ul class="deltas">
+    <li>“Plugin contents”, “Sero settings”, “Control how Sero uses this plugin”, “Plugin actions”, “CLI namespace”, “Remove the plugin files from this machine” — all dropped</li>
+    <li>“Package folder” → <b>Plugin source</b>, “Review update” → <b>Check for update</b></li>
+    <li>Opening a folder <b>keeps the panel open</b> — the list no longer swaps to the loading state after the first load</li>
+    <li>Remove moves into a confirm dialog, so the red panel and its checkbox leave the card</li>
+    <li>Namespace <b>Save</b> is a 32px button beside the field, not a full-width bar</li>
+    <li>Command paths are no longer listed — the namespace shows what the prefix is</li>
+  </ul>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-body" style="padding-top:16px">
+        <div class="plugin">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>agent-plugins-example</h4><span class="pill">v1.0.0</span><span class="pill ok">Healthy</span></div>
+              <p class="desc">A copyable reference package and migration guide for Agent Plugins v1.0.0.</p>
+              <p class="meta">1 skill<span class="dot">·</span>no MCP servers<span class="dot">·</span>CLI agent-plugins-example</p>
+            </div>
+            <div class="head-actions">
+              <div class="btn sm">Disable</div>
+              <div class="btn sm icon" title="Hide details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></div>
+            </div>
+          </div>
+
+          <div class="band">
+            <dl class="grid">
+              <dt class="lab">Skills</dt>
+              <dd class="val"><div class="row">migrate-agent-plugin<span class="st">Ready</span></div></dd>
+              <dt class="lab">MCP servers</dt>
+              <dd class="val"><div class="none">None</div></dd>
+            </dl>
+          </div>
+
+          <div class="band">
+            <div class="choices">
+              <div>
+                <div class="check"><span class="box on"></span>Show in Sero CLI</div>
+                <div class="indent">
+                  <div class="input filled mono">agent-plugins-example</div>
+                  <div class="btn sm off">Save</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="band tight footer">
+            <div class="btn sm off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 2-3 8h5l-3 12"/></svg>Open in MCP</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Plugin source</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data folder</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Check for update</div>
+            <span class="spacer"></span>
+            <div class="btn sm danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Remove</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="state">
+  <div class="kicker">State 6</div>
+  <h2>Details open · pending approval, an update, a partial failure</h2>
+  <p class="note">Every extra state is a band on the same two left edges. Nothing is listed twice: an approval, a
+  skipped reason and a server definition each appear once.</p>
+
+  <div class="surface">
+    <div class="section">
+      <div class="section-body" style="padding-top:16px">
+        <div class="plugin">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>deployment-tools</h4><span class="pill">v1.4.0</span><span class="pill ok">Healthy</span></div>
+              <p class="desc">Release workflows and deployment checks.</p>
+              <p class="meta">2 skills<span class="dot">·</span>2 MCP servers<span class="dot">·</span>CLI deployment-tools</p>
+            </div>
+            <div class="head-actions">
+              <div class="btn sm">Disable</div>
+              <div class="btn sm icon" title="Hide details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></div>
+            </div>
+          </div>
+
+          <div class="band">
+            <dl class="grid">
+              <dt class="lab">Skills</dt>
+              <dd class="val">
+                <div class="row">create-release<span class="st">Ready</span></div>
+                <div class="row">deployment-check<span class="st">Ready</span></div>
+              </dd>
+              <dt class="lab">MCP servers</dt>
+              <dd class="val">
+                <div class="row">deployment<span class="st">stdio · ./bin/server --serve</span></div>
+                <div class="row">status-api<span class="st">https://api.acme.dev/mcp · <span class="warn">approval needed</span></span></div>
+              </dd>
+            </dl>
+          </div>
+
+          <div class="band update">
+            <h5>Update available · v1.4.0 → v1.5.0</h5>
+            <ul>
+              <li>+ rollback-release (skill)</li>
+              <li>~ deployment (command changed · needs renewed approval)</li>
+              <li>− deployment-check (skill)</li>
+            </ul>
+            <div class="btns">
+              <div class="btn sm primary">Install update</div>
+              <div class="btn sm">Dismiss</div>
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="choices">
+              <div>
+                <div class="btn sm">Approve shown MCP definitions</div>
+                <p class="hint" style="margin-top:7px">status-api can connect to the endpoint shown above until you remove or disable this plugin.</p>
+              </div>
+              <div>
+                <div class="check"><span class="box on"></span>Show in Sero CLI</div>
+                <div class="indent">
+                  <div class="input filled mono">deployment-tools</div>
+                  <div class="btn sm off">Save</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="band tight footer">
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 2-3 8h5l-3 12"/></svg>Open in MCP</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Plugin source</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data folder</div>
+            <div class="btn sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Check for update</div>
+            <span class="spacer"></span>
+            <div class="btn sm danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Remove</div>
+          </div>
+        </div>
+
+        <div class="plugin">
+          <div class="plugin-head">
+            <div class="grow">
+              <div class="name"><h4>research-kit</h4><span class="pill">v2.1.0</span><span class="pill warn">Partial failure</span></div>
+              <p class="desc">Search, summarise and cite sources.</p>
+              <p class="meta">1 skill<span class="dot">·</span>1 remote MCP<span class="dot">·</span>CLI off<span class="dot">·</span><span style="color:var(--warn)">2 components skipped</span></p>
+            </div>
+            <div class="head-actions">
+              <div class="btn sm">Disable</div>
+              <div class="btn sm icon" title="Hide details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></div>
+            </div>
+          </div>
+
+          <div class="band">
+            <dl class="grid">
+              <dt class="lab">Skills</dt>
+              <dd class="val">
+                <div class="row">summarize<span class="st">Ready</span></div>
+                <div class="row bad">deep-research<span class="st">Skipped · SKILL.md description is missing</span></div>
+              </dd>
+              <dt class="lab">MCP servers</dt>
+              <dd class="val">
+                <div class="row">search-api<span class="st">https://api.research.dev/mcp</span></div>
+                <div class="row bad">legacy-feed<span class="st">Skipped · unsupported schema version 2.0.0</span></div>
+              </dd>
+            </dl>
+          </div>
+
+          <div class="band">
+            <div class="choices">
+              <div class="check"><span class="box"></span>Show in Sero CLI</div>
+            </div>
+          </div>
+
+          <div class="band tight footer">
+            <div class="btn sm">Open in MCP</div>
+            <div class="btn sm">Plugin source</div>
+            <div class="btn sm">Data folder</div>
+            <div class="btn sm">Check for update</div>
+            <span class="spacer"></span>
+            <div class="btn sm danger">Remove</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="state">
+  <div class="kicker">State 7</div>
+  <h2>Remove · confirm dialog</h2>
+  <p class="note">The card footer keeps one destructive button. The choice that used to fill a red panel — keep the
+  generated data or delete it — lives in the confirm step, where it is read.</p>
+
+  <div class="scrim">
+    <div class="modal">
+      <h4>Remove agent-plugins-example?</h4>
+      <p>Sero removes the package files, its skills and any MCP servers it owns. Other plugins are not changed.</p>
+      <div class="check">
+        <span class="box on"></span>
+        <div>Keep plugin data
+          <small>Generated state stays on disk for a later reinstall.</small>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="btn sm">Cancel</div>
+        <div class="btn sm danger">Remove plugin</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
