@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tool call group — expanded layouts</title>
+<style>
+:root{
+  /* Sero dark tokens (packages/ui/src/styles/globals.css) */
+  --bg:#0a0a0b; --surface:#111113; --raised:#18181b; --overlay:#1f1f23;
+  --line:#27272a; --line-strong:#3f3f46;
+  --text:#fafafa; --text-2:#a1a1aa; --text-3:#71717a;
+  --info:#3b82f6; --info-faint:rgba(59,130,246,.05); --info-line:rgba(59,130,246,.28);
+  --info-wash:rgba(59,130,246,.12);
+  --ok:#22c55e; --err:#ef4444; --warn:#f59e0b;
+  --accent:#c4b5fd; --brand:#34d399;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 0 140px;background:#050506;color:var(--text);font-family:var(--sans)}
+h1,h2,h3,h4,p,ol,ul{margin:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.doc{width:1080px;margin:0 auto}
+.intro{width:760px;margin-bottom:44px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+h2 .num{color:var(--text-3);font-weight:500}
+.note{width:760px;margin:9px 0 16px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.state{margin-top:56px}
+
+/* principles */
+.rules{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rule{border:1px solid var(--line);border-radius:8px;background:var(--raised);padding:11px 13px}
+.rule h3{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--brand)}
+.rule p{margin-top:5px;font-size:12.5px;line-height:1.5;color:var(--text-2)}
+
+/* chrome */
+.bar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bar .spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{padding:4px 10px;font-size:12px;color:var(--text-3);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[data-on="1"]{background:var(--raised);color:var(--text)}
+.seg button:hover{color:var(--text-2)}
+.ghost{padding:4px 10px;font-size:12px;color:var(--text-3);border:1px solid var(--line);border-radius:7px}
+.ghost:hover{color:var(--text-2);border-color:var(--line-strong)}
+.ghost[data-on="1"]{color:var(--info);border-color:var(--info-line);background:var(--info-faint)}
+
+.panel{background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 24px 70px rgba(0,0,0,.42);overflow:hidden}
+.panel-top{height:38px;display:flex;align-items:center;gap:9px;padding:0 14px;
+  border-bottom:1px solid var(--line);color:var(--text-3);font-size:12px}
+.panel-body{padding:16px}
+.turn{color:var(--text-2);font-size:13.5px;line-height:1.6;margin-bottom:12px}
+
+/* ── shared group shell + collapsed bar (UNCHANGED from today) ── */
+.grp{border:1px solid var(--line);border-radius:8px;background:rgba(24,24,27,.5);overflow:hidden}
+.grp.live{border-color:var(--info-line);background:var(--info-faint)}
+.grp-head{display:flex;width:100%;align-items:center;gap:10px;padding:8px 12px;text-align:left}
+.grp-head:hover{background:rgba(24,24,27,.8)}
+.chev{width:10px;color:var(--text-3);font-size:12px;transition:transform .18s}
+.chev.open{transform:rotate(90deg)}
+.wrench{color:var(--text-3);font-size:12px}
+.gstat{font-size:12px}
+.gstat.ok{color:var(--ok)}
+.gstat.run{color:var(--info)}
+.glabel{font-size:12px;font-weight:520;color:var(--text-2)}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* atoms reused by every alternative */
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.done{background:var(--ok)}
+.dot.run{background:var(--info);animation:pulse 1.4s ease-in-out infinite}
+.dot.stream{background:var(--info);animation:pulse 1.4s ease-in-out infinite}
+.dot.err{background:var(--err)}
+.dot.cancel{background:var(--warn)}
+.dot.pend{background:var(--text-3)}
+@keyframes pulse{50%{opacity:.35}}
+.tname{font-size:12px;font-weight:560;color:var(--text-2);flex:0 0 auto}
+.tsum{font-size:12px;color:var(--text-3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tsum.path{color:var(--accent)}
+.meta{margin-left:auto;flex:0 0 auto;font:11px/1 var(--mono);color:var(--text-3)}
+.live-pill{flex:0 0 auto;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:650;
+  letter-spacing:.07em;text-transform:uppercase;background:var(--info-wash);color:var(--info)}
+.lbl{font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.mono{font-family:var(--mono);font-size:12px;line-height:1.55}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:8px;padding:2px 0}
+.kv .k{font:11px/1.5 var(--mono);color:var(--text-3)}
+.kv .v{font:12px/1.5 var(--mono);color:var(--text-2);word-break:break-all;white-space:pre-wrap}
+pre{margin:0;white-space:pre;overflow:hidden}
+.k-tok{color:var(--accent)}
+.s-tok{color:var(--brand)}
+.c-tok{color:var(--text-3)}
+.e-tok{color:var(--err)}
+.caret{display:inline-block;width:6px;height:12px;vertical-align:-2px;background:var(--info);opacity:.85}
+
+/* clamp + reveal, replaces every inner scrollbar */
+.clamp{position:relative;max-height:132px;overflow:hidden}
+.clamp.open{max-height:none}
+.clamp .fade{position:absolute;left:0;right:0;bottom:0;height:34px;
+  background:linear-gradient(to bottom,transparent,var(--bg))}
+.clamp.open .fade{display:none}
+.more{display:block;width:100%;text-align:left;padding:5px 0 0;font-size:11.5px;color:var(--text-3)}
+.more:hover{color:var(--text-2)}
+
+/* progress */
+.prog{display:flex;align-items:center;gap:9px}
+.track{flex:1;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.fill{height:100%;background:var(--info);transition:width .3s}
+.prog .pc{font:11px/1 var(--mono);color:var(--info)}
+
+/* image + file chips */
+.thumb{width:150px;height:86px;border-radius:6px;border:1px solid var(--line);
+  background:linear-gradient(135deg,#1c2333,#0f1620 60%,#161b26);position:relative;overflow:hidden}
+.thumb::after{content:"";position:absolute;inset:12px 12px auto 12px;height:8px;border-radius:2px;
+  background:rgba(196,181,253,.25)}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:3px 8px;
+  border:1px solid rgba(196,181,253,.4);background:rgba(196,181,253,.1);
+  font:11px var(--mono);color:var(--accent)}
+.chip:hover{background:rgba(196,181,253,.16)}
+.warn-note{font-size:11.5px;font-style:italic;color:var(--warn)}
+.info-note{font-size:11.5px;font-style:italic;color:var(--info)}
+
+/* ── A · inline rows ─────────────────────────────────────────── */
+.a1{border-top:1px solid var(--line)}
+.a1-row+.a1-row{border-top:1px solid rgba(39,39,42,.65)}
+.a1-head{display:flex;width:100%;align-items:center;gap:9px;padding:5px 12px;text-align:left}
+.a1-head:hover{background:rgba(24,24,27,.55)}
+.a1-row[data-open="1"] .a1-head{background:rgba(24,24,27,.55)}
+.a1-body{padding:2px 12px 10px 31px;position:relative}
+.a1-body::before{content:"";position:absolute;left:21px;top:0;bottom:10px;width:1px;background:var(--line)}
+.a1-sect{padding:6px 0 2px}
+.a1-sect+.a1-sect{border-top:1px solid rgba(39,39,42,.55);margin-top:6px}
+.a1-sect .lbl{display:block;margin-bottom:4px}
+.a1-code{color:var(--text-2)}
+
+/* ── B · rail + pane ─────────────────────────────────────────── */
+.a2{display:grid;grid-template-columns:172px 1fr;border-top:1px solid var(--line)}
+.a2-rail{border-right:1px solid var(--line);padding:4px 0;align-self:start;position:sticky;top:12px}
+.a2-item{display:flex;width:100%;align-items:center;gap:8px;padding:5px 10px;text-align:left}
+.a2-item:hover{background:rgba(24,24,27,.55)}
+.a2-item[data-sel="1"]{background:rgba(24,24,27,.9);box-shadow:inset 2px 0 0 var(--accent)}
+.a2-item .tname{font-size:11.5px}
+.a2-item .tsum{display:block;font-size:10.5px;line-height:1.4}
+.a2-item{align-items:flex-start}
+.a2-item .dot{margin-top:6px}
+.a2-pane{padding:10px 12px 12px;min-width:0}
+.a2-pane-head{display:flex;align-items:center;gap:9px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.a2-sect{padding:9px 0 3px}
+.a2-sect+.a2-sect{border-top:1px solid rgba(39,39,42,.55)}
+.a2-sect .lbl{display:block;margin-bottom:5px}
+
+/* ── C · timeline ────────────────────────────────────────────── */
+.a3{border-top:1px solid var(--line);padding:6px 0 4px}
+.a3-item{position:relative;padding:3px 12px 3px 30px}
+.a3-item::before{content:"";position:absolute;left:17px;top:0;bottom:0;width:1px;background:var(--line)}
+.a3-item:first-child::before{top:11px}
+.a3-item:last-child::before{bottom:auto;height:11px}
+.a3-node{position:absolute;left:14px;top:9px;width:7px;height:7px;border-radius:50%;
+  box-shadow:0 0 0 3px var(--bg)}
+.a3-node.done{background:var(--ok)}
+.a3-node.run,.a3-node.stream{background:var(--info)}
+.a3-node.err{background:var(--err)}
+.a3-node.cancel{background:var(--warn)}
+.a3-node.pend{background:var(--text-3)}
+.a3-head{display:flex;width:100%;align-items:baseline;gap:9px;padding:2px 0;text-align:left}
+.a3-head:hover .tsum{color:var(--text-2)}
+.a3-body{padding:4px 0 8px}
+.a3-band{border-left:2px solid var(--line);padding:5px 0 5px 10px;margin-top:5px}
+.a3-band.live{border-left-color:var(--info)}
+.a3-band.bad{border-left-color:var(--err)}
+.a3-band .lbl{display:block;margin-bottom:4px}
+
+/* ── D · console ─────────────────────────────────────────────── */
+.a4{border-top:1px solid var(--line);background:rgba(9,9,11,.55)}
+.a4-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--bg);z-index:3}
+.a4-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font-size:11px;color:var(--text-3)}
+.a4-chip[data-on="1"]{color:var(--text-2);border-color:var(--line-strong);background:var(--raised)}
+.a4-chip[data-on="0"]{opacity:.45}
+.a4-stream{padding-bottom:6px}
+.a4-hd{display:flex;align-items:center;gap:9px;padding:5px 12px;position:sticky;top:37px;z-index:2;
+  background:var(--overlay);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.a4-hd .tname{color:var(--text)}
+.a4-lines{padding:6px 12px 8px}
+.a4-line{display:grid;grid-template-columns:16px 1fr;gap:8px;font:12px/1.55 var(--mono)}
+.a4-line .g{color:var(--text-3);text-align:right;user-select:none}
+.a4-line .t{color:var(--text-2);white-space:pre-wrap;word-break:break-word}
+.a4-line.nowrap .t{white-space:pre;overflow-x:auto}
+.a4-line.in .g{color:var(--accent)}
+.a4-line.bad .t{color:var(--err)}
+
+/* comparison */
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+td:first-child{color:var(--text);font-weight:560;width:150px}
+td{color:var(--text-2);line-height:1.5}
+td b{color:var(--brand);font-weight:560}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="intro">
+  <h1>Tool call group — expanded layouts</h1>
+  <p class="lede">The collapsed bar is good and stays as it is. The problem starts
+  after the second click: <b>Show full details</b> swaps the tool list for a stack
+  of cards, each card has its own header, its own border, its own scroll box, and
+  its own padding. Four layouts below replace that stack. All four keep the same
+  data, including <b>live streaming input</b> and <b>live progress</b>.
+  These prototypes are interactive: click the rows, the rail, the chips.</p>
+
+  <div class="rules">
+    <div class="rule"><h3>One scroll surface</h3>
+      <p>The chat scrolls. Nothing inside a tool call scrolls. Long content clamps
+      and opens in place.</p></div>
+    <div class="rule"><h3>One expansion model</h3>
+      <p>No summary mode and detail mode. The group opens, then each tool opens.
+      Detail never hides the list.</p></div>
+    <div class="rule"><h3>No card in a card</h3>
+      <p>Hairlines and indent give the structure. A border inside a border inside a
+      border gives nothing.</p></div>
+    <div class="rule"><h3>Two type sizes</h3>
+      <p>12px for the interface, 12px mono for content, one 10px uppercase label.
+      Nothing else.</p></div>
+  </div>
+</div>
+
+<div class="bar" style="width:760px">
+  <button class="ghost" id="simBtn" data-on="1">■ Pause live simulation</button>
+  <span style="font-size:12px;color:var(--text-3)">A write streams its input and a
+  web search reports progress in every layout at the same time.</span>
+</div>
+
+<!-- A -->
+<div class="state">
+  <h2><span class="num">A ·</span> Inline rows</h2>
+  <p class="note">The smallest change. <b>Show full details</b> is deleted. Each
+  tool row opens where it is, under a guide line, and shows its input pairs and
+  its output. The list never disappears, so you keep the shape of the turn while
+  you read one step. Live tools open themselves and stay open.</p>
+  <div class="bar">
+    <span class="seg" id="a1seg">
+      <button data-v="0">Collapsed</button><button data-v="1" data-on="1">Expanded</button>
+    </span>
+    <button class="ghost" data-all="a1">Open all rows</button>
+    <div class="spacer"></div>
+  </div>
+  <div class="panel"><div class="panel-top">Chat</div>
+    <div class="panel-body">
+      <p class="turn">I will add the tool rail component and check the types.</p>
+      <div id="a1"></div>
+    </div>
+  </div>
+</div>
+
+<!-- B -->
+<div class="state">
+  <h2><span class="num">B ·</span> Rail and pane</h2>
+  <p class="note">For groups of many steps. The left rail is the list, the right
+  pane is one detail. Only one detail exists at a time, so the height stays
+  predictable and the eye has one place to look. The rail sticks while the pane
+  is tall. A running tool keeps its dot alive in the rail while you read another.</p>
+  <div class="bar">
+    <span class="seg" id="a2seg">
+      <button data-v="0">Collapsed</button><button data-v="1" data-on="1">Expanded</button>
+    </span>
+    <div class="spacer"></div>
+    <span style="font-size:12px;color:var(--text-3)">Click a step in the rail</span>
+  </div>
+  <div class="panel"><div class="panel-top">Chat</div>
+    <div class="panel-body">
+      <p class="turn">I will add the tool rail component and check the types.</p>
+      <div id="a2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- C -->
+<div class="state">
+  <h2><span class="num">C ·</span> Timeline</h2>
+  <p class="note">No boxes at all. One rail of nodes carries the sequence and the
+  content hangs off it. Density replaces expansion: <b>Compact</b> gives one line
+  per step, <b>Full</b> gives every input and output at once. A left colour bar
+  marks a live band or a failure, which removes the need for a card.</p>
+  <div class="bar">
+    <span class="seg" id="a3seg">
+      <button data-v="0">Collapsed</button><button data-v="1" data-on="1">Expanded</button>
+    </span>
+    <span class="seg" id="a3den">
+      <button data-d="compact">Compact</button><button data-d="full" data-on="1">Full</button>
+    </span>
+    <div class="spacer"></div>
+    <span style="font-size:12px;color:var(--text-3)">Click any step to open or fold it</span>
+  </div>
+  <div class="panel"><div class="panel-top">Chat</div>
+    <div class="panel-body">
+      <p class="turn">I will add the tool rail component and check the types.</p>
+      <div id="a3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- D -->
+<div class="state">
+  <h2><span class="num">D ·</span> Console</h2>
+  <p class="note">One transcript, one font. Input lines carry <b>›</b>, output
+  lines carry nothing, and the tool header sticks to the top of the group while
+  its lines pass. The chips filter the transcript, so a group of 20 reads can be
+  cut down to the one that failed. This is the densest option and the best one
+  for reading a shell heavy turn.</p>
+  <div class="bar">
+    <span class="seg" id="a4seg">
+      <button data-v="0">Collapsed</button><button data-v="1" data-on="1">Expanded</button>
+    </span>
+    <button class="ghost" id="a4wrap" data-on="1">Wrap long lines</button>
+    <div class="spacer"></div>
+    <span style="font-size:12px;color:var(--text-3)">Click the chips to filter</span>
+  </div>
+  <div class="panel"><div class="panel-top">Chat</div>
+    <div class="panel-body">
+      <p class="turn">I will add the tool rail component and check the types.</p>
+      <div id="a4"></div>
+    </div>
+  </div>
+</div>
+
+<div class="state">
+  <h2>Comparison</h2>
+  <table>
+    <tr><th>Layout</th><th>Best for</th><th>Cost</th><th>Change to the code</th></tr>
+    <tr><td>A · Inline rows</td>
+      <td>Turns of 3 to 8 steps. The default case.</td>
+      <td>A group with long outputs still becomes tall.</td>
+      <td><b>Small.</b> Delete the details mode, move <code>ToolDetail</code> under
+      <code>ToolLine</code>, drop the <code>Tool</code> card wrapper.</td></tr>
+    <tr><td>B · Rail and pane</td>
+      <td>Long groups. Comparing one step against the list.</td>
+      <td>Only one detail is visible. Needs a width of about 520px.</td>
+      <td><b>Medium.</b> New two column shell, a selection state, the same detail body.</td></tr>
+    <tr><td>C · Timeline</td>
+      <td>Reading a whole turn as a story. Screenshots and demos.</td>
+      <td>Full density is tall. Needs the clamp to work well.</td>
+      <td><b>Medium.</b> New shell, no cards, one density flag on the group.</td></tr>
+    <tr><td>D · Console</td>
+      <td>Shell heavy turns. Copying a block of output.</td>
+      <td>Least visual hierarchy. Images sit oddly in a transcript.</td>
+      <td><b>Medium.</b> Flatten every tool to lines, sticky headers, chip filter.</td></tr>
+  </table>
+</div>
+
+</div>
+
+<script>
+/* ── icons ─────────────────────────────────────────────────── */
+const WRENCH='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8z"/><\/svg>';
+const SPIN='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/><\/svg>';
+
+/* ── data ──────────────────────────────────────────────────── */
+const WRITE_CODE=[
+"import { memo } from 'react';",
+"import { cn } from '@sero-ai/ui/lib/utils';",
+"import type { ChatToolCallMessage } from '@/types/ipc';",
+"",
+"export const ToolRail = memo(function ToolRail({",
+"  tools,",
+"  activeId,",
+"  onSelect,",
+"}: {",
+"  tools: ChatToolCallMessage[];",
+"  activeId: string | null;",
+"  onSelect: (id: string) => void;",
+"}) {",
+"  return (",
+"    <ol className=\"min-w-0 py-1\">",
+"      {tools.map((tool) => (",
+"        <li key={tool.id}>",
+"          <ToolRailRow",
+"            tool={tool}",
+"            active={tool.id === activeId}",
+"            onSelect={onSelect}",
+"          />",
+"        </li>",
+"      ))}",
+"    </ol>",
+"  );",
+"});"].join("\n");
+
+const READ_OUT=[
+"  1  import { create } from 'zustand';",
+"  2  import type { ChatMessage } from '@/types/ipc';",
+"  3",
+"  4  interface SessionState {",
+"  5    messages: ChatMessage[];",
+"  6    isStreaming: boolean;",
+"  7    appendMessage: (message: ChatMessage) => void;",
+"  8  }",
+"  9",
+" 10  export const useSession = create<SessionState>((set) => ({",
+" 11    messages: [],",
+" 12    isStreaming: false,",
+" 13    appendMessage: (message) =>",
+" 14      set((state) => ({ messages: [...state.messages, message] })),",
+" 15  }));"].join("\n");
+
+const GREP_OUT=[
+"apps/desktop/src/components/layout/ToolCallState.tsx:31:export function deriveGroupStatus(",
+"apps/desktop/src/components/layout/ToolCallGroup.tsx:160:  const status = deriveGroupStatus(tools);",
+"apps/desktop/src/components/layout/tool-call-helpers/SingleToolCall.tsx:29:  const status = deriveGroupStatus([tool]);"].join("\n");
+
+const TS_OUT=[
+"apps/desktop/src/components/layout/ToolRail.tsx(18,11): error TS2322:",
+"  Type '(id: string) => void' is not assignable to type 'MouseEventHandler'.",
+"    Types of parameters 'id' and 'event' are incompatible.",
+"      Type 'MouseEvent' is not assignable to type 'string'.",
+"",
+"Found 1 error in apps/desktop/src/components/layout/ToolRail.tsx:18",
+"",
+" ELIFECYCLE  Command failed with exit code 2."].join("\n");
+
+const sim={chars:0,q:1,pct:8,on:true,hold:0,done:false};
+
+function tools(){
+  const streaming=!sim.done;
+  const code=WRITE_CODE.slice(0,sim.chars);
+  const lines=code?code.split("\n").length:0;
+  return [
+   {id:'t1',name:'read',sum:'apps/desktop/src/stores/session.ts',path:1,state:'done',ms:'12ms',
+    input:[['path','apps/desktop/src/stores/session.ts']],out:READ_OUT,outLines:214},
+   {id:'t2',name:'grep',sum:'deriveGroupStatus',state:'done',ms:'34ms',
+    input:[['pattern','deriveGroupStatus'],['path','apps/desktop/src'],['glob','*.tsx']],
+    out:GREP_OUT,outLines:3},
+   {id:'t3',name:'write',sum:'apps/desktop/src/components/layout/ToolRail.tsx',path:1,
+    state:streaming?'stream':'done',ms:streaming?null:'0.9s',
+    input:[['path','apps/desktop/src/components/layout/ToolRail.tsx']],
+    stream:{code,lines,total:WRITE_CODE.split("\n").length},
+    out:streaming?null:'Wrote 27 lines to apps/desktop/src/components/layout/ToolRail.tsx'},
+   {id:'t4',name:'websearch',sum:'zustand persist rehydrate',state:streaming?'run':'done',
+    ms:streaming?null:'6.2s',input:[['query','zustand persist rehydrate']],
+    progress:streaming?{q:sim.q,total:5,pct:sim.pct}:null,
+    out:streaming?'Searching '+sim.q+'/5: "zustand persist rehydrate"':'5 queries, 18 results',
+    partial:streaming},
+   {id:'t5',name:'screenshot',sum:'localhost:5173 · chat panel',state:'done',ms:'1.4s',
+    input:[['url','http://localhost:5173'],['selector','[data-panel="chat"]']],
+    out:'Captured 1 image (1280x720)',images:['chat-panel-01.png'],files:['chat-panel-01.png']},
+   {id:'t6',name:'typecheck',sum:'pnpm typecheck',state:'err',ms:'26s',
+    input:[['command','pnpm typecheck']],out:TS_OUT,outLines:9,bad:1},
+   {id:'t7',name:'read',sum:'docs/adr/0007-tool-rendering.md',path:1,state:'cancel',
+    input:[['path','docs/adr/0007-tool-rendering.md']],
+    note:'Cancelled, agent was stopped before this tool completed.'},
+  ];
+}
+
+/* ── helpers ───────────────────────────────────────────────── */
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function hi(s){return esc(s)
+  .replace(/\b(import|export|from|const|function|return|type|interface|memo)\b/g,'<span class="k-tok">$1<\/span>')
+  .replace(/(&#39;|')([^'\n]*)(')/g,'<span class="s-tok">$1$2$3<\/span>');}
+function hiOut(s,bad){const t=esc(s);
+  return bad?t.replace(/(error TS\d+:|ELIFECYCLE)/g,'<span class="e-tok">$1<\/span>'):t;}
+const dot=t=>'<span class="dot '+t.state+'"></span>';
+const isLive=t=>t.state==='run'||t.state==='stream';
+function sumHtml(t){return '<span class="tsum'+(t.path?' path':'')+'">'+esc(t.sum)+'</span>';}
+function shortSum(t){const s=t.path?t.sum.split('/').pop():t.sum;
+  return '<span class="tsum'+(t.path?' path':'')+'">'+esc(s)+'</span>';}
+function metaHtml(t){
+  if(isLive(t))return '<span class="meta" style="color:var(--info)">live</span>';
+  if(t.state==='cancel')return '<span class="meta" style="color:var(--warn)">cancelled</span>';
+  return '<span class="meta">'+(t.ms||'')+'</span>';}
+
+function groupLabel(){const live=tools().some(isLive);
+  return live?'Running 7 actions...':'7 actions completed';}
+function groupHead(view,open){
+  const live=tools().some(isLive);
+  return '<button class="grp-head" data-act="grp" data-view="'+view+'">'
+    +'<span class="chev'+(open?' open':'')+'">&rsaquo;</span>'
+    +'<span class="wrench">'+WRENCH+'</span>'
+    +'<span class="gstat '+(live?'run':'ok')+'">'+(live?SPIN:'&#10003;')+'</span>'
+    +'<span class="glabel">'+groupLabel()+'</span></button>';}
+function shell(view,open,inner){
+  const live=tools().some(isLive);
+  return '<div class="grp'+(live?' live':'')+'">'+groupHead(view,open)+(open?inner:collapsedExtras())+'</div>';}
+function collapsedExtras(){
+  /* collapsed group still surfaces the latest images and file links, unchanged */
+  return '<div style="border-top:1px solid var(--line);padding:8px 12px;display:flex;gap:10px;align-items:center">'
+    +'<div class="thumb" style="width:118px;height:68px"></div>'
+    +'<button class="chip">&#9635; chat-panel-01.png</button></div>';}
+
+function kvRows(t){return t.input.map(p=>'<div class="kv"><span class="k">'+p[0]+'</span><span class="v">'+esc(p[1])+'</span></div>').join('');}
+function progHtml(t){const p=t.progress;
+  return '<div class="prog"><div class="track"><div class="fill" style="width:'+p.pct+'%"></div></div>'
+    +'<span class="pc">query '+p.q+' of '+p.total+'</span></div>'
+    +'<div class="mono" style="color:var(--text-3);margin-top:5px">Searching '+p.q+'/5: "zustand persist rehydrate"</div>';}
+function streamHtml(t,tailN){
+  const all=t.stream.code.split("\n");
+  const tail=all.slice(-(tailN||12)).join("\n");
+  return '<div class="mono" style="color:var(--text-3);margin-bottom:4px">'
+    +t.stream.lines+' of ~'+t.stream.total+' lines</div>'
+    +'<pre class="mono">'+hi(tail)+'<span class="caret"></span></pre>';}
+function outHtml(t,view){
+  const open=ST[view].more.has(t.id);
+  const long=(t.outLines||0)>6;
+  return '<div class="clamp'+(open||!long?' open':'')+'"><pre class="mono">'+hiOut(t.out,t.bad)+'</pre>'
+    +(long&&!open?'<div class="fade"></div>':'')+'</div>'
+    +(long?'<button class="more" data-act="more" data-view="'+view+'" data-id="'+t.id+'">'
+      +(open?'Show less':'Show all '+t.outLines+' lines')+'</button>':'');}
+function mediaHtml(t){
+  return '<div style="display:flex;gap:10px;align-items:flex-start;margin-top:6px">'
+    +'<div class="thumb"></div><button class="chip">&#9635; '+t.files[0]+'</button></div>';}
+
+/* ── view state ────────────────────────────────────────────── */
+const ST={
+  a1:{expanded:true,open:new Set(['t3','t4']),more:new Set()},
+  a2:{expanded:true,sel:'t3',more:new Set()},
+  a3:{expanded:true,density:'full',flip:new Set(),more:new Set()},
+  a4:{expanded:true,off:new Set(),wrap:true,more:new Set()},
+};
+
+/* ── A · inline rows ───────────────────────────────────────── */
+function bodyA(t){
+  let h='';
+  h+='<div class="a1-sect"><span class="lbl">input</span>'+kvRows(t)+'</div>';
+  if(t.stream)h+='<div class="a1-sect"><span class="lbl" style="color:var(--info)">streaming input</span>'+streamHtml(t,10)+'</div>';
+  if(t.progress)h+='<div class="a1-sect"><span class="lbl" style="color:var(--info)">progress</span>'+progHtml(t)
+    +'<div class="info-note" style="margin-top:5px">Live update, tool still running.</div></div>';
+  if(t.files)h+='<div class="a1-sect"><span class="lbl">files</span>'+mediaHtml(t)+'</div>';
+  if(t.out&&!t.progress)h+='<div class="a1-sect"><span class="lbl">output</span>'+outHtml(t,'a1')+'</div>';
+  if(t.note)h+='<div class="a1-sect"><div class="warn-note">'+t.note+'</div></div>';
+  return h;
+}
+function renderA(){
+  const s=ST.a1;
+  const rows=tools().map(t=>{
+    const open=s.open.has(t.id);
+    return '<div class="a1-row" data-open="'+(open?1:0)+'">'
+      +'<button class="a1-head" data-act="row" data-view="a1" data-id="'+t.id+'">'
+      +'<span class="chev'+(open?' open':'')+'">&rsaquo;</span>'+dot(t)
+      +'<span class="tname">'+t.name+'</span>'+sumHtml(t)+metaHtml(t)+'</button>'
+      +(open?'<div class="a1-body">'+bodyA(t)+'</div>':'')+'</div>';}).join('');
+  document.getElementById('a1').innerHTML=shell('a1',s.expanded,'<div class="a1">'+rows+'</div>');
+}
+
+/* ── B · rail and pane ─────────────────────────────────────── */
+function renderB(){
+  const s=ST.a2,list=tools(),t=list.find(x=>x.id===s.sel)||list[0];
+  const rail=list.map(x=>'<button class="a2-item" data-act="sel" data-view="a2" data-id="'+x.id+'" data-sel="'
+    +(x.id===t.id?1:0)+'">'+dot(x)+'<span style="min-width:0"><span class="tname">'+x.name+'</span>'
+    +(isLive(x)?'<span class="live-pill" style="margin-left:6px">live</span>':'')
+    +'<br>'+shortSum(x)+'</span></button>').join('');
+  let p='<div class="a2-pane-head">'+dot(t)+'<span class="tname" style="font-size:13px;color:var(--text)">'+t.name+'</span>'
+    +sumHtml(t)+(isLive(t)?'<span class="live-pill">live</span>':'')+metaHtml(t)+'</div>';
+  p+='<div class="a2-sect"><span class="lbl">input</span>'+kvRows(t)+'</div>';
+  if(t.stream)p+='<div class="a2-sect"><span class="lbl" style="color:var(--info)">streaming input</span>'+streamHtml(t,14)+'</div>';
+  if(t.progress)p+='<div class="a2-sect"><span class="lbl" style="color:var(--info)">progress</span>'+progHtml(t)
+    +'<div class="info-note" style="margin-top:5px">Live update, tool still running.</div></div>';
+  if(t.files)p+='<div class="a2-sect"><span class="lbl">files</span>'+mediaHtml(t)+'</div>';
+  if(t.out&&!t.progress)p+='<div class="a2-sect"><span class="lbl">output</span>'+outHtml(t,'a2')+'</div>';
+  if(t.note)p+='<div class="a2-sect"><div class="warn-note">'+t.note+'</div></div>';
+  document.getElementById('a2').innerHTML=shell('a2',s.expanded,
+    '<div class="a2"><div class="a2-rail">'+rail+'</div><div class="a2-pane">'+p+'</div></div>');
+}
+
+/* ── C · timeline ──────────────────────────────────────────── */
+function renderC(){
+  const s=ST.a3;
+  const items=tools().map(t=>{
+    /* live steps open by default at any density; a click inverts one step */
+    const byDefault=s.density==='full'||isLive(t);
+    const show=byDefault!==s.flip.has(t.id);
+    let b='';
+    if(show){
+      b+='<div class="a3-band"><span class="lbl">input</span>'+kvRows(t)+'</div>';
+      if(t.stream)b+='<div class="a3-band live"><span class="lbl" style="color:var(--info)">streaming input &middot; '
+        +t.stream.lines+' lines</span>'+streamHtml(t,10)+'</div>';
+      if(t.progress)b+='<div class="a3-band live"><span class="lbl" style="color:var(--info)">progress</span>'+progHtml(t)
+        +'<div class="info-note" style="margin-top:5px">Live update, tool still running.</div></div>';
+      if(t.files)b+='<div class="a3-band">'+mediaHtml(t)+'</div>';
+      if(t.out&&!t.progress)b+='<div class="a3-band'+(t.bad?' bad':'')+'"><span class="lbl">output</span>'
+        +outHtml(t,'a3')+'</div>';
+      if(t.note)b+='<div class="a3-band"><div class="warn-note">'+t.note+'</div></div>';
+    }
+    return '<div class="a3-item"><span class="a3-node '+t.state+'"></span>'
+      +'<button class="a3-head" data-act="fold" data-view="a3" data-id="'+t.id+'">'
+      +'<span class="tname" style="font-size:12.5px">'+t.name+'</span>'+sumHtml(t)+metaHtml(t)+'</button>'
+      +(b?'<div class="a3-body">'+b+'</div>':'')+'</div>';}).join('');
+  document.getElementById('a3').innerHTML=shell('a3',s.expanded,'<div class="a3">'+items+'</div>');
+}
+
+/* ── D · console ───────────────────────────────────────────── */
+function lineRows(text,cls,wrap){
+  return text.split("\n").map(l=>'<div class="a4-line '+cls+(wrap?'':' nowrap')+'">'
+    +'<span class="g">'+(cls==='in'?'&rsaquo;':'')+'</span><span class="t">'+l+'</span></div>').join('');}
+function renderD(){
+  const s=ST.a4,list=tools();
+  const chips=list.map(t=>'<button class="a4-chip" data-act="chip" data-view="a4" data-id="'+t.id+'" data-on="'
+    +(s.off.has(t.id)?0:1)+'">'+dot(t)+t.name+'</button>').join('');
+  const blocks=list.filter(t=>!s.off.has(t.id)).map(t=>{
+    let l='';
+    l+=lineRows(t.input.map(p=>p[0]+'  '+p[1]).join("\n"),'in',s.wrap);
+    if(t.stream)l+=lineRows(hi(t.stream.code.split("\n").slice(-10).join("\n")),'',s.wrap)
+      +'<div class="a4-line"><span class="g"></span><span class="t"><span class="caret"></span></span></div>';
+    if(t.progress)l+='<div class="a4-lines" style="padding:4px 0">'+progHtml(t)
+      +'<div class="info-note" style="margin-top:5px">Live update, tool still running.</div></div>';
+    if(t.files)l+='<div class="a4-line"><span class="g"></span><span class="t">'+mediaHtml(t)+'</span></div>';
+    if(t.out&&!t.progress){
+      const open=s.more.has(t.id),long=(t.outLines||0)>6;
+      const txt=hiOut(t.out,t.bad);
+      l+='<div class="clamp'+(open||!long?' open':'')+'">'+lineRows(txt,t.bad?'bad':'',s.wrap)
+        +(long&&!open?'<div class="fade"></div>':'')+'</div>'
+        +(long?'<button class="more" style="padding-left:24px" data-act="more" data-view="a4" data-id="'+t.id+'">'
+          +(open?'Show less':'Show all '+t.outLines+' lines')+'</button>':'');}
+    if(t.note)l+='<div class="a4-line"><span class="g"></span><span class="t warn-note">'+t.note+'</span></div>';
+    return '<div><div class="a4-hd">'+dot(t)+'<span class="tname">'+t.name+'</span>'+sumHtml(t)
+      +(isLive(t)?'<span class="live-pill">live</span>':'')+metaHtml(t)+'</div>'
+      +'<div class="a4-lines">'+l+'</div></div>';}).join('');
+  document.getElementById('a4').innerHTML=shell('a4',s.expanded,
+    '<div class="a4"><div class="a4-chips">'+chips+'</div><div class="a4-stream">'+blocks+'</div></div>');
+}
+
+/* ── wiring ────────────────────────────────────────────────── */
+function renderAll(){renderA();renderB();renderC();renderD();}
+function toggle(set,id){set.has(id)?set.delete(id):set.add(id);}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act],[data-v],[data-d],[data-all]');
+  if(!b)return;
+  const view=b.dataset.view,id=b.dataset.id;
+  switch(b.dataset.act){
+    case 'grp':ST[view].expanded=!ST[view].expanded;
+      document.querySelectorAll('#'+view+'seg button').forEach(x=>
+        x.dataset.on=(x.dataset.v==='1')===ST[view].expanded?'1':'0');break;
+    case 'row':toggle(ST.a1.open,id);break;
+    case 'sel':ST.a2.sel=id;break;
+    case 'fold':toggle(ST.a3.flip,id);break;
+    case 'chip':toggle(ST.a4.off,id);break;
+    case 'more':toggle(ST[view].more,id);break;
+  }
+  if(b.dataset.v!==undefined){const v=b.closest('.seg').id.replace('seg','');
+    ST[v].expanded=b.dataset.v==='1';
+    b.closest('.seg').querySelectorAll('button').forEach(x=>x.dataset.on=x===b?'1':'0');}
+  if(b.dataset.d){ST.a3.density=b.dataset.d;ST.a3.flip.clear();
+    b.closest('.seg').querySelectorAll('button').forEach(x=>x.dataset.on=x===b?'1':'0');}
+  if(b.dataset.all){const s=ST.a1,all=tools();
+    if(s.open.size===all.length){s.open.clear();b.textContent='Open all rows';}
+    else{all.forEach(t=>s.open.add(t.id));b.textContent='Close all rows';}}
+  renderAll();
+});
+
+document.getElementById('a4wrap').addEventListener('click',function(){
+  ST.a4.wrap=!ST.a4.wrap;this.dataset.on=ST.a4.wrap?'1':'0';
+  this.textContent=ST.a4.wrap?'Wrap long lines':'No wrap';renderD();});
+
+const simBtn=document.getElementById('simBtn');
+simBtn.addEventListener('click',()=>{sim.on=!sim.on;simBtn.dataset.on=sim.on?'1':'0';
+  simBtn.textContent=sim.on?'■ Pause live simulation':'▶ Resume live simulation';});
+
+setInterval(()=>{
+  if(!sim.on)return;
+  if(sim.done){if(++sim.hold>34){sim.done=false;sim.hold=0;sim.chars=0;sim.q=1;sim.pct=8;renderAll();}return;}
+  sim.chars=Math.min(WRITE_CODE.length,sim.chars+4);
+  sim.pct=Math.min(100,sim.pct+1.4);
+  sim.q=Math.min(5,1+Math.floor(sim.pct/21));
+  if(sim.chars>=WRITE_CODE.length&&sim.pct>=100){sim.done=true;sim.hold=0;}
+  renderAll();
+},110);
+
+renderAll();
+</script>
+</body>
+</html>
