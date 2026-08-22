@@ -19,7 +19,10 @@ export function ToolDetailBody({
   workspaceId?: string | null;
 }) {
   const progress = buildToolProgressModel(tool);
-  const output = typeof tool.output === 'string' && tool.output.trim().length > 0 ? tool.output : null;
+  const toolOutput = typeof tool.output === 'string' && tool.output.trim().length > 0
+    ? tool.output
+    : null;
+  const output = toolOutput ?? (tool.isError ? 'Tool execution failed' : null);
 
   return (
     <div className="min-w-0 space-y-3">

@@ -5,10 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
 const layoutRef = vi.hoisted(() => ({ current: 'rows' as 'rows' | 'rail' }));
+const setToolCallLayout = vi.hoisted(() => vi.fn());
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: (selector: (state: { toolCallLayout: 'rows' | 'rail' }) => unknown) =>
-    selector({ toolCallLayout: layoutRef.current }),
+  useAppStore: (selector: (state: {
+    toolCallLayout: 'rows' | 'rail';
+    setToolCallLayout: typeof setToolCallLayout;
+  }) => unknown) => selector({
+    toolCallLayout: layoutRef.current,
+    setToolCallLayout,
+  }),
 }));
 
 vi.mock('@/stores/editor-bridge', () => ({
@@ -67,6 +73,8 @@ describe('ToolCallGroup image previews', () => {
   let root: Root | null = null;
 
   beforeEach(() => {
+    layoutRef.current = 'rows';
+    setToolCallLayout.mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -152,7 +160,77 @@ describe('ToolCallGroup image previews', () => {
       );
     });
 
+    const summaryButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('2 actions completed'),
+    );
+    expect(summaryButton?.getAttribute('aria-expanded')).toBe('true');
     expect(container.textContent).toContain('READ_OUTPUT');
+  });
+
+  it('keeps an automatically opened live row open when the tool completes', async () => {
+    const runningTool = makeTool({
+      id: 'tool-b',
+      toolCallId: 'call-b',
+      toolName: 'bash',
+      state: 'running',
+      output: 'PARTIAL_OUTPUT',
+      isPartialOutput: true,
+    });
+
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            runningTool,
+          ]}
+          workspaceId="ws-1"
+          isFinalized={false}
+        />,
+      );
+    });
+    expect(container.textContent).toContain('PARTIAL_OUTPUT');
+
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            { ...runningTool, state: 'completed', output: 'FINAL_OUTPUT', isPartialOutput: false },
+          ]}
+          workspaceId="ws-1"
+          isFinalized={false}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('FINAL_OUTPUT');
+  });
+
+  it('lets the reader switch to the rail layout', async () => {
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'bash' }),
+          ]}
+          workspaceId="ws-1"
+          isFinalized
+        />,
+      );
+    });
+
+    await act(async () => {
+      clickButtonByText(container, '2 actions completed');
+    });
+    const railButton = container.querySelector<HTMLButtonElement>('button[aria-label="Rail layout"]');
+    expect(railButton).not.toBeNull();
+
+    await act(async () => {
+      railButton?.click();
+    });
+    expect(setToolCallLayout).toHaveBeenCalledWith('rail');
   });
 
   it('shows one detail at a time in the rail layout', async () => {

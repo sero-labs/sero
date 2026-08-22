@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronRight, WrenchIcon } from 'lucide-react';
+import { ChevronRight, Columns2, List, WrenchIcon } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 import { useAppStore } from '@/stores/app';
@@ -171,6 +171,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   );
 
   const toolCallLayout = useAppStore((state) => state.toolCallLayout);
+  const setToolCallLayout = useAppStore((state) => state.setToolCallLayout);
   // Reading a tool detail pins the group open, so the end of the turn does not
   // collapse the group under the reader.
   const [detailPinned, setDetailPinned] = useState(false);
@@ -187,7 +188,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   //  - Live group, finalized + all done: collapse
   //  - Loaded group (never ran): stay collapsed
   const autoExpanded = wasEverRunning.current ? (!isFinalized || isRunning) : false;
-  const expanded = manualExpanded ?? autoExpanded;
+  const expanded = detailPinned || (manualExpanded ?? autoExpanded);
 
   // Clear manual override when the group becomes finalized (final collapse)
   // or when new tools start running (re-expand).
@@ -223,32 +224,69 @@ export const ToolCallGroup = memo(function ToolCallGroup({
       )}
     >
       {/* Summary bar */}
-      <button type="button"
-        onClick={() => {
-          // Collapsing the group ends the reading session, so automatic
-          // expand and collapse takes over again.
-          if (expanded) setDetailPinned(false);
-          setManualExpanded(!expanded);
-        }}
-        className={cn(
-          'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
-          'hover:bg-[var(--bg-elevated)]/80',
-        )}
-      >
-        <motion.div
-          animate={{ rotate: expanded ? 90 : 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => {
+            // Collapsing the group ends the reading session, so automatic
+            // expand and collapse takes over again.
+            if (expanded) setDetailPinned(false);
+            setManualExpanded(!expanded);
+          }}
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
+            'hover:bg-[var(--bg-elevated)]/80',
+          )}
         >
-          <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
-        </motion.div>
+          <motion.div
+            animate={{ rotate: expanded ? 90 : 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          >
+            <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
+          </motion.div>
 
-        <WrenchIcon className="size-3.5 text-[var(--text-muted)]" />
-        {groupStatusIcon(status)}
+          <WrenchIcon className="size-3.5 text-[var(--text-muted)]" />
+          {groupStatusIcon(status)}
 
-        <span className="text-xs font-medium text-[var(--text-secondary)]">
-          {groupStatusLabel(status, tools.length)}
-        </span>
-      </button>
+          <span className="text-xs font-medium text-[var(--text-secondary)]">
+            {groupStatusLabel(status, tools.length)}
+          </span>
+        </button>
+
+        {expanded ? (
+          <div
+            role="group"
+            aria-label="Tool detail layout"
+            className="mr-2 flex items-center rounded-md bg-[var(--bg-elevated)]/60 p-0.5"
+          >
+            <button
+              type="button"
+              aria-label="Rows layout"
+              aria-pressed={toolCallLayout === 'rows'}
+              onClick={() => setToolCallLayout('rows')}
+              className={cn(
+                'rounded p-1 text-[var(--text-muted)] transition-colors',
+                toolCallLayout === 'rows' && 'bg-[var(--bg-surface)] text-[var(--text-primary)]',
+              )}
+            >
+              <List className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Rail layout"
+              aria-pressed={toolCallLayout === 'rail'}
+              onClick={() => setToolCallLayout('rail')}
+              className={cn(
+                'rounded p-1 text-[var(--text-muted)] transition-colors',
+                toolCallLayout === 'rail' && 'bg-[var(--bg-surface)] text-[var(--text-primary)]',
+              )}
+            >
+              <Columns2 className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {!expanded && latestImageTool?.images?.length ? (
         <div className="border-t border-[var(--border-subtle)] px-3 py-2">

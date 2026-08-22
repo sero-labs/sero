@@ -195,6 +195,7 @@ export function EditorPanel({
               filePath={activeTab}
               content={displayedContent}
               spec={previewSpec}
+              streaming={isStreamingTab}
             />
           ) : (
             <EditorSuspense>
