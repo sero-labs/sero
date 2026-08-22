@@ -13,16 +13,26 @@ export default defineConfig({
   },
   test: {
     setupFiles: ['test/vitest.setup.ts'],
-    include: [
-      'electron/__tests__/**/*.test.ts',
-      'e2e/helpers/__tests__/**/*.test.ts',
-      'src/**/*.test.ts',
-      'src/**/*.test.tsx',
-    ],
-    environment: 'node',
-    environmentMatchGlobs: [
-      ['src/**/*.test.ts', 'jsdom'],
-      ['src/**/*.test.tsx', 'jsdom'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: [
+            'electron/__tests__/**/*.test.ts',
+            'e2e/helpers/__tests__/**/*.test.ts',
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'renderer',
+          environment: 'jsdom',
+          include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+        },
+      },
     ],
   },
 });

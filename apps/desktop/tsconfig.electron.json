@@ -9,9 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "dist/electron",
-    /* Widened to the monorepo root so Electron typecheck can resolve shared
-       workspace packages and plugin aliases during `tsc --noEmit`. Safe: the
-       production Electron build still uses esbuild entry bundling instead. */
     "rootDir": "../..",
     "lib": ["ES2022"],
     "baseUrl": ".",
@@ -26,10 +23,7 @@
       "@sero-ai/ui/ai-elements/*": ["../../packages/ui/src/components/ai-elements/*"],
       "@sero-ai/ui/model-selection/*": ["../../packages/ui/src/components/model-selection/*"],
       "@sero-ai/ui/*": ["../../packages/ui/src/*"],
-      // Pi exports this subpath, but moduleResolution:node still needs this mapping.
       "@earendil-works/pi-ai/oauth": ["./node_modules/@earendil-works/pi-ai/dist/oauth"],
-      // Pi coding-agent's declarations still refer to the temporary compat subpath.
-      // Sero source must not import it directly.
       "@earendil-works/pi-ai/compat": ["./node_modules/@earendil-works/pi-ai/dist/compat"]
     }
   },

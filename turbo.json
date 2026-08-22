@@ -12,6 +12,12 @@
     "typecheck": {
       "dependsOn": ["^build"]
     },
+    "typecheck:source": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck:tests": {
+      "dependsOn": ["^build"]
+    },
     "test": {
       "outputs": []
     },

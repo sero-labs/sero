@@ -1,8 +1,15 @@
 {
   "extends": "./tsconfig.electron.json",
   "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
     "noEmit": true
   },
-  "include": ["electron/__tests__/**/*"],
+  "include": [
+    "electron/**/*.d.ts",
+    "electron/__tests__/**/*",
+    "src/**/*.d.ts",
+    "src/types/ipc.ts",
+    "src/types/ipc-channels.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
