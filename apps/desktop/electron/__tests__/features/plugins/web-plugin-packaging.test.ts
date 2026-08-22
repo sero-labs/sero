@@ -1,6 +1,6 @@
 import path from 'path';
 import { existsSync } from 'fs';
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { describe, expect, it } from 'vitest';
 
 const desktopRoot = path.resolve(__dirname, '../../../..');
@@ -37,6 +37,7 @@ describe('built-in web plugin packaging', () => {
     const dependencies = packageJson.dependencies as Record<string, string> | undefined;
 
     expect(packageJson.name).toBe('@sero-ai/plugin-web');
+    await expect(stat(path.join(webPluginRoot, 'dist/ui/remoteEntry.js'))).resolves.toBeDefined();
     for (const dependency of REQUIRED_RUNTIME_DEPENDENCIES) {
       expect(dependencies?.[dependency]).toBeTruthy();
       await expect(readJson(path.join(webPluginNodeModules, dependency, 'package.json')))
