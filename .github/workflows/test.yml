@@ -203,7 +203,7 @@ jobs:
         run: |
           set -euo pipefail
           start=$SECONDS
-          if [[ "$FULL_RUN" == "true" ]]; then pnpm build -- --summarize; else pnpm turbo run build --affected --summarize; fi
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run build --summarize; else pnpm turbo run build --affected --summarize; fi
           echo "Build took $((SECONDS - start))s"
       - name: Upload Turbo run summaries
         if: always()
@@ -246,7 +246,7 @@ jobs:
         run: |
           set -euo pipefail
           start=$SECONDS
-          if [[ "$FULL_RUN" == "true" ]]; then pnpm test -- --summarize; else pnpm turbo run test --affected --summarize; fi
+          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run test --summarize; else pnpm turbo run test --affected --summarize; fi
           echo "Tests took $((SECONDS - start))s"
       - name: Advisory test report
         if: always()
@@ -263,7 +263,7 @@ jobs:
   workflow-metrics:
     name: CI feedback metrics
     needs: [changes, source-typecheck, test-typecheck, build, tests]
-    if: always() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    if: always() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
