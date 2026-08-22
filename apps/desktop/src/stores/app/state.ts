@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persistLayout } from '@/lib/persist-layout';
+import type { ToolCallLayout } from '@/types/layout';
 import {
   hasTransientRemote,
   preloadFederatedModule,
@@ -87,6 +88,10 @@ export interface AppState {
   // Monaco editor theme (separate from UI theme)
   editorThemeId: string;
   setEditorThemeId: (id: string) => void;
+
+  // Expanded tool call rendering
+  toolCallLayout: ToolCallLayout;
+  setToolCallLayout: (layout: ToolCallLayout) => void;
 }
 
 function preloadAndActivateApp(
@@ -314,5 +319,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setEditorThemeId: (id) => {
     set({ editorThemeId: id });
     persistLayout({ editorThemeId: id });
+  },
+
+  toolCallLayout: 'rows',
+  setToolCallLayout: (layout) => {
+    set({ toolCallLayout: layout });
+    persistLayout({ toolCallLayout: layout });
   },
 }));

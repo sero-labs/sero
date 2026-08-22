@@ -27,6 +27,11 @@ export function mapToolState(
 
 export type GroupStatus = 'running' | 'completed' | 'error' | 'cancelled';
 
+/** Pending, running or still receiving streamed arguments. */
+export function isToolLive(tool: ChatToolCallMessage): boolean {
+  return tool.state === 'pending' || tool.state === 'running' || !!tool.isStreamingInput;
+}
+
 export function deriveGroupStatus(tools: ChatToolCallMessage[]): GroupStatus {
   const hasRunning = tools.some((t) => t.state === 'pending' || t.state === 'running');
   const hasCancelled = tools.some((t) => t.state === 'cancelled');

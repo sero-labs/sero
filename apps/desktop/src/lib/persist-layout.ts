@@ -45,6 +45,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
     themeEditorAutoSave: partial.themeEditorAutoSave ?? app.themeEditorAutoSave,
     editorThemeId: partial.editorThemeId ?? app.editorThemeId,
+    toolCallLayout: partial.toolCallLayout ?? app.toolCallLayout,
     activeWorkspaceId: partial.activeWorkspaceId !== undefined
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,

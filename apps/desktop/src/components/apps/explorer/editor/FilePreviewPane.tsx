@@ -33,6 +33,7 @@ interface Props {
   filePath: string;
   content: string;
   spec: FilePreviewSpec;
+  streaming?: boolean;
 }
 
 interface BinaryFilePreviewProps {
@@ -196,7 +197,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
   );
 }
 
-export function FilePreviewPane({ workspaceId, filePath, content, spec }: Props) {
+export function FilePreviewPane({ workspaceId, filePath, content, spec, streaming = false }: Props) {
   const editorThemeId = useAppStore((state) => state.editorThemeId);
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const markdownPalette = useMemo(
@@ -214,7 +215,7 @@ export function FilePreviewPane({ workspaceId, filePath, content, spec }: Props)
 
   if (spec.source === 'text') {
     if (spec.kind === 'html') {
-      return <HtmlPreview content={content} filePath={filePath} />;
+      return <HtmlPreview content={content} filePath={filePath} streaming={streaming} />;
     }
 
     return (
