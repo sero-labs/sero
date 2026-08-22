@@ -27,7 +27,7 @@ updates:
       # plugin bundle, so moving the host alone strands installed plugins (they
       # get a null React and are refused by the ABI guard). Upgrade the host, the
       # in-repo plugins, and every external plugin together, bump
-      # SERO_PLUGIN_RUNTIME_ABI, and republish — see docs/plugins/technical.md.
+      # SERO_PLUGIN_RUNTIME_ABI, and republish. See the public Plugins reference.
       - dependency-name: "@module-federation/*"
     groups:
       security-updates:

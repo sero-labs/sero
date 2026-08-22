@@ -5,7 +5,7 @@
  * system prompt sources: AGENTS.md template, memory-instructions.ts,
  * CLI prompt block, and container prompt block.
  *
- * See docs/analysis/context-bloat-reduction.md for the full analysis.
+ * These tests keep the context reduction contract executable.
  */
 
 import { describe, it, expect } from 'vitest';

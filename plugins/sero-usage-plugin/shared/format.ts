@@ -1,5 +1,4 @@
-// Display formatting rules, shared by the extension (tool/CLI text output)
-// and the UI. Specified in docs/specs/sero-usage-plugin-spec.md §4.3.
+// Display formatting rules shared by the extension and UI.
 
 /** `-` when 0; 4 dp under $0.01; 2 dp under $10; 1 dp under $100; whole dollars above. */
 export function formatCost(cost: number): string {

@@ -1,6 +1,6 @@
 /**
- * Agent Board types — persisted preferences and the per-workspace state slices
- * the board store aggregates (docs/features/agent-board/plan.md).
+ * Agent Board types - persisted preferences and the per-workspace state slices
+ * the board store aggregates.
  */
 
 import type {

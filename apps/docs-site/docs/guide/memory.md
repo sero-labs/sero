@@ -236,8 +236,7 @@ Update memory: this demo project now uses npm instead of pnpm.
 
 ## More detail
 
-This guide is the user-facing overview. For implementation details, context
-budgets, QMD integration, lifecycle hooks, and exact file behavior, see the
-source reference
-[`docs/features/memory.md`](https://github.com/sero-labs/sero/blob/main/docs/features/memory.md)
-on GitHub.
+This guide is the user-facing overview. The
+[`sero-memory-plugin`](https://github.com/sero-labs/sero/tree/main/plugins/sero-memory-plugin)
+source contains implementation details for context budgets, QMD integration,
+lifecycle hooks, and file behaviour.

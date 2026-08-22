@@ -2,8 +2,8 @@
  * State + path resolution for the Usage plugin.
  *
  * This is a Sero-only built-in plugin: paths resolve exclusively from the
- * Sero-provided env vars. There is deliberately NO ~/.pi/agent or cwd
- * fallback (docs/specs/sero-usage-plugin-spec.md §2.1, §3.5).
+ * Sero-provided env vars. There is deliberately no ~/.pi/agent or cwd
+ * fallback.
  */
 
 import { promises as fs } from 'node:fs';

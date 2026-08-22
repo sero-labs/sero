@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/sero-labs/sero/blob/main/SECURITY.md
     about: Do not file public vulnerabilities. Follow the private reporting instructions in SECURITY.md.
   - name: Sero docs and setup guidance
-    url: https://github.com/sero-labs/sero/blob/main/docs/sero.md
+    url: https://docs.sero-ai.dev/guide/getting-started
     about: Read the platform constraints, runtime modes, and setup guidance before filing a support issue.

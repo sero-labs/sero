@@ -1,5 +1,5 @@
 /**
- * Agent Rooms grouping (docs/features/agent-rooms/spec.md §27.1).
+ * Agent Rooms grouping is derived without reading Orchestrator state.
  *
  * Every input here is what the scanner already produces — a session path and a
  * Pi session name. No test reaches for Orchestrator metadata, because the

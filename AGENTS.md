@@ -41,7 +41,7 @@ binary, model files, …), it must install it once per machine in the shared
 artifacts area — background runtimes get this via
 `host.toolchains.sharedToolsDir('<app-id>')` (`SERO_HOST_ARTIFACTS_ROOT/app-tools/<app-id>`);
 managed binaries themselves go through the toolchain manifest
-(`docs/features/host-toolchain.md`). Never install tools under the profile's
+(`apps/desktop/README.md`). Never install tools under the profile's
 `SERO_HOME` (e.g. `apps/<id>/`): profiles hold *data* (state, artifacts,
 settings), and per-profile tool copies duplicate hundreds of MB per profile.
 Resolution must follow the standard order: verified system tool first, shared
@@ -81,7 +81,10 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - **CRITICAL** Only report to me in ASD-STE100 Simplified Technical English.
 - Tests are good. Endless smoke tests or "regression tests" for feature deletions, etc. much less good. Tests should be functional, not just for the sake of it.
 - When reviewing a PR, a branch, or a diff — use the `sero-code-review` skill (not the built-in `code-review`)
-- Save new documentation/plans in `@docs/` or typed subfolders
+- Put implementation plans and task history in GitHub issues or PR descriptions.
+  Put public user and plugin-author documentation in `apps/docs-site/docs/`,
+  subsystem guidance in the owning README, and only current cross-cutting
+  boundaries in `ARCHITECTURE.md`.
 - Use Conventional Commit messages
 - Always create pull requests as drafts. Never mark a pull request ready for review unless the user explicitly asks
 - Always add code reviews as a comment in related Github issue
@@ -97,7 +100,9 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - NEVER add unnecessary clutter to UI components. For instance do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
 - Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
 - After making changes to `packages/*` remind that the packages may need to be republished to npm
-- UX prototypes should be saved in `docs/prototypes`. Always create a prototype when developing a new feature or component. Prototypes should be static unless stated (see existing examples).
+- Keep temporary UX prototypes on the working branch or attach them to the
+  relevant issue. Remove them before merge unless they are current public docs
+  assets or maintained product code.
 - When the user asks about pi itself (its SDK, extensions, themes, skills, TUI, or other internals), use the `pi-docs` skill — it maps every topic to the bundled pi documentation and examples.
 - You do not have to validate/lint markdown files
 

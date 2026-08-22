@@ -62,6 +62,3 @@ Cloudflare Pages, project `sero-homepage`:
 - **Build command:** `pnpm install --frozen-lockfile && pnpm --filter @sero/homepage build`
 - **Build output:** `apps/homepage/dist`
 - **Custom domain:** `sero-ai.dev` (apex) + `www.sero-ai.dev` redirect
-
-See [`docs/plans/sero-homepage-app.md`](../../docs/plans/sero-homepage-app.md) for
-the full plan.

@@ -11,8 +11,8 @@ import { DevServerIndicator } from '@/components/layout/DevServerPanel';
  * Left side: active workspace name + path.
  * Right side: debug toggle, active agent count, zoom, version, theme.
  *
- * No git affordance: git lives in the Git app and the titlebar popover (AD-025 —
- * `docs/features/git-ux.md`). The status bar reads no git state.
+ * No git affordance: git lives in the Git app and the titlebar popover. The
+ * status bar reads no git state.
  */
 export function StatusBar() {
   const themeMode = useThemeStore((s) => s.mode);

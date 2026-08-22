@@ -116,12 +116,12 @@ describe('verify-host-mode-release', () => {
 
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
     await fs.writeFile(
-      path.join(repoRoot, 'docs/features/host-toolchain.md'),
+      path.join(desktopRoot, 'README.md'),
       'Linux and Windows require the local artifact smoke flow\n',
     );
 
     await expect(verifyFixture()).rejects.toThrow(
-      'docs/features/host-toolchain.md: stale supported-platform browser-pack wording: "Linux and Windows require the local artifact smoke flow"',
+      'apps/desktop/README.md: stale supported-platform browser-pack wording: "Linux and Windows require the local artifact smoke flow"',
     );
   });
 
@@ -146,7 +146,7 @@ async function writeFixture() {
   await fs.mkdir(path.dirname(metadataPath()), { recursive: true });
   await fs.mkdir(path.dirname(toolchainMetadataPath()), { recursive: true });
   await fs.mkdir(path.dirname(workflowPath()), { recursive: true });
-  await fs.mkdir(path.join(repoRoot, 'docs/features'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'apps/docs-site/docs/reference'), { recursive: true });
   await writeJson(matrixPath(), matrix);
   await writeJson(metadataPath(), createBuiltMetadata());
   await writeJson(toolchainMetadataPath(), createBuiltToolchainMetadata());
@@ -164,7 +164,7 @@ async function writeFixture() {
   await fs.writeFile(workflowPath(), workflowText());
   await fs.mkdir(path.join(desktopRoot, 'scripts'), { recursive: true });
   await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), buildReleaseText());
-  await fs.writeFile(path.join(repoRoot, 'docs/features/host-toolchain.md'), 'Published browser packs use GitHub Release assets.\n');
+  await fs.writeFile(path.join(desktopRoot, 'README.md'), 'Published browser packs use GitHub Release assets.\n');
 }
 
 function createBuiltMetadata() {

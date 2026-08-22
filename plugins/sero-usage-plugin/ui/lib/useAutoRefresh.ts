@@ -1,7 +1,6 @@
 /**
- * Staleness-driven refresh shared by the Usage app and the dashboard
- * widget (docs/specs/sero-usage-plugin-spec.md §3.3). Both surfaces may
- * mount together; the extension-side in-flight guard makes the concurrent
+ * Staleness-driven refresh shared by the Usage app and dashboard widget. Both
+ * surfaces may mount together; the extension-side in-flight guard makes the concurrent
  * calls share one scan.
  */
 

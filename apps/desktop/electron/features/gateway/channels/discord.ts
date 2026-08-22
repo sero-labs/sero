@@ -55,7 +55,7 @@ async function chromiumFetch(
 export interface DiscordAdapterConfig {
   /** Discord bot token. */
   botToken: string;
-  /** Allowed Discord user IDs (empty = allow all). */
+  /** Allowed Discord user IDs. An empty list keeps the adapter disabled. */
   allowedUsers: string[];
   /** Default workspace ID for Discord-initiated sessions. */
   defaultWorkspaceId: string;

@@ -65,7 +65,7 @@ export interface OrchestratorSetScheduleParams {
   scheduleDisabled?: boolean;
 }
 
-// ── Agent Board view (cross-workspace board, docs/features/agent-board/plan.md) ──
+// Agent Board view shared by the cross-workspace board and Orchestrator.
 //
 // The board reads every workspace's watched index and renders loop cards without
 // importing plugin internals. `LoopSummary` in the Orchestrator plugin extends

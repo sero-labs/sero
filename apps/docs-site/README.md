@@ -18,19 +18,11 @@ The public information architecture may evolve as these categories fill in. Keep
 ## Content rules
 
 - Treat `apps/docs-site/docs/**` as the curated public-doc surface.
-- Treat root `docs/**` as source material and deeper reference docs during the
-  migration period.
-- Do **not** link internal/historical trees from the public nav, including:
-  - `.pi/plans/**`
-  - `docs/plans/**`
-  - `docs/superpowers/**`
-  - `docs/deslopify/**`
-  - `AGENTS.md` while it remains temporarily tracked for Pi CLI compatibility
-- Keep maintainer-only/archive surfaces out of the public nav even if related
-  historical material still exists elsewhere in the repo.
+- Do not create a root `docs/` directory. Git history and the
+  `docs-before-reset-2026-08-22` tag retain old source material.
+- Keep implementation plans, review history, evidence bundles, and maintainer
+  coordination out of the public content tree.
 - Prefer concise public explanations over copying internal plan language.
-- Preserve before prune: do not delete or move the older docs as part of docs
-  site work unless the release plan explicitly calls for it.
 
 ## Commands
 

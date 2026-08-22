@@ -1,7 +1,6 @@
 /**
  * Persisted data model for Sero Orchestrator.
  *
- * Mirrors docs/features/orchestration/sero-orchestrator/specs/01-data-model.md.
  * The model stores LLM-authored step plans, user-selected workspace settings,
  * and generic runtime history. It encodes no fixed workflow and adds no
  * Orchestrator-specific execution restrictions.
@@ -16,7 +15,7 @@ import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
 
-// Skill extraction (specs/18) and loop warnings are split out the same way.
+// Skill extraction and loop warnings are split out the same way.
 export type { SkillDraft, SkillDraftStatus, LoopSkillLink } from './skill-types';
 import type { LoopSkillLink, SkillDraft } from './skill-types';
 import type { LoopWarning } from './warning-types';
@@ -77,17 +76,16 @@ export type {
   ClarifyingResponse,
 } from './human-input-types';
 
-// Index attention payload (home inbox) lives in attention-types.ts (see
-// specs/09-ui-redesign.md); re-exported here so './types' imports keep resolving.
+// Index attention payload (home inbox) lives in attention-types.ts and is
+// re-exported here so './types' imports keep resolving.
 export type {
   LoopAttention,
   LoopAttentionInput,
   LoopAttentionSuggestion,
 } from './attention-types';
 
-// Delivery destination types live in delivery-types.ts (see
-// specs/13-pluggable-delivery.md); re-exported here so './types' imports keep
-// resolving.
+// Delivery destination types live in delivery-types.ts and are re-exported
+// here so './types' imports keep resolving.
 export type {
   DeliveryDestinationId,
   LoopDeliverySettings,
@@ -95,8 +93,8 @@ export type {
   DeliveryDestinationInfo,
 } from './delivery-types';
 
-// Loop Library types live in library-types.ts (see specs/08-loop-library.md);
-// re-exported here so existing imports from './types' keep resolving.
+// Loop Library types live in library-types.ts and are re-exported here so
+// existing imports from './types' keep resolving.
 export type {
   SharedTriggerConfig,
   SharedLoopDefinition,

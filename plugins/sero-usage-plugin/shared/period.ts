@@ -1,6 +1,6 @@
 // Period boundary math, shared by the extension aggregator and the UI
 // (trend chart range filtering). All boundaries are local time; weeks
-// start on Monday per docs/specs/sero-usage-plugin-spec.md §2.5.
+// start on Monday.
 
 import type { PeriodKey } from './types';
 

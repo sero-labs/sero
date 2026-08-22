@@ -4,8 +4,6 @@
  *
  * Sero-only built-in plugin: paths resolve exclusively from SERO_HOME /
  * PI_CODING_AGENT_DIR (no ~/.pi fallback). Read-only against sessions.
- *
- * Spec: docs/specs/sero-usage-plugin-spec.md
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
