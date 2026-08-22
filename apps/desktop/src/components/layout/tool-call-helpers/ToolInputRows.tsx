@@ -28,10 +28,10 @@ export function ToolInputRows({ input }: { input: Record<string, unknown> }) {
             isInlineValue(value) ? 'grid grid-cols-[minmax(0,6rem)_1fr] gap-3' : 'space-y-1',
           )}
         >
-          <dt className="truncate font-mono text-xs text-[var(--text-muted)]">{key}</dt>
+          <dt className="truncate font-mono text-sm text-[var(--text-muted)]">{key}</dt>
           <dd className="min-w-0">
             {isInlineValue(value) ? (
-              <span className="break-all font-mono text-xs text-[var(--text-secondary)]">
+              <span className="break-all font-mono text-sm text-[var(--text-secondary)]">
                 {String(value)}
               </span>
             ) : (

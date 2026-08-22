@@ -35,7 +35,7 @@ export function ToolRows({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, delay: index * 0.03 }}
-            className="border-t border-[var(--border-subtle)]/50 first:border-t-0"
+            className={cn('border-t border-(--border-subtle)/50 first:border-t-0', isOpen && 'pb-2')}
           >
             <button
               type="button"
@@ -45,13 +45,13 @@ export function ToolRows({
               }}
               className={cn(
                 'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors duration-150',
-                'hover:bg-[var(--bg-elevated)]/60',
-                isOpen && 'bg-[var(--bg-elevated)]/40',
+                'hover:bg-(--bg-elevated)/60',
+                isOpen && 'bg-(--bg-elevated)/40',
               )}
             >
               <ChevronRight
                 className={cn(
-                  'size-3 shrink-0 text-[var(--text-muted)] transition-transform duration-150',
+                  'size-3 shrink-0 text-(--text-muted) transition-transform duration-150',
                   isOpen && 'rotate-90',
                 )}
               />
@@ -59,7 +59,7 @@ export function ToolRows({
             </button>
 
             {isOpen ? (
-              <div className="ml-[21px] border-l border-[var(--border-subtle)] py-2 pl-3 pr-3">
+              <div className="ml-4.25 border-l border-(--border-subtle) py-2 pl-3 pr-3">
                 <ToolDetailBody tool={tool} workspaceId={workspaceId} />
               </div>
             ) : null}

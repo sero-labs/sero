@@ -53,10 +53,10 @@ export function ToolRailPane({
           >
             <span className="mt-1.5">{toolStatusDot(tool.state)}</span>
             <span className="min-w-0">
-              <span className="block truncate text-xs font-medium text-[var(--text-secondary)]">
+              <span className="block truncate text-sm font-medium text-[var(--text-secondary)]">
                 {getEffectiveToolName(tool)}
               </span>
-              <span className="block truncate font-mono text-xs text-[var(--text-muted)]">
+              <span className="block truncate font-mono text-sm text-[var(--text-muted)]">
                 {railSummary(tool)}
               </span>
             </span>

@@ -133,6 +133,7 @@ export function EditorPanel({
     setContent: documentState.setContent,
   });
   const isStreamingTab = streamingContent !== null;
+  const displayedContent = streamingContent ?? documentState.content;
   const handleEditorChange = useStreamingEditorChange(
     isStreamingTab,
     documentState.handleChange,
@@ -192,7 +193,7 @@ export function EditorPanel({
             <FilePreviewPane
               workspaceId={workspaceId}
               filePath={activeTab}
-              content={documentState.content}
+              content={displayedContent}
               spec={previewSpec}
             />
           ) : (
@@ -201,7 +202,7 @@ export function EditorPanel({
                 height="100%"
                 language={documentState.language}
                 path={activeTab}
-                value={streamingContent ?? documentState.content}
+                value={displayedContent}
                 onChange={handleEditorChange}
                 beforeMount={monacoState.handleBeforeMount}
                 onMount={monacoState.handleEditorMount}

@@ -37,7 +37,7 @@ export function ToolDetailBody({
       {/* A progress model already renders the live output text. */}
       {output && !progress ? (
         <div className="space-y-1">
-          <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+          <span className="text-sm uppercase tracking-wide text-[var(--text-muted)]">
             {tool.isError ? 'error' : 'output'}
           </span>
           <ClampedText text={output} tone={tool.isError ? 'error' : 'default'} />

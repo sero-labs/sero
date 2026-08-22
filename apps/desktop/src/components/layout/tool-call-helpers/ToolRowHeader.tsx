@@ -22,7 +22,7 @@ export function ToolRowHeader({
   return (
     <>
       {toolStatusDot(tool.state)}
-      <span className="shrink-0 text-xs font-medium text-[var(--text-secondary)]">
+      <span className="shrink-0 text-sm font-medium text-[var(--text-secondary)]">
         {effectiveToolName}
       </span>
       {summary ? (
@@ -34,7 +34,7 @@ export function ToolRowHeader({
         />
       ) : null}
       {tool.state === 'cancelled' ? (
-        <span className="ml-auto shrink-0 text-xs text-status-warning">cancelled</span>
+        <span className="ml-auto shrink-0 text-sm text-status-warning">cancelled</span>
       ) : null}
     </>
   );

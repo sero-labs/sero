@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { FileCode2 } from 'lucide-react';
 import type { ChatToolCallMessage } from '@/types/ipc';
 
 const TAIL_LINES = 200;
@@ -19,18 +18,18 @@ export function StreamingFileWrite({ tool }: { tool: ChatToolCallMessage }) {
   }, [content]);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-status-info-border bg-status-info-faint">
-      <div className="flex items-center gap-2 px-3 py-2">
-        <FileCode2 className="size-3.5 shrink-0 text-status-info" />
-        <span className="min-w-0 truncate font-mono text-xs text-[var(--text-secondary)]">
+    <div className="min-w-0 space-y-1.5">
+      <div className="grid min-w-0 grid-cols-[minmax(0,6rem)_minmax(0,1fr)_auto] gap-3">
+        <span className="truncate font-mono text-sm text-(--text-muted)">file</span>
+        <span className="min-w-0 truncate font-mono text-sm text-(--text-secondary)">
           {path ?? 'Waiting for path…'}
         </span>
-        <span className="ml-auto shrink-0 font-mono text-sm text-[var(--text-muted)]">
+        <span className="shrink-0 font-mono text-sm text-(--text-muted)">
           {isFragment ? 'replacement · ' : ''}
           {lineCount} {lineCount === 1 ? 'line' : 'lines'}
         </span>
       </div>
-      <pre className="flex max-h-60 flex-col justify-end overflow-hidden whitespace-pre bg-[var(--bg-surface)]/70 px-3 py-2 font-mono text-xs leading-relaxed text-[var(--text-secondary)]">
+      <pre className="flex max-h-60 flex-col justify-end overflow-hidden whitespace-pre py-1 font-mono text-sm leading-relaxed text-[var(--text-secondary)]">
         {tail}
         <span className="inline-block h-3.5 w-1.5 animate-pulse bg-status-info align-text-bottom" />
       </pre>

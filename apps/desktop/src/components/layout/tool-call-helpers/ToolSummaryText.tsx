@@ -38,10 +38,10 @@ export function ToolSummaryText({
     <span
       onClick={handleClick}
       className={cn(
-        'min-w-0 truncate text-[var(--text-secondary)]',
+        'min-w-0 truncate text-(--text-secondary) text-sm',
         isFilePath &&
           workspaceId &&
-          'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:text-[var(--text-primary)] hover:decoration-[var(--accent-primary)]',
+          'cursor-pointer underline decoration-dotted decoration-(--text-muted)/60 underline-offset-2 hover:text-(--text-primary) hover:decoration-(--accent-primary)',
       )}
       title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
     >

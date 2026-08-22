@@ -24,7 +24,7 @@ export function ClampedText({
     <div className="min-w-0">
       <pre
         className={cn(
-          'whitespace-pre-wrap break-words font-mono text-xs leading-relaxed',
+          'whitespace-pre-wrap break-words font-mono text-sm leading-relaxed',
           tone === 'error' ? 'text-status-error' : 'text-[var(--text-secondary)]',
         )}
       >
@@ -37,7 +37,7 @@ export function ClampedText({
             event.stopPropagation();
             setOpen((previous) => !previous);
           }}
-          className="mt-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          className="mt-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
         >
           {open ? 'Show less' : `Show all ${lines.length} lines`}
         </button>
