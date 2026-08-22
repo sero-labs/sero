@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { currentAttempt } from '../shared/media';
 import { appendRequest, readStateWithIndexes } from '../shared/state-io';
 
-import { useCoordinator } from './coordinator-harness';
+import { FAST_POLL, useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
 import { listJobs, readItem } from './store';
 import { seedDesign } from './test-fixtures';
@@ -26,7 +26,7 @@ async function waitForAsset(designId: string, assetId: string) {
     const asset = design?.assets.find((entry) => entry.id === assetId);
     expect(asset?.attempts.length).toBeGreaterThan(0);
     return asset!;
-  });
+  }, FAST_POLL);
 }
 
 describe('generating an asset into a Design', () => {
@@ -95,7 +95,7 @@ describe('generating an asset into a Design', () => {
       const current = await readDesign(harness.paths, 'design-1');
       expect(current?.assets[0].attempts.length).toBe(2);
       return current!;
-    });
+    }, FAST_POLL);
     expect(design.assets).toHaveLength(1);
     expect(design.assets[0].reference).toBe(failed.reference);
     // The first failure is still on the record — a retry adds, never replaces.
@@ -209,13 +209,13 @@ describe('generating into the Library', () => {
       const generated = state.items.find((item) => item.sourceKind === 'generated');
       expect(generated).toBeDefined();
       return generated!.id;
-    });
+    }, FAST_POLL);
 
     // Generated items take the ordinary import route, so analysis starts by
     // itself exactly as it does for a file the user dropped in.
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('ready');
-    });
+    }, FAST_POLL);
     expect((await readItem(harness.paths, itemId))?.generation?.prompt).toBe(
       'brutalist poster grid',
     );
@@ -257,7 +257,7 @@ describe('generating into the Library', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.items.filter((item) => item.sourceKind === 'generated')).toHaveLength(1);
-    });
+    }, FAST_POLL);
   });
 });
 
@@ -276,7 +276,7 @@ describe('video confirmation', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'library')?.status).toBe('failed');
-    });
+    }, FAST_POLL);
     expect((await readStateWithIndexes(harness.paths)).items).toEqual([]);
   });
 });

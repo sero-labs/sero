@@ -6,6 +6,7 @@ import type { DesignBrief, DesignRecord } from '../../shared/design';
 import { appendRequest } from '../../shared/state-io';
 import {
   BASELINE_STYLE,
+  FAST_POLL,
   STUB_PAGE,
   isGenerationRun,
   nameDesign,
@@ -58,7 +59,7 @@ async function settled(): Promise<DesignRecord> {
         (variant) => variant.status !== 'pending' && variant.status !== 'running',
       ),
     ).toBe(true);
-  }, { timeout: 5_000 });
+  }, { ...FAST_POLL, timeout: 5_000 });
   return (await readDesign(harness.paths, 'dsn-1'))!;
 }
 
@@ -262,7 +263,7 @@ describe('revising a variant', () => {
     await restarted.start();
     await vi.waitFor(async () => {
       expect((await readDesign(harness.paths, 'dsn-1'))?.variants[0]?.status).toBe('ready');
-    }, { timeout: 5_000 });
+    }, { ...FAST_POLL, timeout: 5_000 });
     await restarted.dispose();
 
     expect(tasks.at(-1)).toContain('Make the metrics tighter');

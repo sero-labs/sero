@@ -4,8 +4,8 @@ import { refreshGitState } from '@electron/features/git/git-service/git-service'
 import {
   runGit,
   cleanupPaths,
-  commitAll,
   createGitRepo,
+  createSeededRepo,
   statePathFor,
   writeRepoFile,
 } from './git-test-helpers';
@@ -36,12 +36,10 @@ describe('refreshGitState', () => {
   });
 
   it('uses quick refresh mode when HEAD and branch are unchanged', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
 
       const initialState = await refreshGitState(repoPath, statePath, { scope: 'full' });
       await writeRepoFile(repoPath, 'notes.txt', 'dirty\n');
@@ -60,12 +58,10 @@ describe('refreshGitState', () => {
   });
 
   it('falls back to a full refresh when refs change without a HEAD update', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       await refreshGitState(repoPath, statePath, { scope: 'full' });
 
       runGit(['branch', 'feature'], repoPath);
@@ -78,12 +74,10 @@ describe('refreshGitState', () => {
   });
 
   it('excludes internal turn-undo refs from visible commit history and counts', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
 
       const headTree = runGit(['rev-parse', 'HEAD^{tree}'], repoPath);
       const hiddenCommit = runGit([

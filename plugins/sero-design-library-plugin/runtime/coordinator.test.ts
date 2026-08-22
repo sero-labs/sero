@@ -5,7 +5,7 @@ import { tombstoneFile } from '../shared/paths';
 import { appendRequest, readStateWithIndexes, updateState } from '../shared/state-io';
 import type { AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
-import { ANALYSIS_REPLY, useCoordinator, viewReference } from './coordinator-harness';
+import { ANALYSIS_REPLY, FAST_POLL, useCoordinator, viewReference } from './coordinator-harness';
 import { markSucceeded } from './jobs';
 import { listJobs, mutateItem, readItem } from './store';
 
@@ -59,7 +59,7 @@ describe('applying requests', () => {
     await harness.coordinator.drain();
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.attempts).toBe(2);
-    });
+    }, FAST_POLL);
 
     const summary = (await readStateWithIndexes(harness.paths)).items.find((entry) => entry.id === itemId);
     expect(summary?.primaryStyle).toBe('My own style');
@@ -195,7 +195,7 @@ describe('reanalysis', () => {
 
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('ready');
-    });
+    }, FAST_POLL);
 
     const item = await readItem(harness.paths, itemId);
     const jobs = await listJobs(harness.paths);
@@ -338,7 +338,7 @@ describe('failure handling', () => {
     const itemId = (await readStateWithIndexes(harness.paths)).items[0].id;
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('failed');
-    });
+    }, FAST_POLL);
     expect((await readItem(harness.paths, itemId))?.analysis.error).toBe('provider exploded');
 
     // The reason has to reach the grid, or the UI can only say "it failed".
@@ -347,7 +347,7 @@ describe('failure handling', () => {
     await vi.waitFor(async () => {
       const summary = (await readStateWithIndexes(harness.paths)).items.find((entry) => entry.id === itemId);
       expect(summary?.analysisError).toBe('provider exploded');
-    });
+    }, FAST_POLL);
   });
 
   it('restarts an analysis left running by a process that is gone', async () => {
@@ -364,7 +364,7 @@ describe('failure handling', () => {
 
     await vi.waitFor(async () => {
       expect((await readItem(harness.paths, itemId))?.analysis.status).toBe('ready');
-    });
+    }, FAST_POLL);
   });
 
   it('keeps draining after one request fails', async () => {

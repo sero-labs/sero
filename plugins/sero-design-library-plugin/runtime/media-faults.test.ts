@@ -5,7 +5,7 @@ import { assetIsPending, currentAttempt } from '../shared/media';
 import { designAssetDir } from '../shared/paths';
 import { assetTarget } from '../shared/records';
 import { appendRequest, readStateWithIndexes } from '../shared/state-io';
-import { useCoordinator } from './coordinator-harness';
+import { FAST_POLL, useCoordinator } from './coordinator-harness';
 import { readDesign } from './design-store';
 import { createJob, markRunning, reconcileJobs } from './jobs';
 import { reserveAsset } from './media/assets';
@@ -54,7 +54,7 @@ describe('a provider that fails', () => {
       const found = await assetOf(harness.paths, 'design-1', 'asset-1');
       expect(found.attempts.length).toBeGreaterThan(0);
       return found;
-    });
+    }, FAST_POLL);
 
     // The asset exists, holds the failure, and owns no job — which is exactly
     // what the tray turns into a placeholder with a retry.
@@ -78,7 +78,7 @@ describe('a provider that fails', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'asset')?.status).toBe('failed');
-    });
+    }, FAST_POLL);
     // The Design is untouched — a provider outage is not a reason to lose it.
     const design = await readDesign(harness.paths, 'design-1');
     expect(design?.variants.length).toBeGreaterThan(0);
@@ -128,7 +128,7 @@ describe('a run that died holding an asset', () => {
       expect(currentAttempt(await assetOf(harness.paths, 'design-1', 'asset-1'))?.outcome).toBe(
         'ready',
       );
-    });
+    }, FAST_POLL);
 
     await reconcileJobs(harness.paths);
 
@@ -155,7 +155,7 @@ describe('purging an asset', () => {
       expect(currentAttempt(await assetOf(harness.paths, 'design-1', 'asset-1'))?.outcome).toBe(
         'ready',
       );
-    });
+    }, FAST_POLL);
     const directory = designAssetDir(harness.paths, 'design-1', 'asset-1');
     expect(await exists(directory)).toBe(true);
 
@@ -194,7 +194,7 @@ describe('purging an asset', () => {
       expect((await assetOf(harness.paths, 'design-1', 'asset-2')).attempts.length).toBeGreaterThan(
         0,
       );
-    });
+    }, FAST_POLL);
   });
 });
 
@@ -214,7 +214,7 @@ describe('retrying after a failure', () => {
       const found = await assetOf(harness.paths, 'design-1', 'asset-1');
       expect(found.attempts.length).toBeGreaterThan(0);
       return found;
-    });
+    }, FAST_POLL);
     expect(currentAttempt(failed)?.outcome).toBe('failed');
     const reference = failed.reference;
 
@@ -229,7 +229,7 @@ describe('retrying after a failure', () => {
       const found = await assetOf(harness.paths, 'design-1', 'asset-1');
       expect(found.attempts).toHaveLength(2);
       return found;
-    });
+    }, FAST_POLL);
     // Attempts append, never replace: "preserves history" is only true if the
     // attempt that failed is still something you can look at.
     expect(retried.attempts[0]?.outcome).toBe('failed');
@@ -257,7 +257,7 @@ describe('two jobs racing for one asset', () => {
     await harness.coordinator.drain();
     await vi.waitFor(async () => {
       expect((await assetOf(harness.paths, 'design-1', 'asset-1')).attempts.length).toBe(1);
-    });
+    }, FAST_POLL);
 
     // The orphan is still `queued`, so the next start reconciles it as
     // resumable and routes it to the media queue — the real path it takes.
@@ -265,7 +265,7 @@ describe('two jobs racing for one asset', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.id === orphan.id)?.status).toBe('failed');
-    });
+    }, FAST_POLL);
 
     // One attempt, not two: the orphan does not own the asset, so it must not
     // generate — that would be two provider calls and two charges for one press.
@@ -289,7 +289,7 @@ describe('a video the user declines', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.find((job) => job.target.kind === 'asset')?.status).toBe('failed');
-    });
+    }, FAST_POLL);
 
     // The refusal wrote no attempt, so without an explicit release the asset
     // keeps pointing at a finished job — and `media.retry` reads a live jobId
@@ -306,6 +306,6 @@ describe('a video the user declines', () => {
     await vi.waitFor(async () => {
       const state = await readStateWithIndexes(harness.paths);
       expect(state.jobs.filter((job) => job.target.kind === 'asset')).toHaveLength(2);
-    });
+    }, FAST_POLL);
   });
 });

@@ -12,19 +12,19 @@
  * file that was never covered at all.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { refreshGitState } from '@electron/features/git/git-service/git-service';
 import { resolveStatePath } from '@electron/features/git/git-service/state-io';
-import { createGitRepo, runGit } from './git-service/git-test-helpers';
+import { createRepoFromTemplate, runGit } from './git-service/git-test-helpers';
 
-const repos: string[] = [];
-
-async function repoWithSeroFiles(): Promise<string> {
-  const repoPath = await createGitRepo('sero-ignore-');
-  repos.push(repoPath);
+/** The starting repository is identical for every test here, so build it once and copy it. */
+async function buildRepoWithSeroFiles(repoPath: string): Promise<void> {
+  runGit(['init'], repoPath);
+  runGit(['config', 'user.name', 'Sero Test'], repoPath);
+  runGit(['config', 'user.email', 'test@example.com'], repoPath);
 
   await writeFile(path.join(repoPath, 'README.md'), '# Project\n', 'utf8');
   runGit(['add', '.'], repoPath);
@@ -36,11 +36,18 @@ async function repoWithSeroFiles(): Promise<string> {
   await mkdir(path.join(repoPath, '.sero/apps/orchestrator'), { recursive: true });
   await writeFile(path.join(repoPath, '.sero/apps/git/state.json'), '{}\n', 'utf8');
   await writeFile(path.join(repoPath, '.sero/apps/orchestrator/state.json'), '{}\n', 'utf8');
+}
 
+const repos: string[] = [];
+
+async function repoWithSeroFiles(): Promise<string> {
+  const repoPath = await createRepoFromTemplate('sero-files', buildRepoWithSeroFiles, 'sero-ignore-');
+  repos.push(repoPath);
   return repoPath;
 }
 
-afterEach(async () => {
+// Each test owns its own repository copy, so one cleanup at the end is enough.
+afterAll(async () => {
   await Promise.all(repos.splice(0).map((repoPath) => rm(repoPath, { recursive: true, force: true })));
 });
 

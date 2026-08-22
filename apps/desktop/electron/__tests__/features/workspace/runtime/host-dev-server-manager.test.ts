@@ -36,6 +36,9 @@ function createManager(options: {
     processAdapter: options.processAdapter ?? createProcessAdapter(),
     pollIntervalMs: 1,
     portDetectTimeoutMs: options.portDetectTimeoutMs ?? 10,
+    // The SIGTERM->SIGKILL grace defaults to 750ms of real waiting; the tests assert
+    // that both kill rounds happen, not how long the manager waits between them.
+    terminateGraceMs: 1,
   });
 }
 

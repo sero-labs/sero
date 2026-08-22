@@ -9,6 +9,7 @@ import { revisionDir } from '../../shared/paths';
 import { appendRequest, readStateWithIndexes } from '../../shared/state-io';
 import { PREVIEW_CSP } from '../preview/harness';
 import {
+  FAST_POLL,
   STUB_PAGE,
   isGenerationRun,
   stubAnalysisRun,
@@ -55,7 +56,7 @@ async function settled(designId: string) {
   await vi.waitFor(async () => {
     const design = await readDesign(harness.paths, designId);
     expect(design?.variants.every((variant) => variant.status !== 'pending' && variant.status !== 'running')).toBe(true);
-  });
+  }, FAST_POLL);
   return (await readDesign(harness.paths, designId))!;
 }
 
@@ -285,7 +286,7 @@ describe('durability across restart and replay', () => {
     await vi.waitFor(async () => {
       const jobs = await listJobs(harness.paths);
       expect(jobs.every((job) => job.status !== 'running')).toBe(true);
-    });
+    }, FAST_POLL);
 
     const after = await readDesign(harness.paths, designId);
     expect(after?.variants[0]?.status).toBe('cancelled');
@@ -318,7 +319,7 @@ describe('cancelling a job that never started', () => {
     await vi.waitFor(async () => {
       const running = (await listJobs(harness.paths)).filter((job) => job.status === 'running');
       expect(running).toHaveLength(2);
-    });
+    }, FAST_POLL);
 
     // Chosen by the job, not the variant: the queue marks a job running a moment
     // before the variant catches up, so picking by variant status can hand back

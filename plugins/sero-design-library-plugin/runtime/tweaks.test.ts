@@ -10,6 +10,7 @@ import { appendRequest } from '../shared/state-io';
 import { TWEAK_MANIFEST_FILE, normalizeTweakDocument } from '../shared/tweaks';
 import {
   BASELINE_CONTROLS,
+  FAST_POLL,
   STUB_TWEAKABLE_PAGE,
   declareTweaks,
   isGenerationRun,
@@ -91,7 +92,7 @@ async function createDesign(): Promise<{ designId: string; variantId: string; re
   await vi.waitFor(async () => {
     const design = await readDesign(harness.paths, 'dsn-1');
     expect(design?.variants[0]?.status).toBe('ready');
-  }, { timeout: 5_000 });
+  }, { ...FAST_POLL, timeout: 5_000 });
 
   const design = (await readDesign(harness.paths, 'dsn-1'))!;
   const variant = design.variants[0]!;
