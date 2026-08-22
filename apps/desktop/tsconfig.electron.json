@@ -33,6 +33,18 @@
       "@earendil-works/pi-ai/compat": ["./node_modules/@earendil-works/pi-ai/dist/compat"]
     }
   },
-  "include": ["electron/**/*", "src/types/ipc.ts", "src/types/ipc-channels.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "electron/**/*",
+    "src/types/ipc.ts",
+    "src/types/ipc-channels.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "electron/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }
