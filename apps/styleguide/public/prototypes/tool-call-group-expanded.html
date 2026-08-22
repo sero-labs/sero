@@ -217,6 +217,10 @@ td b{color:var(--brand);font-weight:560}
   its own padding. Four layouts below replace that stack. All four keep the same
   data, including <b>live streaming input</b> and <b>live progress</b>.
   These prototypes are interactive: click the rows, the rail, the chips.</p>
+  <p class="lede" style="margin-top:10px"><b>Built:</b> A and B are implemented.
+  Set <code>toolCallLayout</code> to <code>"rows"</code> (default) or
+  <code>"rail"</code> in <code>~/.sero-ui/layout.json</code> to switch.
+  C and D stay here as design references.</p>
 
   <div class="rules">
     <div class="rule"><h3>One scroll surface</h3>
@@ -337,12 +341,12 @@ td b{color:var(--brand);font-weight:560}
   <h2>Comparison</h2>
   <table>
     <tr><th>Layout</th><th>Best for</th><th>Cost</th><th>Change to the code</th></tr>
-    <tr><td>A · Inline rows</td>
+    <tr><td>A · Inline rows<br><span style="color:var(--brand);font-weight:500">built</span></td>
       <td>Turns of 3 to 8 steps. The default case.</td>
       <td>A group with long outputs still becomes tall.</td>
       <td><b>Small.</b> Delete the details mode, move <code>ToolDetail</code> under
       <code>ToolLine</code>, drop the <code>Tool</code> card wrapper.</td></tr>
-    <tr><td>B · Rail and pane</td>
+    <tr><td>B · Rail and pane<br><span style="color:var(--brand);font-weight:500">built</span></td>
       <td>Long groups. Comparing one step against the list.</td>
       <td>Only one detail is visible. Needs a width of about 520px.</td>
       <td><b>Medium.</b> New two column shell, a selection state, the same detail body.</td></tr>

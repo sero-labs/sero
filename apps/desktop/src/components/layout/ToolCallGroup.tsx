@@ -3,16 +3,17 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight, WrenchIcon } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
+import { useAppStore } from '@/stores/app';
 import {
   deriveGroupStatus,
   groupStatusIcon,
   groupStatusLabel,
 } from './ToolCallState';
 import { SingleToolCall } from './tool-call-helpers/SingleToolCall';
-import { ToolDetail } from './tool-call-helpers/ToolDetail';
 import { getImagePaths, ToolFileLinks } from './tool-call-helpers/ToolFileLinks';
 import { ToolImages } from './tool-call-helpers/ToolImages';
-import { ToolLine } from './tool-call-helpers/ToolLine';
+import { ToolRailPane } from './tool-call-helpers/ToolRailPane';
+import { ToolRows } from './tool-call-helpers/ToolRows';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -169,7 +170,10 @@ export const ToolCallGroup = memo(function ToolCallGroup({
     [visibleTools],
   );
 
-  const [showDetails, setShowDetails] = useState(false);
+  const toolCallLayout = useAppStore((state) => state.toolCallLayout);
+  // Reading a tool detail pins the group open, so the end of the turn does not
+  // collapse the group under the reader.
+  const [detailPinned, setDetailPinned] = useState(false);
 
   // Track whether the group was ever running (live) vs loaded from history.
   const wasEverRunning = useRef(isRunning);
@@ -186,20 +190,20 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   const expanded = manualExpanded ?? autoExpanded;
 
   // Clear manual override when the group becomes finalized (final collapse)
-  // or when new tools start running (re-expand), unless full details is pinned open.
+  // or when new tools start running (re-expand).
   const prevFinalized = useRef(isFinalized);
   useEffect(() => {
-    if (!showDetails && isFinalized && !prevFinalized.current) {
+    if (!detailPinned && isFinalized && !prevFinalized.current) {
       setManualExpanded(null);
     }
     prevFinalized.current = isFinalized;
-  }, [isFinalized, showDetails]);
+  }, [detailPinned, isFinalized]);
 
   useEffect(() => {
-    if (!showDetails && isRunning) {
+    if (!detailPinned && isRunning) {
       setManualExpanded(null);
     }
-  }, [isRunning, showDetails]);
+  }, [detailPinned, isRunning]);
 
   // Single tool: render with matching group-style wrapper
   if (tools.length === 1) {
@@ -220,7 +224,12 @@ export const ToolCallGroup = memo(function ToolCallGroup({
     >
       {/* Summary bar */}
       <button type="button"
-        onClick={() => setManualExpanded((prev) => !(prev ?? expanded))}
+        onClick={() => {
+          // Collapsing the group ends the reading session, so automatic
+          // expand and collapse takes over again.
+          if (expanded) setDetailPinned(false);
+          setManualExpanded(!expanded);
+        }}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
           'hover:bg-[var(--bg-elevated)]/80',
@@ -253,7 +262,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
         </div>
       ) : null}
 
-      {/* Expanded: list of tool lines */}
+      {/* Expanded: one detail per tool, in the configured layout */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -264,55 +273,18 @@ export const ToolCallGroup = memo(function ToolCallGroup({
             className="overflow-hidden"
           >
             <div className="border-t border-[var(--border-subtle)]">
-              {!showDetails ? (
-                <>
-                  <div className="py-1">
-                    {visibleTools.map((tool, i) => (
-                      <ToolLine key={tool.id} tool={tool} index={i} workspaceId={workspaceId} />
-                    ))}
-                  </div>
-                  {latestImageTool?.images?.length ? (
-                    <div className="border-t border-[var(--border-subtle)] px-3 py-2">
-                      <ToolImages images={latestImageTool.images} workspaceId={workspaceId} />
-                    </div>
-                  ) : null}
-                  {fileLinkPaths.length ? (
-                    <div className="border-t border-[var(--border-subtle)]">
-                      <ToolFileLinks imagePaths={fileLinkPaths} workspaceId={workspaceId} />
-                    </div>
-                  ) : null}
-                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setManualExpanded(true);
-                        setShowDetails(true);
-                      }}
-                      className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                    >
-                      Show full details
-                    </button>
-                  </div>
-                </>
+              {toolCallLayout === 'rail' ? (
+                <ToolRailPane
+                  tools={visibleTools}
+                  workspaceId={workspaceId}
+                  onDetailOpen={() => setDetailPinned(true)}
+                />
               ) : (
-                <>
-                  <div className="space-y-0 p-2">
-                    {visibleTools.map((tool) => (
-                      <ToolDetail key={tool.id} tool={tool} workspaceId={workspaceId} />
-                    ))}
-                  </div>
-                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowDetails(false);
-                      }}
-                      className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                    >
-                      Collapse details
-                    </button>
-                  </div>
-                </>
+                <ToolRows
+                  tools={visibleTools}
+                  workspaceId={workspaceId}
+                  onDetailOpen={() => setDetailPinned(true)}
+                />
               )}
             </div>
           </motion.div>

@@ -71,6 +71,9 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.themeEditorAutoSave === 'boolean') {
         update.themeEditorAutoSave = state.themeEditorAutoSave;
       }
+      if (state.toolCallLayout === 'rows' || state.toolCallLayout === 'rail') {
+        update.toolCallLayout = state.toolCallLayout;
+      }
 
       // Hydrate active app
       if (state.activeApp && typeof state.activeApp === 'string') {

@@ -1,4 +1,4 @@
-import { Globe, Loader2, Search, TimerReset } from 'lucide-react';
+import { Globe, Search } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatToolCallMessage } from '@/types/ipc';
 
@@ -195,58 +195,36 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
     : `${clampProgress(model.progressPct ?? 0)}%`;
 
   return (
-    <div className="rounded-lg border border-status-info-border bg-status-info-faint p-3">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-status-info-subtle text-status-info">
-          <Icon className="size-4" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-base font-medium text-[var(--text-primary)]">
-              {model.title}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-status-info-subtle px-2 py-0.5 text-sm font-medium uppercase tracking-wide text-status-info">
-              <Loader2 className="size-2.5 animate-spin" />
-              Live
-            </span>
-          </div>
-
-          {model.subtitle && (
-            <p className="mt-1 break-words text-xs text-[var(--text-secondary)]">
-              {model.subtitle}
-            </p>
-          )}
-
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elevated)]/70">
-            <div
-              className={cn(
-                'h-full rounded-full bg-status-info transition-[width] duration-300',
-                model.indeterminate && 'animate-pulse opacity-60',
-              )}
-              style={{ width: progressWidth }}
-            />
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {model.badges.map((badge) => (
-              <span
-                key={badge}
-                className="rounded-full border border-status-info-border bg-status-info-subtle px-2 py-0.5 text-sm text-status-info"
-              >
-                {badge}
-              </span>
-            ))}
-          </div>
-
-          {showRawText && (
-            <div className="mt-2 flex items-start gap-1.5 text-sm text-[var(--text-muted)]">
-              <TimerReset className="mt-0.5 size-3 shrink-0" />
-              <span className="break-words">{model.rawText}</span>
-            </div>
-          )}
-        </div>
+    <div className="min-w-0 space-y-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <Icon className="size-3.5 shrink-0 text-status-info" />
+        <span className="truncate text-xs font-medium text-[var(--text-primary)]">
+          {model.title}
+        </span>
+        {model.badges.length > 0 ? (
+          <span className="ml-auto shrink-0 text-xs text-status-info">
+            {model.badges.join(' \u00b7 ')}
+          </span>
+        ) : null}
       </div>
+
+      <div className="h-1 overflow-hidden rounded-full bg-[var(--bg-elevated)]/70">
+        <div
+          className={cn(
+            'h-full rounded-full bg-status-info transition-[width] duration-300',
+            model.indeterminate && 'animate-pulse opacity-60',
+          )}
+          style={{ width: progressWidth }}
+        />
+      </div>
+
+      {model.subtitle ? (
+        <p className="break-words text-xs text-[var(--text-secondary)]">{model.subtitle}</p>
+      ) : null}
+
+      {showRawText ? (
+        <p className="break-words text-xs text-[var(--text-muted)]">{model.rawText}</p>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { ImageIcon } from 'lucide-react';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { looksLikeFilePath, toEditorVirtualPath } from '../ClickableFilePath';
 
@@ -16,10 +17,12 @@ export function ToolFileLinks({
   details,
   imagePaths,
   workspaceId,
+  className,
 }: {
   details?: Record<string, unknown> | null;
   imagePaths?: string[];
   workspaceId: string | null;
+  className?: string;
 }) {
   const requestOpenFile = useEditorBridge((state) => state.requestOpenFile);
   const paths = [...new Set(imagePaths ?? getImagePaths(details))];
@@ -27,7 +30,7 @@ export function ToolFileLinks({
   if (!workspaceId || paths.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 px-3 py-2">
+    <div className={cn('flex flex-wrap gap-2 px-3 py-2', className)}>
       {paths.map((filePath) => {
         const editorPath = toEditorVirtualPath(filePath);
         return (

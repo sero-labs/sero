@@ -4,6 +4,13 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
+const layoutRef = vi.hoisted(() => ({ current: 'rows' as 'rows' | 'rail' }));
+
+vi.mock('@/stores/app', () => ({
+  useAppStore: (selector: (state: { toolCallLayout: 'rows' | 'rail' }) => unknown) =>
+    selector({ toolCallLayout: layoutRef.current }),
+}));
+
 vi.mock('@/stores/editor-bridge', () => ({
   useEditorBridge: (selector: (state: { requestOpenFile: ReturnType<typeof vi.fn> }) => unknown) =>
     selector({ requestOpenFile: vi.fn() }),
@@ -106,12 +113,12 @@ describe('ToolCallGroup image previews', () => {
     expect(container.querySelector('img')).not.toBeNull();
   });
 
-  it('keeps full details open when a live group later finalizes', async () => {
+  it('keeps an opened tool detail visible when a live group later finalizes', async () => {
     await act(async () => {
       root?.render(
         <ToolCallGroup
           tools={[
-            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read', output: 'READ_OUTPUT' }),
             makeTool({
               id: 'tool-b',
               toolCallId: 'call-b',
@@ -128,15 +135,15 @@ describe('ToolCallGroup image previews', () => {
     });
 
     await act(async () => {
-      clickButtonByText(container, 'Show full details');
+      clickButtonByText(container, 'read');
     });
-    expect(container.textContent).toContain('Collapse details');
+    expect(container.textContent).toContain('READ_OUTPUT');
 
     await act(async () => {
       root?.render(
         <ToolCallGroup
           tools={[
-            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read', output: 'READ_OUTPUT' }),
             makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'bash' }),
           ]}
           workspaceId="ws-1"
@@ -145,10 +152,49 @@ describe('ToolCallGroup image previews', () => {
       );
     });
 
-    expect(container.textContent).toContain('Collapse details');
+    expect(container.textContent).toContain('READ_OUTPUT');
   });
 
-  it('hides streaming write content from the default tool view', async () => {
+  it('shows one detail at a time in the rail layout', async () => {
+    layoutRef.current = 'rail';
+    try {
+      await act(async () => {
+        root?.render(
+          <ToolCallGroup
+            tools={[
+              makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read', output: 'READ_OUTPUT' }),
+              makeTool({
+                id: 'tool-b',
+                toolCallId: 'call-b',
+                toolName: 'bash',
+                state: 'running',
+                output: 'BASH_OUTPUT',
+                isPartialOutput: true,
+              }),
+            ]}
+            workspaceId="ws-1"
+            isFinalized={false}
+          />,
+        );
+      });
+
+      // The rail lists every tool, the pane follows the running one.
+      expect(container.textContent).toContain('read');
+      expect(container.textContent).toContain('BASH_OUTPUT');
+      expect(container.textContent).not.toContain('READ_OUTPUT');
+
+      await act(async () => {
+        clickButtonByText(container, 'read');
+      });
+
+      expect(container.textContent).toContain('READ_OUTPUT');
+      expect(container.textContent).not.toContain('BASH_OUTPUT');
+    } finally {
+      layoutRef.current = 'rows';
+    }
+  });
+
+  it('streams write content into the open tool row', async () => {
     const write = makeTool({
       toolName: 'write',
       state: 'pending',
@@ -161,14 +207,9 @@ describe('ToolCallGroup image previews', () => {
       root?.render(<ToolCallGroup tools={[write]} workspaceId="ws-1" isFinalized={false} />);
     });
 
+    // A live tool opens itself, so streamed content is visible as it arrives.
     expect(container.textContent).toContain('src/live.ts');
     expect(container.textContent).toContain('Live');
-    expect(container.textContent).not.toContain('STREAMED_FILE_CONTENT');
-
-    await act(async () => {
-      clickButtonByText(container, 'Show full details');
-    });
-
     expect(container.textContent).toContain('STREAMED_FILE_CONTENT');
 
     const updatedWrite = {
@@ -184,6 +225,7 @@ describe('ToolCallGroup image previews', () => {
     expect(container.textContent).toContain('NEXT_DELTA');
     expect(container.textContent).toContain('2 lines');
 
+    // The same live content follows the write into a multi-tool group.
     await act(async () => {
       root?.render(
         <ToolCallGroup
@@ -198,16 +240,10 @@ describe('ToolCallGroup image previews', () => {
     });
 
     expect(container.textContent).toContain('src/live.ts');
-    expect(container.textContent).not.toContain('STREAMED_FILE_CONTENT');
-
-    await act(async () => {
-      clickButtonByText(container, 'Show full details');
-    });
-
-    expect(container.textContent).toContain('STREAMED_FILE_CONTENT');
+    expect(container.textContent).toContain('NEXT_DELTA');
   });
 
-  it('renders only the last ten tool calls in summary and detail views', async () => {
+  it('renders only the last ten tool calls', async () => {
     const tools = Array.from({ length: 12 }, (_, index) =>
       makeTool({
         id: `tool-${index}`,
@@ -225,18 +261,6 @@ describe('ToolCallGroup image previews', () => {
       clickButtonByText(container, '12 actions completed');
     });
 
-    expect(container.textContent).not.toContain('Showing last 10 of 12 actions');
-    expect(container.textContent).not.toContain('hidden-0');
-    expect(container.textContent).not.toContain('hidden-1');
-    expect(container.textContent).toContain('visible-2');
-    expect(container.textContent).toContain('visible-11');
-
-    await act(async () => {
-      clickButtonByText(container, 'Show full details');
-    });
-
-    expect(container.textContent).toContain('Collapse details');
-    expect(container.textContent).not.toContain('Showing last 10 of 12 actions');
     expect(container.textContent).not.toContain('hidden-0');
     expect(container.textContent).not.toContain('hidden-1');
     expect(container.textContent).toContain('visible-2');
