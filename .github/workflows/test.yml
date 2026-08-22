@@ -63,7 +63,7 @@ jobs:
             printf '%s\n' "Changed files:" "$changed_files"
             while IFS= read -r file; do
               case "$file" in
-                assets/*|eval/*|packages/templates/*|doctor.config.jsonc|promptfooconfig.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|scripts/*|.github/workflows/test.yml)
+                assets/*|eval/*|packages/templates/*|plugins/sero-*-plugin/package.json|doctor.config.jsonc|promptfooconfig.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|scripts/*|.github/workflows/test.yml)
                   full=true
                   ;;
               esac

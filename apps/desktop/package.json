@@ -21,7 +21,7 @@
     "typecheck:source": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.renderer-tests.json --noEmit && tsc -p tsconfig.electron-tests.json --noEmit",
     "test": "vitest run",
-    "test:packaging": "SERO_REQUIRE_PACKAGED_PLUGINS=1 vitest run electron/__tests__/features/plugins/web-plugin-packaging.test.ts electron/__tests__/features/plugins/plugin-package-build.test.ts",
+    "test:packaging": "SERO_REQUIRE_PACKAGED_PLUGINS=1 vitest run electron/__tests__/features/plugins/web-plugin-packaging.test.ts",
     "test:watch": "vitest",
     "e2e": "pnpm run build && pnpm exec playwright test",
     "e2e:contract": "pnpm run build && pnpm exec playwright test --project=contract",
