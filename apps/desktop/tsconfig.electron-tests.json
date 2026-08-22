@@ -1,12 +1,12 @@
 {
   "extends": "./tsconfig.electron.json",
   "compilerOptions": {
-    "lib": ["ES2022", "DOM"],
     "noEmit": true
   },
   "include": [
     "electron/**/*.d.ts",
     "electron/__tests__/**/*",
+    "electron/preload/platform/user-feedback.ts",
     "src/**/*.d.ts",
     "src/types/ipc.ts",
     "src/types/ipc-channels.ts"

@@ -58,7 +58,7 @@ permissions:
 
 # Cancels any in-flight scan for the same PR (or branch, on push) the moment a new commit arrives, so reviewers only ever see the latest run.
 concurrency:
-  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  group: react-doctor-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

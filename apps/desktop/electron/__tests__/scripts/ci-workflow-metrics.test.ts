@@ -25,7 +25,7 @@ describe('CI workflow metrics', () => {
       updated_at: new Date(Date.parse('2026-01-01T00:00:00Z') + seconds * 1000).toISOString(),
     });
     await fs.writeFile(inputPath, JSON.stringify({
-      workflow_runs: [run(60), run(120), run(180), run(360), run(1, 'cancelled'), run(1, 'skipped')],
+      workflow_runs: [run(60), run(119.7), run(180), run(360), run(1, 'cancelled'), run(1, 'skipped')],
     }));
 
     const { stdout } = await execFileAsync(process.execPath, [

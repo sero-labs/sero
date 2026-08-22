@@ -1,5 +1,6 @@
 import path from 'path';
-import { readFile, stat } from 'fs/promises';
+import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { describe, expect, it } from 'vitest';
 
 const desktopRoot = path.resolve(__dirname, '../../../..');
@@ -25,9 +26,10 @@ describe('built-in web plugin packaging', () => {
     // been staged into the desktop build output tree. In a clean clone,
     // `pnpm test` should not require a prior `pnpm build`, so skip gracefully
     // when the staged package is absent.
-    try {
-      await stat(path.join(webPluginRoot, 'package.json'));
-    } catch {
+    if (!existsSync(path.join(webPluginRoot, 'package.json'))) {
+      if (process.env.SERO_REQUIRE_PACKAGED_PLUGINS === '1') {
+        throw new Error('The staged built-in web plugin is missing from the desktop build.');
+      }
       return;
     }
 

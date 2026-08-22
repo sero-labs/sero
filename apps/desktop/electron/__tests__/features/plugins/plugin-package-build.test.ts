@@ -1,4 +1,5 @@
 import { execFile as execFileCb } from 'child_process';
+import { existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'fs/promises';
@@ -507,10 +508,11 @@ describe('plugin package build helpers', () => {
     // web plugin's Vite-built UI bundle. The UI build depends on native
     // modules (better-sqlite3) which may not compile on all CI runners.
     // Skip gracefully when the staged remoteEntry.js is absent.
-    try {
-      await stat(path.join(stagedWebPluginRoot, 'dist/ui/remoteEntry.js'));
-    } catch {
-      return; // web plugin UI build artifacts not present — skip
+    if (!existsSync(path.join(stagedWebPluginRoot, 'dist/ui/remoteEntry.js'))) {
+      if (process.env.SERO_REQUIRE_PACKAGED_PLUGINS === '1') {
+        throw new Error('The staged web plugin UI is missing from the desktop build.');
+      }
+      return;
     }
 
     await expect(stat(path.join(stagedWebPluginRoot, 'package.json'))).resolves.toBeDefined();

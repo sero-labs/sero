@@ -21,6 +21,10 @@
     "test": {
       "outputs": []
     },
+    "test:packaging": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
     "eval": {
       "cache": false,
       "dependsOn": ["build"]
