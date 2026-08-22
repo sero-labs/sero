@@ -67,11 +67,11 @@
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "typebox": "catalog:",
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "^12.11.1",
     "linkedom": "^0.18.13",
     "p-limit": "^6.1.0",
     "turndown": "^7.2.4",
-    "unpdf": "^1.7.0"
+    "unpdf": "^1.8.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "catalog:peer",

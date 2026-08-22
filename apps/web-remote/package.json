@@ -17,7 +17,7 @@
     "react-dom": "catalog:",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
