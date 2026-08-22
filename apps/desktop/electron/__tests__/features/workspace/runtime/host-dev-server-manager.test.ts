@@ -29,6 +29,7 @@ function createManager(options: {
   processAdapter?: HostProcessAdapter;
   spawn?: (input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>;
   portDetectTimeoutMs?: number;
+  terminateGraceMs?: number;
 } = {}): HostDevServerManager {
   return new HostDevServerManager({
     workspaceId: 'workspace-a',
@@ -36,6 +37,7 @@ function createManager(options: {
     processAdapter: options.processAdapter ?? createProcessAdapter(),
     pollIntervalMs: 1,
     portDetectTimeoutMs: options.portDetectTimeoutMs ?? 10,
+    terminateGraceMs: options.terminateGraceMs ?? 0,
   });
 }
 
