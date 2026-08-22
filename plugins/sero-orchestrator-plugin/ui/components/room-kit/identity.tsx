@@ -2,8 +2,7 @@
  * room-kit/identity — who is in the Room and what state they are in.
  * Face, FaceStack, StatusDot, LivePill (ux-refit-plan.md §4).
  *
- * Every colour is a host theme token (via the room-* aliases in styles.css);
- * the pixel geometry is read from docs/prototypes/sero-agent-rooms.html.
+ * Every colour is a host theme token through the room aliases in styles.css.
  */
 
 import type { ReactNode } from 'react';

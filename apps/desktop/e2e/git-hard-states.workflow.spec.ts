@@ -1,6 +1,6 @@
 /**
  * The hard states, against real repositories: a stopped merge, a repository
- * with no commits, and a detached HEAD (§7 of docs/features/git-ux.md).
+ * with no commits, and a detached HEAD.
  *
  * These are the states the app is judged on and the ones unit tests cannot
  * reach — each needs git in a genuinely awkward condition, and the mode has to

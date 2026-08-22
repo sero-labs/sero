@@ -292,10 +292,10 @@ Verify:
 
 ## Related docs
 
-- `docs/plugins/guide.md` — packaging and distributing installable plugins
-- `docs/plugins/technical.md` — plugin system internals, federation, IPC, security
-- `docs/plugins/host-compatibility.md` — `requiredHostCapabilities`, CLI bridging, hot-reload
-- `docs/architecture.md` — desktop shell layout and host state flow
+- `apps/docs-site/docs/reference/plugin-quickstart.md` - plugin setup
+- `apps/docs-site/docs/reference/plugins.md` - packaging and compatibility
+- `apps/docs-site/docs/reference/plugin-extension-points.md` - host contributions
+- `ARCHITECTURE.md` - host boundaries and shared services
 
 ## Troubleshooting
 

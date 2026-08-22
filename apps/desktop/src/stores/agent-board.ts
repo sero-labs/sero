@@ -1,6 +1,5 @@
 /**
- * Agent Board store — cross-workspace aggregation of agent work
- * (docs/features/agent-board/plan.md).
+ * Agent Board store - cross-workspace aggregation of agent work.
  *
  * Reads are push-only: for every registered workspace the store watches the
  * orchestrator's loop index through the `window.sero.appState` bridge (it

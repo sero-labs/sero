@@ -1,7 +1,6 @@
 /**
  * Stacked bar chart of the selected metric split by provider.
- * Today shows per-hour bars; week and all-time views show per-day bars
- * (docs/specs/sero-usage-plugin-spec.md §4.1 item 4).
+ * Today shows per-hour bars; week and all-time views show per-day bars.
  */
 
 import { memo, useMemo } from 'react';

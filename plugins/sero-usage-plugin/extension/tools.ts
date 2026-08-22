@@ -1,7 +1,7 @@
 /**
  * The `usage` tool — the plugin's single agent/CLI/UI entry point.
  * Actions: refresh, summary, sessions, config. Bridged to `sero usage …`
- * via `sero.plugin.bridgeTools` (docs/specs/sero-usage-plugin-spec.md §3.2).
+ * via `sero.plugin.bridgeTools`.
  */
 
 import { StringEnum } from '@earendil-works/pi-ai';

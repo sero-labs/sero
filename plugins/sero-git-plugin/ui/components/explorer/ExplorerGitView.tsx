@@ -4,7 +4,7 @@
  * Changes and history on the left at 300px, the diff filling the rest. The two
  * lists share a fixed height: Changes takes what it needs up to half the view
  * then scrolls, History takes the remainder and scrolls too, so neither can
- * push the other out of sight (§4 of docs/features/git-ux.md).
+ * push the other out of sight.
  *
  * Deliberately thin: no commit box, no branch list, no PR form, no auth banner
  * and no sync buttons — those live in the Git app and the titlebar popover.

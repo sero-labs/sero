@@ -1,6 +1,6 @@
 /**
- * AI conflict resolution, against a real conflicted repository (§7 of
- * docs/features/git-ux.md).
+ * AI conflict resolution against a real conflicted repository through the
+ * plugin-owned Git surface.
  *
  * **The model is stubbed, the rest is real.** `resolveConflictWithAi` is
  * replaced in the page so the run is deterministic, and everything the step

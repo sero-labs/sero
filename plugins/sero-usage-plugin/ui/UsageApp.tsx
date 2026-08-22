@@ -1,6 +1,5 @@
 /**
- * Usage app — profile-wide AI usage and cost analytics.
- * Spec: docs/specs/sero-usage-plugin-spec.md §4.1
+ * Usage app - profile-wide AI usage and cost analytics.
  */
 
 import { useMemo, useState } from 'react';

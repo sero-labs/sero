@@ -29,9 +29,5 @@ apps/desktop/sero-desktop-*.tgz
 
 .claude/
 
-# Security scans: keep curated high/critical TXT summaries in git; ignore full Trivy JSON dumps
-# which are large (multi-MB each) and easy to regenerate from the docker image with `trivy image`.
-docs/security/scans/**/*-trivy-full.json
-
 # e2e LLM credentials (per-developer, never committed)
 apps/desktop/e2e/.env.test

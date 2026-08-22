@@ -1,9 +1,8 @@
 /**
  * Memory tool handler integration tests.
  *
- * These test the same scenarios as the manual testing guide
- * (docs/testing/memory-v2-manual-testing.md) but against the actual
- * handler functions with a real temp filesystem. No LLM needed.
+ * The suite covers the former manual checks against the actual handler
+ * functions with a real temporary filesystem. No LLM is needed.
  *
  * Covers: Tests 1, 2, 3, 4, 5, 6, 10 from the manual guide.
  */

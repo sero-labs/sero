@@ -3,8 +3,8 @@ import { toEditorVirtualPath } from './ClickableFilePath';
 
 describe('toEditorVirtualPath', () => {
   it('opens bare project-relative paths under the workspace virtual root', () => {
-    expect(toEditorVirtualPath('docs/reference/state-and-folders.md')).toBe(
-      '/workspace/docs/reference/state-and-folders.md',
+    expect(toEditorVirtualPath('notes/reference.md')).toBe(
+      '/workspace/notes/reference.md',
     );
   });
 

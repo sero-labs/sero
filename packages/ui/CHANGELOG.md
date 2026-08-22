@@ -72,5 +72,5 @@
   worked examples, importable to preview or copy-paste. (Replaces the removed
   `sero-showcase-plugin`.)
 
-See `docs/features/dashboard-ui/dashboard-widgets-plan.md` and
-`glass-restyle-spec.md` for the design and authoring guidance.
+See `apps/docs-site/docs/guide/dashboard-widgets.md` and
+`apps/docs-site/docs/reference/dashboard-components.md` for authoring guidance.

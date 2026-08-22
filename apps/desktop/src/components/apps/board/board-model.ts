@@ -1,8 +1,7 @@
 /**
  * Agent Board model — pure mapping from watched per-workspace state to the four
  * board columns (Backlog · Active · Needs Attention · Finished). No IO, no
- * heuristics: every card and column membership is derived from durable state
- * (docs/features/agent-board/plan.md §4).
+ * heuristics: every card and column membership is derived from durable state.
  */
 
 import type {

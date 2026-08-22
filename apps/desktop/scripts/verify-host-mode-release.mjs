@@ -28,15 +28,10 @@ const workflowRequirements = [
 ];
 
 const docFilesToCheck = [
-  'docs/features/host-toolchain.md',
-  'docs/features/runtime-provider-architecture.md',
-  'docs/reference/runtime-smoke.md',
-  'docs/reference/runtime-manual-test.md',
-  'docs/reference/host-mode-support.md',
-  'docs/reference/manual-tests/host-first/README.md',
-  'docs/reference/manual-tests/host-first/linux.md',
-  'docs/reference/manual-tests/host-first/windows.md',
-  'docs/reference/manual-tests/host-first/macos-apple-silicon.md',
+  'apps/desktop/README.md',
+  'apps/docs-site/docs/reference/containers-host-mode.md',
+  'apps/docs-site/docs/reference/support-scope.md',
+  'apps/docs-site/docs/reference/troubleshooting.md',
 ];
 
 const forbiddenSupportedDocPhrases = [

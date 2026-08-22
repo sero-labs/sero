@@ -14,7 +14,8 @@
 /plugins/ @monobyte
 
 # Documentation and public project policy
-/docs/ @monobyte
+/apps/docs-site/ @monobyte
+/ARCHITECTURE.md @monobyte
 /SECURITY.md @monobyte
 /CONTRIBUTING.md @monobyte
 /CODE_OF_CONDUCT.md @monobyte

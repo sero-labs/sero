@@ -1,9 +1,8 @@
 /**
  * Session file discovery and streaming parse.
  *
- * Read-only against the profile's sessions tree. Consumes exactly three
- * entry shapes per docs/specs/sero-usage-plugin-spec.md §2.2; everything
- * else — including malformed lines — is skipped silently.
+ * Read-only against the profile's sessions tree. Consumes the three supported
+ * entry shapes. It skips all other data, including malformed lines.
  */
 
 import { createReadStream } from 'node:fs';

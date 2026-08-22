@@ -189,11 +189,19 @@ Important gateway limits:
 - there are no comprehensive gateway-specific tool restrictions beyond the
   normal Sero/Pi tool behavior and focused `bash` permission gate described
   above
-- there is no rate limiting; an authenticated client can consume API credits
+- failed master-token authentication is limited per source IP: the fifth
+  attempt within one minute starts a five-minute block, and successful
+  authentication resets the counter; there is no general authenticated-request
+  or model-spend rate limit
+- the gateway accepts at most 50 concurrent WebSocket connections in total and
+  10 per source IP
+- unauthenticated connections time out after 10 seconds; authenticated idle
+  connections time out after 30 minutes
+- a WebSocket message is limited to 36 MiB before request-specific validation
 - Tailscale exposure depends on tailnet trust and should use `tailscale serve`,
   not public funneling
-- Discord access is risky if `SERO_DISCORD_USERS` is empty, because anyone who
-  can reach the bot may be able to interact with it
+- Discord stays disabled when `SERO_DISCORD_USERS` is empty; configure an
+  explicit user allowlist before starting the adapter
 - token URLs, QR codes, Tailscale serve URLs, Discord bot tokens, and gateway
   token files are redaction-sensitive because they can grant access or reveal
   private routing details

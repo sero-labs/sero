@@ -113,8 +113,7 @@ Sero supports plugin-provided UI, Pi extensions, runtime behavior, and provider
 metadata. Built-in plugins ship in-repo; external plugins can be installed from
 trusted sources.
 
-## See also
+## Contributor architecture
 
-The deeper architecture source material currently lives in the repository under:
-- [`docs/architecture.md`](https://github.com/sero-labs/sero/blob/main/docs/architecture.md)
-- [`docs/decisions.md`](https://github.com/sero-labs/sero/blob/main/docs/decisions.md)
+Repository-wide implementation boundaries are in
+[`ARCHITECTURE.md`](https://github.com/sero-labs/sero/blob/main/ARCHITECTURE.md).

@@ -1,6 +1,5 @@
 /**
- * The titlebar popover — quick actions without changing context (§5 of
- * docs/features/git-ux.md).
+ * The titlebar popover - quick actions without changing context.
  *
  * Contributed by the plugin on the host's titlebar slot (`sero.app.titlebar`),
  * so no git UI lives in the host (AD-025). The plugin owns the `Popover` too:

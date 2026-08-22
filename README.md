@@ -245,7 +245,7 @@ Notes:
 - Explicit Host mode is available where supported for reduced-capability
   non-container workflows; see Support Scope for platform details.
 - If native terminal support breaks, see
-  [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
+  [`apps/desktop/README.md`](./apps/desktop/README.md#native-module-recovery).
 
 ## Repository layout
 
@@ -256,7 +256,7 @@ sero/
 ├── apps/homepage/    # Public marketing site
 ├── packages/         # Shared runtime, UI, and common packages
 ├── plugins/          # Built-in Sero plugins and in-repo examples
-├── docs/             # Canonical source material and deeper references
+├── ARCHITECTURE.md   # Current cross-cutting boundaries and invariants
 ├── eval/             # Promptfoo-based eval harness
 └── scripts/          # Shared tooling and release helpers
 ```
@@ -292,9 +292,9 @@ loading, and local development workflow. Treat them as experiments, not
 production-quality apps. More realistic real-world apps are planned as the beta
 hardens.
 
-See [`docs/plugins/guide.md`](./docs/plugins/guide.md) and
-[`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) for packaging,
-installation, and local development workflows.
+See the [Plugin Quickstart](./apps/docs-site/docs/reference/plugin-quickstart.md)
+and [Plugins reference](./apps/docs-site/docs/reference/plugins.md) for
+packaging, installation, and local development workflows.
 
 ## Security and privacy
 
@@ -303,7 +303,6 @@ artifacts, optional provider credentials, and optional remote/gateway features.
 Please review:
 
 - [`SECURITY.md`](./SECURITY.md)
-- [`docs/security/gateway.md`](./docs/security/gateway.md)
 - [`apps/docs-site/docs/reference/security-privacy.md`](./apps/docs-site/docs/reference/security-privacy.md)
 
 ## Contributing

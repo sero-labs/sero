@@ -81,7 +81,7 @@ jobs:
               apps/desktop/*|apps/desktop/**)
                 desktop=true
                 ;;
-              apps/docs-site/*|apps/docs-site/**|docs/*|docs/**)
+              apps/docs-site/*|apps/docs-site/**)
                 docs=true
                 ;;
               apps/homepage/*|apps/homepage/**)
@@ -132,6 +132,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7.0.1
+
+      - name: Enforce repository layout
+        run: node scripts/check-repository-layout.mjs
 
       - uses: pnpm/action-setup@v6.0.10
         with:

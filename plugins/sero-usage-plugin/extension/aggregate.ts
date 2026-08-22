@@ -1,14 +1,12 @@
 /**
  * Aggregation: parsed sessions → period stats, daily and hourly buckets.
  *
- * Token accounting rules (docs/specs/sero-usage-plugin-spec.md §2.4):
- * headline tokens = input + output + cacheWrite. cacheRead is excluded
+ * Headline tokens = input + output + cacheWrite. cacheRead is excluded
  * from totals (repeated cache hits would dominate) but tracked in the
  * breakdown for the Cache column.
  *
- * Agent Rooms grouping (docs/features/agent-rooms/spec.md §27.1): Room member
- * sessions are collapsed into one Room row so a Room's cost never shows up as
- * a set of unexplained ordinary chats.
+ * Room member sessions are collapsed into one Room row, so a Room's cost does
+ * not appear as a set of unexplained ordinary chats.
  */
 
 import path from 'node:path';
@@ -48,7 +46,7 @@ export interface AggregateOptions {
   /**
    * Optional lookup keyed by Room id, from a published Room list. It is never
    * read from the Orchestrator store, and grouping plus attribution stay
-   * correct when it is absent (spec §27.1).
+   * correct when it is absent.
    */
   roomLabels?: ReadonlyMap<string, RoomLabel>;
 }
@@ -100,7 +98,7 @@ function accumulateSlice(slices: Record<string, ProviderSlice>, msg: UsageMessag
   slice.messages++;
 }
 
-/** Cross-file dedup fingerprint for copied history in branched sessions (spec §2.3). */
+/** Cross-file dedup fingerprint for copied history in branched sessions. */
 export function messageFingerprint(msg: UsageMessage): string {
   return `${msg.timestamp}:${msg.input + msg.output + msg.cacheRead + msg.cacheWrite}`;
 }

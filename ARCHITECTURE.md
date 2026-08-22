@@ -1,0 +1,86 @@
+# Sero architecture
+
+This file records current repository-wide boundaries that are not clear from one
+package alone. User and plugin-author documentation belongs in
+`apps/docs-site/docs/`. Subsystem details belong beside their implementation.
+
+## Process and state boundaries
+
+- Electron main owns filesystem, process, runtime, credential, Git, and plugin
+  lifecycle work. Renderer code reaches these services through the typed preload
+  bridge. A cross-process change must keep renderer state, preload types, IPC
+  handlers, and the main-process service aligned.
+- Persistent renderer state goes through the host layout service. Plugin state
+  goes through the host app-state service. Do not create a second durable state
+  path with `localStorage`, `sessionStorage`, or an event log.
+- `~/.sero-ui/profiles.json` selects the active profile. The active `SERO_HOME`
+  owns profile data. Machine-shared tools and artifacts stay under the fixed
+  host-artifacts root, outside every profile.
+
+## Workspace runtimes
+
+Each workspace selects Host, Apple Container, or Docker/Podman explicitly. A
+selected container runtime fails closed when it is unavailable. It does not
+silently run the command on Host. Host commands use the real workspace path;
+`/workspace` is a container path and an API compatibility alias only.
+
+Release targets are macOS arm64, Linux x64/arm64, and Windows x64. macOS x64
+and Windows arm64 are not supported release targets.
+
+Runtime implementations must preserve the same workspace identity and route
+commands, terminals, Git, previews, and path translation through the selected
+backend. Runtime-specific capability limits must remain visible to callers.
+
+## Shared host services
+
+- The desktop process owns model credentials and the shared Pi model runtime.
+  Plugins receive narrow model or completion services, not the raw credential
+  store.
+- `apps/desktop/electron/features/git/` owns repository execution, GitHub CLI
+  authentication, worktrees, checkpoints, and repository state. Workspace and
+  plugin code consumes that service instead of spawning a parallel Git helper.
+- Managed tools install once per machine under the host-artifacts root. Tool
+  resolution uses a verified system tool first, a verified managed tool second,
+  and an approved first-use install last. Sero does not mutate the user's shell
+  profile or global package-manager configuration.
+
+## Plugin boundary
+
+The host validates plugin manifests before their UI, tools, runtime, or
+contributions become active. Plugins declare the host capabilities they need.
+Unknown required capabilities keep the plugin inactive instead of granting a
+best-effort fallback.
+
+Host extension points are closed contracts. The host owns each location,
+layout, lifecycle, and validation. Plugins contribute only the declared
+component or standard control. A plugin-specific feature must not add a custom
+preload or IPC bridge when an existing generic capability can carry it.
+
+Extension tools register through Pi. Sero can expose them through the generic
+CLI bridge, which resolves the current session's extension instance at execution
+time. Core coding tools and the subagent tool remain explicit exceptions.
+
+Portable Agent Plugins are a separate host-owned package format. They are not
+Sero plugins, Pi packages, or sidebar apps. Installed package content is
+immutable; writable package data has a separate persistent location.
+
+## Persistent agent sessions and Rooms
+
+Host-managed persistent sessions are a gated built-in capability. The host
+validates every request against a stored user-approved grant, controls session
+paths and resources, and returns a narrow handle. A plugin cannot use this
+capability to widen tools, models, workspace access, or delivery authority.
+
+Agent Rooms are a mode of Sero Orchestrator. Workflows and Rooms share
+scheduling, limits, Git, artifacts, and delivery infrastructure, but keep
+separate domain records. A Room member uses a standard persistent Pi session;
+Orchestrator does not own a second transcript store or model runtime. The
+Conductor can coordinate only inside the approved operating envelope.
+
+## Security posture
+
+Sero is a powerful local automation environment, not a hardened multi-tenant
+sandbox. Containers, profiles, plugin activation, UI-only management surfaces,
+and focused command approval checks are useful boundaries, but none is a
+complete security system. Current user-visible limits and remote-access guidance
+live in `apps/docs-site/docs/reference/security-privacy.md`.

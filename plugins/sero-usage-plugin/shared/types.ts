@@ -1,6 +1,4 @@
-// Single source of truth for state shared across extension and UI.
-// JSON-serialisable only — no Date, Map, Set, or functions.
-// Shape is specified in docs/specs/sero-usage-plugin-spec.md §3.5.
+// Single source of truth for JSON-serialisable state shared by extension and UI.
 
 export const PERIOD_KEYS = ['today', 'thisWeek', 'lastWeek', 'allTime'] as const;
 export type PeriodKey = (typeof PERIOD_KEYS)[number];
@@ -44,8 +42,8 @@ export interface ProviderStats {
 }
 
 /**
- * An Agent Rooms group (docs/features/agent-rooms/spec.md §27.1). Derived from
- * the session path and the Pi session name only — the Usage plugin never reads
+ * An Agent Rooms group. Derived from the session path and Pi session name only;
+ * the Usage plugin never reads
  * the Orchestrator store.
  */
 export interface RoomGroup {

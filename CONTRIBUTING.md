@@ -23,10 +23,10 @@ For the canonical beta support matrix and triage expectations, see
 ## Before you start
 
 Please read these first:
-- [`docs/sero.md`](./docs/sero.md) — product vision, platform constraints, runtime modes
-- [`docs/architecture.md`](./docs/architecture.md) — app structure and major subsystems
-- [`docs/plugins/guide.md`](./docs/plugins/guide.md) — plugin author and distribution guidance
-- [`docs/node-pty-setup.md`](./docs/node-pty-setup.md) — native terminal troubleshooting
+- [`README.md`](./README.md) - product purpose and repository overview
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - current cross-cutting boundaries
+- [Plugin Quickstart](./apps/docs-site/docs/reference/plugin-quickstart.md) - plugin authoring
+- [`apps/desktop/README.md`](./apps/desktop/README.md) - desktop-native recovery and host toolchains
 
 Important current constraints:
 - supported beta targets: **macOS Apple Silicon, Linux x64/arm64, and Windows x64**
@@ -61,7 +61,8 @@ Notes:
 - `pnpm dev` is the canonical first-run command for contributors.
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
-- If terminals fail, follow [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
+- If terminals fail, follow
+  [`apps/desktop/README.md`](./apps/desktop/README.md#native-module-recovery).
 - Host is the default workspace runtime on supported beta targets. Install Apple
   Container, Docker, or Podman only when you need an explicit container runtime.
 
@@ -109,7 +110,8 @@ A few important repo rules:
 - keep source files under the repo's 500 LOC guideline when possible
 
 If you touch plugin packaging or authoring flows, keep external-plugin guidance
-consistent with [`docs/plugins/guide.md`](./docs/plugins/guide.md).
+consistent with the
+[Plugins reference](./apps/docs-site/docs/reference/plugins.md).
 
 ## Reporting bugs
 
