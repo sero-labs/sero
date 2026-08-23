@@ -32,8 +32,7 @@ test.describe('App Launch', () => {
 
   test('should set the correct window title', async () => {
     const title = await getWindowTitle(app);
-    // Title may include workspace name or default "Sero"
-    expect(title).toBeTruthy();
+    expect(title).toBe('Sero');
   });
 
   test('should expose the sero API on the renderer window', async () => {

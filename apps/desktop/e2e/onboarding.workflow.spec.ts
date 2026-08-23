@@ -1,6 +1,6 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import {
-  closeApp,
+  closeSeroApp,
   createTempSeroHome,
   launchSeroApp,
   launchWorkflowApp,
@@ -17,7 +17,7 @@ let page: Page;
 
 test.afterEach(async () => {
   try {
-    await closeApp(app);
+    await closeSeroApp(app);
   } finally {
     home?.cleanup();
   }
@@ -31,8 +31,9 @@ test('fresh home renders first-run setup and creates a profile', async () => {
     env: { HOME: home.path, USERPROFILE: home.path },
   }));
 
-  await expect(page.getByText('Welcome to Sero')).toBeVisible({ timeout: 15_000 });
-  await page.getByLabel('Profile Name').fill('Test');
+  const profileName = page.getByPlaceholder('e.g. Personal, Work, Research...');
+  await expect(profileName).toBeVisible({ timeout: 15_000 });
+  await profileName.fill('Test');
   await page.getByRole('button', { name: /get started/i }).click();
 
   await expect.poll(async () => app.evaluate(() => {

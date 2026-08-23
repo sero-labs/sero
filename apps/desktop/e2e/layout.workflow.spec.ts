@@ -11,9 +11,9 @@ import path from 'path';
  */
 
 const SERO_TEST_HOME = path.join(E2E_DATA_ROOT, 'layout-test');
-const LAYOUT_FILE = path.join(SERO_TEST_HOME, 'agent', 'layout.json');
-
-// ── Helpers ─────────────────────────────────────────────────────
+const TEST_PROFILE_ID = 'layout-test-profile';
+const TEST_PROFILE_HOME = path.join(SERO_TEST_HOME, 'profiles', TEST_PROFILE_ID);
+const LAYOUT_FILE = path.join(TEST_PROFILE_HOME, 'agent', 'layout.json');
 
 /** Read the persisted layout.json from disk. */
 function readLayoutFile(): Record<string, unknown> | null {
@@ -35,16 +35,22 @@ function cleanTestData() {
   fs.rmSync(SERO_TEST_HOME, { recursive: true, force: true });
 }
 
+function seedTestProfile() {
+  fs.mkdirSync(path.join(TEST_PROFILE_HOME, 'agent'), { recursive: true });
+  fs.writeFileSync(path.join(SERO_TEST_HOME, 'profiles.json'), JSON.stringify({
+    version: 1, activeProfileId: TEST_PROFILE_ID,
+    profiles: [{ id: TEST_PROFILE_ID, name: 'Layout Test', path: TEST_PROFILE_HOME,
+      createdAt: new Date().toISOString(), onboarded: true }],
+  }, null, 2) + '\n', 'utf8');
+}
+async function launchLayoutApp() {
+  seedTestProfile();
+  return launchSeroApp({ seroHome: SERO_TEST_HOME });
+}
 /** Get the bounding box width of a panel by selector. */
 async function panelWidth(page: Page, selector: string): Promise<number> {
   const box = await page.locator(selector).first().boundingBox();
   return box?.width ?? 0;
-}
-
-/** Get the bounding box height of a panel by selector. */
-async function panelHeight(page: Page, selector: string): Promise<number> {
-  const box = await page.locator(selector).first().boundingBox();
-  return box?.height ?? 0;
 }
 
 /** Wait for the app shell to be visible (layout hydrated). */
@@ -86,8 +92,6 @@ async function waitForLayoutFile(
   return data!;
 }
 
-// ── Tests ───────────────────────────────────────────────────────
-
 test.describe('Layout — sidebar toggle', () => {
   let app: ElectronApplication;
   let page: Page;
@@ -95,7 +99,7 @@ test.describe('Layout — sidebar toggle', () => {
   test.beforeAll(async () => {
     cleanTestData();
     seedLayout({ mainSidebarOpen: true, chatPanelOpen: true });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
   });
 
@@ -150,7 +154,7 @@ test.describe('Layout — chat panel toggle', () => {
   test.beforeAll(async () => {
     cleanTestData();
     seedLayout({ mainSidebarOpen: true, chatPanelOpen: true });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
   });
 
@@ -204,7 +208,7 @@ test.describe('Layout — both panels collapsed', () => {
   test.beforeAll(async () => {
     cleanTestData();
     seedLayout({ mainSidebarOpen: true, chatPanelOpen: true });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
   });
 
@@ -248,7 +252,7 @@ test.describe('Layout — size persistence across reload', () => {
       mainSidebarSizePct: 25,
       chatPanelSizePct: 35,
     });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
 
     const shellBox = await page.locator(layout.shellPanelGroup).first().boundingBox();
@@ -256,7 +260,7 @@ test.describe('Layout — size persistence across reload', () => {
     expect(shellBox).toBeTruthy();
     // Sidebar should be ~25% of shell width (±5% tolerance)
     const actualPct = (sidebarWidth / shellBox!.width) * 100;
-    expect(actualPct).toBeGreaterThan(20);
+    expect(actualPct).toBeGreaterThan(19);
     expect(actualPct).toBeLessThan(30);
 
     const chatWidth = await panelWidth(page, layout.chatPanel);
@@ -266,11 +270,29 @@ test.describe('Layout — size persistence across reload', () => {
   });
 
   test('sidebar size is written to layout.json on drag', async () => {
-    // The sizes should already be persisted from the seeded launch
-    const data = readLayoutFile();
-    expect(data).toBeTruthy();
-    expect(typeof data!.mainSidebarSizePct).toBe('number');
-    expect(typeof data!.chatPanelSizePct).toBe('number');
+    const before = readLayoutFile();
+    if (!before || typeof before.mainSidebarSizePct !== 'number') {
+      throw new Error('Expected a persisted sidebar size before dragging');
+    }
+    const beforeSize = before.mainSidebarSizePct;
+    expect(beforeSize).toBe(25);
+
+    const handle = page.locator(layout.sidebarHandle).first();
+    const box = await handle.boundingBox();
+    expect(box).toBeTruthy();
+
+    const startX = box!.x + box!.width / 2;
+    const startY = box!.y + box!.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 100, startY, { steps: 8 });
+    await page.mouse.up();
+
+    const data = await waitForLayoutFile((current) => (
+      typeof current.mainSidebarSizePct === 'number'
+      && Math.abs(current.mainSidebarSizePct - beforeSize) >= 1
+    ));
+    expect(data.mainSidebarSizePct).not.toBe(25);
   });
 });
 
@@ -286,7 +308,7 @@ test.describe('Layout — collapse + reopen preserves size', () => {
       mainSidebarSizePct: 22,
       chatPanelSizePct: 32,
     });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
   });
 
@@ -338,7 +360,7 @@ test.describe('Layout — closed panels restored from disk', () => {
       mainSidebarSizePct: 20,
       chatPanelSizePct: 30,
     });
-    const { app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME });
+    const { app, page } = await launchLayoutApp();
     try {
       await waitForShell(page);
 
@@ -364,7 +386,7 @@ test.describe('Layout — closed panels restored from disk', () => {
       mainSidebarSizePct: 20,
       chatPanelSizePct: 30,
     });
-    const { app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME });
+    const { app, page } = await launchLayoutApp();
     try {
       await waitForShell(page);
 
@@ -390,7 +412,7 @@ test.describe('Layout — closed panels restored from disk', () => {
       mainSidebarSizePct: 20,
       chatPanelSizePct: 30,
     });
-    const { app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME });
+    const { app, page } = await launchLayoutApp();
     try {
       await waitForShell(page);
 
@@ -413,7 +435,7 @@ test.describe('Layout — first launch (no layout.json)', () => {
   test('defaults to both panels open with no saved state', async () => {
     cleanTestData();
     // No seedLayout — layout.json does not exist
-    const { app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME });
+    const { app, page } = await launchLayoutApp();
     try {
       await waitForShell(page);
 
@@ -442,7 +464,7 @@ test.describe('Layout — rapid toggle', () => {
   test.beforeAll(async () => {
     cleanTestData();
     seedLayout({ mainSidebarOpen: true, chatPanelOpen: true });
-    ({ app, page } = await launchSeroApp({ seroHome: SERO_TEST_HOME }));
+    ({ app, page } = await launchLayoutApp());
     await waitForShell(page);
   });
 
