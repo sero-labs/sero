@@ -17,12 +17,28 @@ import type {
   WebAppRequest,
 } from '@sero-ai/common';
 
+/** Parsed app-state content plus the etag a later write must echo. */
+export interface AppStateReadResult<TData = unknown> {
+  data: TData;
+  /** Hash of the raw file text; `null` when the file is absent. */
+  etag: string | null;
+}
+
+/**
+ * Result of an app-state write. `ok: false` means the caller's etag no longer
+ * matches the file: nothing was written, and `data`/`etag` carry the current
+ * content so the caller can re-apply its change on top.
+ */
+export type AppStateWriteResult =
+  | { ok: true; etag: string }
+  | { ok: false; data: unknown; etag: string | null };
+
 export interface SeroWindowAppStateBridge {
   read<TData = unknown>(filePath: string): Promise<TData>;
-  write<TData = unknown>(filePath: string, data: TData): Promise<void>;
-  watch<TData = unknown>(filePath: string): Promise<TData>;
+  write<TData = unknown>(filePath: string, data: TData, expectedEtag?: string | null): Promise<AppStateWriteResult>;
+  watch<TData = unknown>(filePath: string): Promise<AppStateReadResult<TData>>;
   unwatch(filePath: string): Promise<void>;
-  onChange<TData = unknown>(cb: (filePath: string, data: TData) => void): () => void;
+  onChange<TData = unknown>(cb: (filePath: string, data: TData, etag: string | null) => void): () => void;
 }
 
 export interface SeroAppAgentBridge {

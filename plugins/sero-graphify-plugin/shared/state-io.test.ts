@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { readStateFile, appendIndexRequest, appendIndexRequests, writeStateFile, writeIfUnchanged } from './state-io';
+import { withStateLock } from '@sero-ai/extension-runtime';
+import { readStateFile, appendIndexRequest, appendIndexRequests, writeStateFile } from './state-io';
 import { DEFAULT_STATE, withStateDefaults, type GraphifyState } from './types';
 
 describe('state-io', () => {
@@ -66,34 +67,34 @@ describe('withStateDefaults', () => {
 });
 
 describe('appendIndexRequests concurrency', () => {
-  it('refuses to write over content that changed since it was read', async () => {
-    // The extension and the runtime write this file from different processes
-    // with no shared lock. Without the check, an append would revert whatever
-    // the runtime wrote in between, including the applied request watermark.
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-race-'));
-    const stateFile = path.join(dir, 'state.json');
-    const stale = JSON.stringify(structuredClone(DEFAULT_STATE), null, 2);
-
-    const runtimeWrote = {
-      ...structuredClone(DEFAULT_STATE),
-      provisioning: { status: 'ready' as const, updatedAt: '2026-08-20' },
-    };
-    await writeStateFile(stateFile, runtimeWrote);
-
-    const wrote = await writeIfUnchanged(stateFile, stale, structuredClone(DEFAULT_STATE));
-    expect(wrote).toBe(false);
-    expect((await readStateFile(stateFile))?.provisioning.updatedAt).toBe('2026-08-20');
-  });
-
-  it('writes when the content is untouched', async () => {
+  it('appends under the shared state lock, after a concurrent holder releases', async () => {
+    // The extension and the runtime write this file from different processes.
+    // Both must take the `<stateFile>.lock` mutex (the runtime gets it via the
+    // host's AppStateManager), so an append cannot interleave with a write in
+    // progress and revert it — including the applied request watermark.
     const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-race-'));
     const stateFile = path.join(dir, 'state.json');
     await writeStateFile(stateFile, structuredClone(DEFAULT_STATE));
-    const current = await readFile(stateFile, 'utf8');
 
-    const wrote = await writeIfUnchanged(stateFile, current, { ...structuredClone(DEFAULT_STATE), nextRequestId: 9 });
-    expect(wrote).toBe(true);
-    expect((await readStateFile(stateFile))?.nextRequestId).toBe(9);
+    let ids: number[] | null = null;
+    await withStateLock(stateFile, async () => {
+      // "The runtime" holds the lock and writes; the append must wait.
+      const append = appendIndexRequests(stateFile, [{ action: 'sync' }]).then((queued) => { ids = queued; });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(ids).toBeNull();
+      await writeStateFile(stateFile, {
+        ...structuredClone(DEFAULT_STATE),
+        provisioning: { status: 'ready' as const, updatedAt: '2026-08-20' },
+      });
+      void append;
+    });
+
+    // Lock released — the append lands on top of the runtime's write.
+    await expect.poll(() => ids).not.toBeNull();
+    const state = await readStateFile(stateFile);
+    expect(state?.provisioning.updatedAt).toBe('2026-08-20');
+    expect(state?.requests).toHaveLength(1);
+    expect(state?.nextRequestId).toBe((DEFAULT_STATE.nextRequestId ?? 1) + 1);
   });
 
   it('refuses to overwrite a state file it cannot parse', async () => {

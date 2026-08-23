@@ -35,6 +35,20 @@ Current public storage model:
 - global app state: `<SERO_HOME>/apps/<app-id>/state.json`
 - workspace app state: `<workspace>/.sero/apps/<app-id>/state.json`
 
+## Concurrent writers
+
+A state file can have three writers: the plugin UI, the plugin runtime, and the
+plugin extension. The host serialises them:
+
+- Every host-side mutation runs under a cross-process lock (`<stateFile>.lock`).
+- `useAppState` writes carry an etag. When another writer changed the file
+  first, the hook re-applies your updater on top of the new content and writes
+  again. Keep updaters pure functions of `prev` — an updater that closes over
+  older state re-applies stale values.
+- An extension that writes a state file directly must hold the same lock. Use
+  `withStateLock(stateFile, fn)` from `@sero-ai/extension-runtime` around each
+  read-modify-write.
+
 See [State and Folders](/reference/state-and-folders) for the broader storage map.
 
 ## Minimal example

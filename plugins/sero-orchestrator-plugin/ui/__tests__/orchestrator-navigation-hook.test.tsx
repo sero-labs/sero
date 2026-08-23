@@ -27,12 +27,12 @@ describe('useOrchestratorNavigation', () => {
   });
 
   it('writes navigation and layout changes after reading a null state file', async () => {
-    const write = vi.fn(async () => undefined);
+    const write = vi.fn(async () => ({ ok: true as const, etag: 'e1' }));
     Reflect.set(window, 'sero', {
       appState: {
         read: vi.fn(async () => null),
         write,
-        watch: vi.fn(async () => null),
+        watch: vi.fn(async () => ({ data: null, etag: null })),
         unwatch: vi.fn(async () => undefined),
         onChange: vi.fn(() => () => undefined),
       },
@@ -84,7 +84,7 @@ describe('useOrchestratorNavigation', () => {
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenLastCalledWith('/workspace/state.json', expect.objectContaining({
       ui: expect.objectContaining({ navigationViewId: 'rooms/room-1' }),
-    }));
+    }), null);
 
     await act(async () => resize?.());
     expect(write).toHaveBeenCalledTimes(2);
@@ -93,6 +93,6 @@ describe('useOrchestratorNavigation', () => {
         navigationViewId: 'rooms/room-1',
         roomPanelLayouts: { roster: { 'room-1': 35 } },
       }),
-    }));
+    }), 'e1');
   });
 });

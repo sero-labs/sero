@@ -12,7 +12,7 @@ import type { UsageState } from '../shared/types';
 import { aggregate } from './aggregate';
 import { collectSessionFiles } from './scan';
 import { loadScanCache, saveScanCache, scanWithCache } from './scan-cache';
-import { readState, resolveScanCachePath, resolveSessionsDir, resolveStatePath, writeJsonFile } from './state-io';
+import { readState, resolveScanCachePath, resolveSessionsDir, resolveStatePath, updateState } from './state-io';
 
 /** Non-forced refreshes within this window are treated as already fresh. */
 const FRESH_WINDOW_MS = 60_000;
@@ -68,10 +68,9 @@ async function doRefresh(force: boolean): Promise<RefreshSummary> {
   const { periods, daily, hourly } = aggregate(scan.sessions);
   const durationMs = Date.now() - startedAt;
 
-  // Re-read settings just before writing so a mid-scan settings change
+  // Settings are re-read inside the lock, so a mid-scan settings change
   // from the UI is not clobbered.
-  const currentState = await readState(statePath);
-  const state: UsageState = {
+  const state = await updateState(statePath, (currentState) => ({
     schemaVersion: 1,
     settings: currentState.settings,
     lastRefreshedAt: Date.now(),
@@ -79,8 +78,7 @@ async function doRefresh(force: boolean): Promise<RefreshSummary> {
     periods,
     daily,
     hourly,
-  };
-  await writeJsonFile(statePath, state);
+  }));
 
   return { files: scan.files, reused: scan.reused, durationMs, state, skipped: false };
 }

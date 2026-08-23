@@ -6,15 +6,24 @@
  *   - Reading state from disk
  *   - Atomic writes (write to tmp, then fs.rename)
  *   - fs.watch() for change notifications (macOS uses FSEvents — reliable)
- *   - Serialised write queue to prevent concurrent writes
+ *   - Serialised write queue to prevent concurrent writes in this process
+ *   - A cross-process lock (`<stateFile>.lock`) around every mutation, shared
+ *     with plugin extensions via @sero-ai/extension-runtime — a writer in the
+ *     Pi agent process and a writer here must never interleave their
+ *     read-modify-write cycles
+ *   - An etag per file content, so a renderer holding state outside the lock
+ *     has its write rejected instead of silently clobbering newer content
  *
  * Used by both the IPC layer (renderer ↔ main) and the Pi extension
  * (which writes directly to the same file).
  */
 
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { watch, type FSWatcher } from 'fs';
 import path from 'path';
+import { stateLockPath, withLock } from '@sero-ai/extension-runtime';
+import type { AppStateReadResult, AppStateWriteResult } from '@/types/ipc';
 import { IpcChannels } from '@/types/ipc-channels';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
 
@@ -38,6 +47,11 @@ interface WatcherEntry {
 
 type ChangeListener = (filePath: string, data: unknown) => void;
 
+/** Content etag: hash of the raw file text. `null` means the file is absent. */
+function computeEtag(raw: string): string {
+  return createHash('sha1').update(raw).digest('hex');
+}
+
 export class AppStateManager {
   private watchers = new Map<string, WatcherEntry>();
   private writeQueues = new Map<string, Promise<void>>();
@@ -55,11 +69,21 @@ export class AppStateManager {
   // ── Read ─────────────────────────────────────────────────
 
   async read(filePath: string): Promise<unknown> {
+    return (await this.readWithEtag(filePath)).data;
+  }
+
+  /** Read parsed content together with the etag a write must echo. */
+  async readWithEtag(filePath: string): Promise<AppStateReadResult> {
+    let raw: string;
     try {
-      const raw = await fs.readFile(filePath, 'utf8');
-      return JSON.parse(raw);
+      raw = await fs.readFile(filePath, 'utf8');
     } catch {
-      return null;
+      return { data: null, etag: null };
+    }
+    try {
+      return { data: JSON.parse(raw), etag: computeEtag(raw) };
+    } catch {
+      return { data: null, etag: computeEtag(raw) };
     }
   }
 
@@ -75,46 +99,71 @@ export class AppStateManager {
   // ── Remove ────────────────────────────────────────────────
 
   async remove(filePath: string): Promise<void> {
-    try {
-      await fs.unlink(filePath);
-    } catch {
-      /* file already gone — fine */
-    }
+    await this.enqueue(filePath, () =>
+      withLock(stateLockPath(filePath), async () => {
+        try {
+          await fs.unlink(filePath);
+        } catch {
+          /* file already gone — fine */
+        }
+      }),
+    );
   }
 
   // ── Write (atomic, serialised) ───────────────────────────
 
-  async write(filePath: string, data: unknown): Promise<void> {
-    // Chain writes per file to serialise them
-    const prev = this.writeQueues.get(filePath) ?? Promise.resolve();
-    const next = prev.then(() => this.atomicWrite(filePath, data));
-    this.writeQueues.set(filePath, next);
-    await next;
+  /**
+   * Write a file, atomically and under the cross-process lock.
+   *
+   * `expectedEtag` is the etag the caller's state is based on (from
+   * `readWithEtag`, `watch` or a change event); the write is rejected when the
+   * file has changed since, and the current content is returned so the caller
+   * can re-apply its change on top. Omitting it writes unconditionally — for
+   * whole-file owners like the CLI and the git-app manager, not for callers
+   * that hold state between read and write.
+   */
+  async write(filePath: string, data: unknown, expectedEtag?: string | null): Promise<AppStateWriteResult> {
+    return this.enqueue(filePath, () =>
+      withLock(stateLockPath(filePath), async () => {
+        if (expectedEtag !== undefined) {
+          const current = await this.readWithEtag(filePath);
+          if (current.etag !== expectedEtag) {
+            return { ok: false as const, data: current.data, etag: current.etag };
+          }
+        }
+        return { ok: true as const, etag: await this.atomicWrite(filePath, data) };
+      }),
+    );
   }
 
   /**
-   * Atomic read-modify-write: the updater callback runs inside the
-   * serialised write queue so no concurrent read can see stale data.
-   *
-   * Use this instead of separate read() + write() when multiple
-   * callers may update the same file concurrently (e.g. parallel
-   * subtask completion in the kanban orchestrator).
+   * Atomic read-modify-write: the updater runs inside the serialised write
+   * queue AND the cross-process lock, so no writer in any process can land
+   * between the read and the write.
    */
   async update<T = unknown>(
     filePath: string,
     updater: (current: T | null) => T,
   ): Promise<void> {
-    const prev = this.writeQueues.get(filePath) ?? Promise.resolve();
-    const next = prev.then(async () => {
-      const current = await this.read(filePath) as T | null;
-      const updated = updater(current);
-      await this.atomicWrite(filePath, updated);
-    });
-    this.writeQueues.set(filePath, next);
-    await next;
+    await this.enqueue(filePath, () =>
+      withLock(stateLockPath(filePath), async () => {
+        const current = await this.read(filePath) as T | null;
+        await this.atomicWrite(filePath, updater(current));
+      }),
+    );
   }
 
-  private async atomicWrite(filePath: string, data: unknown): Promise<void> {
+  /** Serialise mutations per file within this process. The chain survives a
+   * rejected entry; only the returned promise carries the error. */
+  private enqueue<T>(filePath: string, task: () => Promise<T>): Promise<T> {
+    const prev = this.writeQueues.get(filePath) ?? Promise.resolve();
+    const next = prev.then(task);
+    this.writeQueues.set(filePath, next.then(() => undefined, () => undefined));
+    return next;
+  }
+
+  /** Returns the etag of the content written. */
+  private async atomicWrite(filePath: string, data: unknown): Promise<string> {
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
 
@@ -123,6 +172,7 @@ export class AppStateManager {
 
     await fs.writeFile(tmpPath, json, 'utf8');
     await fs.rename(tmpPath, filePath);
+    return computeEtag(json);
   }
 
   // ── Watch ────────────────────────────────────────────────
@@ -268,16 +318,16 @@ export class AppStateManager {
     entry.debounceTimer = setTimeout(async () => {
       entry.debounceTimer = null;
       try {
-        const data = await this.read(filePath);
-        this.pushChange(filePath, data);
+        const { data, etag } = await this.readWithEtag(filePath);
+        this.pushChange(filePath, data, etag);
       } catch (err) {
         console.error(`[AppStateManager] Error reading ${filePath}:`, err);
       }
     }, 50);
   }
 
-  private pushChange(filePath: string, data: unknown): void {
-    broadcastToWindows(IpcChannels.appState.change, filePath, data);
+  private pushChange(filePath: string, data: unknown, etag: string | null): void {
+    broadcastToWindows(IpcChannels.appState.change, filePath, data, etag);
     // Notify registered listeners (e.g. kanban orchestrator)
     for (const listener of this.changeListeners) {
       try {

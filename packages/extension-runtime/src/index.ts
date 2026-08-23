@@ -8,3 +8,5 @@ export type {
   IsolatedCompletionRequest,
   IsolatedCompletionService,
 } from './isolated-completion';
+export { acquireLock, stateLockPath, withLock, withStateLock } from './file-lock';
+export type { FileLockOptions } from './file-lock';

@@ -2,6 +2,8 @@ import { ipcRenderer } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
+  AppStateReadResult,
+  AppStateWriteResult,
   SeroAppManifest,
   AuthProvidersResponse,
   OAuthEvent,
@@ -33,21 +35,21 @@ export const appStateBridge = {
   readText: (filePath: string): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.appState.readText, filePath),
 
-  write: (filePath: string, data: unknown): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.appState.write, filePath, data),
+  write: (filePath: string, data: unknown, expectedEtag?: string | null): Promise<AppStateWriteResult> =>
+    ipcRenderer.invoke(IpcChannels.appState.write, filePath, data, expectedEtag),
 
   remove: (filePath: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.appState.remove, filePath),
 
-  watch: (filePath: string): Promise<unknown> =>
+  watch: (filePath: string): Promise<AppStateReadResult> =>
     ipcRenderer.invoke(IpcChannels.appState.watch, filePath),
 
   unwatch: (filePath: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.appState.unwatch, filePath),
 
-  onChange: (callback: (filePath: string, data: unknown) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, fp: string, data: unknown) => {
-      callback(fp, data);
+  onChange: (callback: (filePath: string, data: unknown, etag: string | null) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, fp: string, data: unknown, etag: string | null) => {
+      callback(fp, data, etag);
     };
     ipcRenderer.on(IpcChannels.appState.change, handler);
     return () => {

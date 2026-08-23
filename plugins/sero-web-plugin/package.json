@@ -60,7 +60,7 @@
         "github"
       ],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2,
+      "runtimeAbi": 3,
       "preBuilt": false
     }
   },

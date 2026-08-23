@@ -1,0 +1,128 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { acquireLock, stateLockPath, withLock, withStateLock } from '../file-lock';
+
+let dir: string;
+
+beforeEach(async () => {
+  dir = await mkdtemp(path.join(tmpdir(), 'sero-file-lock-'));
+});
+
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
+});
+
+describe('withLock', () => {
+  it('excludes a second holder until the first releases', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const order: string[] = [];
+
+    let releaseFirst!: () => void;
+    const firstHolds = new Promise<void>((resolve) => { releaseFirst = resolve; });
+
+    const first = withLock(lockDir, async () => {
+      order.push('first-in');
+      await firstHolds;
+      order.push('first-out');
+    });
+    // Give the first writer time to take the lock before the second tries.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const second = withLock(lockDir, async () => {
+      order.push('second-in');
+    });
+
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(['first-in', 'first-out', 'second-in']);
+  });
+
+  it('reclaims a lock whose owner is gone', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    await mkdir(lockDir);
+    // A pid from a process that has already exited.
+    const gonePid = await new Promise<number>((resolve, reject) => {
+      const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });
+      child.on('exit', () => resolve(child.pid!));
+      child.on('error', reject);
+    });
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: gonePid, acquiredAt: Date.now() }), 'utf8');
+
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
+  });
+
+  it('reclaims a lock past its stale window even when the owner pid is alive', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    await mkdir(lockDir);
+    // Not our own pid (that is never reclaimed) — pid 1 is always alive.
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: 1, acquiredAt: Date.now() - 60_000 }), 'utf8');
+
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000, staleMs: 30_000 })).resolves.toBe('ran');
+  });
+
+  it('throws on timeout while another holder is alive', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const release = await acquireLock(lockDir);
+    // The holder is this process, which is alive, so it is never reclaimed.
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 200 })).rejects.toThrow(/Timed out acquiring lock/);
+    await release();
+  });
+
+  it('releases the lock when the task throws', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    await expect(withLock(lockDir, async () => { throw new Error('boom'); })).rejects.toThrow('boom');
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
+  });
+});
+
+describe('stateLockPath', () => {
+  it('derives the shared lock directory from the state file path', () => {
+    expect(stateLockPath('/a/b/state.json')).toBe('/a/b/state.json.lock');
+  });
+});
+
+describe('cross-process exclusion', () => {
+  // Two writers in separate processes must not lose an update. The child
+  // appends items in a loop while this process rewrites status; every append
+  // and the last status must survive. This is the defect #428 exists for:
+  // without the shared lock, interleaved read-modify-write cycles routinely
+  // erase each other's writes.
+  it('loses no update between a parent and a child writer', async () => {
+    const stateFile = path.join(dir, 'state.json');
+    const count = 50;
+    await writeFile(stateFile, JSON.stringify({ status: 'start', items: [] }), 'utf8');
+
+    const worker = fileURLToPath(new URL('./fixtures/append-worker.ts', import.meta.url));
+    const child = spawn(process.execPath, [worker, stateFile, String(count)], { stdio: ['ignore', 'inherit', 'inherit'] });
+    const childDone = new Promise<void>((resolve, reject) => {
+      child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`worker exited ${code}`))));
+      child.on('error', reject);
+    });
+
+    // Start barrier: without it the parent finishes all its writes before the
+    // child process has even booted, and the test proves nothing. The unlocked
+    // version of this interleaving loses most of the 50 appends.
+    while (!existsSync(`${stateFile}.ready`)) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    await writeFile(`${stateFile}.go`, '', 'utf8');
+
+    for (let i = 0; i < count; i += 1) {
+      await withStateLock(stateFile, async () => {
+        const current = JSON.parse(await readFile(stateFile, 'utf8')) as { status: string; items: number[] };
+        current.status = `status-${i}`;
+        await writeFile(stateFile, JSON.stringify(current), 'utf8');
+      });
+    }
+
+    await childDone;
+    const final = JSON.parse(await readFile(stateFile, 'utf8')) as { status: string; items: number[] };
+    expect(final.items).toEqual(Array.from({ length: count }, (_, i) => i));
+    expect(final.status).toBe(`status-${count - 1}`);
+  }, 30_000);
+});

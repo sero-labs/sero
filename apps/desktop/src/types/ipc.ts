@@ -448,3 +448,21 @@ export type {
 // ── Auto-update ────────────────────────────────────────────────
 
 export type { UpdaterStatusEvent } from './updater';
+
+// ── App state ──────────────────────────────────────────────────
+
+/** Parsed app-state content plus the etag a later write must echo. */
+export interface AppStateReadResult {
+  data: unknown;
+  /** Hash of the raw file text; `null` when the file is absent. */
+  etag: string | null;
+}
+
+/**
+ * Result of an app-state write. `ok: false` means the caller's etag no longer
+ * matches the file: nothing was written, and `data`/`etag` carry the current
+ * content so the caller can re-apply its change on top.
+ */
+export type AppStateWriteResult =
+  | { ok: true; etag: string }
+  | { ok: false; data: unknown; etag: string | null };

@@ -2,16 +2,20 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Cross-process exclusive lock.
+ * Cross-process exclusive lock for app state files.
  *
- * Atomic file replacement is not sufficient concurrency control here: Pi tool
- * calls run in a different process from the host runtime, so two writers can
+ * Atomic file replacement is not sufficient concurrency control: a plugin
+ * extension runs in a different process from the host, so two writers can
  * each read, modify and rename without ever observing the other. `mkdir` is
  * atomic and fails if the directory exists, which gives us a mutex that works
  * across processes without a daemon.
  *
  * A holder that dies leaves the directory behind, so the lock records its pid
  * and acquisition time and is reclaimed once it is provably stale.
+ *
+ * Every writer of one file must use the same lock directory, or they hold two
+ * mutexes and exclude nothing. `stateLockPath` is that one name rule: the host
+ * (`AppStateManager`) locks `<stateFile>.lock`, and so must every extension.
  */
 
 export interface FileLockOptions {
@@ -24,6 +28,11 @@ export interface FileLockOptions {
 
 const DEFAULTS = { timeoutMs: 10_000, staleMs: 30_000, pollMs: 25 };
 
+/** The one shared lock-directory name for a state file: `<stateFile>.lock`. */
+export function stateLockPath(stateFile: string): string {
+  return `${stateFile}.lock`;
+}
+
 interface LockOwner {
   pid: number;
   acquiredAt: number;
@@ -32,7 +41,12 @@ interface LockOwner {
 async function readOwner(lockDir: string): Promise<LockOwner | null> {
   const raw = await readFile(path.join(lockDir, 'owner.json'), 'utf8').catch(() => null);
   if (raw === null) return null;
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
   if (typeof parsed !== 'object' || parsed === null) return null;
   const owner = parsed as Record<string, unknown>;
   if (typeof owner.pid !== 'number' || typeof owner.acquiredAt !== 'number') return null;
@@ -105,4 +119,13 @@ export async function withLock<T>(
   } finally {
     await release();
   }
+}
+
+/** Run `fn` while holding the shared cross-process lock for a state file. */
+export function withStateLock<T>(
+  stateFile: string,
+  fn: () => Promise<T>,
+  options: FileLockOptions = {},
+): Promise<T> {
+  return withLock(stateLockPath(stateFile), fn, options);
 }

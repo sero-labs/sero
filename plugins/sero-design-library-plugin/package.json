@@ -42,7 +42,7 @@
         "generation"
       ],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2,
+      "runtimeAbi": 3,
       "preBuilt": false,
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
@@ -61,6 +61,7 @@
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "workspace:*",
     "@fal-ai/client": "^1.10.1",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",

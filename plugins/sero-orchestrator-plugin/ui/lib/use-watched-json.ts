@@ -25,7 +25,7 @@ export function useWatchedJson<T>(filePath: string | null, fallback: T): T {
       if (!active || changedPath !== filePath) return;
       setData(value == null ? fallbackRef.current : value);
     });
-    void api.watch<T | null>(filePath).then((current) => {
+    void api.watch<T | null>(filePath).then(({ data: current }) => {
       if (active) setData(current == null ? fallbackRef.current : current);
     });
 

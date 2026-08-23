@@ -94,7 +94,7 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
     watchTargets.set(filePath, { workspaceId, kind });
     window.sero.appState
       .watch(filePath)
-      .then((data: unknown) => applyWatched(workspaceId, kind, data))
+      .then(({ data }: { data: unknown }) => applyWatched(workspaceId, kind, data))
       .catch(() => applyWatched(workspaceId, kind, null));
   }
 
