@@ -328,12 +328,13 @@ describe('runtime backend contract skeleton', () => {
 
   it('merges runtime-backed dev servers without registering host servers in the legacy container registry', async () => {
     const legacyList = vi.fn(() => []);
+    const legacyRegister = vi.fn();
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
         getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
       } as unknown as WorkspaceManager,
-      containerManager: { devServers: { list: legacyList } } as unknown as ContainerManager,
+      containerManager: { devServers: { list: legacyList, register: legacyRegister } } as unknown as ContainerManager,
     });
     const runtime = await manager.getRuntime('workspace-a');
     const server: RuntimeDevServer = {
@@ -347,6 +348,7 @@ describe('runtime backend contract skeleton', () => {
 
     expect(manager.listDevServersSync('workspace-a')).toEqual([server]);
     expect(legacyList).toHaveBeenCalledWith('workspace-a');
+    expect(legacyRegister).not.toHaveBeenCalled();
   });
 
   it('purges stale legacy dev servers when a host runtime is active', async () => {

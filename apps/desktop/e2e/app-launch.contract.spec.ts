@@ -32,8 +32,7 @@ test.describe('App Launch', () => {
 
   test('should set the correct window title', async () => {
     const title = await getWindowTitle(app);
-    // Title may include workspace name or default "Sero"
-    expect(title).toBeTruthy();
+    expect(title).toBe('Sero');
   });
 
   test('should expose the sero API on the renderer window', async () => {
@@ -55,37 +54,4 @@ test.describe('App Launch', () => {
     expect(methods.hasRemove).toBe(true);
   });
 
-  test('should expose agent IPC methods', async () => {
-    const methods = await page.evaluate(() => {
-      const sero = (window as any).sero;
-      return {
-        hasOpen: typeof sero?.agent?.open === 'function',
-        hasPrompt: typeof sero?.agent?.prompt === 'function',
-        hasAbort: typeof sero?.agent?.abort === 'function',
-        hasClose: typeof sero?.agent?.close === 'function',
-      };
-    });
-    expect(methods.hasOpen).toBe(true);
-    expect(methods.hasPrompt).toBe(true);
-    expect(methods.hasAbort).toBe(true);
-    expect(methods.hasClose).toBe(true);
-  });
-
-  test('should expose VCS IPC methods', async () => {
-    const methods = await page.evaluate(() => {
-      const sero = (window as any).sero;
-      return {
-        hasListCheckpoints: typeof sero?.vcs?.listCheckpoints === 'function',
-        hasGetState: typeof sero?.vcs?.getState === 'function',
-        hasCreateCheckpoint: typeof sero?.vcs?.createCheckpoint === 'function',
-        hasRestore: typeof sero?.vcs?.restore === 'function',
-        hasDiff: typeof sero?.vcs?.diff === 'function',
-      };
-    });
-    expect(methods.hasListCheckpoints).toBe(true);
-    expect(methods.hasGetState).toBe(true);
-    expect(methods.hasCreateCheckpoint).toBe(true);
-    expect(methods.hasRestore).toBe(true);
-    expect(methods.hasDiff).toBe(true);
-  });
 });

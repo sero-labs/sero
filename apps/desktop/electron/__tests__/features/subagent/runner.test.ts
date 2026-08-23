@@ -287,18 +287,31 @@ describe('runSubagent context overrides', () => {
     expect(options.tools).toEqual(['bash', 'web_search']);
   });
 
-  it('replaces the base system prompt via the resource loader override', async () => {
+  it.each([
+    {
+      label: 'an explicit override',
+      systemPromptOverride: 'You are a terse reviewer.',
+    },
+    {
+      label: 'no override',
+      systemPromptOverride: undefined,
+    },
+  ])('passes $label through the resource loader override', async ({ systemPromptOverride }) => {
     mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
 
     const config = createConfig(new AbortController().signal);
-    config.systemPromptOverride = 'You are a terse reviewer.';
+    config.systemPromptOverride = systemPromptOverride;
 
     await runSubagent(config, createDeps());
 
     const override = mocks.lastLoaderOptions?.systemPromptOverride as
       | ((base: string | undefined) => string | undefined)
       | undefined;
-    expect(override?.('original base prompt')).toBe('You are a terse reviewer.');
+    if (systemPromptOverride) {
+      expect(override?.('original base prompt')).toBe('You are a terse reviewer.');
+    } else {
+      expect(mocks.lastLoaderOptions?.systemPromptOverride).toBeUndefined();
+    }
   });
 
   it('delivers the agent prompt via the resource loader appendSystemPrompt slot', async () => {
@@ -326,14 +339,6 @@ describe('runSubagent context overrides', () => {
       'You are a test agent.',
       'STEP CONTRACT: emit the outcome envelope.',
     ]);
-  });
-
-  it('does not set a prompt override when none is requested', async () => {
-    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
-
-    await runSubagent(createConfig(new AbortController().signal), createDeps());
-
-    expect(mocks.lastLoaderOptions?.systemPromptOverride).toBeUndefined();
   });
 
   it('hides disabled skills from the model via the resource loader override', async () => {

@@ -68,7 +68,7 @@ describe('HostDevServerManager', () => {
     ]);
   });
 
-  it('starts a host dev server with detected localhost URL', async () => {
+  it('starts a host dev server with detected 127.0.0.1 URL', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess());
     const processAdapter = createProcessAdapter();
@@ -100,13 +100,7 @@ describe('HostDevServerManager', () => {
     expect(processAdapter.listeningPort).toHaveBeenCalledWith([222]);
   });
 
-  it('uses process adapter methods instead of direct Unix process commands', async () => {
-    const forbiddenExecFile = vi.fn(async (input: { program: string }) => {
-      if (['pgrep', 'lsof', 'ss', 'netstat', 'kill'].includes(input.program)) {
-        throw new Error(`forbidden direct command: ${input.program}`);
-      }
-      return { stdout: '', stderr: '', exitCode: 0 };
-    });
+  it('uses the injected process adapter for process discovery and termination', async () => {
     const processAdapter = createProcessAdapter({
       descendantPids: vi.fn(async () => [2000]),
       listeningPort: vi.fn(async () => 5173),
@@ -119,8 +113,8 @@ describe('HostDevServerManager', () => {
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
     await manager.stop({ serverId: server.id });
 
-    expect(forbiddenExecFile).not.toHaveBeenCalled();
     expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
+    expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234, 2000]);
     expect(processAdapter.listenerPids).toHaveBeenCalledWith(5173);
     expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
     expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
@@ -181,7 +175,7 @@ describe('HostDevServerManager', () => {
     expect(manager.list()).toEqual([expect.objectContaining({ id: server.id, status: 'stopped' })]);
   });
 
-  it('resolves host preview URLs through localhost instead of IPv4 loopback', async () => {
+  it('resolves host preview URLs through 127.0.0.1', async () => {
     const manager = createManager();
 
     await expect(manager.resolvePreviewUrl({ targetPort: 5173, path: '/dashboard' }))

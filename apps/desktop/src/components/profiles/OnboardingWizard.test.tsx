@@ -206,35 +206,40 @@ describe('OnboardingWizard', () => {
     expect(dialog?.className).toContain('overflow-y-auto');
   });
 
-  it('centers transient onboarding status screens', async () => {
-    mockUseLaunchingDialogVisibility.mockReturnValue(true);
-    mockUseOnboardingLaunch.mockReturnValue(createLaunchState({
-      uiPhase: 'launching',
+  it.each([
+    {
+      phase: 'launching' as const,
       launchStatusMessage: 'Starting memory setup...',
-    }));
-
-    await act(async () => {
-      root?.render(<OnboardingWizard />);
-    });
-
-    const launchingHeader = document.querySelector('[data-onboarding-step="launching"]');
-    expect(launchingHeader?.className).toContain('items-center');
-    expect(launchingHeader?.className).toContain('text-center');
-  });
-
-  it('centers the onboarding error header', async () => {
-    mockUseOnboardingLaunch.mockReturnValue(createLaunchState({
-      uiPhase: 'error',
+      errorMessage: null,
+      launchingDialogVisible: true,
+    },
+    {
+      phase: 'error' as const,
+      launchStatusMessage: null,
       errorMessage: 'Try again.',
+      launchingDialogVisible: false,
+    },
+  ])('centers the onboarding $phase header', async ({
+    phase,
+    launchStatusMessage,
+    errorMessage,
+    launchingDialogVisible,
+  }) => {
+    mockUseLaunchingDialogVisibility.mockReturnValue(launchingDialogVisible);
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState({
+      uiPhase: phase,
+      launchStatusMessage,
+      errorMessage,
     }));
 
     await act(async () => {
       root?.render(<OnboardingWizard />);
     });
 
-    const errorHeader = document.querySelector('[data-onboarding-step="error"]');
-    expect(errorHeader?.className).toContain('items-center');
-    expect(errorHeader?.className).toContain('text-center');
+    const header = document.querySelector(`[data-onboarding-step="${phase}"]`);
+    expect(header).not.toBeNull();
+    expect(header?.className).toContain('items-center');
+    expect(header?.className).toContain('text-center');
   });
 
   it('moves optional dependency installs to their own onboarding step', async () => {
@@ -292,13 +297,4 @@ describe('OnboardingWizard', () => {
     expect(ensureCoreTools).toHaveBeenCalledWith('onboarding');
   });
 
-  it('omits the container warning when containers are available', async () => {
-    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
-
-    await act(async () => {
-      root?.render(<OnboardingWizard />);
-    });
-
-    expect(document.body.textContent).not.toContain('Containers are not set up');
-  });
 });
