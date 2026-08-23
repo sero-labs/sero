@@ -1,4 +1,5 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { Check, ChevronDown } from 'lucide-react';
 
 import type { TweakOption, TweakValue } from '../../../shared/tweaks';

@@ -1,4 +1,5 @@
-import { Button, ScrollArea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { TriangleAlert } from 'lucide-react';
 
 import type { LibrarianField } from '../../shared/librarian';

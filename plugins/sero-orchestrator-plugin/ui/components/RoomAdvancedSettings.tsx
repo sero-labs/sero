@@ -13,7 +13,8 @@
  */
 
 import { useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@sero-ai/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { BlueprintMember, RoomBlueprint } from '../../shared/room-blueprint-types';
 import { computeProposalSummary } from '../../shared/room-proposal';
 import { accessTile } from '../lib/access-tile';

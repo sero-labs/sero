@@ -9,7 +9,10 @@
  */
 
 import { useState } from 'react';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, Textarea, cn } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@sero-ai/ui/components/ui/select';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { DELIVERY_DESTINATIONS, defaultDeliveryFor } from '../../shared/delivery-types';
 import type { DeliveryDestinationId } from '../../shared/delivery-types';
 import type { MemberPermissionLevel } from '../../shared/room-blueprint-types';

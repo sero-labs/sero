@@ -1,4 +1,5 @@
-import { Button, ScrollArea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 

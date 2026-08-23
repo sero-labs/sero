@@ -1,5 +1,5 @@
 import { openSeroFile } from '@sero-ai/app-runtime';
-import { Toaster } from '@sero-ai/ui';
+import { Toaster } from '@sero-ai/ui/components/ui/sonner';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 

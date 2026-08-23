@@ -6,7 +6,8 @@
  * simply-linked loop costs no body space. See specs/09-ui-redesign.md.
  */
 
-import { Button, Card } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import { ArrowUpCircle, Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { readaptPrompt } from '../lib/catalog-summary';

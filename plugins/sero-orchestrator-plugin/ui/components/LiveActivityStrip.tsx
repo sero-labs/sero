@@ -6,7 +6,7 @@
  * timer and no polling: elapsed reflects the moment of the last step update.
  */
 
-import { Card } from '@sero-ai/ui';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import type { Loop, RunIndex } from '../../shared/types';
 import { formatCost, formatDuration } from '../lib/format';
 

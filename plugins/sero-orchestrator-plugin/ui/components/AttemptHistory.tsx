@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Badge, Button, Card } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import { Send, Zap } from 'lucide-react';
 import type { LoopRunStatus, LoopRunSummary } from '../../shared/types';
 import { formatCost, formatDuration, formatTime, formatTokens } from '../lib/format';

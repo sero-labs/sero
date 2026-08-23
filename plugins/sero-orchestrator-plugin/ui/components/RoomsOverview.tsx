@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { Users } from 'lucide-react';
 import type { RoomStatus, RoomSummary } from '../../shared/room-types';
 import { formatCost, formatElapsed, formatRelative } from '../lib/format';

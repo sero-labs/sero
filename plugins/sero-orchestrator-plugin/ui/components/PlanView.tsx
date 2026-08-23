@@ -1,6 +1,6 @@
 import { useAvailableModels, useSubagentContext } from '@sero-ai/app-runtime';
 import type { Loop, LoopStepDefinition, OrchestratorAction } from '../../shared/types';
-import { Card } from '@sero-ai/ui';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
 import { fanOutView } from '../lib/fan-out-summary';
 import { groupStepsByLevel } from '../lib/plan-levels';

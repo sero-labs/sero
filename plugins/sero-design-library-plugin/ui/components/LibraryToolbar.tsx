@@ -1,17 +1,19 @@
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
+} from '@sero-ai/ui/components/ui/combobox';
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  SearchInput,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
 import { ArrowDownUp } from 'lucide-react';
 import { useState } from 'react';
 

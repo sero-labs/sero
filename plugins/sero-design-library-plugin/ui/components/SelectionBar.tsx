@@ -1,10 +1,10 @@
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dropdown-menu';
 import { FolderPlus, RotateCw, Shuffle, Sparkles, Star, Trash2, X } from 'lucide-react';
 
 import { MAX_REFERENCES } from '../../shared/design';

@@ -12,7 +12,7 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, Input } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { ArrowUpCircle, Plus, Search } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../../shared/defaults';
 import type { LibraryIndex, LoopSummary } from '../../shared/types';

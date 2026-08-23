@@ -1,4 +1,6 @@
-import { Button, Slider, Switch } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Slider } from '@sero-ai/ui/components/ui/slider';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
 
 import type { TweakDefinition, TweakValue } from '../../../shared/tweaks';

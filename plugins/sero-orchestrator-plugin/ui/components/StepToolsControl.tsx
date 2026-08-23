@@ -1,6 +1,8 @@
 import { Lock, Wrench } from 'lucide-react';
 import type { ContextToolInfo } from '@sero-ai/common';
-import { Button, Checkbox, Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { LoopStepDefinition } from '../../shared/types';
 import { DEFAULT_TOOLS, isDefaultTool } from '../../shared/constants';

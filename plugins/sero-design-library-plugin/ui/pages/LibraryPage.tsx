@@ -1,4 +1,6 @@
-import { Button, Progress, ScrollArea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Progress } from '@sero-ai/ui/components/ui/progress';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { ImagePlus, Sparkles, Upload } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 

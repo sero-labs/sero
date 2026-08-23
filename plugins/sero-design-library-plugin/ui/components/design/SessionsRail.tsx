@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { DesignSummary } from '../../../shared/types';

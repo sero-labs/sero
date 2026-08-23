@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Button, Checkbox, Label } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
+import { Label } from '@sero-ai/ui/components/ui/label';
 import { Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 

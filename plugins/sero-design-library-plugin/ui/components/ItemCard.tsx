@@ -1,4 +1,4 @@
-import { Badge } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Check, Clock, ImageOff, Pencil, Star, TriangleAlert } from 'lucide-react';
 
 import type { ItemSummary } from '../../shared/types';

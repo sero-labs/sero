@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Badge, Button, Card, Textarea } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { MessageCircleQuestion } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { allAnswered as allAnsweredFn, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';

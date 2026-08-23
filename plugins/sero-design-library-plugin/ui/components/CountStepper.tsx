@@ -1,4 +1,5 @@
-import { Button, Input } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 
 export interface CountStepperProps {

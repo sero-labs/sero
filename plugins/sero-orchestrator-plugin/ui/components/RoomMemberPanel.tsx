@@ -13,7 +13,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { X } from 'lucide-react';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';

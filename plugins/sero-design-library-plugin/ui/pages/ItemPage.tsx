@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { ChevronRight, ImageOff } from 'lucide-react';
 
 import type { Collection } from '../../shared/records';

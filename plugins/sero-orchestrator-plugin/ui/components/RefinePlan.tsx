@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Sparkles, Wand2 } from 'lucide-react';
 
 interface RefinePlanProps {

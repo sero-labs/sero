@@ -12,7 +12,7 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
 import { AttentionInputCard, AttentionSuggestionCard } from './AttentionLoopCards';

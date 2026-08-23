@@ -1,4 +1,9 @@
-import { Button, Input, Label, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { useAppTools, useAvailableModels } from '@sero-ai/app-runtime';
 import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
 import { Plus, Trash2 } from 'lucide-react';

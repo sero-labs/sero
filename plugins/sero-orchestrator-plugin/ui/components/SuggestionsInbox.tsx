@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Input } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { Check, Lightbulb, X } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 

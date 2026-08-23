@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { OrchestratorScheduleSummary } from '@sero-ai/common';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { formatCost, formatRelative } from '../lib/format';
