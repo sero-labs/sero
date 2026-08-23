@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import {
   closeApp,
@@ -18,15 +21,30 @@ import {
 let home: TempSeroHome;
 let app: ElectronApplication;
 let page: Page;
+let testWorkspaceId: string;
+let testWorkspacePath: string;
+let workspaceParent: string;
 
 test.beforeAll(async () => {
   home = createTempSeroHome();
   ({ app, page } = await launchWorkflowApp({ home }));
   await waitForShell(page);
+  workspaceParent = path.join(home.path, 'vcs-workspaces');
+  mkdirSync(workspaceParent, { recursive: true });
+  execFileSync('git', ['init', '--quiet', workspaceParent]);
+  execFileSync('git', ['-C', workspaceParent, 'config', 'user.name', 'Sero E2E']);
+  execFileSync('git', ['-C', workspaceParent, 'config', 'user.email', 'e2e@sero.local']);
+  const workspace = await page.evaluate(
+    (parent) => window.sero.workspace.create('VCS Workflow', parent),
+    workspaceParent,
+  );
+  testWorkspaceId = workspace.id;
+  testWorkspacePath = workspace.path;
 });
 
 test.afterAll(async () => {
   try {
+    if (testWorkspaceId) await page.evaluate((id) => window.sero.workspace.remove(id), testWorkspaceId);
     await closeApp(app);
   } finally {
     home.cleanup();
@@ -76,173 +94,78 @@ test.describe('VCS - IPC Bridge', () => {
   });
 });
 
-test.describe('VCS - Workspace State', () => {
-  test('should get VCS state for a workspace', async () => {
-    const workspaces = await page.evaluate(async () => {
-      return (window as any).sero.workspace.list();
-    });
-
-    if (workspaces.length === 0) {
-      test.skip();
-      return;
-    }
-
-    const state = await page.evaluate(async (wsId: string) => {
-      try {
-        return await (window as any).sero.vcs.getState(wsId);
-      } catch {
-        // VCS may not be initialized for test workspaces
-        return null;
-      }
-    }, workspaces[0].id);
-
-    // State may be null if git is not available in the test environment
-    if (state !== null) {
-      expect(state).toHaveProperty('workspaceId');
-      expect(state).toHaveProperty('checkpoints');
-      expect(Array.isArray(state.checkpoints)).toBe(true);
-    }
-  });
-
-  test('should list checkpoints for a workspace', async () => {
-    const workspaces = await page.evaluate(async () => {
-      return (window as any).sero.workspace.list();
-    });
-
-    if (workspaces.length === 0) {
-      test.skip();
-      return;
-    }
-
-    const checkpoints = await page.evaluate(async (wsId: string) => {
-      try {
-        return await (window as any).sero.vcs.listCheckpoints(wsId);
-      } catch {
-        return null;
-      }
-    }, workspaces[0].id);
-
-    if (checkpoints !== null) {
-      expect(Array.isArray(checkpoints)).toBe(true);
-    }
-  });
-});
-
 test.describe('VCS - Checkpoint Lifecycle', () => {
-  let testWorkspaceId: string | null = null;
-
-  test.beforeAll(async () => {
-    // Get first available workspace
-    const workspaces = await page.evaluate(async () => {
-      return (window as any).sero.workspace.list();
-    });
-    if (workspaces.length > 0) {
-      testWorkspaceId = workspaces[0].id;
-    }
-  });
-
   test('should create a manual checkpoint', async () => {
-    if (!testWorkspaceId) {
-      test.skip();
-      return;
-    }
-
+    writeFileSync(path.join(testWorkspacePath, 'vcs-checkpoint.txt'), 'known checkpoint change\n');
     const checkpoint = await page.evaluate(async (wsId: string) => {
-      try {
-        return await (window as any).sero.vcs.createCheckpoint(
-          wsId,
-          'e2e test checkpoint',
-          'manual',
-        );
-      } catch {
-        return null;
-      }
+      const result = await window.sero.vcs.createCheckpoint(wsId, 'e2e test checkpoint', 'manual');
+      if (!result) throw new Error('checkpoint creation returned null for a known change');
+      return result;
     }, testWorkspaceId);
 
-    // Checkpoint creation may fail if git is not available
-    if (checkpoint !== null) {
-      expect(checkpoint).toHaveProperty('sha');
-      expect(checkpoint).toHaveProperty('description');
-      expect(checkpoint.description).toContain('e2e test checkpoint');
-      expect(checkpoint).toHaveProperty('source', 'manual');
-      expect(checkpoint).toHaveProperty('createdAt');
-    }
+    expect(checkpoint).toMatchObject({
+      description: expect.stringContaining('e2e test checkpoint'),
+      source: 'manual',
+    });
+    expect(checkpoint.sha).toBeTruthy();
+    expect(checkpoint.createdAt).toBeTruthy();
   });
 
   test('should get diff between checkpoints', async () => {
-    if (!testWorkspaceId) {
-      test.skip();
-      return;
-    }
-
-    // Get state to find checkpoint IDs
-    const state = await page.evaluate(async (wsId: string) => {
-      try {
-        return await (window as any).sero.vcs.getState(wsId);
-      } catch {
-        return null;
-      }
+    writeFileSync(path.join(testWorkspacePath, 'vcs-diff-before.txt'), 'before diff\n');
+    const first = await page.evaluate(async (wsId: string) => {
+      const first = await window.sero.vcs.createCheckpoint(wsId, 'e2e diff before', 'manual');
+      if (!first) throw new Error('first diff checkpoint returned null');
+      return first;
     }, testWorkspaceId);
 
-    if (!state || state.checkpoints.length === 0) {
-      test.skip();
-      return;
-    }
+    writeFileSync(path.join(testWorkspacePath, 'vcs-diff-after.txt'), 'after diff\n');
+    const status = execFileSync('git', ['-C', testWorkspacePath, 'status', '--porcelain'], { encoding: 'utf8' });
+    expect(status).toContain('vcs-diff-after.txt');
+    const result = await page.evaluate(async ({ wsId, first }) => {
+      const second = await window.sero.vcs.createCheckpoint(wsId, 'e2e diff after', 'manual');
+      if (!second) throw new Error('second diff checkpoint returned null');
 
-    const diff = await page.evaluate(
-      async ({ wsId, sha }: { wsId: string; sha: string }) => {
-        try {
-          return await (window as any).sero.vcs.diff(wsId, sha);
-        } catch {
-          return null;
-        }
-      },
-      { wsId: testWorkspaceId, sha: state.checkpoints[0].sha },
-    );
+      const diff = await window.sero.vcs.diff(wsId, first.sha, second.sha);
+      return { diff, second };
+    }, { wsId: testWorkspaceId, first });
 
-    // Diff returns a string (may be empty if no changes)
-    if (diff !== null) {
-      expect(typeof diff).toBe('string');
-    }
+    expect(first.sha).not.toBe(result.second.sha);
+    expect(result.diff).toContain('vcs-diff-after.txt');
+    expect(result.diff).toContain('+after diff');
   });
 });
 
 test.describe('VCS - Repo State Subscription', () => {
   test('should watch and unwatch the pushed git state file', async () => {
-    const workspaces = await page.evaluate(async () => {
-      return (window as any).sero.workspace.list();
-    });
+    const result = await page.evaluate(async (workspaceId: string) => {
+      const workspace = (await window.sero.workspace.list()).find((candidate: { id: string }) => candidate.id === workspaceId);
+      if (!workspace) throw new Error('VCS test workspace is missing');
+      const filePath = `${workspace.path.replace(/\/+$/, '')}/.sero/apps/vcs-e2e/state.json`;
+      const changes: unknown[] = [];
+      const unsubscribe = window.sero.appState.onChange((changedPath: string, data: unknown) => {
+        if (changedPath === filePath) changes.push(data);
+      });
 
-    if (workspaces.length === 0) {
-      test.skip();
-      return;
-    }
-
-    const stateFilePath = `${workspaces[0].path.replace(/\/+$/, '')}/.sero/apps/git/state.json`;
-
-    // Watch should not throw (returns the current state or null/undefined)
-    const watchResult = await page.evaluate(async (filePath: string) => {
       try {
-        await (window as any).sero.appState.watch(filePath);
-        return 'ok';
-      } catch (e) {
-        return e instanceof Error ? e.message : String(e);
-      }
-    }, stateFilePath);
+        const initial = await window.sero.appState.watch(filePath);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        await window.sero.appState.write(filePath, { revision: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const changesAfterWrite = changes.length;
 
-    // Unwatch should not throw
-    const unwatchResult = await page.evaluate(async (filePath: string) => {
-      try {
-        await (window as any).sero.appState.unwatch(filePath);
-        return 'ok';
-      } catch (e) {
-        return e instanceof Error ? e.message : String(e);
+        await window.sero.appState.unwatch(filePath);
+        await window.sero.appState.write(filePath, { revision: 2 });
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return { initial, changesAfterWrite, changesAfterUnwatch: changes.length };
+      } finally {
+        unsubscribe();
       }
-    }, stateFilePath);
+    }, testWorkspaceId);
 
-    // Results depend on whether git is available, but neither should crash the app
-    expect(typeof watchResult).toBe('string');
-    expect(typeof unwatchResult).toBe('string');
+    expect(result.initial).toBeNull();
+    expect(result.changesAfterWrite).toBeGreaterThan(0);
+    expect(result.changesAfterUnwatch).toBe(result.changesAfterWrite);
   });
 
   test('should refresh repo state on demand', async () => {

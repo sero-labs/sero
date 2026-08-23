@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseMemoryEntries } from '../memory-format';
 import {
@@ -11,6 +11,7 @@ import {
   handleReplace,
   handleWrite,
 } from '../memory-tool';
+import * as logger from '../logger';
 import { getMemoryPath, getUserPath } from '../memory-manager';
 
 function getText(result: Awaited<ReturnType<typeof handleWrite>>): string {
@@ -35,6 +36,7 @@ describe('memory tool CRUD semantics', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     process.env.SERO_HOME = originalEnv.SERO_HOME;
     process.env.PI_CODING_AGENT_DIR = originalEnv.PI_CODING_AGENT_DIR;
     await rm(seroHome, { recursive: true, force: true });
@@ -72,6 +74,28 @@ describe('memory tool CRUD semantics', () => {
 
     const readWithIds = await handleRead(root, 'memory', undefined, true);
     expect(getText(readWithIds)).toContain(`<!-- id: ${firstEntry!.id} -->`);
+  });
+
+  it('waits for its log write before a read resolves', async () => {
+    await handleWrite(root, 'memory', 'Remember the release date.');
+
+    let finishLogWrite: () => void = () => undefined;
+    const logWrite = new Promise<void>((resolve) => {
+      finishLogWrite = resolve;
+    });
+    const infoSpy = vi.spyOn(logger, 'info').mockReturnValueOnce(logWrite);
+    let readCompleted = false;
+
+    const readPromise = handleRead(root, 'memory').then((result) => {
+      readCompleted = true;
+      return result;
+    });
+
+    await vi.waitFor(() => expect(infoSpy).toHaveBeenCalledOnce());
+    expect(readCompleted).toBe(false);
+
+    finishLogWrite();
+    await expect(readPromise).resolves.toMatchObject({ content: expect.any(Array) });
   });
 
   it('enforces the MEMORY.md visible-capacity limit before writing', async () => {

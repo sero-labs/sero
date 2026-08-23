@@ -86,7 +86,7 @@ test.describe.serial('MCP app and proxy contracts', () => {
     expect(status.text).toContain('MCP status: 0 server(s) configured');
   });
 
-  test('bridges the MCP proxy into a new session CLI registry', async () => {
+  test('excludes the bridged MCP proxy from a new session agent tool list', async () => {
     const session = await page.evaluate(async (id) => {
       const created = await window.sero.sessions.create(id);
       await window.sero.agent.open(created.id, created.path, id);
@@ -105,10 +105,12 @@ test.describe.serial('MCP app and proxy contracts', () => {
       tools: context?.tools.map((tool) => tool.name),
     }, null, 2);
 
-    expect(context?.tools.map((tool) => tool.name), diagnostics).toEqual(expect.arrayContaining([
+    const toolNames = context?.tools.map((tool) => tool.name);
+    expect(toolNames, diagnostics).toEqual(expect.arrayContaining([
       'sero-cli',
       'mcp_manager',
     ]));
+    expect(toolNames, diagnostics).not.toContain('mcp');
   });
 
   test('saves and reads raw MCP config for a local stdio fixture', async () => {

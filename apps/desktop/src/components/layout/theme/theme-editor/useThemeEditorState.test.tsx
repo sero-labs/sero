@@ -23,8 +23,11 @@ import { useThemeEditorState } from './useThemeEditorState';
 const initialThemeState = useThemeStore.getState();
 const initialAppState = useAppStore.getState();
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// Advances the faked clock so debounced auto-saves fire without real waiting.
+async function advanceTimers(ms: number): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
 }
 
 function createPreset(overrides: Partial<ThemePreset> = {}): ThemePreset {
@@ -141,6 +144,7 @@ describe('useThemeEditorState', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (root) {
       await act(async () => {
         root?.unmount();
@@ -217,6 +221,7 @@ describe('useThemeEditorState', () => {
   });
 
   it('debounces auto-save draft changes and persists the latest draft', async () => {
+    vi.useFakeTimers();
     await act(async () => {
       root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
     });
@@ -233,9 +238,7 @@ describe('useThemeEditorState', () => {
 
     expect(saveCustomPresetSpy).not.toHaveBeenCalled();
 
-    await act(async () => {
-      await wait(450);
-    });
+    await advanceTimers(450);
 
     expect(saveCustomPresetSpy).toHaveBeenCalledTimes(1);
     expect(saveCustomPresetSpy).toHaveBeenCalledWith(
@@ -250,6 +253,7 @@ describe('useThemeEditorState', () => {
   });
 
   it('persists the auto-save preference to layout state', async () => {
+    vi.useFakeTimers();
     await act(async () => {
       root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
     });
@@ -258,9 +262,7 @@ describe('useThemeEditorState', () => {
       latestState?.setAutoSave(true);
     });
 
-    await act(async () => {
-      await wait(100);
-    });
+    await advanceTimers(100);
 
     expect(saveLayoutSpy).toHaveBeenCalledWith(
       expect.objectContaining({ themeEditorAutoSave: true }),
@@ -272,6 +274,7 @@ describe('useThemeEditorState', () => {
       .mockRejectedValueOnce(new Error('disk busy'))
       .mockResolvedValue(undefined);
 
+    vi.useFakeTimers();
     await act(async () => {
       root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
     });
@@ -284,9 +287,7 @@ describe('useThemeEditorState', () => {
       latestState?.handleColorChange('bgBase', '#456789');
     });
 
-    await act(async () => {
-      await wait(450);
-    });
+    await advanceTimers(450);
 
     expect(saveCustomPresetSpy).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -294,9 +295,7 @@ describe('useThemeEditorState', () => {
       expect.any(Error),
     );
 
-    await act(async () => {
-      await wait(450);
-    });
+    await advanceTimers(450);
 
     expect(saveCustomPresetSpy).toHaveBeenCalledTimes(2);
     expect(saveCustomPresetSpy).toHaveBeenLastCalledWith(

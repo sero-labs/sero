@@ -39,6 +39,17 @@ function makeResult(response: string, cost = 0.01): RunResult {
   };
 }
 
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function makeMockDeps(): any {
   return {
     infra: {
@@ -116,15 +127,25 @@ describe('SubagentManager integration', () => {
   });
 
   it('parallel fan-out with 3 tasks returns labelled markdown sections', async () => {
-    mockRunSubagent
-      .mockResolvedValueOnce(makeResult('Result A'))
-      .mockResolvedValueOnce(makeResult('Result B'))
-      .mockResolvedValueOnce(makeResult('Result C'));
+    const results = [
+      deferred<RunResult>(),
+      deferred<RunResult>(),
+      deferred<RunResult>(),
+    ];
+    const allStarted = deferred<void>();
+    let invocation = 0;
+    results.forEach((result) => {
+      mockRunSubagent.mockImplementationOnce(() => {
+        invocation += 1;
+        if (invocation === results.length) allStarted.resolve(undefined);
+        return result.promise;
+      });
+    });
 
     const manager = new SubagentManager();
     manager.setDeps(makeMockDeps());
 
-    const result = await manager.runParallel({
+    const resultPromise = manager.runParallel({
       tasks: [
         { agent: 'scout', task: 'Scan module A' },
         { agent: 'scout', task: 'Scan module B' },
@@ -132,6 +153,13 @@ describe('SubagentManager integration', () => {
       ],
       parentSessionId: 'session-1', workspaceId: 'ws-1',
     });
+
+    await allStarted.promise;
+    expect(mockRunSubagent).toHaveBeenCalledTimes(3);
+    results[0].resolve(makeResult('Result A'));
+    results[1].resolve(makeResult('Result B'));
+    results[2].resolve(makeResult('Result C'));
+    const result = await resultPromise;
 
     expect(result).toContain('## Result 1: scout');
     expect(result).toContain('Result A');

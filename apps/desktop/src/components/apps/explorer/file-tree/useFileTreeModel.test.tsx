@@ -12,6 +12,10 @@ import { useFileTreeModel } from './useFileTreeModel';
 
 interface CapturedTreeConfig {
   setExpandedItems: (updater: string[] | ((old: string[]) => string[])) => void;
+  dataLoader: {
+    getItem: (itemId: string) => unknown;
+    getChildren: (itemId: string) => string[];
+  };
 }
 
 const fakeTree = {
@@ -20,6 +24,7 @@ const fakeTree = {
 };
 
 let latestTreeConfig: CapturedTreeConfig | null = null;
+let srcEntries: Array<{ name: string; type: 'file' | 'directory'; size: number }> = [];
 
 vi.mock('@headless-tree/core', () => ({
   createOnDropHandler: <T,>(handler: T) => handler,
@@ -35,6 +40,7 @@ vi.mock('@headless-tree/react', () => ({
   useTree: vi.fn((config: CapturedTreeConfig) => {
     latestTreeConfig = {
       setExpandedItems: config.setExpandedItems,
+      dataLoader: config.dataLoader,
     };
     return fakeTree;
   }),
@@ -59,7 +65,7 @@ describe('useFileTreeModel', () => {
         ];
       }
       if (dirPath === '/workspace/src') {
-        return [{ name: 'index.ts', type: 'file' as const, size: 5 }];
+        return srcEntries;
       }
       return [];
     },
@@ -80,6 +86,7 @@ describe('useFileTreeModel', () => {
     fakeTree.rebuildTree.mockClear();
     fakeTree.getItems.mockClear();
     listFiles.mockClear();
+    srcEntries = [{ name: 'index.ts', type: 'file', size: 5 }];
     filetreeChangedHandler = null;
     vcsEventHandler = null;
 
@@ -170,7 +177,12 @@ describe('useFileTreeModel', () => {
       expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
     });
 
+    srcEntries = [
+      { name: 'index.ts', type: 'file', size: 5 },
+      { name: 'new-file.ts', type: 'file', size: 7 },
+    ];
     listFiles.mockClear();
+    fakeTree.rebuildTree.mockClear();
 
     await act(async () => {
       filetreeChangedHandler?.({
@@ -183,6 +195,17 @@ describe('useFileTreeModel', () => {
     await vi.waitFor(() => {
       expect(listFiles).toHaveBeenCalledTimes(1);
       expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
+      expect(listFiles).not.toHaveBeenCalledWith('ws-1', '/workspace/ignored');
+      expect(fakeTree.rebuildTree).toHaveBeenCalled();
+    });
+    expect(latestTreeConfig?.dataLoader.getChildren('/workspace/src')).toEqual([
+      '/workspace/src/index.ts',
+      '/workspace/src/new-file.ts',
+    ]);
+    expect(latestTreeConfig?.dataLoader.getItem('/workspace/src/new-file.ts')).toMatchObject({
+      name: 'new-file.ts',
+      isDirectory: false,
+      fileExtension: 'ts',
     });
 
     listFiles.mockClear();

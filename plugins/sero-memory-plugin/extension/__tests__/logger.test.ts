@@ -44,15 +44,14 @@ describe('memory logger', () => {
   });
 
   it('writes daily logs under ~/.sero-ui/debug/memory using the local day and offset timestamp', async () => {
-    info('daily_log_test', { ok: true });
-    await vi.waitFor(async () => {
-      const content = await readFile(getMemoryLogPath(), 'utf8');
-      expect(getMemoryLogDirPath()).toBe(path.join(seroHome, 'debug', 'memory'));
-      expect(path.basename(getMemoryLogPath())).toBe(`${getLocalDayStamp(new Date())}.log`);
-      expect(content).toContain('daily_log_test');
-      expect(content).toContain('{"ok":true}');
-      expect(content).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} \[INFO\] daily_log_test/m);
-    });
+    await info('daily_log_test', { ok: true });
+
+    const content = await readFile(getMemoryLogPath(), 'utf8');
+    expect(getMemoryLogDirPath()).toBe(path.join(seroHome, 'debug', 'memory'));
+    expect(path.basename(getMemoryLogPath())).toBe(`${getLocalDayStamp(new Date())}.log`);
+    expect(content).toContain('daily_log_test');
+    expect(content).toContain('{"ok":true}');
+    expect(content).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} \[INFO\] daily_log_test/m);
   });
 
   it('reads logging settings from agent/settings.json', async () => {
@@ -92,12 +91,11 @@ describe('memory logger', () => {
       },
     }, null, 2));
 
-    info('truncation_test', { payload: 'x'.repeat(400) });
-    await vi.waitFor(async () => {
-      const content = await readFile(getMemoryLogPath(), 'utf8');
-      expect(content).toContain('truncation_test');
-      expect(content).toContain('[truncated ');
-    });
+    await info('truncation_test', { payload: 'x'.repeat(400) });
+
+    const content = await readFile(getMemoryLogPath(), 'utf8');
+    expect(content).toContain('truncation_test');
+    expect(content).toContain('[truncated ');
   });
 
   it('rotates daily logs with a bounded backup count', async () => {
@@ -115,16 +113,16 @@ describe('memory logger', () => {
       },
     }, null, 2));
 
-    info('rotate_1', { payload: 'a'.repeat(80) });
-    info('rotate_2', { payload: 'b'.repeat(80) });
-    info('rotate_3', { payload: 'c'.repeat(80) });
+    await Promise.all([
+      info('rotate_1', { payload: 'a'.repeat(80) }),
+      info('rotate_2', { payload: 'b'.repeat(80) }),
+      info('rotate_3', { payload: 'c'.repeat(80) }),
+    ]);
 
-    await vi.waitFor(async () => {
-      const names = await readdir(getMemoryLogDirPath());
-      expect(names).toContain(path.basename(getMemoryLogPath()));
-      expect(names).toContain(`${path.basename(getMemoryLogPath())}.1`);
-      expect(names).toContain(`${path.basename(getMemoryLogPath())}.2`);
-    });
+    const names = await readdir(getMemoryLogDirPath());
+    expect(names).toContain(path.basename(getMemoryLogPath()));
+    expect(names).toContain(`${path.basename(getMemoryLogPath())}.1`);
+    expect(names).toContain(`${path.basename(getMemoryLogPath())}.2`);
   });
 
   it('prunes daily logs older than the retention window', async () => {
@@ -144,12 +142,11 @@ describe('memory logger', () => {
     await writeFile(path.join(logDir, '2000-01-01.log'), 'stale\n', 'utf8');
     await writeFile(path.join(logDir, '2000-01-01.log.1'), 'stale\n', 'utf8');
 
-    info('retention_test', { ok: true });
-    await vi.waitFor(async () => {
-      const names = await readdir(logDir);
-      expect(names).not.toContain('2000-01-01.log');
-      expect(names).not.toContain('2000-01-01.log.1');
-      expect(names).toContain(path.basename(getMemoryLogPath()));
-    });
+    await info('retention_test', { ok: true });
+
+    const names = await readdir(logDir);
+    expect(names).not.toContain('2000-01-01.log');
+    expect(names).not.toContain('2000-01-01.log.1');
+    expect(names).toContain(path.basename(getMemoryLogPath()));
   });
 });

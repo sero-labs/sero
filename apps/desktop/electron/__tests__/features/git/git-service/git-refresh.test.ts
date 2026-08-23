@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { refreshGitState } from '@electron/features/git/git-service/git-service';
+import * as gitRefresh from '@electron/features/git/git-service/git-refresh';
 import {
   runGit,
   cleanupPaths,
-  commitAll,
   createGitRepo,
+  createSeededRepo,
   statePathFor,
   writeRepoFile,
 } from './git-test-helpers';
@@ -36,36 +37,37 @@ describe('refreshGitState', () => {
   });
 
   it('uses quick refresh mode when HEAD and branch are unchanged', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
-
       const initialState = await refreshGitState(repoPath, statePath, { scope: 'full' });
       await writeRepoFile(repoPath, 'notes.txt', 'dirty\n');
+      const quickRefresh = vi.spyOn(gitRefresh, 'createQuickRefreshState');
 
-      const refreshedState = await refreshGitState(repoPath, statePath, { scope: 'auto' });
+      try {
+        const refreshedState = await refreshGitState(repoPath, statePath, { scope: 'auto' });
 
-      expect(refreshedState.headHash).toBe(initialState.headHash);
-      expect(refreshedState.currentBranch).toBe(initialState.currentBranch);
-      expect(refreshedState.commits).toEqual(initialState.commits);
-      expect(refreshedState.branches).toEqual(initialState.branches);
-      expect(refreshedState.remoteBranches).toEqual(initialState.remoteBranches);
-      expect(refreshedState.fileChanges.some((file) => file.path === 'notes.txt')).toBe(true);
+        expect(quickRefresh).toHaveBeenCalledTimes(1);
+        expect(refreshedState.headHash).toBe(initialState.headHash);
+        expect(refreshedState.currentBranch).toBe(initialState.currentBranch);
+        expect(refreshedState.commits).toEqual(initialState.commits);
+        expect(refreshedState.branches).toEqual(initialState.branches);
+        expect(refreshedState.remoteBranches).toEqual(initialState.remoteBranches);
+        expect(refreshedState.fileChanges.some((file) => file.path === 'notes.txt')).toBe(true);
+      } finally {
+        quickRefresh.mockRestore();
+      }
     } finally {
       await cleanupPaths([repoPath]);
     }
   });
 
   it('falls back to a full refresh when refs change without a HEAD update', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       await refreshGitState(repoPath, statePath, { scope: 'full' });
 
       runGit(['branch', 'feature'], repoPath);
@@ -78,12 +80,10 @@ describe('refreshGitState', () => {
   });
 
   it('excludes internal turn-undo refs from visible commit history and counts', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
 
       const headTree = runGit(['rev-parse', 'HEAD^{tree}'], repoPath);
       const hiddenCommit = runGit([

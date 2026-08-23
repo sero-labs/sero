@@ -14,7 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
@@ -31,6 +31,7 @@ import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import { createRoomWork } from '../rooms/room-work';
 import { createRoomWorkspaces } from '../rooms/room-workspace';
 import { createFakeHost, type FakeHost } from './fake-host';
+import { disposeHarness } from './room-harness';
 import { envelopeWith, MEMBERS } from './room-member-fixtures';
 
 let dir: string;
@@ -145,10 +146,7 @@ beforeEach(async () => {
   await makeRoom();
 });
 
-afterEach(async () => {
-  await new Promise((resolve) => setTimeout(resolve, 25));
-  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
-});
+afterEach(() => disposeHarness(dir));
 
 describe('who is calling', () => {
   it('resolves the caller from its session file and marks it on the roster', async () => {

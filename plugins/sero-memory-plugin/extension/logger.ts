@@ -77,7 +77,11 @@ async function pruneOldDailyLogs(retentionDays: number): Promise<void> {
   }));
 }
 
-export function log(level: MemoryLogLevel, event: string, data?: Record<string, unknown>): void {
+export function log(
+  level: MemoryLogLevel,
+  event: string,
+  data?: Record<string, unknown>,
+): Promise<void> {
   const now = new Date();
   const ts = formatLocalTimestamp(now);
   const settings = getMemoryLoggingSettingsSync();
@@ -92,7 +96,7 @@ export function log(level: MemoryLogLevel, event: string, data?: Record<string, 
     console.log(consoleLine);
   }
 
-  appendRotatingLogLine({
+  return appendRotatingLogLine({
     filePath: resolveLogPath(now),
     line: `${line}\n`,
     maxBytes: settings.maxBytesPerFile,
