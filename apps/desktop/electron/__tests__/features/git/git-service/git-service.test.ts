@@ -9,6 +9,7 @@ import {
   commitAll,
   createBareRemote,
   createGitRepo,
+  createSeededRepo,
   statePathFor,
   writeRepoFile,
 } from './git-test-helpers';
@@ -31,12 +32,10 @@ describe('runGitAction', () => {
   });
 
   it('blocks switching to branches checked out in another worktree', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const worktreePath = path.join(repoPath, 'feature-worktree');
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       runGit(['branch', 'feature'], repoPath);
       runGit(['worktree', 'add', worktreePath, 'feature'], repoPath);
 
@@ -55,12 +54,10 @@ describe('runGitAction', () => {
   });
 
   it('removes linked worktrees and supports force removal for dirty ones', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const worktreePath = path.join(repoPath, 'feature-worktree');
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       runGit(['branch', 'feature'], repoPath);
       runGit(['worktree', 'add', worktreePath, 'feature'], repoPath);
       await writeRepoFile(worktreePath, 'dirty.txt', 'dirty\n');
@@ -86,11 +83,9 @@ describe('runGitAction', () => {
   });
 
   it('blocks removing the main worktree', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
 
       const result = await runGitAction(
         { action: 'remove_worktree', worktreePath: repoPath },
@@ -106,12 +101,10 @@ describe('runGitAction', () => {
   });
 
   it('blocks deleting the default branch', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const remotePath = await createBareRemote();
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       const defaultBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
 
       runGit(['remote', 'add', 'origin', remotePath], repoPath);
@@ -134,11 +127,9 @@ describe('runGitAction', () => {
   });
 
   it('blocks deleting the current branch', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       const currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
 
       const result = await runGitAction(
@@ -155,11 +146,9 @@ describe('runGitAction', () => {
   });
 
   it('supports force-deleting unmerged branches', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       const defaultBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
 
       runGit(['switch', '-c', 'feature'], repoPath);
@@ -188,11 +177,9 @@ describe('runGitAction', () => {
   });
 
   it('applies a stash without dropping it', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'notes.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'notes.txt', 'base\n');
-      commitAll(repoPath, 'initial');
 
       await writeRepoFile(repoPath, 'notes.txt', 'base\nupdated\n');
       const stashResult = await runGitAction({ action: 'stash' }, repoPath, statePathFor(repoPath));
@@ -214,11 +201,9 @@ describe('runGitAction', () => {
   });
 
   it('can auto-stash before cherry-picking onto a dirty working tree', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'app.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'app.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       const defaultBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
 
       runGit(['switch', '-c', 'feature'], repoPath);
@@ -252,11 +237,9 @@ describe('runGitAction', () => {
   });
 
   it('answers log from the repo even before a snapshot exists', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'notes.txt': 'base\n' });
 
     try {
-      await writeRepoFile(repoPath, 'notes.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       await writeRepoFile(repoPath, 'notes.txt', 'base\nsecond\n');
       commitAll(repoPath, 'second');
 
@@ -275,12 +258,10 @@ describe('runGitAction', () => {
   });
 
   it('answers branches from the repo after refs change outside the cached snapshot', async () => {
-    const repoPath = await createGitRepo();
+    const repoPath = await createSeededRepo({ 'a.txt': 'base\n' });
     const statePath = statePathFor(repoPath);
 
     try {
-      await writeRepoFile(repoPath, 'a.txt', 'base\n');
-      commitAll(repoPath, 'initial');
       await runGitAction({ action: 'refresh' }, repoPath, statePath);
       runGit(['branch', 'feature/e4-runtime'], repoPath);
 

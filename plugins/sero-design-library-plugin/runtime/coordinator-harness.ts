@@ -45,6 +45,15 @@ export interface CoordinatorHarness {
   ): Coordinator;
 }
 
+/**
+ * Polling options for `vi.waitFor`. The work these tests wait on lands in well
+ * under a millisecond, so with the default 50ms interval nearly all the measured
+ * time is the gap between polls rather than the work. Only the interval changes;
+ * the timeout is left alone, so a run that never finishes still fails the same
+ * way it did before.
+ */
+export const FAST_POLL = { interval: 1 } as const;
+
 export const ANALYSIS_REPLY = JSON.stringify({
   title: 'Analysed title',
   primaryStyle: 'Technical monochrome',
@@ -287,7 +296,7 @@ export function useCoordinator(label: string, options: HarnessOptions = {}): Coo
       const itemId = state.items[state.items.length - 1]!.id;
       await vi.waitFor(async () => {
         expect((await readItem(paths, itemId))?.analysis.status).toBe('ready');
-      });
+      }, FAST_POLL);
       return itemId;
     },
     withErrors(failures) {

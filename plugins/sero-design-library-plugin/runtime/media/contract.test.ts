@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MEDIA_CAPABILITIES } from '../../shared/media';
 import type { MediaProvider, MediaSourceAsset } from './contract';
@@ -190,17 +190,21 @@ describe('fal adapter specifics', () => {
   ])(
     'maps HTTP $status to $code (retryable: $retryable)',
     async ({ status, code, retryable }) => {
-      const attempt = await runWith(createFalTransport({ failStatus: status }));
+      // A 429 is retried inside the fal client with backoff — four attempts,
+      // about seven seconds of real waiting. The retry is shipped behaviour and
+      // stays under test; only the waiting is faked, so the mapping is still
+      // read from the last real attempt.
+      vi.useFakeTimers();
+      const pending = runWith(createFalTransport({ failStatus: status }));
+      await vi.advanceTimersByTimeAsync(60_000);
+      const attempt = await pending;
+      vi.useRealTimers();
 
       expect(attempt.error?.code).toBe(code);
       // The tray offers a retry button on the strength of this flag, so a wrong
       // answer here turns one wasted call into as many as the user will click.
       expect(attempt.error?.retryable).toBe(retryable);
     },
-    // 429 and 5xx are retried inside the client with backoff before the error
-    // surfaces — four attempts, so the default 5s is not enough. The wait is the
-    // shipped behaviour, not a slow test.
-    20_000,
   );
 
   it('maps an aspect ratio onto the provider image size', async () => {

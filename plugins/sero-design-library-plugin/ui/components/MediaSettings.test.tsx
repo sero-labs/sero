@@ -21,6 +21,11 @@ vi.mock('@sero-ai/app-runtime', () => ({ useAppTools: () => ({ run }) }));
 // eslint-disable-next-line import/first -- must follow the mock above
 import { MediaSettings } from './MediaSettings';
 
+// `userEvent`'s default inter-key delay is a real macrotask per keystroke.
+// `delay: null` dispatches the same events back-to-back instead of waiting
+// between them.
+const user = userEvent.setup({ delay: null });
+
 const MEDIA: MediaSettingsValue = {
   models: {
     'text-to-image': 'flux/dev',
@@ -88,8 +93,8 @@ describe('the provider key', () => {
     renderSettings();
     await waitFor(() => expect(callsFor('key-status')).toHaveLength(1));
 
-    await userEvent.type(screen.getByLabelText('Provider key'), 'secret-key');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await user.type(screen.getByLabelText('Provider key'), 'secret-key');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(callsFor('store-key')[0]?.[1]).toMatchObject({ key: 'secret-key' });
     // Read back, because FAL_KEY in the environment still wins: saying "stored"
@@ -118,13 +123,13 @@ describe('media models', () => {
     renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
-    await userEvent.click(screen.getByLabelText('Image'));
+    await user.click(screen.getByLabelText('Image'));
     expect(screen.getByText('fal-ai')).toBeDefined();
     expect(screen.getByText('openai')).toBeDefined();
-    await userEvent.clear(screen.getByLabelText('Image'));
-    await userEvent.type(screen.getByLabelText('Image'), 'OpenAI');
+    await user.clear(screen.getByLabelText('Image'));
+    await user.type(screen.getByLabelText('Image'), 'OpenAI');
     expect(screen.getByText('openai/image').classList.contains('text-xs')).toBe(true);
-    await userEvent.click(screen.getByRole('option', { name: /OpenAI Image/ }));
+    await user.click(screen.getByRole('option', { name: /OpenAI Image/ }));
 
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
       capability: 'text-to-image',
@@ -136,7 +141,7 @@ describe('media models', () => {
     renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
-    await userEvent.click(screen.getByLabelText('Image'));
+    await user.click(screen.getByLabelText('Image'));
     expect(screen.getByText('Saved choice')).toBeDefined();
     expect(screen.getByRole('option', { name: 'flux/dev' })).toBeDefined();
   });
@@ -152,16 +157,16 @@ describe('media models', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('returned 429');
     const input = screen.getByLabelText('Image');
-    await userEvent.clear(input);
-    await userEvent.type(input, 'private/image-model');
-    await userEvent.click(screen.getByRole('option', { name: 'private/image-model' }));
+    await user.clear(input);
+    await user.type(input, 'private/image-model');
+    await user.click(screen.getByRole('option', { name: 'private/image-model' }));
 
     expect(callsFor('set-media-model')[0]?.[1]).toMatchObject({
       capability: 'text-to-image',
       mediaModel: 'private/image-model',
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(2));
     expect(callsFor('list-media-models')[1]?.[1]).toMatchObject({ refresh: true });
   });
@@ -189,7 +194,7 @@ describe('media models', () => {
     renderSettings();
 
     await waitFor(() => expect(callsFor('list-media-models')).toHaveLength(1));
-    await userEvent.click(screen.getByLabelText('Image'));
+    await user.click(screen.getByLabelText('Image'));
     expect(screen.getByText('openai')).toBeDefined();
   });
 
@@ -206,7 +211,7 @@ describe('media models', () => {
   it('explains where each model is used', async () => {
     renderSettings();
 
-    await userEvent.hover(screen.getByRole('button', { name: 'How Animate is used' }));
+    await user.hover(screen.getByRole('button', { name: 'How Animate is used' }));
     expect((await screen.findByRole('tooltip')).textContent).toContain(
       'Used when a Design animates an existing image.',
     );
@@ -216,7 +221,7 @@ describe('media models', () => {
 describe('the per-run cap', () => {
   it('uses the bounded stepper to update the cap', async () => {
     renderSettings();
-    await userEvent.click(screen.getByRole('button', { name: 'One more media call' }));
+    await user.click(screen.getByRole('button', { name: 'One more media call' }));
 
     const written = callsFor('set-media-cap').map(([, params]) => params?.callsPerRun);
     expect(written).toEqual([7]);

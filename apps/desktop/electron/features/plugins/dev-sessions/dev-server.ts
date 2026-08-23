@@ -40,6 +40,12 @@ export interface EnsurePluginDevServerOptions {
   command: string | null;
   hasDeclaredUi: boolean;
   hasBuiltUi?: boolean;
+  /**
+   * Gap between health probes while the dev server starts. Defaults to
+   * HEALTH_POLL_INTERVAL_MS; tests set it low so they do not wait out a real
+   * half-second for a server that is already listening.
+   */
+  healthPollIntervalMs?: number;
 }
 
 export interface PluginDevServerResult {
@@ -233,6 +239,7 @@ async function probeRemoteEntryCandidates(
 
 async function waitForRemoteEntry(
   remoteEntryOverrides: string[],
+  pollIntervalMs: number,
   entry?: ManagedPluginDevServer,
   expectedRemoteName?: string,
 ): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> {
@@ -251,7 +258,7 @@ async function waitForRemoteEntry(
       return resolvedProbe;
     }
 
-    await sleep(HEALTH_POLL_INTERVAL_MS);
+    await sleep(pollIntervalMs);
     return poll();
   };
 
@@ -300,6 +307,7 @@ export async function ensurePluginDevServer(
   options: EnsurePluginDevServerOptions,
 ): Promise<PluginDevServerResult> {
   const sourcePath = normalizeSourcePath(options.sourcePath);
+  const pollIntervalMs = options.healthPollIntervalMs ?? HEALTH_POLL_INTERVAL_MS;
   const builtUiAvailable = options.hasBuiltUi ?? await hasBuiltPluginDevUi(sourcePath);
 
   if (!options.hasDeclaredUi) {
@@ -401,7 +409,7 @@ export async function ensurePluginDevServer(
     }
   }
 
-  const resolvedProbe = await waitForRemoteEntry(remoteEntryOverrides, entry, expectedRemoteName);
+  const resolvedProbe = await waitForRemoteEntry(remoteEntryOverrides, pollIntervalMs, entry, expectedRemoteName);
   if (resolvedProbe?.probe.status === 'ready') {
     return {
       remoteEntryOverride: resolvedProbe.remoteEntryOverride,
@@ -437,7 +445,7 @@ export async function ensurePluginDevServer(
         );
       }
 
-      const retryProbe = await waitForRemoteEntry(remoteEntryOverrides, entry, expectedRemoteName);
+      const retryProbe = await waitForRemoteEntry(remoteEntryOverrides, pollIntervalMs, entry, expectedRemoteName);
       if (retryProbe?.probe.status === 'ready') {
         return {
           remoteEntryOverride: retryProbe.remoteEntryOverride,

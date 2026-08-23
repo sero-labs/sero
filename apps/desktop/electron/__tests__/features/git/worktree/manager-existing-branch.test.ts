@@ -7,13 +7,13 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
+import { createRepoFromTemplate } from '../git-service/git-test-helpers';
 
 const execFileAsync = promisify(execFile);
 
@@ -31,23 +31,37 @@ async function initRepo(dir: string): Promise<void> {
   await git(dir, 'commit', '-m', 'init');
 }
 
+/**
+ * Every test starts from the same freshly committed workspace repo, so build
+ * it once per worker and hand each test its own copy — real git, no repeated
+ * `git init` and commit per test.
+ */
+const roots: string[] = [];
+
+async function newWorkspace(): Promise<{ root: string; workspace: string }> {
+  const root = await createRepoFromTemplate(
+    'worktree-workspace-root',
+    async (dir) => {
+      const workspace = path.join(dir, 'workspace');
+      await mkdir(workspace, { recursive: true });
+      await initRepo(workspace);
+    },
+    'wt-',
+  );
+  roots.push(root);
+  return { root, workspace: path.join(root, 'workspace') };
+}
+
+// Each test owns its own repository copy, so one cleanup at the end is enough.
+afterAll(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
 describe('WorktreeManager.create with existingBranch', () => {
-  let root: string;
-  let workspace: string;
   const manager = new WorktreeManager();
 
-  beforeEach(async () => {
-    root = await mkdtemp(path.join(tmpdir(), 'wt-existing-'));
-    workspace = path.join(root, 'workspace');
-    await execFileAsync('mkdir', ['-p', workspace]);
-    await initRepo(workspace);
-  });
-
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
   it('checks out a local branch as-is, minting nothing', async () => {
+    const { workspace } = await newWorkspace();
     await git(workspace, 'branch', 'feat/pr-branch');
     const result = await manager.create(workspace, 'loop-1', 'ignored title', { existingBranch: 'feat/pr-branch' });
 
@@ -59,9 +73,10 @@ describe('WorktreeManager.create with existingBranch', () => {
   });
 
   it('fetches and tracks a branch that only exists on origin', async () => {
+    const { root, workspace } = await newWorkspace();
     // A second repo plays "origin" holding the PR branch.
     const origin = path.join(root, 'origin');
-    await execFileAsync('mkdir', ['-p', origin]);
+    await mkdir(origin, { recursive: true });
     await initRepo(origin);
     await git(origin, 'checkout', '-b', 'feat/remote-only');
     await writeFile(path.join(origin, 'change.md'), 'remote work');
@@ -78,12 +93,14 @@ describe('WorktreeManager.create with existingBranch', () => {
   });
 
   it('errors clearly when the branch exists nowhere — never falls back to a fresh branch', async () => {
+    const { workspace } = await newWorkspace();
     await expect(manager.create(workspace, 'loop-3', 'ignored', { existingBranch: 'no/such-branch' })).rejects.toThrow(
       'exists neither locally nor on origin',
     );
   });
 
   it('refuses branch names git would refuse', async () => {
+    const { workspace } = await newWorkspace();
     await expect(manager.create(workspace, 'loop-4', 'ignored', { existingBranch: '--upload-pack=x' })).rejects.toThrow(
       'Invalid branch name',
     );
@@ -94,22 +111,10 @@ describe('WorktreeManager.create with existingBranch', () => {
 });
 
 describe('WorktreeManager merged-branch cleanup', () => {
-  let root: string;
-  let workspace: string;
   const manager = new WorktreeManager();
 
-  beforeEach(async () => {
-    root = await mkdtemp(path.join(tmpdir(), 'wt-cleanup-'));
-    workspace = path.join(root, 'workspace');
-    await execFileAsync('mkdir', ['-p', workspace]);
-    await initRepo(workspace);
-  });
-
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
   it('deletes a no-op branch that is fully merged', async () => {
+    const { workspace } = await newWorkspace();
     const worktree = await manager.create(workspace, 'loop-1-r1', 'Routine scan');
     await manager.remove(workspace, 'loop-1-r1', { force: true, deleteMergedBranch: true });
 
@@ -117,6 +122,7 @@ describe('WorktreeManager merged-branch cleanup', () => {
   });
 
   it('preserves a branch with unmerged work', async () => {
+    const { workspace } = await newWorkspace();
     const worktree = await manager.create(workspace, 'loop-1-r2', 'Implement change');
     await writeFile(path.join(worktree.worktreePath, 'change.md'), 'work in progress');
     await git(worktree.worktreePath, 'add', '.');

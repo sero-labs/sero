@@ -17,6 +17,11 @@ import { GenerateDialog, type GenerateDialogProps } from './GenerateDialog';
  * working from the picture.
  */
 
+// `userEvent`'s default inter-key delay is a real macrotask per keystroke, and
+// these tests type whole sentences. `delay: null` dispatches the same events
+// back-to-back instead of waiting between them.
+const user = userEvent.setup({ delay: null });
+
 function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
   const onGenerate = vi.fn();
   render(
@@ -33,7 +38,7 @@ function renderDialog(overrides: Partial<GenerateDialogProps> = {}) {
 }
 
 async function chooseOperation(label: string) {
-  await userEvent.click(screen.getByRole('tab', { name: label }));
+  await user.click(screen.getByRole('tab', { name: label }));
 }
 
 describe('fresh generation', () => {
@@ -63,20 +68,20 @@ describe('a video model that only makes long clips', () => {
   it('says why, and will not let the generation be started', async () => {
     const { onGenerate } = renderDialog({ modelOptions: longOnly });
     await chooseOperation('Video');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
+    await user.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.getByText(/shorter/)).toBeDefined();
     const generate = screen.getByRole('button', { name: /Generate/ });
     expect(generate.hasAttribute('disabled')).toBe(true);
 
-    await userEvent.click(generate);
+    await user.click(generate);
     expect(onGenerate).not.toHaveBeenCalled();
   });
 
   it('lets a model through as soon as one length fits', async () => {
     renderDialog({ modelOptions: { 'text-to-video': { durationsSeconds: [5, 20] } } });
     await chooseOperation('Video');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'a slow pan');
+    await user.type(screen.getByLabelText('Describe it'), 'a slow pan');
 
     expect(screen.queryByText(/shorter/)).toBeNull();
     expect(screen.getByRole('button', { name: /Generate/ }).hasAttribute('disabled')).toBe(false);
@@ -99,8 +104,8 @@ describe('remixing a reference', () => {
     expect(screen.queryByText('Increase its resolution')).toBeNull();
 
     await chooseOperation('Video');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
-    await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
+    await user.type(screen.getByLabelText('Describe it'), 'animate this');
+    await user.click(screen.getByRole('button', { name: 'Generate video' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -114,8 +119,8 @@ describe('remixing a reference', () => {
   it('creates a new image from the current reference', async () => {
     const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
     await chooseOperation('Image');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'a new coastal composition');
-    await userEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    await user.type(screen.getByLabelText('Describe it'), 'a new coastal composition');
+    await user.click(screen.getByRole('button', { name: 'Generate image' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -138,8 +143,8 @@ describe('remixing a reference', () => {
   it('restyles the current reference', async () => {
     const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
     await chooseOperation('Restyle');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'use a paper collage style');
-    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
+    await user.type(screen.getByLabelText('Describe it'), 'use a paper collage style');
+    await user.click(screen.getByRole('button', { name: 'Restyle' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -156,10 +161,10 @@ describe('remixing a reference', () => {
       modelOptions: { 'image-to-video': { supportsAspectRatio: false } },
     });
     await chooseOperation('Video');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'animate this');
+    await user.type(screen.getByLabelText('Describe it'), 'animate this');
 
     expect(screen.queryByLabelText('Aspect')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Generate video' }));
+    await user.click(screen.getByRole('button', { name: 'Generate video' }));
     expect(onGenerate).toHaveBeenCalledWith(
       expect.not.objectContaining({ aspectRatio: expect.anything() }),
     );
@@ -179,9 +184,9 @@ describe('remixing a reference', () => {
     const source = screen.getByLabelText('Work from');
     source.focus();
     fireEvent.change(source, { target: { value: 'Reference 999' } });
-    await userEvent.keyboard('{ArrowDown}{Enter}');
-    await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
-    await userEvent.click(screen.getByRole('button', { name: 'Restyle' }));
+    await user.keyboard('{ArrowDown}{Enter}');
+    await user.type(screen.getByLabelText('Describe it'), 'a colder composition');
+    await user.click(screen.getByRole('button', { name: 'Restyle' }));
 
     expect(onGenerate).toHaveBeenCalledWith(
       expect.objectContaining({ sourceId: 'item-999' }),
@@ -203,8 +208,8 @@ describe('remixing a reference', () => {
   it('clears the selected source when the combobox is cleared', async () => {
     const { onGenerate } = renderDialog({ initialSourceId: 'item-1' });
     const source = screen.getByLabelText('Work from');
-    await userEvent.clear(source);
-    await userEvent.type(screen.getByLabelText('Describe it'), 'a colder composition');
+    await user.clear(source);
+    await user.type(screen.getByLabelText('Describe it'), 'a colder composition');
 
     expect(screen.getByRole('button', { name: 'Restyle' }).hasAttribute('disabled')).toBe(
       true,

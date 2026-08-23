@@ -117,6 +117,8 @@ describe('ensurePluginDevServer', () => {
       declaredDevPort: port,
       command: buildHealthyServerCommand(port, toRemoteName(appId)),
       hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
       hasBuiltUi: false,
     });
 
@@ -139,6 +141,8 @@ describe('ensurePluginDevServer', () => {
       declaredDevPort: port,
       command: buildFailingCommand(),
       hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
       hasBuiltUi: true,
     });
 
@@ -186,6 +190,8 @@ describe('ensurePluginDevServer', () => {
       declaredDevPort: port,
       command: buildIdleCommand(),
       hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
       hasBuiltUi: false,
     });
 
@@ -211,6 +217,8 @@ describe('ensurePluginDevServer', () => {
         declaredDevPort: port,
         command: buildHealthyServerCommand(port, toRemoteName(appId)),
         hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
         hasBuiltUi: true,
       });
 
@@ -238,6 +246,8 @@ describe('ensurePluginDevServer', () => {
         declaredDevPort: port,
         command: buildHealthyServerCommand(port, toRemoteName('todo-plugin')),
         hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
         hasBuiltUi: true,
       });
 
@@ -262,6 +272,8 @@ describe('ensurePluginDevServer', () => {
       declaredDevPort: undefined,
       command: null,
       hasDeclaredUi: true,
+      // The real 500ms gap between health probes is not what these tests check.
+      healthPollIntervalMs: 1,
       hasBuiltUi: false,
     });
 

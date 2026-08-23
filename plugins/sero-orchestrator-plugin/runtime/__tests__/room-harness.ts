@@ -7,6 +7,7 @@
  * harness and each file stays inside the size limit.
  */
 
+import { afterAll } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -55,11 +56,21 @@ export function restartCoordinator(host: FakeHost, store: RoomStore): RoomCoordi
   return new RoomCoordinator(host, { store, sessions: createMemberSessionPool({ host, store }) });
 }
 
-export async function disposeHarness(dir: string): Promise<void> {
-  // Turns run outside the Room lock, so a test can finish while one last write
-  // is in flight. Let the queue drain before the directory goes.
-  await new Promise((resolve) => setTimeout(resolve, 25));
-  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+/**
+ * Turns run outside the Room lock, so a test can finish while one last write is
+ * in flight. Removing the directory once the file is done lets those writes
+ * land, instead of every test paying a fixed sleep to wait them out.
+ */
+const usedDirs: string[] = [];
+
+afterAll(async () => {
+  await Promise.all(
+    usedDirs.splice(0).map((used) => rm(used, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 })),
+  );
+});
+
+export function disposeHarness(dir: string): void {
+  usedDirs.push(dir);
 }
 
 export function envelopeWith(overrides: Partial<OperatingEnvelope> = {}): OperatingEnvelope {
@@ -158,9 +169,15 @@ export async function memberIn(store: RoomStore, roomId: string, memberId: strin
 
 /** Turns are launched outside the Room lock, so tests wait on the store, not on a call. */
 export async function waitFor(predicate: () => boolean | Promise<boolean>, label = 'condition'): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  // What is being waited on is a queued turn or a store write, so the next
+  // event-loop tick is usually enough; only a genuinely slow wait falls back to
+  // sleeping, and the deadline keeps a stuck condition from hanging the file.
+  const deadline = Date.now() + 2_000;
+  for (let attempt = 0; ; attempt += 1) {
     if (await predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${label}`);
+    await (attempt < 100
+      ? new Promise((resolve) => setImmediate(resolve))
+      : new Promise((resolve) => setTimeout(resolve, 5)));
   }
-  throw new Error(`timed out waiting for ${label}`);
 }
