@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { withStateLock as withSharedStateLock } from '@sero-ai/extension-runtime';
 import type { CronState } from '../shared/types';
 import { DEFAULT_CRON_STATE } from '../shared/types';
 
@@ -22,13 +23,14 @@ export function resolveStatePath(cwd: string): string {
 
 // ── Mutex ──────────────────────────────────────────────────────
 
-let stateMutexQueue: Promise<void> = Promise.resolve();
-
-export function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = stateMutexQueue;
-  let resolve: () => void;
-  stateMutexQueue = new Promise<void>((r) => { resolve = r; });
-  return prev.then(fn).finally(() => resolve!());
+/**
+ * Cross-process lock on `<statePath>.lock`, shared with the Sero host's
+ * AppStateManager. An in-process queue is not enough: the UI writes this file
+ * through the host in another process, and an unshared mutex excludes
+ * nothing (#428). Also serialises writers inside this process.
+ */
+export function withStateLock<T>(statePath: string, fn: () => Promise<T>): Promise<T> {
+  return withSharedStateLock(statePath, fn);
 }
 
 // ── Read / Write ───────────────────────────────────────────────

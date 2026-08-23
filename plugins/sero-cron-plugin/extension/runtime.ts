@@ -111,7 +111,7 @@ export function createCronRuntime(): CronRuntime {
 
   async function appendRunResult(result: CronRunResult): Promise<void> {
     if (!statePath) return;
-    await withStateLock(async () => {
+    await withStateLock(statePath, async () => {
       const state = await readState(statePath);
       state.lastRunResults.unshift(result);
       if (state.lastRunResults.length > MAX_RUN_RESULTS) {
@@ -124,7 +124,7 @@ export function createCronRuntime(): CronRuntime {
 
   async function persistReminderUpdate(updated: Reminder): Promise<void> {
     if (!statePath) return;
-    await withStateLock(async () => {
+    await withStateLock(statePath, async () => {
       const state = await readState(statePath);
       const index = state.reminders.findIndex((entry) => entry.id === updated.id);
       if (index >= 0) {
@@ -278,7 +278,7 @@ export function createCronRuntime(): CronRuntime {
       const resolvedPath = ctx?.cwd ? resolveStatePath(ctx.cwd) : statePath;
       if (!resolvedPath) return toolError('no state path');
 
-      const result = await withStateLock(async () => {
+      const result = await withStateLock(resolvedPath, async () => {
         const state = await readState(resolvedPath);
         const deps: ActionDeps = {
           state,
@@ -324,7 +324,7 @@ export function createCronRuntime(): CronRuntime {
       const resolvedPath = ctx?.cwd ? resolveStatePath(ctx.cwd) : statePath;
       if (!resolvedPath) return toolError('no state path');
 
-      const result = await withStateLock(async () => {
+      const result = await withStateLock(resolvedPath, async () => {
         const state = await readState(resolvedPath);
         const deps: ReminderActionDeps = {
           state,

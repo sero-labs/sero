@@ -47,16 +47,19 @@ describe('resolveStatePath', () => {
 
 describe('withStateLock', () => {
   it('serialises concurrent operations', async () => {
+    const lockTarget = path.join(os.tmpdir(), `cron-lock-${process.pid}-${Date.now()}`);
     const order: number[] = [];
 
-    const op1 = withStateLock(async () => {
+    const op1 = withStateLock(lockTarget, async () => {
       order.push(1);
       await new Promise((r) => setTimeout(r, 50));
       order.push(2);
       return 'first';
     });
+    // Let op1 take the cross-process lock before op2 tries.
+    await new Promise((r) => setTimeout(r, 20));
 
-    const op2 = withStateLock(async () => {
+    const op2 = withStateLock(lockTarget, async () => {
       order.push(3);
       return 'second';
     });
@@ -69,13 +72,14 @@ describe('withStateLock', () => {
   });
 
   it('releases lock even if operation throws', async () => {
-    const failOp = withStateLock(async () => {
+    const lockTarget = path.join(os.tmpdir(), `cron-lock-throw-${process.pid}-${Date.now()}`);
+    const failOp = withStateLock(lockTarget, async () => {
       throw new Error('boom');
     });
     await expect(failOp).rejects.toThrow('boom');
 
     // Next operation should still proceed
-    const result = await withStateLock(async () => 'ok');
+    const result = await withStateLock(lockTarget, async () => 'ok');
     expect(result).toBe('ok');
   });
 });
