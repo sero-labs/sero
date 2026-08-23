@@ -49,11 +49,16 @@ export async function runRequestedFullRepair(
   const attempted = { ...request, attempts: request.attempts + 1 };
   await writeJsonFile(paths.repairRequestFile, attempted);
   try {
-    const unreadable = (await Promise.all([
+    // allSettled: a fast failure must not leave the other scans running in
+    // the background while the failure handling below rewrites the request.
+    const scans = await Promise.allSettled([
       reindex(paths, false),
       reindexGallery(paths, false),
       reindexExports(paths, false),
-    ])).flat();
+    ]);
+    const failed = scans.find((scan) => scan.status === 'rejected');
+    if (failed) throw failed.reason;
+    const unreadable = scans.flatMap((scan) => (scan as PromiseFulfilledResult<string[]>).value);
     await bumpControlRevision(paths);
     await rm(paths.repairRequestFile, { force: true });
     return unreadable;

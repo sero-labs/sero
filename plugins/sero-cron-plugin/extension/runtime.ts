@@ -30,56 +30,17 @@ import {
   handleReminderToggle,
   handleReminderUpdate,
 } from './reminder-actions';
+import type { CronCommandContext, CronRuntime, CronToolContext, ToolTextResult } from './runtime-helpers';
 import {
   formatRuntimeError,
+  getSchedulerStartOpts,
   readNotificationSettingsOrWarn,
+  textToolResult,
   toolError,
 } from './runtime-helpers';
 import { CronScheduler } from './scheduler';
 import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
 import { StateWatcher } from './state-watcher';
-
-export interface CronCommandContext {
-  cwd?: string;
-  ui?: {
-    notify: (message: string, type?: 'info' | 'warning' | 'error') => void;
-  };
-}
-
-export interface CronToolContext {
-  cwd: string;
-}
-
-export interface ToolTextResult {
-  content: [{ type: 'text'; text: string }];
-  details: Record<string, never>;
-}
-
-export interface CronRuntime {
-  attachPi: (pi: ExtensionAPI) => void;
-  handleSessionStart: (pi: ExtensionAPI, ctx: { cwd: string }) => Promise<void>;
-  handleSessionSwitch: (ctx: { cwd: string }) => void;
-  handleSessionShutdown: () => Promise<void>;
-  handleCronCommand: (args?: string, ctx?: CronCommandContext) => Promise<void>;
-  executeCronTool: (params: ActionParams, ctx?: CronToolContext) => Promise<ToolTextResult>;
-  executeReminderTool: (
-    params: ReminderParams,
-    ctx?: CronToolContext,
-  ) => Promise<ToolTextResult>;
-}
-
-function textToolResult(text: string): ToolTextResult {
-  return {
-    content: [{ type: 'text', text }],
-    details: {},
-  };
-}
-
-function getSchedulerStartOpts(
-  state: CronState,
-): { lastTickMinute?: string } | undefined {
-  return state.lastTickMinute ? { lastTickMinute: state.lastTickMinute } : undefined;
-}
 
 export function createCronRuntime(): CronRuntime {
   let statePath = '';

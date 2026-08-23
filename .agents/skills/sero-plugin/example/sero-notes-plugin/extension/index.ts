@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { withStateLock } from '@sero-ai/extension-runtime';
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
@@ -29,6 +30,20 @@ async function writeState(filePath: string, state: NotesState): Promise<void> {
   const tmp = `${filePath}.tmp.${Date.now()}`;
   await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmp, filePath);
+}
+
+// Locked read-modify-write. The Sero host writes this file for the UI under
+// the same `<stateFile>.lock` mutex, so a tool call cannot interleave with a
+// panel edit and revert it. Never write the state file without this.
+async function updateState(
+  filePath: string,
+  updater: (state: NotesState) => NotesState,
+): Promise<NotesState> {
+  return withStateLock(filePath, async () => {
+    const next = updater(await readState(filePath));
+    await writeState(filePath, next);
+    return next;
+  });
 }
 
 const Params = Type.Object({
@@ -103,15 +118,19 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          const note: Note = {
-            id: state.nextId,
-            title: params.title,
-            done: false,
-            createdAt: new Date().toISOString(),
-          };
-          state.notes.push(note);
-          state.nextId++;
-          await writeState(statePath, state);
+          const title = params.title;
+          let note!: Note;
+          await updateState(statePath, (current) => {
+            note = {
+              id: current.nextId,
+              title,
+              done: false,
+              createdAt: new Date().toISOString(),
+            };
+            current.notes.push(note);
+            current.nextId++;
+            return current;
+          });
           return {
             content: [{ type: 'text', text: `Added #${note.id}: ${note.title}` }],
             details: {},
@@ -125,15 +144,18 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          const note = state.notes.find((n) => n.id === params.id);
+          let note: Note | undefined;
+          await updateState(statePath, (current) => {
+            note = current.notes.find((n) => n.id === params.id);
+            if (note) note.done = !note.done;
+            return current;
+          });
           if (!note) {
             return {
               content: [{ type: 'text', text: `Error: no note #${params.id}` }],
               details: {},
             };
           }
-          note.done = !note.done;
-          await writeState(statePath, state);
           return {
             content: [
               { type: 'text', text: `Toggled #${note.id} -> ${note.done ? 'done' : 'open'}` },
@@ -149,15 +171,19 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          const before = state.notes.length;
-          state.notes = state.notes.filter((n) => n.id !== params.id);
-          if (state.notes.length === before) {
+          let removed = false;
+          await updateState(statePath, (current) => {
+            const before = current.notes.length;
+            current.notes = current.notes.filter((n) => n.id !== params.id);
+            removed = current.notes.length < before;
+            return current;
+          });
+          if (!removed) {
             return {
               content: [{ type: 'text', text: `Error: no note #${params.id}` }],
               details: {},
             };
           }
-          await writeState(statePath, state);
           return {
             content: [{ type: 'text', text: `Removed #${params.id}` }],
             details: {},
@@ -213,36 +239,40 @@ export default function (pi: ExtensionAPI) {
         if (subcommand === 'add') {
           const title = rest.join(' ').trim();
           if (!title) return { output: 'Error: title is required', exitCode: 1 };
-          state.notes.push({
-            id: state.nextId,
-            title,
-            done: false,
-            createdAt: new Date().toISOString(),
+          let added!: Note;
+          await updateState(filePath, (current) => {
+            added = { id: current.nextId, title, done: false, createdAt: new Date().toISOString() };
+            current.notes.push(added);
+            current.nextId++;
+            return current;
           });
-          state.nextId++;
-          await writeState(filePath, state);
-          return { output: `Added #${state.nextId - 1}: ${title}`, exitCode: 0 };
+          return { output: `Added #${added.id}: ${title}`, exitCode: 0 };
         }
 
         if (subcommand === 'toggle') {
           const id = Number(rest[0]);
           if (!Number.isInteger(id)) return { output: 'Error: id is required', exitCode: 1 };
-          const note = state.notes.find((n) => n.id === id);
+          let note: Note | undefined;
+          await updateState(filePath, (current) => {
+            note = current.notes.find((n) => n.id === id);
+            if (note) note.done = !note.done;
+            return current;
+          });
           if (!note) return { output: `Error: no note #${id}`, exitCode: 1 };
-          note.done = !note.done;
-          await writeState(filePath, state);
           return { output: `Toggled #${id} -> ${note.done ? 'done' : 'open'}`, exitCode: 0 };
         }
 
         if (subcommand === 'remove') {
           const id = Number(rest[0]);
           if (!Number.isInteger(id)) return { output: 'Error: id is required', exitCode: 1 };
-          const before = state.notes.length;
-          state.notes = state.notes.filter((n) => n.id !== id);
-          if (state.notes.length === before) {
-            return { output: `Error: no note #${id}`, exitCode: 1 };
-          }
-          await writeState(filePath, state);
+          let removed = false;
+          await updateState(filePath, (current) => {
+            const before = current.notes.length;
+            current.notes = current.notes.filter((n) => n.id !== id);
+            removed = current.notes.length < before;
+            return current;
+          });
+          if (!removed) return { output: `Error: no note #${id}`, exitCode: 1 };
           return { output: `Removed #${id}`, exitCode: 0 };
         }
 

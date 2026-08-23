@@ -60,16 +60,28 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
       "stateFile": ".sero/apps/myapp/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "MyApp",
+      "contributes": {
+        "components": [
+          {
+            "id": "summary",
+            "extensionPoint": "ui.dashboard.widget",
+            "component": "MyAppWidget",
+            "name": "Summary",
+            "defaultSize": { "w": 2, "h": 2 }
+          }
+        ]
+      },
       "devPort": 5175
     },
     "plugin": {
       "category": "productivity",
       "tags": ["myapp", "example"],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2
+      "runtimeAbi": 3
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "^0.2.2",
     "typebox": "catalog:"
   },
   "peerDependencies": {
@@ -96,17 +108,62 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
 
 **Key notes:**
 - `keywords: ["pi-package"]` keeps Pi CLI compatibility
-- Pi SDK packages in `peerDependencies` (runtime provides them)
+- Pi SDK packages in `peerDependencies` (runtime provides them); the current
+  peer minimum is `>=0.83.0`, with exact `0.83.0` development packages
 - `@sero-ai/app-runtime` in `devDependencies` (shared via MF singleton)
 - `@sero-ai/ui` in `devDependencies` (bundled at build time)
 - Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
 - Treat monorepo `packages/*` folders as shared package sources consumed by external plugins via published package names — do NOT point an external plugin at `../../packages/*` source paths, and do NOT move plugin-specific domain models into `packages/*`
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
+- `component` is the main app surface. Put extra components and standard host
+  controls under `contributes.components` and `contributes.controls`. Use only
+  host-defined extension points. Never generate a legacy contribution field
+  for a new plugin.
 - `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
 - `pi.prompts` and `pi.skills` are optional, but when a plugin ships prompt templates or skills they must be declared there — folders alone are not discovered
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - For built-in release packaging, `sero.plugin.bundleExtensions: true` ships compiled JS `pi.extensions` instead of raw source. Extension dependencies are bundled and pruned from `dist/plugin/package.json` unless listed in `sero.plugin.extensionExternals`.
+
+### Contribution templates
+
+Use only host-defined extension points. Component contributions name a Module
+Federation export. Control contributions contain host-rendered control data and
+an app-local tool action.
+
+```json
+"contributes": {
+  "components": [
+    {
+      "id": "explorer-view",
+      "extensionPoint": "ui.explorer.view",
+      "component": "MyExplorerView",
+      "label": "My view",
+      "icon": "box"
+    }
+  ],
+  "controls": [
+    {
+      "id": "workspace-setup",
+      "extensionPoint": "workspace.create.option",
+      "control": {
+        "type": "switch",
+        "label": "Set up My App",
+        "defaultValue": false
+      },
+      "action": {
+        "type": "tool",
+        "tool": "myapp_setup",
+        "params": { "mode": "default" }
+      }
+    }
+  ]
+}
+```
+
+Supported component points are `ui.global-search.panel`, `ui.explorer.view`,
+`ui.titlebar.control`, and `ui.dashboard.widget`. The supported control point
+is `workspace.create.option`.
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
 - Add `requiredHostCapabilities` only for seams the plugin actually needs:
@@ -331,6 +388,7 @@ export const DEFAULT_STATE: MyAppState = {
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { withStateLock } from '@sero-ai/extension-runtime';
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
@@ -366,6 +424,20 @@ async function writeState(filePath: string, state: MyAppState): Promise<void> {
   const tmpPath = `${filePath}.tmp.${Date.now()}`;
   await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmpPath, filePath);
+}
+
+// Locked read-modify-write. The Sero host writes this file for the UI under
+// the same `<stateFile>.lock` mutex, so a tool call cannot interleave with a
+// panel edit and revert it. Never write the state file without this.
+async function updateState(
+  filePath: string,
+  updater: (state: MyAppState) => MyAppState,
+): Promise<MyAppState> {
+  return withStateLock(filePath, async () => {
+    const next = updater(await readState(filePath));
+    await writeState(filePath, next);
+    return next;
+  });
 }
 
 // -- Tool parameters --
@@ -421,14 +493,14 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          const item: MyItem = {
-            id: state.nextId,
-            title: params.title,
-            createdAt: new Date().toISOString(),
-          };
-          state.items.push(item);
-          state.nextId++;
-          await writeState(statePath, state);
+          const title = params.title;
+          let item!: MyItem;
+          await updateState(statePath, (current) => {
+            item = { id: current.nextId, title, createdAt: new Date().toISOString() };
+            current.items.push(item);
+            current.nextId++;
+            return current;
+          });
           return {
             content: [{ type: 'text', text: `Added #${item.id}: ${item.title}` }],
             details: {},
@@ -442,8 +514,10 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          state.items = state.items.filter((i) => i.id !== params.id);
-          await writeState(statePath, state);
+          await updateState(statePath, (current) => ({
+            ...current,
+            items: current.items.filter((i) => i.id !== params.id),
+          }));
           return {
             content: [{ type: 'text', text: `Removed #${params.id}` }],
             details: {},
@@ -875,19 +949,8 @@ If you do this, declare:
 ```
 
 **Why needed:**
-- `@import "@sero-ai/ui/styles/plugin.css"` — imports Sero's shared Tailwind 4 theme bridge and scans shared primitives plus dashboard components
+- `@import "@sero-ai/ui/styles/plugin.css"` — imports Sero's shared Tailwind 4 theme bridge and scans shared UI components
 - `@source "./**/*.{ts,tsx}"` — keeps external remotes from silently missing plugin-local utility classes at runtime
-
-Add the matching source stylesheet immediately after `plugin.css` when the UI
-uses a specialized component family:
-
-```css
-@import "@sero-ai/ui/styles/ai-elements.css";
-@import "@sero-ai/ui/styles/model-selection.css";
-@import "@sero-ai/ui/styles/context-editor.css";
-```
-
-Only import the specialized stylesheets the plugin needs.
 
 ---
 
@@ -909,8 +972,6 @@ Only import the specialized stylesheets the plugin needs.
     "paths": {
       "@sero-ai/app-runtime": ["../../app-runtime/src/index.ts"],
       "@sero-ai/ui": ["../../ui/src/index.ts"],
-      "@sero-ai/ui/ai-elements/*": ["../../ui/src/components/ai-elements/*"],
-      "@sero-ai/ui/model-selection/*": ["../../ui/src/components/model-selection/*"],
       "@sero-ai/ui/*": ["../../ui/src/*"]
     }
   },

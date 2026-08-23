@@ -154,4 +154,52 @@ describe('cross-process exclusion', () => {
     expect(final.items).toEqual(Array.from({ length: count }, (_, i) => i));
     expect(final.status).toBe(`status-${count - 1}`);
   }, 30_000);
+
+  // The abandoned-lock races: many processes observe the same dead holder and
+  // reclaim concurrently, while more holders crash mid-storm. A reclaim that
+  // deletes from a stale observation admits two holders here — each worker
+  // proves exclusion with a marker file inside its critical section.
+  // LOCK_STRESS_WORKERS / LOCK_STRESS_SECTIONS scale it up for manual runs.
+  it('keeps exclusion while holders crash and many contenders reclaim at once', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const logFile = path.join(dir, 'stress.log');
+    await writeFile(logFile, '', 'utf8');
+
+    // Start from an already-crashed holder so every contender's first move is
+    // to reclaim the same dead lock.
+    const gonePid = await new Promise<number>((resolve, reject) => {
+      const dead = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });
+      dead.on('exit', () => resolve(dead.pid!));
+      dead.on('error', reject);
+    });
+    await mkdir(lockDir);
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: gonePid, acquiredAt: Date.now(), token: 'crashed' }), 'utf8');
+
+    const workers = Number(process.env.LOCK_STRESS_WORKERS ?? 8);
+    const sections = Number(process.env.LOCK_STRESS_SECTIONS ?? 5);
+    const fixture = fileURLToPath(new URL('./fixtures/contender-worker.ts', import.meta.url));
+    const ids: string[] = [];
+    const runs = [] as Promise<void>[];
+    const start = (id: string, mode: 'normal' | 'crash') => {
+      ids.push(id);
+      const child = spawn(process.execPath, [fixture, lockDir, logFile, id, String(sections), mode], { stdio: ['ignore', 'inherit', 'inherit'] });
+      runs.push(new Promise<void>((resolve, reject) => {
+        child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${id} exited ${code}`))));
+        child.on('error', reject);
+      }));
+    };
+    for (let w = 0; w < workers; w += 1) start(`w${w}`, 'normal');
+    start('crash-a', 'crash');
+    start('crash-b', 'crash');
+
+    while (!ids.every((id) => existsSync(`${logFile}.ready-${id}`))) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    await writeFile(`${logFile}.go`, '', 'utf8');
+    await Promise.all(runs);
+
+    const log = await readFile(logFile, 'utf8');
+    expect(log).not.toContain('OVERLAP');
+    expect(log.split('\n').filter((line) => line.startsWith('OK ')).length).toBe(workers * sections);
+  }, 120_000);
 });

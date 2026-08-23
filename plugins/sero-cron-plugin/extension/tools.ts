@@ -4,7 +4,7 @@ import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
 import type { ActionParams } from './actions';
-import type { CronRuntime } from './runtime';
+import type { CronRuntime } from './runtime-helpers';
 import type { ReminderParams } from './reminder-actions';
 
 const CronParams = Type.Object({
