@@ -1,12 +1,13 @@
 {
   "name": "@sero-ai/extension-runtime",
-  "version": "0.2.0",
-  "description": "Shared runtime helpers for isolated background agent work in Sero — plugin extensions and the desktop host (isolated model completions, etc.)",
+  "version": "0.2.1",
+  "description": "Shared runtime helpers for isolated background agent work in Sero — plugin extensions and the desktop host (isolated model completions, file locks, etc.)",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./file-lock": "./src/file-lock.ts",
     "./package.json": "./package.json"
   },
   "files": [
@@ -20,9 +21,9 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@earendil-works/pi-agent-core": "catalog:peer",
-    "@earendil-works/pi-ai": "catalog:peer",
-    "@earendil-works/pi-coding-agent": "catalog:peer"
+    "@earendil-works/pi-agent-core": ">=0.83.0",
+    "@earendil-works/pi-ai": ">=0.83.0",
+    "@earendil-works/pi-coding-agent": ">=0.83.0"
   },
   "devDependencies": {
     "@earendil-works/pi-agent-core": "catalog:",
@@ -31,5 +32,16 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-agent-core": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
   }
 }
