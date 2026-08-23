@@ -33,9 +33,7 @@ async function createTestRuntime() {
   });
   const modelRegistry = new ModelRegistry(modelRuntime);
   modelRegistry.registerProvider(faux.provider);
-  await modelRuntime.setRuntimeApiKey('alibaba-coding-plan-test', 'test-key', {
-    allowNetwork: false,
-  });
+  await modelRuntime.setRuntimeApiKey('alibaba-coding-plan-test', 'test-key');
   const model = modelRuntime.getModel('alibaba-coding-plan-test', 'custom-model');
   if (!model) throw new Error('Expected faux model to be registered.');
   const agentDir = await mkdtemp(path.join(tmpdir(), 'sero-isolated-agent-'));

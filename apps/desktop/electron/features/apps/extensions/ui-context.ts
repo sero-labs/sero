@@ -24,6 +24,7 @@ const SERO_UI_THEME_COLORS: Record<ThemeColor, string> = {
   dim: '#4b5563',
   text: '#f9fafb',
   thinkingText: '#d1d5db',
+  searchMatchText: '#f9fafb',
   userMessageText: '#f9fafb',
   customMessageText: '#f9fafb',
   customMessageLabel: '#c084fc',

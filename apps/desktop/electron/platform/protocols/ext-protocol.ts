@@ -162,7 +162,7 @@ export function setupExtProtocol(): void {
         });
       }
 
-      return new Response(await readFile(fullPath), {
+      return new Response(new Uint8Array(await readFile(fullPath)), {
         headers: { 'content-type': getAssetContentType(fullPath) },
       });
     } catch {
