@@ -262,6 +262,7 @@ for (const recipe of RECIPES) {
     if (recipe.tiers) {
       const steps = loop.plan.steps.filter((s) => s.execution.type === 'background-agent' || s.execution.type === 'model');
       const targets = recipe.tiers.scope === 'all' ? steps : steps.slice(0, 1);
+      expect(targets, `${recipe.slug} produced no model or background-agent steps`).not.toHaveLength(0);
       for (const step of targets) {
         const res = await invoke({ action: 'set_step_model', loopId: loop.id, stepId: step.id, model: recipe.tiers.model });
         expect(res.ok).not.toBe(false);

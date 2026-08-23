@@ -151,10 +151,10 @@ describe('checkForDuplicateEntries', () => {
   });
 
   it('ignores timestamp differences in normalization', () => {
-    // Timestamps inside HTML comments are stripped during normalization
+    // Plain ISO dates are stripped during normalization.
     const entryWithTimestamp = [makeEntry('Set up CI on 2026-04-01 12:00:00', 'mem-010')];
     const result = checkForDuplicateEntries(entryWithTimestamp, 'Set up CI on 2026-03-15 09:30:00');
-    expect(result.exactMatch).toBeTruthy();
+    expect(result.exactMatch).toMatchObject({ id: 'mem-010' });
   });
 
   it('returns nearMatch when Jaccard similarity ≥ 0.8', () => {
