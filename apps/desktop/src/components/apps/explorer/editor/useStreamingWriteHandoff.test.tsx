@@ -86,6 +86,7 @@ describe('useStreamingWriteHandoff', () => {
       root?.render(<Harness liveContent={null} />);
     });
     expect(latestContent).toBe('partial file');
+    expect(readFile).toHaveBeenCalledWith('ws-1', '/workspace/a.ts');
 
     await act(async () => {
       diskRead.resolve('finished file');

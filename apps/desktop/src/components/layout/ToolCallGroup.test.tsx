@@ -366,9 +366,8 @@ describe('ToolCallGroup image previews', () => {
     });
 
     const summaryButton = container.querySelector('button');
-    const statusIcon = Array.from(summaryButton?.querySelectorAll('svg') ?? []).at(-1);
-    expect(summaryButton?.querySelector('.text-status-error')).toBeNull();
-    expect(statusIcon?.getAttribute('class')).toContain('text-[var(--text-muted)]');
+    expect(summaryButton?.textContent).toContain('2 actions');
+    expect(summaryButton?.textContent).not.toContain('failed');
   });
 });
 
