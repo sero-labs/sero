@@ -99,7 +99,7 @@ vi.mock('../scheduler', () => ({
 
 vi.mock('../state-io', () => ({
   resolveStatePath: (cwd: string) => statePathFor(cwd),
-  withStateLock: async <T>(fn: () => Promise<T>) => fn(),
+  withStateLock: async <T>(_statePath: string, fn: () => Promise<T>) => fn(),
   readState: (filePath: string) => readStateMock(filePath),
   writeState: (filePath: string, state: CronState) => writeStateMock(filePath, state),
 }));

@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/extension-runtime",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Shared runtime helpers for isolated background agent work in Sero — plugin extensions and the desktop host (isolated model completions, file locks, etc.)",
   "type": "module",
   "main": "./src/index.ts",

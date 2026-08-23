@@ -39,7 +39,7 @@
       "category": "productivity",
       "tags": ["notes", "example", "reference"],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2,
+      "runtimeAbi": 3,
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
         "tool.cli",
@@ -49,6 +49,7 @@
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "^0.2.2",
     "typebox": "catalog:"
   },
   "peerDependencies": {

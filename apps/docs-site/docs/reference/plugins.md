@@ -57,7 +57,7 @@ correct a failed session.
 
 Current UI plugins must:
 
-- declare `sero.plugin.runtimeAbi` as `2`;
+- declare `sero.plugin.runtimeAbi` as `3`;
 - declare `sero.app.styleIsolation` as `"scope"`;
 - use `seroPluginCssScope()` from `@sero-ai/plugin-vite`;
 - use `base: './'` for production;

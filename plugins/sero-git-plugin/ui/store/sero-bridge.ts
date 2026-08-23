@@ -143,9 +143,10 @@ export interface SeroGitHubBridge {
 }
 
 export interface SeroAppStateBridge {
-  watch<T = unknown>(filePath: string): Promise<T>;
+  /** Resolves the current content plus its etag (host protocol since ABI 3). */
+  watch<T = unknown>(filePath: string): Promise<{ data: T; etag: string | null }>;
   unwatch(filePath: string): Promise<void>;
-  onChange<T = unknown>(cb: (filePath: string, data: T) => void): () => void;
+  onChange<T = unknown>(cb: (filePath: string, data: T, etag: string | null) => void): () => void;
 }
 
 interface SeroGitWindow {

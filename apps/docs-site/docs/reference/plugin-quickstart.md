@@ -40,7 +40,7 @@ recovery.
 
 If the plugin has a federated UI, keep these contracts:
 
-- set `sero.plugin.runtimeAbi` to `2`;
+- set `sero.plugin.runtimeAbi` to `3`;
 - set `sero.app.styleIsolation` to `"scope"`;
 - use `seroPluginCssScope({ pluginId: '<id>' })` from
   `@sero-ai/plugin-vite` after Tailwind;

@@ -51,18 +51,47 @@ describe('withLock', () => {
       child.on('exit', () => resolve(child.pid!));
       child.on('error', reject);
     });
-    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: gonePid, acquiredAt: Date.now() }), 'utf8');
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: gonePid, acquiredAt: Date.now(), token: 'gone' }), 'utf8');
 
     await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
   });
 
-  it('reclaims a lock past its stale window even when the owner pid is alive', async () => {
+  // Evicting a live holder breaks mutual exclusion: the evicted holder would
+  // finish, then release a lock that belongs to its successor. A wedged but
+  // alive owner therefore surfaces as timeouts, never as a reclaim.
+  it('never reclaims an alive owner, however old the lock is', async () => {
     const lockDir = path.join(dir, 'state.json.lock');
     await mkdir(lockDir);
-    // Not our own pid (that is never reclaimed) — pid 1 is always alive.
-    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: 1, acquiredAt: Date.now() - 60_000 }), 'utf8');
+    // Not our own pid — pid 1 is always alive.
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: 1, acquiredAt: Date.now() - 60_000, token: 'held' }), 'utf8');
 
-    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000, staleMs: 30_000 })).resolves.toBe('ran');
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 300, staleMs: 100 })).rejects.toThrow(/Timed out/);
+  });
+
+  it('reclaims an ownerless lock directory after the stale window', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    // A crash between mkdir and the owner write leaves exactly this.
+    await mkdir(lockDir);
+
+    // Fresh ownerless dir: still treated as mid-acquisition.
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 200, staleMs: 60_000 })).rejects.toThrow(/Timed out/);
+    // Past the stale window (measured by directory age): reclaimed.
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000, staleMs: 100 })).resolves.toBe('ran');
+  });
+
+  it('does not release a lock it no longer owns', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const release = await acquireLock(lockDir);
+    // The holder dies and a successor legitimately reclaims and reacquires.
+    await rm(lockDir, { recursive: true, force: true });
+    await mkdir(lockDir);
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: 1, acquiredAt: Date.now(), token: 'successor' }), 'utf8');
+
+    // The stale release closure must leave the successor's lock alone.
+    await release();
+    const owner = JSON.parse(await readFile(path.join(lockDir, 'owner.json'), 'utf8')) as { token: string };
+    expect(owner.token).toBe('successor');
   });
 
   it('throws on timeout while another holder is alive', async () => {

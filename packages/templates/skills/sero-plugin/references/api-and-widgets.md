@@ -402,7 +402,7 @@ for a new plugin.
 | `category` | Plugin category (e.g. `"productivity"`) |
 | `tags` | Array of searchable tags |
 | `minSeroVersion` | Minimum compatible Sero version |
-| `runtimeAbi` | Federated-UI ABI the plugin was built against. Required; must match the host (currently `2`). A plugin that omits it, or was built against a different Module Federation version, is refused with a "reinstall to update" message instead of crashing. |
+| `runtimeAbi` | Federated-UI ABI the plugin was built against. Required; must match the host (currently `3`). A plugin that omits it, or was built against a different Module Federation version, is refused with a "reinstall to update" message instead of crashing. |
 | `requiredHostCapabilities` | Explicit host seams the plugin depends on, such as `appAgent.invokeTool` or `tool.cli` |
 | `preBuilt` | Whether plugin ships pre-built |
 | `bundleExtensions` | Build-time hint for built-in release packaging. When `true`, Sero packages compiled JS `pi.extensions` instead of raw extension source. |

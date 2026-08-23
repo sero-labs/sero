@@ -202,27 +202,29 @@ export function createCronRuntime(): CronRuntime {
       return;
     }
 
-    const initialState = await readState(statePath);
-    const hasWork =
-      initialState.jobs.length > 0 || (initialState.reminders?.length ?? 0) > 0;
+    await withStateLock(statePath, async () => {
+      const initialState = await readState(statePath);
+      const hasWork =
+        initialState.jobs.length > 0 || (initialState.reminders?.length ?? 0) > 0;
 
-    if (initialState.autostart && hasWork) {
-      info('scheduler:autostart', {
-        jobs: initialState.jobs.length,
-        reminders: initialState.reminders.length,
-      });
-      const state = createAndStartScheduler(initialState);
-      state.schedulerActive = true;
-      await writeState(statePath, state);
-      startStateWatcher();
-      return;
-    }
+      if (initialState.autostart && hasWork) {
+        info('scheduler:autostart', {
+          jobs: initialState.jobs.length,
+          reminders: initialState.reminders.length,
+        });
+        const state = createAndStartScheduler(initialState);
+        state.schedulerActive = true;
+        await writeState(statePath, state);
+        startStateWatcher();
+        return;
+      }
 
-    if (initialState.schedulerActive) {
-      info('scheduler:reset-stale-flag');
-      initialState.schedulerActive = false;
-      await writeState(statePath, initialState);
-    }
+      if (initialState.schedulerActive) {
+        info('scheduler:reset-stale-flag');
+        initialState.schedulerActive = false;
+        await writeState(statePath, initialState);
+      }
+    });
   }
 
   async function startScheduler(): Promise<string> {
@@ -235,10 +237,12 @@ export function createCronRuntime(): CronRuntime {
       return 'Error: no state path resolved.';
     }
 
-    const initialState = await readState(statePath);
-    const state = createAndStartScheduler(initialState);
-    state.schedulerActive = true;
-    await writeState(statePath, state);
+    const state = await withStateLock(statePath, async () => {
+      const started = createAndStartScheduler(await readState(statePath));
+      started.schedulerActive = true;
+      await writeState(statePath, started);
+      return started;
+    });
     startStateWatcher();
 
     const activeReminders = state.reminders.filter(
@@ -259,13 +263,15 @@ export function createCronRuntime(): CronRuntime {
 
     stateWatcher?.stop();
     stateWatcher = null;
-    const state = await readState(statePath);
-    state.lastTickMinute = scheduler.getLastTickMinute();
-    state.lastSchedulerShutdown = new Date().toISOString();
-    state.schedulerActive = false;
-    scheduler.stop();
-    scheduler = null;
-    await writeState(statePath, state);
+    await withStateLock(statePath, async () => {
+      const state = await readState(statePath);
+      state.lastTickMinute = scheduler!.getLastTickMinute();
+      state.lastSchedulerShutdown = new Date().toISOString();
+      state.schedulerActive = false;
+      scheduler!.stop();
+      scheduler = null;
+      await writeState(statePath, state);
+    });
     return '✓ Scheduler stopped';
   }
 
@@ -431,10 +437,12 @@ export function createCronRuntime(): CronRuntime {
     if (scheduler?.isRunning()) {
       if (statePath) {
         try {
-          const state = await readState(statePath);
-          state.lastTickMinute = scheduler.getLastTickMinute();
-          state.lastSchedulerShutdown = new Date().toISOString();
-          await writeState(statePath, state);
+          await withStateLock(statePath, async () => {
+            const state = await readState(statePath);
+            state.lastTickMinute = scheduler!.getLastTickMinute();
+            state.lastSchedulerShutdown = new Date().toISOString();
+            await writeState(statePath, state);
+          });
         } catch (error) {
           warn('scheduler:shutdown-state-write-skipped', {
             path: statePath,
