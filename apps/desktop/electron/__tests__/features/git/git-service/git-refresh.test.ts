@@ -45,16 +45,19 @@ describe('refreshGitState', () => {
       await writeRepoFile(repoPath, 'notes.txt', 'dirty\n');
       const quickRefresh = vi.spyOn(gitRefresh, 'createQuickRefreshState');
 
-      const refreshedState = await refreshGitState(repoPath, statePath, { scope: 'auto' });
+      try {
+        const refreshedState = await refreshGitState(repoPath, statePath, { scope: 'auto' });
 
-      expect(quickRefresh).toHaveBeenCalledTimes(1);
-      expect(refreshedState.headHash).toBe(initialState.headHash);
-      expect(refreshedState.currentBranch).toBe(initialState.currentBranch);
-      expect(refreshedState.commits).toEqual(initialState.commits);
-      expect(refreshedState.branches).toEqual(initialState.branches);
-      expect(refreshedState.remoteBranches).toEqual(initialState.remoteBranches);
-      expect(refreshedState.fileChanges.some((file) => file.path === 'notes.txt')).toBe(true);
-      quickRefresh.mockRestore();
+        expect(quickRefresh).toHaveBeenCalledTimes(1);
+        expect(refreshedState.headHash).toBe(initialState.headHash);
+        expect(refreshedState.currentBranch).toBe(initialState.currentBranch);
+        expect(refreshedState.commits).toEqual(initialState.commits);
+        expect(refreshedState.branches).toEqual(initialState.branches);
+        expect(refreshedState.remoteBranches).toEqual(initialState.remoteBranches);
+        expect(refreshedState.fileChanges.some((file) => file.path === 'notes.txt')).toBe(true);
+      } finally {
+        quickRefresh.mockRestore();
+      }
     } finally {
       await cleanupPaths([repoPath]);
     }

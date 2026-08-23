@@ -9,6 +9,7 @@ import {
   runtimeSkipReason,
   type TempSeroHome,
 } from './helpers';
+import { CONTAINER_BIN } from '../electron/features/container/core/types';
 
 /**
  * Container system e2e tests.
@@ -61,7 +62,7 @@ test.afterAll(async () => {
 
 async function appleContainerAvailabilitySkipReason(): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('container', ['system', 'status'], { timeout: 10_000 });
+    const { stdout } = await execFileAsync(CONTAINER_BIN, ['system', 'status'], { timeout: 10_000 });
     const output = stdout.trim();
     if (/not running|unavailable|not registered/i.test(output) || !/running/i.test(output)) {
       return 'Apple Container system is unavailable.';

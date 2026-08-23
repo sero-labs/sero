@@ -12,6 +12,10 @@ import { useFileTreeModel } from './useFileTreeModel';
 
 interface CapturedTreeConfig {
   setExpandedItems: (updater: string[] | ((old: string[]) => string[])) => void;
+  dataLoader: {
+    getItem: (itemId: string) => unknown;
+    getChildren: (itemId: string) => string[];
+  };
 }
 
 const fakeTree = {
@@ -36,6 +40,7 @@ vi.mock('@headless-tree/react', () => ({
   useTree: vi.fn((config: CapturedTreeConfig) => {
     latestTreeConfig = {
       setExpandedItems: config.setExpandedItems,
+      dataLoader: config.dataLoader,
     };
     return fakeTree;
   }),
@@ -191,6 +196,15 @@ describe('useFileTreeModel', () => {
       expect(listFiles).toHaveBeenCalledTimes(1);
       expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
       expect(fakeTree.rebuildTree).toHaveBeenCalled();
+    });
+    expect(latestTreeConfig?.dataLoader.getChildren('/workspace/src')).toEqual([
+      '/workspace/src/index.ts',
+      '/workspace/src/new-file.ts',
+    ]);
+    expect(latestTreeConfig?.dataLoader.getItem('/workspace/src/new-file.ts')).toMatchObject({
+      name: 'new-file.ts',
+      isDirectory: false,
+      fileExtension: 'ts',
     });
 
     listFiles.mockClear();

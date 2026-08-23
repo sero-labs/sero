@@ -100,7 +100,7 @@ describe('HostDevServerManager', () => {
     expect(processAdapter.listeningPort).toHaveBeenCalledWith([222]);
   });
 
-  it('uses process adapter methods instead of direct Unix process commands', async () => {
+  it('uses the injected process adapter for process discovery and termination', async () => {
     const processAdapter = createProcessAdapter({
       descendantPids: vi.fn(async () => [2000]),
       listeningPort: vi.fn(async () => 5173),
