@@ -11,15 +11,18 @@ import {
 
 test.describe.configure({ mode: 'serial' });
 
-let home: TempSeroHome;
-let app: ElectronApplication;
+let home: TempSeroHome | undefined;
+let app: ElectronApplication | undefined;
 let page: Page;
 
 test.afterEach(async () => {
+  const currentApp = app;
+  app = undefined;
   try {
-    await closeSeroApp(app);
+    if (currentApp) await closeSeroApp(currentApp);
   } finally {
     home?.cleanup();
+    home = undefined;
   }
 });
 
@@ -36,11 +39,11 @@ test('fresh home renders first-run setup and creates a profile', async () => {
   await profileName.fill('Test');
   await page.getByRole('button', { name: /get started/i }).click();
 
-  await expect.poll(async () => app.evaluate(() => {
+  await expect.poll(async () => app?.evaluate(() => {
     const calls = (globalThis as { __seroRelaunchCalls?: Array<{ method: string }> })
       .__seroRelaunchCalls ?? [];
     return calls.map((call) => call.method);
-  }), { timeout: 10_000 }).toEqual(expect.arrayContaining(['relaunch', 'exit']));
+  }) ?? [], { timeout: 10_000 }).toEqual(expect.arrayContaining(['relaunch', 'exit']));
 
   const profiles = await page.evaluate(() => window.sero.profiles.list());
   expect(profiles).toEqual(expect.arrayContaining([

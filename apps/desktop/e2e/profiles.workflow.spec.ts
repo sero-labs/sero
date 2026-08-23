@@ -77,7 +77,7 @@ test('shows a clear two-step profile removal dialog', async () => {
   await page.evaluate(() => window.sero.profiles.create('Research'));
   await page.reload();
   await waitForShell(page);
-  await page.getByRole('button', { name: /Primary|Secondary/ }).click();
+  await page.getByRole('button', { name: 'Primary', exact: true }).click();
   await page.getByRole('button', { name: 'Manage Research' }).click();
 
   const dialog = page.getByRole('dialog');

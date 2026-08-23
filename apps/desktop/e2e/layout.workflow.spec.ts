@@ -260,7 +260,7 @@ test.describe('Layout — size persistence across reload', () => {
     expect(shellBox).toBeTruthy();
     // Sidebar should be ~25% of shell width (±5% tolerance)
     const actualPct = (sidebarWidth / shellBox!.width) * 100;
-    expect(actualPct).toBeGreaterThan(19);
+    expect(actualPct).toBeGreaterThan(20);
     expect(actualPct).toBeLessThan(30);
 
     const chatWidth = await panelWidth(page, layout.chatPanel);

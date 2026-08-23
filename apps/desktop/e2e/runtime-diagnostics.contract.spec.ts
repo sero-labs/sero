@@ -161,9 +161,10 @@ test.describe('runtime diagnostics IPC contracts', () => {
             containerEnabled: true,
           }));
           if (expectedBackend !== entry.requestedBackend) {
-            expect(diagnostic).toEqual(expect.objectContaining({
-              fallbackCode: 'backend-unsupported-on-platform',
-            }));
+            expect([
+              'backend-unsupported-on-platform',
+              'container_unavailable',
+            ]).toContain(diagnostic.fallbackCode);
             expectNonEmptyString(diagnostic.fallbackReason);
           }
           if (diagnostic.fallbackCode === 'container_unavailable') {

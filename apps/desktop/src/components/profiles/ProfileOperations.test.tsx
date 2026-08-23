@@ -302,7 +302,7 @@ describe('profile operation error surfaces', () => {
     await vi.waitFor(() => expect(profileBridge.remove).toHaveBeenCalledWith('managed', 'delete-files'));
   });
 
-  it('does not offer permanent deletion for a custom profile folder', async () => {
+  it('does not offer permanent deletion when profile files cannot be deleted', async () => {
     const active: ProfileInfo = {
       id: 'active', name: 'Current', path: '/profiles/current',
       createdAt: '2026-04-14T00:00:00.000Z', isActive: true, canDeleteFiles: false,
@@ -310,7 +310,6 @@ describe('profile operation error surfaces', () => {
     const custom: ProfileInfo = {
       id: 'custom', name: 'Imported', path: '/custom/imported',
       createdAt: '2026-04-15T00:00:00.000Z', isActive: false, canDeleteFiles: false,
-      folderProvenance: 'custom',
     };
     useProfileStore.setState({ profiles: [active, custom], activeProfile: active, hasActiveProfile: true });
     profileBridge.list.mockResolvedValue([active]);

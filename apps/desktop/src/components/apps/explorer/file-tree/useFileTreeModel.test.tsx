@@ -187,7 +187,7 @@ describe('useFileTreeModel', () => {
     await act(async () => {
       filetreeChangedHandler?.({
         workspaceId: 'ws-1',
-        directories: ['/workspace/src'],
+        directories: ['/workspace/src', '/workspace/ignored'],
       });
       await Promise.resolve();
     });
@@ -195,6 +195,7 @@ describe('useFileTreeModel', () => {
     await vi.waitFor(() => {
       expect(listFiles).toHaveBeenCalledTimes(1);
       expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
+      expect(listFiles).not.toHaveBeenCalledWith('ws-1', '/workspace/ignored');
       expect(fakeTree.rebuildTree).toHaveBeenCalled();
     });
     expect(latestTreeConfig?.dataLoader.getChildren('/workspace/src')).toEqual([
