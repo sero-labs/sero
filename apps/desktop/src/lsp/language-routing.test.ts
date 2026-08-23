@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { getLanguage } from '@/components/apps/explorer/editor/editor-panel-shared';
 import {
   LSP_PROVIDER_LANGUAGE_IDS,
   getLspLanguageIdFromPath,
   getLspServerLanguage,
   getMonacoLanguageIdFromPath,
 } from './language-routing';
+
+const EDITOR_LANGUAGE_CASES = [
+  '/workspace/src/App.tsx',
+  '/workspace/src/index.jsx',
+  '/workspace/src/main.py',
+  '/workspace/config/settings.yaml',
+  '/workspace/assets/logo.SVG',
+  '/workspace/README',
+];
 
 describe('language-routing', () => {
   it('maps ts/js families to LSP server language ids and provider registration ids', () => {
@@ -30,5 +40,11 @@ describe('language-routing', () => {
     expect(getMonacoLanguageIdFromPath('/workspace/config/settings.yaml')).toBe('yaml');
     expect(getMonacoLanguageIdFromPath('/workspace/assets/logo.SVG')).toBe('xml');
     expect(getMonacoLanguageIdFromPath('/workspace/README')).toBe('plaintext');
+  });
+
+  it.each(EDITOR_LANGUAGE_CASES)('keeps editor inference aligned with canonical routing for %s', (path) => {
+    const canonicalLanguage = getMonacoLanguageIdFromPath(path);
+
+    expect(getLanguage(path)).toBe(canonicalLanguage);
   });
 });
