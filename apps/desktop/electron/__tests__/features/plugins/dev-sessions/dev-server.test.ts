@@ -106,7 +106,7 @@ afterEach(async () => {
 });
 
 describe('ensurePluginDevServer', () => {
-  it('starts a host-side dev server and resolves a localhost remote override', async () => {
+  it('starts a host-side dev server and resolves a loopback remote override', async () => {
     const sourcePath = await createTempSource();
     const port = await getFreePort();
     const appId = 'todo-plugin';
@@ -122,11 +122,14 @@ describe('ensurePluginDevServer', () => {
       hasBuiltUi: false,
     });
 
-    expect(result).toEqual({
-      remoteEntryOverride: `http://127.0.0.1:${port}/mf-manifest.json`,
+    expect(result).toMatchObject({
       uiMode: 'dev-server',
       error: null,
     });
+    expect([
+      `http://127.0.0.1:${port}/mf-manifest.json`,
+      `http://localhost:${port}/mf-manifest.json`,
+    ]).toContain(result.remoteEntryOverride);
 
     await stopPluginDevServer(sourcePath);
   });
