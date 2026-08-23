@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import {
   closeApp,
@@ -25,6 +27,7 @@ import {
 
 const selectedRuntime = currentRuntimeFromEnv() ?? 'host';
 const platformSkipReason = runtimeSkipReason('apple-container');
+const execFileAsync = promisify(execFile);
 
 test.skip(
   selectedRuntime !== 'apple-container' || platformSkipReason !== null,
@@ -36,6 +39,9 @@ let app: ElectronApplication;
 let page: Page;
 
 test.beforeAll(async () => {
+  const availabilitySkipReason = await appleContainerAvailabilitySkipReason();
+  test.skip(availabilitySkipReason !== null, availabilitySkipReason ?? 'Apple Container is unavailable.');
+
   home = createTempSeroHome();
   ({ app, page } = await launchWorkflowApp({ home, runtime: 'apple-container' }));
   await expect.poll(async () => page.evaluate(() => typeof window.sero?.workspace?.list === 'function'), {
@@ -47,11 +53,24 @@ test.afterAll(async () => {
   try {
     await closeApp(app);
   } finally {
-    home.cleanup();
+    home?.cleanup();
   }
 });
 
 // ── Helpers ─────────────────────────────────────────────────────
+
+async function appleContainerAvailabilitySkipReason(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('container', ['system', 'status'], { timeout: 10_000 });
+    const output = stdout.trim();
+    if (/not running|unavailable|not registered/i.test(output) || !/running/i.test(output)) {
+      return 'Apple Container system is unavailable.';
+    }
+    return null;
+  } catch {
+    return 'Apple Container system is unavailable.';
+  }
+}
 
 async function getFirstWorkspaceId(): Promise<string | null> {
   return page.evaluate(async () => {
@@ -107,19 +126,13 @@ test.describe('Container - Lifecycle', () => {
     }, wsId);
 
     const state = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.container.ensure(id);
-      } catch (e: any) {
-        return { error: e.message };
-      }
+      return (window as any).sero.container.ensure(id);
     }, wsId);
 
-    if (state && !('error' in state)) {
-      expect(state).toHaveProperty('id');
-      expect(state).toHaveProperty('state');
-      expect(state).toHaveProperty('ipAddress');
-      expect(state.state).toBe('running');
-    }
+    expect(state).toHaveProperty('id');
+    expect(state).toHaveProperty('state');
+    expect(state).toHaveProperty('ipAddress');
+    expect(state.state).toBe('running');
   });
 
   test('should report running status after ensure', async () => {
@@ -130,18 +143,13 @@ test.describe('Container - Lifecycle', () => {
     }
 
     const status = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.container.status(id);
-      } catch {
-        return null;
-      }
+      return (window as any).sero.container.status(id);
     }, wsId);
 
     // If container was created in the previous test, it should be running
-    if (status) {
-      expect(status.state).toBe('running');
-      expect(status.ipAddress).toBeTruthy();
-    }
+    expect(status).not.toBeNull();
+    expect(status.state).toBe('running');
+    expect(status.ipAddress).toBeTruthy();
   });
 });
 
@@ -155,17 +163,11 @@ test.describe('Container - File I/O', () => {
 
     // /etc/hostname should exist in any container
     const content = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.editor.readFile(id, '/etc/hostname');
-      } catch {
-        return null;
-      }
+      return (window as any).sero.editor.readFile(id, '/etc/hostname');
     }, wsId);
 
-    if (content !== null) {
-      expect(typeof content).toBe('string');
-      expect(content.trim().length).toBeGreaterThan(0);
-    }
+    expect(typeof content).toBe('string');
+    expect(content.trim().length).toBeGreaterThan(0);
   });
 
   test('should write and read back a file in the container', async () => {
@@ -180,20 +182,13 @@ test.describe('Container - File I/O', () => {
 
     const result = await page.evaluate(
       async ({ id, path, content }: { id: string; path: string; content: string }) => {
-        try {
-          await (window as any).sero.editor.writeFile(id, path, content);
-          const readBack = await (window as any).sero.editor.readFile(id, path);
-          return { written: true, readBack };
-        } catch (e: any) {
-          return { written: false, error: e.message };
-        }
+        await (window as any).sero.editor.writeFile(id, path, content);
+        return (window as any).sero.editor.readFile(id, path);
       },
       { id: wsId, path: testPath, content: testContent },
     );
 
-    if (result.written) {
-      expect(result.readBack).toBe(testContent);
-    }
+    expect(result).toBe(testContent);
   });
 
   test('should list files in a container directory', async () => {
@@ -204,16 +199,10 @@ test.describe('Container - File I/O', () => {
     }
 
     const files = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.editor.listFiles(id, '/workspace');
-      } catch {
-        return null;
-      }
+      return (window as any).sero.editor.listFiles(id, '/workspace');
     }, wsId);
 
-    if (files !== null) {
-      expect(Array.isArray(files)).toBe(true);
-    }
+    expect(Array.isArray(files)).toBe(true);
   });
 });
 
@@ -226,17 +215,11 @@ test.describe('Container - Command Execution', () => {
     }
 
     const result = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.editor.exec(id, 'echo "hello from container"');
-      } catch {
-        return null;
-      }
+      return (window as any).sero.editor.exec(id, 'echo "hello from container"');
     }, wsId);
 
-    if (result !== null) {
-      expect(result.stdout).toContain('hello from container');
-      expect(result.exitCode).toBe(0);
-    }
+    expect(result.stdout).toContain('hello from container');
+    expect(result.exitCode).toBe(0);
   });
 
   test('should have node available in the container', async () => {
@@ -247,17 +230,11 @@ test.describe('Container - Command Execution', () => {
     }
 
     const result = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.editor.exec(id, 'node --version');
-      } catch {
-        return null;
-      }
+      return (window as any).sero.editor.exec(id, 'node --version');
     }, wsId);
 
-    if (result !== null) {
-      expect(result.stdout).toMatch(/^v\d+\.\d+\.\d+/);
-      expect(result.exitCode).toBe(0);
-    }
+    expect(result.stdout).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(result.exitCode).toBe(0);
   });
 
   test('should have git available in the container', async () => {
@@ -268,17 +245,11 @@ test.describe('Container - Command Execution', () => {
     }
 
     const result = await page.evaluate(async (id: string) => {
-      try {
-        return await (window as any).sero.editor.exec(id, 'git --version');
-      } catch {
-        return null;
-      }
+      return (window as any).sero.editor.exec(id, 'git --version');
     }, wsId);
 
-    if (result !== null) {
-      expect(result.stdout).toContain('git version');
-      expect(result.exitCode).toBe(0);
-    }
+    expect(result.stdout).toContain('git version');
+    expect(result.exitCode).toBe(0);
   });
 });
 
@@ -316,23 +287,16 @@ test.describe('Container - Terminal', () => {
 
     const result = await page.evaluate(
       async ({ wsId, termId }: { wsId: string; termId: string }) => {
-        try {
-          await (window as any).sero.terminal.create(wsId, termId, 80, 24);
-          // Give the terminal a moment to initialize
-          await new Promise((r) => setTimeout(r, 1000));
-          await (window as any).sero.terminal.dispose(termId);
-          return { created: true };
-        } catch (e: any) {
-          return { created: false, error: e.message };
-        }
+        await (window as any).sero.terminal.create(wsId, termId, 80, 24);
+        // Give the terminal a moment to initialize
+        await new Promise((r) => setTimeout(r, 1000));
+        await (window as any).sero.terminal.dispose(termId);
+        return { created: true };
       },
       { wsId, termId: terminalId },
     );
 
-    // Terminal creation depends on container being ready with node-pty
-    if (result.created) {
-      expect(result.created).toBe(true);
-    }
+    expect(result.created).toBe(true);
   });
 });
 
@@ -343,11 +307,7 @@ test.describe('Container - Cleanup', () => {
 
     // Restore workspace to non-container mode
     await page.evaluate(async (id: string) => {
-      try {
-        await (window as any).sero.workspace.setContainer(id, false);
-      } catch {
-        // Best effort cleanup
-      }
+      await (window as any).sero.workspace.setContainer(id, false);
     }, wsId);
   });
 });
