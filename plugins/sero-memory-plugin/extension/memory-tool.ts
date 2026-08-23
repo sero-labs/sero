@@ -95,7 +95,7 @@ function formatStructuredLinePreview(textValue: string): string {
 async function loadStructuredMemory(root: string): Promise<{ entries: ReturnType<typeof parseMemoryEntries>; content: string | null }> {
   const filePath = resolveTargetPath(root, 'memory')!.path;
   const content = await readFile(filePath);
-  info('memory_load_structured', {
+  await info('memory_load_structured', {
     filePath,
     exists: Boolean(content?.trim()),
     chars: content?.length ?? 0,
@@ -107,7 +107,7 @@ async function loadStructuredMemory(root: string): Promise<{ entries: ReturnType
     if (parsed.some((entry) => !entry.hasId)) {
       const nextContent = serializeMemoryEntries(parsed, nowTimestamp());
       await writeFile(filePath, nextContent);
-      info('memory_load_structured_rewrote_missing_ids', {
+      await info('memory_load_structured_rewrote_missing_ids', {
         filePath,
         parsedEntries: parsed.length,
       });
@@ -117,7 +117,7 @@ async function loadStructuredMemory(root: string): Promise<{ entries: ReturnType
   }
 
   const normalizedEntries = normalizeLegacyMemory(content);
-  info('memory_load_structured_legacy_detected', {
+  await info('memory_load_structured_legacy_detected', {
     filePath,
     normalizedEntries: normalizedEntries.length,
   });
@@ -125,7 +125,7 @@ async function loadStructuredMemory(root: string): Promise<{ entries: ReturnType
 
   const nextContent = serializeMemoryEntries(normalizedEntries, nowTimestamp());
   await writeFile(filePath, nextContent);
-  info('memory_load_structured_normalized', {
+  await info('memory_load_structured_normalized', {
     filePath,
     normalizedEntries: normalizedEntries.length,
   });
@@ -166,7 +166,7 @@ export async function handleRead(root: string, target?: string, date?: string, w
       ? await loadStructuredMemory(root)
       : { content: await readFile(resolved.path), entries: [] };
     if (!content) return text(`${resolved.displayName} not found or empty.`);
-    info('memory_read', {
+    await info('memory_read', {
       target,
       path: resolved.path,
       withIds: withIds === true,
@@ -396,7 +396,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       const root = resolveMemoryRoot();
       await ensureDirectories(root);
       const p = params as MemoryParamsType;
-      info('memory_tool_execute', {
+      await info('memory_tool_execute', {
         action: p.action,
         target: p.target ?? null,
         withIds: p.with_ids ?? null,
@@ -438,7 +438,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
             return text(`Unknown action: ${p.action}`);
         }
       } catch (err) {
-        error('memory_tool_execute_failed', {
+        await error('memory_tool_execute_failed', {
           action: p.action,
           target: p.target ?? null,
           ...errorDetails(err),
