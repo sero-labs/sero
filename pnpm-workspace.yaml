@@ -39,7 +39,7 @@ catalog:
   "@types/react": "^19.2.13"
   "@types/react-dom": "^19.2.3"
   jsdom: "^26.1.0"
-  "@types/node": "^18.19.130"
+  "@types/node": "^22.19.11"
 
   # Pi SDK
   "@earendil-works/pi-agent-core": "0.84.2"
@@ -68,10 +68,10 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@earendil-works/pi-agent-core": ">=0.83.0"
-    "@earendil-works/pi-ai": ">=0.83.0"
-    "@earendil-works/pi-coding-agent": ">=0.83.0"
-    "@earendil-works/pi-tui": ">=0.83.0"
+    "@earendil-works/pi-agent-core": ">=0.84.2"
+    "@earendil-works/pi-ai": ">=0.84.2"
+    "@earendil-works/pi-coding-agent": ">=0.84.2"
+    "@earendil-works/pi-tui": ">=0.84.2"
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.8"
