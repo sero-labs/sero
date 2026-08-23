@@ -301,4 +301,27 @@ describe('profile operation error surfaces', () => {
     await act(async () => { findExactButton('Delete').click(); });
     await vi.waitFor(() => expect(profileBridge.remove).toHaveBeenCalledWith('managed', 'delete-files'));
   });
+
+  it('does not offer permanent deletion for a custom profile folder', async () => {
+    const active: ProfileInfo = {
+      id: 'active', name: 'Current', path: '/profiles/current',
+      createdAt: '2026-04-14T00:00:00.000Z', isActive: true, canDeleteFiles: false,
+    };
+    const custom: ProfileInfo = {
+      id: 'custom', name: 'Imported', path: '/custom/imported',
+      createdAt: '2026-04-15T00:00:00.000Z', isActive: false, canDeleteFiles: false,
+      folderProvenance: 'custom',
+    };
+    useProfileStore.setState({ profiles: [active, custom], activeProfile: active, hasActiveProfile: true });
+    profileBridge.list.mockResolvedValue([active]);
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+    await act(async () => { findButton('Current').click(); });
+    const manage = document.querySelector('button[aria-label="Manage Imported"]');
+    if (!(manage instanceof HTMLButtonElement)) throw new Error('Expected profile management button');
+    await act(async () => { manage.click(); });
+
+    expect(document.body.textContent).not.toContain('Delete files');
+    expect(document.body.textContent).toContain('Retain files');
+  });
 });
