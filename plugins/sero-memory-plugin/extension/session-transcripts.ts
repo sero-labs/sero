@@ -187,7 +187,7 @@ export async function exportTranscriptForSession(
     (entry: (typeof branch)[number]): entry is SessionMessageEntry => entry.type === 'message',
   );
   if (messageEntries.length === 0) {
-    info('session_transcript_skipped', { source, reason: 'no_messages' });
+    await info('session_transcript_skipped', { source, reason: 'no_messages' });
     return { changed: false, reason: 'no_messages' };
   }
 
@@ -197,7 +197,7 @@ export async function exportTranscriptForSession(
   const transcript = buildTranscriptMarkdown(messageEntries, sessionId, date);
   const existing = await readFile(transcriptPath);
   if (existing === transcript) {
-    info('session_transcript_skipped', {
+    await info('session_transcript_skipped', {
       source,
       sessionId,
       path: transcriptPath,
@@ -207,7 +207,7 @@ export async function exportTranscriptForSession(
   }
 
   await writeFile(transcriptPath, transcript);
-  info('session_transcript_exported', {
+  await info('session_transcript_exported', {
     source,
     sessionId,
     path: transcriptPath,
@@ -218,8 +218,8 @@ export async function exportTranscriptForSession(
 
 async function runBackfill(): Promise<{ exported: number; skipped: number }> {
   const sessionDir = getSessionStoreDir();
-  const sessionInfos = await SessionManager.list(os.homedir(), sessionDir).catch((err) => {
-    error('session_transcript_backfill_list_failed', errorDetails(err));
+  const sessionInfos = await SessionManager.list(os.homedir(), sessionDir).catch(async (err) => {
+    await error('session_transcript_backfill_list_failed', errorDetails(err));
     return [];
   });
 
@@ -232,7 +232,7 @@ async function runBackfill(): Promise<{ exported: number; skipped: number }> {
       if (result.changed) exported += 1;
       else skipped += 1;
     } catch (err) {
-      error('session_transcript_backfill_open_failed', {
+      await error('session_transcript_backfill_open_failed', {
         sessionPath: infoRecord.path,
         ...errorDetails(err),
       });
@@ -240,7 +240,7 @@ async function runBackfill(): Promise<{ exported: number; skipped: number }> {
   }
 
   backfillCompleted = true;
-  info('session_transcript_backfill_complete', { sessionDir, exported, skipped });
+  await info('session_transcript_backfill_complete', { sessionDir, exported, skipped });
   return { exported, skipped };
 }
 
@@ -250,8 +250,8 @@ async function runBackfill(): Promise<{ exported: number; skipped: number }> {
  */
 export function startBackfillInBackground(): void {
   if (backfillCompleted || backfillPromise) return;
-  backfillPromise = runBackfill().catch((err) => {
-    error('session_transcript_backfill_background_failed', errorDetails(err));
+  backfillPromise = runBackfill().catch(async (err) => {
+    await error('session_transcript_backfill_background_failed', errorDetails(err));
     backfillCompleted = true;
     return { exported: 0, skipped: 0 };
   });
