@@ -6,7 +6,7 @@
  * which only renders when there's something to do.
  */
 
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { Bookmark, Link2Off } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import type { LibraryLinkStatus } from '../lib/use-library-link';

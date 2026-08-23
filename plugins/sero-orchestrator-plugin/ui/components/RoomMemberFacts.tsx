@@ -9,7 +9,7 @@
  */
 
 import { cn } from '@sero-ai/ui/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import type { PersistentSessionContextUsage } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';

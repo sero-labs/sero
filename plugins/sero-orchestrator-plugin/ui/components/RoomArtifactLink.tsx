@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { openSeroFile } from '@sero-ai/app-runtime';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 interface RoomArtifactLinkProps {

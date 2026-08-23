@@ -4,7 +4,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { Badge } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 /** The kit's accent vocabulary, named for meaning, not colour (D1). */

@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { Plus, Settings2, Sparkles } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 

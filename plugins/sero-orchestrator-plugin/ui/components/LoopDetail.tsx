@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Button, Card } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 import type {
   GithubSourceHealth,

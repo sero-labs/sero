@@ -1,5 +1,7 @@
 import { useAppTools } from '@sero-ai/app-runtime';
-import { Button, Input, TooltipProvider } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { TooltipProvider } from '@sero-ai/ui/components/ui/tooltip';
 import { useEffect, useState } from 'react';
 
 import type { CredentialStatus } from '../../shared/media';

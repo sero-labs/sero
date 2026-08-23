@@ -1,9 +1,5 @@
-import {
-  Button,
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@sero-ai/ui/components/ui/resizable';
 import { createDebouncedFn } from '@sero-ai/common';
 import { ArrowLeft, Images, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

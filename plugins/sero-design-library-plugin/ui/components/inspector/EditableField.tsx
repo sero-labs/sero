@@ -1,4 +1,6 @@
-import { Button, Input, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Pencil, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 

@@ -8,7 +8,7 @@
  * green is reserved for the live state rather than historical message roles.
  */
 
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
 import type { LiveToolCall } from '../../shared/room-live-types';

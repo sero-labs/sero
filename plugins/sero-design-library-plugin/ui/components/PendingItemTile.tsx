@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
 import type { PendingGeneration } from '../lib/pending-generations';

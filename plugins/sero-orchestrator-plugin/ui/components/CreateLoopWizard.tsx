@@ -9,7 +9,8 @@
  */
 
 import { useState } from 'react';
-import { Button, Card } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';

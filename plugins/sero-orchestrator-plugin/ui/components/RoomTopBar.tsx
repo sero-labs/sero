@@ -14,7 +14,7 @@
  * roster as its Team tab.
  */
 
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';

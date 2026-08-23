@@ -1,4 +1,5 @@
-import { ScrollArea, SearchInput } from '@sero-ai/ui';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
+import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
 import { Clock, Heart, Images, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 

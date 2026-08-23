@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { ContextPreset } from '@sero-ai/common';
 import { useSubagentContext, useContextPresets } from '@sero-ai/app-runtime';
 import { ContextEditor } from '@sero-ai/ui/components/context-editor/ContextEditor';

@@ -4,7 +4,7 @@
  * the home inbox, the loop list, the detail header, and the plan.
  */
 
-import { Badge } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 import type { LoopStatus, StepStatus } from '../../shared/types';
 import { LOOP_STATUS_STYLE, NEEDS_YOU_STYLE, STEP_STATUS_STYLE } from '../lib/status-style';
 

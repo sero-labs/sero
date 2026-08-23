@@ -1,4 +1,5 @@
-import { Input, Label } from '@sero-ai/ui';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Label } from '@sero-ai/ui/components/ui/label';
 import { Check, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 

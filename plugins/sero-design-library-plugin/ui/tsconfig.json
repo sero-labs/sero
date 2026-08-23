@@ -8,7 +8,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@sero-ai/ui/*": ["../../../packages/ui/src/*"]
+    }
   },
   "include": ["./**/*", "../shared/**/*"],
   "exclude": [

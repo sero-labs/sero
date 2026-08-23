@@ -12,7 +12,8 @@
  */
 
 import { useState } from 'react';
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
 import type { BlueprintClamp } from '../../shared/room-clamp';
 import { accessTile } from '../lib/access-tile';

@@ -1,4 +1,5 @@
-import { Badge, ScrollArea } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 
 import type { DesignReferenceView } from '../references';
 import { Block, Field } from './Field';

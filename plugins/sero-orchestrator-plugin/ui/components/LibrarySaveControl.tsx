@@ -6,7 +6,18 @@
  */
 
 import { useState } from 'react';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@sero-ai/ui/components/ui/dialog';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { BookmarkPlus } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 

@@ -7,17 +7,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import {
-  Button,
-  Card,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import type { LibraryIndex } from '../../shared/types';
 import { installState } from '../lib/catalog-summary';

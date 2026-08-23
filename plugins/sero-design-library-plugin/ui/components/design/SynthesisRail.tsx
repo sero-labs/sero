@@ -1,4 +1,5 @@
-import { Button, Spinner } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Spinner } from '@sero-ai/ui/components/ui/spinner';
 import { AlertTriangle, Check, Sparkles } from 'lucide-react';
 
 import type { ConflictResolution, GuardrailSynthesis } from '../../../shared/synthesis';

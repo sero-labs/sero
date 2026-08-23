@@ -1,12 +1,12 @@
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Input,
-  ScrollArea,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Clock, Diamond, MoreHorizontal, Plus, Sparkles, Star, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 

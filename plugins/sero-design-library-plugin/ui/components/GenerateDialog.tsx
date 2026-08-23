@@ -1,28 +1,17 @@
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/combobox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@sero-ai/ui/components/ui/dialog';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sero-ai/ui/components/ui/tabs';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 

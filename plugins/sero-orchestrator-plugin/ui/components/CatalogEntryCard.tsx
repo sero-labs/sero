@@ -7,7 +7,8 @@
 
 import { useState } from 'react';
 import { BadgeCheck, ChevronDown, ChevronRight, Download } from 'lucide-react';
-import { Button, Card } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import type { CatalogEntry } from '../../shared/catalog-types';
 import { entryChips, type CatalogInstallState } from '../lib/catalog-summary';
 

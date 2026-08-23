@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@sero-ai/ui';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@sero-ai/ui/components/ui/resizable';
 import { useOrchestratorState } from '../lib/orchestrator-state';
 
 type LayoutMode = 'narrow' | 'roster' | 'rosterAndDetails';

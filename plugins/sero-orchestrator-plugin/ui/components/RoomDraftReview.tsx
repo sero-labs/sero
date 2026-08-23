@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { HumanQuestion } from '../../shared/human-input-types';

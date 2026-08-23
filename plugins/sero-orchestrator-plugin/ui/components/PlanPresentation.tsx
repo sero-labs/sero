@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui';
+import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui/components/ui/toggle-group';
 import { Columns3, ListTree, Map, Rows3 } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { PlanMap, type PlanMapOrientationSetting } from './PlanMap';

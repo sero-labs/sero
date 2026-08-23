@@ -12,7 +12,8 @@
  */
 
 import { useState } from 'react';
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import type { RoomAttentionPause, RoomAttentionRequest } from '../../shared/attention-types';
 import type { RoomSummary } from '../../shared/room-types';
 import { EventCard, Pill } from './room-kit';

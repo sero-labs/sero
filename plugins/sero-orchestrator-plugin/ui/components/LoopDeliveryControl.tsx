@@ -8,21 +8,17 @@
 
 import { useState } from 'react';
 import { Send } from 'lucide-react';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { DeliveryDestinationId, Loop, OrchestratorAction } from '../../shared/types';
 import { LOOP_DELIVERY_DESTINATIONS, deliveryDestinationInfo, effectiveDelivery } from '../../shared/delivery-types';
 

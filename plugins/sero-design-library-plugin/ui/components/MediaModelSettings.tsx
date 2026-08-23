@@ -1,6 +1,6 @@
 import { useAppTools } from '@sero-ai/app-runtime';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   Combobox,
   ComboboxCollection,
   ComboboxContent,
@@ -10,11 +10,9 @@ import {
   ComboboxItem,
   ComboboxLabel,
   ComboboxList,
-  Label,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/combobox';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 

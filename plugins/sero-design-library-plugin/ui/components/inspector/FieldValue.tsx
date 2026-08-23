@@ -1,4 +1,4 @@
-import { Badge } from '@sero-ai/ui';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 
 import type {
   LibrarianField,

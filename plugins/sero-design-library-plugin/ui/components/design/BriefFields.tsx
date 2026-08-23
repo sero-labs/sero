@@ -1,15 +1,8 @@
-import {
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Slider,
-  Textarea,
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@sero-ai/ui';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
+import { Slider } from '@sero-ai/ui/components/ui/slider';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui/components/ui/toggle-group';
 
 import type { DesignBrief } from '../../../shared/design';
 import { MAX_VARIANTS, MIN_VARIANTS } from '../../../shared/design';

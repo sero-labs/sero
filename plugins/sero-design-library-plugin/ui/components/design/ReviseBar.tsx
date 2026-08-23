@@ -1,4 +1,6 @@
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 

@@ -10,14 +10,14 @@
  */
 
 import type { ComponentType, ReactNode } from 'react';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  cn,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { BookOpen, Home, Library, MoreHorizontal, Plus, Users, Workflow } from 'lucide-react';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 

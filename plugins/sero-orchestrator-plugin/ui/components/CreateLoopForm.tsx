@@ -1,17 +1,11 @@
 import { useState } from 'react';
-import {
-  Button,
-  Card,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-  Textarea,
-} from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import type { DeliveryDestinationId, LoopDeliverySettings } from '../../shared/types';
 import { LOOP_DELIVERY_DESTINATIONS, deliveryDestinationInfo, isLoopDeliveryDestinationId } from '../../shared/delivery-types';

@@ -1,4 +1,5 @@
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sero-ai/ui/components/ui/tabs';
 import {
   FileCode,
   History,

@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   canShowItemInFolder: vi.fn(),
 }));
 
-vi.mock('@sero-ai/ui', () => ({
+vi.mock('@sero-ai/ui/components/ui/sonner', () => ({
   Toaster: () => null,
 }));
 vi.mock('sonner', () => ({

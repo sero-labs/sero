@@ -8,19 +8,13 @@
  */
 
 import type { ReactNode } from 'react';
-import {
-  ActivityList,
-  ActivityListItem,
-  DataBoundary,
-  EmptyState,
-  Inline,
-  Metric,
-  MetricCard,
-  Stack,
-  Status,
-  WidgetContent,
-  type Tone,
-} from '@sero-ai/ui';
+import { ActivityList, ActivityListItem } from '@sero-ai/ui/components/dashboard/activity-list';
+import { DataBoundary } from '@sero-ai/ui/components/dashboard/data-boundary';
+import { EmptyState } from '@sero-ai/ui/components/dashboard/empty-state';
+import { Inline, Stack, WidgetContent } from '@sero-ai/ui/components/dashboard/layout';
+import { Metric, MetricCard } from '@sero-ai/ui/components/dashboard/metric';
+import { Status } from '@sero-ai/ui/components/dashboard/status';
+import { type Tone } from '@sero-ai/ui/components/dashboard/tone';
 import { Infinity as InfinityIcon, MessageCircleQuestion } from 'lucide-react';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { useOrchestratorIndex } from '../lib/use-orchestrator-index';

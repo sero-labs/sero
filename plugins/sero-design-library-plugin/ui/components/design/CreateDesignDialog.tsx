@@ -1,11 +1,5 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@sero-ai/ui/components/ui/dialog';
 import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 

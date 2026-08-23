@@ -6,7 +6,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button, Textarea } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import type { LoopAttentionInput, LoopAttentionSuggestion, LoopSummary, OrchestratorAction } from '../../shared/types';
 import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
 import { EventCard, Pill } from './room-kit';

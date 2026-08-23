@@ -7,7 +7,7 @@
  * another. Only the user answers it; no member can, not even the Conductor.
  */
 
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { RoomAttentionApproval } from '../../shared/attention-types';
 import type { RoomSummary } from '../../shared/room-types';
 import { EventCard, Pill } from './room-kit';

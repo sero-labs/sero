@@ -1,4 +1,4 @@
-import { Spinner } from '@sero-ai/ui';
+import { Spinner } from '@sero-ai/ui/components/ui/spinner';
 
 /** Visible progress over the design itself, including while revising a preview. */
 export function DesignLoadingState({ message }: { message: string }) {

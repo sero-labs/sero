@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { LibraryIndex } from '../../shared/types';
 import { CatalogBrowser } from './CatalogBrowser';
 import { LibraryBrowser } from './LibraryBrowser';

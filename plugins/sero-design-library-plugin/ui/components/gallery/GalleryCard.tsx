@@ -1,15 +1,11 @@
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { SquareArrowOutUpRight, Heart, ImageOff, MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 

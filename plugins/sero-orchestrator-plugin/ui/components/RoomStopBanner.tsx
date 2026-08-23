@@ -11,7 +11,7 @@
  * here.
  */
 
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { RoomStopReason } from '../../shared/room-types';
 
 /** What each stop means to the user, in their terms. */

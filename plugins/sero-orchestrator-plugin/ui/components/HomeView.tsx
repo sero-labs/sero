@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Input } from '@sero-ai/ui';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { Search } from 'lucide-react';
 import { WORKFLOW_LABEL, WORKFLOWS_LABEL } from '../../shared/labels';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';

@@ -1,4 +1,4 @@
-import { Button } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { RotateCw, Star, Trash2, X } from 'lucide-react';
 
 import type { ItemSummary } from '../../../shared/types';

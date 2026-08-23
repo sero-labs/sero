@@ -8,16 +8,16 @@
  */
 
 import { useState } from 'react';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Textarea,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 
 interface Addressee {
   id: string;
