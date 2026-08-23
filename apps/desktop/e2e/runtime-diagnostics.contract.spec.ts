@@ -9,6 +9,7 @@ let page: Page;
 
 const runtimeBackends: WorkspaceRuntimeBackend[] = ['host', 'apple-container', 'docker'];
 const runtimeKinds = ['host', 'container'];
+const coreToolNames = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'] as const;
 const capabilityKeys = [
   'browserAutomation',
   'containerizedLanguageServers',
@@ -18,6 +19,11 @@ const capabilityKeys = [
 const toolchainStates = ['ready', 'installing', 'missing', 'failed'];
 const managedToolStates = ['ready', 'missing', 'installing', 'incompatible', 'failed'];
 const browserPackStates = ['ready', 'missing', 'installable', 'installing', 'failed'];
+
+function expectNonEmptyString(value: unknown): void {
+  expect(typeof value).toBe('string');
+  if (typeof value === 'string') expect(value.trim()).not.toBe('');
+}
 
 test.beforeAll(async () => {
   home = createTempSeroHome();
@@ -97,6 +103,7 @@ function expectRuntimeDiagnosticsShape(item: unknown, workspaceId?: string): voi
       detail: expect.any(String),
     }));
     expect(capabilityKeys).toContain(entry.key);
+    if (!entry.support) expect(entry.available).toBe(false);
     if (entry.installState !== undefined) expect(typeof entry.installState).toBe('string');
   }
 }
@@ -128,7 +135,42 @@ test.describe('runtime diagnostics IPC contracts', () => {
         expect(runtimeBackends).toContain(entry.workspace.runtime.backend);
         expect(entry.diagnostics).toHaveLength(1);
         expectRuntimeDiagnosticsShape(entry.diagnostics[0], entry.workspace.id);
-        seenRuntimeKinds.add(entry.diagnostics[0].desiredRuntime);
+        const diagnostic = entry.diagnostics[0] as typeof entry.diagnostics[0] & {
+          desiredBackend?: WorkspaceRuntimeBackend;
+          actualBackend?: WorkspaceRuntimeBackend;
+        };
+        expect(diagnostic.desiredBackend).toBe(entry.requestedBackend);
+        if (entry.requestedBackend === 'host') {
+          expect(diagnostic).toEqual(expect.objectContaining({
+            desiredRuntime: 'host',
+            actualRuntime: 'host',
+            desiredBackend: 'host',
+            actualBackend: 'host',
+            containerEnabled: false,
+          }));
+          expect(diagnostic.fallbackCode).toBeUndefined();
+        } else {
+          const platformSupportsAppleContainer = process.platform === 'darwin' && process.arch === 'arm64';
+          const expectedBackend = entry.requestedBackend === 'apple-container' && !platformSupportsAppleContainer
+            ? 'docker'
+            : entry.requestedBackend;
+          expect(diagnostic).toEqual(expect.objectContaining({
+            desiredRuntime: 'container',
+            actualRuntime: 'container',
+            actualBackend: expectedBackend,
+            containerEnabled: true,
+          }));
+          if (expectedBackend !== entry.requestedBackend) {
+            expect(diagnostic).toEqual(expect.objectContaining({
+              fallbackCode: 'backend-unsupported-on-platform',
+            }));
+            expectNonEmptyString(diagnostic.fallbackReason);
+          }
+          if (diagnostic.fallbackCode === 'container_unavailable') {
+            expect(diagnostic.capabilityAudit.every((auditEntry) => auditEntry.available === false)).toBe(true);
+          }
+        }
+        seenRuntimeKinds.add(diagnostic.desiredRuntime);
       }
 
       expect(seenRuntimeKinds.has('host')).toBe(true);
@@ -152,6 +194,8 @@ test.describe('runtime diagnostics IPC contracts', () => {
       tools: expect.any(Array),
     }));
     expect(toolchainStates).toContain(status.state);
+    expect(status.tools).toHaveLength(coreToolNames.length);
+    expect(status.tools.map((tool) => tool.tool).sort()).toEqual([...coreToolNames].sort());
 
     for (const tool of status.tools) {
       expect(tool).toEqual(expect.objectContaining({
@@ -182,15 +226,33 @@ test.describe('runtime diagnostics IPC contracts', () => {
       manifestVersion: expect.any(String),
     }));
     expect(browserPackStates).toContain(status.state);
-    if (status.artifactKey) expect(typeof status.artifactKey).toBe('string');
-    if (status.browsersPath) expect(typeof status.browsersPath).toBe('string');
+    expectNonEmptyString(status.manifestVersion);
+
+    if (status.state === 'ready') {
+      expectNonEmptyString(status.artifactKey);
+      expectNonEmptyString(status.browsersPath);
+    }
+    if (status.state === 'installable' || status.state === 'missing' || status.state === 'installing') {
+      expectNonEmptyString(status.artifactKey);
+    }
+    if (status.state === 'missing' || status.state === 'installable' || status.state === 'failed') {
+      expect(status.error).toEqual(expect.objectContaining({ message: expect.any(String) }));
+      expectNonEmptyString(status.error?.message);
+    }
 
     if (status.progress) {
       expect(status.progress).toEqual(expect.objectContaining({
         phase: expect.any(String),
         manifestVersion: expect.any(String),
       }));
-      if (status.progress.artifactKey) expect(typeof status.progress.artifactKey).toBe('string');
+      expectNonEmptyString(status.progress.manifestVersion);
+      if (status.progress.artifactKey !== undefined) expectNonEmptyString(status.progress.artifactKey);
+    }
+    if (status.state === 'installing') {
+      expect(status.progress).toEqual(expect.objectContaining({
+        phase: expect.any(String),
+        manifestVersion: status.manifestVersion,
+      }));
     }
   });
 });
